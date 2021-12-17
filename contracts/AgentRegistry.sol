@@ -14,7 +14,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
 
     struct Agent {
         address developer;
-        string componentHash; // can be obtained via mapping, consider for optimization
+        string agentHash; // can be obtained via mapping, consider for optimization
         string description;
         uint256[] dependencies;
         bool active;
@@ -25,15 +25,15 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     string public _BASEURI;
     Counters.Counter private _tokenIds;
     address private _minter;
-    mapping (uint256 => Agent) private _mapTokenIdAgent;
-    mapping (string => uint256) private _mapHashTokenId;
+    mapping(uint256 => Agent) private _mapTokenIdAgent;
+    mapping(string => uint256) private _mapHashTokenId;
     mapping(uint256 => bool) private _mapDependencies;
 
     // name = "agent", symbol = "MECH"
     constructor(string memory _name, string memory _symbol, string memory _bURI, address _componentRegistry)
         ERC721(_name, _symbol) {
-        _tokenIds.increment();
-        _setBaseURI(_bURI);
+        require(bytes(_bURI).length > 0, "Base URI can not be empty");
+        _BASEURI = _bURI;
         componentRegistry = _componentRegistry;
     }
 
@@ -43,36 +43,40 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     }
 
     // Set the component information
-    function _setAgentInfo(uint256 tokenId, address developer, string memory componentHash,
+    function _setAgentInfo(uint256 tokenId, address developer, string memory agentHash,
         string memory description, uint256[] memory dependencies)
         private
     {
-        Agent memory component;
-        component.developer = developer;
-        component.componentHash = componentHash;
-        component.description = description;
-        component.dependencies = dependencies;
-        component.active = true;
-        _mapTokenIdAgent[tokenId] = component;
-        _mapHashTokenId[componentHash] = tokenId;
+        Agent memory agent;
+        agent.developer = developer;
+        agent.agentHash = agentHash;
+        agent.description = description;
+        agent.dependencies = dependencies;
+        agent.active = true;
+        _mapTokenIdAgent[tokenId] = agent;
+        _mapHashTokenId[agentHash] = tokenId;
     }
 
     // Mint component according to developer's address and component parameters
-    function createAgent(address owner, address developer, string memory componentHash, string memory description,
+    function createAgent(address owner, address developer, string memory agentHash, string memory description,
         uint256[] memory dependencies)
         external
+        returns (bool)
     {
         // Only the minter has a privilege to create a component
         require(_minter == msg.sender);
 
+        // Checks for non-empty strings
+        require(bytes(agentHash).length > 0, "Component hash can not be empty");
+        require(bytes(description).length > 0, "Description can not be empty");
+
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[componentHash] == 0, "The component with this hash already exists!");
+        require(_mapHashTokenId[agentHash] == 0, "The agent with this hash already exists!");
 
         // Check for dependencies validity: must be already allocated, must not repeat
         ComponentRegistry compRegistry = ComponentRegistry(componentRegistry);
         uint256 iDep = 0;
         while(iDep < dependencies.length) {
-            require(compRegistry.exists(dependencies[iDep]), "The component with token ID is not found!");
             if (_mapDependencies[dependencies[iDep]]) {
                 dependencies[iDep] = dependencies[dependencies.length - 1];
                 delete dependencies[dependencies.length - 1];
@@ -80,23 +84,24 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
                 _mapDependencies[dependencies[iDep]] = true;
                 iDep++;
             }
+            require(compRegistry.exists(dependencies[iDep]), "The component is not found!");
         }
+
+        // Revert the state of mapping to filter duplicate components to its original state
         for (iDep = 0; iDep < dependencies.length; iDep++) {
             _mapDependencies[dependencies[iDep]] = false;
         }
 
+        // Mint token and initialize the component
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
-        _setAgentInfo(newTokenId, developer, componentHash, description, dependencies);
+        _setAgentInfo(newTokenId, developer, agentHash, description, dependencies);
+
+        return true;
     }
 
-    // Setting the base URI since it's not defined initially
-    function _setBaseURI(string memory _bURI) internal {
-        require(bytes(_bURI).length > 0, "Base URI can not be empty");
-        _BASEURI = string(abi.encodePacked(_bURI, "/agent/"));
-    }
-
+    // Returns base URI set in the constructor
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
     }

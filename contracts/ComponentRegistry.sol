@@ -23,14 +23,14 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     string public _BASEURI;
     Counters.Counter private _tokenIds;
     address private _minter;
-    mapping (uint256 => Component) private _mapTokenIdComponent;
-    mapping (string => uint256) private _mapHashTokenId;
+    mapping(uint256 => Component) private _mapTokenIdComponent;
+    mapping(string => uint256) private _mapHashTokenId;
     mapping(uint256 => bool) private _mapDependencies;
 
     // name = "agent components", symbol = "MECHCOMP"
     constructor(string memory _name, string memory _symbol, string memory _bURI) ERC721(_name, _symbol) {
-        _tokenIds.increment();
-        _setBaseURI(_bURI);
+        require(bytes(_bURI).length > 0, "Base URI can not be empty");
+        _BASEURI = _bURI;
     }
 
     // Change the minter
@@ -59,7 +59,12 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         external
     {
         // Only the minter has a privilege to create a component
-        require(_minter == msg.sender);
+        require(_minter == msg.sender, "Only the minter has a permission to create a component");
+
+        // Checks for non-empty strings
+        // How can we check for garbage hashes?
+        require(bytes(componentHash).length > 0, "Component hash can not be empty");
+        require(bytes(description).length > 0, "Description can not be empty");
 
         // Check for the existent IPFS hashes
         require(_mapHashTokenId[componentHash] == 0, "The component with this hash already exists!");
@@ -67,7 +72,8 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 iDep = 0;
         while (iDep < dependencies.length) {
-            require(dependencies[iDep] <= _tokenIds.current(), "The component with token ID does not exist!");
+            require(dependencies[iDep] > 0 && dependencies[iDep] <= _tokenIds.current(),
+                "The component does not exist!");
             if (_mapDependencies[dependencies[iDep]]) {
                 dependencies[iDep] = dependencies[dependencies.length - 1];
                 delete dependencies[dependencies.length - 1];
@@ -76,10 +82,13 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
                 iDep++;
             }
         }
+
+        // Revert the state of mapping to filter duplicate components to its original state
         for (iDep = 0; iDep < dependencies.length; iDep++) {
             _mapDependencies[dependencies[iDep]] = false;
         }
 
+        // Mint token and initialize the component
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
@@ -91,11 +100,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         return _exists(_tokenId);
     }
 
-    function _setBaseURI(string memory _bURI) internal {
-        require(bytes(_bURI).length > 0, "Base URI can not be empty");
-        _BASEURI = string(abi.encodePacked(_bURI, "/component/"));
-    }
-
+    // Returns base URI set in the constructor
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
     }

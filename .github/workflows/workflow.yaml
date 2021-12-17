@@ -1,4 +1,4 @@
-name: Lint
+name: Workflow
 on:
   push:
     branches:
@@ -16,4 +16,6 @@ jobs:
     - name: Run ESLint
       run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
     - name: Run solhint
-      run ./node_modules/.bin/solhint contracts/*
+      run: ./node_modules/.bin/solhint contracts/*
+    - name: Run tests
+      run: ./node_modules/.bin/hardhat test
