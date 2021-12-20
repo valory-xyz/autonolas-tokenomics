@@ -90,15 +90,18 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         }
 
         // Revert the state of mapping to filter duplicate components to its original state
+        // Allocate array with precise number of unique dependencies
+        uint256[] memory finalDependencies = new uint256[](uCounter);
         for (uint256 iDep = 0; iDep < uCounter; iDep++) {
             _mapDependencies[uniqueDependencies[iDep]] = false;
+            finalDependencies[iDep] = uniqueDependencies[iDep];
         }
 
         // Mint token and initialize the component
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
-        _setAgentInfo(newTokenId, developer, agentHash, description, uniqueDependencies);
+        _setAgentInfo(newTokenId, developer, agentHash, description, finalDependencies);
     }
 
     // Externalizing function to check for the token existence from a different contract
@@ -114,7 +117,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     // In order to burn, the inactive component needs to propagate its state to dependent components
     function _burn(uint256 tokenId) internal view override
     {
-        require(ownerOf(tokenId) == msg.sender, "_burn: OWNER_ONLY");
+        require(ownerOf(tokenId) == msg.sender, "_burn: TOKEN_OWNER_ONLY");
         // The functionality will follow in the following revisions
     }
 }

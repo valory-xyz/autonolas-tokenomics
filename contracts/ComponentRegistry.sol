@@ -5,8 +5,6 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "hardhat/console.sol";
-
 contract ComponentRegistry is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
 
@@ -87,15 +85,18 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         }
 
         // Revert the state of mapping to filter duplicate components to its original state
+        // Allocate array with precise number of unique dependencies
+        uint256[] memory finalDependencies = new uint256[](uCounter);
         for (uint256 iDep = 0; iDep < uCounter; iDep++) {
             _mapDependencies[uniqueDependencies[iDep]] = false;
+            finalDependencies[iDep] = uniqueDependencies[iDep];
         }
 
         // Mint token and initialize the component
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
-        _setComponentInfo(newTokenId, developer, componentHash, description, uniqueDependencies);
+        _setComponentInfo(newTokenId, developer, componentHash, description, finalDependencies);
     }
 
     // Externalizing function to check for the token existence from a different contract
@@ -111,7 +112,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     // In order to burn, the inactive component needs to propagate its state to dependent components
     function _burn(uint256 tokenId) internal view override
     {
-        require(ownerOf(tokenId) == msg.sender, "_burn: OWNER_ONLY");
+        require(ownerOf(tokenId) == msg.sender, "_burn: TOKEN_OWNER_ONLY");
         // The functionality will follow in the following revisions
     }
 }
