@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+import "hardhat/console.sol";
+
 contract ComponentRegistry is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
 
@@ -59,40 +61,41 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         external
     {
         // Only the minter has a privilege to create a component
-        require(_minter == msg.sender, "Only the minter has a permission to create a component");
+        require(_minter == msg.sender, "createComponent: MINTER_ONLY");
 
         // Checks for non-empty strings
         // How can we check for garbage hashes?
-        require(bytes(componentHash).length > 0, "Component hash can not be empty");
-        require(bytes(description).length > 0, "Description can not be empty");
+        require(bytes(componentHash).length > 0, "createComponent: EMPTY_HASH");
+        require(bytes(description).length > 0, "createComponent: NO_DESCRIPTION");
 
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[componentHash] == 0, "The component with this hash already exists!");
-
+        require(_mapHashTokenId[componentHash] == 0, "createComponent: HASH_EXISTS");
+        
         // Check for dependencies validity: must be already allocated, must not repeat
-        uint256 iDep = 0;
-        while (iDep < dependencies.length) {
+        uint256 uCounter;
+        uint256[] memory uniqueDependencies = new uint256[](dependencies.length);
+        for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
             require(dependencies[iDep] > 0 && dependencies[iDep] <= _tokenIds.current(),
-                "The component does not exist!");
+                "createComponent: NO_COMPONENT_ID");
             if (_mapDependencies[dependencies[iDep]]) {
-                dependencies[iDep] = dependencies[dependencies.length - 1];
-                delete dependencies[dependencies.length - 1];
+                continue;
             } else {
                 _mapDependencies[dependencies[iDep]] = true;
-                iDep++;
+                uniqueDependencies[uCounter] = dependencies[iDep];
+                uCounter++;
             }
         }
 
         // Revert the state of mapping to filter duplicate components to its original state
-        for (iDep = 0; iDep < dependencies.length; iDep++) {
-            _mapDependencies[dependencies[iDep]] = false;
+        for (uint256 iDep = 0; iDep < uCounter; iDep++) {
+            _mapDependencies[uniqueDependencies[iDep]] = false;
         }
 
         // Mint token and initialize the component
         _tokenIds.increment();
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
-        _setComponentInfo(newTokenId, developer, componentHash, description, dependencies);
+        _setComponentInfo(newTokenId, developer, componentHash, description, uniqueDependencies);
     }
 
     // Externalizing function to check for the token existence from a different contract
@@ -108,7 +111,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     // In order to burn, the inactive component needs to propagate its state to dependent components
     function _burn(uint256 tokenId) internal view override
     {
-        require(ownerOf(tokenId) == msg.sender, "You have no priviledge to burn this token");
+        require(ownerOf(tokenId) == msg.sender, "_burn: OWNER_ONLY");
         // The functionality will follow in the following revisions
     }
 }

@@ -1,3 +1,5 @@
+/*global describe, context, beforeEach, it*/
+
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
@@ -38,7 +40,7 @@ describe("ComponentRegistry", function () {
             const user = signers[2];
             await expect(
                 componentRegistry.createComponent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("Only the minter has a permission to create a component");
+            ).to.be.revertedWith("createComponent: MINTER_ONLY");
         });
 
         it("Should fail when creating a component with an empty hash", async function () {
@@ -47,8 +49,8 @@ describe("ComponentRegistry", function () {
             await componentRegistry.changeMinter(minter.address);
             await expect(
                 componentRegistry.connect(minter).createComponent(user.address, user.address, "", description,
-                dependencies)
-            ).to.be.revertedWith("Component hash can not be empty");
+                    dependencies)
+            ).to.be.revertedWith("createComponent: EMPTY_HASH");
         });
 
         it("Should fail when creating a component with an empty description", async function () {
@@ -57,8 +59,8 @@ describe("ComponentRegistry", function () {
             await componentRegistry.changeMinter(minter.address);
             await expect(
                 componentRegistry.connect(minter).createComponent(user.address, user.address, componentHash, "",
-                dependencies)
-            ).to.be.revertedWith("Description can not be empty");
+                    dependencies)
+            ).to.be.revertedWith("createComponent: NO_DESCRIPTION");
         });
 
         it("Should fail when creating a second component with the same hash", async function () {
@@ -70,7 +72,7 @@ describe("ComponentRegistry", function () {
             await expect(
                 componentRegistry.connect(minter).createComponent(user.address, user.address, componentHash,
                     description, dependencies)
-            ).to.be.revertedWith("The component with this hash already exists!");
+            ).to.be.revertedWith("createComponent: HASH_EXISTS");
         });
 
         it("Should fail when creating a non-existent component dependency", async function () {
@@ -80,11 +82,25 @@ describe("ComponentRegistry", function () {
             await expect(
                 componentRegistry.connect(minter).createComponent(user.address, user.address, componentHash,
                     description, [0])
-            ).to.be.revertedWith("The component does not exist!");
+            ).to.be.revertedWith("createComponent: NO_COMPONENT_ID");
             await expect(
                 componentRegistry.connect(minter).createComponent(user.address, user.address, componentHash,
                     description, [1])
-            ).to.be.revertedWith("The component does not exist!");
+            ).to.be.revertedWith("createComponent: NO_COMPONENT_ID");
+        });
+
+        it("Create a components with duplicate dependencies in the list of dependencies", async function () {
+            const minter = signers[1];
+            const user = signers[2];
+            await componentRegistry.changeMinter(minter.address);
+            await componentRegistry.connect(minter).createComponent(user.address, user.address, "componentHash 0",
+                description, []);
+            await componentRegistry.connect(minter).createComponent(user.address, user.address, "componentHash 1",
+                description, [1]);
+            await componentRegistry.connect(minter).createComponent(user.address, user.address, "componentHash 2",
+                description, [1, 1, 1]);
+            await componentRegistry.connect(minter).createComponent(user.address, user.address, "componentHash 3",
+                description, [2, 1, 2, 1, 1, 1, 2]);
         });
 
         it("Token Id=1 after first successful component creation must exist ", async function () {
@@ -94,7 +110,6 @@ describe("ComponentRegistry", function () {
             await componentRegistry.changeMinter(minter.address);
             await componentRegistry.connect(minter).createComponent(user.address, user.address,
                 componentHash, description, dependencies);
-            const balance = await componentRegistry.balanceOf(user.address);
             expect(await componentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await componentRegistry.exists(tokenId)).to.equal(true);
         });
@@ -104,7 +119,7 @@ describe("ComponentRegistry", function () {
             const user = signers[2];
             await componentRegistry.changeMinter(minter.address);
             const component = await componentRegistry.connect(minter).createComponent(user.address, user.address,
-                    componentHash, description, dependencies);
+                componentHash, description, dependencies);
             const result = await component.wait();
             expect(result.events[0].event).to.equal("Transfer");
         });

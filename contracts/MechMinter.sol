@@ -14,9 +14,9 @@ contract MechMinter is ERC721Pausable, Ownable {
     // name = "mech minter", symbol = "MECHMINTER"
     constructor(address _componentRegistry, address _agentRegistry, string memory _name, string memory _symbol)
         ERC721(_name, _symbol) {
-        require(_componentRegistry != address(0));
+        require(_componentRegistry != address(0), "constructor: NULL_ADDRESS");
         componentRegistry = _componentRegistry;
-        require(_agentRegistry != address(0));
+        require(_agentRegistry != address(0), "constructor: NULL_ADDRESS");
         agentRegistry = _agentRegistry;
     }
 
@@ -25,20 +25,17 @@ contract MechMinter is ERC721Pausable, Ownable {
     function mintAgent(address owner, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         public
-        returns (bool)
     {
         AgentRegistry agReg = AgentRegistry(agentRegistry);
-        return agReg.createAgent(owner, developer, componentHash, description, dependencies);
+        agReg.createAgent(owner, developer, componentHash, description, dependencies);
     }
 
     // Mint component function
     function mintComponent(address owner, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         public
-        returns (bool)
     {
         ComponentRegistry compRegistry = ComponentRegistry(componentRegistry);
         compRegistry.createComponent(owner, developer, componentHash, description, dependencies);
-        return true;
     }
 }
