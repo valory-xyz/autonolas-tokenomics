@@ -21,7 +21,7 @@ describe("MechMinter", function () {
         const MechMinter = await ethers.getContractFactory("MechMinter");
         mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address, "mech minter",
             "MECHMINTER");
-        await mechMinter;
+        await mechMinter.deployed();
     });
 
     context("Initialization", async function () {

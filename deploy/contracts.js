@@ -1,14 +1,6 @@
 /*global hre, ethers, process*/
 
-function sleep(ms) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
-
-async function main() {
-    await hre.run("compile");
-
+module.exports = async () => {
     const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
     const componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
         "https://localhost/component/");
@@ -27,13 +19,4 @@ async function main() {
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
     console.log("MechMinter deployed to:", mechMinter.address);
-
-    await sleep(10000);
 }
-
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
