@@ -1,4 +1,4 @@
-//require("hardhat-deploy");
+require("hardhat-deploy");
 //require("@nomiclabs/hardhat-ganache");
 require("@nomiclabs/hardhat-waffle");
 

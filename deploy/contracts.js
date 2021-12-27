@@ -1,6 +1,10 @@
 /*global ethers*/
 
 module.exports = async () => {
+    const [deployer] = await ethers.getSigners();
+    console.log("Deploying contracts with the account:", deployer.address);
+    console.log("Account balance:", (await deployer.getBalance()).toString());
+
     const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
     const componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
         "https://localhost/component/");
