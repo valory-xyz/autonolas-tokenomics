@@ -34,11 +34,11 @@ module.exports = async () => {
 
     // Writing the JSON with the initial deployment data
     let initDeployJSON = {
-      componentRegistry: componentRegistry.address,
-      agentRegistry: agentRegistry.address,
-      mechMinter: mechMinter.address
+        "componentRegistry": componentRegistry.address,
+        "agentRegistry": agentRegistry.address,
+        "mechMinter": mechMinter.address
     };
 
-    let fs = require('fs');
+    let fs = require("fs");
     fs.writeFileSync("initDeploy.json", JSON.stringify(initDeployJSON));
 };
