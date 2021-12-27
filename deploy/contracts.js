@@ -23,4 +23,8 @@ module.exports = async () => {
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
     console.log("MechMinter deployed to:", mechMinter.address);
+
+    await componentRegistry.changeMinter(mechMinter.address);
+    await agentRegistry.changeMinter(mechMinter.address);
+    console.log("Whitelisted MechMinter addresses to both ComponentRegistry and AgentRegistry contract instances");
 };
