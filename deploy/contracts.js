@@ -1,4 +1,4 @@
-/*global hre, ethers, process*/
+/*global ethers*/
 
 module.exports = async () => {
     const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
@@ -19,4 +19,4 @@ module.exports = async () => {
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
     console.log("MechMinter deployed to:", mechMinter.address);
-}
+};

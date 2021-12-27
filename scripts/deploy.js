@@ -1,11 +1,5 @@
 /*global hre, ethers, process*/
 
-function sleep(ms) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
-
 async function main() {
     await hre.run("compile");
 
@@ -27,8 +21,6 @@ async function main() {
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
     console.log("MechMinter deployed to:", mechMinter.address);
-
-    await sleep(10000);
 }
 
 main()
