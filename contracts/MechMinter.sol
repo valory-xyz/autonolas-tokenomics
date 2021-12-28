@@ -25,17 +25,19 @@ contract MechMinter is ERC721Pausable, Ownable {
     function mintAgent(address owner, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         public
+        returns (uint256)
     {
         AgentRegistry agReg = AgentRegistry(agentRegistry);
-        agReg.createAgent(owner, developer, componentHash, description, dependencies);
+        return agReg.createAgent(owner, developer, componentHash, description, dependencies);
     }
 
     // Mint component function
     function mintComponent(address owner, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         public
+        returns (uint256)
     {
         ComponentRegistry compRegistry = ComponentRegistry(componentRegistry);
-        compRegistry.createComponent(owner, developer, componentHash, description, dependencies);
+        return compRegistry.createComponent(owner, developer, componentHash, description, dependencies);
     }
 }

@@ -57,6 +57,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     function createComponent(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
+        returns (uint256)
     {
         // Only the minter has a privilege to create a component
         require(_minter == msg.sender, "createComponent: MINTER_ONLY");
@@ -97,10 +98,12 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         uint256 newTokenId = _tokenIds.current();
         _safeMint(owner, newTokenId);
         _setComponentInfo(newTokenId, developer, componentHash, description, finalDependencies);
+
+        return newTokenId;
     }
 
     // Externalizing function to check for the token existence from a different contract
-    function exists (uint256 _tokenId) external view returns (bool) {
+    function exists (uint256 _tokenId) public view returns (bool) {
         return _exists(_tokenId);
     }
 
