@@ -26,7 +26,7 @@ contract ServiceManager is Ownable {
         uint256[] memory operatorSlots, uint256 threshold)
         public
     {
-        serReg.create(owner, name, description, agentSlots, operatorSlots, threshold);
+        serReg.createService(owner, name, description, agentSlots, operatorSlots, threshold);
     }
 
     /// @dev Updates a service.
@@ -41,7 +41,7 @@ contract ServiceManager is Ownable {
         uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        serReg.update(owner, name, description, agentSlots, operatorSlots, threshold, serviceId);
+        serReg.updateService(owner, name, description, agentSlots, operatorSlots, threshold, serviceId);
     }
 
     /// @dev Sets service registration window time.
@@ -60,18 +60,17 @@ contract ServiceManager is Ownable {
         serReg.setTerminationBlock(owner, serviceId, blockNum);
     }
 
-    /// @param operator Address of the operator.
+    /// @dev Registers the agent instance.
     /// @param serviceId Service Id to be updated.
     /// @param agent Address of the agent instance.
     /// @param agentId Canonical Id of the agent.
-    function serviceRegisterAgent(address operator, uint256 serviceId, address agent, uint256 agentId) public {
-        serReg.registerAgent(operator, serviceId, agent, agentId);
+    function serviceRegisterAgent(uint256 serviceId, address agent, uint256 agentId) public {
+        serReg.registerAgent(msg.sender, serviceId, agent, agentId);
     }
 
     /// @dev Creates Safe instance controlled by the service agent instances.
-    /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function serviceCreateSafe(address owner, uint256 serviceId) external {
-        serReg.createSafe(owner, serviceId);
+    function serviceCreateSafe(uint256 serviceId) external {
+        serReg.createSafe(msg.sender, serviceId);
     }
 }

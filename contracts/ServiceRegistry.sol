@@ -12,7 +12,7 @@ contract ServiceRegistry is Ownable {
     event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
-    event CreateSafeWithAgents(address owner, uint256 serviceId, address[] agentInstances);
+    event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
 
     struct Range {
         uint256 min;
@@ -72,9 +72,9 @@ contract ServiceRegistry is Ownable {
         _;
     }
 
-    modifier onlyContractOwner(address owner, uint256 serviceId) {
+    modifier onlyServiceOwner(address owner, uint256 serviceId) {
         // Only the owner of the service is authorized to update it
-        require(_mapOwnerServices[owner][serviceId] != 0, "contractOwner: OWNER_NO_SERVICE");
+        require(_mapOwnerServices[owner][serviceId] != 0, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
@@ -85,7 +85,7 @@ contract ServiceRegistry is Ownable {
 
     /// @dev Changes the service manager.
     /// @param newManager Address of a new service manager.
-    function changeServiceManager(address newManager) public onlyOwner {
+    function changeManager(address newManager) public onlyOwner {
         _manager = newManager;
     }
 
@@ -111,21 +111,23 @@ contract ServiceRegistry is Ownable {
             "serviceInfo: OPERATOR_SLOTS");
 
         // Delete existent service if updating one
-        bool updateService = false;
+        bool update = false;
         if (serviceId == 0) {
             _serviceIds.increment();
             serviceId = _serviceIds.current();
-            delete _mapServices[serviceId];
         } else {
-            updateService = true;
+            delete _mapServices[serviceId];
+            update = true;
         }
 
+        // TODO Shall there be a check for if the min operator slot is greater than one of the agent slot number?
         // Get agent slots and check for the data validity
         Service storage service = _mapServices[serviceId];
         AgentRegistry agReg = AgentRegistry(agentRegistry);
         for (uint256 i = 0; i < agentSlots.length; i += 2) {
-            require (service.mapAgentSlots[agentSlots[i]] == 0, "serviceInfo: DUPLICATE_AGENT");
-            require (agReg.exists(agentSlots[i]), "serviceInfo: AGENT_NOT_FOUND");
+            require(service.mapAgentSlots[agentSlots[i]] == 0, "serviceInfo: DUPLICATE_AGENT");
+            require(agentSlots[i + 1] > 0, "serviceInfo: SLOTS_NUMBER");
+            require(agReg.exists(agentSlots[i]), "serviceInfo: AGENT_NOT_FOUND");
             service.mapAgentSlots[agentSlots[i]] = agentSlots[i + 1];
             service.agentIds.push(agentSlots[i]);
             service.maxNumAgentInstances += agentSlots[i + 1];
@@ -143,7 +145,7 @@ contract ServiceRegistry is Ownable {
         service.operatorSlots.max = operatorSlots[1];
 
         // If the service is updated, record its update number, else initiate with 1
-        if (updateService) {
+        if (update) {
             _mapOwnerServices[owner][serviceId]++;
         } else {
             _mapOwnerServices[owner][serviceId] = 1;
@@ -157,11 +159,14 @@ contract ServiceRegistry is Ownable {
     /// @param agentSlots Agent instance slots by canonical agent Id. Passed as a (key, value) array sequence.
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
-    function create(address owner, string memory name, string memory description, uint256[] memory agentSlots,
+    function createService(address owner, string memory name, string memory description, uint256[] memory agentSlots,
         uint256[] memory operatorSlots, uint256 threshold)
         external
         onlyManager
     {
+        // Check for the non-empty address
+        require(owner != address(0), "createService: EMPTY_OWNER");
+
         _setServiceInfo(owner, name, description, agentSlots, operatorSlots, threshold, 0);
 
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
@@ -175,13 +180,15 @@ contract ServiceRegistry is Ownable {
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function update(address owner, string memory name, string memory description, uint256[] memory agentSlots,
+    function updateService(address owner, string memory name, string memory description, uint256[] memory agentSlots,
         uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
-        onlyContractOwner(owner, serviceId)
+        onlyServiceOwner(owner, serviceId)
     {
-        // TODO Need to make sure the updated servie is not active!
+        // TODO Need to make sure the updated service is not active!
+        // Also, registration of agents should only be able for active services.
+        // Once a service is active it should not be possible to update it.
 
         _setServiceInfo(owner, name, description, agentSlots, operatorSlots, threshold, serviceId);
 
@@ -195,7 +202,7 @@ contract ServiceRegistry is Ownable {
     function setRegistrationWindow(address owner, uint256 serviceId, uint256 time)
         external
         onlyManager
-        onlyContractOwner(owner, serviceId)
+        onlyServiceOwner(owner, serviceId)
     {
         _mapServices[serviceId].deadline = block.timestamp + time;
     }
@@ -207,7 +214,7 @@ contract ServiceRegistry is Ownable {
     function setTerminationBlock(address owner, uint256 serviceId, uint256 blockNum)
         external
         onlyManager
-        onlyContractOwner(owner, serviceId)
+        onlyServiceOwner(owner, serviceId)
     {
         _mapServices[serviceId].terminationBlock = blockNum;
     }
@@ -222,9 +229,6 @@ contract ServiceRegistry is Ownable {
         onlyManager
         serviceExists(serviceId)
     {
-        // Only operator can register the agent
-        require(operator == msg.sender, "registerAgent: OPERATOR_ONLY");
-
         Service storage service = _mapServices[serviceId];
 
         // Check if there is an empty slot for the agent instance in this specific service
@@ -244,10 +248,10 @@ contract ServiceRegistry is Ownable {
     function createSafe(address owner, uint256 serviceId)
         external
         onlyManager
-        onlyContractOwner(owner, serviceId)
+        onlyServiceOwner(owner, serviceId)
     {
         Service storage service = _mapServices[serviceId];
-        require(service.numAgentInstances >= service.threshold, "createSafe: THRESHOLD");
+        require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
 
         // Get all agent instances for the safe
         address[] memory agentInstances = new address[](service.numAgentInstances);
@@ -260,8 +264,12 @@ contract ServiceRegistry is Ownable {
             }
         }
 
-        emit CreateSafeWithAgents(owner, serviceId, agentInstances);
+        emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         // Gnosis Safe call
+    }
+
+    function exists(uint256 serviceId) public view returns(bool) {
+        return _mapServices[serviceId].owner != address(0);
     }
 }
