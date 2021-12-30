@@ -54,13 +54,16 @@ contract ServiceRegistry is Ownable {
         bool active;
     }
 
+    // Agent Registry
     address public immutable agentRegistry;
+    // Service counter
     Counters.Counter private _serviceIds;
+    // Service Manager
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
     // Map of owner address => (map of service Ids from that owner => how many times service has been updated)
-    mapping (address => mapping(uint256 => uint256)) private _mapOwnerServices;
+    mapping (address => mapping(uint256 => bool)) private _mapOwnerServices;
 
     constructor(address _agentRegistry) {
         agentRegistry = _agentRegistry;
@@ -74,7 +77,7 @@ contract ServiceRegistry is Ownable {
 
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
         // Only the owner of the service is authorized to update it
-        require(_mapOwnerServices[owner][serviceId] != 0, "serviceOwner: SERVICE_NOT_FOUND");
+        require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
@@ -110,14 +113,14 @@ contract ServiceRegistry is Ownable {
         require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
             "serviceInfo: OPERATOR_SLOTS");
 
-        // Delete existent service if updating one
-        bool update = false;
         if (serviceId == 0) {
+            // Create a new service
             _serviceIds.increment();
             serviceId = _serviceIds.current();
         } else {
+            // Delete existent service for the update, in order to substitute it with another one
+            // TODO investigate if deletion is more expensive than figuring out which data has to be changed
             delete _mapServices[serviceId];
-            update = true;
         }
 
         // TODO Shall there be a check for if the min operator slot is greater than one of the agent slot number?
@@ -144,12 +147,8 @@ contract ServiceRegistry is Ownable {
         service.operatorSlots.min = operatorSlots[0];
         service.operatorSlots.max = operatorSlots[1];
 
-        // If the service is updated, record its update number, else initiate with 1
-        if (update) {
-            _mapOwnerServices[owner][serviceId]++;
-        } else {
-            _mapOwnerServices[owner][serviceId] = 1;
-        }
+        // The service is initiated (but not yet active)
+        _mapOwnerServices[owner][serviceId] = true;
     }
 
     /// @dev Creates a new service.
@@ -230,6 +229,9 @@ contract ServiceRegistry is Ownable {
         serviceExists(serviceId)
     {
         Service storage service = _mapServices[serviceId];
+
+        // Check if the time window for registering agent instances is still active
+        require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
 
         // Check if there is an empty slot for the agent instance in this specific service
         require(service.mapAgentInstances[agentId].length < service.mapAgentSlots[agentId],
