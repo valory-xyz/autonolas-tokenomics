@@ -354,6 +354,24 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("registerAgent: TIMEOUT");
         });
 
+        it("Should fail when registering an agent instance for non existent canonical agent Id in the service", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await expect(
+                serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, 0)
+            ).to.be.revertedWith("registerAgent: NO_AGENT");
+        });
+
         it("Should fail when registering an agent instance for the service with no available slots", async function () {
             const minter = signers[3];
             const manager = signers[4];

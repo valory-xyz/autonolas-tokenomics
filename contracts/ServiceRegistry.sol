@@ -119,7 +119,7 @@ contract ServiceRegistry is Ownable {
         require(bytes(description).length > 0, "serviceInfo: NO_DESCRIPTION");
 
         // Checking for non-empty and correct number of arrays
-        require(agentIds.length > 0 && agentNumSlots.length > 0 && agentIds.length == agentNumSlots.length,
+        require(agentIds.length > 0 && agentIds.length == agentNumSlots.length,
             "serviceInfo: AGENTS_SLOTS");
         require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
             "serviceInfo: OPERATOR_SLOTS");
@@ -258,6 +258,9 @@ contract ServiceRegistry is Ownable {
         // Check if the time window for registering agent instances is still active
         require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
 
+        // Check if canonical agent Id exists in the service
+        require(service.mapAgentSlots[agentId] > 0, "registerAgent: NO_AGENT");
+
         // Check if there is an empty slot for the agent instance in this specific service
         require(service.mapAgentInstances[agentId].length < service.mapAgentSlots[agentId],
             "registerAgent: SLOTS_FILLED");
@@ -267,6 +270,8 @@ contract ServiceRegistry is Ownable {
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = true;
 
+        // TODO might be not needed if the service needs to be active before the possibility to register agent instances
+        // then, the possibility to update will be locked there
         // Lock the possibility to update the service
         service.updateLocked = true;
 
@@ -298,6 +303,51 @@ contract ServiceRegistry is Ownable {
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         // Gnosis Safe call
+    }
+
+    /// @dev Activates the service and its sensitive components.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function activate(address owner, uint256 serviceId)
+    external
+    onlyManager
+    onlyServiceOwner(owner, serviceId)
+    {
+        Service storage service = _mapServices[serviceId];
+        // Lock the possibility to update the service
+        service.updateLocked = true;
+    }
+
+    /// @dev Deactivates the service and its sensitive components.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function deactivate(address owner, uint256 serviceId)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        // Until deactivated, the service can't be updated
+        // TODO Until it is decided whether the service deactivation cancels all the agent instances or not,
+        // it is safer to clear them out. Otherwise there is a possibility to register the agent instance
+        // that is not needed for the updated service in the registerAgent() function
+        // TODO Also, how will the operator be notified if its agent instance is not used anymore?
+        Service storage service = _mapServices[serviceId];
+        // Clear agent instances that are not longer used
+        for (uint256 i = 0; i < service.agentIds.length; i++) {
+            // Deactivate all agent instances for a specific canonical agent
+            for (uint256 j = 0; j < service.mapAgentInstances[service.agentIds[i]].length; j++) {
+                _mapAllAgentInstances[service.mapAgentInstances[service.agentIds[i]][j].agent] = false;
+                // Here the hook for operator notification about instance inactivity can be inserted
+                // operator = service.mapAgentInstances[service.agentIds[i]][j].operator
+            }
+            // Remove instances from their associated canonical agent Ids
+            delete service.mapAgentInstances[service.agentIds[i]];
+            // Set to zero the number of agent instance slots for each canonical agent Id
+            service.mapAgentSlots[service.agentIds[i]] = 0;
+        }
+
+        // Unlock the possibility to update the service
+        service.updateLocked = false;
     }
 
     function exists(uint256 serviceId) public view returns(bool) {
