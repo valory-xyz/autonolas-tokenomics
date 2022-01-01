@@ -314,8 +314,15 @@ contract ServiceRegistry is Ownable {
     onlyServiceOwner(owner, serviceId)
     {
         Service storage service = _mapServices[serviceId];
+        
+        // Service must be inactive
+        require(!service.active, "activate: SERVICE_ACTIVE");
+
         // Lock the possibility to update the service
         service.updateLocked = true;
+
+        // Activate the service
+        service.active = true;
     }
 
     /// @dev Deactivates the service and its sensitive components.
