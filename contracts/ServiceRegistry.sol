@@ -101,6 +101,70 @@ contract ServiceRegistry is Ownable {
         _manager = newManager;
     }
 
+    /// @dev Activates the service. For internal usage.
+    /// @param serviceId Service Id.
+    function _activate(uint256 serviceId) private serviceExists(serviceId) {
+        Service storage service = _mapServices[serviceId];
+
+        // Service must be inactive
+        require(!service.active, "activate: SERVICE_ACTIVE");
+
+        // Lock the possibility to update the service
+        service.updateLocked = true;
+
+        // Activate the service
+        service.active = true;
+    }
+
+    /// @dev Activates the service. For external function call.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function activate(address owner, uint256 serviceId)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        _activate(serviceId);
+    }
+
+    /// @dev Deactivates the service and its sensitive components. For internal usage
+    /// @param serviceId Correspondent service Id.
+    function _deactivate(uint256 serviceId) private serviceExists(serviceId) {
+        // Until deactivated, the service can't be updated
+        // TODO Until it is decided whether the service deactivation cancels all the agent instances or not,
+        // it is safer to clear them out. Otherwise there is a possibility to register the agent instance
+        // that is not needed for the updated service in the registerAgent() function
+        // TODO Also, how will the operator be notified if its agent instance is not used anymore?
+        Service storage service = _mapServices[serviceId];
+        // Clear agent instances that are not longer used
+        for (uint256 i = 0; i < service.agentIds.length; i++) {
+            // Deactivate all agent instances for a specific canonical agent
+            for (uint256 j = 0; j < service.mapAgentInstances[service.agentIds[i]].length; j++) {
+                _mapAllAgentInstances[service.mapAgentInstances[service.agentIds[i]][j].agent] = false;
+                // Here the hook for operator notification about instance inactivity can be inserted
+                // operator = service.mapAgentInstances[service.agentIds[i]][j].operator
+            }
+            // Remove instances from their associated canonical agent Ids
+            delete service.mapAgentInstances[service.agentIds[i]];
+            // Set to zero the number of agent instance slots for each canonical agent Id
+            service.mapAgentSlots[service.agentIds[i]] = 0;
+        }
+
+        // Unlock the possibility to update the service
+        service.updateLocked = false;
+    }
+
+    /// @dev Deactivates the service and its sensitive components. For external function call.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function deactivate(address owner, uint256 serviceId)
+        public
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        _deactivate(serviceId);
+    }
+
     /// @dev Sets the service parameters.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
@@ -210,6 +274,10 @@ contract ServiceRegistry is Ownable {
         // Check if the update is possible
         require(!_mapServices[serviceId].updateLocked, "updateService: UPDATE_LOCKED");
 
+        // For now explicitly deactivate the service while updating, in order not to clean up sensitive
+        // service parameters such that there is no incentive to overflow the unused data.
+        _deactivate(serviceId);
+
         _setServiceInfo(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
 
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
@@ -303,58 +371,6 @@ contract ServiceRegistry is Ownable {
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         // Gnosis Safe call
-    }
-
-    /// @dev Activates the service and its sensitive components.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function activate(address owner, uint256 serviceId)
-    external
-    onlyManager
-    onlyServiceOwner(owner, serviceId)
-    {
-        Service storage service = _mapServices[serviceId];
-        
-        // Service must be inactive
-        require(!service.active, "activate: SERVICE_ACTIVE");
-
-        // Lock the possibility to update the service
-        service.updateLocked = true;
-
-        // Activate the service
-        service.active = true;
-    }
-
-    /// @dev Deactivates the service and its sensitive components.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function deactivate(address owner, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-    {
-        // Until deactivated, the service can't be updated
-        // TODO Until it is decided whether the service deactivation cancels all the agent instances or not,
-        // it is safer to clear them out. Otherwise there is a possibility to register the agent instance
-        // that is not needed for the updated service in the registerAgent() function
-        // TODO Also, how will the operator be notified if its agent instance is not used anymore?
-        Service storage service = _mapServices[serviceId];
-        // Clear agent instances that are not longer used
-        for (uint256 i = 0; i < service.agentIds.length; i++) {
-            // Deactivate all agent instances for a specific canonical agent
-            for (uint256 j = 0; j < service.mapAgentInstances[service.agentIds[i]].length; j++) {
-                _mapAllAgentInstances[service.mapAgentInstances[service.agentIds[i]][j].agent] = false;
-                // Here the hook for operator notification about instance inactivity can be inserted
-                // operator = service.mapAgentInstances[service.agentIds[i]][j].operator
-            }
-            // Remove instances from their associated canonical agent Ids
-            delete service.mapAgentInstances[service.agentIds[i]];
-            // Set to zero the number of agent instance slots for each canonical agent Id
-            service.mapAgentSlots[service.agentIds[i]] = 0;
-        }
-
-        // Unlock the possibility to update the service
-        service.updateLocked = false;
     }
 
     function exists(uint256 serviceId) public view returns(bool) {

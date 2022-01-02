@@ -295,6 +295,26 @@ describe("ServiceRegistry", function () {
                     agentNumSlots, operatorSlots, maxThreshold, 1)
             ).to.be.revertedWith("updateService: UPDATE_LOCKED");
         });
+
+        it("Should fail when the service is active", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await expect(
+                serviceRegistry.connect(manager).updateService(owner, name, description, agentIds,
+                    agentNumSlots, operatorSlots, maxThreshold, serviceId)
+            ).to.be.revertedWith("updateService: SERVICE_ACTIVE");
+        });
     });
 
     context("Register agent instance", async function () {
