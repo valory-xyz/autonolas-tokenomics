@@ -7,4 +7,3 @@ ENV NODE_OPTIONS=--openssl-legacy-provider
 RUN yarn 
 
 CMD [ "npx", "hardhat", "node", "--hostname", "0.0.0.0" ]
-
