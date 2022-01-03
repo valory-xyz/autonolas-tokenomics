@@ -17,7 +17,6 @@ describe("ServiceRegistry", function () {
     const agentId = 1;
     const threshold = 1;
     const componentHash = "0x0";
-    const dependencies = [];
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -478,7 +477,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).registerAgent(agentInstances[0], serviceId, agentInstances[0], agentId)
             ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
-            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstances[0], agentId)
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await expect(
                 serviceRegistry.connect(manager).registerAgent(agentInstances[0], serviceId, agentInstances[1], agentId)
             ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
@@ -506,8 +505,6 @@ describe("ServiceRegistry", function () {
             const minter = signers[3];
             const manager = signers[4];
             const owner = signers[5].address;
-            const operator = signers[6].address;
-            const agentInstance = signers[7].address;
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
             await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
@@ -525,7 +522,6 @@ describe("ServiceRegistry", function () {
             const minter = signers[3];
             const manager = signers[4];
             const owner = signers[5].address;
-            const operator = signers[6].address;
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
             await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
@@ -562,8 +558,6 @@ describe("ServiceRegistry", function () {
             const minter = signers[3];
             const manager = signers[4];
             const owner = signers[5].address;
-            const operator = signers[6].address;
-            const agentInstance = signers[7].address;
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
             await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
