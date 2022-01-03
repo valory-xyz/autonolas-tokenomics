@@ -460,7 +460,163 @@ describe("ServiceRegistry", function () {
             const result = await regAgent.wait();
             expect(result.events[0].event).to.equal("RegisterInstanceTransaction");
         });
+
+        it("Should fail when registering an agent instance with the same address as operator", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstances = [signers[7].address, signers[8].address];
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await expect(
+                serviceRegistry.connect(manager).registerAgent(agentInstances[0], serviceId, agentInstances[0], agentId)
+            ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstances[0], agentId)
+            await expect(
+                serviceRegistry.connect(manager).registerAgent(agentInstances[0], serviceId, agentInstances[1], agentId)
+            ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
+        });
     });
 
+    context("Activate and deactivate the service", async function () {
+        it("Should fail when activating a service without a manager", async function () {
+            const owner = signers[3].address;
+            await expect(
+                serviceRegistry.activate(owner, serviceId)
+            ).to.be.revertedWith("manager: MANAGER_ONLY");
+        });
 
+        it("Should fail when activating a non-existent service", async function () {
+            const manager = signers[3];
+            const owner = signers[4].address;
+            await serviceRegistry.changeManager(manager.address);
+            await expect(
+                serviceRegistry.connect(manager).activate(owner, serviceId + 1)
+            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+        });
+
+        it("Should fail when activating a service that is already active", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await expect(
+                serviceRegistry.connect(manager).activate(owner, serviceId)
+            ).to.be.revertedWith("activate: SERVICE_ACTIVE");
+        });
+
+        it("Catching \"ActivateService\" event log after service activation", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            const activateService = await serviceRegistry.connect(manager).activate(owner, serviceId);
+            const result = await activateService.wait();
+            expect(result.events[0].event).to.equal("ActivateService");
+        });
+
+        it("Should fail when deactivating a service with at least one registered agent instance", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, agentId);
+            await expect(
+                serviceRegistry.connect(manager).deactivate(owner, serviceId)
+            ).to.be.revertedWith("agentInstance: REGISTERED");
+        });
+
+        it("Catching \"DeactivateService\" event log after service deactivation", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            const deactivateService = await serviceRegistry.connect(manager).deactivate(owner, serviceId);
+            const result = await deactivateService.wait();
+            expect(result.events[0].event).to.equal("DeactivateService");
+        });
+    });
+
+    context("Safe contract from agent instances", async function () {
+        it("Should fail when creating a Safe without a full set of registered agent instances", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, agentId);
+            await expect(
+                serviceRegistry.connect(manager).createSafe(owner, serviceId)
+            ).to.be.revertedWith("createSafe: NUM_INSTANCES");
+        });
+
+        it("Catching \"CreateSafeWithAgents\" event log when calling the Safe contract creation", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = [signers[7].address, signers[8].address];
+            const maxThreshold = 2;
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, [1], [2],
+                operatorSlots, maxThreshold);
+            await serviceRegistry.connect(manager).activate(owner, serviceId);
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[0], agentId);
+            await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[1], agentId);
+            const safe = await serviceRegistry.connect(manager).createSafe(owner, serviceId);
+            const result = await safe.wait();
+            expect(result.events[0].event).to.equal("CreateSafeWithAgents");
+        });
+    });
 });

@@ -13,6 +13,8 @@ contract ServiceRegistry is Ownable {
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
+    event ActivateService(address owner, uint256 serviceId);
+    event DeactivateService(address owner, uint256 serviceId);
 
     struct Range {
         uint256 min;
@@ -120,6 +122,7 @@ contract ServiceRegistry is Ownable {
 
         // Activate the service
         _mapServices[serviceId].active = true;
+        emit ActivateService(owner, serviceId);
     }
 
     /// @dev Unsets the service sensitive data.
@@ -154,6 +157,7 @@ contract ServiceRegistry is Ownable {
     {
         _unsetServiceData(serviceId);
         _mapServices[serviceId].active = false;
+        emit DeactivateService(owner, serviceId);
     }
 
     /// @dev Sets the service data.
@@ -358,6 +362,8 @@ contract ServiceRegistry is Ownable {
         // Gnosis Safe call
     }
 
+    /// @dev Checks if the service Id exists.
+    /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns(bool) {
         return _mapServices[serviceId].owner != address(0);
     }

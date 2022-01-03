@@ -53,6 +53,7 @@ module.exports = async () => {
     await mechMinter.mintAgent(testAddress, testAddress, "agentHash 2", "Agent 2", [1, 2, 3]);
     const componentBalance = await componentRegistry.balanceOf(testAddress);
     const agentBalance = await agentRegistry.balanceOf(testAddress);
-    console.log("Number of components", componentBalance);
-    console.log("Number of agents", agentBalance);
+    console.log("Owner of minted components and agents:", testAddress);
+    console.log("Number of components:", componentBalance);
+    console.log("Number of agents:", agentBalance);
 };
