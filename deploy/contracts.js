@@ -39,6 +39,20 @@ module.exports = async () => {
         "mechMinter": mechMinter.address
     };
 
+    // Write the json file with the setup
     let fs = require("fs");
     fs.writeFileSync("initDeploy.json", JSON.stringify(initDeployJSON));
+
+    // Test address
+    const testAddress = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
+    // Create 3 components and two agents based on them
+    await mechMinter.mintComponent(testAddress, testAddress, "componentHash 1", "Component 1", []);
+    await mechMinter.mintAgent(testAddress, testAddress, "agentHash 1", "Agent 1", [1]);
+    await mechMinter.mintComponent(testAddress, testAddress, "componentHash 2", "Component 2", [1]);
+    await mechMinter.mintComponent(testAddress, testAddress, "componentHash 3", "Component 3", [1, 2]);
+    await mechMinter.mintAgent(testAddress, testAddress, "agentHash 2", "Agent 2", [1, 2, 3]);
+    const componentBalance = await componentRegistry.balanceOf(testAddress);
+    const agentBalance = await agentRegistry.balanceOf(testAddress);
+    console.log("Number of components", componentBalance);
+    console.log("Number of agents", agentBalance);
 };

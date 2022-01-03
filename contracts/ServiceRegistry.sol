@@ -51,10 +51,8 @@ contract ServiceRegistry is Ownable {
         mapping(uint256 => Instance[]) mapAgentInstances;
         // Config hash per agent
 //        mapping(uint256 => string) mapAgentHash;
-        // Service is active
+        // Service activity state
         bool active;
-        // Update locker
-        bool updateLocked;
     }
 
     // Agent Registry
@@ -78,20 +76,28 @@ contract ServiceRegistry is Ownable {
         agentRegistry = _agentRegistry;
     }
 
+    // Only the manager has a privilege to update a service
     modifier onlyManager {
-        // Only the manager has a privilege to update a service
         require(_manager == msg.sender, "manager: MANAGER_ONLY");
         _;
     }
 
+    // Only the owner of the service is authorized to update it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        // Only the owner of the service is authorized to update it
         require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
+    // Check for the existance of the service
     modifier serviceExists(uint256 serviceId) {
         require(_mapServices[serviceId].owner != address(0), "serviceExists: NO_SERVICE");
+        _;
+    }
+
+    // Check that there are no registered agent instances.
+    modifier noRegisteredAgentInstance(uint256 serviceId)
+    {
+        require(_mapServices[serviceId].numAgentInstances == 0, "agentInstance: REGISTERED");
         _;
     }
 
@@ -101,22 +107,7 @@ contract ServiceRegistry is Ownable {
         _manager = newManager;
     }
 
-    /// @dev Activates the service. For internal usage.
-    /// @param serviceId Service Id.
-    function _activate(uint256 serviceId) private serviceExists(serviceId) {
-        Service storage service = _mapServices[serviceId];
-
-        // Service must be inactive
-        require(!service.active, "activate: SERVICE_ACTIVE");
-
-        // Lock the possibility to update the service
-        service.updateLocked = true;
-
-        // Activate the service
-        service.active = true;
-    }
-
-    /// @dev Activates the service. For external function call.
+    /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     function activate(address owner, uint256 serviceId)
@@ -124,17 +115,17 @@ contract ServiceRegistry is Ownable {
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
-        _activate(serviceId);
+        // Service must be inactive
+        require(!_mapServices[serviceId].active, "activate: SERVICE_ACTIVE");
+
+        // Activate the service
+        _mapServices[serviceId].active = true;
     }
 
-    /// @dev Deactivates the service and its sensitive components. For internal usage
+    /// @dev Unsets the service sensitive data.
     /// @param serviceId Correspondent service Id.
-    function _deactivate(uint256 serviceId) private serviceExists(serviceId) {
-        // Until deactivated, the service can't be updated
-        // TODO Until it is decided whether the service deactivation cancels all the agent instances or not,
-        // it is safer to clear them out. Otherwise there is a possibility to register the agent instance
-        // that is not needed for the updated service in the registerAgent() function
-        // TODO Also, how will the operator be notified if its agent instance is not used anymore?
+    function _unsetServiceData(uint256 serviceId) private serviceExists(serviceId) {
+        // TODO TBD: how will the operator be notified if its agent instance is not used anymore?
         Service storage service = _mapServices[serviceId];
         // Clear agent instances that are not longer used
         for (uint256 i = 0; i < service.agentIds.length; i++) {
@@ -149,23 +140,23 @@ contract ServiceRegistry is Ownable {
             // Set to zero the number of agent instance slots for each canonical agent Id
             service.mapAgentSlots[service.agentIds[i]] = 0;
         }
-
-        // Unlock the possibility to update the service
-        service.updateLocked = false;
+        service.numAgentInstances = 0;
     }
 
-    /// @dev Deactivates the service and its sensitive components. For external function call.
+    /// @dev Deactivates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     function deactivate(address owner, uint256 serviceId)
         public
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        noRegisteredAgentInstance(serviceId)
     {
-        _deactivate(serviceId);
+        _unsetServiceData(serviceId);
+        _mapServices[serviceId].active = false;
     }
 
-    /// @dev Sets the service parameters.
+    /// @dev Sets the service data.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -174,7 +165,7 @@ contract ServiceRegistry is Ownable {
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated or 0 is created for the first time.
-    function _setServiceInfo(address owner, string memory name, string memory description, uint256[] memory agentIds,
+    function _setServiceData(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
         private
     {
@@ -221,7 +212,6 @@ contract ServiceRegistry is Ownable {
         service.owner = owner;
         service.name = name;
         service.description = description;
-        service.numAgentInstances = 0;
         service.deadline = block.timestamp + AGENT_INSTANCE_REGISTRATION_TIMEOUT;
         service.threshold = threshold;
         service.operatorSlots.min = operatorSlots[0];
@@ -247,7 +237,7 @@ contract ServiceRegistry is Ownable {
         // Check for the non-empty address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        _setServiceInfo(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
+        _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
 
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
@@ -266,19 +256,13 @@ contract ServiceRegistry is Ownable {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        noRegisteredAgentInstance(serviceId)
     {
-        // Once a service is active it should not be possible to update it.
-        // TODO Need testing on that once that logic of activating services is in place
-        require(!_mapServices[serviceId].active, "updateService: SERVICE_ACTIVE");
-
-        // Check if the update is possible
-        require(!_mapServices[serviceId].updateLocked, "updateService: UPDATE_LOCKED");
-
         // For now explicitly deactivate the service while updating, in order not to clean up sensitive
         // service parameters such that there is no incentive to overflow the unused data.
-        _deactivate(serviceId);
+        _unsetServiceData(serviceId);
 
-        _setServiceInfo(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
+        _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
 
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
@@ -317,8 +301,14 @@ contract ServiceRegistry is Ownable {
         onlyManager
         serviceExists(serviceId)
     {
-        // TODO registration of agents should only be available for active services.
+        // Operator address must be different from agent instance one
+        // Also, operator address must not be used as an agent instance anywhere else
+        require(operator != agent && !_mapAllAgentInstances[operator], "registerAgent: WRONG_OPERATOR");
+
         Service storage service = _mapServices[serviceId];
+
+        // The service has to be active to register agents
+        require(service.active, "registerAgent: INACTIVE");
 
         // Check if the agent instance is already engaged with another service
         require(!_mapAllAgentInstances[agent], "registerAgent: REGISTERED");
@@ -337,11 +327,6 @@ contract ServiceRegistry is Ownable {
         service.mapAgentInstances[agentId].push(Instance(agent, operator));
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = true;
-
-        // TODO might be not needed if the service needs to be active before the possibility to register agent instances
-        // then, the possibility to update will be locked there
-        // Lock the possibility to update the service
-        service.updateLocked = true;
 
         emit RegisterInstanceTransaction(operator, serviceId, agent, agentId);
     }

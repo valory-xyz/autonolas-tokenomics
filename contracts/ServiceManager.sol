@@ -77,16 +77,14 @@ contract ServiceManager is Ownable {
     }
 
     /// @dev Activates the service and its sensitive components.
-    /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function serviceActivate(address owner, uint256 serviceId) public {
-        serReg.activate(owner, serviceId);
+    function serviceActivate(uint256 serviceId) public {
+        serReg.activate(msg.sender, serviceId);
     }
 
     /// @dev Deactivates the service and its sensitive components.
-    /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function serviceDeactivate(address owner, uint256 serviceId) public {
-        serReg.deactivate(owner, serviceId);
+    function serviceDeactivate(uint256 serviceId) public {
+        serReg.deactivate(msg.sender, serviceId);
     }
 }
