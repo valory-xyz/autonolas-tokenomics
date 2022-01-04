@@ -117,10 +117,19 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         return _BASEURI;
     }
 
-    // In order to burn, the inactive component needs to propagate its state to dependent components
-    function _burn(uint256 tokenId) internal view override
+    /// @dev Gets the agent info.
+    /// @param _tokenId Token Id.
+    /// @return developer The agent developer.
+    /// @return agentHash The agent IPFS hash.
+    /// @return description The agent description.
+    /// @return dependencies The list of component dependencies.
+    function getAgentInfo(uint256 _tokenId)
+        public
+        view
+        returns (address developer, string memory agentHash, string memory description, uint256[] memory dependencies)
     {
-        require(ownerOf(tokenId) == msg.sender, "_burn: TOKEN_OWNER_ONLY");
-        // The functionality will follow in the following revisions
+        require(_exists(_tokenId), "getComponentInfo: NO_TOKENID");
+        Agent storage agent = _mapTokenIdAgent[_tokenId];
+        return (agent.developer, agent.agentHash, agent.description, agent.dependencies);
     }
 }

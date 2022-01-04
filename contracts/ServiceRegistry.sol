@@ -125,27 +125,6 @@ contract ServiceRegistry is Ownable {
         emit ActivateService(owner, serviceId);
     }
 
-    /// @dev Unsets the service sensitive data.
-    /// @param serviceId Correspondent service Id.
-    function _unsetServiceData(uint256 serviceId) private serviceExists(serviceId) {
-        // TODO TBD: how will the operator be notified if its agent instance is not used anymore?
-        Service storage service = _mapServices[serviceId];
-        // Clear agent instances that are not longer used
-        for (uint256 i = 0; i < service.agentIds.length; i++) {
-            // Deactivate all agent instances for a specific canonical agent
-            for (uint256 j = 0; j < service.mapAgentInstances[service.agentIds[i]].length; j++) {
-                _mapAllAgentInstances[service.mapAgentInstances[service.agentIds[i]][j].agent] = false;
-                // Here the hook for operator notification about instance inactivity can be inserted
-                // operator = service.mapAgentInstances[service.agentIds[i]][j].operator
-            }
-            // Remove instances from their associated canonical agent Ids
-            delete service.mapAgentInstances[service.agentIds[i]];
-            // Set to zero the number of agent instance slots for each canonical agent Id
-            service.mapAgentSlots[service.agentIds[i]] = 0;
-        }
-        service.numAgentInstances = 0;
-    }
-
     /// @dev Deactivates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
@@ -155,7 +134,6 @@ contract ServiceRegistry is Ownable {
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
-        _unsetServiceData(serviceId);
         _mapServices[serviceId].active = false;
         emit DeactivateService(owner, serviceId);
     }
@@ -242,11 +220,10 @@ contract ServiceRegistry is Ownable {
         require(owner != address(0), "createService: EMPTY_OWNER");
 
         _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
-
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
 
-    /// @dev Updates a service.
+    /// @dev Updates a service in a CRUD way.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -262,12 +239,7 @@ contract ServiceRegistry is Ownable {
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
-        // For now explicitly deactivate the service while updating, in order not to clean up sensitive
-        // service parameters such that there is no incentive to overflow the unused data.
-        _unsetServiceData(serviceId);
-
         _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
-
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
 
