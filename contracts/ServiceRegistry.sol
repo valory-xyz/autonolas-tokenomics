@@ -165,7 +165,6 @@ contract ServiceRegistry is Ownable {
         AgentRegistry agReg = AgentRegistry(agentRegistry);
         for (uint256 i = 0; i < agentIds.length; i++) {
             require(!_mapAgentIds[agentIds[i]], "serviceInfo: DUPLICATE_AGENT");
-            require(agentNumSlots[i] > 0, "serviceInfo: SLOTS_NUMBER");
             require(agReg.exists(agentIds[i]), "serviceInfo: AGENT_NOT_FOUND");
             _mapAgentIds[agentIds[i]] = true;
         }
@@ -335,6 +334,7 @@ contract ServiceRegistry is Ownable {
     }
 
     /// @dev Checks if the service Id exists.
+    /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns(bool) {
         return _mapServices[serviceId].owner != address(0);

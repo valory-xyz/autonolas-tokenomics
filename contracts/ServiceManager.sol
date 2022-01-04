@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ServiceRegistry.sol";
 
-/// @title Service Registry - Smart contract for registering services
+/// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceManager is Ownable {
     address public immutable serviceRegistry;

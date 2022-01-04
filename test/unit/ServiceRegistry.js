@@ -122,16 +122,6 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("serviceInfo: OPERATOR_SLOTS");
         });
 
-        it("Should fail when creating a service with incorrect number of instances in agent slots", async function () {
-            const manager = signers[3];
-            const owner = signers[4].address;
-            await serviceRegistry.changeManager(manager.address);
-            await expect(
-                serviceRegistry.connect(manager).createService(owner, name, description, [1, 1], [0, 2],
-                    operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: SLOTS_NUMBER");
-        });
-
         it("Should fail when creating a service with non existent canonical agent", async function () {
             const manager = signers[3];
             const owner = signers[4].address;
@@ -155,7 +145,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("serviceInfo: DUPLICATE_AGENT");
         });
 
-        it("Should fail when creating a service with other incorrect input parameters", async function () {
+        it("Should fail when creating a service with incorrect input parameter", async function () {
             const minter = signers[3];
             const manager = signers[4];
             const owner = signers[5].address;
@@ -167,10 +157,6 @@ describe("ServiceRegistry", function () {
                 serviceRegistry.connect(manager).createService(owner, name, description, [1, 0], [2, 2],
                     operatorSlots, threshold)
             ).to.be.revertedWith("serviceInfo: AGENT_NOT_FOUND");
-            await expect(
-                serviceRegistry.connect(manager).createService(owner, name, description, [1, 2], [2, 0],
-                    operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: SLOTS_NUMBER");
         });
 
         it("Checking for different signers threshold combinations", async function () {
