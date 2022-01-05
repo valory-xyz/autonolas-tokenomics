@@ -29,11 +29,11 @@ describe("ServiceRegistry", function () {
         await agentRegistry.deployed();
 
         const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
-        gnosisSafeL2 = await GnosisSafeL2.deploy();
+        const gnosisSafeL2 = await GnosisSafeL2.deploy();
         await gnosisSafeL2.deployed();
 
         const GnosisSafeProxyFactory = await ethers.getContractFactory("GnosisSafeProxyFactory");
-        gnosisSafeProxyFactory = await GnosisSafeProxyFactory.deploy();
+        const gnosisSafeProxyFactory = await GnosisSafeProxyFactory.deploy();
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
