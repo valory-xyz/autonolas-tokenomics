@@ -28,8 +28,17 @@ describe("ServiceRegistry", function () {
             componentRegistry.address);
         await agentRegistry.deployed();
 
+        const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
+        gnosisSafeL2 = await GnosisSafeL2.deploy();
+        await gnosisSafeL2.deployed();
+
+        const GnosisSafeProxyFactory = await ethers.getContractFactory("GnosisSafeProxyFactory");
+        gnosisSafeProxyFactory = await GnosisSafeProxyFactory.deploy();
+        await gnosisSafeProxyFactory.deployed();
+
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy(agentRegistry.address);
+        serviceRegistry = await ServiceRegistry.deploy(agentRegistry.address, gnosisSafeL2.address,
+            gnosisSafeProxyFactory.address);
         await serviceRegistry.deployed();
         signers = await ethers.getSigners();
     });
@@ -538,6 +547,22 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).deactivate(owner, serviceId)
             ).to.be.revertedWith("agentInstance: REGISTERED");
+        });
+
+        it("Should fail when deactivating a service that is already inactive", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+            await expect(
+                serviceRegistry.connect(manager).deactivate(owner, serviceId)
+            ).to.be.revertedWith("deactivate: SERVICE_INACTIVE");
         });
 
         it("Catching \"DeactivateService\" event log after service deactivation", async function () {

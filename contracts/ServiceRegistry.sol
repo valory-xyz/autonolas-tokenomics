@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
+import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
@@ -31,6 +33,8 @@ contract ServiceRegistry is Ownable {
         // owner of the service
         address owner;
         address proxyContract;
+        // Multisig address for agent instances
+        address multisig;
         string name;
         string description;
         // Deadline for all the agent instances registration for this service
@@ -59,6 +63,10 @@ contract ServiceRegistry is Ownable {
 
     // Agent Registry
     address public immutable agentRegistry;
+    // Gnosis Safe
+    address payable public immutable gnosisSafeL2;
+    // Gnosis Safe Factory
+    address public immutable gnosisSafeProxyFactory;
     // Service counter
     Counters.Counter private _serviceIds;
     // Default timeout window for getting the agent instances registered for the service
@@ -74,8 +82,10 @@ contract ServiceRegistry is Ownable {
     // Map for checking on unique canonical agent Ids
     mapping(uint256 => bool) private _mapAgentIds;
 
-    constructor(address _agentRegistry) {
+    constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
+        gnosisSafeL2 = _gnosisSafeL2;
+        gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
     }
 
     // Only the manager has a privilege to update a service
@@ -134,6 +144,9 @@ contract ServiceRegistry is Ownable {
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
+        // Service must be active
+        require(_mapServices[serviceId].active, "deactivate: SERVICE_INACTIVE");
+
         _mapServices[serviceId].active = false;
         emit DeactivateService(owner, serviceId);
     }
@@ -309,10 +322,12 @@ contract ServiceRegistry is Ownable {
     /// @dev Creates Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
+    /// @return Address of the created Gnosis Sage multisig.
     function createSafe(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        returns (address)
     {
         Service storage service = _mapServices[serviceId];
         require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
@@ -330,7 +345,15 @@ contract ServiceRegistry is Ownable {
 
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
-        // Gnosis Safe call
+        // Getting the Gnosis Safe multisig proxy for agent instances
+        // TODO Now just fill the setup() with dummy variables except for instances and threshold. Consider changing
+        bytes memory safeFunctionAndParams = abi.encodePacked("setup", agentInstances, service.threshold,
+            address(0), "0x", address(0), address(0), "0", address(0));
+        GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
+        GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeFunctionAndParams, serviceId);
+        service.multisig = address(gProxy);
+
+        return address(service.multisig);
     }
 
     /// @dev Checks if the service Id exists.

@@ -72,8 +72,9 @@ contract ServiceManager is Ownable {
 
     /// @dev Creates Safe instance controlled by the service agent instances.
     /// @param serviceId Correspondent service Id.
-    function serviceCreateSafe(uint256 serviceId) public {
-        serReg.createSafe(msg.sender, serviceId);
+    /// @return Address of the created Gnosis Sage multisig.
+    function serviceCreateSafe(uint256 serviceId) public returns (address){
+        return serReg.createSafe(msg.sender, serviceId);
     }
 
     /// @dev Activates the service and its sensitive components.
