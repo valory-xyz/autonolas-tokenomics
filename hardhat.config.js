@@ -6,6 +6,12 @@ require("@nomiclabs/hardhat-waffle");
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
+    paths: {
+        sources: "./third_party",
+        tests: "./test",
+        cache: "./cache",
+        artifacts: "./artifacts"
+    },
     networks: {
         ganache: {
             url: "http://localhost:8545",
