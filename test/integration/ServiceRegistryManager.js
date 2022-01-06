@@ -19,7 +19,6 @@ describe("ServiceRegistry integration", function () {
     const serviceIds = [1, 2];
     const threshold = 1;
     const componentHash = "0x0";
-    const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -242,7 +241,7 @@ describe("ServiceRegistry integration", function () {
             const proxyAddress = result.events[1].address;
 
             // Verify the deployment of the created Safe: checking threshold and owners
-            const proxyContract = await hre.ethers.getContractAt("GnosisSafeL2", proxyAddress);
+            const proxyContract = await ethers.getContractAt("GnosisSafeL2", proxyAddress);
             if (await proxyContract.getThreshold() != newMaxThreshold) {
                 throw new Error("incorrect threshold");
             }
