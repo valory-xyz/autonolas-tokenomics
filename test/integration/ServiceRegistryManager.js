@@ -6,6 +6,8 @@ const { ethers } = require("hardhat");
 describe("ServiceRegistry integration", function () {
     let componentRegistry;
     let agentRegistry;
+    let gnosisSafeL2;
+    let gnosisSafeProxyFactory;
     let serviceRegistry;
     let serviceManager;
     let signers;
@@ -17,6 +19,7 @@ describe("ServiceRegistry integration", function () {
     const serviceIds = [1, 2];
     const threshold = 1;
     const componentHash = "0x0";
+    const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -29,11 +32,11 @@ describe("ServiceRegistry integration", function () {
         await agentRegistry.deployed();
 
         const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
-        const gnosisSafeL2 = await GnosisSafeL2.deploy();
+        gnosisSafeL2 = await GnosisSafeL2.deploy();
         await gnosisSafeL2.deployed();
 
         const GnosisSafeProxyFactory = await ethers.getContractFactory("GnosisSafeProxyFactory");
-        const gnosisSafeProxyFactory = await GnosisSafeProxyFactory.deploy();
+        gnosisSafeProxyFactory = await GnosisSafeProxyFactory.deploy();
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
@@ -217,7 +220,7 @@ describe("ServiceRegistry integration", function () {
                 newAgentIds[1]);
             // Safe is not possible without all the registered agent instances
             await expect(
-                serviceManager.connect(owner).serviceCreateSafe(serviceIds[0])
+                serviceManager.connect(owner).serviceCreateSafeDefault(serviceIds[0])
             ).to.be.revertedWith("createSafe: NUM_INSTANCES");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[2],
@@ -233,8 +236,23 @@ describe("ServiceRegistry integration", function () {
                     newAgentIds[1])
             ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
 
-            // Calling Safe
-            await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0]);
+            // Creating Safe
+            const safe = await serviceManager.connect(owner).serviceCreateSafeDefault(serviceIds[0]);
+            const result = await safe.wait();
+            const proxyAddress = result.events[1].address;
+
+            // Verify the deployment of the created Safe: checking threshold and owners
+            const proxyContract = await hre.ethers.getContractAt("GnosisSafeL2", proxyAddress);
+            if (await proxyContract.getThreshold() != newMaxThreshold) {
+                throw new Error("incorrect threshold");
+            }
+            const actualAgentInstances = [agentInstances[0], agentInstances[1], agentInstances[2]];
+            for (const aInstance of actualAgentInstances) {
+                const isOwner = await proxyContract.isOwner(aInstance);
+                if (!isOwner) {
+                    throw new Error("incorrect agent instance");
+                }
+            }
         });
     });
 });

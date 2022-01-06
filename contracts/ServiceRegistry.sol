@@ -29,6 +29,19 @@ contract ServiceRegistry is Ownable {
         address operator;
     }
 
+    // Gnosis Safe parameters struct
+    struct GnosisParams {
+        address[] agentInstances;
+        uint256 threshold;
+        address to;
+        bytes data;
+        address fallbackHandler;
+        address paymentToken;
+        uint256 payment;
+        address payable paymentReceiver;
+        uint nonce;
+    }
+
     // Service parameters
     struct Service {
         // owner of the service
@@ -62,6 +75,8 @@ contract ServiceRegistry is Ownable {
         bool active;
     }
 
+    // Selector of the Gnosis Safe setup function
+    bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -161,9 +176,11 @@ contract ServiceRegistry is Ownable {
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated or 0 is created for the first time.
+    /// @return Service Id of the newly created or modified service.
     function _setServiceData(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
         private
+        returns (uint256)
     {
         // Checks for non-empty strings
         require(bytes(name).length > 0, "serviceInfo: EMPTY_NAME");
@@ -214,6 +231,7 @@ contract ServiceRegistry is Ownable {
 
         // The service is initiated (but not yet active)
         _mapOwnerServices[owner][serviceId] = true;
+        return serviceId;
     }
 
     /// @dev Creates a new service.
@@ -224,15 +242,17 @@ contract ServiceRegistry is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
+    /// @return serviceId Created service Id.
     function createService(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold)
         external
         onlyManager
+        returns (uint256 serviceId)
     {
         // Check for the non-empty address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
+        serviceId = _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
 
@@ -320,11 +340,46 @@ contract ServiceRegistry is Ownable {
         emit RegisterInstanceTransaction(operator, serviceId, agent, agentId);
     }
 
-    /// @dev Creates Safe instance controlled by the service agent instances.
+    /// @dev Creates Gnosis Safe proxy.
+    /// @param gParams Structure with parameters to setup Gnosis Safe.
+    /// @return Address of the created proxy.
+    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns(address) {
+        bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
+            gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
+            gParams.paymentReceiver);
+
+        GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
+        GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeParams, gParams.nonce);
+        return address(gProxy);
+    }
+
+    /// @dev Gets all agent instances
+    /// @param agentInstances Pre-allocated list of agent instance addresses.
+    /// @param service Service instance.
+    function _getAgentInstances(Service storage service) private view returns(address[] memory agentInstances) {
+        agentInstances = new address[](service.numAgentInstances);
+        uint256 count;
+        for (uint256 i = 0; i < service.agentIds.length; i++) {
+            uint256 agentId = service.agentIds[i];
+            for (uint256 j = 0; j < service.mapAgentInstances[agentId].length; j++) {
+                agentInstances[count] = service.mapAgentInstances[agentId][j].agent;
+                count++;
+            }
+        }
+    }
+
+    /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
+    /// @param to Contract address for optional delegate call.
+    /// @param data Data payload for optional delegate call.
+    /// @param fallbackHandler Handler for fallback calls to this contract
+    /// @param paymentToken Token that should be used for the payment (0 is ETH)
+    /// @param payment Value that should be paid
+    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
     /// @return Address of the created Gnosis Sage multisig.
-    function createSafe(address owner, uint256 serviceId)
+    function createSafe(address owner, uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
+        address paymentToken, uint256 payment, address payable paymentReceiver)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
@@ -334,27 +389,24 @@ contract ServiceRegistry is Ownable {
         require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
 
         // Get all agent instances for the safe
-        address[] memory agentInstances = new address[](service.numAgentInstances);
-        uint256 count;
-        for (uint256 i = 0; i < service.agentIds.length; i++) {
-            uint256 agentId = service.agentIds[i];
-            for (uint256 j = 0; j < service.mapAgentInstances[agentId].length; j++) {
-                agentInstances[count] = service.mapAgentInstances[agentId][j].agent;
-                count++;
-            }
-        }
+        address[] memory agentInstances = _getAgentInstances(service);
 
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         // Getting the Gnosis Safe multisig proxy for agent instances
-        // TODO Now just fill the setup() with dummy variables except for instances and threshold. Consider changing
-        bytes memory safeFunctionAndParams = abi.encodePacked("setup", agentInstances, service.threshold,
-            address(0), "0x", address(0), address(0), "0", address(0));
-        GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
-        GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeFunctionAndParams, serviceId);
-        service.multisig = address(gProxy);
+        GnosisParams memory gParams;
+        gParams.agentInstances = agentInstances;
+        gParams.threshold = service.threshold;
+        gParams.to = to;
+        gParams.data = data;
+        gParams.fallbackHandler = fallbackHandler;
+        gParams.paymentToken = paymentToken;
+        gParams.payment = payment;
+        gParams.paymentReceiver = paymentReceiver;
+        gParams.nonce = serviceId;
+        service.multisig = _createGnosisSafeProxy(gParams);
 
-        return address(service.multisig);
+        return service.multisig;
     }
 
     /// @dev Checks if the service Id exists.

@@ -17,6 +17,7 @@ describe("ServiceRegistry", function () {
     const agentId = 1;
     const threshold = 1;
     const componentHash = "0x0";
+    const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -600,7 +601,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(manager).activate(owner, serviceId);
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
-                serviceRegistry.connect(manager).createSafe(owner, serviceId)
+                serviceRegistry.connect(manager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
+                    AddressZero, 0, AddressZero)
             ).to.be.revertedWith("createSafe: NUM_INSTANCES");
         });
 
@@ -619,7 +621,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(manager).activate(owner, serviceId);
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[0], agentId);
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[1], agentId);
-            const safe = await serviceRegistry.connect(manager).createSafe(owner, serviceId);
+            const safe = await serviceRegistry.connect(manager).createSafe(owner, serviceId, AddressZero, "0x",
+                AddressZero, AddressZero, 0, AddressZero);
             const result = await safe.wait();
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
         });
