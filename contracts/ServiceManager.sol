@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ServiceRegistry.sol";
 
-/// @title Service Registry - Smart contract for registering services
+/// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceManager is Ownable {
+    event GnosisSafeCreate(address multisig);
+
     address public immutable serviceRegistry;
     ServiceRegistry private serReg;
 
@@ -26,11 +28,12 @@ contract ServiceManager is Ownable {
     function serviceCreate(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold)
         public
+        returns (uint256)
     {
-        serReg.createService(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold);
+        return serReg.createService(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold);
     }
 
-    /// @dev Updates a service.
+    /// @dev Updates a service in a CRUD way.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -72,7 +75,32 @@ contract ServiceManager is Ownable {
 
     /// @dev Creates Safe instance controlled by the service agent instances.
     /// @param serviceId Correspondent service Id.
-    function serviceCreateSafe(uint256 serviceId) external {
-        serReg.createSafe(msg.sender, serviceId);
+    /// @param to Contract address for optional delegate call.
+    /// @param data Data payload for optional delegate call.
+    /// @param fallbackHandler Handler for fallback calls to this contract
+    /// @param paymentToken Token that should be used for the payment (0 is ETH)
+    /// @param payment Value that should be paid
+    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
+    /// @return multisig Address of the created Gnosis Sage multisig.
+    function serviceCreateSafe(uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
+        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
+        public
+        returns (address multisig)
+    {
+        multisig = serReg.createSafe(msg.sender, serviceId, to, data, fallbackHandler, paymentToken, payment,
+            paymentReceiver, nonce);
+        emit GnosisSafeCreate(multisig);
+    }
+
+    /// @dev Activates the service and its sensitive components.
+    /// @param serviceId Correspondent service Id.
+    function serviceActivate(uint256 serviceId) public {
+        serReg.activate(msg.sender, serviceId);
+    }
+
+    /// @dev Deactivates the service and its sensitive components.
+    /// @param serviceId Correspondent service Id.
+    function serviceDeactivate(uint256 serviceId) public {
+        serReg.deactivate(msg.sender, serviceId);
     }
 }

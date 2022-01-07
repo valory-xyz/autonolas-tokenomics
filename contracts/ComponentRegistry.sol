@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @title Component Registry - Smart contract for registering components
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ComponentRegistry is ERC721Enumerable, Ownable {
     using Counters for Counters.Counter;
 
@@ -12,19 +14,31 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     enum ComponentType {CTYPE0, CTYPE1}
 
     struct Component {
+        // Developer of the component
         address developer;
+        // IPFS hash of the component
         string componentHash; // can be obtained via mapping, consider for optimization
+        // Description of the component
         string description;
+        // Set of component dependencies
         uint256[] dependencies;
+        // Component activity
         bool active;
+        // Component type
         ComponentType componentType;
     }
 
+    // Base URI
     string public _BASEURI;
+    // Component counter
     Counters.Counter private _tokenIds;
+    // Component minter
     address private _minter;
+    // Map of token Id => component
     mapping(uint256 => Component) private _mapTokenIdComponent;
+    // Map of IPFS hash => token Id
     mapping(string => uint256) private _mapHashTokenId;
+    // Map for checking on unique token Ids
     mapping(uint256 => bool) private _mapDependencies;
 
     // name = "agent components", symbol = "MECHCOMP"
@@ -33,12 +47,18 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         _BASEURI = _bURI;
     }
 
-    // Change the minter
+    /// @dev Changes the component minter.
+    /// @param newMinter Address of a new component minter.
     function changeMinter(address newMinter) public onlyOwner {
         _minter = newMinter;
     }
 
-    // Set the component information
+    /// @dev Sets the component data.
+    /// @param tokenId Token / component Id.
+    /// @param developer Developer of the component.
+    /// @param componentHash IPFS hash of the component.
+    /// @param description Description of the component.
+    /// @param dependencies Set of component dependencies.
     function _setComponentInfo(uint256 tokenId, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         private
@@ -53,7 +73,13 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         _mapHashTokenId[componentHash] = tokenId;
     }
 
-    // Mint component according to developer's address and component parameters
+    /// @dev Creates component.
+    /// @param owner Owner of the component.
+    /// @param developer Developer of the component.
+    /// @param componentHash IPFS hash of the component.
+    /// @param description Description of the component.
+    /// @param dependencies Set of component dependencies.
+    /// @return The minted id of the component.
     function createComponent(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
@@ -102,20 +128,33 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         return newTokenId;
     }
 
-    // Externalizing function to check for the token existence from a different contract
-    function exists (uint256 _tokenId) public view returns (bool) {
+    /// @dev Check for the token / component existence.
+    /// @param _tokenId Token Id.
+    /// @return true if the component exists, false otherwise.
+    function exists(uint256 _tokenId) public view returns (bool) {
         return _exists(_tokenId);
     }
 
-    // Returns base URI set in the constructor
+    /// @dev Returns base URI that was set in the constructor.
+    /// @return base URI string.
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
     }
 
-    // In order to burn, the inactive component needs to propagate its state to dependent components
-    function _burn(uint256 tokenId) internal view override
+    /// @dev Gets the component info.
+    /// @param _tokenId Token Id.
+    /// @return developer The component developer.
+    /// @return componentHash The component IPFS hash.
+    /// @return description The component description.
+    /// @return dependencies The list of component dependencies.
+    function getComponentInfo(uint256 _tokenId)
+        public
+        view
+        returns (address developer, string memory componentHash, string memory description,
+            uint256[] memory dependencies)
     {
-        require(ownerOf(tokenId) == msg.sender, "_burn: TOKEN_OWNER_ONLY");
-        // The functionality will follow in the following revisions
+        require(_exists(_tokenId), "getComponentInfo: NO_COMPONENT");
+        Component storage component = _mapTokenIdComponent[_tokenId];
+        return (component.developer, component.componentHash, component.description, component.dependencies);
     }
 }

@@ -2,6 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
+import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
+import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
@@ -13,6 +16,8 @@ contract ServiceRegistry is Ownable {
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
+    event ActivateService(address owner, uint256 serviceId);
+    event DeactivateService(address owner, uint256 serviceId);
 
     struct Range {
         uint256 min;
@@ -24,11 +29,26 @@ contract ServiceRegistry is Ownable {
         address operator;
     }
 
+    // Gnosis Safe parameters struct
+    struct GnosisParams {
+        address[] agentInstances;
+        uint256 threshold;
+        address to;
+        bytes data;
+        address fallbackHandler;
+        address paymentToken;
+        uint256 payment;
+        address payable paymentReceiver;
+        uint nonce;
+    }
+
     // Service parameters
     struct Service {
         // owner of the service
         address owner;
         address proxyContract;
+        // Multisig address for agent instances
+        address multisig;
         string name;
         string description;
         // Deadline for all the agent instances registration for this service
@@ -51,14 +71,18 @@ contract ServiceRegistry is Ownable {
         mapping(uint256 => Instance[]) mapAgentInstances;
         // Config hash per agent
 //        mapping(uint256 => string) mapAgentHash;
-        // Service is active
+        // Service activity state
         bool active;
-        // Update locker
-        bool updateLocked;
     }
 
+    // Selector of the Gnosis Safe setup function
+    bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
     // Agent Registry
     address public immutable agentRegistry;
+    // Gnosis Safe
+    address payable public immutable gnosisSafeL2;
+    // Gnosis Safe Factory
+    address public immutable gnosisSafeProxyFactory;
     // Service counter
     Counters.Counter private _serviceIds;
     // Default timeout window for getting the agent instances registered for the service
@@ -74,24 +98,34 @@ contract ServiceRegistry is Ownable {
     // Map for checking on unique canonical agent Ids
     mapping(uint256 => bool) private _mapAgentIds;
 
-    constructor(address _agentRegistry) {
+    constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
+        gnosisSafeL2 = _gnosisSafeL2;
+        gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
     }
 
+    // Only the manager has a privilege to update a service
     modifier onlyManager {
-        // Only the manager has a privilege to update a service
         require(_manager == msg.sender, "manager: MANAGER_ONLY");
         _;
     }
 
+    // Only the owner of the service is authorized to update it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        // Only the owner of the service is authorized to update it
         require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
+    // Check for the existance of the service
     modifier serviceExists(uint256 serviceId) {
         require(_mapServices[serviceId].owner != address(0), "serviceExists: NO_SERVICE");
+        _;
+    }
+
+    // Check that there are no registered agent instances.
+    modifier noRegisteredAgentInstance(uint256 serviceId)
+    {
+        require(_mapServices[serviceId].numAgentInstances == 0, "agentInstance: REGISTERED");
         _;
     }
 
@@ -101,7 +135,39 @@ contract ServiceRegistry is Ownable {
         _manager = newManager;
     }
 
-    /// @dev Sets the service parameters.
+    /// @dev Activates the service.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function activate(address owner, uint256 serviceId)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        // Service must be inactive
+        require(!_mapServices[serviceId].active, "activate: SERVICE_ACTIVE");
+
+        // Activate the service
+        _mapServices[serviceId].active = true;
+        emit ActivateService(owner, serviceId);
+    }
+
+    /// @dev Deactivates the service.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function deactivate(address owner, uint256 serviceId)
+        public
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+        noRegisteredAgentInstance(serviceId)
+    {
+        // Service must be active
+        require(_mapServices[serviceId].active, "deactivate: SERVICE_INACTIVE");
+
+        _mapServices[serviceId].active = false;
+        emit DeactivateService(owner, serviceId);
+    }
+
+    /// @dev Sets the service data.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -110,16 +176,18 @@ contract ServiceRegistry is Ownable {
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated or 0 is created for the first time.
-    function _setServiceInfo(address owner, string memory name, string memory description, uint256[] memory agentIds,
+    /// @return Service Id of the newly created or modified service.
+    function _setServiceData(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
         private
+        returns (uint256)
     {
         // Checks for non-empty strings
         require(bytes(name).length > 0, "serviceInfo: EMPTY_NAME");
         require(bytes(description).length > 0, "serviceInfo: NO_DESCRIPTION");
 
         // Checking for non-empty and correct number of arrays
-        require(agentIds.length > 0 && agentNumSlots.length > 0 && agentIds.length == agentNumSlots.length,
+        require(agentIds.length > 0 && agentIds.length == agentNumSlots.length,
             "serviceInfo: AGENTS_SLOTS");
         require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
             "serviceInfo: OPERATOR_SLOTS");
@@ -128,7 +196,6 @@ contract ServiceRegistry is Ownable {
         AgentRegistry agReg = AgentRegistry(agentRegistry);
         for (uint256 i = 0; i < agentIds.length; i++) {
             require(!_mapAgentIds[agentIds[i]], "serviceInfo: DUPLICATE_AGENT");
-            require(agentNumSlots[i] > 0, "serviceInfo: SLOTS_NUMBER");
             require(agReg.exists(agentIds[i]), "serviceInfo: AGENT_NOT_FOUND");
             _mapAgentIds[agentIds[i]] = true;
         }
@@ -157,7 +224,6 @@ contract ServiceRegistry is Ownable {
         service.owner = owner;
         service.name = name;
         service.description = description;
-        service.numAgentInstances = 0;
         service.deadline = block.timestamp + AGENT_INSTANCE_REGISTRATION_TIMEOUT;
         service.threshold = threshold;
         service.operatorSlots.min = operatorSlots[0];
@@ -165,6 +231,7 @@ contract ServiceRegistry is Ownable {
 
         // The service is initiated (but not yet active)
         _mapOwnerServices[owner][serviceId] = true;
+        return serviceId;
     }
 
     /// @dev Creates a new service.
@@ -175,20 +242,21 @@ contract ServiceRegistry is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
+    /// @return serviceId Created service Id.
     function createService(address owner, string memory name, string memory description, uint256[] memory agentIds,
         uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold)
         external
         onlyManager
+        returns (uint256 serviceId)
     {
         // Check for the non-empty address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        _setServiceInfo(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
-
+        serviceId = _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
 
-    /// @dev Updates a service.
+    /// @dev Updates a service in a CRUD way.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -202,16 +270,9 @@ contract ServiceRegistry is Ownable {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        noRegisteredAgentInstance(serviceId)
     {
-        // Once a service is active it should not be possible to update it.
-        // TODO Need testing on that once that logic of activating services is in place
-        require(!_mapServices[serviceId].active, "updateService: SERVICE_ACTIVE");
-
-        // Check if the update is possible
-        require(!_mapServices[serviceId].updateLocked, "updateService: UPDATE_LOCKED");
-
-        _setServiceInfo(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
-
+        _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
 
@@ -249,14 +310,23 @@ contract ServiceRegistry is Ownable {
         onlyManager
         serviceExists(serviceId)
     {
-        // TODO registration of agents should only be available for active services.
+        // Operator address must be different from agent instance one
+        // Also, operator address must not be used as an agent instance anywhere else
+        require(operator != agent && !_mapAllAgentInstances[operator], "registerAgent: WRONG_OPERATOR");
+
         Service storage service = _mapServices[serviceId];
+
+        // The service has to be active to register agents
+        require(service.active, "registerAgent: INACTIVE");
 
         // Check if the agent instance is already engaged with another service
         require(!_mapAllAgentInstances[agent], "registerAgent: REGISTERED");
 
         // Check if the time window for registering agent instances is still active
         require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
+
+        // Check if canonical agent Id exists in the service
+        require(service.mapAgentSlots[agentId] > 0, "registerAgent: NO_AGENT");
 
         // Check if there is an empty slot for the agent instance in this specific service
         require(service.mapAgentInstances[agentId].length < service.mapAgentSlots[agentId],
@@ -267,25 +337,27 @@ contract ServiceRegistry is Ownable {
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = true;
 
-        // Lock the possibility to update the service
-        service.updateLocked = true;
-
         emit RegisterInstanceTransaction(operator, serviceId, agent, agentId);
     }
 
-    /// @dev Creates Safe instance controlled by the service agent instances.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function createSafe(address owner, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-    {
-        Service storage service = _mapServices[serviceId];
-        require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
+    /// @dev Creates Gnosis Safe proxy.
+    /// @param gParams Structure with parameters to setup Gnosis Safe.
+    /// @return Address of the created proxy.
+    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns(address) {
+        bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
+            gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
+            gParams.paymentReceiver);
 
-        // Get all agent instances for the safe
-        address[] memory agentInstances = new address[](service.numAgentInstances);
+        GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
+        GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeParams, gParams.nonce);
+        return address(gProxy);
+    }
+
+    /// @dev Gets all agent instances
+    /// @param agentInstances Pre-allocated list of agent instance addresses.
+    /// @param service Service instance.
+    function _getAgentInstances(Service storage service) private view returns(address[] memory agentInstances) {
+        agentInstances = new address[](service.numAgentInstances);
         uint256 count;
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             uint256 agentId = service.agentIds[i];
@@ -294,12 +366,52 @@ contract ServiceRegistry is Ownable {
                 count++;
             }
         }
+    }
+
+    /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    /// @param to Contract address for optional delegate call.
+    /// @param data Data payload for optional delegate call.
+    /// @param fallbackHandler Handler for fallback calls to this contract
+    /// @param paymentToken Token that should be used for the payment (0 is ETH)
+    /// @param payment Value that should be paid
+    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
+    /// @return Address of the created Gnosis Sage multisig.
+    function createSafe(address owner, uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
+        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+        returns (address)
+    {
+        Service storage service = _mapServices[serviceId];
+        require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
+
+        // Get all agent instances for the safe
+        address[] memory agentInstances = _getAgentInstances(service);
 
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
-        // Gnosis Safe call
+        // Getting the Gnosis Safe multisig proxy for agent instances
+        GnosisParams memory gParams;
+        gParams.agentInstances = agentInstances;
+        gParams.threshold = service.threshold;
+        gParams.to = to;
+        gParams.data = data;
+        gParams.fallbackHandler = fallbackHandler;
+        gParams.paymentToken = paymentToken;
+        gParams.payment = payment;
+        gParams.paymentReceiver = paymentReceiver;
+        gParams.nonce = nonce;
+        service.multisig = _createGnosisSafeProxy(gParams);
+
+        return service.multisig;
     }
 
+    /// @dev Checks if the service Id exists.
+    /// @param serviceId Service Id.
+    /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns(bool) {
         return _mapServices[serviceId].owner != address(0);
     }
