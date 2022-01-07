@@ -460,6 +460,7 @@ contract ServiceRegistry is Ownable {
     /// @return numAgentIds Number of canonical agent Ids in the service.
     /// @return agentIds Set of service canonical agents.
     /// @return agentNumSlots Set of numbers of agent instances for each canonical agent Id.
+    /// @return numAgentInstances Number of registered agent instances.
     /// @return agentInstances Set of agent instances currently registered for the contract.
     /// @return active True if the service is active.
     function getServiceInfo(uint256 serviceId)
@@ -467,10 +468,12 @@ contract ServiceRegistry is Ownable {
         view
         serviceExists(serviceId)
         returns (address owner, string memory name, string memory description, uint256 numAgentIds,
-            uint256[] memory agentIds, uint256[] memory agentNumSlots, address[]memory agentInstances, bool active)
+            uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 numAgentInstances,
+            address[]memory agentInstances, bool active)
     {
         Service storage service = _mapServices[serviceId];
         agentNumSlots = new uint256[](service.agentIds.length);
+        numAgentInstances = service.numAgentInstances;
         agentInstances = _getAgentInstances(service);
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             agentNumSlots[i] = service.mapAgentSlots[service.agentIds[i]];

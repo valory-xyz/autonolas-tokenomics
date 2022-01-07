@@ -758,6 +758,7 @@ describe("ServiceRegistry", function () {
 
             /// Get the service info
             const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
+            expect(serviceInfo.numAagentInstances == agentInstances.length);
             for (let i = 0; i < agentInstances.length; i++) {
                 expect(serviceInfo.agentInstances[i] == agentInstances[i]);
             }
