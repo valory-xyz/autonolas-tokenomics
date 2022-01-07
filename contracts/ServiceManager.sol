@@ -83,21 +83,12 @@ contract ServiceManager is Ownable {
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
     /// @return multisig Address of the created Gnosis Sage multisig.
     function serviceCreateSafe(uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
-        address paymentToken, uint256 payment, address payable paymentReceiver)
+        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
         public
         returns (address multisig)
     {
         multisig = serReg.createSafe(msg.sender, serviceId, to, data, fallbackHandler, paymentToken, payment,
-            paymentReceiver);
-        emit GnosisSafeCreate(multisig);
-    }
-
-    /// @dev Creates Safe instance controlled by the service agent instances with blanc parameters.
-    /// @param serviceId Correspondent service Id.
-    /// @return multisig Address of the created Gnosis Sage multisig.
-    function serviceCreateSafeDefault(uint256 serviceId) public returns (address multisig) {
-        address payable paymentReceiver;
-        multisig = serReg.createSafe(msg.sender, serviceId, address(0), "0x", address(0), address(0), 0, paymentReceiver);
+            paymentReceiver, nonce);
         emit GnosisSafeCreate(multisig);
     }
 

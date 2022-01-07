@@ -19,6 +19,8 @@ describe("ServiceRegistry integration", function () {
     const serviceIds = [1, 2];
     const threshold = 1;
     const componentHash = "0x0";
+    const nonce =  0;
+    const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -217,9 +219,11 @@ describe("ServiceRegistry integration", function () {
                 newAgentIds[0]);
             await serviceManager.connect(operators[1]).serviceRegisterAgent(serviceIds[0], agentInstances[1],
                 newAgentIds[1]);
+
             // Safe is not possible without all the registered agent instances
             await expect(
-                serviceManager.connect(owner).serviceCreateSafeDefault(serviceIds[0])
+                serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
+                    AddressZero, AddressZero, 0, AddressZero, nonce)
             ).to.be.revertedWith("createSafe: NUM_INSTANCES");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[2],
@@ -235,8 +239,9 @@ describe("ServiceRegistry integration", function () {
                     newAgentIds[1])
             ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
 
-            // Creating Safe
-            const safe = await serviceManager.connect(owner).serviceCreateSafeDefault(serviceIds[0]);
+            // Creating Safe with blanc safe parameters for the test
+            const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
+                 AddressZero, AddressZero, 0, AddressZero, nonce);
             const result = await safe.wait();
             const proxyAddress = result.events[1].address;
 

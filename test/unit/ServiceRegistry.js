@@ -602,7 +602,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(manager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
-                    AddressZero, 0, AddressZero)
+                    AddressZero, 0, AddressZero, serviceId)
             ).to.be.revertedWith("createSafe: NUM_INSTANCES");
         });
 
@@ -622,7 +622,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[0], agentId);
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance[1], agentId);
             const safe = await serviceRegistry.connect(manager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero);
+                AddressZero, AddressZero, 0, AddressZero, serviceId);
             const result = await safe.wait();
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
         });

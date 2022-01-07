@@ -379,7 +379,7 @@ contract ServiceRegistry is Ownable {
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
     /// @return Address of the created Gnosis Sage multisig.
     function createSafe(address owner, uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
-        address paymentToken, uint256 payment, address payable paymentReceiver)
+        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
@@ -403,7 +403,7 @@ contract ServiceRegistry is Ownable {
         gParams.paymentToken = paymentToken;
         gParams.payment = payment;
         gParams.paymentReceiver = paymentReceiver;
-        gParams.nonce = serviceId;
+        gParams.nonce = nonce;
         service.multisig = _createGnosisSafeProxy(gParams);
 
         return service.multisig;
