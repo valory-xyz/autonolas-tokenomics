@@ -627,4 +627,107 @@ describe("ServiceRegistry", function () {
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
         });
     });
+
+    context("High-level read-only service info requests", async function () {
+        it("Should fail when requesting info about a non-existent service", async function () {
+            const owner = signers[3].address;
+            expect(await serviceRegistry.balanceOf(owner)).to.equal(0);
+
+            await expect(
+                serviceRegistry.ownerOf(serviceId)
+            ).to.be.revertedWith("serviceExists: NO_SERVICE");
+
+            await expect(
+                serviceRegistry.getServiceInfo(serviceId)
+            ).to.be.revertedWith("serviceExists: NO_SERVICE");
+        });
+
+        it("Obtaining information about service existence, balance, owner, service info", async function () {
+            const minter = signers[1];
+            const manager = signers[2];
+            const owner = signers[3].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+
+            // Initially owner does not have any services
+            expect(await serviceRegistry.exists(serviceId)).to.equal(false);
+            expect(await serviceRegistry.balanceOf(owner)).to.equal(0);
+
+            // Creating a service
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+
+            // Initial checks
+            expect(await serviceRegistry.exists(serviceId)).to.equal(true);
+            expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
+            expect(await serviceRegistry.ownerOf(serviceId)).to.equal(owner);
+
+            // Check for the service info components
+            const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
+            expect(serviceInfo.owner == owner);
+            expect(serviceInfo.name == name);
+            expect(serviceInfo.description == description);
+            expect(serviceInfo.active == false);
+            expect(serviceInfo.numAgentIds == agentIds.length);
+            for (let i = 0; i < agentIds.length; i++) {
+                expect(serviceInfo.agentIds[i] == agentIds[i]);
+            }
+            for (let i = 0; i < agentNumSlots.length; i++) {
+                expect(serviceInfo.agentNumSlots[i] == agentNumSlots[i]);
+            }
+        });
+
+        it("Obtaining service information after update and creating one more service", async function () {
+            const minter = signers[1];
+            const manager = signers[2];
+            const owner = signers[3].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "2", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
+                operatorSlots, maxThreshold);
+
+            // Updating a service
+            const newAgentIds = [1, 2, 3];
+            const newAgentNumSlots = [2, 0, 1];
+            const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[2];
+            await serviceRegistry.connect(manager).updateService(owner, name, description, newAgentIds,
+                newAgentNumSlots, operatorSlots, newMaxThreshold, serviceId);
+
+            // Initial checks
+            expect(await serviceRegistry.exists(serviceId)).to.equal(true);
+            expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
+            expect(await serviceRegistry.ownerOf(serviceId)).to.equal(owner);
+
+            // Check for the service info components
+            const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
+            expect(serviceInfo.owner == owner);
+            expect(serviceInfo.name == name);
+            expect(serviceInfo.description == description);
+            expect(serviceInfo.active == false);
+            expect(serviceInfo.numAgentIds == agentIds.length);
+            const agentIdsCheck = [newAgentIds[0], newAgentIds[2]];
+            for (let i = 0; i < agentIds.length; i++) {
+                expect(serviceInfo.agentIds[i] == agentIdsCheck[i]);
+                console.log(serviceInfo.agentIds[i]);
+            }
+            const agentNumSlotsCheck = [newAgentNumSlots[0], newAgentNumSlots[2]];
+            for (let i = 0; i < agentNumSlotsCheck.length; i++) {
+                expect(serviceInfo.agentNumSlots[i] == agentNumSlotsCheck[i]);
+            }
+
+            // Creating a second service and do basic checks
+            await serviceRegistry.connect(manager).createService(owner, name, description, newAgentIds,
+                newAgentNumSlots, operatorSlots, newMaxThreshold);
+            expect(await serviceRegistry.exists(serviceId + 1)).to.equal(true);
+            expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
+            expect(await serviceRegistry.ownerOf(serviceId + 1)).to.equal(owner);
+        });
+    });
 });
