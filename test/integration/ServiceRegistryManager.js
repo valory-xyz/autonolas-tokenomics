@@ -241,7 +241,7 @@ describe("ServiceRegistry integration", function () {
 
             // Creating Safe with blanc safe parameters for the test
             const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
-                 AddressZero, AddressZero, 0, AddressZero, nonce);
+                AddressZero, AddressZero, 0, AddressZero, nonce);
             const result = await safe.wait();
             const proxyAddress = result.events[1].address;
 
