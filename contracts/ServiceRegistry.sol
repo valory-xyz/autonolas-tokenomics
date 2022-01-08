@@ -51,7 +51,7 @@ contract ServiceRegistry is Ownable {
         address multisig;
         string name;
         string description;
-        // Deadline for all the agent instances registration for this service
+        // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
         // Service termination block, if set > 0
         uint256 terminationBlock;
@@ -77,6 +77,8 @@ contract ServiceRegistry is Ownable {
 
     // Selector of the Gnosis Safe setup function
     bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
+    // Default timeout window for getting the agent instances registered for the service
+    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1000;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -85,14 +87,14 @@ contract ServiceRegistry is Ownable {
     address public immutable gnosisSafeProxyFactory;
     // Service counter
     Counters.Counter private _serviceIds;
-    // Default timeout window for getting the agent instances registered for the service
-    uint256 private constant AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1000;
     // Service Manager
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
     // Map of owner address => (map of service Ids from that owner => if the service is initialized)
     mapping (address => mapping(uint256 => bool)) private _mapOwnerServices;
+    // Map of owner address => set of service Ids that belong to that owner
+    mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
     mapping (address => bool) private _mapAllAgentInstances;
     // Map for checking on unique canonical agent Ids
@@ -110,7 +112,7 @@ contract ServiceRegistry is Ownable {
         _;
     }
 
-    // Only the owner of the service is authorized to update it
+    // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
         require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
         _;
@@ -212,9 +214,16 @@ contract ServiceRegistry is Ownable {
         service.agentIds = agentIds;
         for (uint256 i = 0; i < agentIds.length; i++) {
             service.mapAgentSlots[agentIds[i]] = agentNumSlots[i];
-            service.maxNumAgentInstances += agentNumSlots[i];
             // Undo checking for duplicate canonical agent Ids
             _mapAgentIds[agentIds[i]] = false;
+
+            // Need to clean the list of agentIds that have zero agent slots (by mistake or during the update)
+            if (agentNumSlots[i] == 0) {
+                service.agentIds[i] = service.agentIds[service.agentIds.length - 1];
+                service.agentIds.pop();
+            } else {
+                service.maxNumAgentInstances += agentNumSlots[i];
+            }
         }
 
         // Check for the correct threshold: 2/3 number of agent instances + 1
@@ -224,7 +233,7 @@ contract ServiceRegistry is Ownable {
         service.owner = owner;
         service.name = name;
         service.description = description;
-        service.deadline = block.timestamp + AGENT_INSTANCE_REGISTRATION_TIMEOUT;
+        service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
         service.threshold = threshold;
         service.operatorSlots.min = operatorSlots[0];
         service.operatorSlots.max = operatorSlots[1];
@@ -253,6 +262,7 @@ contract ServiceRegistry is Ownable {
         require(owner != address(0), "createService: EMPTY_OWNER");
 
         serviceId = _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
+        _mapOwnerSetServices[owner].push(serviceId);
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
 
@@ -414,5 +424,65 @@ contract ServiceRegistry is Ownable {
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns(bool) {
         return _mapServices[serviceId].owner != address(0);
+    }
+
+    /// @dev Gets the number of services.
+    /// @param owner The owner of services.
+    /// @return Number of owned services.
+    function balanceOf(address owner) public view returns (uint256) {
+        return _mapOwnerSetServices[owner].length;
+    }
+
+    /// @dev Gets the owner of the service.
+    /// @param serviceId Service Id.
+    /// @return Address of the service owner.
+    function ownerOf(uint256 serviceId) public view serviceExists(serviceId) returns (address) {
+        return _mapServices[serviceId].owner;
+    }
+
+    /// @dev Gets the set of service Ids for a specified owner.
+    /// @param owner Address of the owner.
+    /// @return A set of service Ids.
+    function getServiceIdsOfOwner(address owner)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        require(_mapOwnerSetServices[owner].length > 0, "serviceIdsOfOwner: NO_SERVICES");
+        return _mapOwnerSetServices[owner];
+    }
+
+    /// @dev Gets the high-level service information.
+    /// @param serviceId Service Id.
+    /// @return owner Address of the service owner.
+    /// @return name Name of the service.
+    /// @return description Description of the service.
+    /// @return numAgentIds Number of canonical agent Ids in the service.
+    /// @return agentIds Set of service canonical agents.
+    /// @return agentNumSlots Set of numbers of agent instances for each canonical agent Id.
+    /// @return numAgentInstances Number of registered agent instances.
+    /// @return agentInstances Set of agent instances currently registered for the contract.
+    /// @return active True if the service is active.
+    function getServiceInfo(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (address owner, string memory name, string memory description, uint256 numAgentIds,
+            uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 numAgentInstances,
+            address[]memory agentInstances, bool active)
+    {
+        Service storage service = _mapServices[serviceId];
+        agentNumSlots = new uint256[](service.agentIds.length);
+        numAgentInstances = service.numAgentInstances;
+        agentInstances = _getAgentInstances(service);
+        for (uint256 i = 0; i < service.agentIds.length; i++) {
+            agentNumSlots[i] = service.mapAgentSlots[service.agentIds[i]];
+        }
+        owner = service.owner;
+        name = service.name;
+        description = service.description;
+        numAgentIds = service.agentIds.length;
+        agentIds = service.agentIds;
+        active = service.active;
     }
 }
