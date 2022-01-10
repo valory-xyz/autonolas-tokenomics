@@ -46,7 +46,7 @@ npx hardhat node
 
 ## Github workflows
 The PR process is managed by github workflows, where the code undergoes
-several steps in order to eb verified. Those include:
+several steps in order to be verified. Those include:
 - code isntallation
 - running linters
 - running tests
