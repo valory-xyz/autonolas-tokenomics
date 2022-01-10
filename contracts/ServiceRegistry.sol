@@ -131,6 +131,40 @@ contract ServiceRegistry is Ownable {
         _;
     }
 
+    /// @dev Going through basic initial service checks.
+    /// @param name Name of the service.
+    /// @param description Description of the service.
+    /// @param agentIds Canonical agent Ids.
+    /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
+    /// @param operatorSlots Range of min-max operator slots.
+    function initialChecks(string memory name, string memory description, uint256[] memory agentIds,
+        uint256[] memory agentNumSlots, uint256[] memory operatorSlots)
+        private
+    {
+        // Checks for non-empty strings
+        require(bytes(name).length > 0, "initCheck: EMPTY_NAME");
+        require(bytes(description).length > 0, "initCheck: NO_DESCRIPTION");
+
+        // Checking for non-empty arrays and correct number of values in them
+        require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
+        // Checking for correct operator slots array values
+        require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
+            "initCheck: OPERATOR_SLOTS");
+
+        // Using state map to check for duplicate canonical agent Ids
+        for (uint256 i = 0; i < agentIds.length; i++) {
+            require(!_mapAgentIds[agentIds[i]], "initCheck: DUPLICATE_AGENT");
+            _mapAgentIds[agentIds[i]] = true;
+        }
+
+        // Check for canonical agent Ids existence and setting checked values back to false
+        AgentRegistry agReg = AgentRegistry(agentRegistry);
+        for (uint256 i = 0; i < agentIds.length; i++) {
+            require(agReg.exists(agentIds[i]), "initCheck: AGENT_NOT_FOUND");
+            _mapAgentIds[agentIds[i]] = false;
+        }
+    }
+
     /// @dev Changes the service manager.
     /// @param newManager Address of a new service manager.
     function changeManager(address newManager) public onlyOwner {
@@ -170,77 +204,32 @@ contract ServiceRegistry is Ownable {
     }
 
     /// @dev Sets the service data.
-    /// @param owner Individual that creates and controls a service.
-    /// @param name Name of the service.
-    /// @param description Description of the service.
+    /// @param service A service instance to fill the data for.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
-    /// @param threshold Signers threshold for a multisig composed by agents.
-    /// @param serviceId Service Id to be updated or 0 is created for the first time.
-    /// @return Service Id of the newly created or modified service.
-    function _setServiceData(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
+    /// @param addAgentIdsSize Indexes of canonical agent Ids array: ones added in the beginning, those removed at end.
+    /// @param addAgentIdsSize Number of canonical agent Ids to be added to the service.
+    function _setServiceData(Service storage service, uint256[] memory agentIds, uint256[] memory agentNumSlots,
+        uint256[] memory idxAgentIds, uint256 addAgentIdsSize)
         private
-        returns (uint256)
     {
-        // Checks for non-empty strings
-        require(bytes(name).length > 0, "serviceInfo: EMPTY_NAME");
-        require(bytes(description).length > 0, "serviceInfo: NO_DESCRIPTION");
-
-        // Checking for non-empty and correct number of arrays
-        require(agentIds.length > 0 && agentIds.length == agentNumSlots.length,
-            "serviceInfo: AGENTS_SLOTS");
-        require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
-            "serviceInfo: OPERATOR_SLOTS");
-
-        // Check for canonical agent ids uniqueness and the data validity
-        AgentRegistry agReg = AgentRegistry(agentRegistry);
-        for (uint256 i = 0; i < agentIds.length; i++) {
-            require(!_mapAgentIds[agentIds[i]], "serviceInfo: DUPLICATE_AGENT");
-            require(agReg.exists(agentIds[i]), "serviceInfo: AGENT_NOT_FOUND");
-            _mapAgentIds[agentIds[i]] = true;
-        }
-
-        // Create a new service
-        if (serviceId == 0) {
-            _serviceIds.increment();
-            serviceId = _serviceIds.current();
-        }
-
         // TODO Shall there be a check for if the min operator slot is greater than one of the agent slot number?
-        Service storage service = _mapServices[serviceId];
         service.maxNumAgentInstances = 0;
-        service.agentIds = agentIds;
-        for (uint256 i = 0; i < agentIds.length; i++) {
-            service.mapAgentSlots[agentIds[i]] = agentNumSlots[i];
-            // Undo checking for duplicate canonical agent Ids
-            _mapAgentIds[agentIds[i]] = false;
-
-            // Need to clean the list of agentIds that have zero agent slots (by mistake or during the update)
-            if (agentNumSlots[i] == 0) {
-                service.agentIds[i] = service.agentIds[service.agentIds.length - 1];
-                service.agentIds.pop();
-            } else {
-                service.maxNumAgentInstances += agentNumSlots[i];
-            }
+        // Based on idxAgentIds array, add canonical agent Ids for the service and the slots map
+        for (uint256 i = 0; i < addAgentIdsSize; i++) {
+            service.agentIds.push(agentIds[idxAgentIds[i]]);
+            service.mapAgentSlots[agentIds[idxAgentIds[i]]] = agentNumSlots[idxAgentIds[i]];
+            service.maxNumAgentInstances += agentNumSlots[idxAgentIds[i]];
+        }
+        // Remove any canonical agent Ids from the slots map, if any
+        for (uint256 i = addAgentIdsSize; i < agentIds.length; i++) {
+            service.mapAgentSlots[agentIds[idxAgentIds[i]]] = 0;
         }
 
         // Check for the correct threshold: 2/3 number of agent instances + 1
-        require(threshold > service.maxNumAgentInstances * 2 / 3 && threshold <= service.maxNumAgentInstances,
+        require(service.threshold > service.maxNumAgentInstances * 2 / 3 &&
+            service.threshold <= service.maxNumAgentInstances,
             "serviceInfo: THRESHOLD");
-
-        service.owner = owner;
-        service.name = name;
-        service.description = description;
-        service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
-        service.threshold = threshold;
-        service.operatorSlots.min = operatorSlots[0];
-        service.operatorSlots.max = operatorSlots[1];
-
-        // The service is initiated (but not yet active)
-        _mapOwnerServices[owner][serviceId] = true;
-        return serviceId;
     }
 
     /// @dev Creates a new service.
@@ -261,8 +250,39 @@ contract ServiceRegistry is Ownable {
         // Check for the non-empty address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        serviceId = _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, 0);
+        // Execute initial checks
+        initialChecks(name, description, agentIds, agentNumSlots, operatorSlots);
+
+        // Array of indexes when creating a new service is just the exact sequence of increasing indexes
+        // Also, check that there are no zero number of slots for a specific
+        uint256 addAgentIdsSize = agentIds.length;
+        uint256[] memory idxAgentIds = new uint256[](addAgentIdsSize);
+        for (uint256 i = 0; i < addAgentIdsSize; i++) {
+            require(agentNumSlots[i] > 0, "createService: EMPTY_SLOTS");
+            idxAgentIds[i] = i;
+        }
+
+        // Create a new service Id
+        _serviceIds.increment();
+        serviceId = _serviceIds.current();
+
+        // Set high-level data components of the service instance
+        Service storage service = _mapServices[serviceId];
+        service.owner = owner;
+        service.name = name;
+        service.description = description;
+        service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
+        service.threshold = threshold;
+        service.operatorSlots.min = operatorSlots[0];
+        service.operatorSlots.max = operatorSlots[1];
+
+        // Calculate the rest of service components
+        _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
+
+        // The service is initiated (but not yet active)
+        _mapOwnerServices[service.owner][serviceId] = true;
         _mapOwnerSetServices[owner].push(serviceId);
+
         emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
     }
 
@@ -282,7 +302,36 @@ contract ServiceRegistry is Ownable {
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
-        _setServiceData(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
+        // Execute initial checks
+        initialChecks(name, description, agentIds, agentNumSlots, operatorSlots);
+
+        // Separating into canonical agent Ids that have non-zero number of slots and those that have to be deleted
+        // Creating one array of indexes - beginning with agents Ids to be added, ending with those to be deleted
+        uint256 addAgentIdsSize;
+        uint256 delAgentIdsSize = agentIds.length - 1;
+        uint256[] memory idxAgentIds = new uint256[](agentIds.length);
+        for (uint256 i = 0; i < agentIds.length; i++) {
+            if (agentNumSlots[i] == 0) {
+                idxAgentIds[delAgentIdsSize] = i;
+                delAgentIdsSize--;
+            } else {
+                idxAgentIds[addAgentIdsSize] = i;
+                addAgentIdsSize++;
+            }
+        }
+
+        // Obtaining existent service instance and updating its high-level data components
+        // Note that deadline is not updated here since there is a different function for that
+        Service storage service = _mapServices[serviceId];
+        service.name = name;
+        service.description = description;
+        service.threshold = threshold;
+        service.operatorSlots.min = operatorSlots[0];
+        service.operatorSlots.max = operatorSlots[1];
+
+        // Calculate the rest of service components
+        _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
+
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
 
