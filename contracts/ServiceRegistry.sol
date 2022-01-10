@@ -534,4 +534,7 @@ contract ServiceRegistry is Ownable {
         agentIds = service.agentIds;
         active = service.active;
     }
+
+    // TODO destroy(serviceId) - destroy the service instance and free up storage
+    // TODO getInstancesForAgentId(serviceId, agentId) - list all the instances of a given canonical agent Id
 }
