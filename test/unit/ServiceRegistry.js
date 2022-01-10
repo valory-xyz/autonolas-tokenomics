@@ -68,7 +68,6 @@ describe("ServiceRegistry", function () {
 
         it("Should fail when the owner of a service has zero address", async function () {
             const manager = signers[3];
-            const AddressZero = "0x" + "0".repeat(40);
             await serviceRegistry.changeManager(manager.address);
             await expect(
                 serviceRegistry.connect(manager).createService(AddressZero, name, description, agentIds, agentNumSlots,
@@ -83,7 +82,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, "", description, agentIds, agentNumSlots,
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: EMPTY_NAME");
+            ).to.be.revertedWith("initCheck: EMPTY_NAME");
         });
 
         it("Should fail when creating a service with an empty description", async function () {
@@ -93,7 +92,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, "", agentIds, agentNumSlots,
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: NO_DESCRIPTION");
+            ).to.be.revertedWith("initCheck: NO_DESCRIPTION");
         });
 
         it("Should fail when creating a service with incorrect agent slots values", async function () {
@@ -103,15 +102,15 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, [], [],
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: AGENTS_SLOTS");
+            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, [1], [],
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: AGENTS_SLOTS");
+            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, [1, 3], [2],
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: AGENTS_SLOTS");
+            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
         });
 
         it("Should fail when creating a service with incorrect operator slots values", async function () {
@@ -121,15 +120,15 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
                     [], threshold)
-            ).to.be.revertedWith("serviceInfo: OPERATOR_SLOTS");
+            ).to.be.revertedWith("initCheck: OPERATOR_SLOTS");
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
                     [0], threshold)
-            ).to.be.revertedWith("serviceInfo: OPERATOR_SLOTS");
+            ).to.be.revertedWith("initCheck: OPERATOR_SLOTS");
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
                     [5, 2], threshold)
-            ).to.be.revertedWith("serviceInfo: OPERATOR_SLOTS");
+            ).to.be.revertedWith("initCheck: OPERATOR_SLOTS");
         });
 
         it("Should fail when creating a service with non existent canonical agent", async function () {
@@ -137,9 +136,9 @@ describe("ServiceRegistry", function () {
             const owner = signers[4].address;
             await serviceRegistry.changeManager(manager.address);
             await expect(
-                serviceRegistry.connect(manager).createService(owner, name, description, [0], [1],
+                serviceRegistry.connect(manager).createService(owner, name, description, agentIds, agentNumSlots,
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: AGENT_NOT_FOUND");
+            ).to.be.revertedWith("initCheck: AGENT_NOT_FOUND");
         });
 
         it("Should fail when creating a service with duplicate canonical agents in agent slots", async function () {
@@ -152,7 +151,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, [1, 1], [2, 2],
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: DUPLICATE_AGENT");
+            ).to.be.revertedWith("initCheck: DUPLICATE_AGENT");
         });
 
         it("Should fail when creating a service with incorrect input parameter", async function () {
@@ -166,7 +165,21 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(manager).createService(owner, name, description, [1, 0], [2, 2],
                     operatorSlots, threshold)
-            ).to.be.revertedWith("serviceInfo: AGENT_NOT_FOUND");
+            ).to.be.revertedWith("initCheck: AGENT_NOT_FOUND");
+        });
+
+        it("Should fail when trying to set empty agent slots", async function () {
+            const minter = signers[3];
+            const manager = signers[4];
+            const owner = signers[5].address;
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(manager.address);
+            await expect(
+                serviceRegistry.connect(manager).createService(owner, name, description, agentIds, [3, 0],
+                    operatorSlots, threshold)
+            ).to.be.revertedWith("createService: EMPTY_SLOTS");
         });
 
         it("Checking for different signers threshold combinations", async function () {
@@ -234,7 +247,6 @@ describe("ServiceRegistry", function () {
 
         it("Should fail when the owner of a service has zero address", async function () {
             const manager = signers[3];
-            const AddressZero = "0x" + "0".repeat(40);
             await serviceRegistry.changeManager(manager.address);
             await expect(
                 serviceRegistry.connect(manager).updateService(AddressZero, name, description, agentIds, agentNumSlots,
@@ -731,8 +743,8 @@ describe("ServiceRegistry", function () {
             }
 
             // Creating a second service and do basic checks
-            await serviceRegistry.connect(manager).createService(owner, name, description, newAgentIds,
-                newAgentNumSlots, operatorSlots, newMaxThreshold);
+            await serviceRegistry.connect(manager).createService(owner, name, description, agentIdsCheck,
+                agentNumSlotsCheck, operatorSlots, newMaxThreshold);
             expect(await serviceRegistry.exists(serviceId + 1)).to.equal(true);
             expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
             expect(await serviceRegistry.ownerOf(serviceId + 1)).to.equal(owner);
