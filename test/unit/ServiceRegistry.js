@@ -603,7 +603,6 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(manager).activate(owner, serviceId);
             await serviceRegistry.connect(manager).registerAgent(operator, serviceId, agentInstance, agentId);
             await serviceRegistry.connect(manager).setTerminationBlock(owner, serviceId, 1000);
-            console.log(blockNum);
             await expect(
                 serviceRegistry.connect(manager).destroy(owner, serviceId)
             ).to.be.revertedWith("destroy: SERVICE_ACTIVE");

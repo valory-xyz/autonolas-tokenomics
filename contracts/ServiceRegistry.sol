@@ -224,8 +224,6 @@ contract ServiceRegistry is Ownable {
                 break;
             }
         }
-        // TODO This require must never be true, here for initial stability checks
-        require(i < numServices, "destroy: FATAL_ERROR");
         // Pop the destroyed service Id
         _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
         _mapOwnerSetServices[owner].pop();
