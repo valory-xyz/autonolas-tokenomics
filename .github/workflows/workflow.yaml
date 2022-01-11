@@ -21,6 +21,7 @@ jobs:
       run: ./node_modules/.bin/hardhat test
 
   docker:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       -
@@ -44,5 +45,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: valory/${{ github.event.repository.name }}:${{github.base_ref_name}}
+          tags: valory/${{ github.event.repository.name }}:main # note need to get the base ref to force for the branch
 
