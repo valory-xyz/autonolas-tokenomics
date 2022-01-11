@@ -44,5 +44,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: valory/${{ github.event.repository.name }}:${{github.ref_name}}
+          tags: valory/${{ github.event.repository.name }}:${{github.base_ref_name}}
 
