@@ -32,7 +32,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: valory/${{ github.event.repository.name }}:${{github.event.repository.ref}}
+          tags: valory/${{ github.event.repository.name }}:${{github.ref_name}}
 
 
   build:
