@@ -2,12 +2,24 @@ name: Workflow
 on:
   push:
     branches:
-      - dev
-      - staging
       - main
   pull_request:
 
 jobs:
+  build:
+    continue-on-error: False
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install modules
+      run: yarn
+    - name: Run ESLint
+      run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
+    - name: Run solhint
+      run: ./node_modules/.bin/solhint contracts/*
+    - name: Run tests
+      run: ./node_modules/.bin/hardhat test
+
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -34,17 +46,3 @@ jobs:
           push: true
           tags: valory/${{ github.event.repository.name }}:${{github.ref_name}}
 
-
-  build:
-    continue-on-error: False
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install modules
-      run: yarn
-    - name: Run ESLint
-      run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
-    - name: Run solhint
-      run: ./node_modules/.bin/solhint contracts/*
-    - name: Run tests
-      run: ./node_modules/.bin/hardhat test
