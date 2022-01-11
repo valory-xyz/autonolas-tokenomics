@@ -18,11 +18,7 @@ contract ServiceRegistry is Ownable {
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
     event ActivateService(address owner, uint256 serviceId);
     event DeactivateService(address owner, uint256 serviceId);
-
-    struct Range {
-        uint256 min;
-        uint256 max;
-    }
+    event DestroyService(address owner, uint256 serviceId);
 
     struct Instance {
         address agent;
@@ -61,8 +57,6 @@ contract ServiceRegistry is Ownable {
         uint256 maxNumAgentInstances;
         // Actual number of agent instances
         uint256 numAgentInstances;
-        // Range of min-max number of operator slots
-        Range operatorSlots;
         // Canonical agent Ids for the service
         uint256[] agentIds;
         // Canonical agent Id => Number of agent instances.
@@ -87,6 +81,8 @@ contract ServiceRegistry is Ownable {
     address public immutable gnosisSafeProxyFactory;
     // Service counter
     Counters.Counter private _serviceIds;
+    // Actual number of services
+    uint256 private _actualNumServices;
     // Service Manager
     address private _manager;
     // Map of service counter => service
@@ -136,9 +132,8 @@ contract ServiceRegistry is Ownable {
     /// @param description Description of the service.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
     function initialChecks(string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots)
+        uint256[] memory agentNumSlots)
         private
     {
         // Checks for non-empty strings
@@ -147,9 +142,6 @@ contract ServiceRegistry is Ownable {
 
         // Checking for non-empty arrays and correct number of values in them
         require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
-        // Checking for correct operator slots array values
-        require(operatorSlots.length == 2 && operatorSlots[0] > 0 && operatorSlots[0] < operatorSlots[1],
-            "initCheck: OPERATOR_SLOTS");
 
         // Using state map to check for duplicate canonical agent Ids
         for (uint256 i = 0; i < agentIds.length; i++) {
@@ -191,7 +183,7 @@ contract ServiceRegistry is Ownable {
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     function deactivate(address owner, uint256 serviceId)
-        public
+        external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
@@ -201,6 +193,46 @@ contract ServiceRegistry is Ownable {
 
         _mapServices[serviceId].active = false;
         emit DeactivateService(owner, serviceId);
+    }
+
+    /// @dev Destroys the service instance and frees up its storage.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function destroy(address owner, uint256 serviceId)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        Service storage service = _mapServices[serviceId];
+        // There must be no registered agent instances while the termination block is infinite
+        // Or the termination block need to be less than the current block (expired)
+        require((service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
+            (service.terminationBlock > 0 && service.terminationBlock < block.number), "destroy: SERVICE_ACTIVE");
+
+        // Cleaning up maps and deleting the service instance
+        uint256 i;
+        for (; i < service.agentIds.length; i++) {
+            delete service.mapAgentInstances[service.agentIds[i]];
+            delete service.mapAgentSlots[service.agentIds[i]];
+        }
+        _mapOwnerServices[owner][serviceId] = false;
+
+        // Need to update the set of owner service Ids
+        uint256 numServices = _mapOwnerSetServices[owner].length;
+        for (i = 0; i < numServices; i++) {
+            if (_mapOwnerSetServices[owner][i] == serviceId) {
+                break;
+            }
+        }
+        // Pop the destroyed service Id
+        _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
+        _mapOwnerSetServices[owner].pop();
+        delete _mapServices[serviceId];
+
+        // Reduce the actual number of services
+        _actualNumServices--;
+
+        emit DestroyService(owner, serviceId);
     }
 
     /// @dev Sets the service data.
@@ -238,11 +270,10 @@ contract ServiceRegistry is Ownable {
     /// @param description Description of the service.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @return serviceId Created service Id.
     function createService(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold)
+        uint256[] memory agentNumSlots, uint256 threshold)
         external
         onlyManager
         returns (uint256 serviceId)
@@ -251,7 +282,7 @@ contract ServiceRegistry is Ownable {
         require(owner != address(0), "createService: EMPTY_OWNER");
 
         // Execute initial checks
-        initialChecks(name, description, agentIds, agentNumSlots, operatorSlots);
+        initialChecks(name, description, agentIds, agentNumSlots);
 
         // Array of indexes when creating a new service is just the exact sequence of increasing indexes
         // Also, check that there are no zero number of slots for a specific
@@ -273,8 +304,6 @@ contract ServiceRegistry is Ownable {
         service.description = description;
         service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
         service.threshold = threshold;
-        service.operatorSlots.min = operatorSlots[0];
-        service.operatorSlots.max = operatorSlots[1];
 
         // Calculate the rest of service components
         _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
@@ -282,8 +311,9 @@ contract ServiceRegistry is Ownable {
         // The service is initiated (but not yet active)
         _mapOwnerServices[service.owner][serviceId] = true;
         _mapOwnerSetServices[owner].push(serviceId);
+        _actualNumServices++;
 
-        emit CreateServiceTransaction(owner, name, threshold, _serviceIds.current());
+        emit CreateServiceTransaction(owner, name, threshold, serviceId);
     }
 
     /// @dev Updates a service in a CRUD way.
@@ -292,18 +322,17 @@ contract ServiceRegistry is Ownable {
     /// @param description Description of the service.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
     function updateService(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
+        uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
         // Execute initial checks
-        initialChecks(name, description, agentIds, agentNumSlots, operatorSlots);
+        initialChecks(name, description, agentIds, agentNumSlots);
 
         // Separating into canonical agent Ids that have non-zero number of slots and those that have to be deleted
         // Creating one array of indexes - beginning with agents Ids to be added, ending with those to be deleted
@@ -326,8 +355,6 @@ contract ServiceRegistry is Ownable {
         service.name = name;
         service.description = description;
         service.threshold = threshold;
-        service.operatorSlots.min = operatorSlots[0];
-        service.operatorSlots.max = operatorSlots[1];
 
         // Calculate the rest of service components
         _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
@@ -475,6 +502,14 @@ contract ServiceRegistry is Ownable {
         return _mapServices[serviceId].owner != address(0);
     }
 
+    /// @dev Gets the total number of services in the contract.
+    /// @return actualNumServices Actual number of services.
+    /// @return maxServiceId Max serviceId number.
+    function totalSupply() public view returns (uint256 actualNumServices, uint256 maxServiceId) {
+        actualNumServices = _actualNumServices;
+        maxServiceId = _serviceIds.current();
+    }
+
     /// @dev Gets the number of services.
     /// @param owner The owner of services.
     /// @return Number of owned services.
@@ -506,17 +541,18 @@ contract ServiceRegistry is Ownable {
     /// @return owner Address of the service owner.
     /// @return name Name of the service.
     /// @return description Description of the service.
+    /// @return threshold Agent instance signers threshold.
     /// @return numAgentIds Number of canonical agent Ids in the service.
     /// @return agentIds Set of service canonical agents.
     /// @return agentNumSlots Set of numbers of agent instances for each canonical agent Id.
     /// @return numAgentInstances Number of registered agent instances.
-    /// @return agentInstances Set of agent instances currently registered for the contract.
+    /// @return agentInstances Set of agent instances currently registered for the service.
     /// @return active True if the service is active.
     function getServiceInfo(uint256 serviceId)
         public
         view
         serviceExists(serviceId)
-        returns (address owner, string memory name, string memory description, uint256 numAgentIds,
+        returns (address owner, string memory name, string memory description, uint256 threshold, uint256 numAgentIds,
             uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 numAgentInstances,
             address[]memory agentInstances, bool active)
     {
@@ -530,11 +566,28 @@ contract ServiceRegistry is Ownable {
         owner = service.owner;
         name = service.name;
         description = service.description;
+        threshold = service.threshold;
         numAgentIds = service.agentIds.length;
         agentIds = service.agentIds;
         active = service.active;
     }
 
-    // TODO destroy(serviceId) - destroy the service instance and free up storage
-    // TODO getInstancesForAgentId(serviceId, agentId) - list all the instances of a given canonical agent Id
+    /// @dev Lists all the instances of a given canonical agent Id if the service.
+    /// @param serviceId Service Id.
+    /// @param agentId Canonical agent Id.
+    /// @return numAgentInstances Number of agent instances.
+    /// @return agentInstances Set of agent instances for a specified canonical agent Id.
+    function getInstancesForAgentId(uint256 serviceId, uint256 agentId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 numAgentInstances, address[] memory agentInstances)
+    {
+        Service storage service = _mapServices[serviceId];
+        numAgentInstances = service.mapAgentInstances[agentId].length;
+        agentInstances = new address[](numAgentInstances);
+        for (uint256 i = 0; i < numAgentInstances; i++) {
+            agentInstances[i] = service.mapAgentInstances[agentId][i].agent;
+        }
+    }
 }

@@ -23,14 +23,13 @@ contract ServiceManager is Ownable {
     /// @param description Description of the service.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Threshold for a multisig composed by agents.
     function serviceCreate(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold)
+        uint256[] memory agentNumSlots, uint256 threshold)
         public
         returns (uint256)
     {
-        return serReg.createService(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold);
+        return serReg.createService(owner, name, description, agentIds, agentNumSlots, threshold);
     }
 
     /// @dev Updates a service in a CRUD way.
@@ -39,14 +38,13 @@ contract ServiceManager is Ownable {
     /// @param description Description of the service.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param operatorSlots Range of min-max operator slots.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
     function serviceUpdate(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256[] memory operatorSlots, uint256 threshold, uint256 serviceId)
+        uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        serReg.updateService(owner, name, description, agentIds, agentNumSlots, operatorSlots, threshold, serviceId);
+        serReg.updateService(owner, name, description, agentIds, agentNumSlots, threshold, serviceId);
     }
 
     /// @dev Sets service registration window time.
@@ -102,5 +100,11 @@ contract ServiceManager is Ownable {
     /// @param serviceId Correspondent service Id.
     function serviceDeactivate(uint256 serviceId) public {
         serReg.deactivate(msg.sender, serviceId);
+    }
+
+    /// @dev Destroys the service instance and frees up its storage.
+    /// @param serviceId Correspondent service Id.
+    function serviceDestroy(uint256 serviceId) public {
+        serReg.destroy(msg.sender, serviceId);
     }
 }
