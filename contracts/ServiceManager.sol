@@ -21,30 +21,32 @@ contract ServiceManager is Ownable {
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Threshold for a multisig composed by agents.
-    function serviceCreate(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256 threshold)
+    function serviceCreate(address owner, string memory name, string memory description, string memory configHash,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold)
         public
         returns (uint256)
     {
-        return serReg.createService(owner, name, description, agentIds, agentNumSlots, threshold);
+        return serReg.createService(owner, name, description, configHash, agentIds, agentNumSlots, threshold);
     }
 
     /// @dev Updates a service in a CRUD way.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function serviceUpdate(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
+    function serviceUpdate(address owner, string memory name, string memory description, string memory configHash,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        serReg.updateService(owner, name, description, agentIds, agentNumSlots, threshold, serviceId);
+        serReg.updateService(owner, name, description, configHash, agentIds, agentNumSlots, threshold, serviceId);
     }
 
     /// @dev Sets service registration window time.
