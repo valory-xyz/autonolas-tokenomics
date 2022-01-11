@@ -6,7 +6,6 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
-import "hardhat/console.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -592,9 +591,5 @@ contract ServiceRegistry is Ownable {
         for (uint256 i = 0; i < numAgentInstances; i++) {
             agentInstances[i] = service.mapAgentInstances[agentId][i].agent;
         }
-    }
-
-    function getBlockNumber() public view returns (uint256 blockNum) {
-        blockNum = block.number;
     }
 }
