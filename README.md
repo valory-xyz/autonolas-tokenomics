@@ -1,4 +1,4 @@
-# Component Registry
+# Onchain Protocol
 ## Prerequisites
 - This repository follows the standard [`Hardhat`](https://hardhat.org/tutorial/) development process.
 - The code is written on Solidity 0.8.0.
@@ -59,7 +59,7 @@ several steps in order to be verified. Those include:
 # get code.
 1. Get the code
 ```bash
-git clone https://github.com/valory-xyz/component-registry.git
+git clone https://github.com/valory-xyz/onchain-protocol.git
 ```
 2. Install node & npm
 ```

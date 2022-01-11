@@ -41,6 +41,7 @@ module.exports = async () => {
         "QmT9qk3CRYbFDW5J68NLkLir6pDFYeAv8T8H1gnongwKhh"];
     const compDs = ["Component 1", "Component 2", "Component 3"];
     const agentDs = ["Agent 1", "Agent 2"];
+    const configHash = "QmWWQKpEjPHPUZSuPMS6aXCbZN2NjBsV4X3vb2t3YrhJTH";
     // Create 3 components and two agents based on them
     await mechMinter.mintComponent(testAddress, testAddress, compHs[0], compDs[0], []);
     await mechMinter.mintAgent(testAddress, testAddress, agentHs[0], agentDs[0], [1]);
@@ -67,7 +68,6 @@ module.exports = async () => {
     const description = "service description";
     const agentIds = [1, 2];
     const agentNumSlots = [3, 4];
-    const operatorSlots = [1, 10];
     const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
 
     const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
@@ -84,14 +84,14 @@ module.exports = async () => {
 
     // Create a service
     await serviceRegistry.changeManager(serviceManager.address);
-    await serviceManager.serviceCreate(testAddress, name, description, agentIds, agentNumSlots,
-        operatorSlots, maxThreshold);
+    await serviceManager.serviceCreate(testAddress, name, description, configHash, agentIds, agentNumSlots,
+        maxThreshold);
 
     // Update a service
     const newAgentNumSlots = [2, 0];
     const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[1];
-    await serviceManager.serviceCreate(testAddress, name, description, agentIds, newAgentNumSlots,
-        operatorSlots, newMaxThreshold);
+    await serviceManager.serviceUpdate(testAddress, name, description, configHash, agentIds, newAgentNumSlots,
+        newMaxThreshold, 1);
 
     // Writing the JSON with the initial deployment data
     let initDeployJSON = {

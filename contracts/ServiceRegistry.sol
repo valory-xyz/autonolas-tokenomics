@@ -47,6 +47,8 @@ contract ServiceRegistry is Ownable {
         address multisig;
         string name;
         string description;
+        // IPFS hash pointing to the config metadata
+        string configHash;
         // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
         // Service termination block, if set > 0
@@ -130,15 +132,17 @@ contract ServiceRegistry is Ownable {
     /// @dev Going through basic initial service checks.
     /// @param name Name of the service.
     /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    function initialChecks(string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots)
+    function initialChecks(string memory name, string memory description, string memory configHash,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots)
         private
     {
         // Checks for non-empty strings
         require(bytes(name).length > 0, "initCheck: EMPTY_NAME");
         require(bytes(description).length > 0, "initCheck: NO_DESCRIPTION");
+        require(bytes(configHash).length > 0, "initCheck: NO_CONFIG_HASH");
 
         // Checking for non-empty arrays and correct number of values in them
         require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
@@ -268,12 +272,13 @@ contract ServiceRegistry is Ownable {
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @return serviceId Created service Id.
-    function createService(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256 threshold)
+    function createService(address owner, string memory name, string memory description, string memory configHash,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold)
         external
         onlyManager
         returns (uint256 serviceId)
@@ -282,7 +287,7 @@ contract ServiceRegistry is Ownable {
         require(owner != address(0), "createService: EMPTY_OWNER");
 
         // Execute initial checks
-        initialChecks(name, description, agentIds, agentNumSlots);
+        initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
         // Array of indexes when creating a new service is just the exact sequence of increasing indexes
         // Also, check that there are no zero number of slots for a specific
@@ -302,6 +307,7 @@ contract ServiceRegistry is Ownable {
         service.owner = owner;
         service.name = name;
         service.description = description;
+        service.configHash = configHash;
         service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
         service.threshold = threshold;
 
@@ -320,19 +326,20 @@ contract ServiceRegistry is Ownable {
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function updateService(address owner, string memory name, string memory description, uint256[] memory agentIds,
-        uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
+    function updateService(address owner, string memory name, string memory description, string memory configHash,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
         // Execute initial checks
-        initialChecks(name, description, agentIds, agentNumSlots);
+        initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
         // Separating into canonical agent Ids that have non-zero number of slots and those that have to be deleted
         // Creating one array of indexes - beginning with agents Ids to be added, ending with those to be deleted
@@ -354,6 +361,7 @@ contract ServiceRegistry is Ownable {
         Service storage service = _mapServices[serviceId];
         service.name = name;
         service.description = description;
+        service.configHash = configHash;
         service.threshold = threshold;
 
         // Calculate the rest of service components
