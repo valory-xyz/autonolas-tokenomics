@@ -5,5 +5,6 @@ ADD . /code
 
 ENV NODE_OPTIONS=--openssl-legacy-provider
 RUN yarn 
+RUN npx compile
 
 CMD [ "npx", "hardhat", "node", "--hostname", "0.0.0.0" ]
