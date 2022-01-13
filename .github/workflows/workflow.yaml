@@ -10,40 +10,43 @@ jobs:
     continue-on-error: False
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Install modules
-      run: yarn install
+      - uses: actions/checkout@v2
+      - name: Install modules
+        run: yarn
+      - name: Run ESLint
+        run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
+      - name: Run solhint
+        run: ./node_modules/.bin/solhint contracts/*
+      - name: Run tests
+        run: ./node_modules/.bin/hardhat test
 
-    - name: Run ESLint
-      run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
-    - name: Run solhint
-      run: ./node_modules/.bin/solhint contracts/*
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install slither and its dependencies
+        run: |
+          sudo snap install solc
+          python -m pip install --upgrade pip
+          pip install slither-analyzer solc-select
 
-    - name: Run tests
-      run: ./node_modules/.bin/hardhat test
+      - name: Slither short summary
+        run: slither . --print human-summary
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install slither and its dependencies
-      run: |
-        sudo snap install solc
-        python -m pip install --upgrade pip
-        pip install slither-analyzer solc-select
+      - name: Slither full summary
+        run: python3 misc/slither.py
 
-    - name: Slither short summary
-      run: slither . --print human-summary
-
-    - name: Slither full summary
-      run: python3 misc/slither.py
-
-    - name: Coverage summary
-      run: npx hardhat coverage
+      - name: Coverage summary
+        run: npx hardhat coverage
 
   docker:
-    needs: build
     runs-on: ubuntu-latest
+    needs: build
+    if:
+      contains('
+        refs/heads/main
+      ', github.ref)
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -58,6 +61,7 @@ jobs:
           password: ${{ secrets.ACCESS_TOKEN }}
       - name: Build and push
         uses: docker/build-push-action@v2
+        if: github.ref == 'refs/heads/main'
         with:
           context: .
           push: true
