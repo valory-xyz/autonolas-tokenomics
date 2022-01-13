@@ -20,24 +20,24 @@ jobs:
     #    - name: Run tests
     #      run: ./node_modules/.bin/hardhat test
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install slither and its dependencies
-      run: |
-        sudo snap install solc
-        python -m pip install --upgrade pip
-        pip install slither-analyzer solc-select
-
-    - name: Slither short summary
-      run: slither . --print human-summary
-
-    - name: Slither full summary
-      run: python3 misc/slither.py
-
-    - name: Coverage summary
-      run: npx hardhat coverage
+    #    - name: Set up Python
+    #      uses: actions/setup-python@v2
+    #      with:
+    #        python-version: 3.9
+    #    - name: Install slither and its dependencies
+    #      run: |
+    #        sudo snap install solc
+    #        python -m pip install --upgrade pip
+    #        pip install slither-analyzer solc-select
+    #
+    #    - name: Slither short summary
+    #      run: slither . --print human-summary
+    #
+    #    - name: Slither full summary
+    #      run: python3 misc/slither.py
+    #
+    #    - name: Coverage summary
+    #      run: npx hardhat coverage
 
   docker:
     needs: build
