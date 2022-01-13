@@ -7,37 +7,37 @@ on:
 
 jobs:
   build:
-  continue-on-error: False
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v2
-    - name: Install modules
-      run: yarn
-    - name: Run ESLint
-      run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
-    - name: Run solhint
-      run: ./node_modules/.bin/solhint contracts/*
-    - name: Run tests
-      run: ./node_modules/.bin/hardhat test
+    continue-on-error: False
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install modules
+        run: yarn
+      - name: Run ESLint
+        run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
+      - name: Run solhint
+        run: ./node_modules/.bin/solhint contracts/*
+      - name: Run tests
+        run: ./node_modules/.bin/hardhat test
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Install slither and its dependencies
-      run: |
-        sudo snap install solc
-        python -m pip install --upgrade pip
-        pip install slither-analyzer solc-select
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install slither and its dependencies
+        run: |
+          sudo snap install solc
+          python -m pip install --upgrade pip
+          pip install slither-analyzer solc-select
 
-    - name: Slither short summary
-      run: slither . --print human-summary
+      - name: Slither short summary
+        run: slither . --print human-summary
 
-    - name: Slither full summary
-      run: python3 misc/slither.py
+      - name: Slither full summary
+        run: python3 misc/slither.py
 
-    - name: Coverage summary
-      run: npx hardhat coverage
+      - name: Coverage summary
+        run: npx hardhat coverage
 
   docker:
     runs-on: ubuntu-latest
