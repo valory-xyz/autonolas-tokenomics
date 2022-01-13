@@ -1,6 +1,7 @@
 require("hardhat-deploy");
 //require("@nomiclabs/hardhat-ganache");
 require("@nomiclabs/hardhat-waffle");
+require("solidity-coverage");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
