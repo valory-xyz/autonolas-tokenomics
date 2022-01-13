@@ -40,7 +40,6 @@ jobs:
     #      run: npx hardhat coverage
 
   docker:
-    needs: build
     runs-on: ubuntu-latest
     if:
       contains('
