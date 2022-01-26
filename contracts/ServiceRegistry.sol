@@ -38,7 +38,7 @@ contract ServiceRegistry is Ownable {
 
     // Service parameters
     struct Service {
-        // owner of the service
+        // owner of the service and viability state: no owner - no service or deleted
         address owner;
         address proxyContract;
         // Multisig address for agent instances
@@ -62,7 +62,9 @@ contract ServiceRegistry is Ownable {
         // Canonical agent Id => Number of agent instances.
         mapping(uint256 => uint256) mapAgentSlots;
         // Actual agent instance addresses. Canonical agent Id => Set of agent instance addresses.
-        mapping(uint256 => Instance[]) mapAgentInstances;
+        mapping(uint256 => address[]) mapAgentInstances;
+        // Agent instance address => operator address
+        mapping(address => address) mapAgentInstancesOperators;
         // Config hash per agent
 //        mapping(uint256 => string) mapAgentHash;
         // Service activity state
@@ -87,8 +89,6 @@ contract ServiceRegistry is Ownable {
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
-    // Map of owner address => (map of service Ids from that owner => if the service is initialized)
-    mapping (address => mapping(uint256 => bool)) private _mapOwnerServices;
     // Map of owner address => set of service Ids that belong to that owner
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
@@ -110,11 +110,11 @@ contract ServiceRegistry is Ownable {
 
     // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
+        require(owner != address(0) && _mapServices[serviceId].owner == owner, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
-    // Check for the existance of the service
+    // Check for the service existence
     modifier serviceExists(uint256 serviceId) {
         require(_mapServices[serviceId].owner != address(0), "serviceExists: NO_SERVICE");
         _;
@@ -211,25 +211,18 @@ contract ServiceRegistry is Ownable {
         require((service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
             (service.terminationBlock > 0 && service.terminationBlock < block.number), "destroy: SERVICE_ACTIVE");
 
-        // Cleaning up maps and deleting the service instance
-        uint256 i;
-        for (; i < service.agentIds.length; i++) {
-            delete service.mapAgentInstances[service.agentIds[i]];
-            delete service.mapAgentSlots[service.agentIds[i]];
-        }
-        _mapOwnerServices[owner][serviceId] = false;
+        service.owner = address(0);
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (i = 0; i < numServices; i++) {
+        for (uint256 i; i < numServices; i++) {
             if (_mapOwnerSetServices[owner][i] == serviceId) {
+                // Pop the destroyed service Id
+                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
+                _mapOwnerSetServices[owner].pop();
                 break;
             }
         }
-        // Pop the destroyed service Id
-        _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
-        _mapOwnerSetServices[owner].pop();
-        delete _mapServices[serviceId];
 
         // Reduce the actual number of services
         _actualNumServices--;
@@ -281,10 +274,10 @@ contract ServiceRegistry is Ownable {
         onlyManager
         returns (uint256 serviceId)
     {
-        // Check for the non-empty address
+        // Check for the non-empty owner address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        // Execute initial checks
+    // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
         // Array of indexes when creating a new service is just the exact sequence of increasing indexes
@@ -312,9 +305,10 @@ contract ServiceRegistry is Ownable {
         // Calculate the rest of service components
         _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
 
-        // The service is initiated (but not yet active)
-        _mapOwnerServices[service.owner][serviceId] = true;
+        // Add service to the set of services for the owner
         _mapOwnerSetServices[owner].push(serviceId);
+
+        // Increment the total number of services
         _actualNumServices++;
 
         emit CreateServiceTransaction(owner, name, threshold, serviceId);
@@ -425,7 +419,8 @@ contract ServiceRegistry is Ownable {
             "registerAgent: SLOTS_FILLED");
 
         // Add agent instance and operator and set the instance engagement
-        service.mapAgentInstances[agentId].push(Instance(agent, operator));
+        service.mapAgentInstances[agentId].push(agent);
+        service.mapAgentInstancesOperators[agent] = operator;
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = true;
 
@@ -454,7 +449,7 @@ contract ServiceRegistry is Ownable {
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             uint256 agentId = service.agentIds[i];
             for (uint256 j = 0; j < service.mapAgentInstances[agentId].length; j++) {
-                agentInstances[count] = service.mapAgentInstances[agentId][j].agent;
+                agentInstances[count] = service.mapAgentInstances[agentId][j];
                 count++;
             }
         }
@@ -593,7 +588,7 @@ contract ServiceRegistry is Ownable {
         numAgentInstances = service.mapAgentInstances[agentId].length;
         agentInstances = new address[](numAgentInstances);
         for (uint256 i = 0; i < numAgentInstances; i++) {
-            agentInstances[i] = service.mapAgentInstances[agentId][i].agent;
+            agentInstances[i] = service.mapAgentInstances[agentId][i];
         }
     }
 }

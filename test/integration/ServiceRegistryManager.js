@@ -311,6 +311,29 @@ describe("ServiceRegistry integration", function () {
             serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
             expect(serviceIdsRet[0] == 2);
         });
+
+        it("Should fail when trying to update the destroyed service", async function () {
+            const minter = signers[4];
+            const owner = signers[5];
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
+                description, []);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
+                description, []);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "2",
+                description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
+            await expect(
+                serviceManager.serviceUpdate(owner.address, name, description, configHash, [1, 2, 3], [3, 0, 4],
+                    maxThreshold, serviceIds[0])
+            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+        });
     });
 });
 
