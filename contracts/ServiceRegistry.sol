@@ -10,8 +10,6 @@ import "./AgentRegistry.sol";
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceRegistry is Ownable {
-    using Counters for Counters.Counter;
-
     event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -82,7 +80,7 @@ contract ServiceRegistry is Ownable {
     // Gnosis Safe Factory
     address public immutable gnosisSafeProxyFactory;
     // Service counter
-    Counters.Counter private _serviceIds;
+    uint256 private _serviceIds;
     // Actual number of services
     uint256 private _actualNumServices;
     // Service Manager
@@ -299,8 +297,8 @@ contract ServiceRegistry is Ownable {
         }
 
         // Create a new service Id
-        _serviceIds.increment();
-        serviceId = _serviceIds.current();
+        _serviceIds++;
+        serviceId = _serviceIds;
 
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
@@ -515,7 +513,7 @@ contract ServiceRegistry is Ownable {
     /// @return maxServiceId Max serviceId number.
     function totalSupply() public view returns (uint256 actualNumServices, uint256 maxServiceId) {
         actualNumServices = _actualNumServices;
-        maxServiceId = _serviceIds.current();
+        maxServiceId = _serviceIds;
     }
 
     /// @dev Gets the number of services.

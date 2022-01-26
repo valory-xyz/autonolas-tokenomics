@@ -2,14 +2,11 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ComponentRegistry is ERC721Enumerable, Ownable {
-    using Counters for Counters.Counter;
-
     // Possible differentiation of component types
     enum ComponentType {CTYPE0, CTYPE1}
 
@@ -31,7 +28,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     // Base URI
     string public _BASEURI;
     // Component counter
-    Counters.Counter private _tokenIds;
+    uint256 private _tokenIds;
     // Component minter
     address private _minter;
     // Map of token Id => component
@@ -80,28 +77,28 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     /// @param description Description of the component.
     /// @param dependencies Set of component dependencies.
     /// @return The minted id of the component.
-    function createComponent(address owner, address developer, string memory componentHash, string memory description,
+    function create(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
         returns (uint256)
     {
         // Only the minter has a privilege to create a component
-        require(_minter == msg.sender, "createComponent: MINTER_ONLY");
+        require(_minter == msg.sender, "create: MINTER_ONLY");
 
         // Checks for non-empty strings
         // How can we check for garbage hashes?
-        require(bytes(componentHash).length > 0, "createComponent: EMPTY_HASH");
-        require(bytes(description).length > 0, "createComponent: NO_DESCRIPTION");
+        require(bytes(componentHash).length > 0, "create: EMPTY_HASH");
+        require(bytes(description).length > 0, "create: NO_DESCRIPTION");
 
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[componentHash] == 0, "createComponent: HASH_EXISTS");
+        require(_mapHashTokenId[componentHash] == 0, "create: HASH_EXISTS");
         
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 uCounter;
         uint256[] memory uniqueDependencies = new uint256[](dependencies.length);
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > 0 && dependencies[iDep] <= _tokenIds.current(),
-                "createComponent: NO_COMPONENT_ID");
+            require(dependencies[iDep] > 0 && dependencies[iDep] <= _tokenIds,
+                "create: NO_COMPONENT_ID");
             if (_mapDependencies[dependencies[iDep]]) {
                 continue;
             } else {
@@ -120,11 +117,10 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         }
 
         // Mint token and initialize the component
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
+        _tokenIds++;
+        uint256 newTokenId = _tokenIds;
         _safeMint(owner, newTokenId);
         _setComponentInfo(newTokenId, developer, componentHash, description, finalDependencies);
-
         return newTokenId;
     }
 
@@ -135,26 +131,28 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         return _exists(_tokenId);
     }
 
-    /// @dev Returns base URI that was set in the constructor.
-    /// @return base URI string.
-    function _baseURI() internal view override returns (string memory) {
-        return _BASEURI;
-    }
-
     /// @dev Gets the component info.
     /// @param _tokenId Token Id.
     /// @return developer The component developer.
     /// @return componentHash The component IPFS hash.
     /// @return description The component description.
+    /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
     function getComponentInfo(uint256 _tokenId)
         public
         view
-        returns (address developer, string memory componentHash, string memory description,
+        returns (address developer, string memory componentHash, string memory description, uint256 numDependencies,
             uint256[] memory dependencies)
     {
         require(_exists(_tokenId), "getComponentInfo: NO_COMPONENT");
         Component storage component = _mapTokenIdComponent[_tokenId];
-        return (component.developer, component.componentHash, component.description, component.dependencies);
+        return (component.developer, component.componentHash, component.description, component.dependencies.length,
+            component.dependencies);
+    }
+
+    /// @dev Returns base URI that was set in the constructor.
+    /// @return base URI string.
+    function _baseURI() internal view override returns (string memory) {
+        return _BASEURI;
     }
 }
