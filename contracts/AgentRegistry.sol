@@ -2,15 +2,12 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./ComponentRegistry.sol";
+import "./interfaces/IRegistry.sol";
 
 /// @title Agent Registry - Smart contract for registering agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract AgentRegistry is ERC721Enumerable, Ownable {
-    using Counters for Counters.Counter;
-
     // Possible differentiation of component types
     enum AgentType {ATYPE0, ATYPE1}
 
@@ -34,7 +31,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     // Base URI
     string public _BASEURI;
     // Agent counter
-    Counters.Counter private _tokenIds;
+    uint256 private _tokenIds;
     // Agent minter
     address private _minter;
     // Map of token Id => component
@@ -85,32 +82,31 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     /// @param description Description of the agent.
     /// @param dependencies Set of component dependencies.
     /// @return The minted id of the agent.
-    function createAgent(address owner, address developer, string memory agentHash, string memory description,
+    function create(address owner, address developer, string memory agentHash, string memory description,
         uint256[] memory dependencies)
         external
         returns (uint256)
     {
         // Only the minter has a privilege to create a component
-        require(_minter == msg.sender, "createAgent: MINTER_ONLY");
+        require(_minter == msg.sender, "create: MINTER_ONLY");
 
         // Checks for non-empty strings and component dependency
-        require(bytes(agentHash).length > 0, "createAgent: EMPTY_HASH");
-        require(bytes(description).length > 0, "createAgent: NO_DESCRIPTION");
+        require(bytes(agentHash).length > 0, "create: EMPTY_HASH");
+        require(bytes(description).length > 0, "create: NO_DESCRIPTION");
 //        require(dependencies.length > 0, "Agent must have at least one component dependency");
 
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[agentHash] == 0, "createAgent: HASH_EXISTS");
+        require(_mapHashTokenId[agentHash] == 0, "create: HASH_EXISTS");
 
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 uCounter;
         uint256[] memory uniqueDependencies = new uint256[](dependencies.length);
-        ComponentRegistry compRegistry = ComponentRegistry(componentRegistry);
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > 0, "createAgent: NO_COMPONENT_ID");
+            require(dependencies[iDep] > 0, "create: NO_COMPONENT_ID");
             if (_mapDependencies[dependencies[iDep]]) {
                 continue;
             } else {
-                require(compRegistry.exists(dependencies[iDep]), "The component is not found!");
+                require(IRegistry(componentRegistry).exists(dependencies[iDep]), "The component is not found!");
                 _mapDependencies[dependencies[iDep]] = true;
                 uniqueDependencies[uCounter] = dependencies[iDep];
                 uCounter++;
@@ -126,8 +122,8 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         }
 
         // Mint token and initialize the component
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
+        _tokenIds++;
+        uint256 newTokenId = _tokenIds;
         _safeMint(owner, newTokenId);
         _setAgentInfo(newTokenId, developer, agentHash, description, finalDependencies);
 
@@ -135,31 +131,33 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     }
 
     /// @dev Check for the token / agent existence.
-    /// @param _tokenId Token Id.
+    /// @param tokenId Token Id.
     /// @return true if the agent exists, false otherwise.
-    function exists (uint256 _tokenId) public view returns (bool) {
-        return _exists(_tokenId);
+    function exists (uint256 tokenId) public view returns (bool) {
+        return _exists(tokenId);
+    }
+
+    /// @dev Gets the agent info.
+    /// @param tokenId Token Id.
+    /// @return developer The agent developer.
+    /// @return agentHash The agent IPFS hash.
+    /// @return description The agent description.
+    /// @return numDependencies The number of components in the dependency list.
+    /// @return dependencies The list of component dependencies.
+    function getAgentInfo(uint256 tokenId)
+        public
+        view
+        returns (address developer, string memory agentHash, string memory description, uint256 numDependencies,
+            uint256[] memory dependencies)
+    {
+        require(_exists(tokenId), "getComponentInfo: NO_AGENT");
+        Agent storage agent = _mapTokenIdAgent[tokenId];
+        return (agent.developer, agent.agentHash, agent.description, agent.dependencies.length, agent.dependencies);
     }
 
     /// @dev Returns base URI that was set in the constructor.
     /// @return base URI string.
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
-    }
-
-    /// @dev Gets the agent info.
-    /// @param _tokenId Token Id.
-    /// @return developer The agent developer.
-    /// @return agentHash The agent IPFS hash.
-    /// @return description The agent description.
-    /// @return dependencies The list of component dependencies.
-    function getAgentInfo(uint256 _tokenId)
-        public
-        view
-        returns (address developer, string memory agentHash, string memory description, uint256[] memory dependencies)
-    {
-        require(_exists(_tokenId), "getComponentInfo: NO_AGENT");
-        Agent storage agent = _mapTokenIdAgent[_tokenId];
-        return (agent.developer, agent.agentHash, agent.description, agent.dependencies);
     }
 }

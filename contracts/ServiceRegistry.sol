@@ -10,8 +10,6 @@ import "./AgentRegistry.sol";
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceRegistry is Ownable {
-    using Counters for Counters.Counter;
-
     event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -40,7 +38,7 @@ contract ServiceRegistry is Ownable {
 
     // Service parameters
     struct Service {
-        // owner of the service
+        // owner of the service and viability state: no owner - no service or deleted
         address owner;
         address proxyContract;
         // Multisig address for agent instances
@@ -64,7 +62,9 @@ contract ServiceRegistry is Ownable {
         // Canonical agent Id => Number of agent instances.
         mapping(uint256 => uint256) mapAgentSlots;
         // Actual agent instance addresses. Canonical agent Id => Set of agent instance addresses.
-        mapping(uint256 => Instance[]) mapAgentInstances;
+        mapping(uint256 => address[]) mapAgentInstances;
+        // Agent instance address => operator address
+        mapping(address => address) mapAgentInstancesOperators;
         // Config hash per agent
 //        mapping(uint256 => string) mapAgentHash;
         // Service activity state
@@ -73,8 +73,8 @@ contract ServiceRegistry is Ownable {
 
     // Selector of the Gnosis Safe setup function
     bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
-    // Default timeout window for getting the agent instances registered for the service
-    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1000;
+    // Default timeout window for getting the agent instances registered for the service (21 days)
+    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1814400;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -82,15 +82,13 @@ contract ServiceRegistry is Ownable {
     // Gnosis Safe Factory
     address public immutable gnosisSafeProxyFactory;
     // Service counter
-    Counters.Counter private _serviceIds;
+    uint256 private _serviceIds;
     // Actual number of services
     uint256 private _actualNumServices;
     // Service Manager
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
-    // Map of owner address => (map of service Ids from that owner => if the service is initialized)
-    mapping (address => mapping(uint256 => bool)) private _mapOwnerServices;
     // Map of owner address => set of service Ids that belong to that owner
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
@@ -112,11 +110,11 @@ contract ServiceRegistry is Ownable {
 
     // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        require(_mapOwnerServices[owner][serviceId] != false, "serviceOwner: SERVICE_NOT_FOUND");
+        require(owner != address(0) && _mapServices[serviceId].owner == owner, "serviceOwner: SERVICE_NOT_FOUND");
         _;
     }
 
-    // Check for the existance of the service
+    // Check for the service existence
     modifier serviceExists(uint256 serviceId) {
         require(_mapServices[serviceId].owner != address(0), "serviceExists: NO_SERVICE");
         _;
@@ -199,7 +197,7 @@ contract ServiceRegistry is Ownable {
         emit DeactivateService(owner, serviceId);
     }
 
-    /// @dev Destroys the service instance and frees up its storage.
+    /// @dev Destroys the service instance.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     function destroy(address owner, uint256 serviceId)
@@ -213,25 +211,18 @@ contract ServiceRegistry is Ownable {
         require((service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
             (service.terminationBlock > 0 && service.terminationBlock < block.number), "destroy: SERVICE_ACTIVE");
 
-        // Cleaning up maps and deleting the service instance
-        uint256 i;
-        for (; i < service.agentIds.length; i++) {
-            delete service.mapAgentInstances[service.agentIds[i]];
-            delete service.mapAgentSlots[service.agentIds[i]];
-        }
-        _mapOwnerServices[owner][serviceId] = false;
+        service.owner = address(0);
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (i = 0; i < numServices; i++) {
+        for (uint256 i; i < numServices; i++) {
             if (_mapOwnerSetServices[owner][i] == serviceId) {
+                // Pop the destroyed service Id
+                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
+                _mapOwnerSetServices[owner].pop();
                 break;
             }
         }
-        // Pop the destroyed service Id
-        _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
-        _mapOwnerSetServices[owner].pop();
-        delete _mapServices[serviceId];
 
         // Reduce the actual number of services
         _actualNumServices--;
@@ -283,10 +274,10 @@ contract ServiceRegistry is Ownable {
         onlyManager
         returns (uint256 serviceId)
     {
-        // Check for the non-empty address
+        // Check for the non-empty owner address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-        // Execute initial checks
+    // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
         // Array of indexes when creating a new service is just the exact sequence of increasing indexes
@@ -299,8 +290,8 @@ contract ServiceRegistry is Ownable {
         }
 
         // Create a new service Id
-        _serviceIds.increment();
-        serviceId = _serviceIds.current();
+        _serviceIds++;
+        serviceId = _serviceIds;
 
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
@@ -314,9 +305,10 @@ contract ServiceRegistry is Ownable {
         // Calculate the rest of service components
         _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
 
-        // The service is initiated (but not yet active)
-        _mapOwnerServices[service.owner][serviceId] = true;
+        // Add service to the set of services for the owner
         _mapOwnerSetServices[owner].push(serviceId);
+
+        // Increment the total number of services
         _actualNumServices++;
 
         emit CreateServiceTransaction(owner, name, threshold, serviceId);
@@ -427,7 +419,8 @@ contract ServiceRegistry is Ownable {
             "registerAgent: SLOTS_FILLED");
 
         // Add agent instance and operator and set the instance engagement
-        service.mapAgentInstances[agentId].push(Instance(agent, operator));
+        service.mapAgentInstances[agentId].push(agent);
+        service.mapAgentInstancesOperators[agent] = operator;
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = true;
 
@@ -437,7 +430,7 @@ contract ServiceRegistry is Ownable {
     /// @dev Creates Gnosis Safe proxy.
     /// @param gParams Structure with parameters to setup Gnosis Safe.
     /// @return Address of the created proxy.
-    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns(address) {
+    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns (address) {
         bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
             gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
             gParams.paymentReceiver);
@@ -450,13 +443,13 @@ contract ServiceRegistry is Ownable {
     /// @dev Gets all agent instances
     /// @param agentInstances Pre-allocated list of agent instance addresses.
     /// @param service Service instance.
-    function _getAgentInstances(Service storage service) private view returns(address[] memory agentInstances) {
+    function _getAgentInstances(Service storage service) private view returns (address[] memory agentInstances) {
         agentInstances = new address[](service.numAgentInstances);
         uint256 count;
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             uint256 agentId = service.agentIds[i];
             for (uint256 j = 0; j < service.mapAgentInstances[agentId].length; j++) {
-                agentInstances[count] = service.mapAgentInstances[agentId][j].agent;
+                agentInstances[count] = service.mapAgentInstances[agentId][j];
                 count++;
             }
         }
@@ -506,7 +499,7 @@ contract ServiceRegistry is Ownable {
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
-    function exists(uint256 serviceId) public view returns(bool) {
+    function exists(uint256 serviceId) public view returns (bool) {
         return _mapServices[serviceId].owner != address(0);
     }
 
@@ -515,7 +508,7 @@ contract ServiceRegistry is Ownable {
     /// @return maxServiceId Max serviceId number.
     function totalSupply() public view returns (uint256 actualNumServices, uint256 maxServiceId) {
         actualNumServices = _actualNumServices;
-        maxServiceId = _serviceIds.current();
+        maxServiceId = _serviceIds;
     }
 
     /// @dev Gets the number of services.
@@ -595,7 +588,7 @@ contract ServiceRegistry is Ownable {
         numAgentInstances = service.mapAgentInstances[agentId].length;
         agentInstances = new address[](numAgentInstances);
         for (uint256 i = 0; i < numAgentInstances; i++) {
-            agentInstances[i] = service.mapAgentInstances[agentId][i].agent;
+            agentInstances[i] = service.mapAgentInstances[agentId][i];
         }
     }
 }

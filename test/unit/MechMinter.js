@@ -19,15 +19,14 @@ describe("MechMinter", function () {
         await agentRegistry.deployed();
 
         const MechMinter = await ethers.getContractFactory("MechMinter");
-        mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address, "mech minter",
-            "MECHMINTER");
+        mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address);
         await mechMinter.deployed();
     });
 
     context("Initialization", async function () {
         it("Checking for arguments passed to the constructor", async function () {
-            expect(await mechMinter.name()).to.equal("mech minter");
-            expect(await mechMinter.symbol()).to.equal("MECHMINTER");
+            expect(await mechMinter.componentRegistry()).to.equal(componentRegistry.address);
+            expect(await mechMinter.agentRegistry()).to.equal(agentRegistry.address);
         });
     });
 });

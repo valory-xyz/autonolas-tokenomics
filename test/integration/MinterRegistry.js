@@ -20,8 +20,7 @@ describe("MinterRegistry integration", function () {
         await agentRegistry.deployed();
 
         const MechMinter = await ethers.getContractFactory("MechMinter");
-        mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address, "mech minter",
-            "MECHMINTER");
+        mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address);
         await mechMinter;
         signers = await ethers.getSigners();
     });
@@ -34,10 +33,10 @@ describe("MinterRegistry integration", function () {
             const user = signers[3];
             await expect(
                 mechMinter.mintComponent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("createComponent: MINTER_ONLY");
+            ).to.be.revertedWith("create: MINTER_ONLY");
             await expect(
                 mechMinter.mintAgent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("reateAgent: MINTER_ONLY");
+            ).to.be.revertedWith("create: MINTER_ONLY");
         });
 
         it("Token Id=1 after first successful component creation must exist", async function () {
@@ -47,15 +46,6 @@ describe("MinterRegistry integration", function () {
             await mechMinter.mintComponent(user.address, user.address, componentHash, description, dependencies);
             expect(await componentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await componentRegistry.exists(tokenId)).to.equal(true);
-        });
-
-        it("Catching \"Transfer\" event log after successful creation of a component", async function () {
-            const user = signers[3];
-            await componentRegistry.changeMinter(mechMinter.address);
-            const component = await mechMinter.mintComponent(user.address, user.address,
-                componentHash, description, dependencies);
-            const result = await component.wait();
-            expect(result.events[0].event).to.equal("Transfer");
         });
     });
 

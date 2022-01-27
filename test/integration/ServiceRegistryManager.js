@@ -65,8 +65,8 @@ describe("ServiceRegistry integration", function () {
             const owner = signers[5].address;
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
-            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1", description, []);
+            await agentRegistry.connect(minter).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(minter).create(owner, owner, componentHash + "1", description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
@@ -80,9 +80,9 @@ describe("ServiceRegistry integration", function () {
             const agentInstances = [signers[7].address, signers[8].address, signers[9].address];
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash,
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
@@ -106,11 +106,11 @@ describe("ServiceRegistry integration", function () {
             const owner = signers[5];
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeMinter(minter.address);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash,
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "2",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "2",
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
@@ -134,11 +134,11 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeMinter(minter.address);
 
             // Creating 3 canonical agents
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash,
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "2",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "2",
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -199,9 +199,9 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeMinter(minter.address);
 
             // Creating 2 canonical agents
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash,
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -266,9 +266,9 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeMinter(minter.address);
 
             // Creating 2 canonical agents
-            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash,
+            await agentRegistry.connect(minter).create(owner, owner, componentHash,
                 description, []);
-            await agentRegistry.connect(minter).createAgent(owner, owner, componentHash + "1",
+            await agentRegistry.connect(minter).create(owner, owner, componentHash + "1",
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -310,6 +310,29 @@ describe("ServiceRegistry integration", function () {
             // Getting the set of service Ids of the owner, must be service Id 2 only
             serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
             expect(serviceIdsRet[0] == 2);
+        });
+
+        it("Should fail when trying to update the destroyed service", async function () {
+            const minter = signers[4];
+            const owner = signers[5];
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash,
+                description, []);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "1",
+                description, []);
+            await agentRegistry.connect(minter).create(owner.address, owner.address, componentHash + "2",
+                description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
+            await expect(
+                serviceManager.serviceUpdate(owner.address, name, description, configHash, [1, 2, 3], [3, 0, 4],
+                    maxThreshold, serviceIds[0])
+            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
         });
     });
 });

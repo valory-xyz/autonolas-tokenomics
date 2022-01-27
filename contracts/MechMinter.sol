@@ -1,21 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./AgentRegistry.sol";
-import "./ComponentRegistry.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
+import "./interfaces/IRegistry.sol";
 
 /// @title Mech Minter - Periphery smart contract for managing components and agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract MechMinter is ERC721Pausable, Ownable {
+contract MechMinter is Ownable, Pausable {
     address public immutable componentRegistry;
     address public immutable agentRegistry;
     uint256 private _mintFee;
 
-    // name = "mech minter", symbol = "MECHMINTER"
-    constructor(address _componentRegistry, address _agentRegistry, string memory _name, string memory _symbol)
-        ERC721(_name, _symbol) {
+    constructor(address _componentRegistry, address _agentRegistry) {
         require(_componentRegistry != address(0), "constructor: NULL_ADDRESS");
         componentRegistry = _componentRegistry;
         require(_agentRegistry != address(0), "constructor: NULL_ADDRESS");
@@ -35,8 +32,7 @@ contract MechMinter is ERC721Pausable, Ownable {
         public
         returns (uint256)
     {
-        AgentRegistry agReg = AgentRegistry(agentRegistry);
-        return agReg.createAgent(owner, developer, agentHash, description, dependencies);
+        return IRegistry(agentRegistry).create(owner, developer, agentHash, description, dependencies);
     }
 
     /// @dev Mints component.
@@ -51,7 +47,6 @@ contract MechMinter is ERC721Pausable, Ownable {
         public
         returns (uint256)
     {
-        ComponentRegistry compRegistry = ComponentRegistry(componentRegistry);
-        return compRegistry.createComponent(owner, developer, componentHash, description, dependencies);
+        return IRegistry(componentRegistry).create(owner, developer, componentHash, description, dependencies);
     }
 }
