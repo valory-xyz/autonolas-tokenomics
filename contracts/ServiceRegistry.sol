@@ -6,6 +6,7 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
+import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -93,8 +94,6 @@ contract ServiceRegistry is Ownable {
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
     mapping (address => bool) private _mapAllAgentInstances;
-    // Map for checking on unique canonical agent Ids
-    mapping(uint256 => bool) private _mapAgentIds;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
@@ -104,7 +103,7 @@ contract ServiceRegistry is Ownable {
 
     // Only the manager has a privilege to update a service
     modifier onlyManager {
-        require(_manager == msg.sender, "manager: MANAGER_ONLY");
+        require(_manager == msg.sender, "serviceManager: MANAGER_ONLY");
         _;
     }
 
@@ -145,17 +144,12 @@ contract ServiceRegistry is Ownable {
         // Checking for non-empty arrays and correct number of values in them
         require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
 
-        // Using state map to check for duplicate canonical agent Ids
+        // Check for canonical agent Ids existence and for duplicate Ids
+        uint256 lastId = 0;
         for (uint256 i = 0; i < agentIds.length; i++) {
-            require(!_mapAgentIds[agentIds[i]], "initCheck: DUPLICATE_AGENT");
-            _mapAgentIds[agentIds[i]] = true;
-        }
-
-        // Check for canonical agent Ids existence and setting checked values back to false
-        AgentRegistry agReg = AgentRegistry(agentRegistry);
-        for (uint256 i = 0; i < agentIds.length; i++) {
-            require(agReg.exists(agentIds[i]), "initCheck: AGENT_NOT_FOUND");
-            _mapAgentIds[agentIds[i]] = false;
+            require(agentIds[i] > lastId && IRegistry(agentRegistry).exists(agentIds[i]),
+                "initCheck: WRONG_AGENT_ID");
+            lastId = agentIds[i];
         }
     }
 
@@ -215,7 +209,7 @@ contract ServiceRegistry is Ownable {
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (uint256 i; i < numServices; i++) {
+        for (uint256 i = 0; i < numServices; i++) {
             if (_mapOwnerSetServices[owner][i] == serviceId) {
                 // Pop the destroyed service Id
                 _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
@@ -264,7 +258,7 @@ contract ServiceRegistry is Ownable {
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
-    /// @param agentIds Canonical agent Ids.
+    /// @param agentIds Canonical agent Ids in a sorted ascending order.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @return serviceId Created service Id.
@@ -319,7 +313,7 @@ contract ServiceRegistry is Ownable {
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
-    /// @param agentIds Canonical agent Ids.
+    /// @param agentIds Canonical agent Ids in a sorted ascending order.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.

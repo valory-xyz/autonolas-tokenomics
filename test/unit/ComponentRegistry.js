@@ -25,9 +25,9 @@ describe("ComponentRegistry", function () {
             expect(await componentRegistry.exists(tokenId)).to.equal(false);
         });
 
-        it("Should fail when trying to change the minter from a different address", async function () {
+        it("Should fail when trying to change the mechManager from a different address", async function () {
             await expect(
-                componentRegistry.connect(signers[1]).changeMinter(signers[1].address)
+                componentRegistry.connect(signers[1]).changeManager(signers[1].address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
         });
     });
@@ -36,89 +36,93 @@ describe("ComponentRegistry", function () {
         const description = "component description";
         const componentHash = "0x0";
         const dependencies = [];
-        it("Should fail when creating a component without a minter", async function () {
+        it("Should fail when creating a component without a mechManager", async function () {
             const user = signers[2];
             await expect(
                 componentRegistry.create(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MINTER_ONLY");
+            ).to.be.revertedWith("create: MANAGER_ONLY");
         });
 
         it("Should fail when creating a component with an empty hash", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
+            await componentRegistry.changeManager(mechManager.address);
             await expect(
-                componentRegistry.connect(minter).create(user.address, user.address, "", description,
+                componentRegistry.connect(mechManager).create(user.address, user.address, "", description,
                     dependencies)
             ).to.be.revertedWith("create: EMPTY_HASH");
         });
 
         it("Should fail when creating a component with an empty description", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
+            await componentRegistry.changeManager(mechManager.address);
             await expect(
-                componentRegistry.connect(minter).create(user.address, user.address, componentHash, "",
+                componentRegistry.connect(mechManager).create(user.address, user.address, componentHash, "",
                     dependencies)
             ).to.be.revertedWith("create: NO_DESCRIPTION");
         });
 
         it("Should fail when creating a second component with the same hash", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
-            await componentRegistry.connect(minter).create(user.address, user.address, componentHash,
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                 description, dependencies);
             await expect(
-                componentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                componentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, dependencies)
             ).to.be.revertedWith("create: HASH_EXISTS");
         });
 
         it("Should fail when creating a non-existent component dependency", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
+            await componentRegistry.changeManager(mechManager.address);
             await expect(
-                componentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                componentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, [0])
-            ).to.be.revertedWith("create: NO_COMPONENT_ID");
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
             await expect(
-                componentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                componentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, [1])
-            ).to.be.revertedWith("create: NO_COMPONENT_ID");
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
 
         it("Create a components with duplicate dependencies in the list of dependencies", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
-            await componentRegistry.connect(minter).create(user.address, user.address, "componentHash 0",
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 0",
                 description, []);
-            await componentRegistry.connect(minter).create(user.address, user.address, "componentHash 1",
+            await componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 1",
                 description, [1]);
-            await componentRegistry.connect(minter).create(user.address, user.address, "componentHash 2",
-                description, [1, 1, 1]);
-            await componentRegistry.connect(minter).create(user.address, user.address, "componentHash 3",
-                description, [2, 1, 2, 1, 1, 1, 2]);
+            await expect(
+                componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 2",
+                    description, [1, 1, 1])
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
+            await expect(
+                componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 3",
+                    description, [2, 1, 2, 1, 1, 1, 2])
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
 
         it("Token Id=1 after first successful component creation must exist ", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
             const tokenId = 1;
-            await componentRegistry.changeMinter(minter.address);
-            await componentRegistry.connect(minter).create(user.address, user.address,
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash, description, dependencies);
             expect(await componentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await componentRegistry.exists(tokenId)).to.equal(true);
         });
 
         it("Catching \"Transfer\" event log after successful creation of a component", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await componentRegistry.changeMinter(minter.address);
-            const component = await componentRegistry.connect(minter).create(user.address, user.address,
+            await componentRegistry.changeManager(mechManager.address);
+            const component = await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash, description, dependencies);
             const result = await component.wait();
             expect(result.events[0].event).to.equal("Transfer");
