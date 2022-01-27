@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IRegistry.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -125,27 +126,27 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     }
 
     /// @dev Check for the token / component existence.
-    /// @param _tokenId Token Id.
+    /// @param tokenId Token Id.
     /// @return true if the component exists, false otherwise.
-    function exists(uint256 _tokenId) public view returns (bool) {
-        return _exists(_tokenId);
+    function exists(uint256 tokenId) public view returns (bool) {
+        return _exists(tokenId);
     }
 
     /// @dev Gets the component info.
-    /// @param _tokenId Token Id.
+    /// @param tokenId Token Id.
     /// @return developer The component developer.
     /// @return componentHash The component IPFS hash.
     /// @return description The component description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getComponentInfo(uint256 _tokenId)
+    function getComponentInfo(uint256 tokenId)
         public
         view
         returns (address developer, string memory componentHash, string memory description, uint256 numDependencies,
             uint256[] memory dependencies)
     {
-        require(_exists(_tokenId), "getComponentInfo: NO_COMPONENT");
-        Component storage component = _mapTokenIdComponent[_tokenId];
+        require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
+        Component storage component = _mapTokenIdComponent[tokenId];
         return (component.developer, component.componentHash, component.description, component.dependencies.length,
             component.dependencies);
     }

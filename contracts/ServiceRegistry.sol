@@ -430,7 +430,7 @@ contract ServiceRegistry is Ownable {
     /// @dev Creates Gnosis Safe proxy.
     /// @param gParams Structure with parameters to setup Gnosis Safe.
     /// @return Address of the created proxy.
-    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns(address) {
+    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns (address) {
         bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
             gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
             gParams.paymentReceiver);
@@ -443,7 +443,7 @@ contract ServiceRegistry is Ownable {
     /// @dev Gets all agent instances
     /// @param agentInstances Pre-allocated list of agent instance addresses.
     /// @param service Service instance.
-    function _getAgentInstances(Service storage service) private view returns(address[] memory agentInstances) {
+    function _getAgentInstances(Service storage service) private view returns (address[] memory agentInstances) {
         agentInstances = new address[](service.numAgentInstances);
         uint256 count;
         for (uint256 i = 0; i < service.agentIds.length; i++) {
@@ -499,7 +499,7 @@ contract ServiceRegistry is Ownable {
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
-    function exists(uint256 serviceId) public view returns(bool) {
+    function exists(uint256 serviceId) public view returns (bool) {
         return _mapServices[serviceId].owner != address(0);
     }
 
