@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @dev Required interface for the component / agent manipulation.
+ */
 interface IRegistry {
     // IPFS hash
     struct Multihash {
@@ -9,7 +12,9 @@ interface IRegistry {
         uint8 size;
     }
 
-    // Create component / agent
+    /**
+     * @dev Creates component / agent with specified parameters for the ``owner``.
+     */
     function create(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external

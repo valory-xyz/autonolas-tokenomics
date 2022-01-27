@@ -73,8 +73,8 @@ contract ServiceRegistry is Ownable {
 
     // Selector of the Gnosis Safe setup function
     bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
-    // Default timeout window for getting the agent instances registered for the service
-    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1000;
+    // Default timeout window for getting the agent instances registered for the service (21 days)
+    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1814400;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -197,7 +197,7 @@ contract ServiceRegistry is Ownable {
         emit DeactivateService(owner, serviceId);
     }
 
-    /// @dev Destroys the service instance and frees up its storage.
+    /// @dev Destroys the service instance.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     function destroy(address owner, uint256 serviceId)
