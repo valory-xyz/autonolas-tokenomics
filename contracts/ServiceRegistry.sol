@@ -6,6 +6,7 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
+import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -93,8 +94,6 @@ contract ServiceRegistry is Ownable {
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
     mapping (address => bool) private _mapAllAgentInstances;
-    // Map for checking on unique canonical agent Ids
-    mapping(uint256 => bool) private _mapAgentIds;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
@@ -104,7 +103,7 @@ contract ServiceRegistry is Ownable {
 
     // Only the manager has a privilege to update a service
     modifier onlyManager {
-        require(_manager == msg.sender, "manager: MANAGER_ONLY");
+        require(_manager == msg.sender, "serviceManager: MANAGER_ONLY");
         _;
     }
 
@@ -136,6 +135,7 @@ contract ServiceRegistry is Ownable {
     function initialChecks(string memory name, string memory description, string memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots)
         private
+        view
     {
         // Checks for non-empty strings
         require(bytes(name).length > 0, "initCheck: EMPTY_NAME");
@@ -145,17 +145,12 @@ contract ServiceRegistry is Ownable {
         // Checking for non-empty arrays and correct number of values in them
         require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
 
-        // Using state map to check for duplicate canonical agent Ids
+        // Check for canonical agent Ids existence and for duplicate Ids
+        uint256 lastId = 0;
         for (uint256 i = 0; i < agentIds.length; i++) {
-            require(!_mapAgentIds[agentIds[i]], "initCheck: DUPLICATE_AGENT");
-            _mapAgentIds[agentIds[i]] = true;
-        }
-
-        // Check for canonical agent Ids existence and setting checked values back to false
-        AgentRegistry agReg = AgentRegistry(agentRegistry);
-        for (uint256 i = 0; i < agentIds.length; i++) {
-            require(agReg.exists(agentIds[i]), "initCheck: AGENT_NOT_FOUND");
-            _mapAgentIds[agentIds[i]] = false;
+            require(agentIds[i] > lastId && IRegistry(agentRegistry).exists(agentIds[i]),
+                "initCheck: WRONG_AGENT_ID");
+            lastId = agentIds[i];
         }
     }
 
@@ -215,7 +210,7 @@ contract ServiceRegistry is Ownable {
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (uint256 i; i < numServices; i++) {
+        for (uint256 i = 0; i < numServices; i++) {
             if (_mapOwnerSetServices[owner][i] == serviceId) {
                 // Pop the destroyed service Id
                 _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
@@ -232,25 +227,30 @@ contract ServiceRegistry is Ownable {
 
     /// @dev Sets the service data.
     /// @param service A service instance to fill the data for.
+    /// @param name Name of the service.
+    /// @param description Description of the service.
+    /// @param configHash IPFS hash pointing to the config metadata.
+    /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param addAgentIdsSize Indexes of canonical agent Ids array: ones added in the beginning, those removed at end.
-    /// @param addAgentIdsSize Number of canonical agent Ids to be added to the service.
-    function _setServiceData(Service storage service, uint256[] memory agentIds, uint256[] memory agentNumSlots,
-        uint256[] memory idxAgentIds, uint256 addAgentIdsSize)
+    /// @param size Size of a canonical agent ids set.
+    function _setServiceData(Service storage service, string memory name, string memory description, string memory configHash, uint256 threshold, uint256[] memory agentIds, uint256[] memory agentNumSlots,
+        uint size)
         private
     {
-        // TODO Shall there be a check for if the min operator slot is greater than one of the agent slot number?
+        // Updating high-level data components of the service
+        // Note that the deadline is not updated here since there is a different function for that
+        service.name = name;
+        service.description = description;
+        service.configHash = configHash;
+        service.threshold = threshold;
         service.maxNumAgentInstances = 0;
-        // Based on idxAgentIds array, add canonical agent Ids for the service and the slots map
-        for (uint256 i = 0; i < addAgentIdsSize; i++) {
-            service.agentIds.push(agentIds[idxAgentIds[i]]);
-            service.mapAgentSlots[agentIds[idxAgentIds[i]]] = agentNumSlots[idxAgentIds[i]];
-            service.maxNumAgentInstances += agentNumSlots[idxAgentIds[i]];
-        }
-        // Remove any canonical agent Ids from the slots map, if any
-        for (uint256 i = addAgentIdsSize; i < agentIds.length; i++) {
-            service.mapAgentSlots[agentIds[idxAgentIds[i]]] = 0;
+
+        // Add canonical agent Ids for the service and the slots map
+        for (uint256 i = 0; i < size; i++) {
+            service.agentIds.push(agentIds[i]);
+            service.mapAgentSlots[agentIds[i]] = agentNumSlots[i];
+            service.maxNumAgentInstances += agentNumSlots[i];
         }
 
         // Check for the correct threshold: 2/3 number of agent instances + 1
@@ -264,9 +264,9 @@ contract ServiceRegistry is Ownable {
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
-    /// @param agentIds Canonical agent Ids.
+    /// @param agentIds Canonical agent Ids in a sorted ascending order.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param threshold Signers threshold for a multisig composed by agents.
+    /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @return serviceId Created service Id.
     function createService(address owner, string memory name, string memory description, string memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold)
@@ -277,16 +277,12 @@ contract ServiceRegistry is Ownable {
         // Check for the non-empty owner address
         require(owner != address(0), "createService: EMPTY_OWNER");
 
-    // Execute initial checks
+        // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
-        // Array of indexes when creating a new service is just the exact sequence of increasing indexes
-        // Also, check that there are no zero number of slots for a specific
-        uint256 addAgentIdsSize = agentIds.length;
-        uint256[] memory idxAgentIds = new uint256[](addAgentIdsSize);
-        for (uint256 i = 0; i < addAgentIdsSize; i++) {
+        // Check that there are no zero number of slots for a specific canonical agent id
+        for (uint256 i = 0; i < agentIds.length; i++) {
             require(agentNumSlots[i] > 0, "createService: EMPTY_SLOTS");
-            idxAgentIds[i] = i;
         }
 
         // Create a new service Id
@@ -296,14 +292,10 @@ contract ServiceRegistry is Ownable {
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
         service.owner = owner;
-        service.name = name;
-        service.description = description;
-        service.configHash = configHash;
         service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
-        service.threshold = threshold;
 
-        // Calculate the rest of service components
-        _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
+        // Set service data
+        _setServiceData(service, name, description, configHash, threshold, agentIds, agentNumSlots, agentIds.length);
 
         // Add service to the set of services for the owner
         _mapOwnerSetServices[owner].push(serviceId);
@@ -319,9 +311,9 @@ contract ServiceRegistry is Ownable {
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
-    /// @param agentIds Canonical agent Ids.
+    /// @param agentIds Canonical agent Ids in a sorted ascending order.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    /// @param threshold Signers threshold for a multisig composed by agents.
+    /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
     function updateService(address owner, string memory name, string memory description, string memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
@@ -333,31 +325,23 @@ contract ServiceRegistry is Ownable {
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
-        // Separating into canonical agent Ids that have non-zero number of slots and those that have to be deleted
-        // Creating one array of indexes - beginning with agents Ids to be added, ending with those to be deleted
-        uint256 addAgentIdsSize;
-        uint256 delAgentIdsSize = agentIds.length - 1;
-        uint256[] memory idxAgentIds = new uint256[](agentIds.length);
+        // Collect non-zero canonical agent ids and slots, remove any canonical agent Ids from the slots map
+        Service storage service = _mapServices[serviceId];
+        uint256[] memory newAgentIds = new uint256[](agentIds.length);
+        uint256[] memory newAgentNumSlots = new uint256[](agentIds.length);
+        uint256 size;
         for (uint256 i = 0; i < agentIds.length; i++) {
             if (agentNumSlots[i] == 0) {
-                idxAgentIds[delAgentIdsSize] = i;
-                delAgentIdsSize--;
+                service.mapAgentSlots[agentIds[i]] = 0;
             } else {
-                idxAgentIds[addAgentIdsSize] = i;
-                addAgentIdsSize++;
+                newAgentIds[size] = agentIds[i];
+                newAgentNumSlots[size] = agentNumSlots[i];
+                size++;
             }
         }
 
-        // Obtaining existent service instance and updating its high-level data components
-        // Note that deadline is not updated here since there is a different function for that
-        Service storage service = _mapServices[serviceId];
-        service.name = name;
-        service.description = description;
-        service.configHash = configHash;
-        service.threshold = threshold;
-
-        // Calculate the rest of service components
-        _setServiceData(service, agentIds, agentNumSlots, idxAgentIds, addAgentIdsSize);
+        // Set service data
+        _setServiceData(service, name, description, configHash, threshold, newAgentIds, newAgentNumSlots, size);
 
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }

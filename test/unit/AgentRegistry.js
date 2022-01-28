@@ -31,9 +31,9 @@ describe("AgentRegistry", function () {
             expect(await agentRegistry.exists(tokenId)).to.equal(false);
         });
 
-        it("Should fail when trying to change the minter from a different address", async function () {
+        it("Should fail when trying to change the mechManager from a different address", async function () {
             await expect(
-                agentRegistry.connect(signers[1]).changeMinter(signers[1].address)
+                agentRegistry.connect(signers[1]).changeManager(signers[1].address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
         });
     });
@@ -42,92 +42,92 @@ describe("AgentRegistry", function () {
         const description = "agent description";
         const componentHash = "0x0";
         const dependencies = [];
-        it("Should fail when creating an agent without a minter", async function () {
+        it("Should fail when creating an agent without a mechManager", async function () {
             const user = signers[2];
             await expect(
                 agentRegistry.create(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MINTER_ONLY");
+            ).to.be.revertedWith("create: MANAGER_ONLY");
         });
 
         it("Should fail when creating an agent with an empty hash", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.changeManager(mechManager.address);
             await expect(
-                agentRegistry.connect(minter).create(user.address, user.address, "", description,
+                agentRegistry.connect(mechManager).create(user.address, user.address, "", description,
                     dependencies)
             ).to.be.revertedWith("create: EMPTY_HASH");
         });
 
         it("Should fail when creating an agent with an empty description", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.changeManager(mechManager.address);
             await expect(
-                agentRegistry.connect(minter).create(user.address, user.address, componentHash, "",
+                agentRegistry.connect(mechManager).create(user.address, user.address, componentHash, "",
                     dependencies)
             ).to.be.revertedWith("create: NO_DESCRIPTION");
         });
 
         it("Should fail when creating a second agent with the same hash", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
-            await agentRegistry.connect(minter).create(user.address, user.address, componentHash,
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                 description, dependencies);
             await expect(
-                agentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                agentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, dependencies)
             ).to.be.revertedWith("create: HASH_EXISTS");
         });
 
         it("Should fail when component number is less or equal to zero", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.changeManager(mechManager.address);
             await expect(
-                agentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                agentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, [0])
-            ).to.be.revertedWith("create: NO_COMPONENT_ID");
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
 
         it("Should fail when creating a non-existent component dependency", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
+            await agentRegistry.changeManager(mechManager.address);
             await expect(
-                agentRegistry.connect(minter).create(user.address, user.address, componentHash,
+                agentRegistry.connect(mechManager).create(user.address, user.address, componentHash,
                     description, [1])
-            ).to.be.revertedWith("The component is not found!");
+            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
 
         it("Token Id=1 after first successful agent creation must exist ", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
             const tokenId = 1;
-            await agentRegistry.changeMinter(minter.address);
-            await agentRegistry.connect(minter).create(user.address, user.address,
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash, description, dependencies);
             expect(await agentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await agentRegistry.exists(tokenId)).to.equal(true);
         });
 
         it("Catching \"Transfer\" event log after successful creation of an agent", async function () {
-            const minter = signers[1];
+            const mechManager = signers[1];
             const user = signers[2];
-            await agentRegistry.changeMinter(minter.address);
-            const agent = await agentRegistry.connect(minter).create(user.address, user.address,
+            await agentRegistry.changeManager(mechManager.address);
+            const agent = await agentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash, description, dependencies);
             const result = await agent.wait();
             expect(result.events[0].event).to.equal("Transfer");
         });
 
         //        it("Should fail when creating an agent without a single component dependency", async function () {
-        //            const minter = signers[1];
+        //            const mechManager = signers[1];
         //            const user = signers[2];
-        //            await agentRegistry.changeMinter(minter.address);
+        //            await agentRegistry.changeManager(mechManager.address);
         //            await expect(
-        //                agentRegistry.connect(minter).create(user.address, user.address, componentHash, description,
+        //                agentRegistry.connect(mechManager).create(user.address, user.address, componentHash, description,
         //                dependencies)
         //            ).to.be.revertedWith("Agent must have at least one component dependency");
         //        });

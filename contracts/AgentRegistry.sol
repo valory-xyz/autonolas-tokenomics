@@ -32,14 +32,12 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     string public _BASEURI;
     // Agent counter
     uint256 private _tokenIds;
-    // Agent minter
-    address private _minter;
+    // Agent manager
+    address private _manager;
     // Map of token Id => component
     mapping(uint256 => Agent) private _mapTokenIdAgent;
     // Map of IPFS hash => token Id
     mapping(string => uint256) private _mapHashTokenId;
-    // Map for checking on unique token Ids
-    mapping(uint256 => bool) private _mapDependencies;
 
     // name = "agent", symbol = "MECH"
     constructor(string memory _name, string memory _symbol, string memory _bURI, address _componentRegistry)
@@ -49,10 +47,10 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         componentRegistry = _componentRegistry;
     }
 
-    /// @dev Changes the agent minter.
-    /// @param newMinter Address of a new agent minter.
-    function changeMinter(address newMinter) public onlyOwner {
-        _minter = newMinter;
+    /// @dev Changes the agent manager.
+    /// @param newManager Address of a new agent manager.
+    function changeManager(address newManager) public onlyOwner {
+        _manager = newManager;
     }
 
     /// @dev Set the agent data.
@@ -80,15 +78,15 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     /// @param developer Developer of the agent.
     /// @param agentHash IPFS hash of the agent.
     /// @param description Description of the agent.
-    /// @param dependencies Set of component dependencies.
-    /// @return The minted id of the agent.
+    /// @param dependencies Set of component dependencies in a sorted ascending order.
+    /// @return The id of a minted agent.
     function create(address owner, address developer, string memory agentHash, string memory description,
         uint256[] memory dependencies)
         external
         returns (uint256)
     {
-        // Only the minter has a privilege to create a component
-        require(_minter == msg.sender, "create: MINTER_ONLY");
+        // Only the manager has a privilege to create a component
+        require(_manager == msg.sender, "create: MANAGER_ONLY");
 
         // Checks for non-empty strings and component dependency
         require(bytes(agentHash).length > 0, "create: EMPTY_HASH");
@@ -99,33 +97,18 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         require(_mapHashTokenId[agentHash] == 0, "create: HASH_EXISTS");
 
         // Check for dependencies validity: must be already allocated, must not repeat
-        uint256 uCounter;
-        uint256[] memory uniqueDependencies = new uint256[](dependencies.length);
+        uint256 lastId = 0;
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > 0, "create: NO_COMPONENT_ID");
-            if (_mapDependencies[dependencies[iDep]]) {
-                continue;
-            } else {
-                require(IRegistry(componentRegistry).exists(dependencies[iDep]), "The component is not found!");
-                _mapDependencies[dependencies[iDep]] = true;
-                uniqueDependencies[uCounter] = dependencies[iDep];
-                uCounter++;
-            }
-        }
-
-        // Revert the state of mapping to filter duplicate components to its original state
-        // Allocate array with precise number of unique dependencies
-        uint256[] memory finalDependencies = new uint256[](uCounter);
-        for (uint256 iDep = 0; iDep < uCounter; iDep++) {
-            _mapDependencies[uniqueDependencies[iDep]] = false;
-            finalDependencies[iDep] = uniqueDependencies[iDep];
+            require(dependencies[iDep] > lastId && IRegistry(componentRegistry).exists(dependencies[iDep]),
+                "create: WRONG_COMPONENT_ID");
+            lastId = dependencies[iDep];
         }
 
         // Mint token and initialize the component
         _tokenIds++;
         uint256 newTokenId = _tokenIds;
         _safeMint(owner, newTokenId);
-        _setAgentInfo(newTokenId, developer, agentHash, description, finalDependencies);
+        _setAgentInfo(newTokenId, developer, agentHash, description, dependencies);
 
         return newTokenId;
     }

@@ -3,10 +3,10 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("MinterRegistry integration", function () {
+describe("MechRegistriesManager integration", function () {
     let componentRegistry;
     let agentRegistry;
-    let mechMinter;
+    let registriesManager;
     let signers;
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
@@ -19,31 +19,31 @@ describe("MinterRegistry integration", function () {
             componentRegistry.address);
         await agentRegistry.deployed();
 
-        const MechMinter = await ethers.getContractFactory("MechMinter");
-        mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address);
-        await mechMinter;
+        const RegistriesManager = await ethers.getContractFactory("RegistriesManager");
+        registriesManager = await RegistriesManager.deploy(componentRegistry.address, agentRegistry.address);
+        await registriesManager;
         signers = await ethers.getSigners();
     });
 
-    context("Component creation via minter", async function () {
+    context("Component creation via manager", async function () {
         const description = "component description";
         const componentHash = "0x0";
         const dependencies = [];
-        it("Should fail when creating a component / agent without a minter being white listed", async function () {
+        it("Should fail when creating a component / agent without a manager being white listed", async function () {
             const user = signers[3];
             await expect(
-                mechMinter.mintComponent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MINTER_ONLY");
+                registriesManager.mintComponent(user.address, user.address, componentHash, description, dependencies)
+            ).to.be.revertedWith("create: MANAGER_ONLY");
             await expect(
-                mechMinter.mintAgent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MINTER_ONLY");
+                registriesManager.mintAgent(user.address, user.address, componentHash, description, dependencies)
+            ).to.be.revertedWith("create: MANAGER_ONLY");
         });
 
         it("Token Id=1 after first successful component creation must exist", async function () {
             const user = signers[3];
             const tokenId = 1;
-            await componentRegistry.changeMinter(mechMinter.address);
-            await mechMinter.mintComponent(user.address, user.address, componentHash, description, dependencies);
+            await componentRegistry.changeManager(registriesManager.address);
+            await registriesManager.mintComponent(user.address, user.address, componentHash, description, dependencies);
             expect(await componentRegistry.balanceOf(user.address)).to.equal(1);
             expect(await componentRegistry.exists(tokenId)).to.equal(true);
         });
@@ -53,14 +53,14 @@ describe("MinterRegistry integration", function () {
         const description = "component description";
         it("Create components and agents", async function () {
             const user = signers[3];
-            await componentRegistry.changeMinter(mechMinter.address);
-            await agentRegistry.changeMinter(mechMinter.address);
-            await mechMinter.mintComponent(user.address, user.address, "componentHash 0", description, []);
-            await mechMinter.mintAgent(user.address, user.address, "agentHash 0", description, [1]);
-            await mechMinter.mintComponent(user.address, user.address, "componentHash 1", description, [1]);
-            await mechMinter.mintComponent(user.address, user.address, "componentHash 2", description, [1, 2, 1]);
-            await mechMinter.mintAgent(user.address, user.address, "agentHash 1", description, [2, 1, 1]);
-            await mechMinter.mintComponent(user.address, user.address, "componentHash 3", description, [3, 1]);
+            await componentRegistry.changeManager(registriesManager.address);
+            await agentRegistry.changeManager(registriesManager.address);
+            await registriesManager.mintComponent(user.address, user.address, "componentHash 0", description, []);
+            await registriesManager.mintAgent(user.address, user.address, "agentHash 0", description, [1]);
+            await registriesManager.mintComponent(user.address, user.address, "componentHash 1", description, [1]);
+            await registriesManager.mintComponent(user.address, user.address, "componentHash 2", description, [1, 2]);
+            await registriesManager.mintAgent(user.address, user.address, "agentHash 1", description, [1, 2]);
+            await registriesManager.mintComponent(user.address, user.address, "componentHash 3", description, [1, 3]);
 
             expect(await componentRegistry.balanceOf(user.address)).to.equal(4);
             expect(await componentRegistry.exists(3)).to.equal(true);

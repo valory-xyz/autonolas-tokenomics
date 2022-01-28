@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IRegistry.sol";
 
-/// @title Mech Minter - Periphery smart contract for managing components and agents
+/// @title Registries Manager - Periphery smart contract for managing components and agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract MechMinter is Ownable, Pausable {
+contract RegistriesManager is Ownable, Pausable {
     address public immutable componentRegistry;
     address public immutable agentRegistry;
     uint256 private _mintFee;
@@ -19,14 +19,13 @@ contract MechMinter is Ownable, Pausable {
         agentRegistry = _agentRegistry;
     }
 
-    // TODO Need to use delegatecall or other more optimal ways in order to save on gas
     /// @dev Mints agent.
     /// @param owner Owner of the agent.
     /// @param developer Developer of the agent.
     /// @param agentHash IPFS hash of the agent.
     /// @param description Description of the agent.
-    /// @param dependencies Set of component dependencies.
-    /// @return The minted id of the agent.
+    /// @param dependencies Set of component dependencies in a sorted ascending order.
+    /// @return The id of a minted agent.
     function mintAgent(address owner, address developer, string memory agentHash,
         string memory description, uint256[] memory dependencies)
         public
@@ -40,8 +39,8 @@ contract MechMinter is Ownable, Pausable {
     /// @param developer Developer of the component.
     /// @param componentHash IPFS hash of the component.
     /// @param description Description of the component.
-    /// @param dependencies Set of component dependencies.
-    /// @return The minted id of the component.
+    /// @param dependencies Set of component dependencies in a sorted ascending order.
+    /// @return The id of a minted component.
     function mintComponent(address owner, address developer, string memory componentHash,
         string memory description, uint256[] memory dependencies)
         public

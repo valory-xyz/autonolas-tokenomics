@@ -30,14 +30,12 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     string public _BASEURI;
     // Component counter
     uint256 private _tokenIds;
-    // Component minter
-    address private _minter;
+    // Component manager
+    address private _manager;
     // Map of token Id => component
     mapping(uint256 => Component) private _mapTokenIdComponent;
     // Map of IPFS hash => token Id
     mapping(string => uint256) private _mapHashTokenId;
-    // Map for checking on unique token Ids
-    mapping(uint256 => bool) private _mapDependencies;
 
     // name = "agent components", symbol = "MECHCOMP"
     constructor(string memory _name, string memory _symbol, string memory _bURI) ERC721(_name, _symbol) {
@@ -45,10 +43,10 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         _BASEURI = _bURI;
     }
 
-    /// @dev Changes the component minter.
-    /// @param newMinter Address of a new component minter.
-    function changeMinter(address newMinter) public onlyOwner {
-        _minter = newMinter;
+    /// @dev Changes the component manager.
+    /// @param newManager Address of a new component manager.
+    function changeManager(address newManager) public onlyOwner {
+        _manager = newManager;
     }
 
     /// @dev Sets the component data.
@@ -76,15 +74,15 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     /// @param developer Developer of the component.
     /// @param componentHash IPFS hash of the component.
     /// @param description Description of the component.
-    /// @param dependencies Set of component dependencies.
-    /// @return The minted id of the component.
+    /// @param dependencies Set of component dependencies in a sorted ascending order.
+    /// @return The id of a minted component.
     function create(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
         returns (uint256)
     {
-        // Only the minter has a privilege to create a component
-        require(_minter == msg.sender, "create: MINTER_ONLY");
+        // Only the manager has a privilege to create a component
+        require(_manager == msg.sender, "create: MANAGER_ONLY");
 
         // Checks for non-empty strings
         // How can we check for garbage hashes?
@@ -95,33 +93,18 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         require(_mapHashTokenId[componentHash] == 0, "create: HASH_EXISTS");
         
         // Check for dependencies validity: must be already allocated, must not repeat
-        uint256 uCounter;
-        uint256[] memory uniqueDependencies = new uint256[](dependencies.length);
+        uint256 lastId = 0;
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > 0 && dependencies[iDep] <= _tokenIds,
-                "create: NO_COMPONENT_ID");
-            if (_mapDependencies[dependencies[iDep]]) {
-                continue;
-            } else {
-                _mapDependencies[dependencies[iDep]] = true;
-                uniqueDependencies[uCounter] = dependencies[iDep];
-                uCounter++;
-            }
-        }
-
-        // Revert the state of mapping to filter duplicate components to its original state
-        // Allocate array with precise number of unique dependencies
-        uint256[] memory finalDependencies = new uint256[](uCounter);
-        for (uint256 iDep = 0; iDep < uCounter; iDep++) {
-            _mapDependencies[uniqueDependencies[iDep]] = false;
-            finalDependencies[iDep] = uniqueDependencies[iDep];
+            require(dependencies[iDep] > lastId && dependencies[iDep] <= _tokenIds,
+                "create: WRONG_COMPONENT_ID");
+            lastId = dependencies[iDep];
         }
 
         // Mint token and initialize the component
         _tokenIds++;
         uint256 newTokenId = _tokenIds;
         _safeMint(owner, newTokenId);
-        _setComponentInfo(newTokenId, developer, componentHash, description, finalDependencies);
+        _setComponentInfo(newTokenId, developer, componentHash, description, dependencies);
         return newTokenId;
     }
 
