@@ -367,7 +367,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1);
             await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], 1000);
             await expect(
                 serviceManager.connect(owner).serviceDestroy(serviceIds[0])
