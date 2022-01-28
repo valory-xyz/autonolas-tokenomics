@@ -42,7 +42,6 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     // name = "agent", symbol = "MECH"
     constructor(string memory _name, string memory _symbol, string memory _bURI, address _componentRegistry)
         ERC721(_name, _symbol) {
-        require(bytes(_bURI).length > 0, "Base URI can not be empty");
         _BASEURI = _bURI;
         componentRegistry = _componentRegistry;
     }
@@ -127,7 +126,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
     /// @return description The agent description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getAgentInfo(uint256 tokenId)
+    function getMechInfo(uint256 tokenId)
         public
         view
         returns (address developer, string memory agentHash, string memory description, uint256 numDependencies,
@@ -138,9 +137,21 @@ contract AgentRegistry is ERC721Enumerable, Ownable {
         return (agent.developer, agent.agentHash, agent.description, agent.dependencies.length, agent.dependencies);
     }
 
-    /// @dev Returns base URI that was set in the constructor.
+    /// @dev Returns agent base URI.
     /// @return base URI string.
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
+    }
+
+    /// @dev Returns agent base URI.
+    /// @return base URI string.
+    function getBaseURI() public view returns (string memory) {
+        return _baseURI();
+    }
+
+    /// @dev Sets agent base URI.
+    /// @param bURI base URI string.
+    function setBaseURI(string memory bURI) public onlyOwner {
+        _BASEURI = bURI;
     }
 }

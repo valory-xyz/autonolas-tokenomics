@@ -50,19 +50,17 @@ contract ServiceManager is Ownable {
     }
 
     /// @dev Sets service registration window time.
-    /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     /// @param time Registration time limit.
-    function serviceSetRegistrationWindow(address owner, uint256 serviceId, uint256 time) public {
-        IService(serviceRegistry).setRegistrationWindow(owner, serviceId, time);
+    function serviceSetRegistrationWindow(uint256 serviceId, uint256 time) public {
+        IService(serviceRegistry).setRegistrationWindow(msg.sender, serviceId, time);
     }
 
     /// @dev Sets service termination block.
-    /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     /// @param blockNum Termination block. If 0 is passed then there is no termination.
-    function serviceSetTerminationBlock(address owner, uint256 serviceId, uint256 blockNum) public {
-        IService(serviceRegistry).setTerminationBlock(owner, serviceId, blockNum);
+    function serviceSetTerminationBlock(uint256 serviceId, uint256 blockNum) public {
+        IService(serviceRegistry).setTerminationBlock(msg.sender, serviceId, blockNum);
     }
 
     /// @dev Registers the agent instance.

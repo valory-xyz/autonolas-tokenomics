@@ -334,6 +334,45 @@ describe("ServiceRegistry integration", function () {
                     maxThreshold, serviceIds[0])
             ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
         });
+
+        it("Should fail when registering an agent instance after the timeout", async function () {
+            const mechManager = signers[4];
+            const owner = signers[5];
+            const operator = signers[6];
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
+            await serviceManager.connect(owner).serviceSetRegistrationWindow(serviceIds[0], 0);
+            await expect(
+                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
+            ).to.be.revertedWith("registerAgent: TIMEOUT");
+        });
+
+        it("Should fail when trying to destroy a service with the block number not reached", async function () {
+            const mechManager = signers[4];
+            const owner = signers[5];
+            const operator = signers[6];
+            const agentInstance = signers[7].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash + "1", description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
+                maxThreshold);
+            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
+            await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], 1000);
+            await expect(
+                serviceManager.connect(owner).serviceDestroy(serviceIds[0])
+            ).to.be.revertedWith("destroy: SERVICE_ACTIVE");
+        });
     });
 });
 

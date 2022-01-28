@@ -13,9 +13,7 @@ contract RegistriesManager is Ownable, Pausable {
     uint256 private _mintFee;
 
     constructor(address _componentRegistry, address _agentRegistry) {
-        require(_componentRegistry != address(0), "constructor: NULL_ADDRESS");
         componentRegistry = _componentRegistry;
-        require(_agentRegistry != address(0), "constructor: NULL_ADDRESS");
         agentRegistry = _agentRegistry;
     }
 
