@@ -15,18 +15,17 @@ async function main() {
         componentRegistry.address);
     await agentRegistry.deployed();
 
-    const MechMinter = await ethers.getContractFactory("MechMinter");
-    const mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address, "mech minter",
-        "MECHMINTER");
-    await mechMinter.deployed();
+    const RegistriesManager = await ethers.getContractFactory("RegistriesManager");
+    const registriesManager = await RegistriesManager.deploy(componentRegistry.address, agentRegistry.address);
+    await registriesManager.deployed();
 
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
-    console.log("MechMinter deployed to:", mechMinter.address);
+    console.log("RegistriesManager deployed to:", registriesManager.address);
 
-    await componentRegistry.changeMinter(mechMinter.address);
-    await agentRegistry.changeMinter(mechMinter.address);
-    console.log("Whitelisted MechMinter addresses to both ComponentRegistry and AgentRegistry contract instances");
+    await componentRegistry.changeManager(registriesManager.address);
+    await agentRegistry.changeManager(registriesManager.address);
+    console.log("Whitelisted RegistriesManager addresses to both ComponentRegistry and AgentRegistry contract instances");
 }
 
 main()

@@ -19,6 +19,8 @@ jobs:
         run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol
       - name: Run tests
         run: ./node_modules/.bin/hardhat test
+      - name: Run script(s)
+        run: ./node_modules/.bin/hardhat run scripts/deploy.js
 
   docker:
     runs-on: ubuntu-latest

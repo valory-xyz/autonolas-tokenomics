@@ -18,20 +18,19 @@ module.exports = async () => {
     await agentRegistry.deployed();
 
     // Deploying minter
-    const MechMinter = await ethers.getContractFactory("MechMinter");
-    const mechMinter = await MechMinter.deploy(componentRegistry.address, agentRegistry.address, "mech minter",
-        "MECHMINTER");
-    await mechMinter.deployed();
+    const RegistriesManager = await ethers.getContractFactory("RegistriesManager");
+    const registriesManager = await RegistriesManager.deploy(componentRegistry.address, agentRegistry.address);
+    await registriesManager.deployed();
 
     console.log("ComponentRegistry deployed to:", componentRegistry.address);
     console.log("AgentRegistry deployed to:", agentRegistry.address);
-    console.log("MechMinter deployed to:", mechMinter.address);
+    console.log("RegistriesManager deployed to:", registriesManager.address);
 
     // Whitelisting minter in component and agent registry
-    await componentRegistry.changeMinter(mechMinter.address);
-    await agentRegistry.changeMinter(mechMinter.address);
-    console.log("Whitelisted MechMinter addresses to both ComponentRegistry and AgentRegistry contract instances");
-
+    await componentRegistry.changeManager(registriesManager.address);
+    await agentRegistry.changeManager(registriesManager.address);
+    console.log("Whitelisted RegistriesManager addresses to both ComponentRegistry and AgentRegistry contract instances");
+    
     // Test address, IPFS hashes and descriptions
     const testAddress = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
     const compHs = ["QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB",
@@ -43,11 +42,11 @@ module.exports = async () => {
     const agentDs = ["Agent 1", "Agent 2"];
     const configHash = "QmWWQKpEjPHPUZSuPMS6aXCbZN2NjBsV4X3vb2t3YrhJTH";
     // Create 3 components and two agents based on them
-    await mechMinter.mintComponent(testAddress, testAddress, compHs[0], compDs[0], []);
-    await mechMinter.mintAgent(testAddress, testAddress, agentHs[0], agentDs[0], [1]);
-    await mechMinter.mintComponent(testAddress, testAddress, compHs[1], compDs[1], [1]);
-    await mechMinter.mintComponent(testAddress, testAddress, compHs[2], compDs[2], [1, 2]);
-    await mechMinter.mintAgent(testAddress, testAddress, agentHs[1], agentDs[1], [1, 2, 3]);
+    await registriesManager.mintComponent(testAddress, testAddress, compHs[0], compDs[0], []);
+    await registriesManager.mintAgent(testAddress, testAddress, agentHs[0], agentDs[0], [1]);
+    await registriesManager.mintComponent(testAddress, testAddress, compHs[1], compDs[1], [1]);
+    await registriesManager.mintComponent(testAddress, testAddress, compHs[2], compDs[2], [1, 2]);
+    await registriesManager.mintAgent(testAddress, testAddress, agentHs[1], agentDs[1], [1, 2, 3]);
     const componentBalance = await componentRegistry.balanceOf(testAddress);
     const agentBalance = await agentRegistry.balanceOf(testAddress);
     console.log("Owner of minted components and agents:", testAddress);
@@ -97,7 +96,7 @@ module.exports = async () => {
     let initDeployJSON = {
         "componentRegistry": componentRegistry.address,
         "agentRegistry": agentRegistry.address,
-        "mechMinter": mechMinter.address,
+        "registriesManager": registriesManager.address,
         "serviceRegistry": serviceRegistry.address,
         "serviceManager": serviceManager.address
     };
