@@ -33,7 +33,6 @@ contract ServiceManager is Ownable {
     }
 
     /// @dev Updates a service in a CRUD way.
-    /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
@@ -41,11 +40,11 @@ contract ServiceManager is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function serviceUpdate(address owner, string memory name, string memory description, string memory configHash,
+    function serviceUpdate(string memory name, string memory description, string memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        IService(serviceRegistry).updateService(owner, name, description, configHash, agentIds, agentNumSlots,
+        IService(serviceRegistry).updateService(msg.sender, name, description, configHash, agentIds, agentNumSlots,
             threshold, serviceId);
     }
 

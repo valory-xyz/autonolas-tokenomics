@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-// TODO GnosisSafeL2 is included for automatic ABI creation, need to remove before actual deployment
-import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
@@ -74,7 +72,7 @@ contract ServiceRegistry is Ownable {
     }
 
     // Selector of the Gnosis Safe setup function
-    bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
+    bytes4 internal constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
     // Default timeout window for getting the agent instances registered for the service (21 days)
     uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1814400;
     // Agent Registry
