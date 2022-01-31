@@ -18,6 +18,7 @@ describe("ComponentRegistry", function () {
         it("Checking for arguments passed to the constructor", async function () {
             expect(await componentRegistry.name()).to.equal("agent components");
             expect(await componentRegistry.symbol()).to.equal("MECHCOMP");
+            expect(await componentRegistry.getBaseURI()).to.equal("https://localhost/component/");
         });
 
         it("Should fail when checking for the token id existence", async function () {
@@ -29,6 +30,11 @@ describe("ComponentRegistry", function () {
             await expect(
                 componentRegistry.connect(signers[1]).changeManager(signers[1].address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("Setting the base URI", async function () {
+            await componentRegistry.setBaseURI("https://localhost2/component/");
+            expect(await componentRegistry.getBaseURI()).to.equal("https://localhost2/component/");
         });
     });
 
@@ -107,7 +113,7 @@ describe("ComponentRegistry", function () {
             ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
 
-        it("Token Id=1 after first successful component creation must exist ", async function () {
+        it("Token Id=1 after first successful component creation must exist", async function () {
             const mechManager = signers[1];
             const user = signers[2];
             const tokenId = 1;
@@ -128,6 +134,29 @@ describe("ComponentRegistry", function () {
             expect(result.events[0].event).to.equal("Transfer");
         });
 
-        // tests for getComponentInfo
+        it("Getting component info after its creation", async function () {
+            const mechManager = signers[1];
+            const user = signers[2];
+            const tokenId = 3;
+            const lastDependencies = [1, 2];
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash, description, dependencies);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash + "1", description, dependencies);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash + "2", description + "2", lastDependencies);
+            const compInfo = await componentRegistry.getInfo(tokenId);
+            expect(compInfo.developer == user.address);
+            expect(compInfo.componentHash == componentHash + "2");
+            expect(compInfo.description == description + "2");
+            expect(compInfo.numDependencies == lastDependencies.length);
+            for (let i = 0; i < lastDependencies.length; i++) {
+                expect(compInfo.dependencies[i] == lastDependencies[i]);
+            }
+            await expect(
+                componentRegistry.getInfo(tokenId + 1)
+            ).to.be.revertedWith("getComponentInfo: NO_COMPONENT");
+        });
     });
 });

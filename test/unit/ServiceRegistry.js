@@ -351,26 +351,6 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("registerAgent: REGISTERED");
         });
 
-        it("Should fail when registering an agent instance after the timeout", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-            const operator = signers[6].address;
-            const agentInstance = signers[7].address;
-            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash + "1", description, []);
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
-                agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).setRegistrationWindow(owner, serviceId, 0);
-            await expect(
-                serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("registerAgent: TIMEOUT");
-        });
-
         it("Should fail when registering an agent instance for non existent canonical agent Id", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
@@ -604,27 +584,6 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("destroy: SERVICE_ACTIVE");
         });
 
-        it("Should fail when trying to destroy a service with the block number not reached", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-            const operator = signers[6].address;
-            const agentInstance = signers[7].address;
-            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash + "1", description, []);
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
-                agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
-            await expect(
-                serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
-            ).to.be.revertedWith("destroy: SERVICE_ACTIVE");
-        });
-
         it("Catching \"DestroyService\" event. Service is destroyed without agent instances", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
@@ -815,6 +774,7 @@ describe("ServiceRegistry", function () {
             }
             const agentInstancesInfo = await serviceRegistry.getInstancesForAgentId(serviceId, agentId);
             expect(agentInstancesInfo.agentInstances == 0);
+            expect(agentInstancesInfo.numAgentInstances == 0);
 
             // Creating a second service and do basic checks
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIdsCheck,

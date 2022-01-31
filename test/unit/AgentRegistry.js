@@ -24,6 +24,7 @@ describe("AgentRegistry", function () {
         it("Checking for arguments passed to the constructor", async function () {
             expect(await agentRegistry.name()).to.equal("agent");
             expect(await agentRegistry.symbol()).to.equal("MECH");
+            expect(await agentRegistry.getBaseURI()).to.equal("https://localhost/agent/");
         });
 
         it("Should fail when checking for the token id existence", async function () {
@@ -35,6 +36,11 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(signers[1]).changeManager(signers[1].address)
             ).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("Setting the base URI", async function () {
+            await agentRegistry.setBaseURI("https://localhost2/agent/");
+            expect(await agentRegistry.getBaseURI()).to.equal("https://localhost2/agent/");
         });
     });
 
@@ -120,6 +126,32 @@ describe("AgentRegistry", function () {
                 componentHash, description, dependencies);
             const result = await agent.wait();
             expect(result.events[0].event).to.equal("Transfer");
+        });
+
+        it("Getting agent info after its creation", async function () {
+            const mechManager = signers[1];
+            const user = signers[2];
+            const tokenId = 1;
+            const lastDependencies = [1, 2];
+            await componentRegistry.changeManager(mechManager.address);
+            await agentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash, description, dependencies);
+            await componentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash + "1", description, dependencies);
+            await agentRegistry.connect(mechManager).create(user.address, user.address,
+                componentHash + "2", description + "2", lastDependencies);
+            const agentInfo = await agentRegistry.getInfo(tokenId);
+            expect(agentInfo.developer == user.address);
+            expect(agentInfo.componentHash == componentHash + "2");
+            expect(agentInfo.description == description + "2");
+            expect(agentInfo.numDependencies == lastDependencies.length);
+            for (let i = 0; i < lastDependencies.length; i++) {
+                expect(agentInfo.dependencies[i] == lastDependencies[i]);
+            }
+            await expect(
+                agentRegistry.getInfo(tokenId + 1)
+            ).to.be.revertedWith("getComponentInfo: NO_AGENT");
         });
 
         //        it("Should fail when creating an agent without a single component dependency", async function () {

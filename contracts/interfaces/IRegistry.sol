@@ -29,4 +29,25 @@ interface IRegistry is IERC721Enumerable {
      * @dev Check for the component / agent existence.
      */
     function exists(uint256 tokenId) external view returns (bool);
+
+    /**
+     * @dev Gets the component / agent info.
+     */
+    function getInfo(uint256 tokenId) external view returns (
+        address developer,
+        string memory agentHash,
+        string memory description,
+        uint256 numDependencies,
+        uint256[] memory dependencies
+    );
+
+    /**
+     * @dev Returns component base URI.
+     */
+    function getBaseURI() external view returns (string memory);
+
+    /**
+     * @dev Sets component base URI.
+     */
+    function setBaseURI(string memory bURI) external;
 }

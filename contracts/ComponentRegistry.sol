@@ -3,11 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IRegistry.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ComponentRegistry is ERC721Enumerable, Ownable {
+contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     // Possible differentiation of component types
     enum ComponentType {CTYPE0, CTYPE1}
 
@@ -39,7 +40,6 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
 
     // name = "agent components", symbol = "MECHCOMP"
     constructor(string memory _name, string memory _symbol, string memory _bURI) ERC721(_name, _symbol) {
-        require(bytes(_bURI).length > 0, "Base URI can not be empty");
         _BASEURI = _bURI;
     }
 
@@ -79,6 +79,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     function create(address owner, address developer, string memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
+        nonReentrant
         returns (uint256)
     {
         // Only the manager has a privilege to create a component
@@ -103,8 +104,9 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
         // Mint token and initialize the component
         _tokenIds++;
         uint256 newTokenId = _tokenIds;
-        _safeMint(owner, newTokenId);
         _setComponentInfo(newTokenId, developer, componentHash, description, dependencies);
+        _safeMint(owner, newTokenId);
+
         return newTokenId;
     }
 
@@ -122,7 +124,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
     /// @return description The component description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getComponentInfo(uint256 tokenId)
+    function getInfo(uint256 tokenId)
         public
         view
         returns (address developer, string memory componentHash, string memory description, uint256 numDependencies,
@@ -134,9 +136,21 @@ contract ComponentRegistry is ERC721Enumerable, Ownable {
             component.dependencies);
     }
 
-    /// @dev Returns base URI that was set in the constructor.
+    /// @dev Returns component base URI.
     /// @return base URI string.
     function _baseURI() internal view override returns (string memory) {
         return _BASEURI;
+    }
+
+    /// @dev Returns component base URI.
+    /// @return base URI string.
+    function getBaseURI() public view returns (string memory) {
+        return _baseURI();
+    }
+
+    /// @dev Sets component base URI.
+    /// @param bURI base URI string.
+    function setBaseURI(string memory bURI) public onlyOwner {
+        _BASEURI = bURI;
     }
 }
