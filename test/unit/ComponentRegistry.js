@@ -6,6 +6,11 @@ const { ethers } = require("hardhat");
 describe("ComponentRegistry", function () {
     let componentRegistry;
     let signers;
+    const description = "component description";
+    const componentHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const componentHash1 = {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const dependencies = [];
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -39,9 +44,6 @@ describe("ComponentRegistry", function () {
     });
 
     context("Component creation", async function () {
-        const description = "component description";
-        const componentHash = "0x0";
-        const dependencies = [];
         it("Should fail when creating a component without a mechManager", async function () {
             const user = signers[2];
             await expect(
@@ -49,14 +51,20 @@ describe("ComponentRegistry", function () {
             ).to.be.revertedWith("create: MANAGER_ONLY");
         });
 
-        it("Should fail when creating a component with an empty hash", async function () {
+        it("Should fail when creating a component with a wrong IPFS hash header", async function () {
+            const wrongComponentHashes = [{hash: "0x" + "0".repeat(64), hashFunction: "0x11", size: "0x20"},
+                {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x19"}];
             const mechManager = signers[1];
             const user = signers[2];
             await componentRegistry.changeManager(mechManager.address);
             await expect(
-                componentRegistry.connect(mechManager).create(user.address, user.address, "", description,
-                    dependencies)
-            ).to.be.revertedWith("create: EMPTY_HASH");
+                componentRegistry.connect(mechManager).create(user.address, user.address, wrongComponentHashes[0],
+                    description, dependencies)
+            ).to.be.revertedWith("create: WRONG_HASH");
+            await expect(
+                componentRegistry.connect(mechManager).create(user.address, user.address, wrongComponentHashes[1],
+                    description, dependencies)
+            ).to.be.revertedWith("create: WRONG_HASH");
         });
 
         it("Should fail when creating a component with an empty description", async function () {
@@ -99,16 +107,17 @@ describe("ComponentRegistry", function () {
             const mechManager = signers[1];
             const user = signers[2];
             await componentRegistry.changeManager(mechManager.address);
-            await componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 0",
-                description, []);
-            await componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 1",
-                description, [1]);
+            let compHash = componentHash;
+            await componentRegistry.connect(mechManager).create(user.address, user.address, compHash, description, []);
+            compHash.hash = "0x" + "0".repeat(63) + "1";
+            await componentRegistry.connect(mechManager).create(user.address, user.address, compHash, description, [1]);
+            compHash.hash = "0x" + "0".repeat(63) + "2";
             await expect(
-                componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 2",
+                componentRegistry.connect(mechManager).create(user.address, user.address, compHash,
                     description, [1, 1, 1])
             ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
             await expect(
-                componentRegistry.connect(mechManager).create(user.address, user.address, "componentHash 3",
+                componentRegistry.connect(mechManager).create(user.address, user.address, compHash,
                     description, [2, 1, 2, 1, 1, 1, 2])
             ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
         });
@@ -143,12 +152,12 @@ describe("ComponentRegistry", function () {
             await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash, description, dependencies);
             await componentRegistry.connect(mechManager).create(user.address, user.address,
-                componentHash + "1", description, dependencies);
+                componentHash1, description, dependencies);
             await componentRegistry.connect(mechManager).create(user.address, user.address,
-                componentHash + "2", description + "2", lastDependencies);
+                componentHash2, description + "2", lastDependencies);
             const compInfo = await componentRegistry.getInfo(tokenId);
             expect(compInfo.developer == user.address);
-            expect(compInfo.componentHash == componentHash + "2");
+            expect(compInfo.componentHash == componentHash2);
             expect(compInfo.description == description + "2");
             expect(compInfo.numDependencies == lastDependencies.length);
             for (let i = 0; i < lastDependencies.length; i++) {

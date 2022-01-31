@@ -3,10 +3,11 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IService.sol";
+import "./interfaces/IMultihash.sol";
 
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceManager is Ownable {
+contract ServiceManager is IMultihash, Ownable {
     event GnosisSafeCreate(address multisig);
 
     address public immutable serviceRegistry;
@@ -23,7 +24,7 @@ contract ServiceManager is Ownable {
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Threshold for a multisig composed by agents.
-    function serviceCreate(address owner, string memory name, string memory description, string memory configHash,
+    function serviceCreate(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold)
         public
         returns (uint256)
@@ -40,7 +41,7 @@ contract ServiceManager is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function serviceUpdate(string memory name, string memory description, string memory configHash,
+    function serviceUpdate(string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {

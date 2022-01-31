@@ -8,6 +8,9 @@ describe("MechRegistriesManager integration", function () {
     let agentRegistry;
     let registriesManager;
     let signers;
+    const description = "component description";
+    const componentHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const dependencies = [];
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -26,9 +29,6 @@ describe("MechRegistriesManager integration", function () {
     });
 
     context("Component creation via manager", async function () {
-        const description = "component description";
-        const componentHash = "0x0";
-        const dependencies = [];
         it("Should fail when creating a component / agent without a manager being white listed", async function () {
             const user = signers[3];
             await expect(
@@ -55,12 +55,19 @@ describe("MechRegistriesManager integration", function () {
             const user = signers[3];
             await componentRegistry.changeManager(registriesManager.address);
             await agentRegistry.changeManager(registriesManager.address);
-            await registriesManager.mintComponent(user.address, user.address, "componentHash 0", description, []);
-            await registriesManager.mintAgent(user.address, user.address, "agentHash 0", description, [1]);
-            await registriesManager.mintComponent(user.address, user.address, "componentHash 1", description, [1]);
-            await registriesManager.mintComponent(user.address, user.address, "componentHash 2", description, [1, 2]);
-            await registriesManager.mintAgent(user.address, user.address, "agentHash 1", description, [1, 2]);
-            await registriesManager.mintComponent(user.address, user.address, "componentHash 3", description, [1, 3]);
+            let compHash = componentHash;
+            let agHash = componentHash;
+            await registriesManager.mintComponent(user.address, user.address, compHash, description, []);
+            agHash.hash = "0x1" + "0".repeat(63);
+            await registriesManager.mintAgent(user.address, user.address, agHash, description, [1]);
+            compHash.hash = "0x" + "0".repeat(63) + "1";
+            await registriesManager.mintComponent(user.address, user.address, compHash, description, [1]);
+            compHash.hash = "0x" + "0".repeat(63) + "2";
+            await registriesManager.mintComponent(user.address, user.address, compHash, description, [1, 2]);
+            agHash.hash = "0x2" + "0".repeat(63);
+            await registriesManager.mintAgent(user.address, user.address, agHash, description, [1, 2]);
+            compHash.hash = "0x" + "0".repeat(63) + "3";
+            await registriesManager.mintComponent(user.address, user.address, compHash, description, [1, 3]);
 
             expect(await componentRegistry.balanceOf(user.address)).to.equal(4);
             expect(await componentRegistry.exists(3)).to.equal(true);

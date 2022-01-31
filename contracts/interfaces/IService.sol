@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./IMultihash.sol";
+
 /**
  * @dev Required interface for the service manipulation.
  */
-interface IService {
+interface IService is IMultihash {
     /**
      * @dev Activates the ``serviceId`` of the ``owner``.
      */
@@ -27,7 +29,7 @@ interface IService {
         address owner,
         string memory name,
         string memory description,
-        string memory configHash,
+        Multihash memory configHash,
         uint256[] memory agentIds,
         uint256[] memory agentNumSlots,
         uint256 threshold
@@ -40,7 +42,7 @@ interface IService {
         address owner,
         string memory name,
         string memory description,
-        string memory configHash,
+        Multihash memory configHash,
         uint256[] memory agentIds,
         uint256[] memory agentNumSlots,
         uint256 threshold,

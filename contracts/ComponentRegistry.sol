@@ -8,7 +8,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Possible differentiation of component types
     enum ComponentType {CTYPE0, CTYPE1}
 
@@ -16,7 +16,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
         // Developer of the component
         address developer;
         // IPFS hash of the component
-        string componentHash; // can be obtained via mapping, consider for optimization
+        Multihash componentHash; // can be obtained via mapping, consider for optimization
         // Description of the component
         string description;
         // Set of component dependencies
@@ -36,7 +36,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     // Map of token Id => component
     mapping(uint256 => Component) private _mapTokenIdComponent;
     // Map of IPFS hash => token Id
-    mapping(string => uint256) private _mapHashTokenId;
+    mapping(bytes32 => uint256) private _mapHashTokenId;
 
     // name = "agent components", symbol = "MECHCOMP"
     constructor(string memory _name, string memory _symbol, string memory _bURI) ERC721(_name, _symbol) {
@@ -55,7 +55,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @param componentHash IPFS hash of the component.
     /// @param description Description of the component.
     /// @param dependencies Set of component dependencies.
-    function _setComponentInfo(uint256 tokenId, address developer, string memory componentHash,
+    function _setComponentInfo(uint256 tokenId, address developer, Multihash memory componentHash,
         string memory description, uint256[] memory dependencies)
         private
     {
@@ -66,7 +66,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
         component.dependencies = dependencies;
         component.active = true;
         _mapTokenIdComponent[tokenId] = component;
-        _mapHashTokenId[componentHash] = tokenId;
+        _mapHashTokenId[componentHash.hash] = tokenId;
     }
 
     /// @dev Creates component.
@@ -76,7 +76,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @param description Description of the component.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted component.
-    function create(address owner, address developer, string memory componentHash, string memory description,
+    function create(address owner, address developer, Multihash memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
         nonReentrant
@@ -87,11 +87,11 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         // Checks for non-empty strings
         // How can we check for garbage hashes?
-        require(bytes(componentHash).length > 0, "create: EMPTY_HASH");
+        require(componentHash.hashFunction == 0x12 && componentHash.size == 0x20, "create: WRONG_HASH");
         require(bytes(description).length > 0, "create: NO_DESCRIPTION");
 
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[componentHash] == 0, "create: HASH_EXISTS");
+        require(_mapHashTokenId[componentHash.hash] == 0, "create: HASH_EXISTS");
         
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
@@ -127,7 +127,7 @@ contract ComponentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     function getInfo(uint256 tokenId)
         public
         view
-        returns (address developer, string memory componentHash, string memory description, uint256 numDependencies,
+        returns (address developer, Multihash memory componentHash, string memory description, uint256 numDependencies,
             uint256[] memory dependencies)
     {
         require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
