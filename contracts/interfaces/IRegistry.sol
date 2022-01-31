@@ -33,7 +33,7 @@ interface IRegistry is IERC721Enumerable {
     /**
      * @dev Gets the component / agent info.
      */
-    function getMechInfo(uint256 tokenId) external view returns (
+    function getInfo(uint256 tokenId) external view returns (
         address developer,
         string memory agentHash,
         string memory description,

@@ -146,7 +146,7 @@ describe("ComponentRegistry", function () {
                 componentHash + "1", description, dependencies);
             await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash + "2", description + "2", lastDependencies);
-            const compInfo = await componentRegistry.getMechInfo(tokenId);
+            const compInfo = await componentRegistry.getInfo(tokenId);
             expect(compInfo.developer == user.address);
             expect(compInfo.componentHash == componentHash + "2");
             expect(compInfo.description == description + "2");
@@ -155,7 +155,7 @@ describe("ComponentRegistry", function () {
                 expect(compInfo.dependencies[i] == lastDependencies[i]);
             }
             await expect(
-                componentRegistry.getMechInfo(tokenId + 1)
+                componentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_COMPONENT");
         });
     });

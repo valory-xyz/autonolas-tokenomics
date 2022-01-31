@@ -141,7 +141,7 @@ describe("AgentRegistry", function () {
                 componentHash + "1", description, dependencies);
             await agentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash + "2", description + "2", lastDependencies);
-            const agentInfo = await agentRegistry.getMechInfo(tokenId);
+            const agentInfo = await agentRegistry.getInfo(tokenId);
             expect(agentInfo.developer == user.address);
             expect(agentInfo.componentHash == componentHash + "2");
             expect(agentInfo.description == description + "2");
@@ -150,7 +150,7 @@ describe("AgentRegistry", function () {
                 expect(agentInfo.dependencies[i] == lastDependencies[i]);
             }
             await expect(
-                agentRegistry.getMechInfo(tokenId + 1)
+                agentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_AGENT");
         });
 
