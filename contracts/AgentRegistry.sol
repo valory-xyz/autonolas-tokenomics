@@ -8,7 +8,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Agent Registry - Smart contract for registering agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Possible differentiation of component types
     enum AgentType {ATYPE0, ATYPE1}
 
@@ -16,7 +16,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
         // Developer of the agent
         address developer;
         // IPFS hash of the agent
-        string agentHash; // can be obtained via mapping, consider for optimization
+        Multihash agentHash; // can be obtained via mapping, consider for optimization
         // Description of the agent
         string description;
         // Set of component dependencies
@@ -38,7 +38,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     // Map of token Id => component
     mapping(uint256 => Agent) private _mapTokenIdAgent;
     // Map of IPFS hash => token Id
-    mapping(string => uint256) private _mapHashTokenId;
+    mapping(bytes32 => uint256) private _mapHashTokenId;
 
     // name = "agent", symbol = "MECH"
     constructor(string memory _name, string memory _symbol, string memory _bURI, address _componentRegistry)
@@ -59,7 +59,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @param agentHash IPFS hash of the agent.
     /// @param description Description of the agent.
     /// @param dependencies Set of component dependencies.
-    function _setAgentInfo(uint256 tokenId, address developer, string memory agentHash,
+    function _setAgentInfo(uint256 tokenId, address developer, Multihash memory agentHash,
         string memory description, uint256[] memory dependencies)
         private
     {
@@ -70,7 +70,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
         agent.dependencies = dependencies;
         agent.active = true;
         _mapTokenIdAgent[tokenId] = agent;
-        _mapHashTokenId[agentHash] = tokenId;
+        _mapHashTokenId[agentHash.hash] = tokenId;
     }
 
     /// @dev Creates agent.
@@ -80,7 +80,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     /// @param description Description of the agent.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted agent.
-    function create(address owner, address developer, string memory agentHash, string memory description,
+    function create(address owner, address developer, Multihash memory agentHash, string memory description,
         uint256[] memory dependencies)
         external
         nonReentrant
@@ -90,12 +90,12 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
         require(_manager == msg.sender, "create: MANAGER_ONLY");
 
         // Checks for non-empty strings and component dependency
-        require(bytes(agentHash).length > 0, "create: EMPTY_HASH");
+        require(agentHash.hashFunction == 0x12 && agentHash.size == 0x20, "create: WRONG_HASH");
         require(bytes(description).length > 0, "create: NO_DESCRIPTION");
 //        require(dependencies.length > 0, "Agent must have at least one component dependency");
 
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[agentHash] == 0, "create: HASH_EXISTS");
+        require(_mapHashTokenId[agentHash.hash] == 0, "create: HASH_EXISTS");
 
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
@@ -131,7 +131,7 @@ contract AgentRegistry is ERC721Enumerable, Ownable, ReentrancyGuard {
     function getInfo(uint256 tokenId)
         public
         view
-        returns (address developer, string memory agentHash, string memory description, uint256 numDependencies,
+        returns (address developer, Multihash memory agentHash, string memory description, uint256 numDependencies,
             uint256[] memory dependencies)
     {
         require(_exists(tokenId), "getComponentInfo: NO_AGENT");

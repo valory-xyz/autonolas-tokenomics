@@ -13,12 +13,14 @@ describe("ServiceRegistry integration", function () {
     let signers;
     const name = "service name";
     const description = "service description";
-    const configHash = "QmWWQKconfigHash";
+    const configHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
     const agentIds = [1, 2];
     const agentNumSlots = [3, 4];
     const serviceIds = [1, 2];
     const threshold = 1;
-    const componentHash = "0x0";
+    const componentHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const componentHash1 = {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
     const nonce =  0;
     const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
@@ -66,7 +68,7 @@ describe("ServiceRegistry integration", function () {
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeManager(manager.address);
             await agentRegistry.connect(manager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(manager).create(owner, owner, componentHash + "1", description, []);
+            await agentRegistry.connect(manager).create(owner, owner, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
@@ -82,7 +84,7 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeManager(manager.address);
             await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
@@ -108,16 +110,16 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeManager(manager.address);
             await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "2",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash2,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.serviceUpdate(owner.address, name, description, configHash, [1, 2, 3], [3, 0, 4],
+            await serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3], [3, 0, 4],
                 maxThreshold, serviceIds[0]);
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
@@ -136,9 +138,9 @@ describe("ServiceRegistry integration", function () {
             // Creating 3 canonical agents
             await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "2",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash2,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -154,7 +156,7 @@ describe("ServiceRegistry integration", function () {
             const newAgentIds = [1, 2, 3];
             const newAgentNumSlots = [2, 0, 1];
             const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[2];
-            await serviceManager.serviceUpdate(owner.address, name, description, configHash, newAgentIds,
+            await serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
                 newAgentNumSlots, newMaxThreshold, serviceIds[0]);
 
             // Registering agents for service Id == 1
@@ -201,7 +203,7 @@ describe("ServiceRegistry integration", function () {
             // Creating 2 canonical agents
             await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -268,7 +270,7 @@ describe("ServiceRegistry integration", function () {
             // Creating 2 canonical agents
             await agentRegistry.connect(manager).create(owner, owner, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner, owner, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner, owner, componentHash1,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
 
@@ -319,9 +321,9 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.changeManager(manager.address);
             await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "1",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
                 description, []);
-            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash + "2",
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash2,
                 description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
@@ -330,7 +332,7 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
             await expect(
-                serviceManager.serviceUpdate(owner.address, name, description, configHash, [1, 2, 3], [3, 0, 4],
+                serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3], [3, 0, 4],
                     maxThreshold, serviceIds[0])
             ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
         });
@@ -343,7 +345,7 @@ describe("ServiceRegistry integration", function () {
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash + "1", description, []);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
@@ -362,7 +364,7 @@ describe("ServiceRegistry integration", function () {
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash + "1", description, []);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);

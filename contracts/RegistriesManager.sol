@@ -7,7 +7,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Registries Manager - Periphery smart contract for managing components and agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract RegistriesManager is Ownable, Pausable {
+contract RegistriesManager is IMultihash, Ownable, Pausable {
     address public immutable componentRegistry;
     address public immutable agentRegistry;
     uint256 private _mintFee;
@@ -24,7 +24,7 @@ contract RegistriesManager is Ownable, Pausable {
     /// @param description Description of the agent.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted agent.
-    function mintAgent(address owner, address developer, string memory agentHash,
+    function mintAgent(address owner, address developer, Multihash memory agentHash,
         string memory description, uint256[] memory dependencies)
         public
         returns (uint256)
@@ -39,7 +39,7 @@ contract RegistriesManager is Ownable, Pausable {
     /// @param description Description of the component.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted component.
-    function mintComponent(address owner, address developer, string memory componentHash,
+    function mintComponent(address owner, address developer, Multihash memory componentHash,
         string memory description, uint256[] memory dependencies)
         public
         returns (uint256)

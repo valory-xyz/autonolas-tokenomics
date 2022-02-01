@@ -33,14 +33,14 @@ module.exports = async () => {
     
     // Test address, IPFS hashes and descriptions
     const testAddress = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
-    const compHs = ["QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB",
-        "QmWWQSuPMS6aXCbZKpEjPHPUZN2NjB3YrhJTHsV4X3vb2t",
-        "QmT4AeWE9Q9EaoyLJiqaZuYQ8mJeq4ZBncjjFH9dQ9uDVA"];
-    const agentHs = ["QmT9qk3CRYbFDWpDFYeAv8T8H1gnongwKhh5J68NLkLir6",
-        "QmT9qk3CRYbFDW5J68NLkLir6pDFYeAv8T8H1gnongwKhh"];
+    const compHs = [{hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"}];
+    const agentHs = [{hash: "0x" + "3".repeat(62) + "11", hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "4".repeat(62) + "11", hashFunction: "0x12", size: "0x20"}];
     const compDs = ["Component 1", "Component 2", "Component 3"];
     const agentDs = ["Agent 1", "Agent 2"];
-    const configHash = "QmWWQKpEjPHPUZSuPMS6aXCbZN2NjBsV4X3vb2t3YrhJTH";
+    const configHash = {hash: "0x" + "5".repeat(62) + "22", hashFunction: "0x12", size: "0x20"};
     // Create 3 components and two agents based on them
     await registriesManager.mintComponent(testAddress, testAddress, compHs[0], compDs[0], []);
     await registriesManager.mintAgent(testAddress, testAddress, agentHs[0], agentDs[0], [1]);
@@ -85,12 +85,6 @@ module.exports = async () => {
     await serviceRegistry.changeManager(serviceManager.address);
     await serviceManager.serviceCreate(testAddress, name, description, configHash, agentIds, agentNumSlots,
         maxThreshold);
-
-    // Update a service
-    const newAgentNumSlots = [2, 0];
-    const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[1];
-    await serviceManager.serviceUpdate(testAddress, name, description, configHash, agentIds, newAgentNumSlots,
-        newMaxThreshold, 1);
 
     // Writing the JSON with the initial deployment data
     let initDeployJSON = {

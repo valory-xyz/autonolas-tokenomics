@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-// TODO GnosisSafeL2 is included for automatic ABI creation, need to remove before actual deployment
-import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
@@ -11,7 +9,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceRegistry is Ownable {
+contract ServiceRegistry is IMultihash, Ownable {
     event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -48,7 +46,7 @@ contract ServiceRegistry is Ownable {
         string name;
         string description;
         // IPFS hash pointing to the config metadata
-        string configHash;
+        Multihash configHash;
         // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
         // Service termination block, if set > 0
@@ -68,13 +66,13 @@ contract ServiceRegistry is Ownable {
         // Agent instance address => operator address
         mapping(address => address) mapAgentInstancesOperators;
         // Config hash per agent
-//        mapping(uint256 => string) mapAgentHash;
+//        mapping(uint256 => Multihash) mapAgentHash;
         // Service activity state
         bool active;
     }
 
     // Selector of the Gnosis Safe setup function
-    bytes4 private constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
+    bytes4 internal constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
     // Default timeout window for getting the agent instances registered for the service (21 days)
     uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1814400;
     // Agent Registry
@@ -133,7 +131,7 @@ contract ServiceRegistry is Ownable {
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
-    function initialChecks(string memory name, string memory description, string memory configHash,
+    function initialChecks(string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots)
         private
         view
@@ -141,7 +139,7 @@ contract ServiceRegistry is Ownable {
         // Checks for non-empty strings
         require(bytes(name).length > 0, "initCheck: EMPTY_NAME");
         require(bytes(description).length > 0, "initCheck: NO_DESCRIPTION");
-        require(bytes(configHash).length > 0, "initCheck: NO_CONFIG_HASH");
+        require(configHash.hashFunction == 0x12 && configHash.size == 0x20, "initCheck: WRONG_HASH");
 
         // Checking for non-empty arrays and correct number of values in them
         require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
@@ -235,7 +233,8 @@ contract ServiceRegistry is Ownable {
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param size Size of a canonical agent ids set.
-    function _setServiceData(Service storage service, string memory name, string memory description, string memory configHash, uint256 threshold, uint256[] memory agentIds, uint256[] memory agentNumSlots,
+    function _setServiceData(Service storage service, string memory name, string memory description,
+        Multihash memory configHash, uint256 threshold, uint256[] memory agentIds, uint256[] memory agentNumSlots,
         uint size)
         private
     {
@@ -269,7 +268,7 @@ contract ServiceRegistry is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @return serviceId Created service Id.
-    function createService(address owner, string memory name, string memory description, string memory configHash,
+    function createService(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold)
         external
         onlyManager
@@ -316,7 +315,7 @@ contract ServiceRegistry is Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
-    function updateService(address owner, string memory name, string memory description, string memory configHash,
+    function updateService(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
