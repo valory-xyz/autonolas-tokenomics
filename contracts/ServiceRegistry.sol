@@ -201,8 +201,10 @@ contract ServiceRegistry is IMultihash, Ownable {
     {
         Service storage service = _mapServices[serviceId];
         // There must be no registered agent instances while the termination block is infinite
-        // Or the termination block need to be less than the current block (expired)
-        require((service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
+        // or the termination block need to be less than the current block (expired)
+        // or the service is inactive in a first place
+        require(service.active == false ||
+            (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
             (service.terminationBlock > 0 && service.terminationBlock < block.number), "destroy: SERVICE_ACTIVE");
 
         service.owner = address(0);
@@ -382,6 +384,7 @@ contract ServiceRegistry is IMultihash, Ownable {
     {
         // Operator address must be different from agent instance one
         // Also, operator address must not be used as an agent instance anywhere else
+        // TODO Need to check for the operator to be EOA?
         require(operator != agent && !_mapAllAgentInstances[operator], "registerAgent: WRONG_OPERATOR");
 
         Service storage service = _mapServices[serviceId];

@@ -629,6 +629,23 @@ describe("ServiceRegistry", function () {
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
         });
+
+        it("\"DestroyService\" event: inactive service with the termination block set is destroyed", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
+                agentNumSlots, maxThreshold);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
+            const result = await deactivateService.wait();
+            expect(result.events[0].event).to.equal("DestroyService");
+        });
     });
 
     context("Safe contract from agent instances", async function () {
