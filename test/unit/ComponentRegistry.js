@@ -48,7 +48,7 @@ describe("ComponentRegistry", function () {
             const user = signers[2];
             await expect(
                 componentRegistry.create(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MANAGER_ONLY");
+            ).to.be.revertedWith("componentManager: MANAGER_ONLY");
         });
 
         it("Should fail when creating a component with a wrong IPFS hash header", async function () {

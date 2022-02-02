@@ -16,7 +16,7 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         // Developer of the agent
         address developer;
         // IPFS hash of the agent
-        Multihash agentHash; // can be obtained via mapping, consider for optimization
+        Multihash[] agentHashes; // can be obtained via mapping, consider for optimization
         // Description of the agent
         string description;
         // Set of component dependencies
@@ -47,6 +47,12 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         componentRegistry = _componentRegistry;
     }
 
+    // Only the manager has a privilege to manipulate an agent
+    modifier onlyManager {
+        require(_manager == msg.sender, "agentManager: MANAGER_ONLY");
+        _;
+    }
+
     /// @dev Changes the agent manager.
     /// @param newManager Address of a new agent manager.
     function changeManager(address newManager) public onlyOwner {
@@ -63,13 +69,12 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         string memory description, uint256[] memory dependencies)
         private
     {
-        Agent memory agent;
+        Agent storage agent = _mapTokenIdAgent[tokenId];
         agent.developer = developer;
-        agent.agentHash = agentHash;
+        agent.agentHashes.push(agentHash);
         agent.description = description;
         agent.dependencies = dependencies;
         agent.active = true;
-        _mapTokenIdAgent[tokenId] = agent;
         _mapHashTokenId[agentHash.hash] = tokenId;
     }
 
@@ -83,11 +88,12 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     function create(address owner, address developer, Multihash memory agentHash, string memory description,
         uint256[] memory dependencies)
         external
+        onlyManager
         nonReentrant
         returns (uint256)
     {
-        // Only the manager has a privilege to create a component
-        require(_manager == msg.sender, "create: MANAGER_ONLY");
+        // Checks for owner and developer being not zero addresses
+        require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
 
         // Checks for non-empty strings and component dependency
         require(agentHash.hashFunction == 0x12 && agentHash.size == 0x20, "create: WRONG_HASH");
@@ -114,6 +120,17 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         return newTokenId;
     }
 
+    /// @dev Updates the agent hash.
+    /// @param owner Owner of the agent.
+    /// @param tokenId Token Id.
+    /// @param agentHash New IPFS hash of the agent.
+    function updateHash(address owner, uint256 tokenId, Multihash memory agentHash) external onlyManager {
+        require(agentHash.hashFunction == 0x12 && agentHash.size == 0x20, "update: WRONG_HASH");
+        require(ownerOf(tokenId) == owner, "update: AGENT_NOT_FOUND");
+        Agent storage agent = _mapTokenIdAgent[tokenId];
+        agent.agentHashes.push(agentHash);
+    }
+
     /// @dev Check for the token / agent existence.
     /// @param tokenId Token Id.
     /// @return true if the agent exists, false otherwise.
@@ -136,7 +153,18 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     {
         require(_exists(tokenId), "getComponentInfo: NO_AGENT");
         Agent storage agent = _mapTokenIdAgent[tokenId];
-        return (agent.developer, agent.agentHash, agent.description, agent.dependencies.length, agent.dependencies);
+        return (agent.developer, agent.agentHashes[0], agent.description, agent.dependencies.length,
+            agent.dependencies);
+    }
+
+    /// @dev Gets agent hashes.
+    /// @param tokenId Token Id.
+    /// @return numHashes Number of hashes.
+    /// @return agentHashes The list of agent hashes.
+    function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory agentHashes) {
+        require(_exists(tokenId), "getHashes: NO_AGENT");
+        Agent storage agent = _mapTokenIdAgent[tokenId];
+        return (agent.agentHashes.length, agent.agentHashes);
     }
 
     /// @dev Returns agent base URI.

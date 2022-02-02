@@ -54,7 +54,7 @@ describe("AgentRegistry", function () {
             const user = signers[2];
             await expect(
                 agentRegistry.create(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("create: MANAGER_ONLY");
+            ).to.be.revertedWith("agentManager: MANAGER_ONLY");
         });
 
         it("Should fail when creating an agent with a wrong IPFS hash header", async function () {

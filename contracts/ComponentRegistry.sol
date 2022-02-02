@@ -16,7 +16,7 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         // Developer of the component
         address developer;
         // IPFS hash of the component
-        Multihash componentHash; // can be obtained via mapping, consider for optimization
+        Multihash[] componentHashes; // can be obtained via mapping, consider for optimization
         // Description of the component
         string description;
         // Set of component dependencies
@@ -43,6 +43,12 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         _BASEURI = _bURI;
     }
 
+    // Only the manager has a privilege to manipulate an component
+    modifier onlyManager {
+        require(_manager == msg.sender, "componentManager: MANAGER_ONLY");
+        _;
+    }
+
     /// @dev Changes the component manager.
     /// @param newManager Address of a new component manager.
     function changeManager(address newManager) public onlyOwner {
@@ -59,13 +65,12 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         string memory description, uint256[] memory dependencies)
         private
     {
-        Component memory component;
+        Component storage component = _mapTokenIdComponent[tokenId];
         component.developer = developer;
-        component.componentHash = componentHash;
+        component.componentHashes.push(componentHash);
         component.description = description;
         component.dependencies = dependencies;
         component.active = true;
-        _mapTokenIdComponent[tokenId] = component;
         _mapHashTokenId[componentHash.hash] = tokenId;
     }
 
@@ -79,11 +84,12 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     function create(address owner, address developer, Multihash memory componentHash, string memory description,
         uint256[] memory dependencies)
         external
+        onlyManager
         nonReentrant
         returns (uint256)
     {
-        // Only the manager has a privilege to create a component
-        require(_manager == msg.sender, "create: MANAGER_ONLY");
+        // Checks for owner and developer being not zero addresses
+        require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
 
         // Checks for non-empty strings
         // How can we check for garbage hashes?
@@ -110,6 +116,17 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         return newTokenId;
     }
 
+    /// @dev Updates the component hash.
+    /// @param owner Owner of the component.
+    /// @param tokenId Token Id.
+    /// @param componentHash New IPFS hash of the component.
+    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash) external onlyManager {
+        require(componentHash.hashFunction == 0x12 && componentHash.size == 0x20, "update: WRONG_HASH");
+        require(ownerOf(tokenId) == owner, "update: COMPONENT_NOT_FOUND");
+        Component storage component = _mapTokenIdComponent[tokenId];
+        component.componentHashes.push(componentHash);
+    }
+
     /// @dev Check for the token / component existence.
     /// @param tokenId Token Id.
     /// @return true if the component exists, false otherwise.
@@ -132,8 +149,18 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     {
         require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
         Component storage component = _mapTokenIdComponent[tokenId];
-        return (component.developer, component.componentHash, component.description, component.dependencies.length,
+        return (component.developer, component.componentHashes[0], component.description, component.dependencies.length,
             component.dependencies);
+    }
+
+    /// @dev Gets component hashes.
+    /// @param tokenId Token Id.
+    /// @return numHashes Number of hashes.
+    /// @return componentHashes The list of component hashes.
+    function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory componentHashes) {
+        require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
+        Component storage component = _mapTokenIdComponent[tokenId];
+        return (component.componentHashes.length, component.componentHashes);
     }
 
     /// @dev Returns component base URI.
