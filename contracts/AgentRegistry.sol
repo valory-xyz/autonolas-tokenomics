@@ -149,6 +149,7 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
 
     /// @dev Gets the agent info.
     /// @param tokenId Token Id.
+    /// @return owner Owner of the agent.
     /// @return developer The agent developer.
     /// @return agentHash The primary agent IPFS hash.
     /// @return description The agent description.
@@ -157,12 +158,12 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     function getInfo(uint256 tokenId)
         public
         view
-        returns (address developer, Multihash memory agentHash, string memory description, uint256 numDependencies,
-            uint256[] memory dependencies)
+        returns (address owner, address developer, Multihash memory agentHash, string memory description,
+            uint256 numDependencies, uint256[] memory dependencies)
     {
         require(_exists(tokenId), "getComponentInfo: NO_AGENT");
         Agent storage agent = _mapTokenIdAgent[tokenId];
-        return (agent.developer, agent.agentHashes[0], agent.description, agent.dependencies.length,
+        return (ownerOf(tokenId), agent.developer, agent.agentHashes[0], agent.description, agent.dependencies.length,
             agent.dependencies);
     }
 

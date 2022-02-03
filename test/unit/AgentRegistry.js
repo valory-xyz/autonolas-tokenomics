@@ -169,6 +169,7 @@ describe("AgentRegistry", function () {
             await agentRegistry.connect(mechManager).create(user.address, user.address,
                 agentHash2, description + "2", lastDependencies);
             const agentInfo = await agentRegistry.getInfo(tokenId);
+            expect(agentInfo.owner == user.address);
             expect(agentInfo.developer == user.address);
             expect(agentInfo.agentHash == agentHash2);
             expect(agentInfo.description == description + "2");

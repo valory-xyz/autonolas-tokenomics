@@ -144,6 +144,7 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
 
     /// @dev Gets the component info.
     /// @param tokenId Token Id.
+    /// @return owner Owner of the component.
     /// @return developer The component developer.
     /// @return componentHash The primary component IPFS hash.
     /// @return description The component description.
@@ -152,13 +153,13 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     function getInfo(uint256 tokenId)
         public
         view
-        returns (address developer, Multihash memory componentHash, string memory description, uint256 numDependencies,
-            uint256[] memory dependencies)
+        returns (address owner, address developer, Multihash memory componentHash, string memory description,
+            uint256 numDependencies, uint256[] memory dependencies)
     {
         require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
         Component storage component = _mapTokenIdComponent[tokenId];
-        return (component.developer, component.componentHashes[0], component.description, component.dependencies.length,
-            component.dependencies);
+        return (ownerOf(tokenId), component.developer, component.componentHashes[0], component.description,
+            component.dependencies.length, component.dependencies);
     }
 
     /// @dev Gets component hashes.

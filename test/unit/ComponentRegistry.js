@@ -175,6 +175,7 @@ describe("ComponentRegistry", function () {
             await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash2, description + "2", lastDependencies);
             const compInfo = await componentRegistry.getInfo(tokenId);
+            expect(compInfo.owner == user.address);
             expect(compInfo.developer == user.address);
             expect(compInfo.componentHash == componentHash2);
             expect(compInfo.description == description + "2");
