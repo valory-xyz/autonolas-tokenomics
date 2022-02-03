@@ -49,6 +49,15 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         _;
     }
 
+    // Checks for supplied IPFS hash
+    modifier checkHash(Multihash memory hashStruct) {
+        // Check hash IPFS current standard validity
+        require(hashStruct.hashFunction == 0x12 && hashStruct.size == 0x20, "checkHash: WRONG_HASH");
+        // Check for the existent IPFS hashes
+        require(_mapHashTokenId[hashStruct.hash] == 0, "checkHash: HASH_EXISTS");
+        _;
+    }
+
     /// @dev Changes the component manager.
     /// @param newManager Address of a new component manager.
     function changeManager(address newManager) public onlyOwner {
@@ -85,19 +94,15 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         uint256[] memory dependencies)
         external
         onlyManager
+        checkHash(componentHash)
         nonReentrant
         returns (uint256)
     {
         // Checks for owner and developer being not zero addresses
         require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
 
-        // Checks for non-empty strings
-        // How can we check for garbage hashes?
-        require(componentHash.hashFunction == 0x12 && componentHash.size == 0x20, "create: WRONG_HASH");
+        // Checks for non-empty description
         require(bytes(description).length > 0, "create: NO_DESCRIPTION");
-
-        // Check for the existent IPFS hashes
-        require(_mapHashTokenId[componentHash.hash] == 0, "create: HASH_EXISTS");
         
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
@@ -120,8 +125,11 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     /// @param owner Owner of the component.
     /// @param tokenId Token Id.
     /// @param componentHash New IPFS hash of the component.
-    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash) external onlyManager {
-        require(componentHash.hashFunction == 0x12 && componentHash.size == 0x20, "update: WRONG_HASH");
+    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash)
+        external
+        onlyManager
+        checkHash(componentHash)
+    {
         require(ownerOf(tokenId) == owner, "update: COMPONENT_NOT_FOUND");
         Component storage component = _mapTokenIdComponent[tokenId];
         component.componentHashes.push(componentHash);
@@ -137,7 +145,7 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     /// @dev Gets the component info.
     /// @param tokenId Token Id.
     /// @return developer The component developer.
-    /// @return componentHash The component IPFS hash.
+    /// @return componentHash The primary component IPFS hash.
     /// @return description The component description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
@@ -158,7 +166,7 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     /// @return numHashes Number of hashes.
     /// @return componentHashes The list of component hashes.
     function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory componentHashes) {
-        require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
+        require(_exists(tokenId), "getHashes: NO_COMPONENT");
         Component storage component = _mapTokenIdComponent[tokenId];
         return (component.componentHashes.length, component.componentHashes);
     }

@@ -53,6 +53,15 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         _;
     }
 
+    // Checks for supplied IPFS hash
+    modifier checkHash(Multihash memory hashStruct) {
+        // Check hash IPFS current standard validity
+        require(hashStruct.hashFunction == 0x12 && hashStruct.size == 0x20, "checkHash: WRONG_HASH");
+        // Check for the existent IPFS hashes
+        require(_mapHashTokenId[hashStruct.hash] == 0, "checkHash: HASH_EXISTS");
+        _;
+    }
+
     /// @dev Changes the agent manager.
     /// @param newManager Address of a new agent manager.
     function changeManager(address newManager) public onlyOwner {
@@ -89,19 +98,16 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         uint256[] memory dependencies)
         external
         onlyManager
+        checkHash(agentHash)
         nonReentrant
         returns (uint256)
     {
         // Checks for owner and developer being not zero addresses
         require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
 
-        // Checks for non-empty strings and component dependency
-        require(agentHash.hashFunction == 0x12 && agentHash.size == 0x20, "create: WRONG_HASH");
+        // Checks for non-empty description and component dependency
         require(bytes(description).length > 0, "create: NO_DESCRIPTION");
 //        require(dependencies.length > 0, "Agent must have at least one component dependency");
-
-        // Check for the existent IPFS hashes
-        require(_mapHashTokenId[agentHash.hash] == 0, "create: HASH_EXISTS");
 
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
@@ -124,8 +130,11 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     /// @param owner Owner of the agent.
     /// @param tokenId Token Id.
     /// @param agentHash New IPFS hash of the agent.
-    function updateHash(address owner, uint256 tokenId, Multihash memory agentHash) external onlyManager {
-        require(agentHash.hashFunction == 0x12 && agentHash.size == 0x20, "update: WRONG_HASH");
+    function updateHash(address owner, uint256 tokenId, Multihash memory agentHash)
+        external
+        onlyManager
+        checkHash(agentHash)
+    {
         require(ownerOf(tokenId) == owner, "update: AGENT_NOT_FOUND");
         Agent storage agent = _mapTokenIdAgent[tokenId];
         agent.agentHashes.push(agentHash);
@@ -141,7 +150,7 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     /// @dev Gets the agent info.
     /// @param tokenId Token Id.
     /// @return developer The agent developer.
-    /// @return agentHash The agent IPFS hash.
+    /// @return agentHash The primary agent IPFS hash.
     /// @return description The agent description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
