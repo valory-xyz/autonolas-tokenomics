@@ -50,6 +50,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
         // Service termination block, if set > 0
+        // TODO resolve several termination block related points in the log document and trello tickets
         uint256 terminationBlock;
         // Agent instance signers threshold
         uint256 threshold;
@@ -100,7 +101,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
     }
 
-    // Only the manager has a privilege to update a service
+    // Only the manager has a privilege to manipulate a service
     modifier onlyManager {
         require(_manager == msg.sender, "serviceManager: MANAGER_ONLY");
         _;
@@ -384,7 +385,7 @@ contract ServiceRegistry is IMultihash, Ownable {
     {
         // Operator address must be different from agent instance one
         // Also, operator address must not be used as an agent instance anywhere else
-        // TODO Need to check for the operator to be EOA?
+        // TODO Need to check for the agent address to be EOA
         require(operator != agent && !_mapAllAgentInstances[operator], "registerAgent: WRONG_OPERATOR");
 
         Service storage service = _mapServices[serviceId];

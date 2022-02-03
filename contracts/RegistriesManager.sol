@@ -32,6 +32,13 @@ contract RegistriesManager is IMultihash, Ownable, Pausable {
         return IRegistry(agentRegistry).create(owner, developer, agentHash, description, dependencies);
     }
 
+    /// @dev Updates the agent hash.
+    /// @param tokenId Token Id.
+    /// @param agentHash New IPFS hash of the agent.
+    function updateAgentHash(uint256 tokenId, Multihash memory agentHash) public {
+        return IRegistry(agentRegistry).updateHash(msg.sender, tokenId, agentHash);
+    }
+
     /// @dev Mints component.
     /// @param owner Owner of the component.
     /// @param developer Developer of the component.
@@ -45,5 +52,12 @@ contract RegistriesManager is IMultihash, Ownable, Pausable {
         returns (uint256)
     {
         return IRegistry(componentRegistry).create(owner, developer, componentHash, description, dependencies);
+    }
+
+    /// @dev Updates the component hash.
+    /// @param tokenId Token Id.
+    /// @param componentHash New IPFS hash of the component.
+    function updateComponentHash(uint256 tokenId, Multihash memory componentHash) public {
+        return IRegistry(componentRegistry).updateHash(msg.sender, tokenId, componentHash);
     }
 }

@@ -20,6 +20,11 @@ interface IRegistry is IMultihash, IERC721Enumerable {
     ) external returns (uint256);
 
     /**
+     * @dev Updates the component / agent hash.
+     */
+    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash) external;
+
+    /**
      * @dev Check for the component / agent existence.
      */
     function exists(uint256 tokenId) external view returns (bool);
@@ -34,6 +39,11 @@ interface IRegistry is IMultihash, IERC721Enumerable {
         uint256 numDependencies,
         uint256[] memory dependencies
     );
+
+    /**
+     * @dev Gets the component / agent hashes.
+     */
+    function getHashes(uint256 tokenId) external view returns (uint256 numHashes, Multihash[] memory componentHashes);
 
     /**
      * @dev Returns component base URI.
