@@ -31,7 +31,7 @@ describe("Governance", function () {
     });
 
     context("Initialization", async function () {
-        it.only("Governance setup: deploy token, timelock, governorBravo, drop deployer role", async function () {
+        it("Governance setup: deploy token, timelock, governorBravo, drop deployer role", async function () {
             // Deploy Safe multisig
             const safeSigners = signers.slice(1, 10).map(
                 function (currentElement) {
