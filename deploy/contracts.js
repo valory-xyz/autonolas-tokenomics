@@ -86,13 +86,39 @@ module.exports = async () => {
     await serviceManager.serviceCreate(testAddress, name, description, configHash, agentIds, agentNumSlots,
         maxThreshold);
 
+    // Deploying governance contracts
+    const Token = await ethers.getContractFactory("veOLA");
+    const token = await Token.deploy();
+    await token.deployed();
+    console.log("veOLA token deployed to", token.address);
+
+    // Here the timelock does not have additional proposers. One of the proposers should be a multisig
+    const Timelock = await ethers.getContractFactory("Timelock");
+    const timelock = await Timelock.deploy(0, [], []);
+    await timelock.deployed();
+    console.log("Timelock deployed to", timelock.address);
+
+    // Deploy Governance Bravo
+    const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
+    const governorBravo = await GovernorBravo.deploy(token.address, timelock.address);
+    await governorBravo.deployed();
+    console.log("Governor Bravo deployed to", governorBravo.address);
+
+    // Change the admin from deployer to governorBravo
+    const adminRole = ethers.utils.id("TIMELOCK_ADMIN_ROLE");
+    await timelock.connect(deployer).grantRole(adminRole, governorBravo.address);
+    await timelock.connect(deployer).renounceRole(adminRole, deployer.address);
+
     // Writing the JSON with the initial deployment data
     let initDeployJSON = {
         "componentRegistry": componentRegistry.address,
         "agentRegistry": agentRegistry.address,
         "registriesManager": registriesManager.address,
         "serviceRegistry": serviceRegistry.address,
-        "serviceManager": serviceManager.address
+        "serviceManager": serviceManager.address,
+        "veOLA": token.address,
+        "timelock": timelock.address,
+        "GovernorBravoOLA": governorBravo.address
     };
 
     // Write the json file with the setup
