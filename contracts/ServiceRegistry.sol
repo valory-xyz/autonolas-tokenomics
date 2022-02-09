@@ -49,8 +49,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         Multihash configHash;
         // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
-        // Service termination block, if set > 0
-        // TODO resolve several termination block related points in the log document and trello tickets
+        // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
         // Agent instance signers threshold
         uint256 threshold;
@@ -206,7 +205,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         // or the service is inactive in a first place
         require(service.active == false ||
             (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
-            (service.terminationBlock > 0 && service.terminationBlock < block.number), "destroy: SERVICE_ACTIVE");
+            (service.terminationBlock > 0 && service.terminationBlock <= block.number), "destroy: SERVICE_ACTIVE");
 
         service.owner = address(0);
 
@@ -361,10 +360,10 @@ contract ServiceRegistry is IMultihash, Ownable {
         _mapServices[serviceId].deadline = block.timestamp + time;
     }
 
-    /// @dev Sets service termination block.
+    /// @dev Sets service termination block. After that block the service is considered to be expired.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Service Id to be updated.
-    /// @param blockNum Termination block. If 0 is passed then there is no termination.
+    /// @param blockNum Termination block. If 0 is passed (default) then there is no termination.
     function setTerminationBlock(address owner, uint256 serviceId, uint256 blockNum)
         external
         onlyManager
@@ -398,6 +397,9 @@ contract ServiceRegistry is IMultihash, Ownable {
 
         // Check if the time window for registering agent instances is still active
         require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
+
+        // Check if the termination block has not passed
+        require(service.terminationBlock <= block.number, "registerAgent: TERMINATED");
 
         // Check if canonical agent Id exists in the service
         require(service.mapAgentSlots[agentId] > 0, "registerAgent: NO_AGENT");
@@ -462,6 +464,9 @@ contract ServiceRegistry is IMultihash, Ownable {
     {
         Service storage service = _mapServices[serviceId];
         require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
+
+        // Check if the termination block has not passed
+        require(service.terminationBlock < block.number, "createSafe: TERMINATED");
 
         // Get all agent instances for the safe
         address[] memory agentInstances = _getAgentInstances(service);
@@ -578,5 +583,17 @@ contract ServiceRegistry is IMultihash, Ownable {
         for (uint256 i = 0; i < numAgentInstances; i++) {
             agentInstances[i] = service.mapAgentInstances[agentId][i];
         }
+    }
+
+    /// @dev Gets the termination block of a given service Id.
+    /// @param serviceId Service Id.
+    /// @return terminationBlock The termination block, 0 = infinite.
+    function getTerminationBlock(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 terminationBlock)
+    {
+        terminationBlock = _mapServices[serviceId].terminationBlock;
     }
 }

@@ -9,9 +9,7 @@ import "./interfaces/IRegistry.sol";
 /// @title Agent Registry - Smart contract for registering agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
-    // Possible differentiation of component types
-    enum AgentType {ATYPE0, ATYPE1}
-
+    // Agent parameters
     struct Agent {
         // Developer of the agent
         address developer;
@@ -23,8 +21,6 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         uint256[] dependencies;
         // Agent activity
         bool active;
-        // Agent type
-        AgentType componentType;
     }
 
     // Component registry
