@@ -13,7 +13,9 @@ describe("Governance", function () {
     const safeThreshold = 7;
     const nonce =  0;
     const minDelay = 1;
-    //    const proposalThreshold = 1;
+    const initialVotingDelay = 1; // blocks
+    const initialVotingPeriod = 45818; // blocks ±= 1 week
+    const initialProposalThreshold = 0; // voting power
     beforeEach(async function () {
         const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
         gnosisSafeL2 = await GnosisSafeL2.deploy();
@@ -51,7 +53,7 @@ describe("Governance", function () {
                 setupData, nonce);
 
             await gnosisSafeProxyFactory.createProxyWithNonce(gnosisSafeL2.address, setupData, nonce).then((tx) => tx.wait());
-            console.log("Safe proxy deployed to", proxyAddress);
+//            console.log("Safe proxy deployed to", proxyAddress);
 
             // Deploy Timelock
             const executors = [];
@@ -59,13 +61,14 @@ describe("Governance", function () {
             const Timelock = await ethers.getContractFactory("Timelock");
             timelock = await Timelock.deploy(minDelay, proposers, executors);
             await timelock.deployed();
-            console.log("Timelock deployed to", timelock.address);
+//            console.log("Timelock deployed to", timelock.address);
 
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
-            const governorBravo = await GovernorBravo.deploy(token.address, timelock.address);
+            const governorBravo = await GovernorBravo.deploy(token.address, timelock.address, initialVotingDelay,
+                initialVotingPeriod, initialProposalThreshold);
             await governorBravo.deployed();
-            console.log("Governor Bravo deployed to", governorBravo.address);
+//            console.log("Governor Bravo deployed to", governorBravo.address);
 
             // Change the admin from deployer to governorBravo
             const deployer = signers[0];
