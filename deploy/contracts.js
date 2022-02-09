@@ -1,9 +1,34 @@
 /*global ethers*/
 
 module.exports = async () => {
+    // Common parameters
+    const AddressZero = "0x" + "0".repeat(40);
+
+    // Test address, IPFS hashes and descriptions for components and agents
+    const testAddress = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
+    const compHs = [{hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"}];
+    const agentHs = [{hash: "0x" + "3".repeat(62) + "11", hashFunction: "0x12", size: "0x20"},
+        {hash: "0x" + "4".repeat(62) + "11", hashFunction: "0x12", size: "0x20"}];
+    const compDs = ["Component 1", "Component 2", "Component 3"];
+    const agentDs = ["Agent 1", "Agent 2"];
+    const configHash = {hash: "0x" + "5".repeat(62) + "22", hashFunction: "0x12", size: "0x20"};
+
+    // Safe related
+    const safeThreshold = 7;
+    const nonce =  0;
+
+    // Governance related
+    const minDelay = 1;
+    const initialVotingDelay = 1; // blocks
+    const initialVotingPeriod = 45818; // blocks ±= 1 week
+    const initialProposalThreshold = 0; // voting power
+
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
     console.log("Account balance:", (await deployer.getBalance()).toString());
+    const signers = await ethers.getSigners();
 
     // Deploying component registry
     const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
@@ -30,18 +55,8 @@ module.exports = async () => {
     await componentRegistry.changeManager(registriesManager.address);
     await agentRegistry.changeManager(registriesManager.address);
     console.log("Whitelisted RegistriesManager addresses to both ComponentRegistry and AgentRegistry contract instances");
-    
-    // Test address, IPFS hashes and descriptions
-    const testAddress = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
-    const compHs = [{hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"},
-        {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"},
-        {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"}];
-    const agentHs = [{hash: "0x" + "3".repeat(62) + "11", hashFunction: "0x12", size: "0x20"},
-        {hash: "0x" + "4".repeat(62) + "11", hashFunction: "0x12", size: "0x20"}];
-    const compDs = ["Component 1", "Component 2", "Component 3"];
-    const agentDs = ["Agent 1", "Agent 2"];
-    const configHash = {hash: "0x" + "5".repeat(62) + "22", hashFunction: "0x12", size: "0x20"};
-    // Create 3 components and two agents based on them
+
+    // Create 3 components and two agents based on defined component and agent hashes
     await registriesManager.mintComponent(testAddress, testAddress, compHs[0], compDs[0], []);
     await registriesManager.mintAgent(testAddress, testAddress, agentHs[0], agentDs[0], [1]);
     await registriesManager.mintComponent(testAddress, testAddress, compHs[1], compDs[1], [1]);
@@ -86,13 +101,59 @@ module.exports = async () => {
     await serviceManager.serviceCreate(testAddress, name, description, configHash, agentIds, agentNumSlots,
         maxThreshold);
 
+    // Deploy safe multisig
+    const safeSigners = signers.slice(1, 10).map(
+        function (currentElement) {
+            return currentElement.address;
+        }
+    );
+    const setupData = gnosisSafeL2.interface.encodeFunctionData(
+        "setup",
+        // signers, threshold, to_address, data, fallback_handler, payment_token, payment, payment_receiver
+        [safeSigners, safeThreshold, AddressZero, "0x", AddressZero, AddressZero, 0, AddressZero]
+    );
+    const safeContracts = require("@gnosis.pm/safe-contracts");
+    const proxyAddress = await safeContracts.calculateProxyAddress(gnosisSafeProxyFactory, gnosisSafeL2.address,
+        setupData, nonce);
+    await gnosisSafeProxyFactory.createProxyWithNonce(gnosisSafeL2.address, setupData, nonce).then((tx) => tx.wait());
+
+    // Deploying governance contracts
+    // Deploy voting token
+    const Token = await ethers.getContractFactory("veOLA");
+    const token = await Token.deploy();
+    await token.deployed();
+    console.log("veOLA token deployed to", token.address);
+
+    // Deploy timelock with a multisig being a proposer
+    const executors = [];
+    const proposers = [proxyAddress];
+    const Timelock = await ethers.getContractFactory("Timelock");
+    const timelock = await Timelock.deploy(minDelay, proposers, executors);
+    await timelock.deployed();
+    console.log("Timelock deployed to", timelock.address);
+
+    // Deploy Governance Bravo
+    const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
+    const governorBravo = await GovernorBravo.deploy(token.address, timelock.address, initialVotingDelay,
+        initialVotingPeriod, initialProposalThreshold);
+    await governorBravo.deployed();
+    console.log("Governor Bravo deployed to", governorBravo.address);
+
+    // Change the admin role from deployer to governorBravo
+    const adminRole = ethers.utils.id("TIMELOCK_ADMIN_ROLE");
+    await timelock.connect(deployer).grantRole(adminRole, governorBravo.address);
+    await timelock.connect(deployer).renounceRole(adminRole, deployer.address);
+
     // Writing the JSON with the initial deployment data
     let initDeployJSON = {
         "componentRegistry": componentRegistry.address,
         "agentRegistry": agentRegistry.address,
         "registriesManager": registriesManager.address,
         "serviceRegistry": serviceRegistry.address,
-        "serviceManager": serviceManager.address
+        "serviceManager": serviceManager.address,
+        "veOLA": token.address,
+        "timelock": timelock.address,
+        "GovernorBravoOLA": governorBravo.address
     };
 
     // Write the json file with the setup
