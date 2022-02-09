@@ -623,7 +623,12 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            await expect(
+                serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
+            ).to.be.revertedWith("registerAgent: TERMINATED");
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
+            serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
@@ -642,6 +647,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            const tBlock = await serviceRegistry.getTerminationBlock(serviceId);
+            expect (tBlock == 1000);
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
@@ -685,6 +692,12 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            await expect(
+                serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
+                    AddressZero, AddressZero, 0, AddressZero, serviceId)
+            ).to.be.revertedWith("createSafe: TERMINATED");
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                 AddressZero, AddressZero, 0, AddressZero, serviceId);
             const result = await safe.wait();
@@ -752,6 +765,8 @@ describe("ServiceRegistry", function () {
             for (let i = 0; i < agentNumSlots.length; i++) {
                 expect(serviceInfo.agentNumSlots[i] == agentNumSlots[i]);
             }
+            const tBlock = await serviceRegistry.getTerminationBlock(serviceId);
+            expect (tBlock == 0);
         });
 
         it("Obtaining service information after update and creating one more service", async function () {

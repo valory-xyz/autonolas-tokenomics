@@ -9,9 +9,7 @@ import "./interfaces/IRegistry.sol";
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
-    // Possible differentiation of component types
-    enum ComponentType {CTYPE0, CTYPE1}
-
+    // Component parameters
     struct Component {
         // Developer of the component
         address developer;
@@ -23,8 +21,6 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         uint256[] dependencies;
         // Component activity
         bool active;
-        // Component type
-        ComponentType componentType;
     }
 
     // Base URI
