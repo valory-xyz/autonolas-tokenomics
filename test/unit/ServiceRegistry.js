@@ -623,7 +623,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
             ).to.be.revertedWith("registerAgent: TERMINATED");
@@ -692,7 +692,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, serviceId)

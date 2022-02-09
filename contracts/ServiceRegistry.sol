@@ -399,7 +399,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
 
         // Check if the termination block has not passed
-        require(service.terminationBlock <= block.number, "registerAgent: TERMINATED");
+        require(service.terminationBlock == 0 || service.terminationBlock >= block.number, "registerAgent: TERMINATED");
 
         // Check if canonical agent Id exists in the service
         require(service.mapAgentSlots[agentId] > 0, "registerAgent: NO_AGENT");
@@ -466,7 +466,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
 
         // Check if the termination block has not passed
-        require(service.terminationBlock < block.number, "createSafe: TERMINATED");
+        require(service.terminationBlock == 0 || service.terminationBlock >= block.number, "createSafe: TERMINATED");
 
         // Get all agent instances for the safe
         address[] memory agentInstances = _getAgentInstances(service);
