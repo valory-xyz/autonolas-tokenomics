@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "../ServiceRegistry.sol";

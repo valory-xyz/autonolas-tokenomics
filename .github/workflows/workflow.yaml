@@ -16,7 +16,9 @@ jobs:
       - name: Run ESLint
         run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
       - name: Run solhint
-        run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol
+        run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol contracts/governance/*.sol
+      - name: Compile
+        run: ./node_modules/.bin/hardhat compile
       - name: Run tests
         run: ./node_modules/.bin/hardhat test
       - name: Run script(s)
