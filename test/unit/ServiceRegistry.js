@@ -684,11 +684,15 @@ describe("ServiceRegistry", function () {
             const operator = signers[6].address;
             const agentInstances = [signers[7].address, signers[8].address];
             const maxThreshold = 2;
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await componentRegistry.connect(mechManager).create(owner, owner, componentHash1, description + "2", []);
             await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash2, description, [1]);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [2],
                 maxThreshold);
+
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId);
@@ -697,11 +701,21 @@ describe("ServiceRegistry", function () {
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, serviceId)
             ).to.be.revertedWith("createSafe: TERMINATED");
+
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                 AddressZero, AddressZero, 0, AddressZero, serviceId);
             const result = await safe.wait();
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
+
+            const serviceIdFromAgentId = await serviceRegistry.getServiceIdsCreatedWithAgentId(agentId);
+            expect(serviceIdFromAgentId.numServiceIds == 1);
+            expect(serviceIdFromAgentId.serviceIds[0] == serviceId);
+            for (let i = 1; i < 2; i++) {
+                const serviceIdFromComponentId = await serviceRegistry.getServiceIdsCreatedWithComponentId(i);
+                expect(serviceIdFromComponentId.numServiceIds == 1);
+                expect(serviceIdFromComponentId.serviceIds[0] == serviceId);
+            }
         });
     });
 

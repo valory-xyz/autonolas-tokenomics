@@ -93,6 +93,11 @@ contract ServiceRegistry is IMultihash, Ownable {
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
     mapping (address => bool) private _mapAllAgentInstances;
+    // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
+    // Updated during the service deployment via createSafe() function
+    mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
+    // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
+    mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
@@ -445,6 +450,51 @@ contract ServiceRegistry is IMultihash, Ownable {
         }
     }
 
+    /// @dev Update the map of components / canonical agent Id => service id.
+    /// @param serviceId Service Id.
+    function _updateComponentAgentServiceConnection(uint256 serviceId) private {
+        Service storage service = _mapServices[serviceId];
+        // Loop over canonical agent Ids of the service
+        for (uint256 i = 0; i < service.agentIds.length; i++) {
+            uint256 agentId = service.agentIds[i];
+            // Get the set of service Ids correspondent to the current canonical agent Id
+            uint256[] memory idServicesInAgents = _mapAgentIdSetServices[agentId];
+            uint256 j;
+            // Loop over all the service Ids
+            for (; j < idServicesInAgents.length; j++) {
+                // If this service Id already in the set, then skip
+                if (idServicesInAgents[j] == serviceId) {
+                    break;
+                }
+            }
+            // Add service Id if not in the set of services for agents yet
+            if (j == idServicesInAgents.length) {
+                _mapAgentIdSetServices[agentId].push(serviceId);
+            }
+
+            // Get component dependencies of a current agent Id
+            (, uint256[] memory dependencies) = IRegistry(agentRegistry).getDependencies(agentId);
+            // Loop over component Ids
+            for (j = 0; j < dependencies.length; j++) {
+                uint256 componentId = dependencies[j];
+                // Get the set of service Ids correspondent to the current component Id
+                uint256[] memory idServicesInComponents = _mapComponentIdSetServices[componentId];
+                uint256 k;
+                // Loop over all the service Ids
+                for (; k < idServicesInComponents.length; k++) {
+                    // If this service Id already in the set, then skip
+                    if (idServicesInComponents[k] == serviceId) {
+                        break;
+                    }
+                }
+                // Add service Id if not in the set of services for components yet
+                if (k == idServicesInComponents.length) {
+                    _mapComponentIdSetServices[componentId].push(serviceId);
+                }
+            }
+        }
+    }
+
     /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
@@ -485,6 +535,8 @@ contract ServiceRegistry is IMultihash, Ownable {
         gParams.paymentReceiver = paymentReceiver;
         gParams.nonce = nonce;
         service.multisig = _createGnosisSafeProxy(gParams);
+
+        _updateComponentAgentServiceConnection(serviceId);
 
         return service.multisig;
     }
@@ -595,5 +647,31 @@ contract ServiceRegistry is IMultihash, Ownable {
         returns (uint256 terminationBlock)
     {
         terminationBlock = _mapServices[serviceId].terminationBlock;
+    }
+
+    /// @dev Gets the set of service Ids that contain specified agent Id.
+    /// @param agentId Agent Id.
+    /// @return numServiceIds Number of service Ids.
+    /// @return serviceIds Set of service Ids.
+    function getServiceIdsCreatedWithAgentId(uint256 agentId)
+        public
+        view
+        returns (uint256 numServiceIds, uint256[] memory serviceIds)
+    {
+        serviceIds = _mapAgentIdSetServices[agentId];
+        numServiceIds = serviceIds.length;
+    }
+
+    /// @dev Gets the set of service Ids that contain specified component Id (through the agent Id).
+    /// @param componentId Component Id.
+    /// @return numServiceIds Number of service Ids.
+    /// @return serviceIds Set of service Ids.
+    function getServiceIdsCreatedWithComponentId(uint256 componentId)
+        public
+        view
+        returns (uint256 numServiceIds, uint256[] memory serviceIds)
+    {
+        serviceIds = _mapComponentIdSetServices[componentId];
+        numServiceIds = serviceIds.length;
     }
 }

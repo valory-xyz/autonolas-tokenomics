@@ -174,6 +174,7 @@ describe("ComponentRegistry", function () {
                 componentHash1, description, dependencies);
             await componentRegistry.connect(mechManager).create(user.address, user.address,
                 componentHash2, description + "2", lastDependencies);
+
             const compInfo = await componentRegistry.getInfo(tokenId);
             expect(compInfo.owner == user.address);
             expect(compInfo.developer == user.address);
@@ -186,6 +187,15 @@ describe("ComponentRegistry", function () {
             await expect(
                 componentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_COMPONENT");
+            
+            const componentDependencies = await componentRegistry.getDependencies(tokenId);
+            expect(componentDependencies.numDependencies == lastDependencies.length);
+            for (let i = 0; i < lastDependencies.length; i++) {
+                expect(componentDependencies.dependencies[i] == lastDependencies[i]);
+            }
+            await expect(
+                componentRegistry.getDependencies(tokenId + 1)
+            ).to.be.revertedWith("getDependencies: NO_COMPONENT");
         });
     });
 

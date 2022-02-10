@@ -163,6 +163,19 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
             agent.dependencies);
     }
 
+    /// @dev Gets component / agent dependencies.
+    /// @return numDependencies The number of components in the dependency list.
+    /// @return dependencies The list of component dependencies.
+    function getDependencies(uint256 tokenId)
+        public
+        view
+        returns (uint256 numDependencies, uint256[] memory dependencies)
+    {
+        require(_exists(tokenId), "getDependencies: NO_AGENT");
+        Agent storage agent = _mapTokenIdAgent[tokenId];
+        return (agent.dependencies.length, agent.dependencies);
+    }
+
     /// @dev Gets agent hashes.
     /// @param tokenId Token Id.
     /// @return numHashes Number of hashes.

@@ -158,6 +158,19 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
             component.dependencies.length, component.dependencies);
     }
 
+    /// @dev Gets component dependencies.
+    /// @return numDependencies The number of components in the dependency list.
+    /// @return dependencies The list of component dependencies.
+    function getDependencies(uint256 tokenId)
+    public
+    view
+    returns (uint256 numDependencies, uint256[] memory dependencies)
+    {
+        require(_exists(tokenId), "getDependencies: NO_COMPONENT");
+        Component storage component = _mapTokenIdComponent[tokenId];
+        return (component.dependencies.length, component.dependencies);
+    }
+
     /// @dev Gets component hashes.
     /// @param tokenId Token Id.
     /// @return numHashes Number of hashes.

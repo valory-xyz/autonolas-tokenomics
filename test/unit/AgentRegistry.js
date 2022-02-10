@@ -168,6 +168,7 @@ describe("AgentRegistry", function () {
                 agentHash1, description, dependencies);
             await agentRegistry.connect(mechManager).create(user.address, user.address,
                 agentHash2, description + "2", lastDependencies);
+
             const agentInfo = await agentRegistry.getInfo(tokenId);
             expect(agentInfo.owner == user.address);
             expect(agentInfo.developer == user.address);
@@ -180,6 +181,15 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_AGENT");
+
+            const agentDependencies = await agentRegistry.getDependencies(tokenId);
+            expect(agentDependencies.numDependencies == lastDependencies.length);
+            for (let i = 0; i < lastDependencies.length; i++) {
+                expect(agentDependencies.dependencies[i] == lastDependencies[i]);
+            }
+            await expect(
+                agentRegistry.getDependencies(tokenId + 1)
+            ).to.be.revertedWith("getDependencies: NO_AGENT");
         });
 
         //        it("Should fail when creating an agent without a single component dependency", async function () {
