@@ -457,32 +457,21 @@ contract ServiceRegistry is IMultihash, Ownable {
         // Loop over canonical agent Ids of the service
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             uint256 agentId = service.agentIds[i];
-            // Get the set of service Ids correspondent to the current canonical agent Id
-            uint256[] memory idServicesInAgents = _mapAgentIdSetServices[agentId];
-            uint256 j;
-            // Loop over all the service Ids
-            for (; j < idServicesInAgents.length; j++) {
-                // If this service Id already in the set, then skip
-                if (idServicesInAgents[j] == serviceId) {
-                    break;
-                }
-            }
-            // Add service Id if not in the set of services for agents yet
-            if (j == idServicesInAgents.length) {
-                _mapAgentIdSetServices[agentId].push(serviceId);
-            }
+            // Add serviceId to the corresponding set. No need to check for duplicates since servieId is unique
+            // and agentIds are unique for each serviceId
+            _mapAgentIdSetServices[agentId].push(serviceId);
 
             // Get component dependencies of a current agent Id
             (, uint256[] memory dependencies) = IRegistry(agentRegistry).getDependencies(agentId);
             // Loop over component Ids
-            for (j = 0; j < dependencies.length; j++) {
+            for (uint256 j = 0; j < dependencies.length; j++) {
                 uint256 componentId = dependencies[j];
                 // Get the set of service Ids correspondent to the current component Id
                 uint256[] memory idServicesInComponents = _mapComponentIdSetServices[componentId];
                 uint256 k;
                 // Loop over all the service Ids
-                for (; k < idServicesInComponents.length; k++) {
-                    // If this service Id already in the set, then skip
+                for (k = 0; k < idServicesInComponents.length; k++) {
+                    // Skip if this serviceId is already in the set (for example, from another agentId extraction)
                     if (idServicesInComponents[k] == serviceId) {
                         break;
                     }
