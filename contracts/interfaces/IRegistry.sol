@@ -33,9 +33,18 @@ interface IRegistry is IMultihash, IERC721Enumerable {
      * @dev Gets the component / agent info.
      */
     function getInfo(uint256 tokenId) external view returns (
+        address owner,
         address developer,
         Multihash memory agentHash,
         string memory description,
+        uint256 numDependencies,
+        uint256[] memory dependencies
+    );
+
+    /**
+     * @dev Gets component dependencies.
+     */
+    function getDependencies(uint256 tokenId) external view returns (
         uint256 numDependencies,
         uint256[] memory dependencies
     );
