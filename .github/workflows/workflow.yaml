@@ -10,19 +10,38 @@ jobs:
     continue-on-error: False
     runs-on: ubuntu-latest
     steps:
+      # Clone the code and install required modules
       - uses: actions/checkout@v2
       - name: Install modules
         run: yarn
+
+      # Run linters
       - name: Run ESLint
         run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
       - name: Run solhint
         run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol contracts/governance/*.sol
+
+      # Compile the code
       - name: Compile
         run: ./node_modules/.bin/hardhat compile
+
+      # Run tests and deploy script(s)
       - name: Run tests
         run: ./node_modules/.bin/hardhat test
       - name: Run script(s)
         run: ./node_modules/.bin/hardhat run scripts/deploy.js
+
+      # Run hardhat coverage and upload codecov report
+      - name: Solidity coverage summary
+        run: ./node_modules/.bin/hardhat coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
 
   docker:
     runs-on: ubuntu-latest
