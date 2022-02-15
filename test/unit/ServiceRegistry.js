@@ -709,8 +709,8 @@ describe("ServiceRegistry", function () {
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
 
             const serviceIdFromAgentId = await serviceRegistry.getServiceIdsCreatedWithAgentId(agentId);
-            expect(serviceIdFromAgentId.numServiceIds == 1);
-            expect(serviceIdFromAgentId.serviceIds[0] == serviceId);
+            expect(serviceIdFromAgentId.numServiceIds).to.equal(1);
+            expect(serviceIdFromAgentId.serviceIds[0]).to.equal(serviceId);
             for (let i = 1; i < 2; i++) {
                 const serviceIdFromComponentId = await serviceRegistry.getServiceIdsCreatedWithComponentId(i);
                 expect(serviceIdFromComponentId.numServiceIds == 1);

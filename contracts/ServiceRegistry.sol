@@ -51,7 +51,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         uint256 deadline;
         // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
-        // Agent instance signers threshold
+        // Agent instance signers threshold: must be a minimum of 2/3 of all the agent instances combined
         uint256 threshold;
         // Total number of agent instances
         uint256 maxNumAgentInstances;

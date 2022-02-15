@@ -5,9 +5,21 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "../ServiceRegistry.sol";
 
 contract TestServiceRegistry is ServiceRegistry {
+    address private _governor;
+    uint256 private _controlValue;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory)
         ServiceRegistry(_agentRegistry, _gnosisSafeL2, _gnosisSafeProxyFactory) {}
+
+    // Only the governor has a privilege to make changes
+    modifier onlyGovernor {
+        require(_governor == msg.sender, "Governor: GOVERNOR_ONLY");
+        _;
+    }
+
+    function changeGovernor(address newGovernor) public onlyOwner {
+        _governor = newGovernor;
+    }
 
     // Create a safe contract with the parameters passed and check it via GnosisSafeL2
     function createCheckSafe(GnosisParams memory gParams) public {
@@ -25,5 +37,15 @@ contract TestServiceRegistry is ServiceRegistry {
         for (uint256 i = 0; i < gParams.agentInstances.length; i++) {
             require(gSafeInstances[i] == gParams.agentInstances[i], "Owners are wrong");
         }
+    }
+
+    // Function to test the governance execution
+    function executeByGovernor(uint256 newValue) external onlyGovernor {
+        _controlValue = newValue;
+    }
+
+    // Getter for a controlled value
+    function getControlValue() public view returns (uint256) {
+        return _controlValue;
     }
 }
