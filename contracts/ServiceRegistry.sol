@@ -346,6 +346,8 @@ contract ServiceRegistry is IMultihash, Ownable {
                 size++;
             }
         }
+        // Set of canonical agent Ids has to be completely overwritten (push-based)
+        delete service.agentIds;
 
         // Set service data
         _setServiceData(service, name, description, configHash, threshold, newAgentIds, newAgentNumSlots, size);

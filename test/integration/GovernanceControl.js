@@ -103,6 +103,7 @@ describe("Governance integration", function () {
             // Schedule an operation from timelock via a proposer (deployer by default)
             const callData = testServiceRegistry.interface.encodeFunctionData("executeByGovernor", [controlValue]);
             // Solidity overridden functions must be explicitly declared
+            // https://github.com/ethers-io/ethers.js/issues/407
             await governorBravo["propose(address[],uint256[],bytes[],string)"]([testServiceRegistry.address], [0],
                 [callData], proposalDescription);
 
