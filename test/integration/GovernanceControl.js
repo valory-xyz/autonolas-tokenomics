@@ -11,7 +11,6 @@ describe("Governance integration", function () {
     let signers;
     const addressZero = "0x" + "0".repeat(40);
     const bytes32Zero = "0x" + "0".repeat(64);
-    const safeThreshold = 7;
     const minDelay = 1;
     const initialVotingDelay = 0; // blocks
     const initialVotingPeriod = 1; // blocks
@@ -56,7 +55,7 @@ describe("Governance integration", function () {
             // console.log("Governor Bravo deployed to", governorBravo.address);
 
             // Setting the governor of a controlled contract
-            testServiceRegistry.changeGovernor(timelock.address);
+            testServiceRegistry.changeManager(timelock.address);
 
             // Schedule an operation from timelock via a proposer (deployer by default)
             const callData = testServiceRegistry.interface.encodeFunctionData("executeByGovernor", [controlValue]);
@@ -99,11 +98,13 @@ describe("Governance integration", function () {
             await timelock.grantRole(executorRole, governorBravo.address);
 
             // Setting the governor of a controlled contract
-            testServiceRegistry.changeGovernor(timelock.address);
+            testServiceRegistry.changeManager(timelock.address);
 
             // Schedule an operation from timelock via a proposer (deployer by default)
             const callData = testServiceRegistry.interface.encodeFunctionData("executeByGovernor", [controlValue]);
-            await governorBravo.propose2([testServiceRegistry.address], [0], [callData], proposalDescription);
+            // Solidity overridden functions must be explicitly declared
+            await governorBravo["propose(address[],uint256[],bytes[],string)"]([testServiceRegistry.address], [0],
+                [callData], proposalDescription);
 
             // Get the proposalId
             const descriptionHash = ethers.utils.id(proposalDescription);
@@ -113,7 +114,8 @@ describe("Governance integration", function () {
             // If initialVotingDelay is greater than 0 we have to wait that many blocks before the voting starts
             // Casting votes for the proposalId: 0 - Against, 1 - For, 2 - Abstain
             await governorBravo.castVote(proposalId, 1);
-            await governorBravo.queue2([testServiceRegistry.address], [0], [callData], descriptionHash);
+            await governorBravo["queue(address[],uint256[],bytes[],bytes32)"]([testServiceRegistry.address], [0],
+                [callData], descriptionHash);
 
             // Waiting for the next minDelay blocks to pass
             const blockNumber = await ethers.provider.getBlockNumber();
@@ -121,7 +123,7 @@ describe("Governance integration", function () {
             await ethers.provider.send("evm_mine", [block.timestamp + minDelay * 86460]);
 
             // Execute the proposed operation and check the execution result
-            await governorBravo.execute2(proposalId, [testServiceRegistry.address], [0], [callData], descriptionHash);
+            await governorBravo["execute(uint256)"](proposalId);
             const newValue = await testServiceRegistry.getControlValue();
             expect(newValue).to.be.equal(controlValue);
         });

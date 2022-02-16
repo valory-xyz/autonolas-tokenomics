@@ -146,12 +146,15 @@ describe("Governance unit", function () {
 
             // Initial proposal threshold is 10 eth, our delegatee voting power is 5 eth
             await expect(
-                governorBravo.connect(signers[1]).propose2([AddressZero], [0], ["0x"], proposalDescription)
+                // Solidity overridden functions must be explicitly declared
+                governorBravo.connect(signers[1])["propose(address[],uint256[],bytes[],string)"]([AddressZero], [0],
+                    ["0x"], proposalDescription)
             ).to.be.revertedWith("GovernorCompatibilityBravo: proposer votes below proposal threshold");
 
             // Adding voting power, and the proposal must go through
             await token.transfer(signers[1].address, ethers.utils.parseEther("5"));
-            await governorBravo.connect(signers[1]).propose2([AddressZero], [0], ["0x"], proposalDescription);
+            await governorBravo.connect(signers[1])["propose(address[],uint256[],bytes[],string)"]([AddressZero], [0],
+                ["0x"], proposalDescription);
         });
     });
 });
