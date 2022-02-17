@@ -648,7 +648,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
             const tBlock = await serviceRegistry.getTerminationBlock(serviceId);
-            expect (tBlock == 1000);
+            expect(tBlock).to.equal(1000);
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
@@ -709,12 +709,12 @@ describe("ServiceRegistry", function () {
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
 
             const serviceIdFromAgentId = await serviceRegistry.getServiceIdsCreatedWithAgentId(agentId);
-            expect(serviceIdFromAgentId.numServiceIds == 1);
-            expect(serviceIdFromAgentId.serviceIds[0] == serviceId);
+            expect(serviceIdFromAgentId.numServiceIds).to.equal(1);
+            expect(serviceIdFromAgentId.serviceIds[0]).to.equal(serviceId);
             for (let i = 1; i < 2; i++) {
                 const serviceIdFromComponentId = await serviceRegistry.getServiceIdsCreatedWithComponentId(i);
-                expect(serviceIdFromComponentId.numServiceIds == 1);
-                expect(serviceIdFromComponentId.serviceIds[0] == serviceId);
+                expect(serviceIdFromComponentId.numServiceIds).to.equal(1);
+                expect(serviceIdFromComponentId.serviceIds[0]).to.equal(serviceId);
             }
         });
     });
@@ -768,19 +768,19 @@ describe("ServiceRegistry", function () {
 
             // Check for the service info components
             const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
-            expect(serviceInfo.owner == owner);
-            expect(serviceInfo.name == name);
-            expect(serviceInfo.description == description);
-            expect(serviceInfo.active == false);
-            expect(serviceInfo.numAgentIds == agentIds.length);
+            expect(serviceInfo.owner).to.equal(owner);
+            expect(serviceInfo.name).to.equal(name);
+            expect(serviceInfo.description).to.equal(description);
+            expect(serviceInfo.active).to.equal(false);
+            expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             for (let i = 0; i < agentIds.length; i++) {
-                expect(serviceInfo.agentIds[i] == agentIds[i]);
+                expect(serviceInfo.agentIds[i]).to.equal(agentIds[i]);
             }
             for (let i = 0; i < agentNumSlots.length; i++) {
-                expect(serviceInfo.agentNumSlots[i] == agentNumSlots[i]);
+                expect(serviceInfo.agentNumSlots[i]).to.equal(agentNumSlots[i]);
             }
             const tBlock = await serviceRegistry.getTerminationBlock(serviceId);
-            expect (tBlock == 0);
+            expect(tBlock).to.equal(0);
         });
 
         it("Obtaining service information after update and creating one more service", async function () {
@@ -808,27 +808,27 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
             expect(await serviceRegistry.ownerOf(serviceId)).to.equal(owner);
             let totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices == 1);
-            expect(totalSupply.maxServiceId == 1);
+            expect(totalSupply.actualNumServices).to.equal(1);
+            expect(totalSupply.maxServiceId).to.equal(1);
 
             // Check for the service info components
             const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
-            expect(serviceInfo.owner == owner);
-            expect(serviceInfo.name == name);
-            expect(serviceInfo.description == description);
-            expect(serviceInfo.active == false);
-            expect(serviceInfo.numAgentIds == agentIds.length);
+            expect(serviceInfo.owner).to.equal(owner);
+            expect(serviceInfo.name).to.equal(name);
+            expect(serviceInfo.description).to.equal(description);
+            expect(serviceInfo.active).to.equal(false);
+            console.log(serviceInfo.numAgentIds);
+            expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             const agentIdsCheck = [newAgentIds[0], newAgentIds[2]];
             for (let i = 0; i < agentIds.length; i++) {
-                expect(serviceInfo.agentIds[i] == agentIdsCheck[i]);
+                expect(serviceInfo.agentIds[i]).to.equal(agentIdsCheck[i]);
             }
             const agentNumSlotsCheck = [newAgentNumSlots[0], newAgentNumSlots[2]];
             for (let i = 0; i < agentNumSlotsCheck.length; i++) {
-                expect(serviceInfo.agentNumSlots[i] == agentNumSlotsCheck[i]);
+                expect(serviceInfo.agentNumSlots[i]).to.equal(agentNumSlotsCheck[i]);
             }
             const agentInstancesInfo = await serviceRegistry.getInstancesForAgentId(serviceId, agentId);
-            expect(agentInstancesInfo.agentInstances == 0);
-            expect(agentInstancesInfo.numAgentInstances == 0);
+            expect(agentInstancesInfo.numAgentInstances).to.equal(0);
 
             // Creating a second service and do basic checks
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIdsCheck,
@@ -837,10 +837,10 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
             expect(await serviceRegistry.ownerOf(serviceId + 1)).to.equal(owner);
             const serviceIds = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIds[0] == 1 && serviceIds[1] == 2);
+            expect(serviceIds[0] == 1 && serviceIds[1]).to.equal(2);
             totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices == 2);
-            expect(totalSupply.maxServiceId == 2);
+            expect(totalSupply.actualNumServices).to.equal(2);
+            expect(totalSupply.maxServiceId).to.equal(2);
         });
 
         it("Check for returned set of registered agent instances", async function () {
@@ -863,12 +863,12 @@ describe("ServiceRegistry", function () {
             const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
             expect(serviceInfo.numAagentInstances == agentInstances.length);
             for (let i = 0; i < agentInstances.length; i++) {
-                expect(serviceInfo.agentInstances[i] == agentInstances[i]);
+                expect(serviceInfo.agentInstances[i]).to.equal(agentInstances[i]);
             }
             const agentInstancesInfo = await serviceRegistry.getInstancesForAgentId(serviceId, agentId);
             expect(agentInstancesInfo.agentInstances == 2);
             for (let i = 0; i < agentInstances.length; i++) {
-                expect(agentInstancesInfo.agentInstances[i] == agentInstances[i]);
+                expect(agentInstancesInfo.agentInstances[i]).to.equal(agentInstances[i]);
             }
         });
     });

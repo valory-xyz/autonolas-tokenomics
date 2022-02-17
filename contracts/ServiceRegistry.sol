@@ -51,7 +51,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         uint256 deadline;
         // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
-        // Agent instance signers threshold
+        // Agent instance signers threshold: must no less than ceil((2 * n + 1) / 3) of all the agent instances combined
         uint256 threshold;
         // Total number of agent instances
         uint256 maxNumAgentInstances;
@@ -346,6 +346,8 @@ contract ServiceRegistry is IMultihash, Ownable {
                 size++;
             }
         }
+        // Set of canonical agent Ids has to be completely overwritten (push-based)
+        delete service.agentIds;
 
         // Set service data
         _setServiceData(service, name, description, configHash, threshold, newAgentIds, newAgentNumSlots, size);

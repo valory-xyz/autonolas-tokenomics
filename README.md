@@ -77,6 +77,7 @@ npx hardhat node
 - [`ESLint`](https://eslint.org) is used for JS code.
 - [`solhint`](https://github.com/protofire/solhint) is used for Solidity linting.
 
+
 ## Github workflows
 The PR process is managed by github workflows, where the code undergoes
 several steps in order to be verified. Those include:

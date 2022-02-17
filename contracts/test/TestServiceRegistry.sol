@@ -5,6 +5,7 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafeL2.sol";
 import "../ServiceRegistry.sol";
 
 contract TestServiceRegistry is ServiceRegistry {
+    uint256 private _controlValue;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory)
         ServiceRegistry(_agentRegistry, _gnosisSafeL2, _gnosisSafeProxyFactory) {}
@@ -25,5 +26,15 @@ contract TestServiceRegistry is ServiceRegistry {
         for (uint256 i = 0; i < gParams.agentInstances.length; i++) {
             require(gSafeInstances[i] == gParams.agentInstances[i], "Owners are wrong");
         }
+    }
+
+    // Function to test the governance execution
+    function executeByGovernor(uint256 newValue) external onlyManager {
+        _controlValue = newValue;
+    }
+
+    // Getter for a controlled value
+    function getControlValue() public view returns (uint256) {
+        return _controlValue;
     }
 }

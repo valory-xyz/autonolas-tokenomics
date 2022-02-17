@@ -283,23 +283,23 @@ describe("ServiceRegistry integration", function () {
             // Initial checks
             // Total supply must be 2
             let totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices == 2);
-            expect(totalSupply.maxServiceId == 2);
+            expect(totalSupply.actualNumServices).to.equal(2);
+            expect(totalSupply.maxServiceId).to.equal(2);
             // Balance of owner is 2, each service id belongs to the owner
             expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
             expect(await serviceRegistry.ownerOf(serviceIds[0])).to.equal(owner);
             expect(await serviceRegistry.ownerOf(serviceIds[1])).to.equal(owner);
             // Getting the set of service Ids of the owner
             let serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIdsRet[0] == 1 && serviceIdsRet[1] == 2);
+            expect(serviceIdsRet[0] == 1 && serviceIdsRet[1] == 2).to.be.true;
 
             // Destroy the very first service
             await serviceManager.connect(sigOwner).serviceDestroy(serviceIds[0]);
 
             // Check for the information consistency
             totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices == 1);
-            expect(totalSupply.maxServiceId == 2);
+            expect(totalSupply.actualNumServices).to.equal(1);
+            expect(totalSupply.maxServiceId).to.equal(2);
             // Balance of owner is 1, only service Id 2 belongs to the owner
             expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
             expect(await serviceRegistry.exists(serviceIds[0])).to.equal(false);
@@ -311,7 +311,7 @@ describe("ServiceRegistry integration", function () {
             expect(await serviceRegistry.ownerOf(serviceIds[1])).to.equal(owner);
             // Getting the set of service Ids of the owner, must be service Id 2 only
             serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIdsRet[0] == 2);
+            expect(serviceIdsRet[0]).to.equal(2);
         });
 
         it("Should fail when trying to update the destroyed service", async function () {

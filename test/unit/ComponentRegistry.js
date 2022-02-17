@@ -176,22 +176,22 @@ describe("ComponentRegistry", function () {
                 componentHash2, description + "2", lastDependencies);
 
             const compInfo = await componentRegistry.getInfo(tokenId);
-            expect(compInfo.owner == user.address);
-            expect(compInfo.developer == user.address);
-            expect(compInfo.componentHash == componentHash2);
-            expect(compInfo.description == description + "2");
-            expect(compInfo.numDependencies == lastDependencies.length);
+            expect(compInfo.owner).to.equal(user.address);
+            expect(compInfo.developer).to.equal(user.address);
+            expect(compInfo.componentHash.hash).to.equal(componentHash2.hash);
+            expect(compInfo.description).to.equal(description + "2");
+            expect(compInfo.numDependencies).to.equal(lastDependencies.length);
             for (let i = 0; i < lastDependencies.length; i++) {
-                expect(compInfo.dependencies[i] == lastDependencies[i]);
+                expect(compInfo.dependencies[i]).to.equal(lastDependencies[i]);
             }
             await expect(
                 componentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_COMPONENT");
             
             const componentDependencies = await componentRegistry.getDependencies(tokenId);
-            expect(componentDependencies.numDependencies == lastDependencies.length);
+            expect(componentDependencies.numDependencies).to.equal(lastDependencies.length);
             for (let i = 0; i < lastDependencies.length; i++) {
-                expect(componentDependencies.dependencies[i] == lastDependencies[i]);
+                expect(componentDependencies.dependencies[i]).to.equal(lastDependencies[i]);
             }
             await expect(
                 componentRegistry.getDependencies(tokenId + 1)
@@ -254,9 +254,9 @@ describe("ComponentRegistry", function () {
             await componentRegistry.connect(mechManager).updateHash(user.address, 1, componentHash1);
 
             const hashes = await componentRegistry.getHashes(1);
-            expect(hashes.numHashes == 2);
-            expect(hashes.componentHashes[0].hash == componentHash.hash);
-            expect(hashes.componentHashes[1].hash == componentHash1.hash);
+            expect(hashes.numHashes).to.equal(2);
+            expect(hashes.componentHashes[0].hash).to.equal(componentHash.hash);
+            expect(hashes.componentHashes[1].hash).to.equal(componentHash1.hash);
         });
     });
 });

@@ -170,22 +170,22 @@ describe("AgentRegistry", function () {
                 agentHash2, description + "2", lastDependencies);
 
             const agentInfo = await agentRegistry.getInfo(tokenId);
-            expect(agentInfo.owner == user.address);
-            expect(agentInfo.developer == user.address);
-            expect(agentInfo.agentHash == agentHash2);
-            expect(agentInfo.description == description + "2");
-            expect(agentInfo.numDependencies == lastDependencies.length);
+            expect(agentInfo.owner).to.equal(user.address);
+            expect(agentInfo.developer).to.equal(user.address);
+            expect(agentInfo.agentHash.hash).to.equal(agentHash2.hash);
+            expect(agentInfo.description).to.equal(description + "2");
+            expect(agentInfo.numDependencies).to.equal(lastDependencies.length);
             for (let i = 0; i < lastDependencies.length; i++) {
-                expect(agentInfo.dependencies[i] == lastDependencies[i]);
+                expect(agentInfo.dependencies[i]).to.equal(lastDependencies[i]);
             }
             await expect(
                 agentRegistry.getInfo(tokenId + 1)
             ).to.be.revertedWith("getComponentInfo: NO_AGENT");
 
             const agentDependencies = await agentRegistry.getDependencies(tokenId);
-            expect(agentDependencies.numDependencies == lastDependencies.length);
+            expect(agentDependencies.numDependencies).to.equal(lastDependencies.length);
             for (let i = 0; i < lastDependencies.length; i++) {
-                expect(agentDependencies.dependencies[i] == lastDependencies[i]);
+                expect(agentDependencies.dependencies[i]).to.equal(lastDependencies[i]);
             }
             await expect(
                 agentRegistry.getDependencies(tokenId + 1)
@@ -258,9 +258,9 @@ describe("AgentRegistry", function () {
             await agentRegistry.connect(mechManager).updateHash(user.address, 1, agentHash1);
 
             const hashes = await agentRegistry.getHashes(1);
-            expect(hashes.numHashes == 2);
-            expect(hashes.agentHashes[0].hash == agentHash.hash);
-            expect(hashes.agentHashes[1].hash == agentHash1.hash);
+            expect(hashes.numHashes).to.equal(2);
+            expect(hashes.agentHashes[0].hash).to.equal(agentHash.hash);
+            expect(hashes.agentHashes[1].hash).to.equal(agentHash1.hash);
         });
     });
 });

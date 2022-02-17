@@ -53,14 +53,14 @@ describe("RegistriesManager", function () {
             await registriesManager.connect(user).updateAgentHash(1, agentHashes[1]);
 
             const cHashes = await componentRegistry.getHashes(1);
-            expect(cHashes.numHashes == 2);
-            expect(cHashes.componentHashes[0].hash == componentHashes[0].hash);
-            expect(cHashes.componentHashes[1].hash == componentHashes[1].hash);
+            expect(cHashes.numHashes).to.equal(2);
+            expect(cHashes.componentHashes[0].hash).to.equal(componentHashes[0].hash);
+            expect(cHashes.componentHashes[1].hash).to.equal(componentHashes[1].hash);
 
             const aHashes = await agentRegistry.getHashes(1);
-            expect(aHashes.numHashes == 2);
-            expect(aHashes.agentHashes[0].hash == agentHashes[0].hash);
-            expect(aHashes.agentHashes[1].hash == agentHashes[1].hash);
+            expect(aHashes.numHashes).to.equal(2);
+            expect(aHashes.agentHashes[0].hash).to.equal(agentHashes[0].hash);
+            expect(aHashes.agentHashes[1].hash).to.equal(agentHashes[1].hash);
         });
     });
 });
