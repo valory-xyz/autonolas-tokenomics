@@ -51,7 +51,7 @@ contract ServiceRegistry is IMultihash, Ownable {
         uint256 deadline;
         // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
-        // Agent instance signers threshold: must no less than ceil((2 * n + 1) / 3) of all the agent instances combined
+        // Agent instance signers threshold: must no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
         uint256 threshold;
         // Total number of agent instances
         uint256 maxNumAgentInstances;
@@ -260,9 +260,14 @@ contract ServiceRegistry is IMultihash, Ownable {
             service.maxNumAgentInstances += agentNumSlots[i];
         }
 
-        // Check for the correct threshold: 2/3 number of agent instances + 1
-        require(service.threshold > service.maxNumAgentInstances * 2 / 3 &&
-            service.threshold <= service.maxNumAgentInstances,
+        // Check for the correct threshold: no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
+        uint256 checkThreshold = service.maxNumAgentInstances * 2 + 1;
+        if (checkThreshold % 3 == 0) {
+            checkThreshold = checkThreshold / 3;
+        } else {
+            checkThreshold = checkThreshold / 3 + 1;
+        }
+        require(service.threshold >= checkThreshold && service.threshold <= service.maxNumAgentInstances,
             "serviceInfo: THRESHOLD");
     }
 

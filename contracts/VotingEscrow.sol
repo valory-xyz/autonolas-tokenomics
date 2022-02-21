@@ -4,10 +4,32 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
 
-/// @title Voting Escrow
+/**
+@title Voting Escrow
+@author Curve Finance
+@license MIT
+@notice Votes have a weight depending on time, so that users are
+committed to the future of (whatever they are voting for)
+@dev Vote weight decays linearly over time. Lock time cannot be
+more than `MAXTIME` (4 years).
+# Voting escrow to have time-weighted votes
+# Votes have a weight depending on time, so that users are committed
+# to the future of (whatever they are voting for).
+# The weight in this implementation is linear, and lock cannot be more than maxtime:
+# w ^
+# 1 +        /
+#   |      /
+#   |    /
+#   |  /
+#   |/
+# 0 +--------+------> time
+#       maxtime (4 years?)
+*/
+
+/// @title Voting Escrow - the workflow is ported from Curve Finance Vyper implementation
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// Code ported from: https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/VotingEscrow.vy
 
 //# Interface for checking whether address belongs to a whitelisted
 //# type of a smart wallet.
@@ -179,7 +201,7 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
 
             // Read values of scheduled changes in the slope
             // oldLocked.end can be in the past and in the future
-            // newLocked.end can ONLY by in the FUTURE unless everything expired: than zeros
+            // newLocked.end can ONLY be in the FUTURE unless everything expired: than zeros
             oldDSlope = slopeChanges[oldLocked.end];
             if (newLocked.end != 0) {
                 if (newLocked.end == oldLocked.end) {
