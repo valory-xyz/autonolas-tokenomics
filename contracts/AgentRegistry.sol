@@ -4,11 +4,12 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IErrors.sol";
 import "./interfaces/IRegistry.sol";
 
 /// @title Agent Registry - Smart contract for registering agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
+contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Agent parameters
     struct Agent {
         // Developer of the agent
@@ -45,16 +46,30 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
 
     // Only the manager has a privilege to manipulate an agent
     modifier onlyManager {
-        require(_manager == msg.sender, "agentManager: MANAGER_ONLY");
+        if (_manager != msg.sender) {
+            revert ManagerOnly({
+                sender: msg.sender,
+                manager: _manager
+            });
+        }
         _;
     }
 
     // Checks for supplied IPFS hash
     modifier checkHash(Multihash memory hashStruct) {
         // Check hash IPFS current standard validity
-        require(hashStruct.hashFunction == 0x12 && hashStruct.size == 0x20, "checkHash: WRONG_HASH");
+        if (hashStruct.hashFunction != 0x12 || hashStruct.size != 0x20) {
+            revert WrongHash({
+                hashFunctionProvided: hashStruct.hashFunction,
+                hashFunctionNeeded: 0x12,
+                sizeProvided: hashStruct.size,
+                sizeNeeded: 0x20
+            });
+        }
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[hashStruct.hash] == 0, "checkHash: HASH_EXISTS");
+        if (_mapHashTokenId[hashStruct.hash] > 0) {
+            revert HashExists();
+        }
         _;
     }
 
@@ -99,17 +114,22 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         returns (uint256)
     {
         // Checks for owner and developer being not zero addresses
-        require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
+        if(owner == address(0) || developer == address(0)) {
+            revert ZeroAddress();
+        }
 
         // Checks for non-empty description and component dependency
-        require(bytes(description).length > 0, "create: NO_DESCRIPTION");
+        if (bytes(description).length == 0) {
+            revert EmptyString();
+        }
 //        require(dependencies.length > 0, "Agent must have at least one component dependency");
 
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > lastId && IRegistry(componentRegistry).exists(dependencies[iDep]),
-                "create: WRONG_COMPONENT_ID");
+            if (dependencies[iDep] <= lastId || IRegistry(componentRegistry).exists(dependencies[iDep]) == false) {
+                revert WrongComponentId(dependencies[iDep]);
+            }
             lastId = dependencies[iDep];
         }
 
@@ -131,7 +151,9 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         onlyManager
         checkHash(agentHash)
     {
-        require(ownerOf(tokenId) == owner, "update: AGENT_NOT_FOUND");
+        if (ownerOf(tokenId) != owner) {
+            revert AgentNotFound(tokenId);
+        }
         Agent storage agent = _mapTokenIdAgent[tokenId];
         agent.agentHashes.push(agentHash);
     }
@@ -157,7 +179,9 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         returns (address owner, address developer, Multihash memory agentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
-        require(_exists(tokenId), "getComponentInfo: NO_AGENT");
+        if (_exists(tokenId) == false) {
+            revert AgentNotFound(tokenId);
+        }
         Agent storage agent = _mapTokenIdAgent[tokenId];
         return (ownerOf(tokenId), agent.developer, agent.agentHashes[0], agent.description, agent.dependencies.length,
             agent.dependencies);
@@ -171,7 +195,9 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
         view
         returns (uint256 numDependencies, uint256[] memory dependencies)
     {
-        require(_exists(tokenId), "getDependencies: NO_AGENT");
+        if (_exists(tokenId) == false) {
+            revert AgentNotFound(tokenId);
+        }
         Agent storage agent = _mapTokenIdAgent[tokenId];
         return (agent.dependencies.length, agent.dependencies);
     }
@@ -181,7 +207,9 @@ contract AgentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard
     /// @return numHashes Number of hashes.
     /// @return agentHashes The list of agent hashes.
     function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory agentHashes) {
-        require(_exists(tokenId), "getHashes: NO_AGENT");
+        if (_exists(tokenId) == false) {
+            revert AgentNotFound(tokenId);
+        }
         Agent storage agent = _mapTokenIdAgent[tokenId];
         return (agent.agentHashes.length, agent.agentHashes);
     }

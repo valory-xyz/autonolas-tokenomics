@@ -5,11 +5,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
+import "./interfaces/IErrors.sol";
 import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceRegistry is IMultihash, Ownable {
+contract ServiceRegistry is IErrors, IMultihash, Ownable {
     event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -92,7 +93,7 @@ contract ServiceRegistry is IMultihash, Ownable {
     // Map of owner address => set of service Ids that belong to that owner
     mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance addres => if engaged with a service
-    mapping (address => bool) private _mapAllAgentInstances;
+    mapping (address => uint256) private _mapAllAgentInstances;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
     // Updated during the service deployment via createSafe() function
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
@@ -107,26 +108,37 @@ contract ServiceRegistry is IMultihash, Ownable {
 
     // Only the manager has a privilege to manipulate a service
     modifier onlyManager {
-        require(_manager == msg.sender, "serviceManager: MANAGER_ONLY");
+        if (_manager != msg.sender) {
+            revert ManagerOnly({
+                sender: msg.sender,
+                manager: _manager
+            });
+        }
         _;
     }
 
     // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        require(owner != address(0) && _mapServices[serviceId].owner == owner, "serviceOwner: SERVICE_NOT_FOUND");
+        if (owner == address(0) || _mapServices[serviceId].owner != owner) {
+            revert ServiceNotFound(serviceId);
+        }
         _;
     }
 
     // Check for the service existence
     modifier serviceExists(uint256 serviceId) {
-        require(_mapServices[serviceId].owner != address(0), "serviceExists: NO_SERVICE");
+        if (_mapServices[serviceId].owner == address(0)) {
+            revert ServiceDoesNotExist(serviceId);
+        }
         _;
     }
 
     // Check that there are no registered agent instances.
     modifier noRegisteredAgentInstance(uint256 serviceId)
     {
-        require(_mapServices[serviceId].numAgentInstances == 0, "agentInstance: REGISTERED");
+        if (_mapServices[serviceId].numAgentInstances != 0) {
+            revert AgentInstanceRegistered(serviceId);
+        }
         _;
     }
 
@@ -142,18 +154,31 @@ contract ServiceRegistry is IMultihash, Ownable {
         view
     {
         // Checks for non-empty strings
-        require(bytes(name).length > 0, "initCheck: EMPTY_NAME");
-        require(bytes(description).length > 0, "initCheck: NO_DESCRIPTION");
-        require(configHash.hashFunction == 0x12 && configHash.size == 0x20, "initCheck: WRONG_HASH");
+        if(bytes(name).length == 0 || bytes(description).length == 0) {
+            revert EmptyString();
+        }
+
+        // Check for the hash format
+        if (configHash.hashFunction != 0x12 || configHash.size != 0x20) {
+            revert WrongHash({
+                hashFunctionProvided: configHash.hashFunction,
+                hashFunctionNeeded: 0x12,
+                sizeProvided: configHash.size,
+                sizeNeeded: 0x20
+            });
+        }
 
         // Checking for non-empty arrays and correct number of values in them
-        require(agentIds.length > 0 && agentIds.length == agentNumSlots.length, "initCheck: AGENTS_SLOTS");
+        if (agentIds.length == 0 || agentNumSlots.length == 0 || agentIds.length != agentNumSlots.length) {
+            revert WrongAgentIdsData(agentIds.length, agentNumSlots.length);
+        }
 
         // Check for canonical agent Ids existence and for duplicate Ids
         uint256 lastId = 0;
         for (uint256 i = 0; i < agentIds.length; i++) {
-            require(agentIds[i] > lastId && IRegistry(agentRegistry).exists(agentIds[i]),
-                "initCheck: WRONG_AGENT_ID");
+            if (agentIds[i] <= lastId || IRegistry(agentRegistry).exists(agentIds[i]) == false) {
+                revert WrongAgentId(agentIds[i]);
+            }
             lastId = agentIds[i];
         }
     }
@@ -173,7 +198,9 @@ contract ServiceRegistry is IMultihash, Ownable {
         onlyServiceOwner(owner, serviceId)
     {
         // Service must be inactive
-        require(!_mapServices[serviceId].active, "activate: SERVICE_ACTIVE");
+        if (_mapServices[serviceId].active) {
+            revert ServiceActive(serviceId);
+        }
 
         // Activate the service
         _mapServices[serviceId].active = true;
@@ -190,7 +217,9 @@ contract ServiceRegistry is IMultihash, Ownable {
         noRegisteredAgentInstance(serviceId)
     {
         // Service must be active
-        require(_mapServices[serviceId].active, "deactivate: SERVICE_INACTIVE");
+        if (_mapServices[serviceId].active == false) {
+            revert ServiceInactive(serviceId);
+        }
 
         _mapServices[serviceId].active = false;
         emit DeactivateService(owner, serviceId);
@@ -208,9 +237,12 @@ contract ServiceRegistry is IMultihash, Ownable {
         // There must be no registered agent instances while the termination block is infinite
         // or the termination block need to be less than the current block (expired)
         // or the service is inactive in a first place
-        require(service.active == false ||
+        bool cond = service.active == false ||
             (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
-            (service.terminationBlock > 0 && service.terminationBlock <= block.number), "destroy: SERVICE_ACTIVE");
+            (service.terminationBlock > 0 && service.terminationBlock <= block.number);
+        if (cond == false){
+            revert ServiceActive(serviceId);
+        }
 
         service.owner = address(0);
 
@@ -287,14 +319,18 @@ contract ServiceRegistry is IMultihash, Ownable {
         returns (uint256 serviceId)
     {
         // Check for the non-empty owner address
-        require(owner != address(0), "createService: EMPTY_OWNER");
+        if (owner == address(0)) {
+            revert ZeroAddress();
+        }
 
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentNumSlots);
 
         // Check that there are no zero number of slots for a specific canonical agent id
         for (uint256 i = 0; i < agentIds.length; i++) {
-            require(agentNumSlots[i] > 0, "createService: EMPTY_SLOTS");
+            if (agentNumSlots[i] == 0) {
+                revert ZeroValue();
+            }
         }
 
         // Create a new service Id
@@ -397,34 +433,47 @@ contract ServiceRegistry is IMultihash, Ownable {
         // Operator address must be different from agent instance one
         // Also, operator address must not be used as an agent instance anywhere else
         // TODO Need to check for the agent address to be EOA
-        require(operator != agent && !_mapAllAgentInstances[operator], "registerAgent: WRONG_OPERATOR");
+        if (operator == agent || _mapAllAgentInstances[operator] > 0) {
+            revert WrongOperator(serviceId);
+        }
 
         Service storage service = _mapServices[serviceId];
 
         // The service has to be active to register agents
-        require(service.active, "registerAgent: INACTIVE");
+        if (service.active == false) {
+            revert ServiceInactive(serviceId);
+        }
 
         // Check if the agent instance is already engaged with another service
-        require(!_mapAllAgentInstances[agent], "registerAgent: REGISTERED");
+        if (_mapAllAgentInstances[agent] > 0) {
+            revert AgentInstanceRegistered(_mapAllAgentInstances[agent]);
+        }
 
         // Check if the time window for registering agent instances is still active
-        require(service.deadline > block.timestamp, "registerAgent: TIMEOUT");
+        if (service.deadline < block.timestamp) {
+            revert RegistrationTimeout(service.deadline, block.timestamp, serviceId);
+        }
 
         // Check if the termination block has not passed
-        require(service.terminationBlock == 0 || service.terminationBlock >= block.number, "registerAgent: TERMINATED");
+        if (service.terminationBlock > 0 && service.terminationBlock < block.number) {
+            revert ServiceTerminated(service.terminationBlock, block.number, serviceId);
+        }
 
         // Check if canonical agent Id exists in the service
-        require(service.mapAgentSlots[agentId] > 0, "registerAgent: NO_AGENT");
+        if (service.mapAgentSlots[agentId] == 0) {
+            revert AgentNotInService(agentId, serviceId);
+        }
 
         // Check if there is an empty slot for the agent instance in this specific service
-        require(service.mapAgentInstances[agentId].length < service.mapAgentSlots[agentId],
-            "registerAgent: SLOTS_FILLED");
+        if (service.mapAgentInstances[agentId].length == service.mapAgentSlots[agentId]) {
+            revert AgentInstancesSlotsFilled(serviceId);
+        }
 
         // Add agent instance and operator and set the instance engagement
         service.mapAgentInstances[agentId].push(agent);
         service.mapAgentInstancesOperators[agent] = operator;
         service.numAgentInstances++;
-        _mapAllAgentInstances[agent] = true;
+        _mapAllAgentInstances[agent] = serviceId;
 
         emit RegisterInstanceTransaction(operator, serviceId, agent, agentId);
     }
@@ -509,10 +558,14 @@ contract ServiceRegistry is IMultihash, Ownable {
         returns (address)
     {
         Service storage service = _mapServices[serviceId];
-        require(service.numAgentInstances == service.maxNumAgentInstances, "createSafe: NUM_INSTANCES");
+        if (service.numAgentInstances != service.maxNumAgentInstances) {
+            revert AgentInstancesSlotsNotFilled(service.numAgentInstances, service.maxNumAgentInstances, serviceId);
+        }
 
         // Check if the termination block has not passed
-        require(service.terminationBlock == 0 || service.terminationBlock >= block.number, "createSafe: TERMINATED");
+        if (service.terminationBlock > 0 && service.terminationBlock < block.number) {
+            revert ServiceTerminated(service.terminationBlock, block.number, serviceId);
+        }
 
         // Get all agent instances for the safe
         address[] memory agentInstances = _getAgentInstances(service);
@@ -574,7 +627,6 @@ contract ServiceRegistry is IMultihash, Ownable {
         view
         returns (uint256[] memory)
     {
-        require(_mapOwnerSetServices[owner].length > 0, "serviceIdsOfOwner: NO_SERVICES");
         return _mapOwnerSetServices[owner];
     }
 
