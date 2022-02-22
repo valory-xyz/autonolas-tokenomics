@@ -30,11 +30,11 @@ describe("VotingEscrow", function () {
 
             await expect(
                 ve.createLock(0, 0)
-            ).to.be.revertedWith("Value must be non-zero");
+            ).to.be.revertedWith("ZeroValue");
 
             await expect(
                 ve.createLock(oneETHBalance, 0)
-            ).to.be.revertedWith("Lock time incorrect");
+            ).to.be.revertedWith("UnlockTimeIncorrect");
         });
 
         it("Create lock", async function () {
@@ -74,7 +74,7 @@ describe("VotingEscrow", function () {
 
             await expect(
                 ve.createLock(oneETHBalance, lockDuration)
-            ).to.be.revertedWith("Lock can be 4 years max");
+            ).to.be.revertedWith("MaxUnlockTimeReached");
         });
 
         it("Should fail when creating a lock with already locked value", async function () {
@@ -87,7 +87,7 @@ describe("VotingEscrow", function () {
             ve.createLock(oneETHBalance, lockDuration);
             await expect(
                 ve.createLock(oneETHBalance, lockDuration)
-            ).to.be.revertedWith("Withdraw old tokens first");
+            ).to.be.revertedWith("LockedValueNotZero");
         });
 
         it("Increase amount of lock", async function () {
@@ -101,14 +101,14 @@ describe("VotingEscrow", function () {
             // No previous lock
             await expect(
                 ve.increaseAmount(oneETHBalance)
-            ).to.be.revertedWith("No existing lock found");
+            ).to.be.revertedWith("NoValueLocked");
 
             // Now lock 1 eth
             ve.createLock(oneETHBalance, lockDuration);
             // Increase by more than a zero
             await expect(
                 ve.increaseAmount(0)
-            ).to.be.revertedWith("Value must be non-zero");
+            ).to.be.revertedWith("ZeroValue");
 
             // Add 1 eth more
             await ve.increaseAmount(oneETHBalance);
@@ -120,7 +120,7 @@ describe("VotingEscrow", function () {
             // Not possible to add to the expired lock
             await expect(
                 ve.increaseAmount(oneETHBalance)
-            ).to.be.revertedWith("Cannot add to expired lock");
+            ).to.be.revertedWith("LockExpired");
         });
 
         it("Increase amount of unlock time", async function () {
@@ -134,14 +134,14 @@ describe("VotingEscrow", function () {
             // Nothing is locked
             await expect(
                 ve.increaseUnlockTime(oneWeek)
-            ).to.be.revertedWith("Nothing is locked");
+            ).to.be.revertedWith("NoValueLocked");
 
             // Lock 1 eth
             await ve.createLock(oneETHBalance, lockDuration);
             // Try to decrease the unlock time
             await expect(
                 ve.increaseUnlockTime(lockDuration - 1)
-            ).to.be.revertedWith("Increase lock duration only");
+            ).to.be.revertedWith("UnlockTimeIncorrect");
 
             await ve.increaseUnlockTime(lockDuration + oneWeek);
 
@@ -152,7 +152,7 @@ describe("VotingEscrow", function () {
             // Not possible to add to the expired lock
             await expect(
                 ve.increaseUnlockTime(oneETHBalance)
-            ).to.be.revertedWith("Lock expired");
+            ).to.be.revertedWith("LockExpired");
         });
     });
 
@@ -170,7 +170,7 @@ describe("VotingEscrow", function () {
             await ve.connect(owner).createLock(oneETHBalance, lockDuration);
 
             // Try withdraw early
-            await expect(ve.connect(owner).withdraw()).to.be.revertedWith("The lock didn't expire");
+            await expect(ve.connect(owner).withdraw()).to.be.revertedWith("LockNotExpired");
             // Now try withdraw after the time has expired
             ethers.provider.send("evm_increaseTime", [oneWeek]);
             ethers.provider.send("evm_mine"); // mine the next block
@@ -205,8 +205,6 @@ describe("VotingEscrow", function () {
             // Use both balances to check for the supply
             const balanceDeployer = await ve.balanceOf(signers[0].address);
             const balanceOwner = await ve.balanceOf(owner.address);
-            console.log(balanceDeployer);
-            console.log(balanceOwner);
             const supply = await ve.totalSupply();
             const sumBalance = BigInt(balanceOwner) + BigInt(balanceDeployer);
             expect(supply).to.equal(sumBalance.toString());

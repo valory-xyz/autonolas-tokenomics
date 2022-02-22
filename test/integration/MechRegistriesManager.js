@@ -33,10 +33,10 @@ describe("MechRegistriesManager integration", function () {
             const user = signers[3];
             await expect(
                 registriesManager.mintComponent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("componentManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
             await expect(
                 registriesManager.mintAgent(user.address, user.address, componentHash, description, dependencies)
-            ).to.be.revertedWith("agentManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Token Id=1 after first successful component creation must exist", async function () {

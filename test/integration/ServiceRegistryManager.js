@@ -59,7 +59,7 @@ describe("ServiceRegistry integration", function () {
             const owner = signers[4].address;
             await expect(
                 serviceManager.serviceCreate(owner, name, description, configHash, agentIds, agentNumSlots, threshold)
-            ).to.be.revertedWith("serviceManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Service Id=1 after first successful service creation must exist", async function () {
@@ -170,15 +170,15 @@ describe("ServiceRegistry integration", function () {
             // After the update, service has only 2 slots for canonical agent 1 and 1 slot for canonical agent 3
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[0])
-            ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
+            ).to.be.revertedWith("AgentInstancesSlotsFilled");
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[2])
-            ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
+            ).to.be.revertedWith("AgentInstancesSlotsFilled");
 
             // Cannot deactivate the service Id == 1 once one or more agent instances are registered
             await expect(
                 serviceManager.connect(owner).serviceDeactivate(serviceIds[0])
-            ).to.be.revertedWith("agentInstance: REGISTERED");
+            ).to.be.revertedWith("AgentInstanceRegistered");
 
             // But the service Id == 2 can be deactivated since it doesn't have instances registered yet
             serviceManager.connect(owner).serviceDeactivate(serviceIds[1]);
@@ -187,7 +187,7 @@ describe("ServiceRegistry integration", function () {
             const newAgentInstance = signers[11].address;
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], newAgentInstance, agentIds[0])
-            ).to.be.revertedWith("registerAgent: INACTIVE");
+            ).to.be.revertedWith("ServiceInactive");
 
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
@@ -225,7 +225,7 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, nonce)
-            ).to.be.revertedWith("createSafe: NUM_INSTANCES");
+            ).to.be.revertedWith("AgentInstancesSlotsNotFilled");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[2],
                 newAgentIds[0]);
@@ -234,11 +234,11 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
                     newAgentIds[0])
-            ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
+            ).to.be.revertedWith("AgentInstancesSlotsFilled");
             await expect(
                 serviceManager.connect(operators[1]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
                     newAgentIds[1])
-            ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
+            ).to.be.revertedWith("AgentInstancesSlotsFilled");
 
             // Creating Safe with blanc safe parameters for the test
             const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
@@ -307,7 +307,7 @@ describe("ServiceRegistry integration", function () {
             // Requesting for service 1 must revert with non existent service
             await expect(
                 serviceRegistry.ownerOf(serviceIds[0])
-            ).to.be.revertedWith("serviceExists: NO_SERVICE");
+            ).to.be.revertedWith("ServiceDoesNotExist");
             expect(await serviceRegistry.ownerOf(serviceIds[1])).to.equal(owner);
             // Getting the set of service Ids of the owner, must be service Id 2 only
             serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
@@ -334,7 +334,7 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3], [3, 0, 4],
                     maxThreshold, serviceIds[0])
-            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+            ).to.be.revertedWith("ServiceNotFound");
         });
 
         it("Should fail when registering an agent instance after the timeout", async function () {
@@ -353,7 +353,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.connect(owner).serviceSetRegistrationWindow(serviceIds[0], 0);
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
-            ).to.be.revertedWith("registerAgent: TIMEOUT");
+            ).to.be.revertedWith("RegistrationTimeout");
         });
 
         it("Should fail when trying to destroy a service with the block number not reached", async function () {
@@ -373,7 +373,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], 1000);
             await expect(
                 serviceManager.connect(owner).serviceDestroy(serviceIds[0])
-            ).to.be.revertedWith("destroy: SERVICE_ACTIVE");
+            ).to.be.revertedWith("ServiceActive");
         });
     });
 });

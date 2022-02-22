@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IErrors.sol";
 
 /**
 @title Voting Escrow
@@ -56,7 +57,7 @@ struct LockedBalance {
 }
 
 
-contract VotingEscrow is Ownable, ReentrancyGuard {
+contract VotingEscrow is IErrors, Ownable, ReentrancyGuard {
     enum DepositType {
         DEPOSIT_FOR_TYPE,
         CREATE_LOCK_TYPE,
@@ -347,7 +348,9 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
 
         address from = msg.sender;
         if (_value != 0) {
-            require(ERC20(token).transferFrom(from, address(this), _value), "Transfer failed");
+            if (!ERC20(token).transferFrom(from, address(this), _value)) {
+                revert TransferFailed(token, from, address(this), _value);
+            }
         }
 
         emit Deposit(_addr, _value, _locked.end, depositType, block.timestamp);
@@ -367,9 +370,15 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
     function depositFor(address _addr, uint256 _value) external nonReentrant {
         LockedBalance memory _locked = locked[_addr];
 
-        require(_value > 0, "Value must be non-zero"); // dev: need non-zero value
-        require(_locked.amount > 0, "No existing lock found");
-        require(_locked.end > block.timestamp, "Cannot add to expired lock");
+        if (_value == 0) {
+            revert ZeroValue();
+        }
+        if (_locked.amount == 0) {
+            revert NoValueLocked(_addr);
+        }
+        if (_locked.end <= block.timestamp) {
+            revert LockExpired(msg.sender, _locked.end, block.timestamp);
+        }
         _depositFor(_addr, _value, 0, _locked, DepositType.DEPOSIT_FOR_TYPE);
     }
 
@@ -381,10 +390,18 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
         uint256 unlockTime = (_unlock_time / WEEK) * WEEK; // Locktime is rounded down to weeks
         LockedBalance memory _locked = locked[msg.sender];
 
-        require(_value > 0, "Value must be non-zero"); // dev: need non-zero value
-        require(_locked.amount == 0, "Withdraw old tokens first");
-        require(unlockTime > block.timestamp, "Lock time incorrect");
-        require(unlockTime <= block.timestamp + MAXTIME, "Lock can be 4 years max");
+        if (_value == 0) {
+            revert ZeroValue();
+        }
+        if (_locked.amount != 0) {
+            revert LockedValueNotZero(msg.sender, _locked.amount);
+        }
+        if (unlockTime <= block.timestamp) {
+            revert UnlockTimeIncorrect(msg.sender, block.timestamp, unlockTime);
+        }
+        if (unlockTime > block.timestamp + MAXTIME) {
+            revert MaxUnlockTimeReached(msg.sender, block.timestamp + MAXTIME, unlockTime);
+        }
 
         _depositFor(msg.sender, _value, unlockTime, _locked, DepositType.CREATE_LOCK_TYPE);
     }
@@ -396,9 +413,15 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
 
         LockedBalance memory _locked = locked[msg.sender];
 
-        require(_value > 0, "Value must be non-zero"); // dev: need non-zero value
-        require(_locked.amount > 0, "No existing lock found");
-        require(_locked.end > block.timestamp, "Cannot add to expired lock");
+        if (_value == 0) {
+            revert ZeroValue();
+        }
+        if (_locked.amount == 0) {
+            revert NoValueLocked(msg.sender);
+        }
+        if (_locked.end <= block.timestamp) {
+            revert LockExpired(msg.sender, _locked.end, block.timestamp);
+        }
 
         _depositFor(msg.sender, _value, 0, _locked, DepositType.INCREASE_LOCK_AMOUNT);
     }
@@ -411,10 +434,18 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
         LockedBalance memory _locked = locked[msg.sender];
         uint256 unlockTime = (_unlock_time / WEEK) * WEEK; // Locktime is rounded down to weeks
 
-        require(_locked.amount > 0, "Nothing is locked");
-        require(_locked.end > block.timestamp, "Lock expired");
-        require(unlockTime > _locked.end, "Increase lock duration only");
-        require(unlockTime <= block.timestamp + MAXTIME, "Lock can be 4 years max");
+        if (_locked.amount == 0) {
+            revert NoValueLocked(msg.sender);
+        }
+        if (_locked.end <= block.timestamp) {
+            revert LockExpired(msg.sender, _locked.end, block.timestamp);
+        }
+        if (unlockTime <= _locked.end) {
+            revert UnlockTimeIncorrect(msg.sender, _locked.end, unlockTime);
+        }
+        if (unlockTime > block.timestamp + MAXTIME) {
+            revert MaxUnlockTimeReached(msg.sender, block.timestamp + MAXTIME, unlockTime);
+        }
 
         _depositFor(msg.sender, 0, unlockTime, _locked, DepositType.INCREASE_UNLOCK_TIME);
     }
@@ -423,7 +454,9 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
     /// @dev Only possible if the lock has expired
     function withdraw() external nonReentrant {
         LockedBalance memory _locked = locked[msg.sender];
-        require(block.timestamp >= _locked.end, "The lock didn't expire");
+        if (_locked.end > block.timestamp) {
+            revert LockNotExpired(msg.sender, _locked.end, block.timestamp);
+        }
         uint256 value = uint256(int256(_locked.amount));
 
         locked[msg.sender] = LockedBalance(0,0);
@@ -498,7 +531,9 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
     function balanceOfAt(address addr, uint256 _block) external view returns (uint256) {
-        require(_block <= block.number, "Wrong block number");
+        if (_block > block.number) {
+            revert WrongBlockNumber(_block, block.number);
+        }
 
         // Binary search
         uint256 _min = 0;
@@ -592,7 +627,9 @@ contract VotingEscrow is Ownable, ReentrancyGuard {
     /// @param _block Block to calculate the total voting power at
     /// @return Total voting power at `_block`
     function totalSupplyAt(uint256 _block) external view returns (uint256) {
-        require(_block <= block.number, "Wrong block number");
+        if (_block > block.number) {
+            revert WrongBlockNumber(_block, block.number);
+        }
         uint256 _epoch = epoch;
         uint256 target_epoch = _findBlockEpoch(_block, _epoch);
 

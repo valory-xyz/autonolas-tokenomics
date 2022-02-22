@@ -55,7 +55,7 @@ describe("AgentRegistry", function () {
             const user = signers[2];
             await expect(
                 agentRegistry.create(user.address, user.address, agentHash, description, dependencies)
-            ).to.be.revertedWith("agentManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Should fail when creating an agent with a zero address of owner and / or developer", async function () {
@@ -65,15 +65,15 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(AddressZero, user.address, agentHash, description,
                     dependencies)
-            ).to.be.revertedWith("create: ZERO_ADDRESS");
+            ).to.be.revertedWith("ZeroAddress");
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, AddressZero, agentHash, description,
                     dependencies)
-            ).to.be.revertedWith("create: ZERO_ADDRESS");
+            ).to.be.revertedWith("ZeroAddress");
             await expect(
                 agentRegistry.connect(mechManager).create(AddressZero, AddressZero, agentHash, description,
                     dependencies)
-            ).to.be.revertedWith("create: ZERO_ADDRESS");
+            ).to.be.revertedWith("ZeroAddress");
         });
 
         it("Should fail when creating an agent with a wrong IPFS hash header", async function () {
@@ -85,11 +85,11 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, wrongAgentHashes[0],
                     description, dependencies)
-            ).to.be.revertedWith("checkHash: WRONG_HASH");
+            ).to.be.revertedWith("WrongHash");
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, wrongAgentHashes[1],
                     description, dependencies)
-            ).to.be.revertedWith("checkHash: WRONG_HASH");
+            ).to.be.revertedWith("WrongHash");
         });
 
         it("Should fail when creating an agent with an empty description", async function () {
@@ -99,7 +99,7 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, agentHash, "",
                     dependencies)
-            ).to.be.revertedWith("create: NO_DESCRIPTION");
+            ).to.be.revertedWith("EmptyString");
         });
 
         it("Should fail when creating a second agent with the same hash", async function () {
@@ -111,7 +111,7 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, agentHash,
                     description, dependencies)
-            ).to.be.revertedWith("checkHash: HASH_EXISTS");
+            ).to.be.revertedWith("HashExists");
         });
 
         it("Should fail when component number is less or equal to zero", async function () {
@@ -121,7 +121,7 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, agentHash,
                     description, [0])
-            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
+            ).to.be.revertedWith("WrongComponentId");
         });
 
         it("Should fail when creating a non-existent component dependency", async function () {
@@ -131,7 +131,7 @@ describe("AgentRegistry", function () {
             await expect(
                 agentRegistry.connect(mechManager).create(user.address, user.address, agentHash,
                     description, [1])
-            ).to.be.revertedWith("create: WRONG_COMPONENT_ID");
+            ).to.be.revertedWith("WrongComponentId");
         });
 
         it("Token Id=1 after first successful agent creation must exist ", async function () {
@@ -180,7 +180,7 @@ describe("AgentRegistry", function () {
             }
             await expect(
                 agentRegistry.getInfo(tokenId + 1)
-            ).to.be.revertedWith("getComponentInfo: NO_AGENT");
+            ).to.be.revertedWith("AgentNotFound");
 
             const agentDependencies = await agentRegistry.getDependencies(tokenId);
             expect(agentDependencies.numDependencies).to.equal(lastDependencies.length);
@@ -189,7 +189,7 @@ describe("AgentRegistry", function () {
             }
             await expect(
                 agentRegistry.getDependencies(tokenId + 1)
-            ).to.be.revertedWith("getDependencies: NO_AGENT");
+            ).to.be.revertedWith("AgentNotFound");
         });
 
         //        it("Should fail when creating an agent without a single component dependency", async function () {
@@ -215,10 +215,10 @@ describe("AgentRegistry", function () {
                 agentHash1, description, dependencies);
             await expect(
                 agentRegistry.connect(mechManager).updateHash(user2.address, 1, agentHash2)
-            ).to.be.revertedWith("update: AGENT_NOT_FOUND");
+            ).to.be.revertedWith("AgentNotFound");
             await expect(
                 agentRegistry.connect(mechManager).updateHash(user.address, 2, agentHash2)
-            ).to.be.revertedWith("update: AGENT_NOT_FOUND");
+            ).to.be.revertedWith("AgentNotFound");
             await agentRegistry.connect(mechManager).updateHash(user.address, 1, agentHash2);
         });
 
@@ -233,7 +233,7 @@ describe("AgentRegistry", function () {
                 agentHash1, description, dependencies);
             await expect(
                 agentRegistry.connect(mechManager).updateHash(user.address, 1, agentHash1)
-            ).to.be.revertedWith("checkHash: HASH_EXISTS");
+            ).to.be.revertedWith("HashExists");
             await agentRegistry.connect(mechManager).updateHash(user.address, 1, agentHash2);
         });
 
@@ -246,7 +246,7 @@ describe("AgentRegistry", function () {
 
             await expect(
                 agentRegistry.getHashes(2)
-            ).to.be.revertedWith("getHashes: NO_AGENT");
+            ).to.be.revertedWith("AgentNotFound");
         });
 
         it("Update hash, get component hashes", async function () {

@@ -64,7 +64,7 @@ describe("ServiceRegistry", function () {
             const owner = signers[3].address;
             await expect(
                 serviceRegistry.createService(owner, name, description, configHash, agentIds, agentNumSlots, threshold)
-            ).to.be.revertedWith("serviceManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Should fail when the owner of a service has zero address", async function () {
@@ -73,7 +73,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(AddressZero, name, description, configHash, agentIds,
                     agentNumSlots, threshold)
-            ).to.be.revertedWith("createService: EMPTY_OWNER");
+            ).to.be.revertedWith("ZeroAddress");
         });
 
         it("Should fail when creating a service with an empty name", async function () {
@@ -83,7 +83,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, "", description, configHash, agentIds,
                     agentNumSlots, threshold)
-            ).to.be.revertedWith("initCheck: EMPTY_NAME");
+            ).to.be.revertedWith("EmptyString");
         });
 
         it("Should fail when creating a service with an empty description", async function () {
@@ -93,7 +93,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, "", configHash, agentIds, agentNumSlots,
                     threshold)
-            ).to.be.revertedWith("initCheck: NO_DESCRIPTION");
+            ).to.be.revertedWith("EmptyString");
         });
 
         it("Should fail when creating a service with a wrong config IPFS hash header", async function () {
@@ -105,11 +105,11 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, wrongConfigHashes[0],
                     agentIds, agentNumSlots, threshold)
-            ).to.be.revertedWith("initCheck: WRONG_HASH");
+            ).to.be.revertedWith("WrongHash");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, wrongConfigHashes[1],
                     agentIds, agentNumSlots, threshold)
-            ).to.be.revertedWith("initCheck: WRONG_HASH");
+            ).to.be.revertedWith("WrongHash");
         });
 
         it("Should fail when creating a service with incorrect agent slots values", async function () {
@@ -118,14 +118,14 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [], [], threshold)
-            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
+            ).to.be.revertedWith("WrongAgentIdsData");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [], threshold)
-            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
+            ).to.be.revertedWith("WrongAgentIdsData");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1, 3], [2],
                     threshold)
-            ).to.be.revertedWith("initCheck: AGENTS_SLOTS");
+            ).to.be.revertedWith("WrongAgentIdsData");
         });
 
         it("Should fail when creating a service with non existent canonical agent", async function () {
@@ -135,7 +135,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                     agentNumSlots, threshold)
-            ).to.be.revertedWith("initCheck: WRONG_AGENT_ID");
+            ).to.be.revertedWith("WrongAgentId");
         });
 
         it("Should fail when creating a service with duplicate canonical agents in agent slots", async function () {
@@ -148,7 +148,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1, 1], [2, 2],
                     threshold)
-            ).to.be.revertedWith("initCheck: WRONG_AGENT_ID");
+            ).to.be.revertedWith("WrongAgentId");
         });
 
         it("Should fail when creating a service with incorrect input parameter", async function () {
@@ -162,7 +162,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1, 0], [2, 2],
                     threshold)
-            ).to.be.revertedWith("initCheck: WRONG_AGENT_ID");
+            ).to.be.revertedWith("WrongAgentId");
         });
 
         it("Should fail when trying to set empty agent slots", async function () {
@@ -176,7 +176,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds, [3, 0],
                     threshold)
-            ).to.be.revertedWith("createService: EMPTY_SLOTS");
+            ).to.be.revertedWith("ZeroValue");
         });
 
         it("Checking for different signers threshold combinations", async function () {
@@ -238,7 +238,7 @@ describe("ServiceRegistry", function () {
             const owner = signers[3].address;
             await expect(
                 serviceRegistry.createService(owner, name, description, configHash, agentIds, agentNumSlots, threshold)
-            ).to.be.revertedWith("serviceManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Should fail when the owner of a service has zero address", async function () {
@@ -247,7 +247,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).updateService(AddressZero, name, description, configHash, agentIds,
                     agentNumSlots, threshold, 0)
-            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+            ).to.be.revertedWith("ServiceNotFound");
         });
 
         it("Should fail when trying to update a non-existent service", async function () {
@@ -257,7 +257,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).updateService(owner, name, description, configHash, agentIds,
                     agentNumSlots, threshold, 0)
-            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+            ).to.be.revertedWith("ServiceNotFound");
         });
 
         it("Catching \"UpdateServiceTransaction\" event log after update of a service", async function () {
@@ -297,7 +297,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).updateService(owner, name, description, configHash, agentIds,
                     agentNumSlots, maxThreshold, 1)
-            ).to.be.revertedWith("agentInstance: REGISTERED");
+            ).to.be.revertedWith("AgentInstanceRegistered");
         });
     });
 
@@ -307,7 +307,7 @@ describe("ServiceRegistry", function () {
             const agentInstance = signers[7].address;
             await expect(
                 serviceRegistry.registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("serviceManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Should fail when registering an agent instance with a non-existent service", async function () {
@@ -317,7 +317,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("serviceExists: NO_SERVICE");
+            ).to.be.revertedWith("ServiceDoesNotExist");
         });
 
         it("Should fail when registering an agent instance for the inactive service", async function () {
@@ -335,7 +335,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("registerAgent: INACTIVE");
+            ).to.be.revertedWith("ServiceInactive");
         });
 
         it("Should fail when registering an agent instance that is already registered", async function () {
@@ -356,7 +356,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("registerAgent: REGISTERED");
+            ).to.be.revertedWith("AgentInstanceRegistered");
         });
 
         it("Should fail when registering an agent instance for non existent canonical agent Id", async function () {
@@ -375,7 +375,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, 0)
-            ).to.be.revertedWith("registerAgent: NO_AGENT");
+            ).to.be.revertedWith("AgentNotInService");
         });
 
         it("Should fail when registering an agent instance for the service with no available slots", async function () {
@@ -397,7 +397,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[2], agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[3], agentId)
-            ).to.be.revertedWith("registerAgent: SLOTS_FILLED");
+            ).to.be.revertedWith("AgentInstancesSlotsFilled");
         });
 
         it("Catching \"RegisterInstanceTransaction\" event log after agent instance registration", async function () {
@@ -461,11 +461,11 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(agentInstances[0], serviceId, agentInstances[0], agentId)
-            ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
+            ).to.be.revertedWith("WrongOperator");
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(agentInstances[0], serviceId, agentInstances[1], agentId)
-            ).to.be.revertedWith("registerAgent: WRONG_OPERATOR");
+            ).to.be.revertedWith("WrongOperator");
         });
     });
 
@@ -474,7 +474,7 @@ describe("ServiceRegistry", function () {
             const owner = signers[3].address;
             await expect(
                 serviceRegistry.activate(owner, serviceId)
-            ).to.be.revertedWith("serviceManager: MANAGER_ONLY");
+            ).to.be.revertedWith("ManagerOnly");
         });
 
         it("Should fail when activating a non-existent service", async function () {
@@ -483,7 +483,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
                 serviceRegistry.connect(serviceManager).activate(owner, serviceId + 1)
-            ).to.be.revertedWith("serviceOwner: SERVICE_NOT_FOUND");
+            ).to.be.revertedWith("ServiceNotFound");
         });
 
         it("Should fail when activating a service that is already active", async function () {
@@ -500,7 +500,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activate(owner, serviceId);
             await expect(
                 serviceRegistry.connect(serviceManager).activate(owner, serviceId)
-            ).to.be.revertedWith("activate: SERVICE_ACTIVE");
+            ).to.be.revertedWith("ServiceActive");
         });
 
         it("Catching \"ActivateService\" event log after service activation", async function () {
@@ -536,7 +536,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).deactivate(owner, serviceId)
-            ).to.be.revertedWith("agentInstance: REGISTERED");
+            ).to.be.revertedWith("AgentInstanceRegistered");
         });
 
         it("Should fail when deactivating a service that is already inactive", async function () {
@@ -552,7 +552,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             await expect(
                 serviceRegistry.connect(serviceManager).deactivate(owner, serviceId)
-            ).to.be.revertedWith("deactivate: SERVICE_INACTIVE");
+            ).to.be.revertedWith("ServiceInactive");
         });
 
         it("Catching \"DeactivateService\" event log after service deactivation", async function () {
@@ -589,7 +589,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
-            ).to.be.revertedWith("destroy: SERVICE_ACTIVE");
+            ).to.be.revertedWith("ServiceActive");
         });
 
         it("Catching \"DestroyService\" event. Service is destroyed without agent instances", async function () {
@@ -626,7 +626,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("registerAgent: TERMINATED");
+            ).to.be.revertedWith("ServiceTerminated");
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
@@ -674,7 +674,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
                     AddressZero, 0, AddressZero, serviceId)
-            ).to.be.revertedWith("createSafe: NUM_INSTANCES");
+            ).to.be.revertedWith("AgentInstancesSlotsNotFilled");
         });
 
         it("Catching \"CreateSafeWithAgents\" event log when calling the Safe contract creation", async function () {
@@ -700,7 +700,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, serviceId)
-            ).to.be.revertedWith("createSafe: TERMINATED");
+            ).to.be.revertedWith("ServiceTerminated");
 
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
@@ -726,20 +726,11 @@ describe("ServiceRegistry", function () {
 
             await expect(
                 serviceRegistry.ownerOf(serviceId)
-            ).to.be.revertedWith("serviceExists: NO_SERVICE");
+            ).to.be.revertedWith("ServiceDoesNotExist");
 
             await expect(
                 serviceRegistry.getServiceInfo(serviceId)
-            ).to.be.revertedWith("serviceExists: NO_SERVICE");
-        });
-
-        it("Should fail when requesting info about all revice Ids from the owner with no services", async function () {
-            const owner = signers[3].address;
-            expect(await serviceRegistry.balanceOf(owner)).to.equal(0);
-
-            await expect(
-                serviceRegistry.getServiceIdsOfOwner(owner)
-            ).to.be.revertedWith("serviceIdsOfOwner: NO_SERVICES");
+            ).to.be.revertedWith("ServiceDoesNotExist");
         });
 
         it("Obtaining information about service existence, balance, owner, service info", async function () {
@@ -749,8 +740,7 @@ describe("ServiceRegistry", function () {
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description,
-                []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
 
             // Initially owner does not have any services
             expect(await serviceRegistry.exists(serviceId)).to.equal(false);
@@ -817,7 +807,6 @@ describe("ServiceRegistry", function () {
             expect(serviceInfo.name).to.equal(name);
             expect(serviceInfo.description).to.equal(description);
             expect(serviceInfo.active).to.equal(false);
-            console.log(serviceInfo.numAgentIds);
             expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             const agentIdsCheck = [newAgentIds[0], newAgentIds[2]];
             for (let i = 0; i < agentIds.length; i++) {

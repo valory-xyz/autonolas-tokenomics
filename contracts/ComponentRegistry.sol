@@ -4,11 +4,12 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IErrors.sol";
 import "./interfaces/IRegistry.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
+contract ComponentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Component parameters
     struct Component {
         // Developer of the component
@@ -39,18 +40,32 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         _BASEURI = _bURI;
     }
 
-    // Only the manager has a privilege to manipulate an component
+    // Only the manager has a privilege to manipulate an agent
     modifier onlyManager {
-        require(_manager == msg.sender, "componentManager: MANAGER_ONLY");
+        if (_manager != msg.sender) {
+            revert ManagerOnly({
+            sender: msg.sender,
+            manager: _manager
+            });
+        }
         _;
     }
 
     // Checks for supplied IPFS hash
     modifier checkHash(Multihash memory hashStruct) {
         // Check hash IPFS current standard validity
-        require(hashStruct.hashFunction == 0x12 && hashStruct.size == 0x20, "checkHash: WRONG_HASH");
+        if (hashStruct.hashFunction != 0x12 || hashStruct.size != 0x20) {
+            revert WrongHash({
+            hashFunctionProvided: hashStruct.hashFunction,
+            hashFunctionNeeded: 0x12,
+            sizeProvided: hashStruct.size,
+            sizeNeeded: 0x20
+            });
+        }
         // Check for the existent IPFS hashes
-        require(_mapHashTokenId[hashStruct.hash] == 0, "checkHash: HASH_EXISTS");
+        if (_mapHashTokenId[hashStruct.hash] > 0) {
+            revert HashExists();
+        }
         _;
     }
 
@@ -95,16 +110,21 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         returns (uint256)
     {
         // Checks for owner and developer being not zero addresses
-        require(owner != address(0) && developer != address(0), "create: ZERO_ADDRESS");
+        if(owner == address(0) || developer == address(0)) {
+            revert ZeroAddress();
+        }
 
-        // Checks for non-empty description
-        require(bytes(description).length > 0, "create: NO_DESCRIPTION");
+        // Checks for non-empty description and component dependency
+        if (bytes(description).length == 0) {
+            revert EmptyString();
+        }
         
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            require(dependencies[iDep] > lastId && dependencies[iDep] <= _tokenIds,
-                "create: WRONG_COMPONENT_ID");
+            if (dependencies[iDep] <= lastId || dependencies[iDep] > _tokenIds) {
+                revert WrongComponentId(dependencies[iDep]);
+            }
             lastId = dependencies[iDep];
         }
 
@@ -126,7 +146,9 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         onlyManager
         checkHash(componentHash)
     {
-        require(ownerOf(tokenId) == owner, "update: COMPONENT_NOT_FOUND");
+        if (ownerOf(tokenId) != owner) {
+            revert ComponentNotFound(tokenId);
+        }
         Component storage component = _mapTokenIdComponent[tokenId];
         component.componentHashes.push(componentHash);
     }
@@ -152,7 +174,9 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
         returns (address owner, address developer, Multihash memory componentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
-        require(_exists(tokenId), "getComponentInfo: NO_COMPONENT");
+        if (!_exists(tokenId)) {
+            revert ComponentNotFound(tokenId);
+        }
         Component storage component = _mapTokenIdComponent[tokenId];
         return (ownerOf(tokenId), component.developer, component.componentHashes[0], component.description,
             component.dependencies.length, component.dependencies);
@@ -166,7 +190,9 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     view
     returns (uint256 numDependencies, uint256[] memory dependencies)
     {
-        require(_exists(tokenId), "getDependencies: NO_COMPONENT");
+        if (!_exists(tokenId)) {
+            revert ComponentNotFound(tokenId);
+        }
         Component storage component = _mapTokenIdComponent[tokenId];
         return (component.dependencies.length, component.dependencies);
     }
@@ -176,7 +202,9 @@ contract ComponentRegistry is IMultihash, ERC721Enumerable, Ownable, ReentrancyG
     /// @return numHashes Number of hashes.
     /// @return componentHashes The list of component hashes.
     function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory componentHashes) {
-        require(_exists(tokenId), "getHashes: NO_COMPONENT");
+        if (!_exists(tokenId)) {
+            revert ComponentNotFound(tokenId);
+        }
         Component storage component = _mapTokenIdComponent[tokenId];
         return (component.componentHashes.length, component.componentHashes);
     }
