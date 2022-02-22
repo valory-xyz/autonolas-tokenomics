@@ -127,7 +127,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
         // Check for dependencies validity: must be already allocated, must not repeat
         uint256 lastId = 0;
         for (uint256 iDep = 0; iDep < dependencies.length; iDep++) {
-            if (dependencies[iDep] <= lastId || IRegistry(componentRegistry).exists(dependencies[iDep]) == false) {
+            if (dependencies[iDep] <= lastId || !IRegistry(componentRegistry).exists(dependencies[iDep])) {
                 revert WrongComponentId(dependencies[iDep]);
             }
             lastId = dependencies[iDep];
@@ -179,7 +179,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
         returns (address owner, address developer, Multihash memory agentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert AgentNotFound(tokenId);
         }
         Agent storage agent = _mapTokenIdAgent[tokenId];
@@ -195,7 +195,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
         view
         returns (uint256 numDependencies, uint256[] memory dependencies)
     {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert AgentNotFound(tokenId);
         }
         Agent storage agent = _mapTokenIdAgent[tokenId];
@@ -207,7 +207,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
     /// @return numHashes Number of hashes.
     /// @return agentHashes The list of agent hashes.
     function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory agentHashes) {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert AgentNotFound(tokenId);
         }
         Agent storage agent = _mapTokenIdAgent[tokenId];

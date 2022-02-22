@@ -100,4 +100,49 @@ interface IErrors {
     /// @param maxNumAgentInstances Maximum number of agent instances to be filled.
     /// @param serviceId Service Id.
     error AgentInstancesSlotsNotFilled(uint256 actual, uint256 maxNumAgentInstances, uint256 serviceId);
+
+    /// @dev Failure of a transfer.
+    /// @param token Address of a token.
+    /// @param from Address `from`.
+    /// @param to Address `to`.
+    /// @param value Value.
+    error TransferFailed(address token, address from, address to, uint256 value);
+
+    /// @dev No existing lock value is found.
+    /// @param addr Address that is checked for the locked value.
+    error NoValueLocked(address addr);
+
+    /// @dev Locked value is not zero.
+    /// @param addr Address that is checked for the locked value.
+    /// @param amount Locked amount.
+    error LockedValueNotZero(address addr, int128 amount);
+
+    /// @dev Value lock is expired.
+    /// @param addr Address that is checked for the locked value.
+    /// @param deadline The lock expiration deadline.
+    /// @param curTime Current timestamp.
+    error LockExpired(address addr, uint256 deadline, uint256 curTime);
+
+    /// @dev Value lock is not expired.
+    /// @param addr Address that is checked for the locked value.
+    /// @param deadline The lock expiration deadline.
+    /// @param curTime Current timestamp.
+    error LockNotExpired(address addr, uint256 deadline, uint256 curTime);
+
+    /// @dev Provided unlock time is incorrect.
+    /// @param addr Address that is checked for the locked value.
+    /// @param minUnlockTime Minimal unlock time that can be set.
+    /// @param providedUnlockTime Provided unlock time.
+    error UnlockTimeIncorrect(address addr, uint256 minUnlockTime, uint256 providedUnlockTime);
+
+    /// @dev Provided unlock time is bigger than the maximum allowed.
+    /// @param addr Address that is checked for the locked value.
+    /// @param maxUnlockTime Max unlock time that can be set.
+    /// @param providedUnlockTime Provided unlock time.
+    error MaxUnlockTimeReached(address addr, uint256 maxUnlockTime, uint256 providedUnlockTime);
+
+    /// @dev Provided block number is incorrect (has not been processed yet).
+    /// @param providedBlockNumber Provided block number.
+    /// @param actualBlockNumber Actual block number.
+    error WrongBlockNumber(uint256 providedBlockNumber, uint256 actualBlockNumber);
 }

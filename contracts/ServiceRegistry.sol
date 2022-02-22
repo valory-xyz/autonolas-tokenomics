@@ -176,7 +176,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // Check for canonical agent Ids existence and for duplicate Ids
         uint256 lastId = 0;
         for (uint256 i = 0; i < agentIds.length; i++) {
-            if (agentIds[i] <= lastId || IRegistry(agentRegistry).exists(agentIds[i]) == false) {
+            if (agentIds[i] <= lastId || !IRegistry(agentRegistry).exists(agentIds[i])) {
                 revert WrongAgentId(agentIds[i]);
             }
             lastId = agentIds[i];
@@ -217,7 +217,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         noRegisteredAgentInstance(serviceId)
     {
         // Service must be active
-        if (_mapServices[serviceId].active == false) {
+        if (!_mapServices[serviceId].active) {
             revert ServiceInactive(serviceId);
         }
 
@@ -237,10 +237,10 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // There must be no registered agent instances while the termination block is infinite
         // or the termination block need to be less than the current block (expired)
         // or the service is inactive in a first place
-        bool cond = service.active == false ||
+        bool cond = !service.active ||
             (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
             (service.terminationBlock > 0 && service.terminationBlock <= block.number);
-        if (cond == false){
+        if (!cond){
             revert ServiceActive(serviceId);
         }
 
@@ -440,7 +440,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
 
         // The service has to be active to register agents
-        if (service.active == false) {
+        if (!service.active) {
             revert ServiceInactive(serviceId);
         }
 

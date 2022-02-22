@@ -174,7 +174,7 @@ contract ComponentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Re
         returns (address owner, address developer, Multihash memory componentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert ComponentNotFound(tokenId);
         }
         Component storage component = _mapTokenIdComponent[tokenId];
@@ -190,7 +190,7 @@ contract ComponentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Re
     view
     returns (uint256 numDependencies, uint256[] memory dependencies)
     {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert ComponentNotFound(tokenId);
         }
         Component storage component = _mapTokenIdComponent[tokenId];
@@ -202,7 +202,7 @@ contract ComponentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Re
     /// @return numHashes Number of hashes.
     /// @return componentHashes The list of component hashes.
     function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory componentHashes) {
-        if (_exists(tokenId) == false) {
+        if (!_exists(tokenId)) {
             revert ComponentNotFound(tokenId);
         }
         Component storage component = _mapTokenIdComponent[tokenId];
