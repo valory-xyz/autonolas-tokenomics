@@ -205,8 +205,6 @@ describe("VotingEscrow", function () {
             // Use both balances to check for the supply
             const balanceDeployer = await ve.balanceOf(signers[0].address);
             const balanceOwner = await ve.balanceOf(owner.address);
-            console.log(balanceDeployer);
-            console.log(balanceOwner);
             const supply = await ve.totalSupply();
             const sumBalance = BigInt(balanceOwner) + BigInt(balanceDeployer);
             expect(supply).to.equal(sumBalance.toString());

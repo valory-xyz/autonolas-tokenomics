@@ -740,8 +740,7 @@ describe("ServiceRegistry", function () {
             const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description,
-                []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
 
             // Initially owner does not have any services
             expect(await serviceRegistry.exists(serviceId)).to.equal(false);
@@ -808,7 +807,6 @@ describe("ServiceRegistry", function () {
             expect(serviceInfo.name).to.equal(name);
             expect(serviceInfo.description).to.equal(description);
             expect(serviceInfo.active).to.equal(false);
-            console.log(serviceInfo.numAgentIds);
             expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             const agentIdsCheck = [newAgentIds[0], newAgentIds[2]];
             for (let i = 0; i < agentIds.length; i++) {
