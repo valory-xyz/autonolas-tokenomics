@@ -46,8 +46,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         address multisig;
         string name;
         string description;
-        // IPFS hash pointing to the config metadata
-        Multihash configHash;
+        // IPFS hashes pointing to the config metadata
+        Multihash[] configHashes;
         // Deadline until which all agent instances must be registered for this service
         uint256 deadline;
         // Service termination block, if set > 0, otherwise infinite
@@ -109,10 +109,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     // Only the manager has a privilege to manipulate a service
     modifier onlyManager {
         if (_manager != msg.sender) {
-            revert ManagerOnly({
-                sender: msg.sender,
-                manager: _manager
-            });
+            revert ManagerOnly(msg.sender, _manager);
         }
         _;
     }
@@ -160,12 +157,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
 
         // Check for the hash format
         if (configHash.hashFunction != 0x12 || configHash.size != 0x20) {
-            revert WrongHash({
-                hashFunctionProvided: configHash.hashFunction,
-                hashFunctionNeeded: 0x12,
-                sizeProvided: configHash.size,
-                sizeNeeded: 0x20
-            });
+            revert WrongHash(configHash.hashFunction, 0x12, configHash.size, 0x20);
         }
 
         // Checking for non-empty arrays and correct number of values in them
@@ -192,7 +184,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function activate(address owner, uint256 serviceId)
+    function activateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
@@ -210,7 +202,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @dev Deactivates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function deactivate(address owner, uint256 serviceId)
+    function deactivateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
@@ -267,21 +259,18 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @param service A service instance to fill the data for.
     /// @param name Name of the service.
     /// @param description Description of the service.
-    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param size Size of a canonical agent ids set.
-    function _setServiceData(Service storage service, string memory name, string memory description,
-        Multihash memory configHash, uint256 threshold, uint256[] memory agentIds, uint256[] memory agentNumSlots,
-        uint size)
+    function _setServiceData(Service storage service, string memory name, string memory description, uint256 threshold,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint size)
         private
     {
         // Updating high-level data components of the service
         // Note that the deadline is not updated here since there is a different function for that
         service.name = name;
         service.description = description;
-        service.configHash = configHash;
         service.threshold = threshold;
         service.maxNumAgentInstances = 0;
 
@@ -299,8 +288,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         } else {
             checkThreshold = checkThreshold / 3 + 1;
         }
-        require(service.threshold >= checkThreshold && service.threshold <= service.maxNumAgentInstances,
-            "serviceInfo: THRESHOLD");
+        if(service.threshold < checkThreshold || service.threshold > service.maxNumAgentInstances) {
+            revert WrongThreshold(service.threshold, checkThreshold, service.maxNumAgentInstances);
+        }
     }
 
     /// @dev Creates a new service.
@@ -341,9 +331,11 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         service.owner = owner;
         service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
+        // Set the hash here since the updated one is changed via a separate function
+        service.configHashes.push(configHash);
 
         // Set service data
-        _setServiceData(service, name, description, configHash, threshold, agentIds, agentNumSlots, agentIds.length);
+        _setServiceData(service, name, description, threshold, agentIds, agentNumSlots, agentIds.length);
 
         // Add service to the set of services for the owner
         _mapOwnerSetServices[owner].push(serviceId);
@@ -363,7 +355,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
-    function updateService(address owner, string memory name, string memory description, Multihash memory configHash,
+    function update(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
@@ -389,9 +381,11 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         }
         // Set of canonical agent Ids has to be completely overwritten (push-based)
         delete service.agentIds;
+        // TODO check if during the update the hash can be overwritten, otherwise change of config hash mush be completely removed from the update
+        service.configHashes[0] = configHash;
 
         // Set service data
-        _setServiceData(service, name, description, configHash, threshold, newAgentIds, newAgentNumSlots, size);
+        _setServiceData(service, name, description, threshold, newAgentIds, newAgentNumSlots, size);
 
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
@@ -590,6 +584,24 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         return service.multisig;
     }
 
+    /// @dev Updates the component hash.
+    /// @param owner Owner of the component.
+    /// @param serviceId Service Id.
+    /// @param configHash New IPFS hash pointing to the config metadata.
+    function updateHash(address owner, uint256 serviceId, Multihash memory configHash)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+    {
+        // Check for the hash format
+        if (configHash.hashFunction != 0x12 || configHash.size != 0x20) {
+            revert WrongHash(configHash.hashFunction, 0x12, configHash.size, 0x20);
+        }
+
+        Service storage service = _mapServices[serviceId];
+        service.configHashes.push(configHash);
+    }
+
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
@@ -635,6 +647,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @return owner Address of the service owner.
     /// @return name Name of the service.
     /// @return description Description of the service.
+    /// @return configHash Primary IPFS hash pointing to the config metadata.
     /// @return threshold Agent instance signers threshold.
     /// @return numAgentIds Number of canonical agent Ids in the service.
     /// @return agentIds Set of service canonical agents.
@@ -646,9 +659,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         public
         view
         serviceExists(serviceId)
-        returns (address owner, string memory name, string memory description, uint256 threshold, uint256 numAgentIds,
-            uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 numAgentInstances,
-            address[]memory agentInstances, bool active)
+        returns (address owner, string memory name, string memory description, Multihash memory configHash,
+            uint256 threshold, uint256 numAgentIds, uint256[] memory agentIds, uint256[] memory agentNumSlots,
+            uint256 numAgentInstances, address[]memory agentInstances, bool active)
     {
         Service storage service = _mapServices[serviceId];
         agentNumSlots = new uint256[](service.agentIds.length);
@@ -660,6 +673,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         owner = service.owner;
         name = service.name;
         description = service.description;
+        configHash = service.configHashes[0];
         threshold = service.threshold;
         numAgentIds = service.agentIds.length;
         agentIds = service.agentIds;
@@ -683,6 +697,20 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         for (uint256 i = 0; i < numAgentInstances; i++) {
             agentInstances[i] = service.mapAgentInstances[agentId][i];
         }
+    }
+
+    /// @dev Gets service config hashes.
+    /// @param serviceId Service Id.
+    /// @return numHashes Number of hashes.
+    /// @return configHashes The list of component hashes.
+    function getHashes(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 numHashes, Multihash[] memory configHashes)
+    {
+        Service storage service = _mapServices[serviceId];
+        return (service.configHashes.length, service.configHashes);
     }
 
     /// @dev Gets the termination block of a given service Id.

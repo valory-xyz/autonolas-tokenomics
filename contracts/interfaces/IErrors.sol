@@ -47,6 +47,12 @@ interface IErrors {
     /// @param componentId Component Id.
     error ComponentNotFound(uint256 componentId);
 
+    /// @dev Multisig threshold is out of bounds.
+    /// @param currentThreshold Current threshold value.
+    /// @param minThreshold Minimum possible threshold value.
+    /// @param maxThreshold Maximum possible threshold value.
+    error WrongThreshold(uint256 currentThreshold, uint256 minThreshold, uint256 maxThreshold);
+
     /// @dev Service Id is not found, although service Id might exist in the records.
     /// @dev serviceId Service Id.
     error ServiceNotFound(uint256 serviceId);

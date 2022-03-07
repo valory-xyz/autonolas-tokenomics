@@ -45,7 +45,7 @@ contract ServiceManager is IMultihash, Ownable {
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        IService(serviceRegistry).updateService(msg.sender, name, description, configHash, agentIds, agentNumSlots,
+        IService(serviceRegistry).update(msg.sender, name, description, configHash, agentIds, agentNumSlots,
             threshold, serviceId);
     }
 
@@ -92,19 +92,26 @@ contract ServiceManager is IMultihash, Ownable {
 
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    function serviceActivate(uint256 serviceId) public {
-        IService(serviceRegistry).activate(msg.sender, serviceId);
+    function serviceActivateRegistration(uint256 serviceId) public {
+        IService(serviceRegistry).activateRegistration(msg.sender, serviceId);
     }
 
     /// @dev Deactivates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    function serviceDeactivate(uint256 serviceId) public {
-        IService(serviceRegistry).deactivate(msg.sender, serviceId);
+    function serviceDeactivateRegistration(uint256 serviceId) public {
+        IService(serviceRegistry).deactivateRegistration(msg.sender, serviceId);
     }
 
     /// @dev Destroys the service instance and frees up its storage.
     /// @param serviceId Correspondent service Id.
     function serviceDestroy(uint256 serviceId) public {
         IService(serviceRegistry).destroy(msg.sender, serviceId);
+    }
+
+    /// @dev Updates service config hash.
+    /// @param serviceId Service Id.
+    /// @param configHash New IPFS hash pointing to the config metadata.
+    function serviceUpdateHash(uint256 serviceId, Multihash memory configHash) public {
+        IService(serviceRegistry).updateHash(msg.sender, serviceId, configHash);
     }
 }

@@ -91,8 +91,8 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[1]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], agentInstances[1], agentIds[1]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2], agentIds[0]);
@@ -149,8 +149,8 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[1]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1]);
 
             // Updating service Id == 1
             const newAgentIds = [1, 2, 3];
@@ -177,11 +177,11 @@ describe("ServiceRegistry integration", function () {
 
             // Cannot deactivate the service Id == 1 once one or more agent instances are registered
             await expect(
-                serviceManager.connect(owner).serviceDeactivate(serviceIds[0])
+                serviceManager.connect(owner).serviceDeactivateRegistration(serviceIds[0])
             ).to.be.revertedWith("AgentInstanceRegistered");
 
             // But the service Id == 2 can be deactivated since it doesn't have instances registered yet
-            serviceManager.connect(owner).serviceDeactivate(serviceIds[1]);
+            serviceManager.connect(owner).serviceDeactivateRegistration(serviceIds[1]);
 
             // When deactivated, no agent instance registration is possible
             const newAgentInstance = signers[11].address;
@@ -213,7 +213,7 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[1];
             await serviceManager.serviceCreate(owner.address, name, description, configHash, newAgentIds,
                 newAgentNumSlots, newMaxThreshold);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[0],
@@ -349,7 +349,7 @@ describe("ServiceRegistry integration", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
             await serviceManager.connect(owner).serviceSetRegistrationWindow(serviceIds[0], 0);
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
@@ -368,7 +368,7 @@ describe("ServiceRegistry integration", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivate(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1);
             await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], 1000);
             await expect(
