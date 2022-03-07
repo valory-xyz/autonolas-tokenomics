@@ -1,21 +1,21 @@
 # On-Chain Protocol State Machine
 Let's first describe the list of possible states:
 - Service is non-existent (Service does not exist);
-- Service is pre-registration; (diff to  inactive-registration?)
-- Service is active-registration; (replace -registration with Bonding)
-- Service is inactive-registration (Service is not able to register agent instances);
+- Service is pre-registration;
+- Service is active-registration; (replace -registration with Bonding) -> next iteration
+- Service is expired-registration (Service is not able to register agent instances);
 - Service is finished-registration (Service is at full capacity of agent instances);
 - Service is deployed;
-- Service is terminatedBonded; -> some agents are bonded with stake
-- Service is terminatedUnbonded; -> so all agents have left the service and recovered their stake
+- Service is terminated-bonded; -> some agents are bonded with stake
+- Service is terminated-unbonded; -> All agents have left the service and recovered their stake
 - Service is destroyed;
 
 
-TBD: we need the bonding mechanim implemented as part of agent registration.
+TBD: we need the bonding mechanism implemented as part of agent registration.
 
 In v1 the service has a static set of agent instances;
 
-Can service owner slash? If yes, single control; if no, need honest majority which we imply anyway; 
+Can service owner slash? If yes, single control; if no, need honest majority which we imply anyway; -> answer is no
 
 ## States by functions
 Now let's see the evolution of states when calling each of the service functions that modify states between function
@@ -23,7 +23,7 @@ entrance and exit. We assume that all the input that is passed to the contract i
 of the asynchronous on-chain behavior.
 
 ### createService()
-- **Current state:** Service does not exist
+- **Current state:** Service is non-existent
   - Input: Service parameters
   - Output: Incremented `service Id`
 - **Next state:** Service is pre-registration
@@ -75,17 +75,17 @@ of the asynchronous on-chain behavior.
 
 ### destroy()
 1. - **Current state:** Service is pre-registration
-   - **Next state:** Service does not exist
+   - **Next state:** Service is destroyed
 
 
 2. - **Current state:** Service is active-registration
      - Condition: No single agent instance is registered and the termination block is not set
-   - **Next state:** Service does not exist
+   - **Next state:** Service is non-existent
 
 
 3. - **Current state:** Service is active-registration
      - Condition: Termination block has passed
-   - **Next state:** Service does not exist
+   - **Next state:** Service is non-existent
 
 
 4. - **Current state:** Service is active-registration
@@ -110,7 +110,7 @@ of the asynchronous on-chain behavior.
    - **Next state:** Service is active-registration
 
 
-3. - **Current state:** inactive-registration
+3. - **Current state:** expired-registration
      - Input: Registration deadline
      - Condition: Registration deadline is greater than the current time
    - **Next state:** Service is active-registration
@@ -122,10 +122,10 @@ of the asynchronous on-chain behavior.
    - **Next state:** Service is pre-registration
 
 
-2. - **Current state:** inactive-registration
+2. - **Current state:** expired-registration
      - Input: Operator, canonical agent Id, agent instance address
      - Output: Error
-   - **Next state:** inactive-registration
+   - **Next state:** expired-registration
 
 
 3. - **Current state:** finished-registration
@@ -163,7 +163,7 @@ Let's consider the change of states via the means of function calls from each sp
 being called from the current state is not included in the list of next possible states, its execution must not change
 the current state.
 
-### Service is nonexistent
+### Service is non-existent
 Functions to call from this state:
    - **createService()**
 
@@ -212,7 +212,7 @@ List of next possible states:
     - Function call for this state: **registerAgent()**
     - Condition: Number of agent instances reached its maximum value
 
-### finished-registration
+### Service is finished-registration
 Functions to call from this state:
   - **createSafe()**
   - **setRegistrationWindow()** WHY? -> we already have all registered; should not be callable in this state.
@@ -223,14 +223,14 @@ List of next possible states:
 1. **Service is deployed**
     - Function call for this state: **createSafe()**
 
-### inactive-registration
+### expired-registration
 Condition for this state: Agent instance registration time has passed
 
 Functions to call from this state:
   - **activateRegistration()**
   - **deactivateRegistration()**
   - **destroy()**
-  - **update()**. Condition: No single agent instance is registered or previous service state was `inactive`
+  - **update()**. Condition: No single agent instance is registered or previous service state was `pre-registration`
   - **createSafe()**
   - **setRegistrationWindow()**
   - **setTerminationBlock()**
@@ -241,23 +241,23 @@ List of next possible states:
     - Condition: Previous service state was `active-registration` and updated time is greater than the current time
 
 
-2. **Service is inactive-registration**
+2. **Service is pre-registration**
     - Function call for this state: **setRegistrationWindow()**
-    - Condition: Previous service state was `inactive-registration` and updated time is greater than the current time
+    - Condition: Previous service state was `pre-registration` and updated time is greater than the current time
 
 
-2. **Service destroyed**
+2. **Service is destroyed**
     - Function call for this state: **destroy()**
-    - Condition: Previous service state was `inactive-registration`. Or, no single agent instance is registered
+    - Condition: Previous service state was `pre-registration`. Or, no single agent instance is registered
 
 3. **Service is deployed**
     - Function call for this state: **createSafe()**
-    - Condition: Previous service state was `at full capacity of agent instances`
+    - Condition: Previous service state was `finished-registration`
 
 
-4. **finished-registration**
+4. **Service is finished-registration**
     - Function call for this state: **setRegistrationWindow()**
-    - Condition: Previous service state was `at full capacity of agent instances` and updated time is greater than the current time
+    - Condition: Previous service state was `finished-registration` and updated time is greater than the current time
     
 ### Service is terminated
 Condition for this state: Service termination block has passed
@@ -272,7 +272,7 @@ Functions to call from this state:
 
 
 List of next possible states:
-1. **Service does not exist**
+1. **Service is destroyed**
     - Function call for this state: **destroy()**
     - Condition: Previous service state was `pre-registration` or no single agent instance is registered
 
@@ -294,5 +294,5 @@ List of next possible states:
 
 4. **finished-registration**
     - Function call for this state: **setTerminationBlock()**
-    - Condition: Previous service state was `at full capacity of agent instances` and updated termination block is equal to zero or greater than the current block number
+    - Condition: Previous service state was `finished-registration` and updated termination block is equal to zero or greater than the current block number
 
