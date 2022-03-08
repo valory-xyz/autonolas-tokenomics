@@ -49,11 +49,11 @@ contract ServiceManager is IMultihash, Ownable {
             threshold, serviceId);
     }
 
-    /// @dev Sets service registration window time.
+    /// @dev Sets agent instance registration window time.
     /// @param serviceId Correspondent service Id.
-    /// @param time Registration time limit.
-    function serviceSetRegistrationWindow(uint256 serviceId, uint256 time) public {
-        IService(serviceRegistry).setRegistrationWindow(msg.sender, serviceId, time);
+    /// @param deadline Registration deadline.
+    function serviceSetRegistrationDeadline(uint256 serviceId, uint256 deadline) public {
+        IService(serviceRegistry).setRegistrationDeadline(msg.sender, serviceId, deadline);
     }
 
     /// @dev Sets service termination block.

@@ -405,28 +405,43 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         emit UpdateServiceTransaction(owner, name, threshold, serviceId);
     }
 
-    /// @dev Sets service registration window time.
+    /// @dev Sets agent instance registration deadline.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Service Id to be updated.
-    /// @param time Registration time limit
-    function setRegistrationWindow(address owner, uint256 serviceId, uint256 time)
+    /// @param deadline Registration deadline.
+    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
-        _mapServices[serviceId].deadline = block.timestamp + time;
+        Service storage service = _mapServices[serviceId];
+        // Deadline cannot be below current time
+        if (deadline < block.timestamp) {
+            revert RegistrationDeadlineIncorrect(deadline, block.timestamp, serviceId);
+        }
+        // Deadline of finished-registration service cannot be further than the last value
+        if (deadline > service.deadline && service.numAgentInstances == service.maxNumAgentInstances) {
+            revert RegistrationDeadlineChangeRedundant(deadline, service.deadline, serviceId);
+        }
+        service.deadline = deadline;
     }
 
     /// @dev Sets service termination block. After that block the service is considered to be expired.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Service Id to be updated.
-    /// @param blockNum Termination block. If 0 is passed (default) then there is no termination.
-    function setTerminationBlock(address owner, uint256 serviceId, uint256 blockNum)
+    /// @param terminationBlock Termination block. If 0 is passed (default) then there is no termination.
+    function setTerminationBlock(address owner, uint256 serviceId, uint256 terminationBlock)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
-        _mapServices[serviceId].terminationBlock = blockNum;
+        Service storage service = _mapServices[serviceId];
+        if (terminationBlock > 0 && terminationBlock < block.number) {
+            revert TerminationBlockIncorrect(terminationBlock, block.number, serviceId);
+        }
+
+        // TODO must always be after the registration deadline
+        service.terminationBlock = terminationBlock;
     }
 
     /// @dev Registers agent instance.

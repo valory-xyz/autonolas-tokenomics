@@ -52,7 +52,7 @@ interface IService is IMultihash {
     /**
      * @dev Sets service registration window time.
      */
-    function setRegistrationWindow(address owner, uint256 serviceId, uint256 time) external;
+    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline) external;
 
     /**
      * @dev Sets service termination block.

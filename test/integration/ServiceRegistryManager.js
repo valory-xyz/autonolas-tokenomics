@@ -350,7 +350,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
-            await serviceManager.connect(owner).serviceSetRegistrationWindow(serviceIds[0], 0);
+            await serviceManager.connect(owner).serviceSetRegistrationDeadline(serviceIds[0], 0);
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
             ).to.be.revertedWith("RegistrationTimeout");

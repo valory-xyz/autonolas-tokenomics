@@ -99,7 +99,7 @@ of the asynchronous on-chain behavior.
      - Output: Error
    - **Next state:** Service is active-registration
 
-### setRegistrationWindow()
+### setRegistrationDeadline()
 1. - **Current state:** Service is pre-registration
      - Input: Registration deadline
    - **Next state:** Service is pre-registration
@@ -177,7 +177,7 @@ Functions to call from this state:
   - **activateRegistration()**
   - **destroy()**
   - **update()**
-  - **setRegistrationWindow()**
+  - **setRegistrationDeadline()**
   - **setTerminationBlock()**
 
 List of next possible states:
@@ -193,7 +193,7 @@ Functions to call from this state:
   - **destroy()**
   - **registerAgent()**
   - **update()**. Condition: No single agent instance is registered
-  - **setRegistrationWindow()**
+  - **setRegistrationDeadline()**
   - **setTerminationBlock()**
 
 
@@ -215,7 +215,7 @@ List of next possible states:
 ### Service is finished-registration
 Functions to call from this state:
   - **createSafe()**
-  - **setRegistrationWindow()** WHY? -> we already have all registered; should not be callable in this state.
+  - **setRegistrationDeadline()** WHY? -> we already have all registered; should not be callable in this state.
   - **setTerminationBlock()** (NOTE must always be in the future and after the registration endpoint)
 
 
@@ -232,17 +232,17 @@ Functions to call from this state:
   - **destroy()**
   - **update()**. Condition: No single agent instance is registered or previous service state was `pre-registration`
   - **createSafe()**
-  - **setRegistrationWindow()**
+  - **setRegistrationDeadline()**
   - **setTerminationBlock()**
 
 List of next possible states:
 1. **Service is active-registration**
-    - Function call for this state: **setRegistrationWindow()**
+    - Function call for this state: **setRegistrationDeadline()**
     - Condition: Previous service state was `active-registration` and updated time is greater than the current time
 
 
 2. **Service is pre-registration**
-    - Function call for this state: **setRegistrationWindow()**
+    - Function call for this state: **setRegistrationDeadline()**
     - Condition: Previous service state was `pre-registration` and updated time is greater than the current time
 
 
@@ -256,7 +256,7 @@ List of next possible states:
 
 
 4. **Service is finished-registration**
-    - Function call for this state: **setRegistrationWindow()**
+    - Function call for this state: **setRegistrationDeadline()**
     - Condition: Previous service state was `finished-registration` and updated time is greater than the current time
     
 ### Service is terminated-bonded
@@ -283,7 +283,7 @@ Functions to call from this state:
 - **deactivateRegistration()** WHY relevant?
 - **destroy()**
 - **update()**. Condition: No single agent instance is registered or previous service state was `pre-registration`
-- **setRegistrationWindow()**
+- **setRegistrationDeadline()**
 - **setTerminationBlock()**
 
 

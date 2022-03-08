@@ -107,6 +107,24 @@ interface IErrors {
     /// @param serviceId Service Id.
     error AgentInstancesSlotsNotFilled(uint256 actual, uint256 maxNumAgentInstances, uint256 serviceId);
 
+    /// @dev Registration deadline of the service is incorrect (less than the current time).
+    /// @param deadline Provided deadline.
+    /// @param curTime Current time.
+    /// @param serviceId Service Id.
+    error RegistrationDeadlineIncorrect(uint256 deadline, uint256 curTime, uint256 serviceId);
+
+    /// @dev Registration deadline change is redundant if provided deadline is greater than the previous one.
+    /// @param deadline Provided deadline.
+    /// @param prevDeadline Previous deadline.
+    /// @param serviceId Service Id.
+    error RegistrationDeadlineChangeRedundant(uint256 deadline, uint256 prevDeadline, uint256 serviceId);
+
+    /// @dev Termination block of the service is incorrect (in the past).
+    /// @param terminationBlock Provided termination block.
+    /// @param curBlock Current block number.
+    /// @param serviceId Service Id.
+    error TerminationBlockIncorrect(uint256 terminationBlock, uint256 curBlock, uint256 serviceId);
+
     /// @dev Failure of a transfer.
     /// @param token Address of a token.
     /// @param from Address `from`.
