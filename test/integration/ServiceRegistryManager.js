@@ -354,6 +354,8 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
             ).to.be.revertedWith("RegistrationTimeout");
+            const state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(3);
         });
 
         it("Should fail when trying to destroy a service with the block number not reached", async function () {

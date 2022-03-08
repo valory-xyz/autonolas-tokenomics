@@ -10,7 +10,8 @@ describe("ServiceRegistry", function () {
     let signers;
     const name = "service name";
     const description = "service description";
-    const configHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const configHash = {hash: "0x" + "5".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const configHash1 = {hash: "0x" + "6".repeat(64), hashFunction: "0x12", size: "0x20"};
     const agentIds = [1, 2];
     const agentNumSlots = [3, 4];
     const serviceId = 1;
@@ -298,6 +299,34 @@ describe("ServiceRegistry", function () {
                 serviceRegistry.connect(serviceManager).update(owner, name, description, configHash, agentIds,
                     agentNumSlots, maxThreshold, 1)
             ).to.be.revertedWith("AgentInstanceRegistered");
+        });
+
+        it("Update specifically for hashes, then get service hashes", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const maxThreshold = agentNumSlots[0] + agentNumSlots[1];
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
+                agentNumSlots, maxThreshold);
+
+            // If we update with the same config hash as previous one, it must not be added
+            await serviceRegistry.connect(serviceManager).update(owner, name, description, configHash, agentIds,
+                agentNumSlots, maxThreshold, 1);
+            let hashes = await serviceRegistry.getConfigHashes(serviceId);
+            expect(hashes.numHashes).to.equal(1);
+            expect(hashes.configHashes[0].hash).to.equal(configHash.hash);
+
+            // Now we are going to have two config hashes
+            await serviceRegistry.connect(serviceManager).update(owner, name, description, configHash1, agentIds,
+                agentNumSlots, maxThreshold, 1);
+            hashes = await serviceRegistry.getConfigHashes(serviceId);
+            expect(hashes.numHashes).to.equal(2);
+            expect(hashes.configHashes[0].hash).to.equal(configHash.hash);
+            expect(hashes.configHashes[1].hash).to.equal(configHash1.hash);
         });
     });
 
@@ -607,6 +636,8 @@ describe("ServiceRegistry", function () {
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
+            const state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(8);
         });
 
         it("\"DestroyService\" event: expired service is destroyed with agent instances", async function () {
@@ -627,6 +658,8 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
             ).to.be.revertedWith("ServiceTerminated");
+            const state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(7);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
@@ -684,30 +717,52 @@ describe("ServiceRegistry", function () {
             const operator = signers[6].address;
             const agentInstances = [signers[7].address, signers[8].address];
             const maxThreshold = 2;
+
+            // Create a component
             await componentRegistry.changeManager(mechManager.address);
             await componentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await componentRegistry.connect(mechManager).create(owner, owner, componentHash1, description + "2", []);
+
+            // Create an agent
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash2, description, [1]);
+
+            // Create a service and activate the agent instance registration
+            let state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(0);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [2],
                 maxThreshold);
-
+            state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(1);
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(2);
+
+            /// Register agent instances
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId);
+            state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(4);
+
+            // Set termination block and try to deploy the service. It must fail as termination block has passed
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
+            state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(6);
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, serviceId)
             ).to.be.revertedWith("ServiceTerminated");
 
+            // Set the termination block to unlimited and create safe
             await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
             const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                 AddressZero, AddressZero, 0, AddressZero, serviceId);
             const result = await safe.wait();
             expect(result.events[0].event).to.equal("CreateSafeWithAgents");
+            state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(5);
 
+            // Check the service info
             const serviceIdFromAgentId = await serviceRegistry.getServiceIdsCreatedWithAgentId(agentId);
             expect(serviceIdFromAgentId.numServiceIds).to.equal(1);
             expect(serviceIdFromAgentId.serviceIds[0]).to.equal(serviceId);
@@ -860,6 +915,12 @@ describe("ServiceRegistry", function () {
             for (let i = 0; i < agentInstances.length; i++) {
                 expect(agentInstancesInfo.agentInstances[i]).to.equal(agentInstances[i]);
             }
+        });
+
+        it("Should fail when getting hashes of non-existent services", async function () {
+            await expect(
+                serviceRegistry.getConfigHashes(1)
+            ).to.be.revertedWith("ServiceDoesNotExist");
         });
     });
 });

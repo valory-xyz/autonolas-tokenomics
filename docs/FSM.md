@@ -1,14 +1,14 @@
 # On-Chain Protocol State Machine
 Let's first describe the list of possible states:
-- Service is non-existent (Service does not exist);
-- Service is pre-registration;
-- Service is active-registration; (replace -registration with Bonding) -> next iteration
-- Service is expired-registration (Service is not able to register agent instances);
-- Service is finished-registration (Service is at full capacity of agent instances);
-- Service is deployed;
-- Service is terminated-bonded; -> some agents are bonded with stake
+- Service is non-existent; -> No service has been registered with a specified Id yet
+- Service is pre-registration; -> Agent instance registration is not active yet
+- Service is active-registration; -> Agent instance registration is ongoing
+- Service is expired-registration; -> Deadline for agent instance registration has passed
+- Service is finished-registration; -> All the agent instances slots are registered
+- Service is deployed; -> Service is deployed and operates via created safe contract
+- Service is terminated-bonded; -> Some agents are bonded with stake
 - Service is terminated-unbonded; -> All agents have left the service and recovered their stake
-- Service is destroyed;
+- Service is destroyed; -> Service is no longer available
 
 
 TBD: we need the bonding mechanism implemented as part of agent registration.

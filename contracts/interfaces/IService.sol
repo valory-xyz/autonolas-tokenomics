@@ -78,9 +78,4 @@ interface IService is IMultihash {
         address payable paymentReceiver,
         uint256 nonce
     ) external returns (address);
-
-    /**
-     * @dev Updates the service config hash.
-     */
-    function updateHash(address owner, uint256 serviceId, Multihash memory configHash) external;
 }

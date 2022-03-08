@@ -107,11 +107,4 @@ contract ServiceManager is IMultihash, Ownable {
     function serviceDestroy(uint256 serviceId) public {
         IService(serviceRegistry).destroy(msg.sender, serviceId);
     }
-
-    /// @dev Updates service config hash.
-    /// @param serviceId Service Id.
-    /// @param configHash New IPFS hash pointing to the config metadata.
-    function serviceUpdateHash(uint256 serviceId, Multihash memory configHash) public {
-        IService(serviceRegistry).updateHash(msg.sender, serviceId, configHash);
-    }
 }

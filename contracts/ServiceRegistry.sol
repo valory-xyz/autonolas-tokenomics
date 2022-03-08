@@ -19,6 +19,19 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     event DeactivateService(address owner, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
 
+    enum ServiceState {
+        NonExistent,
+        PreRegistration,
+        ActiveRegistration,
+        ExpiredRegistration,
+        FinishedRegistration,
+        Deployed,
+        TerminatedBonded,
+        TerminatedUnbonded,
+        Destroyed,
+        Undefined
+    }
+
     struct Instance {
         address agent;
         address operator;
@@ -331,7 +344,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         service.owner = owner;
         service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
-        // Set the hash here since the updated one is changed via a separate function
+        // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
 
         // Set service data
@@ -381,8 +394,10 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         }
         // Set of canonical agent Ids has to be completely overwritten (push-based)
         delete service.agentIds;
-        // TODO check if during the update the hash can be overwritten, otherwise change of config hash mush be completely removed from the update
-        service.configHashes[0] = configHash;
+        // Check if the previous hash is the same / hash was not updated
+        if (service.configHashes[service.configHashes.length - 1].hash != configHash.hash) {
+            service.configHashes.push(configHash);
+        }
 
         // Set service data
         _setServiceData(service, name, description, threshold, newAgentIds, newAgentNumSlots, size);
@@ -584,24 +599,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         return service.multisig;
     }
 
-    /// @dev Updates the component hash.
-    /// @param owner Owner of the component.
-    /// @param serviceId Service Id.
-    /// @param configHash New IPFS hash pointing to the config metadata.
-    function updateHash(address owner, uint256 serviceId, Multihash memory configHash)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-    {
-        // Check for the hash format
-        if (configHash.hashFunction != 0x12 || configHash.size != 0x20) {
-            revert WrongHash(configHash.hashFunction, 0x12, configHash.size, 0x20);
-        }
-
-        Service storage service = _mapServices[serviceId];
-        service.configHashes.push(configHash);
-    }
-
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
@@ -703,7 +700,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @param serviceId Service Id.
     /// @return numHashes Number of hashes.
     /// @return configHashes The list of component hashes.
-    function getHashes(uint256 serviceId)
+    function getConfigHashes(uint256 serviceId)
         public
         view
         serviceExists(serviceId)
@@ -749,5 +746,45 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     {
         serviceIds = _mapComponentIdSetServices[componentId];
         numServiceIds = serviceIds.length;
+    }
+
+    /// @dev Gets the service state.
+    /// @param serviceId Service Id.
+    /// @return state State of the service.
+    function getServiceState(uint256 serviceId) public view returns (ServiceState state) {
+        state = ServiceState.Undefined;
+        // Check if the service exists or destroyed
+        Service storage service = _mapServices[serviceId];
+        if (service.owner == address(0)) {
+            if (service.maxNumAgentInstances > 0) {
+                state = ServiceState.Destroyed;
+            } else {
+                state = ServiceState.NonExistent;
+            }
+        } else {
+            // Check if the service is deployed, otherwise two closest cases are active-, pre-, and finished-registration
+            if (service.multisig != address(0)) {
+                state = ServiceState.Deployed;
+            } else if (service.active) {
+                state = ServiceState.ActiveRegistration;
+                // Check if the registration is finished
+                if (service.numAgentInstances == service.maxNumAgentInstances) {
+                    state = ServiceState.FinishedRegistration;
+                }
+            } else {
+                state = ServiceState.PreRegistration;
+            }
+
+            // Check for further cases
+            if (block.timestamp > service.deadline) {
+                state = ServiceState.ExpiredRegistration;
+            } else if (block.number > service.terminationBlock && service.terminationBlock > 0) {
+                if (service.numAgentInstances == 0) {
+                    state = ServiceState.TerminatedUnbonded;
+                } else {
+                    state = ServiceState.TerminatedBonded;
+                }
+            }
+        }
     }
 }
