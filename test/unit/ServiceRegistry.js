@@ -21,6 +21,9 @@ describe("ServiceRegistry", function () {
     const componentHash1 = {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"};
     const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
     const AddressZero = "0x" + "0".repeat(40);
+    // Deadline must be bigger than minimum deadline plus current block number. However hardhat keeps on increasing
+    // block number for each test, so we set a high enough value here, and in time sensitive tests use current blocks
+    const deadline = 100000;
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -293,7 +296,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).update(owner, name, description, configHash, agentIds,
@@ -364,7 +367,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("ServiceInactive");
+            ).to.be.revertedWith("WrongServiceState");
         });
 
         it("Should fail when registering an agent instance that is already registered", async function () {
@@ -381,7 +384,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
@@ -401,7 +404,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, 0)
             ).to.be.revertedWith("AgentNotInService");
@@ -420,7 +423,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[1], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[2], agentId);
@@ -442,7 +445,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             const regAgent = await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId,
                 agentInstance, agentId);
             const result = await regAgent.wait();
@@ -464,8 +467,8 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId + 1, agentInstance[1], agentId);
             const regAgent = await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId,
@@ -487,7 +490,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(agentInstances[0], serviceId, agentInstances[0], agentId)
             ).to.be.revertedWith("WrongOperator");
@@ -502,7 +505,7 @@ describe("ServiceRegistry", function () {
         it("Should fail when activating a service without a serviceManager", async function () {
             const owner = signers[3].address;
             await expect(
-                serviceRegistry.activateRegistration(owner, serviceId)
+                serviceRegistry.activateRegistration(owner, serviceId, deadline)
             ).to.be.revertedWith("ManagerOnly");
         });
 
@@ -511,7 +514,7 @@ describe("ServiceRegistry", function () {
             const owner = signers[4].address;
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
-                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1)
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, deadline)
             ).to.be.revertedWith("ServiceNotFound");
         });
 
@@ -526,9 +529,9 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await expect(
-                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId)
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline)
             ).to.be.revertedWith("ServiceActive");
         });
 
@@ -543,7 +546,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            const activateService = await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            const activateService = await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             const result = await activateService.wait();
             expect(result.events[0].event).to.equal("ActivateRegistration");
         });
@@ -561,7 +564,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId)
@@ -595,7 +598,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             const deactivateService = await serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DeactivateRegistration");
@@ -614,7 +617,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
@@ -632,7 +635,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
@@ -653,16 +656,25 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
-            await expect(
-                serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId)
-            ).to.be.revertedWith("ServiceTerminated");
+
+            // Activate agent instance registration and register an agent
+            const nBlocks = Number(await serviceRegistry.getMinRegistrationDeadline());
+            const blockNumber = await ethers.provider.getBlockNumber();
+            // Deadline must be bigger than a current block number plus the minimum registration deadline
+            const tDeadline = blockNumber + nBlocks + 10;
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
+            // Termination block must be further than the registration deadline
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, tDeadline + 10);
+            // Mining past the termination block
+            for (let i = blockNumber; i <= tDeadline + 11; i++) {
+                ethers.provider.send("evm_mine");
+            }
+            // At this point of time the service must be terminated-bonded, sine the instance was not unbonded
+            // But since we never deployed, it's good with just expired-registration
             const state = await serviceRegistry.getServiceState(serviceId);
-            expect(state).to.equal(7);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 0);
-            serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
+            expect(state).to.equal(3);
+            // Destroy the service
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
@@ -679,9 +691,9 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1000);
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, deadline + 10);
             const tBlock = await serviceRegistry.getTerminationBlock(serviceId);
-            expect(tBlock).to.equal(1000);
+            expect(tBlock).to.equal(deadline + 10);
             const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
@@ -702,7 +714,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentNumSlots, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId);
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
@@ -734,7 +746,12 @@ describe("ServiceRegistry", function () {
                 maxThreshold);
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(1);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+
+            const nBlocks = Number(await serviceRegistry.getMinRegistrationDeadline());
+            const blockNumber = await ethers.provider.getBlockNumber();
+            // Deadline must be bigger than a current block number plus the minimum registration deadline
+            const tDeadline = blockNumber + nBlocks + 10;
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(2);
 
@@ -744,8 +761,14 @@ describe("ServiceRegistry", function () {
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(4);
 
-            // Set termination block and try to deploy the service. It must fail as termination block has passed
-            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, 1);
+            // Set termination block, reach it and try to deploy the service. It must fail as termination block has passed
+            const tBlock = tDeadline + 10;
+            await serviceRegistry.connect(serviceManager).setTerminationBlock(owner, serviceId, tBlock);
+            // Reach after the termination block
+            for (let i = blockNumber; i <= tBlock; i++) {
+                ethers.provider.send("evm_mine");
+            }
+            // At this point of time, the service is terminated
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(6);
             await expect(
@@ -816,7 +839,6 @@ describe("ServiceRegistry", function () {
             expect(serviceInfo.owner).to.equal(owner);
             expect(serviceInfo.name).to.equal(name);
             expect(serviceInfo.description).to.equal(description);
-            expect(serviceInfo.active).to.equal(false);
             expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             expect(serviceInfo.configHash.hash).to.equal(configHash.hash);
             for (let i = 0; i < agentIds.length; i++) {
@@ -862,7 +884,6 @@ describe("ServiceRegistry", function () {
             expect(serviceInfo.owner).to.equal(owner);
             expect(serviceInfo.name).to.equal(name);
             expect(serviceInfo.description).to.equal(description);
-            expect(serviceInfo.active).to.equal(false);
             expect(serviceInfo.numAgentIds).to.equal(agentIds.length);
             const agentIdsCheck = [newAgentIds[0], newAgentIds[2]];
             for (let i = 0; i < agentIds.length; i++) {
@@ -900,7 +921,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [2],
                 maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, deadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId);
 

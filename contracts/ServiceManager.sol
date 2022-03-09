@@ -92,8 +92,9 @@ contract ServiceManager is IMultihash, Ownable {
 
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    function serviceActivateRegistration(uint256 serviceId) public {
-        IService(serviceRegistry).activateRegistration(msg.sender, serviceId);
+    /// @param deadline Agent instance registration deadline.
+    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public {
+        IService(serviceRegistry).activateRegistration(msg.sender, serviceId, deadline);
     }
 
     /// @dev Deactivates the service and its sensitive components.
