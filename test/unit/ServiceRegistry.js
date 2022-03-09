@@ -204,7 +204,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
         });
 
-        it("Catching \"CreateServiceTransaction\" event log after registration of a service", async function () {
+        it("Catching \"CreateService\" event log after registration of a service", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -216,7 +216,7 @@ describe("ServiceRegistry", function () {
             const service = await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash,
                 agentIds, agentNumSlots, maxThreshold);
             const result = await service.wait();
-            expect(result.events[0].event).to.equal("CreateServiceTransaction");
+            expect(result.events[0].event).to.equal("CreateService");
         });
 
         it("Service Id=1 after first successful service registration must exist", async function () {
@@ -261,7 +261,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("ServiceNotFound");
         });
 
-        it("Catching \"UpdateServiceTransaction\" event log after update of a service", async function () {
+        it("Catching \"UpdateService\" event log after update of a service", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -275,7 +275,7 @@ describe("ServiceRegistry", function () {
             const service = await serviceRegistry.connect(serviceManager).update(owner, name, description, configHash,
                 agentIds, agentNumSlots, maxThreshold, 1);
             const result = await service.wait();
-            expect(result.events[0].event).to.equal("UpdateServiceTransaction");
+            expect(result.events[0].event).to.equal("UpdateService");
             expect(await serviceRegistry.exists(1)).to.equal(true);
             expect(await serviceRegistry.exists(2)).to.equal(false);
         });
@@ -429,7 +429,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("AgentInstancesSlotsFilled");
         });
 
-        it("Catching \"RegisterInstanceTransaction\" event log after agent instance registration", async function () {
+        it("Catching \"RegisterInstance\" event log after agent instance registration", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -446,7 +446,7 @@ describe("ServiceRegistry", function () {
             const regAgent = await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId,
                 agentInstance, agentId);
             const result = await regAgent.wait();
-            expect(result.events[0].event).to.equal("RegisterInstanceTransaction");
+            expect(result.events[0].event).to.equal("RegisterInstance");
         });
 
         it("Registering several agent instances in different services by the same operator", async function () {
@@ -471,7 +471,7 @@ describe("ServiceRegistry", function () {
             const regAgent = await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId,
                 agentInstance[2], agentId);
             const result = await regAgent.wait();
-            expect(result.events[0].event).to.equal("RegisterInstanceTransaction");
+            expect(result.events[0].event).to.equal("RegisterInstance");
         });
 
         it("Should fail when registering an agent instance with the same address as operator", async function () {
@@ -532,7 +532,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("ServiceActive");
         });
 
-        it("Catching \"ActivateService\" event log after service activation", async function () {
+        it("Catching \"ActivateRegistration\" event log after service activation", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -545,7 +545,7 @@ describe("ServiceRegistry", function () {
                 agentNumSlots, maxThreshold);
             const activateService = await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
             const result = await activateService.wait();
-            expect(result.events[0].event).to.equal("ActivateService");
+            expect(result.events[0].event).to.equal("ActivateRegistration");
         });
 
         it("Should fail when deactivating a service with at least one registered agent instance", async function () {
@@ -584,7 +584,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("ServiceInactive");
         });
 
-        it("Catching \"DeactivateService\" event log after service deactivation", async function () {
+        it("Catching \"DeactivateRegistration\" event log after service deactivation", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -598,7 +598,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId);
             const deactivateService = await serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId);
             const result = await deactivateService.wait();
-            expect(result.events[0].event).to.equal("DeactivateService");
+            expect(result.events[0].event).to.equal("DeactivateRegistration");
         });
 
         it("Should fail when trying to destroy a service with at least one agent instance", async function () {
@@ -637,7 +637,7 @@ describe("ServiceRegistry", function () {
             const result = await deactivateService.wait();
             expect(result.events[0].event).to.equal("DestroyService");
             const state = await serviceRegistry.getServiceState(serviceId);
-            expect(state).to.equal(8);
+            expect(state).to.equal(0);
         });
 
         it("\"DestroyService\" event: expired service is destroyed with agent instances", async function () {

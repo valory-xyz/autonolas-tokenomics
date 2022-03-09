@@ -85,11 +85,11 @@ interface IErrors {
     /// @param serviceId Service Id.
     error ServiceActive(uint256 serviceId);
 
-    /// @dev Agent instance registration timeout has been reached. Service is expired.
+    /// @dev Agent instance registration deadline has been reached. Service is expired.
     /// @param deadline The registration deadline.
-    /// @param curTime Current timestamp.
+    /// @param curBlock Current block.
     /// @param serviceId Service Id.
-    error RegistrationTimeout(uint256 deadline, uint256 curTime, uint256 serviceId);
+    error RegistrationTimeout(uint256 deadline, uint256 curBlock, uint256 serviceId);
 
     /// @dev Service termination block has been reached. Service is terminated.
     /// @param teminationBlock The termination block.
@@ -107,11 +107,16 @@ interface IErrors {
     /// @param serviceId Service Id.
     error AgentInstancesSlotsNotFilled(uint256 actual, uint256 maxNumAgentInstances, uint256 serviceId);
 
-    /// @dev Registration deadline of the service is incorrect (less than the current time).
-    /// @param deadline Provided deadline.
-    /// @param curTime Current time.
+    /// @dev Wrong state of a service.
+    /// @param state Service state.
     /// @param serviceId Service Id.
-    error RegistrationDeadlineIncorrect(uint256 deadline, uint256 curTime, uint256 serviceId);
+    error WrongServiceState(uint256 state, uint256 serviceId);
+
+    /// @dev Registration deadline of the agent instance is incorrect (past block).
+    /// @param deadline Provided deadline.
+    /// @param minBlock The deadline must to be greater than the minimum block number.
+    /// @param serviceId Service Id.
+    error RegistrationDeadlineIncorrect(uint256 deadline, uint256 minBlock, uint256 serviceId);
 
     /// @dev Registration deadline change is redundant if provided deadline is greater than the previous one.
     /// @param deadline Provided deadline.
