@@ -224,13 +224,12 @@ List of next possible states:
     - Function call for this state: **createSafe()**
 
 ### Service is expired-registration
-Condition for this state: Agent instance registration time has passed
+Condition for this state: Agent instance registration time has passed and previous service state was `active-registration`
 
 Functions to call from this state:
   - **deactivateRegistration()**
   - **destroy()**
-  - **update()**. Condition: No single agent instance is registered or previous service state was `pre-registration`
-  - **createSafe()**
+  - **update()**. Condition: No single agent instance is registered.
   - **setRegistrationDeadline()**
   - **setTerminationBlock()**
 
@@ -238,29 +237,18 @@ Functions to call from this state:
 List of next possible states:
 1. **Service is active-registration**
     - Function call for this state: **setRegistrationDeadline()**
-    - Condition: Previous service state was `active-registration` and updated time is greater than the current time
-    
-
-2. **Service is destroyed**
-    - Function call for this state: **destroy()**
-    - Condition: Previous service state was `active-registration`, and no single agent instance was registered
+    - Condition: Updated time is greater than the current time and no single agent instance was registered
 
 
-3. **Service is deployed**
-    - Function call for this state: **createSafe()**
-    - Condition: Previous service state was `finished-registration`
-
-
-4. **Service is finished-registration**
-    - Function call for this state: **setRegistrationDeadline()**
-    - Condition: Previous service state was `finished-registration` and updated time is smaller than the current time
-
-
-5. **Service is pre-registration**
+2. **Service is pre-registration**
     - Function call for this state: **deactivateRegistration()**
-    - Condition: Previous service state was `active-registration`, and no single agent instance was registered
+    - Condition: No single agent instance is currently registered
 
-    
+
+3. **Service is destroyed**
+    - Function call for this state: **destroy()**
+    - Condition: No single agent instance is currently registered
+
 ### Service is terminated-bonded
 Condition for this state: Service termination block has passed and some agents are bonded with stake. DOES THIS COUNT FOR BEFORE THE SERVICE IS DEPLOYED AS WELL?
 
