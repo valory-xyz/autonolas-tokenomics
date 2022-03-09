@@ -210,8 +210,13 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
 
         // Activate the agent instance registration and set the registration deadline
         Service storage service = _mapServices[serviceId];
-        if (deadline <= block.number + _MIN_REGISTRATION_DEADLINE) {
-            revert RegistrationDeadlineIncorrect(deadline, block.number + _MIN_REGISTRATION_DEADLINE, serviceId);
+        uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
+        if (deadline <= minDeadline) {
+            revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
+        }
+        // Termination block must always be after the registration deadline
+        if (service.terminationBlock > 0 && service.terminationBlock <= deadline) {
+            revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
         }
         service.active = true;
         service.state = ServiceState.ActiveRegistration;
@@ -237,7 +242,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         service.active = false;
         service.state = ServiceState.PreRegistration;
-        service.deadline = 0;
         emit DeactivateRegistration(owner, serviceId);
     }
 
@@ -452,12 +456,13 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     {
         Service storage service = _mapServices[serviceId];
         // Termination block can be set during the active-registration state
-        if (service.state != ServiceState.ActiveRegistration) {
+        if (service.state != ServiceState.PreRegistration) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
-        // Termination block must always be after the registration deadline
-        if (terminationBlock > 0 && terminationBlock <= service.deadline) {
-            revert TerminationBlockIncorrect(terminationBlock, service.deadline, serviceId);
+        uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
+        // Termination block must be greater than the minimum registration deadline
+        if (terminationBlock <= minDeadline) {
+            revert TerminationBlockIncorrect(terminationBlock, minDeadline, serviceId);
         }
         service.terminationBlock = terminationBlock;
     }
