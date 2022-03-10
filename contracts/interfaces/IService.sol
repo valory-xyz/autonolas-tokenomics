@@ -10,7 +10,7 @@ interface IService is IMultihash {
     /**
      * @dev Activates the ``serviceId`` of the ``owner``.
      */
-    function activateRegistration(address owner, uint256 serviceId) external;
+    function activateRegistration(address owner, uint256 serviceId, uint256 deadline) external;
 
     /**
      * @dev Deactivates the ``serviceId`` of the ``owner``.
@@ -52,7 +52,7 @@ interface IService is IMultihash {
     /**
      * @dev Sets service registration window time.
      */
-    function setRegistrationWindow(address owner, uint256 serviceId, uint256 time) external;
+    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline) external;
 
     /**
      * @dev Sets service termination block.
