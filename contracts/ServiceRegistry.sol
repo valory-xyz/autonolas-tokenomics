@@ -60,7 +60,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // IPFS hashes pointing to the config metadata
         Multihash[] configHashes;
         // Deadline until which all agent instances must be registered for this service
-        uint256 deadline;
+        uint256 registrationDeadline;
         // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
         // Agent instance signers threshold: must no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
@@ -205,7 +205,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         // Service must be inactive
         if (service.state != ServiceState.PreRegistration) {
-            revert ServiceActive(serviceId);
+            revert ServiceMustBeInactive(serviceId);
         }
 
         // Activate the agent instance registration and set the registration deadline
@@ -218,7 +218,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
             revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
         }
         service.state = ServiceState.ActiveRegistration;
-        service.deadline = deadline;
+        service.registrationDeadline = deadline;
         emit ActivateRegistration(owner, deadline, serviceId);
     }
 
@@ -234,12 +234,12 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         // Service must be active
         if (service.state != ServiceState.ActiveRegistration) {
-            revert ServiceInactive(serviceId);
+            revert ServiceMustBeActive(serviceId);
         }
 
         // Deactivate the agent instance registration and set the deadline back to zero
         service.state = ServiceState.PreRegistration;
-        service.deadline = 0;
+        service.registrationDeadline = 0;
         emit DeactivateRegistration(owner, serviceId);
     }
 
@@ -260,7 +260,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
             // TODO This translates into service.state == ServiceState.TerminatedBonded or TerminatedUnbonded
             (service.terminationBlock > 0 && service.terminationBlock <= block.number);
         if (!cond){
-            revert ServiceActive(serviceId);
+            revert ServiceMustBeInactive(serviceId);
         }
 
         service.owner = address(0);
@@ -444,18 +444,18 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
             }
         // ... Or, during the finished-registration state to shorten the registration time
         } else if (service.state == ServiceState.FinishedRegistration) {
-            // Deadline must be bigger than the current block
-            if (deadline <= block.number) {
+            // Deadline must not be smaller than the current block
+            if (deadline < block.number) {
                 revert RegistrationDeadlineIncorrect(deadline, block.number, serviceId);
             }
             // Deadline can only be shortened compared to the previous value
-            if (deadline >= service.deadline) {
-                revert RegistrationDeadlineChangeRedundant(deadline, service.deadline, serviceId);
+            if (deadline >= service.registrationDeadline) {
+                revert RegistrationDeadlineChangeRedundant(deadline, service.registrationDeadline, serviceId);
             }
         } else {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
-        service.deadline = deadline;
+        service.registrationDeadline = deadline;
     }
 
     /// @dev Sets service termination block. After that block the service is considered to be terminated.
@@ -471,7 +471,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // No check is needed if the termination block is set to infinite
         if (terminationBlock > 0) {
             // Current service deadline, if already set
-            uint256 curDeadline = service.deadline;
+            uint256 curDeadline = service.registrationDeadline;
             // If the deadline was not set yet, set it to the minimum required registration deadline
             if (curDeadline == 0) {
                 curDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
@@ -514,8 +514,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         }
 
         // Check if the deadline for registering agent instances is still valid
-        if (service.deadline <= block.number) {
-            revert RegistrationTimeout(service.deadline, block.number, serviceId);
+        if (service.registrationDeadline <= block.number) {
+            revert RegistrationTimeout(service.registrationDeadline, block.number, serviceId);
         }
 
         // Check if canonical agent Id exists in the service
@@ -701,7 +701,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @return owner Address of the service owner.
     /// @return name Name of the service.
     /// @return description Description of the service.
-    /// @return configHash Primary IPFS hash pointing to the config metadata.
+    /// @return configHash The most recent IPFS hash pointing to the config metadata.
     /// @return threshold Agent instance signers threshold.
     /// @return numAgentIds Number of canonical agent Ids in the service.
     /// @return agentIds Set of service canonical agents.
@@ -726,7 +726,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         owner = service.owner;
         name = service.name;
         description = service.description;
-        configHash = service.configHashes[0];
+        uint256 configHashesSize = service.configHashes.length - 1;
+        configHash = service.configHashes[configHashesSize];
         threshold = service.threshold;
         numAgentIds = service.agentIds.length;
         agentIds = service.agentIds;
@@ -777,6 +778,17 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         terminationBlock = _mapServices[serviceId].terminationBlock;
     }
 
+    /// @dev Gets the agent instance registration deadline block number.
+    /// @return registrationDeadline Registration deadline.
+    function getRegistrationDeadline(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 registrationDeadline)
+    {
+        registrationDeadline = _mapServices[serviceId].registrationDeadline;
+    }
+
     /// @dev Gets the minimum registration deadline block number.
     /// @return minDeadline Minimum deadline.
     function getMinRegistrationDeadline() public view returns (uint256 minDeadline) {
@@ -819,7 +831,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // TODO Revise when unbonding is implemented
         // For now, these states are not recorded explicitly. We need to check for further cases manually
         // Registration can be expired only when the service is in active-registration state
-        if (state == ServiceState.ActiveRegistration && block.number > service.deadline) {
+        if (state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) {
             state = ServiceState.ExpiredRegistration;
         // Otherwise if service is finished-registration or deployed and the termination block has passed
         } else if ((state == ServiceState.FinishedRegistration || state == ServiceState.Deployed) &&

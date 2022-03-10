@@ -77,13 +77,13 @@ interface IErrors {
     /// @dev Zero value when it has to be greater than zero.
     error ZeroValue();
 
-    /// @dev Service is inactive.
+    /// @dev Service must be active.
     /// @param serviceId Service Id.
-    error ServiceInactive(uint256 serviceId);
+    error ServiceMustBeActive(uint256 serviceId);
 
-    /// @dev Service is active.
+    /// @dev Service must be inactive.
     /// @param serviceId Service Id.
-    error ServiceActive(uint256 serviceId);
+    error ServiceMustBeInactive(uint256 serviceId);
 
     /// @dev Agent instance registration deadline has been reached. Service is expired.
     /// @param deadline The registration deadline.
