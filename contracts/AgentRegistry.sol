@@ -14,8 +14,8 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
     struct Agent {
         // Developer of the agent
         address developer;
-        // IPFS hash of the agent
-        Multihash[] agentHashes; // can be obtained via mapping, consider for optimization
+        // IPFS hashes of the agent
+        Multihash[] agentHashes;
         // Description of the agent
         string description;
         // Set of component dependencies
@@ -47,10 +47,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
     // Only the manager has a privilege to manipulate an agent
     modifier onlyManager {
         if (_manager != msg.sender) {
-            revert ManagerOnly({
-                sender: msg.sender,
-                manager: _manager
-            });
+            revert ManagerOnly(msg.sender, _manager);
         }
         _;
     }
@@ -59,12 +56,7 @@ contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, Reentr
     modifier checkHash(Multihash memory hashStruct) {
         // Check hash IPFS current standard validity
         if (hashStruct.hashFunction != 0x12 || hashStruct.size != 0x20) {
-            revert WrongHash({
-                hashFunctionProvided: hashStruct.hashFunction,
-                hashFunctionNeeded: 0x12,
-                sizeProvided: hashStruct.size,
-                sizeNeeded: 0x20
-            });
+            revert WrongHash(hashStruct.hashFunction, 0x12, hashStruct.size, 0x20);
         }
         // Check for the existent IPFS hashes
         if (_mapHashTokenId[hashStruct.hash] > 0) {

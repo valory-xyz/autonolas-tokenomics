@@ -45,15 +45,15 @@ contract ServiceManager is IMultihash, Ownable {
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         public
     {
-        IService(serviceRegistry).updateService(msg.sender, name, description, configHash, agentIds, agentNumSlots,
+        IService(serviceRegistry).update(msg.sender, name, description, configHash, agentIds, agentNumSlots,
             threshold, serviceId);
     }
 
-    /// @dev Sets service registration window time.
+    /// @dev Sets agent instance registration window time.
     /// @param serviceId Correspondent service Id.
-    /// @param time Registration time limit.
-    function serviceSetRegistrationWindow(uint256 serviceId, uint256 time) public {
-        IService(serviceRegistry).setRegistrationWindow(msg.sender, serviceId, time);
+    /// @param deadline Registration deadline.
+    function serviceSetRegistrationDeadline(uint256 serviceId, uint256 deadline) public {
+        IService(serviceRegistry).setRegistrationDeadline(msg.sender, serviceId, deadline);
     }
 
     /// @dev Sets service termination block.
@@ -92,14 +92,15 @@ contract ServiceManager is IMultihash, Ownable {
 
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    function serviceActivate(uint256 serviceId) public {
-        IService(serviceRegistry).activate(msg.sender, serviceId);
+    /// @param deadline Agent instance registration deadline.
+    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public {
+        IService(serviceRegistry).activateRegistration(msg.sender, serviceId, deadline);
     }
 
     /// @dev Deactivates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    function serviceDeactivate(uint256 serviceId) public {
-        IService(serviceRegistry).deactivate(msg.sender, serviceId);
+    function serviceDeactivateRegistration(uint256 serviceId) public {
+        IService(serviceRegistry).deactivateRegistration(msg.sender, serviceId);
     }
 
     /// @dev Destroys the service instance and frees up its storage.

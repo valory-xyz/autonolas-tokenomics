@@ -11,13 +11,24 @@ import "./interfaces/IRegistry.sol";
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceRegistry is IErrors, IMultihash, Ownable {
-    event CreateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
-    event UpdateServiceTransaction(address owner, string name, uint256 threshold, uint256 serviceId);
-    event RegisterInstanceTransaction(address operator, uint256 serviceId, address agent, uint256 agentId);
+    event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
+    event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
+    event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
-    event ActivateService(address owner, uint256 serviceId);
-    event DeactivateService(address owner, uint256 serviceId);
+    event ActivateRegistration(address owner, uint256 deadline, uint256 serviceId);
+    event DeactivateRegistration(address owner, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
+
+    enum ServiceState {
+        NonExistent,
+        PreRegistration,
+        ActiveRegistration,
+        ExpiredRegistration,
+        FinishedRegistration,
+        Deployed,
+        TerminatedBonded,
+        TerminatedUnbonded
+    }
 
     struct Instance {
         address agent;
@@ -46,10 +57,10 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         address multisig;
         string name;
         string description;
-        // IPFS hash pointing to the config metadata
-        Multihash configHash;
+        // IPFS hashes pointing to the config metadata
+        Multihash[] configHashes;
         // Deadline until which all agent instances must be registered for this service
-        uint256 deadline;
+        uint256 registrationDeadline;
         // Service termination block, if set > 0, otherwise infinite
         uint256 terminationBlock;
         // Agent instance signers threshold: must no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
@@ -68,14 +79,15 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         mapping(address => address) mapAgentInstancesOperators;
         // Config hash per agent
 //        mapping(uint256 => Multihash) mapAgentHash;
-        // Service activity state
-        bool active;
+        // Service state
+        ServiceState state;
     }
 
     // Selector of the Gnosis Safe setup function
     bytes4 internal constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
-    // Default timeout window for getting the agent instances registered for the service (21 days)
-    uint256 private constant _AGENT_INSTANCE_REGISTRATION_TIMEOUT = 1814400;
+    // Minimum deadline in blocks for registering agent instances (4 hours now to reduce test time)
+    // TODO make this configurable via governance
+    uint256 private _MIN_REGISTRATION_DEADLINE = 1095;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -109,10 +121,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     // Only the manager has a privilege to manipulate a service
     modifier onlyManager {
         if (_manager != msg.sender) {
-            revert ManagerOnly({
-                sender: msg.sender,
-                manager: _manager
-            });
+            revert ManagerOnly(msg.sender, _manager);
         }
         _;
     }
@@ -160,12 +169,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
 
         // Check for the hash format
         if (configHash.hashFunction != 0x12 || configHash.size != 0x20) {
-            revert WrongHash({
-                hashFunctionProvided: configHash.hashFunction,
-                hashFunctionNeeded: 0x12,
-                sizeProvided: configHash.size,
-                sizeNeeded: 0x20
-            });
+            revert WrongHash(configHash.hashFunction, 0x12, configHash.size, 0x20);
         }
 
         // Checking for non-empty arrays and correct number of values in them
@@ -192,37 +196,51 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function activate(address owner, uint256 serviceId)
+    /// @param deadline Agent instance registration deadline.
+    function activateRegistration(address owner, uint256 serviceId, uint256 deadline)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
+        Service storage service = _mapServices[serviceId];
         // Service must be inactive
-        if (_mapServices[serviceId].active) {
-            revert ServiceActive(serviceId);
+        if (service.state != ServiceState.PreRegistration) {
+            revert ServiceMustBeInactive(serviceId);
         }
 
-        // Activate the service
-        _mapServices[serviceId].active = true;
-        emit ActivateService(owner, serviceId);
+        // Activate the agent instance registration and set the registration deadline
+        uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
+        if (deadline <= minDeadline) {
+            revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
+        }
+        // Termination block must always be after the registration deadline
+        if (service.terminationBlock > 0 && service.terminationBlock <= deadline) {
+            revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
+        }
+        service.state = ServiceState.ActiveRegistration;
+        service.registrationDeadline = deadline;
+        emit ActivateRegistration(owner, deadline, serviceId);
     }
 
     /// @dev Deactivates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function deactivate(address owner, uint256 serviceId)
+    function deactivateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         noRegisteredAgentInstance(serviceId)
     {
+        Service storage service = _mapServices[serviceId];
         // Service must be active
-        if (!_mapServices[serviceId].active) {
-            revert ServiceInactive(serviceId);
+        if (service.state != ServiceState.ActiveRegistration) {
+            revert ServiceMustBeActive(serviceId);
         }
 
-        _mapServices[serviceId].active = false;
-        emit DeactivateService(owner, serviceId);
+        // Deactivate the agent instance registration and set the deadline back to zero
+        service.state = ServiceState.PreRegistration;
+        service.registrationDeadline = 0;
+        emit DeactivateRegistration(owner, serviceId);
     }
 
     /// @dev Destroys the service instance.
@@ -237,14 +255,16 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // There must be no registered agent instances while the termination block is infinite
         // or the termination block need to be less than the current block (expired)
         // or the service is inactive in a first place
-        bool cond = !service.active ||
+        bool cond = service.state == ServiceState.PreRegistration ||
             (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
+            // TODO This translates into service.state == ServiceState.TerminatedBonded or TerminatedUnbonded
             (service.terminationBlock > 0 && service.terminationBlock <= block.number);
         if (!cond){
-            revert ServiceActive(serviceId);
+            revert ServiceMustBeInactive(serviceId);
         }
 
         service.owner = address(0);
+        service.state = ServiceState.NonExistent;
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
@@ -267,21 +287,18 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @param service A service instance to fill the data for.
     /// @param name Name of the service.
     /// @param description Description of the service.
-    /// @param configHash IPFS hash pointing to the config metadata.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param agentIds Canonical agent Ids.
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param size Size of a canonical agent ids set.
-    function _setServiceData(Service storage service, string memory name, string memory description,
-        Multihash memory configHash, uint256 threshold, uint256[] memory agentIds, uint256[] memory agentNumSlots,
-        uint size)
+    function _setServiceData(Service storage service, string memory name, string memory description, uint256 threshold,
+        uint256[] memory agentIds, uint256[] memory agentNumSlots, uint size)
         private
     {
         // Updating high-level data components of the service
         // Note that the deadline is not updated here since there is a different function for that
         service.name = name;
         service.description = description;
-        service.configHash = configHash;
         service.threshold = threshold;
         service.maxNumAgentInstances = 0;
 
@@ -299,8 +316,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         } else {
             checkThreshold = checkThreshold / 3 + 1;
         }
-        require(service.threshold >= checkThreshold && service.threshold <= service.maxNumAgentInstances,
-            "serviceInfo: THRESHOLD");
+        if(service.threshold < checkThreshold || service.threshold > service.maxNumAgentInstances) {
+            revert WrongThreshold(service.threshold, checkThreshold, service.maxNumAgentInstances);
+        }
     }
 
     /// @dev Creates a new service.
@@ -340,10 +358,11 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
         service.owner = owner;
-        service.deadline = block.timestamp + _AGENT_INSTANCE_REGISTRATION_TIMEOUT;
+        // Fist hash is always pushed, since the updated one has to be checked additionally
+        service.configHashes.push(configHash);
 
         // Set service data
-        _setServiceData(service, name, description, configHash, threshold, agentIds, agentNumSlots, agentIds.length);
+        _setServiceData(service, name, description, threshold, agentIds, agentNumSlots, agentIds.length);
 
         // Add service to the set of services for the owner
         _mapOwnerSetServices[owner].push(serviceId);
@@ -351,7 +370,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         // Increment the total number of services
         _actualNumServices++;
 
-        emit CreateServiceTransaction(owner, name, threshold, serviceId);
+        service.state = ServiceState.PreRegistration;
+
+        emit CreateService(owner, name, threshold, serviceId);
     }
 
     /// @dev Updates a service in a CRUD way.
@@ -363,7 +384,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
-    function updateService(address owner, string memory name, string memory description, Multihash memory configHash,
+    function update(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 threshold, uint256 serviceId)
         external
         onlyManager
@@ -389,35 +410,78 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         }
         // Set of canonical agent Ids has to be completely overwritten (push-based)
         delete service.agentIds;
+        // Check if the previous hash is the same / hash was not updated
+        if (service.configHashes[service.configHashes.length - 1].hash != configHash.hash) {
+            service.configHashes.push(configHash);
+        }
 
         // Set service data
-        _setServiceData(service, name, description, configHash, threshold, newAgentIds, newAgentNumSlots, size);
+        _setServiceData(service, name, description, threshold, newAgentIds, newAgentNumSlots, size);
 
-        emit UpdateServiceTransaction(owner, name, threshold, serviceId);
+        emit UpdateService(owner, name, threshold, serviceId);
     }
 
-    /// @dev Sets service registration window time.
+    /// @dev Sets agent instance registration deadline.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Service Id to be updated.
-    /// @param time Registration time limit
-    function setRegistrationWindow(address owner, uint256 serviceId, uint256 time)
+    /// @param deadline Registration deadline.
+    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
-        _mapServices[serviceId].deadline = block.timestamp + time;
+        Service storage service = _mapServices[serviceId];
+        // Registration deadline can be changed for the active-registration state when no agent are registered yet...
+        if (service.state == ServiceState.ActiveRegistration && service.numAgentInstances == 0) {
+            // Needs to be greater than the minimum required registration deadline
+            uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
+            if (deadline <= minDeadline) {
+                revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
+            }
+            // Also, the termination block must not be less than the deadline
+            if (service.terminationBlock > 0 && service.terminationBlock <= deadline) {
+                revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
+            }
+        // ... Or, during the finished-registration state to shorten the registration time
+        } else if (service.state == ServiceState.FinishedRegistration) {
+            // Deadline must not be smaller than the current block
+            if (deadline < block.number) {
+                revert RegistrationDeadlineIncorrect(deadline, block.number, serviceId);
+            }
+            // Deadline can only be shortened compared to the previous value
+            if (deadline >= service.registrationDeadline) {
+                revert RegistrationDeadlineChangeRedundant(deadline, service.registrationDeadline, serviceId);
+            }
+        } else {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+        service.registrationDeadline = deadline;
     }
 
-    /// @dev Sets service termination block. After that block the service is considered to be expired.
+    /// @dev Sets service termination block. After that block the service is considered to be terminated.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Service Id to be updated.
-    /// @param blockNum Termination block. If 0 is passed (default) then there is no termination.
-    function setTerminationBlock(address owner, uint256 serviceId, uint256 blockNum)
+    /// @param terminationBlock Termination block. If 0 is passed (default) then there is no termination.
+    function setTerminationBlock(address owner, uint256 serviceId, uint256 terminationBlock)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
-        _mapServices[serviceId].terminationBlock = blockNum;
+        Service storage service = _mapServices[serviceId];
+        // No check is needed if the termination block is set to infinite
+        if (terminationBlock > 0) {
+            // Current service deadline, if already set
+            uint256 curDeadline = service.registrationDeadline;
+            // If the deadline was not set yet, set it to the minimum required registration deadline
+            if (curDeadline == 0) {
+                curDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
+            }
+            // Termination block must be greater than the current registration deadline
+            if (terminationBlock <= curDeadline) {
+                revert TerminationBlockIncorrect(terminationBlock, curDeadline, serviceId);
+            }
+        }
+        service.terminationBlock = terminationBlock;
     }
 
     /// @dev Registers agent instance.
@@ -440,8 +504,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
 
         // The service has to be active to register agents
-        if (!service.active) {
-            revert ServiceInactive(serviceId);
+        if (service.state != ServiceState.ActiveRegistration) {
+            revert WrongServiceState(uint256(service.state), serviceId);
         }
 
         // Check if the agent instance is already engaged with another service
@@ -449,14 +513,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
             revert AgentInstanceRegistered(_mapAllAgentInstances[agent]);
         }
 
-        // Check if the time window for registering agent instances is still active
-        if (service.deadline < block.timestamp) {
-            revert RegistrationTimeout(service.deadline, block.timestamp, serviceId);
-        }
-
-        // Check if the termination block has not passed
-        if (service.terminationBlock > 0 && service.terminationBlock < block.number) {
-            revert ServiceTerminated(service.terminationBlock, block.number, serviceId);
+        // Check if the deadline for registering agent instances is still valid
+        if (service.registrationDeadline <= block.number) {
+            revert RegistrationTimeout(service.registrationDeadline, block.number, serviceId);
         }
 
         // Check if canonical agent Id exists in the service
@@ -475,7 +534,12 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = serviceId;
 
-        emit RegisterInstanceTransaction(operator, serviceId, agent, agentId);
+        // If the service agent instance capacity is reached, the service becomes finished-registration
+        if (service.numAgentInstances == service.maxNumAgentInstances) {
+            service.state = ServiceState.FinishedRegistration;
+        }
+
+        emit RegisterInstance(operator, serviceId, agent, agentId);
     }
 
     /// @dev Creates Gnosis Safe proxy.
@@ -587,6 +651,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
 
         _updateComponentAgentServiceConnection(serviceId);
 
+        service.state = ServiceState.Deployed;
+
         return service.multisig;
     }
 
@@ -635,20 +701,20 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     /// @return owner Address of the service owner.
     /// @return name Name of the service.
     /// @return description Description of the service.
+    /// @return configHash The most recent IPFS hash pointing to the config metadata.
     /// @return threshold Agent instance signers threshold.
     /// @return numAgentIds Number of canonical agent Ids in the service.
     /// @return agentIds Set of service canonical agents.
     /// @return agentNumSlots Set of numbers of agent instances for each canonical agent Id.
     /// @return numAgentInstances Number of registered agent instances.
     /// @return agentInstances Set of agent instances currently registered for the service.
-    /// @return active True if the service is active.
     function getServiceInfo(uint256 serviceId)
         public
         view
         serviceExists(serviceId)
-        returns (address owner, string memory name, string memory description, uint256 threshold, uint256 numAgentIds,
-            uint256[] memory agentIds, uint256[] memory agentNumSlots, uint256 numAgentInstances,
-            address[]memory agentInstances, bool active)
+        returns (address owner, string memory name, string memory description, Multihash memory configHash,
+            uint256 threshold, uint256 numAgentIds, uint256[] memory agentIds, uint256[] memory agentNumSlots,
+            uint256 numAgentInstances, address[]memory agentInstances)
     {
         Service storage service = _mapServices[serviceId];
         agentNumSlots = new uint256[](service.agentIds.length);
@@ -660,10 +726,11 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         owner = service.owner;
         name = service.name;
         description = service.description;
+        uint256 configHashesSize = service.configHashes.length - 1;
+        configHash = service.configHashes[configHashesSize];
         threshold = service.threshold;
         numAgentIds = service.agentIds.length;
         agentIds = service.agentIds;
-        active = service.active;
     }
 
     /// @dev Lists all the instances of a given canonical agent Id if the service.
@@ -685,6 +752,20 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         }
     }
 
+    /// @dev Gets service config hashes.
+    /// @param serviceId Service Id.
+    /// @return numHashes Number of hashes.
+    /// @return configHashes The list of component hashes.
+    function getConfigHashes(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 numHashes, Multihash[] memory configHashes)
+    {
+        Service storage service = _mapServices[serviceId];
+        return (service.configHashes.length, service.configHashes);
+    }
+
     /// @dev Gets the termination block of a given service Id.
     /// @param serviceId Service Id.
     /// @return terminationBlock The termination block, 0 = infinite.
@@ -695,6 +776,23 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         returns (uint256 terminationBlock)
     {
         terminationBlock = _mapServices[serviceId].terminationBlock;
+    }
+
+    /// @dev Gets the agent instance registration deadline block number.
+    /// @return registrationDeadline Registration deadline.
+    function getRegistrationDeadline(uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 registrationDeadline)
+    {
+        registrationDeadline = _mapServices[serviceId].registrationDeadline;
+    }
+
+    /// @dev Gets the minimum registration deadline block number.
+    /// @return minDeadline Minimum deadline.
+    function getMinRegistrationDeadline() public view returns (uint256 minDeadline) {
+        minDeadline = _MIN_REGISTRATION_DEADLINE;
     }
 
     /// @dev Gets the set of service Ids that contain specified agent Id.
@@ -721,5 +819,28 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
     {
         serviceIds = _mapComponentIdSetServices[componentId];
         numServiceIds = serviceIds.length;
+    }
+
+    /// @dev Gets the service state.
+    /// @param serviceId Service Id.
+    /// @return state State of the service.
+    function getServiceState(uint256 serviceId) public view returns (ServiceState state) {
+        Service storage service = _mapServices[serviceId];
+        state = service.state;
+
+        // TODO Revise when unbonding is implemented
+        // For now, these states are not recorded explicitly. We need to check for further cases manually
+        // Registration can be expired only when the service is in active-registration state
+        if (state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) {
+            state = ServiceState.ExpiredRegistration;
+        // Otherwise if service is finished-registration or deployed and the termination block has passed
+        } else if ((state == ServiceState.FinishedRegistration || state == ServiceState.Deployed) &&
+            (block.number > service.terminationBlock && service.terminationBlock > 0)) {
+            if (service.numAgentInstances == 0) {
+                state = ServiceState.TerminatedUnbonded;
+            } else {
+                state = ServiceState.TerminatedBonded;
+            }
+        }
     }
 }
