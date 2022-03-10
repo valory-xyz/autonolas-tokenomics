@@ -236,6 +236,7 @@ Functions to call from this state:
 
 List of next possible states:
 1. **Service is active-registration**
+
     - Function call for this state: **setRegistrationDeadline()**
     - Condition: Updated time is greater than the current time and no single agent instance was registered
 
@@ -261,6 +262,8 @@ List of next possible states:
     - Function call for this state: **setTerminationBlock()**
     - Condition: Previous service state was `deployed` and updated termination block is equal to zero or greater than the current block number
 
+### Service is terminated-unbonded
+Condition for this state: Service termination block has passed and all agent instances have left the service and recovered their stake or have never registered for the service
 
 2. **Service is finished-registration**
     - Function call for this state: **setTerminationBlock()**
@@ -278,3 +281,4 @@ Functions to call from this state:
 List of next possible states:
 1. **Service is destroyed**
     - Function call for this state: **destroy()**
+
