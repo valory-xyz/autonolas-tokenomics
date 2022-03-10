@@ -23,6 +23,9 @@ describe("ServiceRegistry integration", function () {
     const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
     const nonce =  0;
     const AddressZero = "0x" + "0".repeat(40);
+    // Deadline must be bigger than minimum deadline plus current block number. However hardhat keeps on increasing
+    // block number for each test, so we set a high enough value here, and in time sensitive tests use current blocks
+    const regDeadline = 100000;
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -91,8 +94,8 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], agentInstances[1], agentIds[1]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2], agentIds[0]);
@@ -149,8 +152,10 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline);
+            let state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(2);
 
             // Updating service Id == 1
             const newAgentIds = [1, 2, 3];
@@ -158,22 +163,25 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[2];
             await serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
                 newAgentNumSlots, newMaxThreshold, serviceIds[0]);
+            state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(2);
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0],
                 newAgentIds[0]);
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1],
-                newAgentIds[2]);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2],
                 newAgentIds[0]);
-
             // After the update, service has only 2 slots for canonical agent 1 and 1 slot for canonical agent 3
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[0])
             ).to.be.revertedWith("AgentInstancesSlotsFilled");
+            // Registering agent instance for the last possible slot
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1],
+                newAgentIds[2]);
+            // Now all slots are filled and the service cannot register more agent instances
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[2])
-            ).to.be.revertedWith("AgentInstancesSlotsFilled");
+            ).to.be.revertedWith("WrongServiceState");
 
             // Cannot deactivate the service Id == 1 once one or more agent instances are registered
             await expect(
@@ -187,7 +195,7 @@ describe("ServiceRegistry integration", function () {
             const newAgentInstance = signers[11].address;
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], newAgentInstance, agentIds[0])
-            ).to.be.revertedWith("ServiceInactive");
+            ).to.be.revertedWith("WrongServiceState");
 
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
@@ -213,7 +221,7 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentNumSlots[0] + newAgentNumSlots[1];
             await serviceManager.serviceCreate(owner.address, name, description, configHash, newAgentIds,
                 newAgentNumSlots, newMaxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[0],
@@ -234,11 +242,14 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
                     newAgentIds[0])
-            ).to.be.revertedWith("AgentInstancesSlotsFilled");
+            ).to.be.revertedWith("WrongServiceState");
             await expect(
                 serviceManager.connect(operators[1]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
                     newAgentIds[1])
-            ).to.be.revertedWith("AgentInstancesSlotsFilled");
+            ).to.be.revertedWith("WrongServiceState");
+
+            // Since all instances are registered, we can change the deadline now
+            await serviceManager.connect(owner).serviceSetRegistrationDeadline(serviceIds[0], regDeadline - 10);
 
             // Creating Safe with blanc safe parameters for the test
             const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
@@ -349,8 +360,15 @@ describe("ServiceRegistry integration", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
-            await serviceManager.connect(owner).serviceSetRegistrationDeadline(serviceIds[0], 0);
+            const nBlocks = Number(await serviceRegistry.getMinRegistrationDeadline());
+            const blockNumber = await ethers.provider.getBlockNumber();
+            // Deadline must be bigger than a current block number plus the minimum registration deadline
+            const tDeadline = blockNumber + nBlocks + 10;
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], tDeadline);
+            // Mining past the deadline
+            for (let i = blockNumber; i <= tDeadline; i++) {
+                ethers.provider.send("evm_mine");
+            }
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1)
             ).to.be.revertedWith("RegistrationTimeout");
@@ -370,12 +388,12 @@ describe("ServiceRegistry integration", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentNumSlots,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0]);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1);
-            await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], 1000);
+            await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], regDeadline + 10);
             await expect(
                 serviceManager.connect(owner).serviceDestroy(serviceIds[0])
-            ).to.be.revertedWith("ServiceActive");
+            ).to.be.revertedWith("ServiceMustBeInactive");
         });
     });
 });
