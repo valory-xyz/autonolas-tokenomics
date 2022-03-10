@@ -56,11 +56,16 @@ contract ServiceManager is IMultihash, Ownable {
         IService(serviceRegistry).setRegistrationDeadline(msg.sender, serviceId, deadline);
     }
 
-    /// @dev Sets service termination block.
-    /// @param serviceId Correspondent service Id.
-    /// @param blockNum Termination block. If 0 is passed then there is no termination.
-    function serviceSetTerminationBlock(uint256 serviceId, uint256 blockNum) public {
-        IService(serviceRegistry).setTerminationBlock(msg.sender, serviceId, blockNum);
+    /// @dev Terminates the service.
+    /// @param serviceId Service Id.
+    function serviceTerminate(uint256 serviceId) public {
+        IService(serviceRegistry).terminate(msg.sender, serviceId);
+    }
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param serviceId Service Id.
+    function serviceUnbond(uint256 serviceId) public {
+        IService(serviceRegistry).unbond(msg.sender, serviceId);
     }
 
     /// @dev Registers the agent instance.

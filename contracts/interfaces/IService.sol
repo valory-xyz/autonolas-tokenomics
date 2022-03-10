@@ -55,9 +55,14 @@ interface IService is IMultihash {
     function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline) external;
 
     /**
-     * @dev Sets service termination block.
+     * @dev Terminates the service.
      */
-    function setTerminationBlock(address owner, uint256 serviceId, uint256 blockNum) external;
+    function terminate(address owner, uint256 serviceId) external;
+
+    /**
+     * @dev Unbonds agent instances of the operator.
+     */
+    function unbond(address operator, uint256 serviceId) external;
 
     /**
      * @dev Registers ``agent`` instance by the ``operator`` for the canonical ``agentId`` of the ``serviceId`` service.

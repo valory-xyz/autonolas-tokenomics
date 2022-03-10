@@ -325,6 +325,54 @@ describe("ServiceRegistry integration", function () {
             expect(serviceIdsRet[0]).to.equal(2);
         });
 
+        it("Terminated service is unbonded and destroyed", async function () {
+            const mechManager = signers[3];
+            const owner = signers[4];
+            const operator = signers[5];
+            const agentInstances = [signers[6].address, signers[7].address];
+            const maxThreshold = 2;
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash1, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.connect(owner).serviceCreate(owner.address, name, description, configHash, [agentIds[0]],
+                [maxThreshold], maxThreshold);
+
+            // Activate agent instance registration and register an agent instance
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0]);
+
+            // Try to unbond when service is still in active registration
+            await expect(
+                serviceManager.connect(operator).serviceUnbond(serviceIds[0])
+            ).to.be.revertedWith("WrongServiceState");
+
+            // Try to terminate service when
+
+            // Registering the remaining agent instance
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1], agentIds[0]);
+
+            // Terminate the service before it's deployed
+            await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
+            let state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(6);
+
+            // Try to destroy the service now, but there are still bonded agent instances
+            await expect(
+                serviceManager.connect(owner).serviceDestroy(serviceIds[0])
+            ).to.be.revertedWith("AgentInstanceRegistered");
+
+            // Unbond agent instances
+            await serviceManager.connect(operator).serviceUnbond(serviceIds[0]);
+            state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(7);
+
+            // Destroy the service after it's terminated-unbonded
+            await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
+            state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(0);
+        });
+
         it("Should fail when trying to update the destroyed service", async function () {
             const manager = signers[4];
             const owner = signers[5];
@@ -390,10 +438,9 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1);
-            await serviceManager.connect(owner).serviceSetTerminationBlock(serviceIds[0], regDeadline + 10);
             await expect(
                 serviceManager.connect(owner).serviceDestroy(serviceIds[0])
-            ).to.be.revertedWith("ServiceMustBeInactive");
+            ).to.be.revertedWith("AgentInstanceRegistered");
         });
     });
 });

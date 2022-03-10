@@ -61,8 +61,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Multihash[] configHashes;
         // Deadline until which all agent instances must be registered for this service
         uint256 registrationDeadline;
-        // Service termination block, if set > 0, otherwise infinite
-        uint256 terminationBlock;
         // Agent instance signers threshold: must no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
         uint256 threshold;
         // Total number of agent instances
@@ -75,8 +73,8 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         mapping(uint256 => uint256) mapAgentSlots;
         // Actual agent instance addresses. Canonical agent Id => Set of agent instance addresses.
         mapping(uint256 => address[]) mapAgentInstances;
-        // Agent instance address => operator address
-        mapping(address => address) mapAgentInstancesOperators;
+        // Operator address => set of registered agent instance addresses
+        mapping(address => address[]) mapOperatorsAgentInstances;
         // Config hash per agent
 //        mapping(uint256 => Multihash) mapAgentHash;
         // Service state
@@ -213,10 +211,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         if (deadline <= minDeadline) {
             revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
         }
-        // Termination block must always be after the registration deadline
-        if (service.terminationBlock > 0 && service.terminationBlock <= deadline) {
-            revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
-        }
         service.state = ServiceState.ActiveRegistration;
         service.registrationDeadline = deadline;
         emit ActivateRegistration(owner, deadline, serviceId);
@@ -250,19 +244,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        noRegisteredAgentInstance(serviceId)
     {
         Service storage service = _mapServices[serviceId];
-        // There must be no registered agent instances while the termination block is infinite
-        // or the termination block need to be less than the current block (expired)
-        // or the service is inactive in a first place
-        bool cond = service.state == ServiceState.PreRegistration ||
-            (service.terminationBlock == 0 && _mapServices[serviceId].numAgentInstances == 0) ||
-            // TODO This translates into service.state == ServiceState.TerminatedBonded or TerminatedUnbonded
-            (service.terminationBlock > 0 && service.terminationBlock <= block.number);
-        if (!cond){
-            revert ServiceMustBeInactive(serviceId);
-        }
-
         service.owner = address(0);
         service.state = ServiceState.NonExistent;
 
@@ -438,10 +422,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
             if (deadline <= minDeadline) {
                 revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
             }
-            // Also, the termination block must not be less than the deadline
-            if (service.terminationBlock > 0 && service.terminationBlock <= deadline) {
-                revert TerminationBlockIncorrect(service.terminationBlock, deadline, serviceId);
-            }
         // ... Or, during the finished-registration state to shorten the registration time
         } else if (service.state == ServiceState.FinishedRegistration) {
             // Deadline must not be smaller than the current block
@@ -458,30 +438,59 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         service.registrationDeadline = deadline;
     }
 
-    /// @dev Sets service termination block. After that block the service is considered to be terminated.
-    /// @param owner Individual that creates and controls a service.
+    /// @dev Terminates the service.
+    /// @param owner Owner of the service.
     /// @param serviceId Service Id to be updated.
-    /// @param terminationBlock Termination block. If 0 is passed (default) then there is no termination.
-    function setTerminationBlock(address owner, uint256 serviceId, uint256 terminationBlock)
+    function terminate(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
     {
         Service storage service = _mapServices[serviceId];
-        // No check is needed if the termination block is set to infinite
-        if (terminationBlock > 0) {
-            // Current service deadline, if already set
-            uint256 curDeadline = service.registrationDeadline;
-            // If the deadline was not set yet, set it to the minimum required registration deadline
-            if (curDeadline == 0) {
-                curDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
-            }
-            // Termination block must be greater than the current registration deadline
-            if (terminationBlock <= curDeadline) {
-                revert TerminationBlockIncorrect(terminationBlock, curDeadline, serviceId);
-            }
+        // Check if the service is already terminated
+        if (service.state == ServiceState.TerminatedBonded || service.state == ServiceState.TerminatedUnbonded) {
+            revert WrongServiceState(uint256(service.state), serviceId);
         }
-        service.terminationBlock = terminationBlock;
+        // No check is needed if the termination block is set to infinite
+        if (service.numAgentInstances > 0) {
+            service.state = ServiceState.TerminatedBonded;
+        } else {
+            service.state = ServiceState.TerminatedUnbonded;
+        }
+    }
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param operator Operator of agent instances.
+    /// @param serviceId Service Id.
+    function unbond(address operator, uint256 serviceId)
+        external
+        onlyManager
+        serviceExists(serviceId)
+    {
+        Service storage service = _mapServices[serviceId];
+        // Service can only be in the terminated-bonded state or expired-registration in order to proceed
+        if (!(service.state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) &&
+            service.state != ServiceState.TerminatedBonded) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
+        // Check for the operator and unbond all its agent instances
+        address[] memory agentInstances = service.mapOperatorsAgentInstances[operator];
+        uint256 numAgentsUnbond = service.mapOperatorsAgentInstances[operator].length;
+        if (numAgentsUnbond == 0) {
+            revert WrongOperator(serviceId);
+        }
+
+        // Free all agent instances
+        for (uint256 i = 0; i < numAgentsUnbond; i++) {
+            delete _mapAllAgentInstances[agentInstances[i]];
+        }
+
+        // Subtract number of unbonded agent instances
+        service.numAgentInstances -= numAgentsUnbond;
+        if (service.numAgentInstances == 0) {
+            service.state = ServiceState.TerminatedUnbonded;
+        }
     }
 
     /// @dev Registers agent instance.
@@ -530,7 +539,7 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
 
         // Add agent instance and operator and set the instance engagement
         service.mapAgentInstances[agentId].push(agent);
-        service.mapAgentInstancesOperators[agent] = operator;
+        service.mapOperatorsAgentInstances[operator].push(agent);
         service.numAgentInstances++;
         _mapAllAgentInstances[agent] = serviceId;
 
@@ -624,11 +633,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         if (service.numAgentInstances != service.maxNumAgentInstances) {
             revert AgentInstancesSlotsNotFilled(service.numAgentInstances, service.maxNumAgentInstances, serviceId);
-        }
-
-        // Check if the termination block has not passed
-        if (service.terminationBlock > 0 && service.terminationBlock < block.number) {
-            revert ServiceTerminated(service.terminationBlock, block.number, serviceId);
         }
 
         // Get all agent instances for the safe
@@ -766,18 +770,6 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         return (service.configHashes.length, service.configHashes);
     }
 
-    /// @dev Gets the termination block of a given service Id.
-    /// @param serviceId Service Id.
-    /// @return terminationBlock The termination block, 0 = infinite.
-    function getTerminationBlock(uint256 serviceId)
-        public
-        view
-        serviceExists(serviceId)
-        returns (uint256 terminationBlock)
-    {
-        terminationBlock = _mapServices[serviceId].terminationBlock;
-    }
-
     /// @dev Gets the agent instance registration deadline block number.
     /// @return registrationDeadline Registration deadline.
     function getRegistrationDeadline(uint256 serviceId)
@@ -828,19 +820,9 @@ contract ServiceRegistry is IErrors, IMultihash, Ownable {
         Service storage service = _mapServices[serviceId];
         state = service.state;
 
-        // TODO Revise when unbonding is implemented
-        // For now, these states are not recorded explicitly. We need to check for further cases manually
-        // Registration can be expired only when the service is in active-registration state
+        // The expired state is not recorded explicitly and needs to be checked additionally
         if (state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) {
             state = ServiceState.ExpiredRegistration;
-        // Otherwise if service is finished-registration or deployed and the termination block has passed
-        } else if ((state == ServiceState.FinishedRegistration || state == ServiceState.Deployed) &&
-            (block.number > service.terminationBlock && service.terminationBlock > 0)) {
-            if (service.numAgentInstances == 0) {
-                state = ServiceState.TerminatedUnbonded;
-            } else {
-                state = ServiceState.TerminatedBonded;
-            }
         }
     }
 }
