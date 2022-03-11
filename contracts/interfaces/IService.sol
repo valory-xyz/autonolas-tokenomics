@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./IMultihash.sol";
+import "./IStructs.sol";
 
 /**
  * @dev Required interface for the service manipulation.
  */
-interface IService is IMultihash {
+interface IService is IStructs {
     /**
      * @dev Activates the ``serviceId`` of the ``owner``.
      */
@@ -31,7 +31,7 @@ interface IService is IMultihash {
         string memory description,
         Multihash memory configHash,
         uint256[] memory agentIds,
-        uint256[] memory agentNumSlots,
+        AgentParams[] memory agentParams,
         uint256 threshold
     ) external returns (uint256 serviceId);
 
@@ -44,7 +44,7 @@ interface IService is IMultihash {
         string memory description,
         Multihash memory configHash,
         uint256[] memory agentIds,
-        uint256[] memory agentNumSlots,
+        AgentParams[] memory agentParams,
         uint256 threshold,
         uint256 serviceId
     ) external;
@@ -65,9 +65,10 @@ interface IService is IMultihash {
     function unbond(address operator, uint256 serviceId) external;
 
     /**
-     * @dev Registers ``agent`` instance by the ``operator`` for the canonical ``agentId`` of the ``serviceId`` service.
+     * @dev Registers ``agent`` instance by the ``operator`` for the canonical ``agentId`` of the ``serviceId`` service
+     * with the amount of msg.value to cover the registration cost.
      */
-    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId) external;
+    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId) external payable;
 
     /**
      * @dev Creates safe for the ``serviceId`` service based on registered agent instances and provided parameters.
