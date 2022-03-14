@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./IMultihash.sol";
+import "./IStructs.sol";
 
 /**
  * @dev Required interface for the service manipulation.
  */
-interface IService is IMultihash {
+interface IService is IStructs {
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
@@ -29,7 +29,7 @@ interface IService is IMultihash {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids in a sorted ascending order.
-    /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
+    /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @return serviceId Created service Id.
     function createService(
@@ -38,7 +38,7 @@ interface IService is IMultihash {
         string memory description,
         Multihash memory configHash,
         uint256[] memory agentIds,
-        uint256[] memory agentNumSlots,
+        AgentParams[] memory agentParams,
         uint256 threshold
     ) external returns (uint256 serviceId);
 
@@ -48,7 +48,7 @@ interface IService is IMultihash {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids in a sorted ascending order.
-    /// @param agentNumSlots Agent instance number of slots correspondent to canonical agent Ids.
+    /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
     function update(
@@ -57,7 +57,7 @@ interface IService is IMultihash {
         string memory description,
         Multihash memory configHash,
         uint256[] memory agentIds,
-        uint256[] memory agentNumSlots,
+        AgentParams[] memory agentParams,
         uint256 threshold,
         uint256 serviceId
     ) external;
@@ -83,7 +83,7 @@ interface IService is IMultihash {
     /// @param serviceId Service Id to be updated.
     /// @param agent Address of the agent instance.
     /// @param agentId Canonical Id of the agent.
-    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId) external;
+    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId) external payable;
 
     /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.
