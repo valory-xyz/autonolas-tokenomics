@@ -233,7 +233,7 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
                     AddressZero, AddressZero, 0, AddressZero, nonce)
-            ).to.be.revertedWith("AgentInstancesSlotsNotFilled");
+            ).to.be.revertedWith("WrongServiceState");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[2],
                 newAgentIds[0]);
@@ -255,7 +255,7 @@ describe("ServiceRegistry integration", function () {
             const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
                 AddressZero, AddressZero, 0, AddressZero, nonce);
             const result = await safe.wait();
-            const proxyAddress = result.events[1].address;
+            const proxyAddress = result.events[0].address;
 
             // Verify the deployment of the created Safe: checking threshold and owners
             const proxyContract = await ethers.getContractAt("GnosisSafeL2", proxyAddress);

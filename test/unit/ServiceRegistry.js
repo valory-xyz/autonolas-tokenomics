@@ -666,7 +666,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
                     AddressZero, 0, AddressZero, serviceId)
-            ).to.be.revertedWith("AgentInstancesSlotsNotFilled");
+            ).to.be.revertedWith("WrongServiceState");
         });
 
         it("Catching \"CreateSafeWithAgents\" event log when calling the Safe contract creation", async function () {
@@ -717,7 +717,7 @@ describe("ServiceRegistry", function () {
             const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
                 AddressZero, AddressZero, 0, AddressZero, serviceId);
             const result = await safe.wait();
-            expect(result.events[0].event).to.equal("CreateSafeWithAgents");
+            expect(result.events[2].event).to.equal("CreateSafeWithAgents");
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(5);
 
@@ -1109,7 +1109,7 @@ describe("ServiceRegistry", function () {
             // Try to unbond by an operator that has not registered a single agent instance
             await expect(
                 serviceRegistry.connect(serviceManager).unbond(owner, serviceId)
-            ).to.be.revertedWith("WrongOperator");
+            ).to.be.revertedWith("OperatorHasNoInstances");
 
             // Unbonding
             await serviceRegistry.connect(serviceManager).unbond(operator, serviceId);

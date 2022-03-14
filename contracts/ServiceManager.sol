@@ -84,7 +84,7 @@ contract ServiceManager is IMultihash, Ownable {
     /// @param paymentToken Token that should be used for the payment (0 is ETH)
     /// @param payment Value that should be paid
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
-    /// @return multisig Address of the created Gnosis Sage multisig.
+    /// @return multisig Address of the created multisig.
     function serviceCreateSafe(uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
         address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
         public
