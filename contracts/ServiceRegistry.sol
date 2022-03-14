@@ -467,7 +467,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         if (service.state == ServiceState.TerminatedBonded || service.state == ServiceState.TerminatedUnbonded) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
-        // No check is needed if the termination block is set to infinite
+        // Define the state of the service depending on the number of bonded agent instances
         if (service.numAgentInstances > 0) {
             service.state = ServiceState.TerminatedBonded;
         } else {
@@ -495,7 +495,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         AgentInstance[] memory agentInstances = service.mapOperatorsAgentInstances[operator];
         uint256 numAgentsUnbond = agentInstances.length;
         if (numAgentsUnbond == 0) {
-            revert WrongOperator(serviceId);
+            revert OperatorHasNoInstances(operator, serviceId);
         }
 
         // Subtract number of unbonded agent instances
@@ -671,7 +671,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param paymentToken Token that should be used for the payment (0 is ETH)
     /// @param payment Value that should be paid
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
-    /// @return Address of the created Gnosis Sage multisig.
+    /// @return Address of the created multisig.
     function createSafe(address owner, uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
         address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
         external
@@ -680,14 +680,12 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         returns (address)
     {
         Service storage service = _mapServices[serviceId];
-        if (service.numAgentInstances != service.maxNumAgentInstances) {
-            revert AgentInstancesSlotsNotFilled(service.numAgentInstances, service.maxNumAgentInstances, serviceId);
+        if (service.state != ServiceState.FinishedRegistration) {
+            revert WrongServiceState(uint256(service.state), serviceId);
         }
 
         // Get all agent instances for the safe
         address[] memory agentInstances = _getAgentInstances(service);
-
-        emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         // Getting the Gnosis Safe multisig proxy for agent instances
         GnosisParams memory gParams;
@@ -701,6 +699,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         gParams.paymentReceiver = paymentReceiver;
         gParams.nonce = nonce;
         service.multisig = _createGnosisSafeProxy(gParams);
+
+        emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         _updateComponentAgentServiceConnection(serviceId);
 

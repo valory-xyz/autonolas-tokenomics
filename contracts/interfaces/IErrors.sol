@@ -69,6 +69,11 @@ interface IErrors {
     /// @param serviceId Service Id.
     error WrongOperator(uint256 serviceId);
 
+    /// @dev Operator has no registered instances in the service.
+    /// @param operator Operator address.
+    /// @param serviceId Service Id.
+    error OperatorHasNoInstances(address operator, uint256 serviceId);
+
     /// @dev Canonical `agentId` is not found as a part of `serviceId`.
     /// @param agentId Canonical agent Id.
     /// @param serviceId Service Id.
