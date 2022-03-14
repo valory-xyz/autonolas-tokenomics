@@ -9,7 +9,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Component Registry - Smart contract for registering components
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ComponentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
+contract ComponentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Component parameters
     struct Component {
         // Developer of the component
