@@ -509,6 +509,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         uint256 refund = 0;
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
             refund += service.mapAgentParams[agentInstances[i].id].bond;
+            // Since the service is done, there's no need to clean-up the service-related data, just the state variables
             delete _mapAllAgentInstances[agentInstances[i].instance];
         }
 
@@ -520,15 +521,17 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         if (refund > 0) {
+            // Update operator's balance
+            // TODO Correct this to not do anything if the operator balance map is on a per single service level
+            balance -= refund;
+            mapOperatorsBalances[operator] = balance;
+
+            // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
                 // TODO When ERC20 token is used, change to the address of a token
                 revert TransferFailed(address(0), address(this), operator, refund);
             }
-            // Update operator's balance
-            // TODO Correct this to not do anything if the operator balance map is on a per single service level
-            balance -= refund;
-            mapOperatorsBalances[operator] = balance;
         }
     }
 
