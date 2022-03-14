@@ -73,7 +73,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         uint256 numAgentInstances;
         // Canonical agent Ids for the service
         uint256[] agentIds;
-        // Canonical agent Id => number of agent instances and registration cost
+        // Canonical agent Id => number of agent instances and correspondent instance registration bond
         mapping(uint256 => AgentParams) mapAgentParams;
         // Actual agent instance addresses. Canonical agent Id => Set of agent instance addresses.
         mapping(uint256 => address[]) mapAgentInstances;
@@ -114,7 +114,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
     // Map of operator address => agent instance bonding / escrow balance
-    mapping (address => uint256) private _mapOperatorsBalances;
+    mapping (address => uint256) public mapOperatorsBalances;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
@@ -170,7 +170,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     function initialChecks(string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, AgentParams[] memory agentParams)
         private
@@ -289,7 +289,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param description Description of the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param agentIds Canonical agent Ids.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param size Size of a canonical agent ids set.
     function _setServiceData(Service storage service, string memory name, string memory description, uint256 threshold,
         uint256[] memory agentIds, AgentParams[] memory agentParams, uint size)
@@ -327,7 +327,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids in a sorted ascending order.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @return serviceId Created service Id.
     function createService(address owner, string memory name, string memory description, Multihash memory configHash,
@@ -344,9 +344,9 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentParams);
 
-        // Check that there are no zero number of slots for a specific canonical agent id and no zero registration cost
+        // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
-            if (agentParams[i].slots == 0 || agentParams[i].cost == 0) {
+            if (agentParams[i].slots == 0 || agentParams[i].bond == 0) {
                 revert ZeroValue();
             }
         }
@@ -381,7 +381,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids in a sorted ascending order.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
     function update(address owner, string memory name, string memory description, Multihash memory configHash,
@@ -505,14 +505,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Calculate registration refund and free all agent instances
+        // TODO Consider pushing the operator balance map to the service side, then we don't need to calculate the refund. Point of gas evaluation.
         uint256 refund = 0;
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
-            refund += service.mapAgentParams[agentInstances[i].id].cost;
+            refund += service.mapAgentParams[agentInstances[i].id].bond;
             delete _mapAllAgentInstances[agentInstances[i].instance];
         }
 
         // Refund the operator
-        uint256 balance = _mapOperatorsBalances[operator];
+        uint256 balance = mapOperatorsBalances[operator];
         // This situation is possible if the operator was slashed for the agent instance misbehavior
         if (refund > balance) {
             refund = balance;
@@ -524,6 +525,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
                 // TODO When ERC20 token is used, change to the address of a token
                 revert TransferFailed(address(0), address(this), operator, refund);
             }
+            // Update operator's balance
+            // TODO Correct this to not do anything if the operator balance map is on a per single service level
+            balance -= refund;
+            mapOperatorsBalances[operator] = balance;
         }
     }
 
@@ -573,12 +578,12 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             revert AgentInstancesSlotsFilled(serviceId);
         }
 
-        if (msg.value < service.mapAgentParams[agentId].cost) {
-            revert InsufficientAgentBondingValue(msg.value, service.mapAgentParams[agentId].cost, agentId, serviceId);
+        if (msg.value < service.mapAgentParams[agentId].bond) {
+            revert InsufficientAgentBondingValue(msg.value, service.mapAgentParams[agentId].bond, agentId, serviceId);
         }
 
         // Update operator's bonding / escrow balance
-        _mapOperatorsBalances[operator] += msg.value;
+        mapOperatorsBalances[operator] += msg.value;
         emit Deposit(operator, msg.value);
 
         // Add agent instance and operator and set the instance engagement

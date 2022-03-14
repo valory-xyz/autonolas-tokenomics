@@ -14,9 +14,9 @@ describe("ServiceRegistry integration", function () {
     const name = "service name";
     const description = "service description";
     const configHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
-    const regCost = 1000;
+    const regBond = 1000;
     const agentIds = [1, 2];
-    const agentParams = [[3, regCost], [4, regCost]];
+    const agentParams = [[3, regBond], [4, regBond]];
     const serviceIds = [1, 2];
     const threshold = 1;
     const maxThreshold = agentParams[0][0] + agentParams[1][0];
@@ -96,9 +96,9 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline);
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0], {value: regCost});
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], agentInstances[1], agentIds[1], {value: regCost});
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2], agentIds[0], {value: regCost});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0], {value: regBond});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], agentInstances[1], agentIds[1], {value: regBond});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2], agentIds[0], {value: regBond});
 
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
@@ -122,7 +122,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentParams,
                 maxThreshold);
             await serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3],
-                [[3, regCost], [0, regCost], [4, regCost]], maxThreshold, serviceIds[0]);
+                [[3, regBond], [0, regBond], [4, regBond]], maxThreshold, serviceIds[0]);
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
         });
@@ -157,7 +157,7 @@ describe("ServiceRegistry integration", function () {
 
             // Updating service Id == 1
             const newAgentIds = [1, 2, 3];
-            const newAgentParams = [[2, regCost], [0, regCost], [1, regCost]];
+            const newAgentParams = [[2, regBond], [0, regBond], [1, regBond]];
             const newMaxThreshold = newAgentParams[0][0] + newAgentParams[2][0];
             await serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
                 newAgentParams, newMaxThreshold, serviceIds[0]);
@@ -166,19 +166,19 @@ describe("ServiceRegistry integration", function () {
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0],
-                newAgentIds[0], {value: regCost});
+                newAgentIds[0], {value: regBond});
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2],
-                newAgentIds[0], {value: regCost});
+                newAgentIds[0], {value: regBond});
             // After the update, service has only 2 slots for canonical agent 1 and 1 slot for canonical agent 3
             await expect(
-                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[0], {value: regCost})
+                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[0], {value: regBond})
             ).to.be.revertedWith("AgentInstancesSlotsFilled");
             // Registering agent instance for the last possible slot
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1],
-                newAgentIds[2], {value: regCost});
+                newAgentIds[2], {value: regBond});
             // Now all slots are filled and the service cannot register more agent instances
             await expect(
-                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[2], {value: regCost})
+                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[3], newAgentIds[2], {value: regBond})
             ).to.be.revertedWith("WrongServiceState");
 
             // Cannot deactivate the service Id == 1 once one or more agent instances are registered
@@ -192,7 +192,7 @@ describe("ServiceRegistry integration", function () {
             // When deactivated, no agent instance registration is possible
             const newAgentInstance = signers[11].address;
             await expect(
-                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], newAgentInstance, agentIds[0], {value: regCost})
+                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], newAgentInstance, agentIds[0], {value: regBond})
             ).to.be.revertedWith("WrongServiceState");
 
             expect(await serviceRegistry.exists(2)).to.equal(true);
@@ -215,7 +215,7 @@ describe("ServiceRegistry integration", function () {
 
             // Creating a service
             const newAgentIds = [1, 2];
-            const newAgentParams = [[2, regCost], [1, regCost]];
+            const newAgentParams = [[2, regBond], [1, regBond]];
             const newMaxThreshold = newAgentParams[0][0] + newAgentParams[1][0];
             await serviceManager.serviceCreate(owner.address, name, description, configHash, newAgentIds,
                 newAgentParams, newMaxThreshold);
@@ -223,9 +223,9 @@ describe("ServiceRegistry integration", function () {
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[0],
-                newAgentIds[0], {value: regCost});
+                newAgentIds[0], {value: regBond});
             await serviceManager.connect(operators[1]).serviceRegisterAgent(serviceIds[0], agentInstances[1],
-                newAgentIds[1], {value: regCost});
+                newAgentIds[1], {value: regBond});
 
             // Safe is not possible without all the registered agent instances
             await expect(
@@ -234,16 +234,16 @@ describe("ServiceRegistry integration", function () {
             ).to.be.revertedWith("AgentInstancesSlotsNotFilled");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[2],
-                newAgentIds[0], {value: regCost});
+                newAgentIds[0], {value: regBond});
 
             // Check that neither of operators can register the agent after all slots have been filled
             await expect(
                 serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
-                    newAgentIds[0], {value: regCost})
+                    newAgentIds[0], {value: regBond})
             ).to.be.revertedWith("WrongServiceState");
             await expect(
                 serviceManager.connect(operators[1]).serviceRegisterAgent(serviceIds[0], agentInstances[3],
-                    newAgentIds[1], {value: regCost})
+                    newAgentIds[1], {value: regBond})
             ).to.be.revertedWith("WrongServiceState");
 
             // Since all instances are registered, we can change the deadline now
@@ -333,11 +333,11 @@ describe("ServiceRegistry integration", function () {
             await agentRegistry.connect(mechManager).create(owner.address, owner.address, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceManager.connect(owner).serviceCreate(owner.address, name, description, configHash, [agentIds[0]],
-                [[maxThreshold, regCost]], maxThreshold);
+                [[maxThreshold, regBond]], maxThreshold);
 
             // Activate agent instance registration and register an agent instance
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0], {value: regCost});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0], {value: regBond});
 
             // Try to unbond when service is still in active registration
             await expect(
@@ -345,7 +345,7 @@ describe("ServiceRegistry integration", function () {
             ).to.be.revertedWith("WrongServiceState");
 
             // Registering the remaining agent instance
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1], agentIds[0], {value: regCost});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[1], agentIds[0], {value: regBond});
 
             // Terminate the service before it's deployed
             await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
@@ -386,7 +386,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
             await expect(
                 serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3],
-                    [[3, regCost], [0, regCost], [4, regCost]], maxThreshold, serviceIds[0])
+                    [[3, regBond], [0, regBond], [4, regBond]], maxThreshold, serviceIds[0])
             ).to.be.revertedWith("ServiceNotFound");
         });
 
@@ -411,7 +411,7 @@ describe("ServiceRegistry integration", function () {
                 ethers.provider.send("evm_mine");
             }
             await expect(
-                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1, {value: regCost})
+                serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1, {value: regBond})
             ).to.be.revertedWith("RegistrationTimeout");
             const state = await serviceRegistry.getServiceState(serviceIds[0]);
             expect(state).to.equal(3);
@@ -429,7 +429,7 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentParams,
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
-            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1, {value: regCost});
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance, 1, {value: regBond});
             await expect(
                 serviceManager.connect(owner).serviceDestroy(serviceIds[0])
             ).to.be.revertedWith("AgentInstanceRegistered");

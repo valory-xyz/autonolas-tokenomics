@@ -2,12 +2,13 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IService.sol";
+import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
+import "./interfaces/IService.sol";
 
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceManager is IStructs, Ownable {
+contract ServiceManager is IErrors, IStructs, Ownable {
     event GnosisSafeCreate(address multisig);
 
     address public immutable serviceRegistry;
@@ -16,13 +17,23 @@ contract ServiceManager is IStructs, Ownable {
         serviceRegistry = _serviceRegistry;
     }
 
+    /// @dev Fallback function
+    fallback() external payable {
+        revert WrongFunction();
+    }
+
+    /// @dev Receive function
+    receive() external payable {
+        revert WrongFunction();
+    }
+
     /// @dev Creates a new service.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Threshold for a multisig composed by agents.
     function serviceCreate(address owner, string memory name, string memory description, Multihash memory configHash,
         uint256[] memory agentIds, AgentParams[] memory agentParams, uint256 threshold)
@@ -38,7 +49,7 @@ contract ServiceManager is IStructs, Ownable {
     /// @param description Description of the service.
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
-    /// @param agentParams Number of agent instances and cost to register an instance in the service.
+    /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
     function serviceUpdate(string memory name, string memory description, Multihash memory configHash,

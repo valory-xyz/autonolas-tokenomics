@@ -80,9 +80,9 @@ async function main() {
     // Creating and updating a service
     const name = "service name";
     const description = "service description";
-    const regCost = 1000;
+    const regBond = 1000;
     const agentIds = [1, 2];
-    const agentParams = [[3, regCost], [4, regCost]];
+    const agentParams = [[3, regBond], [4, regBond]];
     const maxThreshold = agentParams[0][0] + agentParams[1][0];
 
     const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");

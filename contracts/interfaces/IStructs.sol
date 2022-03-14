@@ -9,8 +9,8 @@ interface IStructs {
     struct AgentParams {
         // Number of agent instances
         uint256 slots;
-        // Registration / bonding cost
-        uint256 cost;
+        // Bond per agent instance
+        uint256 bond;
     }
 
     // Multihash according to self-describing hashes standard. For more information of multihashes please visit https://multiformats.io/multihash/
