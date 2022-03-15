@@ -297,7 +297,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
             await expect(
                 serviceRegistry.connect(serviceManager).update(owner, name, description, configHash, agentIds,
@@ -383,7 +383,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond})
@@ -402,7 +402,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, 0, {value: regBond})
             ).to.be.revertedWith("AgentNotInService");
@@ -420,7 +420,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[0], agentId, {value: regBond});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[1], agentId, {value: regBond});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[2], agentId, {value: regBond});
@@ -441,7 +441,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             const regAgent = await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId,
                 agentInstance, agentId, {value: regBond});
             const result = await regAgent.wait();
@@ -462,8 +462,8 @@ describe("ServiceRegistry", function () {
                 agentParams, maxThreshold);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance[0], agentId, {value: regBond});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId + 1, agentInstance[1],
                 agentId, {value: regBond});
@@ -485,7 +485,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(agentInstances[0], serviceId, agentInstances[0], agentId, {value: regBond})
             ).to.be.revertedWith("WrongOperator");
@@ -496,11 +496,11 @@ describe("ServiceRegistry", function () {
         });
     });
 
-    context("activateRegistration / deactivateRegistration / destroy the service", async function () {
+    context("activateRegistration / destroy / termination of the service", async function () {
         it("Should fail when activating a service without a serviceManager", async function () {
             const owner = signers[3].address;
             await expect(
-                serviceRegistry.activateRegistration(owner, serviceId, regDeadline)
+                serviceRegistry.activateRegistration(owner, serviceId, regDeadline, {value: regDeposit})
             ).to.be.revertedWith("ManagerOnly");
         });
 
@@ -509,7 +509,7 @@ describe("ServiceRegistry", function () {
             const owner = signers[4].address;
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
-                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline)
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline, {value: regDeposit})
             ).to.be.revertedWith("ServiceNotFound");
         });
 
@@ -523,9 +523,9 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await expect(
-                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline)
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit})
             ).to.be.revertedWith("ServiceMustBeInactive");
         });
 
@@ -541,7 +541,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
             const activateService = await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId,
-                regDeadline);
+                regDeadline, {value: regDeposit});
             const result = await activateService.wait();
             expect(result.events[0].event).to.equal("ActivateRegistration");
         });
@@ -556,7 +556,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const result = await terminateService.wait();
             expect(result.events[0].event).to.equal("TerminateService");
@@ -575,7 +575,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
             const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const result = await terminateService.wait();
@@ -596,7 +596,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
             await expect(
                 serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
@@ -635,7 +635,7 @@ describe("ServiceRegistry", function () {
             const blockNumber = await ethers.provider.getBlockNumber();
             // Deadline must be bigger than a current block number plus the minimum registration deadline
             const tDeadline = blockNumber + nBlocks + 10;
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(2);
             const registartionDeadline = await serviceRegistry.getRegistrationDeadline(serviceId);
@@ -694,8 +694,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash1, [2],
                 [[2, regBond]], maxThreshold);
 
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId + 1, regDeadline, {value: regDeposit});
 
             /// Register agent instances
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId, {value: regBond});
@@ -832,7 +832,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1],
                 [[2, regBond]], maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId, {value: regBond});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1], agentId, {value: regBond});
 
@@ -884,10 +884,10 @@ describe("ServiceRegistry", function () {
             const tDeadline = blockNumber + nBlocks + 10;
             // Rejects if the registration deadline is not bigger than the minimum deadline
             await expect(
-                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, blockNumber + nBlocks)
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, blockNumber + nBlocks, {value: regDeposit})
             ).to.be.revertedWith("RegistrationDeadlineIncorrect");
             // Now deadline has a correct value
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
 
             /// Register agent instances
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0], agentId, {value: regBond});
@@ -937,7 +937,7 @@ describe("ServiceRegistry", function () {
             // Deadline must be bigger than a current block number plus the minimum registration deadline
             const tDeadline = blockNumber + nBlocks + 10;
 
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
 
             // Trying to change the registration deadline below the minimum on while no one has registered yet
             await expect(
@@ -986,7 +986,7 @@ describe("ServiceRegistry", function () {
                 [[2, regBond]], maxThreshold);
 
             // Activate registration and register one agent instance
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
 
             // Terminating service with a registered agent instance will give it a terminated-bonded state
@@ -1021,6 +1021,11 @@ describe("ServiceRegistry", function () {
             const nBlocks = Number(await serviceRegistry.getMinRegistrationDeadline());
             const blockNumber = await ethers.provider.getBlockNumber();
             const tDeadline = blockNumber + nBlocks + 10;
+
+            // Revert when insufficient amount is passed
+            await expect(
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: 0})
+            ).to.be.revertedWith("InsufficientRegistrationDepositValue");
 
             // Activate registration and register one agent instance
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
@@ -1082,7 +1087,7 @@ describe("ServiceRegistry", function () {
                 [[2, regBond]], maxThreshold);
 
             // Activate registration and try to unbond
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await expect(
                 serviceRegistry.connect(serviceManager).unbond(operator, serviceId)
             ).to.be.revertedWith("WrongServiceState");
@@ -1124,11 +1129,32 @@ describe("ServiceRegistry", function () {
             const tDeadline = blockNumber + nBlocks + 10;
 
             // Activate registration and register one agent instance
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regBond});
             await expect(
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance,
                     agentId, {value: 0})
             ).to.be.revertedWith("InsufficientAgentBondingValue");
+        });
+
+        it("Should fail when trying to activate registration with a smaller amount", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const maxThreshold = 2;
+
+            // Create an agent
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+
+            // Create a service and activate the agent instance registration
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1],
+                [[2, regBond]], maxThreshold);
+
+            // Activate registration and register one agent instance
+            await expect(
+                serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit - 1})
+            ).to.be.revertedWith("InsufficientRegistrationDepositValue");
         });
     });
 
@@ -1153,7 +1179,7 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("WrongServiceState");
 
             // Activate registration
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await expect(
                 serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
             ).to.be.revertedWith("WrongServiceState");
@@ -1169,7 +1195,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await destroyService.wait();

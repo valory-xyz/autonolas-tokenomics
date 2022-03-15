@@ -228,6 +228,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             revert ServiceMustBeInactive(serviceId);
         }
 
+        if (msg.value < service.securityDeposit) {
+            revert InsufficientRegistrationDepositValue(msg.value, service.securityDeposit, serviceId);
+        }
+
         // Activate the agent instance registration and set the registration deadline
         uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
         if (deadline <= minDeadline) {
@@ -441,6 +445,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         emit TerminateService(owner, serviceId);
+
+        // Return registration deposit back to the owner
+        uint256 refund = service.securityDeposit;
+        // By design, the refund is always a non-zero value, so no check is needed here fo that
+        (bool result, ) = owner.call{value: refund}("");
+        if (!result) {
+            // TODO When ERC20 token is used, change to the address of a token
+            revert TransferFailed(address(0), address(this), owner, refund);
+        }
     }
 
     /// @dev Destroys the service instance.
