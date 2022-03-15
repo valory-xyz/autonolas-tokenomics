@@ -69,6 +69,11 @@ interface IErrors {
     /// @param serviceId Service Id.
     error WrongOperator(uint256 serviceId);
 
+    /// @dev Operator has no registered instances in the service.
+    /// @param operator Operator address.
+    /// @param serviceId Service Id.
+    error OperatorHasNoInstances(address operator, uint256 serviceId);
+
     /// @dev Canonical `agentId` is not found as a part of `serviceId`.
     /// @param agentId Canonical agent Id.
     /// @param serviceId Service Id.
@@ -129,6 +134,16 @@ interface IErrors {
     /// @param curBlock Current block number.
     /// @param serviceId Service Id.
     error TerminationBlockIncorrect(uint256 terminationBlock, uint256 curBlock, uint256 serviceId);
+
+    /// @dev Fallback or receive function.
+    error WrongFunction();
+
+    /// @dev Insufficient value provided for the agent instance bonding.
+    /// @param sent Sent amount.
+    /// @param expected Expected amount.
+    /// @param agentId Canonical agent Id.
+    /// @param serviceId Service Id.
+    error InsufficientAgentBondingValue(uint256 sent, uint256 expected, uint256 agentId, uint256 serviceId);
 
     /// @dev Failure of a transfer.
     /// @param token Address of a token.

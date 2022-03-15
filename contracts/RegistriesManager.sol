@@ -7,7 +7,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Registries Manager - Periphery smart contract for managing components and agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract RegistriesManager is IMultihash, Ownable, Pausable {
+contract RegistriesManager is IStructs, Ownable, Pausable {
     address public immutable componentRegistry;
     address public immutable agentRegistry;
     uint256 private _mintFee;

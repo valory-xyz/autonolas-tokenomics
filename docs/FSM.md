@@ -114,6 +114,16 @@ of the asynchronous on-chain behavior.
      - Input: Registration deadline
      - Condition: Registration deadline is greater than the current time
    - **Next state:** Service is active-registration
+
+### terminate()
+1. - **Current state:** Any except for non-existent or destroyed
+     - Input: Service Id
+   - **Next state:** Service is terminated-bonded or terminated-unbonded
+
+### unbond()
+1. - **Current state:** expired-registration or terminated-bonded
+     - Input: Operator, service Id
+   - **Next state:** Service is expired-registration or terminated-unbonded
    
 ### registerAgent()
 1. - **Current state:** Service is pre-registration
@@ -178,14 +188,19 @@ Functions to call from this state:
   - **destroy()**
   - **update()**
   - **setRegistrationDeadline()**
-  - **setTerminationBlock()**
+  - **terminate()**
 
 List of next possible states:
 1. **Service is active-registration**
    - Function call for this state: **activateRegistration()**
 
+
 2. **Service is destroyed**
     - Function call for this state: **destroy()**
+
+
+3. **Service is terminated-unbonded**
+    - Function call for this state: **terminate()**
 
 ### Service is active-registration
 Functions to call from this state:
@@ -194,7 +209,7 @@ Functions to call from this state:
   - **registerAgent()**
   - **update()**. Condition: No single agent instance is registered
   - **setRegistrationDeadline()**
-  - **setTerminationBlock()**
+  - **terminate()**
 
 
 List of next possible states:
@@ -212,16 +227,29 @@ List of next possible states:
     - Function call for this state: **registerAgent()**
     - Condition: Number of agent instances reached its maximum value
 
+
+4. **Service is terminated-bonded**
+    - Function call for this state: **terminate()**
+    - Condition: At least one agent instance is registered
+
+
+5. **Service is terminated-unbonded**
+    - Function call for this state: **terminate()**
+    - Condition: No single agent instance is registered
+
 ### Service is finished-registration
 Functions to call from this state:
   - **createSafe()**
-  - **setRegistrationDeadline()** WHY? -> we already have all registered; should not be callable in this state.
-  - **setTerminationBlock()** (NOTE must always be in the future and after the registration endpoint)
+  - **terminate()**
 
 
 List of next possible states:
 1. **Service is deployed**
     - Function call for this state: **createSafe()**
+
+
+2. **Service is terminated-bonded**
+    - Function call for this state: **terminate()**
 
 ### Service is expired-registration
 Condition for this state: Agent instance registration time has passed and previous service state was `active-registration`
@@ -231,14 +259,13 @@ Functions to call from this state:
   - **destroy()**
   - **update()**. Condition: No single agent instance is registered.
   - **setRegistrationDeadline()**
-  - **setTerminationBlock()**
+  - **terminate()**
 
 
 List of next possible states:
 1. **Service is active-registration**
-
     - Function call for this state: **setRegistrationDeadline()**
-    - Condition: Updated time is greater than the current time and no single agent instance was registered
+    - Condition: Updated block is greater than the current block and no single agent instance is currently registered
 
 
 2. **Service is pre-registration**
@@ -250,24 +277,32 @@ List of next possible states:
     - Function call for this state: **destroy()**
     - Condition: No single agent instance is currently registered
 
+
+4. **Service is terminated-bonded**
+    - Function call for this state: **terminate()**
+    - Condition: At least one agent instance is still registered after the function call
+
+
+5. **Service is terminated-unbonded**
+    - Function call for this state: **terminate()**
+    - Condition: No single agent instance is currently registered.
+    
 ### Service is terminated-bonded
-Condition for this state: Service termination block has passed and some agents are bonded with stake. DOES THIS COUNT FOR BEFORE THE SERVICE IS DEPLOYED AS WELL?
+Condition for this state: Service is terminated and some agents are bonded with agent instances.
 
 Functions to call from this state:
-  - **setTerminationBlock()**
+  - **unbond()**
 
 
-List of next possible states:    
-1. **Service is deployed**
-    - Function call for this state: **setTerminationBlock()**
-    - Condition: Previous service state was `deployed` and updated termination block is equal to zero or greater than the current block number
+List of next possible states:
+1. **Service is terminated-bonded**
+    - Function call for this state: **unbond()**
+    - Condition: At least one agent instance is still registered after the function call
 
-### Service is terminated-unbonded
-Condition for this state: Service termination block has passed and all agent instances have left the service and recovered their stake or have never registered for the service
 
-2. **Service is finished-registration**
-    - Function call for this state: **setTerminationBlock()**
-    - Condition: Previous service state was `finished-registration` and updated termination block is equal to zero or greater than the current block number
+2. **Service is terminated-unbonded**
+    - Function call for this state: **unbond()**
+    - Condition: No single agent instance is registered after the function call
 
 ### Service is terminated-unbonded
 Condition for this state: Service termination block has passed and all agent instances have left the service and recovered their stake or have never registered for the service
@@ -275,8 +310,6 @@ Condition for this state: Service termination block has passed and all agent ins
 Functions to call from this state:
 - **destroy()**
 - **update()** -> Can be called, but will not do anything useful
-- **setTerminationBlock()** -> Can be called, but will not do anything useful
-
 
 List of next possible states:
 1. **Service is destroyed**

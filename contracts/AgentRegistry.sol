@@ -9,7 +9,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Agent Registry - Smart contract for registering agents
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract AgentRegistry is IErrors, IMultihash, ERC721Enumerable, Ownable, ReentrancyGuard {
+contract AgentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, ReentrancyGuard {
     // Agent parameters
     struct Agent {
         // Developer of the agent
