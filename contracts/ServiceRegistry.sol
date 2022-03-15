@@ -486,8 +486,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     {
         Service storage service = _mapServices[serviceId];
         // Service can only be in the terminated-bonded state or expired-registration in order to proceed
-        if (!(service.state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) &&
-            service.state != ServiceState.TerminatedBonded) {
+        if (service.state != ServiceState.TerminatedBonded) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
 

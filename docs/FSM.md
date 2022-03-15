@@ -260,13 +260,12 @@ Functions to call from this state:
   - **update()**. Condition: No single agent instance is registered.
   - **setRegistrationDeadline()**
   - **terminate()**
-  - **unbond()**
 
 
 List of next possible states:
 1. **Service is active-registration**
     - Function call for this state: **setRegistrationDeadline()**
-    - Condition: Updated time is greater than the current time and no single agent instance is currently registered
+    - Condition: Updated block is greater than the current block and no single agent instance is currently registered
 
 
 2. **Service is pre-registration**
@@ -285,8 +284,8 @@ List of next possible states:
 
 
 5. **Service is terminated-unbonded**
-    - Function call for this state: **terminate()** or **unbond()**
-    - Condition: No single agent instance is registered after the function call
+    - Function call for this state: **terminate()**
+    - Condition: No single agent instance is currently registered.
     
 ### Service is terminated-bonded
 Condition for this state: Service is terminated and some agents are bonded with agent instances.

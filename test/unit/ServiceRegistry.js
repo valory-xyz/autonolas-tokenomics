@@ -1095,6 +1095,14 @@ describe("ServiceRegistry", function () {
                 ethers.provider.send("evm_mine");
             }
 
+            // Try to unbond without termination of the service
+            await expect(
+                serviceRegistry.connect(serviceManager).unbond(operator, serviceId)
+            ).to.be.revertedWith("WrongServiceState");
+
+            // Terminate the service
+            await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
+
             // Try to unbond by an operator that has not registered a single agent instance
             await expect(
                 serviceRegistry.connect(serviceManager).unbond(owner, serviceId)
