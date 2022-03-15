@@ -73,6 +73,12 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         IService(serviceRegistry).terminate(msg.sender, serviceId);
     }
 
+    /// @dev Destroys the service instance and frees up its storage.
+    /// @param serviceId Correspondent service Id.
+    function serviceDestroy(uint256 serviceId) public {
+        IService(serviceRegistry).destroy(msg.sender, serviceId);
+    }
+
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param serviceId Service Id.
     function serviceUnbond(uint256 serviceId) public {
@@ -109,19 +115,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
     /// @param deadline Agent instance registration deadline.
-    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public {
-        IService(serviceRegistry).activateRegistration(msg.sender, serviceId, deadline);
-    }
-
-    /// @dev Deactivates the service and its sensitive components.
-    /// @param serviceId Correspondent service Id.
-    function serviceDeactivateRegistration(uint256 serviceId) public {
-        IService(serviceRegistry).deactivateRegistration(msg.sender, serviceId);
-    }
-
-    /// @dev Destroys the service instance and frees up its storage.
-    /// @param serviceId Correspondent service Id.
-    function serviceDestroy(uint256 serviceId) public {
-        IService(serviceRegistry).destroy(msg.sender, serviceId);
+    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public payable {
+        IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId, deadline);
     }
 }

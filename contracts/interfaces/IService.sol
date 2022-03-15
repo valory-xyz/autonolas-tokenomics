@@ -11,17 +11,7 @@ interface IService is IStructs {
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     /// @param deadline Agent instance registration deadline.
-    function activateRegistration(address owner, uint256 serviceId, uint256 deadline) external;
-
-    /// @dev Deactivates the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function deactivateRegistration(address owner, uint256 serviceId) external;
-
-    /// @dev Destroys the service instance.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function destroy(address owner, uint256 serviceId) external;
+    function activateRegistration(address owner, uint256 serviceId, uint256 deadline) external payable;
 
     /// @dev Creates a new service.
     /// @param owner Individual that creates and controls a service.
@@ -72,6 +62,11 @@ interface IService is IStructs {
     /// @param owner Owner of the service.
     /// @param serviceId Service Id to be updated.
     function terminate(address owner, uint256 serviceId) external;
+
+    /// @dev Destroys the service instance.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function destroy(address owner, uint256 serviceId) external;
 
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param operator Operator of agent instances.

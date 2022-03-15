@@ -13,6 +13,7 @@ describe("ServiceRegistry", function () {
     const configHash = {hash: "0x" + "5".repeat(64), hashFunction: "0x12", size: "0x20"};
     const configHash1 = {hash: "0x" + "6".repeat(64), hashFunction: "0x12", size: "0x20"};
     const regBond = 1000;
+    const regDeposit = 1000;
     const agentIds = [1, 2];
     const agentParams = [[3, regBond], [4, regBond]];
     const serviceId = 1;
@@ -545,42 +546,7 @@ describe("ServiceRegistry", function () {
             expect(result.events[0].event).to.equal("ActivateRegistration");
         });
 
-        it("Should fail when deactivating a service with at least one registered agent instance", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-            const operator = signers[6].address;
-            const agentInstance = signers[7].address;
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
-                agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
-            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
-            await expect(
-                serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId)
-            ).to.be.revertedWith("AgentInstanceRegistered");
-        });
-
-        it("Should fail when deactivating a service that is already inactive", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
-                agentParams, maxThreshold);
-            await expect(
-                serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId)
-            ).to.be.revertedWith("ServiceMustBeActive");
-        });
-
-        it("Catching \"DeactivateRegistration\" event log after service deactivation", async function () {
+        it("Catching \"TerminateService\" event log after service termination", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -591,12 +557,12 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
-            const deactivateService = await serviceRegistry.connect(serviceManager).deactivateRegistration(owner, serviceId);
-            const result = await deactivateService.wait();
-            expect(result.events[0].event).to.equal("DeactivateRegistration");
+            const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
+            const result = await terminateService.wait();
+            expect(result.events[0].event).to.equal("TerminateService");
         });
 
-        it("Should fail when trying to destroy a service with at least one agent instance", async function () {
+        it("Destroying a service with at least one agent instance", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -611,27 +577,9 @@ describe("ServiceRegistry", function () {
                 agentParams, maxThreshold);
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
-            await expect(
-                serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
-            ).to.be.revertedWith("AgentInstanceRegistered");
-        });
-
-        it("Catching \"DestroyService\" event. Service is destroyed without agent instances", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
-            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
-                agentParams, maxThreshold);
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
-            const deactivateService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
-            const result = await deactivateService.wait();
-            expect(result.events[0].event).to.equal("DestroyService");
-            const state = await serviceRegistry.getServiceState(serviceId);
-            expect(state).to.equal(0);
+            const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
+            const result = await terminateService.wait();
+            expect(result.events[0].event).to.equal("TerminateService");
         });
     });
 
@@ -999,7 +947,7 @@ describe("ServiceRegistry", function () {
     });
 
     context("Termination and unbonding", async function () {
-        it("Terminate service right after creation", async function () {
+        it("Should fail when trying to terminate service right after creation", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -1015,11 +963,6 @@ describe("ServiceRegistry", function () {
                 [[2, regBond]], maxThreshold);
 
             // Terminating service without registered agent instances will give it a terminated-unbonded state
-            await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
-            const state = await serviceRegistry.getServiceState(serviceId);
-            expect(state).to.equal(7);
-
-            // Trying to terminate it again will revert
             await expect(
                 serviceRegistry.connect(serviceManager).terminate(owner, serviceId)
             ).to.be.revertedWith("WrongServiceState");
@@ -1080,10 +1023,14 @@ describe("ServiceRegistry", function () {
             const tDeadline = blockNumber + nBlocks + 10;
 
             // Activate registration and register one agent instance
-            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
+            // Balance of the operator must be regBond
             const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
             expect(balanceOperator).to.equal(regBond);
+            // Contract balance must be the sum of regBond and the regDeposit
+            const contractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
+            expect(contractBalance).to.equal(regBond + regDeposit);
 
             // Trying to unbond before the deadline expiration
             await expect(
@@ -1182,6 +1129,51 @@ describe("ServiceRegistry", function () {
                 serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance,
                     agentId, {value: 0})
             ).to.be.revertedWith("InsufficientAgentBondingValue");
+        });
+    });
+
+
+    context("Destroying the service", async function () {
+        it("Should fail when calling destroy not from temnitated state", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+
+            // Creating the service
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
+                agentParams, maxThreshold);
+
+            // Trying to call destroy from pre-existent
+            await expect(
+                serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
+            ).to.be.revertedWith("WrongServiceState");
+
+            // Activate registration
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await expect(
+                serviceRegistry.connect(serviceManager).destroy(owner, serviceId)
+            ).to.be.revertedWith("WrongServiceState");
+        });
+
+        it("Catching \"DestroyService\" event. Service is destroyed after its termination", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
+                agentParams, maxThreshold);
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline);
+            await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
+            const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
+            const result = await destroyService.wait();
+            expect(result.events[0].event).to.equal("DestroyService");
         });
     });
 });
