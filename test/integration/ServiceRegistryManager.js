@@ -151,10 +151,6 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentParams,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline, {value: regDeposit});
-            let state = await serviceRegistry.getServiceState(serviceIds[0]);
-            expect(state).to.equal(2);
 
             // Updating service Id == 1
             const newAgentIds = [1, 2, 3];
@@ -162,8 +158,20 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentParams[0][0] + newAgentParams[2][0];
             await serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
                 newAgentParams, newMaxThreshold, serviceIds[0]);
+            let state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(1);
+
+            // Activate the registration
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline, {value: regDeposit});
             state = await serviceRegistry.getServiceState(serviceIds[0]);
             expect(state).to.equal(2);
+
+            // Fail when trying to update the service again, even though no agent instances are registered yet
+            await expect(
+                serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
+                    newAgentParams, newMaxThreshold, serviceIds[0])
+            ).to.be.revertedWith("WrongServiceState");
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0],

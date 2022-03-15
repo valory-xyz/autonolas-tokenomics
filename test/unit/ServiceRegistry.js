@@ -285,7 +285,7 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.exists(2)).to.equal(false);
         });
 
-        it("Should fail when trying to update the service with already registered agent instances", async function () {
+        it("Should fail when trying to update the service with already active registration", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -302,7 +302,7 @@ describe("ServiceRegistry", function () {
             await expect(
                 serviceRegistry.connect(serviceManager).update(owner, name, description, configHash, agentIds,
                     agentParams, maxThreshold, 1)
-            ).to.be.revertedWith("AgentInstanceRegistered");
+            ).to.be.revertedWith("WrongServiceState");
         });
 
         it("Update specifically for hashes, then get service hashes", async function () {
@@ -1025,7 +1025,7 @@ describe("ServiceRegistry", function () {
             // Revert when insufficient amount is passed
             await expect(
                 serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: 0})
-            ).to.be.revertedWith("InsufficientRegistrationDepositValue");
+            ).to.be.revertedWith("IncorrectRegistrationDepositValue");
 
             // Activate registration and register one agent instance
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
@@ -1154,7 +1154,7 @@ describe("ServiceRegistry", function () {
             // Activate registration and register one agent instance
             await expect(
                 serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit - 1})
-            ).to.be.revertedWith("InsufficientRegistrationDepositValue");
+            ).to.be.revertedWith("IncorrectRegistrationDepositValue");
         });
     });
 
