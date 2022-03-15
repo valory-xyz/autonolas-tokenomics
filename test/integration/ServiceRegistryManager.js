@@ -95,8 +95,8 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentParams,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline, {value: regDeposit});
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0], agentIds[0], {value: regBond});
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], agentInstances[1], agentIds[1], {value: regBond});
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[2], agentIds[0], {value: regBond});
@@ -151,10 +151,6 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.serviceCreate(owner.address, name, description, configHash, agentIds, agentParams,
                 maxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline, {value: regDeposit});
-            let state = await serviceRegistry.getServiceState(serviceIds[0]);
-            expect(state).to.equal(2);
 
             // Updating service Id == 1
             const newAgentIds = [1, 2, 3];
@@ -162,8 +158,20 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentParams[0][0] + newAgentParams[2][0];
             await serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
                 newAgentParams, newMaxThreshold, serviceIds[0]);
+            let state = await serviceRegistry.getServiceState(serviceIds[0]);
+            expect(state).to.equal(1);
+
+            // Activate the registration
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[1], regDeadline, {value: regDeposit});
             state = await serviceRegistry.getServiceState(serviceIds[0]);
             expect(state).to.equal(2);
+
+            // Fail when trying to update the service again, even though no agent instances are registered yet
+            await expect(
+                serviceManager.connect(owner).serviceUpdate(name, description, configHash, newAgentIds,
+                    newAgentParams, newMaxThreshold, serviceIds[0])
+            ).to.be.revertedWith("WrongServiceState");
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstances[0],
@@ -213,7 +221,7 @@ describe("ServiceRegistry integration", function () {
             const newMaxThreshold = newAgentParams[0][0] + newAgentParams[1][0];
             await serviceManager.serviceCreate(owner.address, name, description, configHash, newAgentIds,
                 newAgentParams, newMaxThreshold);
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
 
             // Registering agents for service Id == 1
             await serviceManager.connect(operators[0]).serviceRegisterAgent(serviceIds[0], agentInstances[0],
@@ -393,7 +401,7 @@ describe("ServiceRegistry integration", function () {
             const blockNumber = await ethers.provider.getBlockNumber();
             // Deadline must be bigger than a current block number plus the minimum registration deadline
             const tDeadline = blockNumber + nBlocks + 10;
-            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], tDeadline);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], tDeadline, {value: regBond});
             // Mining past the deadline
             for (let i = blockNumber; i <= tDeadline; i++) {
                 ethers.provider.send("evm_mine");

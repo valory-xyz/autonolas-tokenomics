@@ -28,20 +28,6 @@ of the asynchronous on-chain behavior.
      - Output: Updates instance of `service Id`
    - **Next state:** Service is pre-registration
 
-
-2. - **Current state:** Service is active-registration
-     - Input: service parameters without errors and `service Id`
-     - Condition: No single agent instance is registered
-     - Output: Updates instance of `service Id`
-   - **Next state:** Service is active-registration
-
-
-3- **Current state:** Service is active-registration
-     - Input: service parameters without errors and `service Id`
-     - Condition: One or more agent instance is registered
-     - Output: Error
-   - **Next state:** Service is active-registration
-
 ### activateRegistration()
 1. - **Current state:** Service is pre-registration
    - **Next state:** Service is active-registration
@@ -160,7 +146,6 @@ List of next possible states:
 ### Service is active-registration
 Functions to call from this state:
   - **registerAgent()**
-  - **update()**. Condition: No single agent instance is registered
   - **setRegistrationDeadline()**
   - **terminate()**
 
@@ -197,7 +182,6 @@ List of next possible states:
 Condition for this state: Agent instance registration time has passed and previous service state was `active-registration`
 
 Functions to call from this state:
-  - **update()**. Condition: No single agent instance is registered.
   - **setRegistrationDeadline()**
   - **terminate()**
 
@@ -215,7 +199,7 @@ List of next possible states:
 
 3. **Service is terminated-unbonded**
     - Function call for this state: **terminate()**
-    - Condition: No single agent instance is currently registered.
+    - Condition: No single agent instance is currently registered
     
 ### Service is terminated-bonded
 Condition for this state: Service is terminated and some agents are bonded with agent instances.
@@ -234,7 +218,6 @@ Condition for this state: Service termination block has passed and all agent ins
 
 Functions to call from this state:
 - **destroy()**
-- **update()** -> Can be called, but will not do anything useful
 
 List of next possible states:
 1. **Service is destroyed**

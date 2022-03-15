@@ -150,15 +150,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         _;
     }
 
-    // Check that there are no registered agent instances.
-    modifier noRegisteredAgentInstance(uint256 serviceId)
-    {
-        if (_mapServices[serviceId].numAgentInstances != 0) {
-            revert AgentInstanceRegistered(serviceId);
-        }
-        _;
-    }
-
     /// @dev Fallback function
     fallback() external payable {
         revert WrongFunction();
@@ -228,6 +219,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             revert ServiceMustBeInactive(serviceId);
         }
 
+        if (msg.value != service.securityDeposit) {
+            revert IncorrectRegistrationDepositValue(msg.value, service.securityDeposit, serviceId);
+        }
+
         // Activate the agent instance registration and set the registration deadline
         uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
         if (deadline <= minDeadline) {
@@ -257,12 +252,19 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.threshold = threshold;
         service.maxNumAgentInstances = 0;
 
+        uint256 securityDeposit;
+
         // Add canonical agent Ids for the service and the slots map
         for (uint256 i = 0; i < size; i++) {
             service.agentIds.push(agentIds[i]);
             service.mapAgentParams[agentIds[i]] = agentParams[i];
             service.maxNumAgentInstances += agentParams[i].slots;
+            // Security deposit is the maximum of the canonical agent registration bond
+            if (agentParams[i].bond > securityDeposit) {
+                securityDeposit = agentParams[i].bond;
+            }
         }
+        service.securityDeposit = securityDeposit;
 
         // Check for the correct threshold: no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
         uint256 checkThreshold = service.maxNumAgentInstances * 2 + 1;
@@ -299,18 +301,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentParams);
 
-        uint256 securityDeposit;
         // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
             if (agentParams[i].slots == 0 || agentParams[i].bond == 0) {
                 revert ZeroValue();
-            }
-            // Take the maximum agent instance bonding cost as service activation bonding cost for now
-            // TODO might need revision in the future, since now it won't change when calling the update() function,
-            // TODO where new bond values of new canonical agent ids could be bigger and this would force us to request
-            // TODO more deposit from the owner, or it would become a way to exploit the contract (request more refund than deposited)
-            if (agentParams[i].bond > securityDeposit) {
-                securityDeposit = agentParams[i].bond;
             }
         }
 
@@ -323,7 +317,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.owner = owner;
         // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
-        service.securityDeposit = securityDeposit;
 
         // Set service data
         _setServiceData(service, name, description, threshold, agentIds, agentParams, agentIds.length);
@@ -353,13 +346,16 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
-        noRegisteredAgentInstance(serviceId)
     {
+        Service storage service = _mapServices[serviceId];
+        if (service.state != ServiceState.PreRegistration) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentParams);
 
         // Collect non-zero canonical agent ids and slots / costs, remove any canonical agent Ids from the params map
-        Service storage service = _mapServices[serviceId];
         uint256[] memory newAgentIds = new uint256[](agentIds.length);
         AgentParams[] memory newAgentParams = new AgentParams[](agentIds.length);
         uint256 size;
@@ -441,6 +437,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         emit TerminateService(owner, serviceId);
+
+        // Return registration deposit back to the owner
+        uint256 refund = service.securityDeposit;
+        // By design, the refund is always a non-zero value, so no check is needed here fo that
+        (bool result, ) = owner.call{value: refund}("");
+        if (!result) {
+            // TODO When ERC20 token is used, change to the address of a token
+            revert TransferFailed(address(0), address(this), owner, refund);
+        }
     }
 
     /// @dev Destroys the service instance.
@@ -450,7 +455,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     external
     onlyManager
     onlyServiceOwner(owner, serviceId)
-    noRegisteredAgentInstance(serviceId)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.TerminatedUnbonded) {
