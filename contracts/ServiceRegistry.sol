@@ -18,8 +18,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
     event ActivateRegistration(address owner, uint256 deadline, uint256 serviceId);
-    event DeactivateRegistration(address owner, uint256 serviceId);
-    event DestroyService(address owner, uint256 serviceId);
+    event TerminateService(address owner, uint256 serviceId);
 
     enum ServiceState {
         NonExistent,
@@ -56,10 +55,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     struct Service {
         // owner of the service and viability state: no owner - no service or deleted
         address owner;
+        // Registration activation deposit
+        uint256 registrationDeposit;
         address proxyContract;
         // Multisig address for agent instances
         address multisig;
+        // Service name
         string name;
+        // Service description
         string description;
         // IPFS hashes pointing to the config metadata
         Multihash[] configHashes;
@@ -215,6 +218,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        nonReentrant
+        payable
     {
         Service storage service = _mapServices[serviceId];
         // Service must be inactive
@@ -230,57 +235,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.state = ServiceState.ActiveRegistration;
         service.registrationDeadline = deadline;
         emit ActivateRegistration(owner, deadline, serviceId);
-    }
-
-    /// @dev Deactivates the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function deactivateRegistration(address owner, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-        noRegisteredAgentInstance(serviceId)
-    {
-        Service storage service = _mapServices[serviceId];
-        // Service must be active
-        if (service.state != ServiceState.ActiveRegistration) {
-            revert ServiceMustBeActive(serviceId);
-        }
-
-        // Deactivate the agent instance registration and set the deadline back to zero
-        service.state = ServiceState.PreRegistration;
-        service.registrationDeadline = 0;
-        emit DeactivateRegistration(owner, serviceId);
-    }
-
-    /// @dev Destroys the service instance.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    function destroy(address owner, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-        noRegisteredAgentInstance(serviceId)
-    {
-        Service storage service = _mapServices[serviceId];
-        service.owner = address(0);
-        service.state = ServiceState.NonExistent;
-
-        // Need to update the set of owner service Ids
-        uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (uint256 i = 0; i < numServices; i++) {
-            if (_mapOwnerSetServices[owner][i] == serviceId) {
-                // Pop the destroyed service Id
-                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
-                _mapOwnerSetServices[owner].pop();
-                break;
-            }
-        }
-
-        // Reduce the actual number of services
-        _actualNumServices--;
-
-        emit DestroyService(owner, serviceId);
     }
 
     /// @dev Sets the service data.
@@ -344,10 +298,18 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentParams);
 
+        uint256 registrationDeposit;
         // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
             if (agentParams[i].slots == 0 || agentParams[i].bond == 0) {
                 revert ZeroValue();
+            }
+            // Take the maximum agent instance bonding cost as service activation bonding cost for now
+            // TODO might need revision in the future, since now it won't change when calling the update() function,
+            // TODO where new bond values of new canonical agent ids could be bigger and this would force us to request
+            // TODO more deposit from the owner, or it would become a way to exploit the contract (request more refund than deposited)
+            if (agentParams[i].bond > registrationDeposit) {
+                registrationDeposit = agentParams[i].bond;
             }
         }
 
@@ -360,6 +322,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.owner = owner;
         // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
+        service.registrationDeposit = registrationDeposit;
 
         // Set service data
         _setServiceData(service, name, description, threshold, agentIds, agentParams, agentIds.length);
@@ -461,10 +424,12 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
+        nonReentrant
     {
         Service storage service = _mapServices[serviceId];
         // Check if the service is already terminated
-        if (service.state == ServiceState.TerminatedBonded || service.state == ServiceState.TerminatedUnbonded) {
+        if (service.state == ServiceState.PreRegistration || service.state == ServiceState.TerminatedBonded ||
+            service.state == ServiceState.TerminatedUnbonded) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
         // Define the state of the service depending on the number of bonded agent instances
@@ -473,6 +438,25 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         } else {
             service.state = ServiceState.TerminatedUnbonded;
         }
+
+        // Clean up the necessary service-associated data and remove the service from the owner's set of services
+        service.owner = address(0);
+
+        // Need to update the set of owner service Ids
+        uint256 numServices = _mapOwnerSetServices[owner].length;
+        for (uint256 i = 0; i < numServices; i++) {
+            if (_mapOwnerSetServices[owner][i] == serviceId) {
+                // Pop the destroyed service Id
+                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
+                _mapOwnerSetServices[owner].pop();
+                break;
+            }
+        }
+
+        // Reduce the actual number of services
+        _actualNumServices--;
+
+        emit TerminateService(owner, serviceId);
     }
 
     /// @dev Unbonds agent instances of the operator from the service.
@@ -481,7 +465,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     function unbond(address operator, uint256 serviceId)
         external
         onlyManager
-        serviceExists(serviceId)
         nonReentrant
     {
         Service storage service = _mapServices[serviceId];

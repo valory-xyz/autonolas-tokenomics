@@ -138,6 +138,12 @@ interface IErrors {
     /// @dev Fallback or receive function.
     error WrongFunction();
 
+    /// @dev Insufficient deposit provided for the registration activation.
+    /// @param sent Sent amount.
+    /// @param expected Expected amount.
+    /// @param serviceId Service Id.
+    error InsufficientRegistrationDepositValue(uint256 sent, uint256 expected, uint256 serviceId);
+
     /// @dev Insufficient value provided for the agent instance bonding.
     /// @param sent Sent amount.
     /// @param expected Expected amount.
