@@ -187,9 +187,9 @@ describe("ServiceRegistry integration", function () {
             const newAgentInstance = signers[11].address;
             await expect(
                 serviceManager.connect(operator).serviceRegisterAgent(serviceIds[1], newAgentInstance, agentIds[0], {value: regBond})
-            ).to.be.revertedWith("ServiceDoesNotExist");
+            ).to.be.revertedWith("WrongServiceState");
 
-            expect(await serviceRegistry.exists(2)).to.equal(false);
+            expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
         });
 
@@ -295,9 +295,10 @@ describe("ServiceRegistry integration", function () {
             let serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
             expect(serviceIdsRet[0] == 1 && serviceIdsRet[1] == 2).to.be.true;
 
-            // Activate registration and terminate the very first service
+            // Activate registration and terminate the very first service and destroy it
             await serviceManager.connect(sigOwner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
             await serviceManager.connect(sigOwner).serviceTerminate(serviceIds[0]);
+            await serviceManager.connect(sigOwner).serviceDestroy(serviceIds[0]);
 
             // Check for the information consistency
             totalSupply = await serviceRegistry.totalSupply();
@@ -353,7 +354,7 @@ describe("ServiceRegistry integration", function () {
             expect(state).to.equal(7);
         });
 
-        it("Should fail when trying to update the terminated service", async function () {
+        it("Should fail when trying to update the terminated service is destroyed", async function () {
             const manager = signers[4];
             const owner = signers[5];
             await agentRegistry.changeManager(manager.address);
@@ -370,6 +371,7 @@ describe("ServiceRegistry integration", function () {
                 maxThreshold);
             await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
             await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
+            await serviceManager.connect(owner).serviceDestroy(serviceIds[0]);
             await expect(
                 serviceManager.connect(owner).serviceUpdate(name, description, configHash, [1, 2, 3],
                     [[3, regBond], [0, regBond], [4, regBond]], maxThreshold, serviceIds[0])

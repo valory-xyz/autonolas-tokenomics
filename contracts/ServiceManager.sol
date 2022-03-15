@@ -73,6 +73,12 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         IService(serviceRegistry).terminate(msg.sender, serviceId);
     }
 
+    /// @dev Destroys the service instance and frees up its storage.
+    /// @param serviceId Correspondent service Id.
+    function serviceDestroy(uint256 serviceId) public {
+        IService(serviceRegistry).destroy(msg.sender, serviceId);
+    }
+
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param serviceId Service Id.
     function serviceUnbond(uint256 serviceId) public {

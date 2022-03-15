@@ -18,6 +18,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
     event ActivateRegistration(address owner, uint256 deadline, uint256 serviceId);
+    event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
 
     enum ServiceState {
@@ -56,7 +57,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // owner of the service and viability state: no owner - no service or deleted
         address owner;
         // Registration activation deposit
-        uint256 registrationDeposit;
+        uint256 securityDeposit;
         address proxyContract;
         // Multisig address for agent instances
         address multisig;
@@ -298,7 +299,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Execute initial checks
         initialChecks(name, description, configHash, agentIds, agentParams);
 
-        uint256 registrationDeposit;
+        uint256 securityDeposit;
         // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
             if (agentParams[i].slots == 0 || agentParams[i].bond == 0) {
@@ -308,8 +309,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             // TODO might need revision in the future, since now it won't change when calling the update() function,
             // TODO where new bond values of new canonical agent ids could be bigger and this would force us to request
             // TODO more deposit from the owner, or it would become a way to exploit the contract (request more refund than deposited)
-            if (agentParams[i].bond > registrationDeposit) {
-                registrationDeposit = agentParams[i].bond;
+            if (agentParams[i].bond > securityDeposit) {
+                securityDeposit = agentParams[i].bond;
             }
         }
 
@@ -322,7 +323,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.owner = owner;
         // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
-        service.registrationDeposit = registrationDeposit;
+        service.securityDeposit = securityDeposit;
 
         // Set service data
         _setServiceData(service, name, description, threshold, agentIds, agentParams, agentIds.length);
@@ -439,8 +440,26 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             service.state = ServiceState.TerminatedUnbonded;
         }
 
+        emit TerminateService(owner, serviceId);
+    }
+
+    /// @dev Destroys the service instance.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function destroy(address owner, uint256 serviceId)
+    external
+    onlyManager
+    onlyServiceOwner(owner, serviceId)
+    noRegisteredAgentInstance(serviceId)
+    {
+        Service storage service = _mapServices[serviceId];
+        if (service.state != ServiceState.TerminatedUnbonded) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
         // Clean up the necessary service-associated data and remove the service from the owner's set of services
         service.owner = address(0);
+        service.state = ServiceState.NonExistent;
 
         // Need to update the set of owner service Ids
         uint256 numServices = _mapOwnerSetServices[owner].length;
@@ -456,7 +475,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Reduce the actual number of services
         _actualNumServices--;
 
-        emit TerminateService(owner, serviceId);
+        emit DestroyService(owner, serviceId);
     }
 
     /// @dev Unbonds agent instances of the operator from the service.

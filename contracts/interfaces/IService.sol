@@ -63,6 +63,11 @@ interface IService is IStructs {
     /// @param serviceId Service Id to be updated.
     function terminate(address owner, uint256 serviceId) external;
 
+    /// @dev Destroys the service instance.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    function destroy(address owner, uint256 serviceId) external;
+
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param operator Operator of agent instances.
     /// @param serviceId Service Id.
