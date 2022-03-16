@@ -519,20 +519,19 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             delete _mapAllAgentInstances[agentInstances[i].instance];
         }
 
-        // Refund the operator
+        // Calculate the regund
         uint256 balance = mapOperatorsBalances[operator];
         // This situation is possible if the operator was slashed for the agent instance misbehavior
         if (refund > balance) {
             refund = balance;
         }
+        // Update operator's balance
+        // TODO Correct this to not do anything if the operator balance map is on a per single service level
+        balance -= refund;
+        mapOperatorsBalances[operator] = balance;
 
+        // Refund the operator
         if (refund > 0) {
-            // Update operator's balance
-            // TODO Correct this to not do anything if the operator balance map is on a per single service level
-            balance -= refund;
-            mapOperatorsBalances[operator] = balance;
-
-            // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
                 // TODO When ERC20 token is used, change to the address of a token
@@ -628,7 +627,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Slash the balance of the operator, make sure it does not go below zero
         uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
-        if (amount > balance) {
+        if (amount >= balance) {
             balance = 0;
         } else {
             balance -= amount;
