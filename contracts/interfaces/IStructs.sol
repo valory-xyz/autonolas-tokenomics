@@ -13,6 +13,14 @@ interface IStructs {
         uint256 bond;
     }
 
+    // Operator and service Id where operator registers agent instances
+    struct OperatorServiceId {
+        // Operator address
+        address operator;
+        // Service Id
+        uint256 serviceId;
+    }
+
     // Multihash according to self-describing hashes standard. For more information of multihashes please visit https://multiformats.io/multihash/
     struct Multihash {
         // IPFS uses a sha2-256 hashing function. Each IPFS hash has to start with 1220.

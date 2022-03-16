@@ -129,11 +129,11 @@ interface IErrors {
     /// @param serviceId Service Id.
     error RegistrationDeadlineChangeRedundant(uint256 deadline, uint256 prevDeadline, uint256 serviceId);
 
-    /// @dev Termination block of the service is incorrect (in the past).
-    /// @param terminationBlock Provided termination block.
-    /// @param curBlock Current block number.
+    /// @dev Only own service multisig is allowed.
+    /// @param provided Provided address.
+    /// @param expected Expected multisig address.
     /// @param serviceId Service Id.
-    error TerminationBlockIncorrect(uint256 terminationBlock, uint256 curBlock, uint256 serviceId);
+    error OnlyOwnServiceMultisig(address provided, address expected, uint256 serviceId);
 
     /// @dev Fallback or receive function.
     error WrongFunction();

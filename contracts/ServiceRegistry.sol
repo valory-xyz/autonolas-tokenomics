@@ -20,6 +20,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event ActivateRegistration(address owner, uint256 deadline, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
+    event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
 
     enum ServiceState {
         NonExistent,
@@ -110,8 +111,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     mapping (uint256 => Service) private _mapServices;
     // Map of owner address => set of service Ids that belong to that owner
     mapping (address => uint256[]) private _mapOwnerSetServices;
-    // Map of agent instance address => service id it is registered with
-    mapping (address => uint256) private _mapAllAgentInstances;
+    // Map of agent instance address => service id it is registered with and operator address that supplied the instance
+    mapping (address => OperatorServiceId) private _mapAllAgentInstances;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
     // Updated during the service deployment via createSafe() function
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
@@ -555,7 +556,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         // Operator address must be different from agent instance one
         // Also, operator address must not be used as an agent instance anywhere else
         // TODO Need to check for the agent address to be EOA
-        if (operator == agent || _mapAllAgentInstances[operator] > 0) {
+        if (operator == agent || _mapAllAgentInstances[operator].serviceId > 0) {
             revert WrongOperator(serviceId);
         }
 
@@ -567,8 +568,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Check if the agent instance is already engaged with another service
-        if (_mapAllAgentInstances[agent] > 0) {
-            revert AgentInstanceRegistered(_mapAllAgentInstances[agent]);
+        if (_mapAllAgentInstances[agent].serviceId > 0) {
+            revert AgentInstanceRegistered(_mapAllAgentInstances[agent].serviceId);
         }
 
         // Check if the deadline for registering agent instances is still valid
@@ -598,7 +599,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         service.mapAgentInstances[agentId].push(agent);
         service.mapOperatorsAgentInstances[operator].push(AgentInstance(agent, agentId));
         service.numAgentInstances++;
-        _mapAllAgentInstances[agent] = serviceId;
+        _mapAllAgentInstances[agent] = OperatorServiceId(operator, serviceId);
 
         // If the service agent instance capacity is reached, the service becomes finished-registration
         if (service.numAgentInstances == service.maxNumAgentInstances) {
@@ -606,6 +607,35 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         emit RegisterInstance(operator, serviceId, agent, agentId);
+    }
+
+    /// @dev Slashes a specified agent instance.
+    /// @param agentInstance Agent instance to slash.
+    /// @param amount The amount to slash.
+    function slash(address agentInstance, uint256 amount) public {
+        // Get the service Id from the agentInstance map
+        OperatorServiceId memory operatorServiceId = _mapAllAgentInstances[agentInstance];
+        // Check if the service exists
+        if (operatorServiceId.serviceId == 0) {
+            revert ServiceDoesNotExist(operatorServiceId.serviceId);
+        }
+
+        Service storage service = _mapServices[operatorServiceId.serviceId];
+        // Only the multisig of a correspondent address can slash its agent instances
+        if (msg.sender != service.multisig) {
+            revert OnlyOwnServiceMultisig(msg.sender, service.multisig, operatorServiceId.serviceId);
+        }
+
+        // Slash the balance of the operator, make sure it does not go below zero
+        uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
+        if (amount > balance) {
+            balance = 0;
+        } else {
+            balance -= amount;
+        }
+        mapOperatorsBalances[operatorServiceId.operator] = balance;
+
+        emit OperatorSlashed(amount, operatorServiceId.operator, operatorServiceId.serviceId);
     }
 
     /// @dev Creates Gnosis Safe proxy.
