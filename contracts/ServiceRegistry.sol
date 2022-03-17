@@ -652,6 +652,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     /// @dev Gets the service payment / reward.
     /// @param serviceId Service Id.
+    /// @return rewardBalance Actual reward balance of a service Id.
     function reward(uint256 serviceId)
         public
         payable
