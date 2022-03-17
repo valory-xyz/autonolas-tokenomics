@@ -21,6 +21,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
+    event RewardService(uint256 serviceId, uint256 amount);
 
     enum ServiceState {
         NonExistent,
@@ -59,6 +60,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         address owner;
         // Registration activation deposit
         uint256 securityDeposit;
+        // Reward balance
+        uint256 rewardBalance;
         address proxyContract;
         // Multisig address for agent instances
         address multisig;
@@ -645,6 +648,22 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
             emit OperatorSlashed(amounts[i], operatorServiceId.operator, operatorServiceId.serviceId);
         }
+    }
+
+    /// @dev Gets the service payment / reward.
+    /// @param serviceId Service Id.
+    /// @return rewardBalance Actual reward balance of a service Id.
+    function reward(uint256 serviceId)
+        public
+        payable
+        serviceExists(serviceId)
+        nonReentrant
+        returns (uint256 rewardBalance)
+    {
+        rewardBalance = _mapServices[serviceId].rewardBalance;
+        rewardBalance += msg.value;
+        _mapServices[serviceId].rewardBalance = rewardBalance;
+        emit RewardService(serviceId, msg.value);
     }
 
     /// @dev Creates Gnosis Safe proxy.
