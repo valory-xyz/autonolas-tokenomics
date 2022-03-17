@@ -14,6 +14,7 @@ describe("ServiceRegistry", function () {
     const configHash1 = {hash: "0x" + "6".repeat(64), hashFunction: "0x12", size: "0x20"};
     const regBond = 1000;
     const regDeposit = 1000;
+    const regFine = 500;
     const agentIds = [1, 2];
     const agentParams = [[3, regBond], [4, regBond]];
     const serviceId = 1;
@@ -127,14 +128,14 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [], [], threshold)
-            ).to.be.revertedWith("WrongAgentIdsData");
+            ).to.be.revertedWith("WrongAgentsData");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [], threshold)
-            ).to.be.revertedWith("WrongAgentIdsData");
+            ).to.be.revertedWith("WrongAgentsData");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1, 3], [[2, regBond]],
                     threshold)
-            ).to.be.revertedWith("WrongAgentIdsData");
+            ).to.be.revertedWith("WrongAgentsData");
         });
 
         it("Should fail when creating a service with non existent canonical agent", async function () {
@@ -1156,8 +1157,92 @@ describe("ServiceRegistry", function () {
                 serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit - 1})
             ).to.be.revertedWith("IncorrectRegistrationDepositValue");
         });
-    });
 
+        it("Should fail when slashing the agent not in a service", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7].address;
+            const wrongAgentInstance = signers[8].address;
+
+            // Create agents
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, []);
+
+            // Create a service and activate the agent instance registration
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
+                agentParams, maxThreshold);
+
+            // Activate registration and register an agent instance
+            serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
+            serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
+
+            // Should fail when dimentions of arrays don't match
+            await expect(
+                serviceRegistry.slash([wrongAgentInstance, AddressZero], [regFine], serviceId)
+            ).to.be.revertedWith("WrongAgentsData");
+
+            // Simulate slashing with the agent instance that is not in the service
+            await expect(
+                serviceRegistry.slash([wrongAgentInstance], [regFine], serviceId)
+            ).to.be.revertedWith("OnlyOwnServiceMultisig");
+        });
+
+        it("Slashing the operator of agent instance", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstance = signers[7];
+            const wrongMultisig = signers[9];
+            const maxThreshold = 1;
+
+            // Create an agents
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+
+            // Create services and activate the agent instance registration
+            let state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(0);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1],
+                [[1, regBond]], maxThreshold);
+
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
+
+            /// Register agent instance
+            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance.address, agentId, {value: regBond});
+
+            // Create multisig
+            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
+                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const result = await safe.wait();
+            const proxyAddress = result.events[0].address;
+
+            // Try slashing from a different simulated multisig address
+            await expect(
+                serviceRegistry.connect(wrongMultisig).slash([agentInstance.address], [regFine], serviceId)
+            ).to.be.revertedWith("OnlyOwnServiceMultisig");
+
+            // Getting a real multisig address and calling slashing method with it
+            const multisig = await ethers.getContractAt("GnosisSafeL2", proxyAddress);
+            const safeContracts = require("@gnosis.pm/safe-contracts");
+            const nonce = await multisig.nonce();
+            const txHashData = await safeContracts.buildContractCall(serviceRegistry, "slash",
+                [[agentInstance.address], [regFine], serviceId], nonce, 0, 0);
+            const signMessageData = await safeContracts.safeSignMessage(agentInstance, multisig, txHashData, 0);
+
+            // Slash the agent instance operator with the correct multisig
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // After slashing the operator balance must be the difference between the regBond and regFine
+            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            expect(balanceOperator).to.equal(regBond - regFine);
+        });
+    });
 
     context("Destroying the service", async function () {
         it("Should fail when calling destroy not from temnitated state", async function () {

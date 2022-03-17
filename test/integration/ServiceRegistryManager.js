@@ -16,6 +16,7 @@ describe("ServiceRegistry integration", function () {
     const configHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
     const regBond = 1000;
     const regDeposit = 1000;
+    const regFine = 500;
     const agentIds = [1, 2];
     const agentParams = [[3, regBond], [4, regBond]];
     const serviceIds = [1, 2];
@@ -424,6 +425,67 @@ describe("ServiceRegistry integration", function () {
             await expect(
                 owner.sendTransaction({to: serviceManager.address, value: regBond, data: "0x12"})
             ).to.be.revertedWith("WrongFunction");
+        });
+
+        it("Create a service, then deploy, slash, unbond", async function () {
+            const manager = signers[4];
+            const owner = signers[5];
+            const operator = signers[6];
+            const agentInstance = signers[7];
+            await agentRegistry.changeManager(manager.address);
+
+            // Creating 2 canonical agents
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
+                description, []);
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash1,
+                description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+
+            // Creating a service and activating registration
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, [1], [[1, regBond]], 1);
+            await serviceManager.connect(owner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
+
+            // Registering agent instance
+            await serviceManager.connect(operator).serviceRegisterAgent(serviceIds[0], agentInstance.address,
+                agentIds[0], {value: regBond});
+
+            // Check the contract's initial balance
+            const expectedContractBalance = regBond + regDeposit;
+            const contractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
+            expect(contractBalance).to.equal(expectedContractBalance);
+
+            // Create multisig
+            const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
+                AddressZero, AddressZero, 0, AddressZero, serviceIds[0]);
+            const result = await safe.wait();
+            const proxyAddress = result.events[0].address;
+
+            // Check initial operator's balance
+            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            expect(balanceOperator).to.equal(regBond);
+
+            // Get all the necessary info about multisig and slash the operator
+            const multisig = await ethers.getContractAt("GnosisSafeL2", proxyAddress);
+            const safeContracts = require("@gnosis.pm/safe-contracts");
+            const nonce = await multisig.nonce();
+            const txHashData = await safeContracts.buildContractCall(serviceRegistry, "slash",
+                [[agentInstance.address], [regFine], serviceIds[0]], nonce, 0, 0);
+            const signMessageData = await safeContracts.safeSignMessage(agentInstance, multisig, txHashData, 0);
+
+            // Slash the agent instance operator with the correct multisig
+            await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
+
+            // Check the new operator's balance, it must be the original balance minus the fine
+            const newBalanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            expect(newBalanceOperator).to.equal(balanceOperator - regFine);
+
+            // Terminate service and unbond the operator
+            await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
+            await serviceManager.connect(operator).serviceUnbond(serviceIds[0]);
+
+            // Check the balance of the contract - it must be the total minus the slashed fine minus the deposit
+            const newContractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
+            expect(newContractBalance).to.equal(contractBalance - regFine - regDeposit);
         });
     });
 });

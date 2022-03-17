@@ -37,7 +37,7 @@ interface IErrors {
     /// @dev Inconsistent data of cannonical agent Ids and their correspondent slots.
     /// @param numAgentIds Number of canonical agent Ids.
     /// @param numAgentSlots Numberf of canonical agent Id slots.
-    error WrongAgentIdsData(uint256 numAgentIds, uint256 numAgentSlots);
+    error WrongAgentsData(uint256 numAgentIds, uint256 numAgentSlots);
 
     /// @dev Canonical agent Id is not found.
     /// @param agentId Canonical agent Id.

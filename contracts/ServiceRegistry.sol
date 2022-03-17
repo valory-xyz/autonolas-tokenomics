@@ -184,7 +184,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Checking for non-empty arrays and correct number of values in them
         if (agentIds.length == 0 || agentParams.length == 0 || agentIds.length != agentParams.length) {
-            revert WrongAgentIdsData(agentIds.length, agentParams.length);
+            revert WrongAgentsData(agentIds.length, agentParams.length);
         }
 
         // Check for canonical agent Ids existence and for duplicate Ids
@@ -519,19 +519,21 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             delete _mapAllAgentInstances[agentInstances[i].instance];
         }
 
-        // Calculate the regund
+        // Calculate the refund
         uint256 balance = mapOperatorsBalances[operator];
         // This situation is possible if the operator was slashed for the agent instance misbehavior
         if (refund > balance) {
             refund = balance;
         }
-        // Update operator's balance
-        // TODO Correct this to not do anything if the operator balance map is on a per single service level
-        balance -= refund;
-        mapOperatorsBalances[operator] = balance;
 
         // Refund the operator
         if (refund > 0) {
+            // Update operator's balance
+            // TODO Correct this to not do anything if the operator balance map is on a per single service level
+            balance -= refund;
+            mapOperatorsBalances[operator] = balance;
+
+            // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
                 // TODO When ERC20 token is used, change to the address of a token
@@ -609,32 +611,40 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     }
 
     /// @dev Slashes a specified agent instance.
-    /// @param agentInstance Agent instance to slash.
-    /// @param amount The amount to slash.
-    function slash(address agentInstance, uint256 amount) public {
-        // Get the service Id from the agentInstance map
-        OperatorServiceId memory operatorServiceId = _mapAllAgentInstances[agentInstance];
-        // Check if the service exists
-        if (operatorServiceId.serviceId == 0) {
-            revert ServiceDoesNotExist(operatorServiceId.serviceId);
+    /// @param agentInstances Agent instances to slash.
+    /// @param amounts Correspondent amounts to slash.
+    /// @param serviceId Service Id.
+    function slash(address[] memory agentInstances, uint256[] memory amounts, uint256 serviceId)
+        public
+        serviceExists(serviceId)
+    {
+        // Check for the array size
+        if (agentInstances.length != amounts.length) {
+            revert WrongAgentsData(agentInstances.length, amounts.length);
         }
-
-        Service storage service = _mapServices[operatorServiceId.serviceId];
+        Service storage service = _mapServices[serviceId];
         // Only the multisig of a correspondent address can slash its agent instances
         if (msg.sender != service.multisig) {
-            revert OnlyOwnServiceMultisig(msg.sender, service.multisig, operatorServiceId.serviceId);
+            revert OnlyOwnServiceMultisig(msg.sender, service.multisig, serviceId);
         }
 
-        // Slash the balance of the operator, make sure it does not go below zero
-        uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
-        if (amount >= balance) {
-            balance = 0;
-        } else {
-            balance -= amount;
-        }
-        mapOperatorsBalances[operatorServiceId.operator] = balance;
+        // Loop over each agent instance
+        uint256 numInstancesToSlash = agentInstances.length;
+        for (uint256 i = 0; i < numInstancesToSlash; ++i) {
+            // Get the service Id from the agentInstance map
+            OperatorServiceId memory operatorServiceId = _mapAllAgentInstances[agentInstances[i]];
 
-        emit OperatorSlashed(amount, operatorServiceId.operator, operatorServiceId.serviceId);
+            // Slash the balance of the operator, make sure it does not go below zero
+            uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
+            if (amounts[i] >= balance) {
+                balance = 0;
+            } else {
+                balance -= amounts[i];
+            }
+            mapOperatorsBalances[operatorServiceId.operator] = balance;
+
+            emit OperatorSlashed(amounts[i], operatorServiceId.operator, operatorServiceId.serviceId);
+        }
     }
 
     /// @dev Creates Gnosis Safe proxy.
@@ -798,13 +808,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @return agentParams Set of numbers of agent instances for each canonical agent Id.
     /// @return numAgentInstances Number of registered agent instances.
     /// @return agentInstances Set of agent instances currently registered for the service.
+    /// @return multisig Agent instances multisig address.
     function getServiceInfo(uint256 serviceId)
         public
         view
         serviceExists(serviceId)
         returns (address owner, string memory name, string memory description, Multihash memory configHash,
             uint256 threshold, uint256 numAgentIds, uint256[] memory agentIds, AgentParams[] memory agentParams,
-            uint256 numAgentInstances, address[] memory agentInstances)
+            uint256 numAgentInstances, address[] memory agentInstances, address multisig)
     {
         Service storage service = _mapServices[serviceId];
         agentParams = new AgentParams[](service.agentIds.length);
@@ -821,6 +832,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         threshold = service.threshold;
         numAgentIds = service.agentIds.length;
         agentIds = service.agentIds;
+        multisig = service.multisig;
     }
 
     /// @dev Lists all the instances of a given canonical agent Id if the service.
