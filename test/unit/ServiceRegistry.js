@@ -1063,7 +1063,9 @@ describe("ServiceRegistry", function () {
             ).to.be.revertedWith("OperatorHasNoInstances");
 
             // Unbonding
-            await serviceRegistry.connect(serviceManager).unbond(operator, serviceId);
+            const unbondTx = await serviceRegistry.connect(serviceManager).unbond(operator, serviceId);
+            const result = await unbondTx.wait();
+            expect(result.events[0].event).to.equal("OperatorUnbond");
             const state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(7);
 
@@ -1315,6 +1317,11 @@ describe("ServiceRegistry", function () {
             // And the slashed balance must be all the initial operator balance: 2 * regBond
             slashedFunds = Number(await serviceRegistry.slashedFunds());
             expect(slashedFunds).to.equal(2 * regBond);
+
+            // Terminate service and unbond. The operator won't get any refund
+            await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
+            const refund = await serviceRegistry.connect(serviceManager).callStatic.unbond(operator, serviceId);
+            expect(Number(refund)).to.equal(0);
         });
 
         it("Reward a service twice, get its reward balance", async function () {

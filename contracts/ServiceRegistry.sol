@@ -21,6 +21,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
+    event OperatorUnbond(uint256 refund, address operator, uint256 serviceId);
     event RewardService(uint256 serviceId, uint256 amount);
 
     enum ServiceState {
@@ -495,6 +496,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         external
         onlyManager
         nonReentrant
+        returns (uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Service can only be in the terminated-bonded state or expired-registration in order to proceed
@@ -517,7 +519,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Calculate registration refund and free all agent instances
         // TODO Consider pushing the operator balance map to the service side, then we don't need to calculate the refund. Point of gas evaluation.
-        uint256 refund = 0;
+        refund = 0;
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
             refund += service.mapAgentParams[agentInstances[i].id].bond;
             // Since the service is done, there's no need to clean-up the service-related data, just the state variables
@@ -545,6 +547,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
                 revert TransferFailed(address(0), address(this), operator, refund);
             }
         }
+
+        emit OperatorUnbond(refund, operator, serviceId);
     }
 
     /// @dev Registers agent instance.

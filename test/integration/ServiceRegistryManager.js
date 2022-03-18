@@ -481,10 +481,17 @@ describe("ServiceRegistry integration", function () {
 
             // Terminate service and unbond the operator
             await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
+            // Use the static call first that emulates the call, to get the return value of a refund
+            const refund = await serviceManager.connect(operator).callStatic.serviceUnbond(serviceIds[0]);
+            // The refund for unbonding is the bond minus the fine
+            expect(Number(refund)).to.equal(balanceOperator - regFine);
+
+            // Do the real unbond call
             await serviceManager.connect(operator).serviceUnbond(serviceIds[0]);
 
             // Check the balance of the contract - it must be the total minus the slashed fine minus the deposit
             const newContractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
+            console.log(newContractBalance);
             expect(newContractBalance).to.equal(contractBalance - regFine - regDeposit);
         });
     });

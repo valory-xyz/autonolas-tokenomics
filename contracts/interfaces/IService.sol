@@ -71,7 +71,8 @@ interface IService is IStructs {
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param operator Operator of agent instances.
     /// @param serviceId Service Id.
-    function unbond(address operator, uint256 serviceId) external;
+    /// @return refund The refund amount.
+    function unbond(address operator, uint256 serviceId) external returns (uint256 refund);
 
     /// @dev Registers agent instance.
     /// @param operator Address of the operator.
