@@ -51,8 +51,8 @@ describe("ServiceRegistry", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy(agentRegistry.address, gnosisSafeL2.address,
-            gnosisSafeProxyFactory.address);
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
+            gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await serviceRegistry.deployed();
         signers = await ethers.getSigners();
     });
@@ -225,7 +225,7 @@ describe("ServiceRegistry", function () {
             const service = await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash,
                 agentIds, agentParams, maxThreshold);
             const result = await service.wait();
-            expect(result.events[0].event).to.equal("CreateService");
+            expect(result.events[1].event).to.equal("CreateService");
         });
 
         it("Service Id=1 after first successful service registration must exist", async function () {
@@ -719,7 +719,7 @@ describe("ServiceRegistry", function () {
 
             await expect(
                 serviceRegistry.ownerOf(serviceId)
-            ).to.be.revertedWith("ServiceDoesNotExist");
+            ).to.be.revertedWith("ERC721: owner query for nonexistent token");
 
             await expect(
                 serviceRegistry.getServiceInfo(serviceId)
@@ -788,8 +788,7 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
             expect(await serviceRegistry.ownerOf(serviceId)).to.equal(owner);
             let totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices).to.equal(1);
-            expect(totalSupply.maxServiceId).to.equal(1);
+            expect(totalSupply).to.equal(1);
 
             // Check for the service info components
             const serviceInfo = await serviceRegistry.getServiceInfo(serviceId);
@@ -815,11 +814,13 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.exists(serviceId + 1)).to.equal(true);
             expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
             expect(await serviceRegistry.ownerOf(serviceId + 1)).to.equal(owner);
-            const serviceIds = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIds[0] == 1 && serviceIds[1]).to.equal(2);
+            const serviceIds = await serviceRegistry.balanceOf(owner);
+            for (let i = 0; i < serviceIds; i++) {
+                const serviceIdCheck = await serviceRegistry.tokenOfOwnerByIndex(owner, i)
+                expect(serviceIdCheck).to.be.equal(i + 1);
+            }
             totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices).to.equal(2);
-            expect(totalSupply.maxServiceId).to.equal(2);
+            expect(totalSupply).to.equal(2);
         });
 
         it("Check for returned set of registered agent instances", async function () {
@@ -1387,7 +1388,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await destroyService.wait();
-            expect(result.events[0].event).to.equal("DestroyService");
+            expect(result.events[2].event).to.equal("DestroyService");
         });
     });
 });

@@ -11,7 +11,7 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
+contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, ReentrancyGuard {
     event Deposit(address sender, uint256 amount);
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
@@ -57,8 +57,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Service parameters
     struct Service {
-        // owner of the service and viability state: no owner - no service or deleted
-        address owner;
         // Registration activation deposit
         uint256 securityDeposit;
         // Reward balance
@@ -110,16 +108,12 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     address public immutable gnosisSafeProxyFactory;
     // Service counter
     uint256 private _serviceIds;
-    // Actual number of services
-    uint256 private _actualNumServices;
     // The amount of funds slashed
     uint256 public slashedFunds;
     // Service Manager
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
-    // Map of owner address => set of service Ids that belong to that owner
-    mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance address => service id it is registered with and operator address that supplied the instance
     mapping (address => OperatorServiceId) private _mapAllAgentInstances;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
@@ -128,7 +122,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
 
-    constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
+    constructor(string memory _name, string memory _symbol, address _agentRegistry, address payable _gnosisSafeL2,
+        address _gnosisSafeProxyFactory) ERC721(_name, _symbol) {
         agentRegistry = _agentRegistry;
         gnosisSafeL2 = _gnosisSafeL2;
         gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
@@ -144,7 +139,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        if (owner == address(0) || _mapServices[serviceId].owner != owner) {
+        if (owner == address(0) || !_exists(serviceId) || ownerOf(serviceId) != owner) {
             revert ServiceNotFound(serviceId);
         }
         _;
@@ -152,7 +147,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Check for the service existence
     modifier serviceExists(uint256 serviceId) {
-        if (_mapServices[serviceId].owner == address(0)) {
+        if (!_exists(serviceId)) {
             revert ServiceDoesNotExist(serviceId);
         }
         _;
@@ -322,18 +317,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
-        service.owner = owner;
         // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
 
         // Set service data
         _setServiceData(service, name, description, threshold, agentIds, agentParams, agentIds.length);
 
-        // Add service to the set of services for the owner
-        _mapOwnerSetServices[owner].push(serviceId);
-
-        // Increment the total number of services
-        _actualNumServices++;
+        // Mint the service instance to the owner
+        _safeMint(owner, serviceId);
 
         service.state = ServiceState.PreRegistration;
 
@@ -469,23 +460,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
 
-        // Clean up the necessary service-associated data and remove the service from the owner's set of services
-        service.owner = address(0);
-        service.state = ServiceState.NonExistent;
-
-        // Need to update the set of owner service Ids
-        uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (uint256 i = 0; i < numServices; i++) {
-            if (_mapOwnerSetServices[owner][i] == serviceId) {
-                // Pop the destroyed service Id
-                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
-                _mapOwnerSetServices[owner].pop();
-                break;
-            }
-        }
-
-        // Reduce the actual number of services
-        _actualNumServices--;
+        _burn(serviceId);
 
         emit DestroyService(owner, serviceId);
     }
@@ -783,40 +758,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns (bool) {
-        return _mapServices[serviceId].owner != address(0);
-    }
-
-    /// @dev Gets the total number of services in the contract.
-    /// @return actualNumServices Actual number of services.
-    /// @return maxServiceId Max serviceId number.
-    function totalSupply() public view returns (uint256 actualNumServices, uint256 maxServiceId) {
-        actualNumServices = _actualNumServices;
-        maxServiceId = _serviceIds;
-    }
-
-    /// @dev Gets the number of services.
-    /// @param owner The owner of services.
-    /// @return Number of owned services.
-    function balanceOf(address owner) public view returns (uint256) {
-        return _mapOwnerSetServices[owner].length;
-    }
-
-    /// @dev Gets the owner of the service.
-    /// @param serviceId Service Id.
-    /// @return Address of the service owner.
-    function ownerOf(uint256 serviceId) public view serviceExists(serviceId) returns (address) {
-        return _mapServices[serviceId].owner;
-    }
-
-    /// @dev Gets the set of service Ids for a specified owner.
-    /// @param owner Address of the owner.
-    /// @return A set of service Ids.
-    function getServiceIdsOfOwner(address owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return _mapOwnerSetServices[owner];
+        return _exists(serviceId);
     }
 
     /// @dev Gets the high-level service information.
@@ -847,7 +789,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             agentParams[i] = service.mapAgentParams[service.agentIds[i]];
         }
-        owner = service.owner;
+        owner = ownerOf(serviceId);
         name = service.name;
         description = service.description;
         uint256 configHashesSize = service.configHashes.length - 1;

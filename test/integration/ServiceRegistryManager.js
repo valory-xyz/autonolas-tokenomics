@@ -50,8 +50,8 @@ describe("ServiceRegistry integration", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy(agentRegistry.address, gnosisSafeL2.address,
-            gnosisSafeProxyFactory.address);
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
+            gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await serviceRegistry.deployed();
 
         const ServiceManager = await ethers.getContractFactory("ServiceManager");
@@ -294,15 +294,17 @@ describe("ServiceRegistry integration", function () {
             // Initial checks
             // Total supply must be 2
             let totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices).to.equal(2);
-            expect(totalSupply.maxServiceId).to.equal(2);
+            expect(totalSupply).to.equal(2);
             // Balance of owner is 2, each service id belongs to the owner
             expect(await serviceRegistry.balanceOf(owner)).to.equal(2);
             expect(await serviceRegistry.ownerOf(serviceIds[0])).to.equal(owner);
             expect(await serviceRegistry.ownerOf(serviceIds[1])).to.equal(owner);
             // Getting the set of service Ids of the owner
-            let serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIdsRet[0] == 1 && serviceIdsRet[1] == 2).to.be.true;
+            let serviceIdsRet = await serviceRegistry.balanceOf(owner);
+            for (let i = 0; i < serviceIdsRet; i++) {
+                const serviceIdCheck = await serviceRegistry.tokenOfOwnerByIndex(owner, i);
+                expect(serviceIdCheck).to.be.equal(i + 1);
+            }
 
             // Activate registration and terminate the very first service and destroy it
             await serviceManager.connect(sigOwner).serviceActivateRegistration(serviceIds[0], regDeadline, {value: regDeposit});
@@ -311,8 +313,7 @@ describe("ServiceRegistry integration", function () {
 
             // Check for the information consistency
             totalSupply = await serviceRegistry.totalSupply();
-            expect(totalSupply.actualNumServices).to.equal(1);
-            expect(totalSupply.maxServiceId).to.equal(2);
+            expect(totalSupply).to.equal(1);
             // Balance of owner is 1, only service Id 2 belongs to the owner
             expect(await serviceRegistry.balanceOf(owner)).to.equal(1);
             expect(await serviceRegistry.exists(serviceIds[0])).to.equal(false);
@@ -320,11 +321,11 @@ describe("ServiceRegistry integration", function () {
             // Requesting for service 1 must revert with non existent service
             await expect(
                 serviceRegistry.ownerOf(serviceIds[0])
-            ).to.be.revertedWith("ServiceDoesNotExist");
+            ).to.be.revertedWith("ERC721: owner query for nonexistent token");
             expect(await serviceRegistry.ownerOf(serviceIds[1])).to.equal(owner);
             // Getting the set of service Ids of the owner, must be service Id 2 only
-            serviceIdsRet = await serviceRegistry.getServiceIdsOfOwner(owner);
-            expect(serviceIdsRet[0]).to.equal(2);
+            serviceIdsRet = await serviceRegistry.balanceOf(owner);
+            expect(await serviceRegistry.tokenOfOwnerByIndex(owner, 0)).to.equal(2);
         });
 
         it("Terminated service is unbonded", async function () {
