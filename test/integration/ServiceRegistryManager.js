@@ -461,7 +461,7 @@ describe("ServiceRegistry integration", function () {
             const proxyAddress = result.events[0].address;
 
             // Check initial operator's balance
-            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            const balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator.address, serviceIds[0]));
             expect(balanceOperator).to.equal(regBond);
 
             // Get all the necessary info about multisig and slash the operator
@@ -476,7 +476,7 @@ describe("ServiceRegistry integration", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Check the new operator's balance, it must be the original balance minus the fine
-            const newBalanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            const newBalanceOperator = Number(await serviceRegistry.getOperatorBalance(operator.address, serviceIds[0]));
             expect(newBalanceOperator).to.equal(balanceOperator - regFine);
 
             // Terminate service and unbond the operator

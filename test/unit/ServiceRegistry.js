@@ -1033,7 +1033,7 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, tDeadline, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstance, agentId, {value: regBond});
             // Balance of the operator must be regBond
-            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            const balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator, serviceId));
             expect(balanceOperator).to.equal(regBond);
             // Contract balance must be the sum of regBond and the regDeposit
             const contractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
@@ -1070,7 +1070,7 @@ describe("ServiceRegistry", function () {
             expect(state).to.equal(7);
 
             // Operator's balance after unbonding must be zero
-            const newBalanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            const newBalanceOperator = Number(await serviceRegistry.getOperatorBalance(operator, serviceId));
             expect(newBalanceOperator).to.equal(0);
         });
 
@@ -1242,7 +1242,7 @@ describe("ServiceRegistry", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // After slashing the operator balance must be the difference between the regBond and regFine
-            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            const balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator, serviceId));
             expect(balanceOperator).to.equal(regBond - regFine);
 
             // The overall slashing balance must be equal to regFine
@@ -1294,7 +1294,7 @@ describe("ServiceRegistry", function () {
             await safeContracts.executeTx(multisig, txHashData, signMessageData, 0);
 
             // After slashing the operator balance must be the difference between the regBond and regFine
-            let balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            let balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator, serviceId));
             expect(balanceOperator).to.equal(2 * regBond - regFine);
 
             // The overall slashing balance must be equal to regFine
@@ -1311,7 +1311,7 @@ describe("ServiceRegistry", function () {
             await safeContracts.executeTx(multisig, txHashData, signMessageData, 0);
 
             // Now the operator balance must be zero
-            balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator, serviceId));
             expect(balanceOperator).to.equal(0);
 
             // And the slashed balance must be all the initial operator balance: 2 * regBond
