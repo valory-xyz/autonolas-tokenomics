@@ -816,7 +816,7 @@ describe("ServiceRegistry", function () {
             expect(await serviceRegistry.ownerOf(serviceId + 1)).to.equal(owner);
             const serviceIds = await serviceRegistry.balanceOf(owner);
             for (let i = 0; i < serviceIds; i++) {
-                const serviceIdCheck = await serviceRegistry.tokenOfOwnerByIndex(owner, i)
+                const serviceIdCheck = await serviceRegistry.tokenOfOwnerByIndex(owner, i);
                 expect(serviceIdCheck).to.be.equal(i + 1);
             }
             totalSupply = await serviceRegistry.totalSupply();
