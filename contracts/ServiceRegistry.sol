@@ -108,6 +108,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     uint256 private _serviceIds;
     // Actual number of services
     uint256 private _actualNumServices;
+    // The amount of funds slashed
+    uint256 public slashedFunds;
     // Service Manager
     address private _manager;
     // Map of service counter => service
@@ -640,8 +642,11 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             // Slash the balance of the operator, make sure it does not go below zero
             uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
             if (amounts[i] >= balance) {
+                // We can't add to the slashed amount more than the balance
+                slashedFunds += balance;
                 balance = 0;
             } else {
+                slashedFunds += amounts[i];
                 balance -= amounts[i];
             }
             mapOperatorsBalances[operatorServiceId.operator] = balance;

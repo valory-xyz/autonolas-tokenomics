@@ -1242,6 +1242,79 @@ describe("ServiceRegistry", function () {
             // After slashing the operator balance must be the difference between the regBond and regFine
             const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
             expect(balanceOperator).to.equal(regBond - regFine);
+
+            // The overall slashing balance must be equal to regFine
+            const slashedFunds = Number(await serviceRegistry.slashedFunds());
+            expect(slashedFunds).to.equal(regFine);
+        });
+
+        it("Slashing the operator of agent instances twice and getting the slashed deposit", async function () {
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const owner = signers[5].address;
+            const operator = signers[6].address;
+            const agentInstances = [signers[7], signers[8]];
+            const maxThreshold = 2;
+
+            // Create an agents
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+
+            // Create services and activate the agent instance registration
+            let state = await serviceRegistry.getServiceState(serviceId);
+            expect(state).to.equal(0);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1],
+                [[2, regBond]], maxThreshold);
+
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, regDeadline, {value: regDeposit});
+
+            /// Register agent instance
+            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[0].address, agentId, {value: regBond});
+            await serviceRegistry.connect(serviceManager).registerAgent(operator, serviceId, agentInstances[1].address, agentId, {value: regBond});
+
+            // Create multisig
+            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
+                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const result = await safe.wait();
+            const proxyAddress = result.events[0].address;
+
+            // Getting a real multisig address and calling slashing method with it
+            const multisig = await ethers.getContractAt("GnosisSafeL2", proxyAddress);
+            const safeContracts = require("@gnosis.pm/safe-contracts");
+            let nonce = await multisig.nonce();
+            let txHashData = await safeContracts.buildContractCall(serviceRegistry, "slash",
+                [[agentInstances[0].address], [regFine], serviceId], nonce, 0, 0);
+            let signMessageData = [await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0),
+                await safeContracts.safeSignMessage(agentInstances[1], multisig, txHashData, 0)];
+
+            // Slash the agent instance operator with the correct multisig
+            await safeContracts.executeTx(multisig, txHashData, signMessageData, 0);
+
+            // After slashing the operator balance must be the difference between the regBond and regFine
+            let balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            expect(balanceOperator).to.equal(2 * regBond - regFine);
+
+            // The overall slashing balance must be equal to regFine
+            let slashedFunds = Number(await serviceRegistry.slashedFunds());
+            expect(slashedFunds).to.equal(regFine);
+
+            // Now slash the operator for the amount bigger than the remaining balance
+            // At that time the operator balance is 2 * regBond - regFine
+            nonce = await multisig.nonce();
+            txHashData = await safeContracts.buildContractCall(serviceRegistry, "slash",
+                [[agentInstances[0].address], [2 * regBond], serviceId], nonce, 0, 0);
+            signMessageData = [await safeContracts.safeSignMessage(agentInstances[0], multisig, txHashData, 0),
+                await safeContracts.safeSignMessage(agentInstances[1], multisig, txHashData, 0)];
+            await safeContracts.executeTx(multisig, txHashData, signMessageData, 0);
+
+            // Now the operator balance must be zero
+            balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator));
+            expect(balanceOperator).to.equal(0);
+
+            // And the slashed balance must be all the initial operator balance: 2 * regBond
+            slashedFunds = Number(await serviceRegistry.slashedFunds());
+            expect(slashedFunds).to.equal(2 * regBond);
         });
 
         it("Reward a service twice, get its reward balance", async function () {
