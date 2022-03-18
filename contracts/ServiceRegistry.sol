@@ -519,7 +519,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Calculate registration refund and free all agent instances
-        // TODO Consider pushing the operator balance map to the service side, then we don't need to calculate the refund. Point of gas evaluation.
         refund = 0;
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
             refund += service.mapAgentParams[agentInstances[i].id].bond;
@@ -536,11 +535,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Refund the operator
         if (refund > 0) {
-            // Update operator's balance
-            // TODO Correct this to not do anything if the operator balance map is on a per single service level
-            balance -= refund;
-            service.mapOperatorsBalances[operator] = balance;
-
             // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
@@ -964,6 +958,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         returns (uint256 balance)
     {
         Service storage service = _mapServices[serviceId];
-        balance = service.mapOperatorsBalances[operator];
+        // If service is inactive, the operator's balance is zero or fully returned and not tracked back anymore
+        if (service.state != ServiceState.TerminatedBonded && service.state != ServiceState.TerminatedUnbonded &&
+            service.state != ServiceState.PreRegistration) {
+            balance = service.mapOperatorsBalances[operator];
+        }
     }
 }
