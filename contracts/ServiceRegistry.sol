@@ -510,6 +510,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
         // Refund the operator
         if (refund > 0) {
+            // Operator's balance is essentially zero after the refund
+            service.mapOperatorsBalances[operator] = 0;
             // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
@@ -899,11 +901,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         serviceExists(serviceId)
         returns (uint256 balance)
     {
-        Service storage service = _mapServices[serviceId];
-        // If service is inactive, the operator's balance is zero or fully returned and not tracked back anymore
-        if (service.state != ServiceState.TerminatedBonded && service.state != ServiceState.TerminatedUnbonded &&
-            service.state != ServiceState.PreRegistration) {
-            balance = service.mapOperatorsBalances[operator];
-        }
+        balance = _mapServices[serviceId].mapOperatorsBalances[operator];
     }
 }
