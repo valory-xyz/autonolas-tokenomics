@@ -81,8 +81,9 @@ contract ServiceManager is IErrors, IStructs, Ownable {
 
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param serviceId Service Id.
-    function serviceUnbond(uint256 serviceId) public {
-        IService(serviceRegistry).unbond(msg.sender, serviceId);
+    /// @return refund The refund amount.
+    function serviceUnbond(uint256 serviceId) public returns (uint256 refund) {
+        return IService(serviceRegistry).unbond(msg.sender, serviceId);
     }
 
     /// @dev Registers the agent instance.

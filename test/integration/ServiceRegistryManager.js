@@ -461,7 +461,7 @@ describe("ServiceRegistry integration", function () {
             const proxyAddress = result.events[0].address;
 
             // Check initial operator's balance
-            const balanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            const balanceOperator = Number(await serviceRegistry.getOperatorBalance(operator.address, serviceIds[0]));
             expect(balanceOperator).to.equal(regBond);
 
             // Get all the necessary info about multisig and slash the operator
@@ -476,15 +476,22 @@ describe("ServiceRegistry integration", function () {
             await safeContracts.executeTx(multisig, txHashData, [signMessageData], 0);
 
             // Check the new operator's balance, it must be the original balance minus the fine
-            const newBalanceOperator = Number(await serviceRegistry.mapOperatorsBalances(operator.address));
+            const newBalanceOperator = Number(await serviceRegistry.getOperatorBalance(operator.address, serviceIds[0]));
             expect(newBalanceOperator).to.equal(balanceOperator - regFine);
 
             // Terminate service and unbond the operator
             await serviceManager.connect(owner).serviceTerminate(serviceIds[0]);
+            // Use the static call first that emulates the call, to get the return value of a refund
+            const refund = await serviceManager.connect(operator).callStatic.serviceUnbond(serviceIds[0]);
+            // The refund for unbonding is the bond minus the fine
+            expect(Number(refund)).to.equal(balanceOperator - regFine);
+
+            // Do the real unbond call
             await serviceManager.connect(operator).serviceUnbond(serviceIds[0]);
 
             // Check the balance of the contract - it must be the total minus the slashed fine minus the deposit
             const newContractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
+            console.log(newContractBalance);
             expect(newContractBalance).to.equal(contractBalance - regFine - regDeposit);
         });
     });

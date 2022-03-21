@@ -21,6 +21,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
+    event OperatorUnbond(uint256 refund, address operator, uint256 serviceId);
     event RewardService(uint256 serviceId, uint256 amount);
 
     enum ServiceState {
@@ -87,6 +88,9 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         mapping(uint256 => address[]) mapAgentInstances;
         // Operator address => set of registered agent instance addresses
         mapping(address => AgentInstance[]) mapOperatorsAgentInstances;
+        // Map of operator address => agent instance bonding / escrow balance
+        // TODO Consider merging with another operator-related data structure
+        mapping (address => uint256) mapOperatorsBalances;
         // Config hash per agent
 //        mapping(uint256 => Multihash) mapAgentHash;
         // Service state
@@ -108,6 +112,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     uint256 private _serviceIds;
     // Actual number of services
     uint256 private _actualNumServices;
+    // The amount of funds slashed
+    uint256 public slashedFunds;
     // Service Manager
     address private _manager;
     // Map of service counter => service
@@ -121,8 +127,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
-    // Map of operator address => agent instance bonding / escrow balance
-    mapping (address => uint256) public mapOperatorsBalances;
 
     constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
         agentRegistry = _agentRegistry;
@@ -493,6 +497,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         external
         onlyManager
         nonReentrant
+        returns (uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Service can only be in the terminated-bonded state or expired-registration in order to proceed
@@ -514,8 +519,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Calculate registration refund and free all agent instances
-        // TODO Consider pushing the operator balance map to the service side, then we don't need to calculate the refund. Point of gas evaluation.
-        uint256 refund = 0;
+        refund = 0;
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
             refund += service.mapAgentParams[agentInstances[i].id].bond;
             // Since the service is done, there's no need to clean-up the service-related data, just the state variables
@@ -523,7 +527,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Calculate the refund
-        uint256 balance = mapOperatorsBalances[operator];
+        uint256 balance = service.mapOperatorsBalances[operator];
         // This situation is possible if the operator was slashed for the agent instance misbehavior
         if (refund > balance) {
             refund = balance;
@@ -531,11 +535,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Refund the operator
         if (refund > 0) {
-            // Update operator's balance
-            // TODO Correct this to not do anything if the operator balance map is on a per single service level
-            balance -= refund;
-            mapOperatorsBalances[operator] = balance;
-
+            // Operator's balance is essentially zero after the refund
+            service.mapOperatorsBalances[operator] = 0;
             // Send the refund
             (bool result, ) = operator.call{value: refund}("");
             if (!result) {
@@ -543,6 +544,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
                 revert TransferFailed(address(0), address(this), operator, refund);
             }
         }
+
+        emit OperatorUnbond(refund, operator, serviceId);
     }
 
     /// @dev Registers agent instance.
@@ -596,7 +599,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Update operator's bonding / escrow balance
-        mapOperatorsBalances[operator] += msg.value;
+        service.mapOperatorsBalances[operator] += msg.value;
         emit Deposit(operator, msg.value);
 
         // Add agent instance and operator and set the instance engagement
@@ -638,13 +641,16 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             OperatorServiceId memory operatorServiceId = _mapAllAgentInstances[agentInstances[i]];
 
             // Slash the balance of the operator, make sure it does not go below zero
-            uint256 balance = mapOperatorsBalances[operatorServiceId.operator];
+            uint256 balance = service.mapOperatorsBalances[operatorServiceId.operator];
             if (amounts[i] >= balance) {
+                // We can't add to the slashed amount more than the balance
+                slashedFunds += balance;
                 balance = 0;
             } else {
+                slashedFunds += amounts[i];
                 balance -= amounts[i];
             }
-            mapOperatorsBalances[operatorServiceId.operator] = balance;
+            service.mapOperatorsBalances[operatorServiceId.operator] = balance;
 
             emit OperatorSlashed(amounts[i], operatorServiceId.operator, operatorServiceId.serviceId);
         }
@@ -941,5 +947,18 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         if (state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) {
             state = ServiceState.ExpiredRegistration;
         }
+    }
+
+    /// @dev Gets the operator's balance in a specific service.
+    /// @param operator Operator address.
+    /// @param serviceId Service Id.
+    /// @return balance The balance of the operator.
+    function getOperatorBalance(address operator, uint256 serviceId)
+        public
+        view
+        serviceExists(serviceId)
+        returns (uint256 balance)
+    {
+        balance = _mapServices[serviceId].mapOperatorsBalances[operator];
     }
 }
