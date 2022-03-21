@@ -13,7 +13,7 @@ describe("ServiceRegistry integration", function () {
     let signers;
     const name = "service name";
     const description = "service description";
-    const configHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
+    const configHash = {hash: "0x" + "5".repeat(64), hashFunction: "0x12", size: "0x20"};
     const regBond = 1000;
     const regDeposit = 1000;
     const regFine = 500;
@@ -492,7 +492,6 @@ describe("ServiceRegistry integration", function () {
 
             // Check the balance of the contract - it must be the total minus the slashed fine minus the deposit
             const newContractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
-            console.log(newContractBalance);
             expect(newContractBalance).to.equal(contractBalance - regFine - regDeposit);
         });
     });

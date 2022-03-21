@@ -199,7 +199,6 @@ describe("ServiceRegistry", function () {
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
-            console.log();
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                     agentParams, minThreshold - 1)
