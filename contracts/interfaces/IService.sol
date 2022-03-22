@@ -10,8 +10,7 @@ interface IService is IStructs {
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    /// @param deadline Agent instance registration deadline.
-    function activateRegistration(address owner, uint256 serviceId, uint256 deadline) external payable;
+    function activateRegistration(address owner, uint256 serviceId) external payable;
 
     /// @dev Creates a new service.
     /// @param owner Individual that creates and controls a service.
@@ -51,12 +50,6 @@ interface IService is IStructs {
         uint256 threshold,
         uint256 serviceId
     ) external;
-
-    /// @dev Sets agent instance registration deadline.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Service Id to be updated.
-    /// @param deadline Registration deadline.
-    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline) external;
 
     /// @dev Terminates the service.
     /// @param owner Owner of the service.

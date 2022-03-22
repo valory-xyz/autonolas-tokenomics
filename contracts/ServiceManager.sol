@@ -71,13 +71,6 @@ contract ServiceManager is IErrors, IStructs, Ownable {
             threshold, serviceId);
     }
 
-    /// @dev Sets agent instance registration window time.
-    /// @param serviceId Correspondent service Id.
-    /// @param deadline Registration deadline.
-    function serviceSetRegistrationDeadline(uint256 serviceId, uint256 deadline) public {
-        IService(serviceRegistry).setRegistrationDeadline(msg.sender, serviceId, deadline);
-    }
-
     /// @dev Terminates the service.
     /// @param serviceId Service Id.
     function serviceTerminate(uint256 serviceId) public {
@@ -136,8 +129,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
 
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    /// @param deadline Agent instance registration deadline.
-    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public payable {
-        IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId, deadline);
+    function serviceActivateRegistration(uint256 serviceId) public payable {
+        IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
     }
 }
