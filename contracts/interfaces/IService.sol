@@ -74,12 +74,17 @@ interface IService is IStructs {
     /// @return refund The refund amount.
     function unbond(address operator, uint256 serviceId) external returns (uint256 refund);
 
-    /// @dev Registers agent instance.
+    /// @dev Registers agent instances.
     /// @param operator Address of the operator.
     /// @param serviceId Service Id to be updated.
-    /// @param agent Address of the agent instance.
-    /// @param agentId Canonical Id of the agent.
-    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId) external payable;
+    /// @param agentInstances Agent instance addresses.
+    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    function registerAgents(
+        address operator,
+        uint256 serviceId,
+        address[] memory agentInstances,
+        uint256[] memory agentIds
+    ) external payable;
 
     /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.

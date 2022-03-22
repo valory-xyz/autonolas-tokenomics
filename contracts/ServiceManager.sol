@@ -35,10 +35,15 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @param agentIds Canonical agent Ids.
     /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Threshold for a multisig composed by agents.
-    function serviceCreate(address owner, string memory name, string memory description, Multihash memory configHash,
-        uint256[] memory agentIds, AgentParams[] memory agentParams, uint256 threshold)
-        public
-        returns (uint256)
+    function serviceCreate(
+        address owner,
+        string memory name,
+        string memory description,
+        Multihash memory configHash,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint256 threshold
+    ) public returns (uint256)
     {
         return IService(serviceRegistry).createService(owner, name, description, configHash, agentIds, agentParams,
             threshold);
@@ -52,9 +57,15 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Threshold for a multisig composed by agents.
     /// @param serviceId Service Id to be updated.
-    function serviceUpdate(string memory name, string memory description, Multihash memory configHash,
-        uint256[] memory agentIds, AgentParams[] memory agentParams, uint256 threshold, uint256 serviceId)
-        public
+    function serviceUpdate(
+        string memory name,
+        string memory description,
+        Multihash memory configHash,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint256 threshold,
+        uint256 serviceId
+    ) public
     {
         IService(serviceRegistry).update(msg.sender, name, description, configHash, agentIds, agentParams,
             threshold, serviceId);
@@ -86,12 +97,16 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         return IService(serviceRegistry).unbond(msg.sender, serviceId);
     }
 
-    /// @dev Registers the agent instance.
+    /// @dev Registers agent instances.
     /// @param serviceId Service Id to be updated.
-    /// @param agent Address of the agent instance.
-    /// @param agentId Canonical Id of the agent.
-    function serviceRegisterAgent(uint256 serviceId, address agent, uint256 agentId) public payable {
-        IService(serviceRegistry).registerAgent{value: msg.value}(msg.sender, serviceId, agent, agentId);
+    /// @param agentInstances Agent instance addresses.
+    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    function serviceRegisterAgents(
+        uint256 serviceId,
+        address[] memory agentInstances,
+        uint256[] memory agentIds
+    ) public payable {
+        IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
     }
 
     /// @dev Creates Safe instance controlled by the service agent instances.
@@ -103,10 +118,16 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @param payment Value that should be paid
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
     /// @return multisig Address of the created multisig.
-    function serviceCreateSafe(uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
-        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
-        public
-        returns (address multisig)
+    function serviceCreateSafe(
+        uint256 serviceId,
+        address to,
+        bytes calldata data,
+        address fallbackHandler,
+        address paymentToken,
+        uint256 payment,
+        address payable paymentReceiver,
+        uint256 nonce
+    ) public returns (address multisig)
     {
         multisig = IService(serviceRegistry).createSafe(msg.sender, serviceId, to, data, fallbackHandler,
             paymentToken, payment, paymentReceiver, nonce);

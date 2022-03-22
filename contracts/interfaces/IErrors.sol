@@ -147,9 +147,8 @@ interface IErrors {
     /// @dev Insufficient value provided for the agent instance bonding.
     /// @param sent Sent amount.
     /// @param expected Expected amount.
-    /// @param agentId Canonical agent Id.
     /// @param serviceId Service Id.
-    error InsufficientAgentBondingValue(uint256 sent, uint256 expected, uint256 agentId, uint256 serviceId);
+    error IncorrectAgentBondingValue(uint256 sent, uint256 expected, uint256 serviceId);
 
     /// @dev Failure of a transfer.
     /// @param token Address of a token.
