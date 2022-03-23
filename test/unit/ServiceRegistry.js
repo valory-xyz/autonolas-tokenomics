@@ -557,7 +557,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
             const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const result = await terminateService.wait();
-            expect(result.events[0].event).to.equal("TerminateService");
+            expect(result.events[0].event).to.equal("Refund");
+            expect(result.events[1].event).to.equal("TerminateService");
         });
 
         it("Destroying a service with at least one agent instance", async function () {
@@ -567,17 +568,27 @@ describe("ServiceRegistry", function () {
             const operator = signers[6].address;
             const agentInstance = signers[7].address;
 
+            // Create agents and a service
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
+
+            // Activate registration and register and agent instance
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance], [agentId], {value: regBond});
+
+            // Terminate the service, unbond, destroy
             const terminateService = await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
-            const result = await terminateService.wait();
-            expect(result.events[0].event).to.equal("TerminateService");
+            let result = await terminateService.wait();
+            expect(result.events[0].event).to.equal("Refund");
+            expect(result.events[1].event).to.equal("TerminateService");
+            await serviceRegistry.connect(serviceManager).unbond(operator, serviceId);
+            const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
+            result = await destroyService.wait();
+            expect(result.events[2].event).to.equal("DestroyService");
         });
     });
 
@@ -952,7 +963,8 @@ describe("ServiceRegistry", function () {
             // Unbonding
             const unbondTx = await serviceRegistry.connect(serviceManager).unbond(operator, serviceId);
             const result = await unbondTx.wait();
-            expect(result.events[0].event).to.equal("OperatorUnbond");
+            expect(result.events[0].event).to.equal("Refund");
+            expect(result.events[1].event).to.equal("OperatorUnbond");
             const state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(6);
 
@@ -1202,8 +1214,8 @@ describe("ServiceRegistry", function () {
 
             // Terminate service and unbond. The operator won't get any refund
             await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
-            const refund = await serviceRegistry.connect(serviceManager).callStatic.unbond(operator, serviceId);
-            expect(Number(refund)).to.equal(0);
+            const unbond = await serviceRegistry.connect(serviceManager).callStatic.unbond(operator, serviceId);
+            expect(Number(unbond.refund)).to.equal(0);
         });
 
         it("Reward a service twice, get its reward balance", async function () {
