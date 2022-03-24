@@ -71,42 +71,40 @@ contract ServiceManager is IErrors, IStructs, Ownable {
             threshold, serviceId);
     }
 
-    /// @dev Sets agent instance registration window time.
-    /// @param serviceId Correspondent service Id.
-    /// @param deadline Registration deadline.
-    function serviceSetRegistrationDeadline(uint256 serviceId, uint256 deadline) public {
-        IService(serviceRegistry).setRegistrationDeadline(msg.sender, serviceId, deadline);
-    }
-
     /// @dev Terminates the service.
     /// @param serviceId Service Id.
-    function serviceTerminate(uint256 serviceId) public {
-        IService(serviceRegistry).terminate(msg.sender, serviceId);
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
+    function serviceTerminate(uint256 serviceId) public returns (bool success, uint256 refund) {
+        (success, refund) = IService(serviceRegistry).terminate(msg.sender, serviceId);
     }
 
     /// @dev Destroys the service instance and frees up its storage.
     /// @param serviceId Correspondent service Id.
-    function serviceDestroy(uint256 serviceId) public {
-        IService(serviceRegistry).destroy(msg.sender, serviceId);
+    /// @return success True, if function executed successfully.
+    function serviceDestroy(uint256 serviceId) public returns (bool success) {
+        success = IService(serviceRegistry).destroy(msg.sender, serviceId);
     }
 
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param serviceId Service Id.
-    /// @return refund The refund amount.
-    function serviceUnbond(uint256 serviceId) public returns (uint256 refund) {
-        return IService(serviceRegistry).unbond(msg.sender, serviceId);
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
+        (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
     }
 
     /// @dev Registers agent instances.
     /// @param serviceId Service Id to be updated.
     /// @param agentInstances Agent instance addresses.
     /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    /// @return success True, if function executed successfully.
     function serviceRegisterAgents(
         uint256 serviceId,
         address[] memory agentInstances,
         uint256[] memory agentIds
-    ) public payable {
-        IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
+    ) public payable returns (bool success) {
+        success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
     }
 
     /// @dev Creates Safe instance controlled by the service agent instances.
@@ -136,8 +134,8 @@ contract ServiceManager is IErrors, IStructs, Ownable {
 
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
-    /// @param deadline Agent instance registration deadline.
-    function serviceActivateRegistration(uint256 serviceId, uint256 deadline) public payable {
-        IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId, deadline);
+    /// @return success True, if function executed successfully.
+    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
+        success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
     }
 }
