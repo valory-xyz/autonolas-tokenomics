@@ -86,8 +86,8 @@ async function main() {
     const maxThreshold = agentParams[0][0] + agentParams[1][0];
 
     const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-    const serviceRegistry = await ServiceRegistry.deploy(agentRegistry.address, gnosisSafeL2.address,
-        gnosisSafeProxyFactory.address);
+    const serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
+        gnosisSafeL2.address, gnosisSafeProxyFactory.address);
     await serviceRegistry.deployed();
 
     const ServiceManager = await ethers.getContractFactory("ServiceManager");

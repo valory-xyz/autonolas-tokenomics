@@ -61,9 +61,9 @@ interface IErrors {
     /// @param serviceId Service Id.
     error ServiceDoesNotExist(uint256 serviceId);
 
-    /// @dev Agent instance is already registered with a specified `serviceId`.
-    /// @param serviceId Service Id.
-    error AgentInstanceRegistered(uint256 serviceId);
+    /// @dev Agent instance is already registered with a specified `operator`.
+    /// @param operator Operator that registered an instance.
+    error AgentInstanceRegistered(address operator);
 
     /// @dev Wrong operator is specified when interacting with a specified `serviceId`.
     /// @param serviceId Service Id.
@@ -90,12 +90,6 @@ interface IErrors {
     /// @param serviceId Service Id.
     error ServiceMustBeInactive(uint256 serviceId);
 
-    /// @dev Agent instance registration deadline has been reached. Service is expired.
-    /// @param deadline The registration deadline.
-    /// @param curBlock Current block.
-    /// @param serviceId Service Id.
-    error RegistrationTimeout(uint256 deadline, uint256 curBlock, uint256 serviceId);
-
     /// @dev Service termination block has been reached. Service is terminated.
     /// @param teminationBlock The termination block.
     /// @param curBlock Current block.
@@ -117,18 +111,6 @@ interface IErrors {
     /// @param serviceId Service Id.
     error WrongServiceState(uint256 state, uint256 serviceId);
 
-    /// @dev Registration deadline of the agent instance is incorrect (past block).
-    /// @param deadline Provided deadline.
-    /// @param minBlock The deadline must to be greater than the minimum block number.
-    /// @param serviceId Service Id.
-    error RegistrationDeadlineIncorrect(uint256 deadline, uint256 minBlock, uint256 serviceId);
-
-    /// @dev Registration deadline change is redundant if provided deadline is greater than the previous one.
-    /// @param deadline Provided deadline.
-    /// @param prevDeadline Previous deadline.
-    /// @param serviceId Service Id.
-    error RegistrationDeadlineChangeRedundant(uint256 deadline, uint256 prevDeadline, uint256 serviceId);
-
     /// @dev Only own service multisig is allowed.
     /// @param provided Provided address.
     /// @param expected Expected multisig address.
@@ -147,9 +129,8 @@ interface IErrors {
     /// @dev Insufficient value provided for the agent instance bonding.
     /// @param sent Sent amount.
     /// @param expected Expected amount.
-    /// @param agentId Canonical agent Id.
     /// @param serviceId Service Id.
-    error InsufficientAgentBondingValue(uint256 sent, uint256 expected, uint256 agentId, uint256 serviceId);
+    error IncorrectAgentBondingValue(uint256 sent, uint256 expected, uint256 serviceId);
 
     /// @dev Failure of a transfer.
     /// @param token Address of a token.

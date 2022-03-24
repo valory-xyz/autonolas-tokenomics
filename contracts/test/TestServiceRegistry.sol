@@ -7,8 +7,9 @@ import "../ServiceRegistry.sol";
 contract TestServiceRegistry is ServiceRegistry {
     uint256 private _controlValue;
 
-    constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory)
-        ServiceRegistry(_agentRegistry, _gnosisSafeL2, _gnosisSafeProxyFactory) {}
+    constructor(string memory _name, string memory _symbol, address _agentRegistry, address payable _gnosisSafeL2,
+        address _gnosisSafeProxyFactory)
+        ServiceRegistry(_name, _symbol, _agentRegistry, _gnosisSafeL2, _gnosisSafeProxyFactory) {}
 
     // Create a safe contract with the parameters passed and check it via GnosisSafeL2
     function createCheckSafe(GnosisParams memory gParams) public {
