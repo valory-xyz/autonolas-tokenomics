@@ -13,6 +13,7 @@ import "./interfaces/IRegistry.sol";
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, ReentrancyGuard {
     event Deposit(address sender, uint256 amount);
+    event Refund(address sendee, uint256 amount);
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -21,7 +22,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
-    event OperatorUnbond(uint256 refund, address operator, uint256 serviceId);
+    event OperatorUnbond(address operator, uint256 serviceId);
     event RewardService(uint256 serviceId, uint256 amount);
 
     enum ServiceState {
@@ -163,7 +164,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
-    function initialChecks(
+    function _initialChecks(
         string memory name,
         string memory description,
         Multihash memory configHash,
@@ -205,12 +206,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
     function activateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         nonReentrant
         payable
+        returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
         // Service must be inactive
@@ -224,7 +227,9 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
         // Activate the agent instance registration
         service.state = ServiceState.ActiveRegistration;
+
         emit ActivateRegistration(owner, serviceId);
+        success = true;
     }
 
     /// @dev Sets the service data.
@@ -302,7 +307,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
 
         // Execute initial checks
-        initialChecks(name, description, configHash, agentIds, agentParams);
+        _initialChecks(name, description, configHash, agentIds, agentParams);
 
         // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
@@ -340,6 +345,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
     function update(
         address owner,
         string memory name,
@@ -349,7 +355,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         AgentParams[] memory agentParams,
         uint256 threshold,
         uint256 serviceId
-    ) external onlyManager onlyServiceOwner(owner, serviceId)
+    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.PreRegistration) {
@@ -357,7 +363,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
 
         // Execute initial checks
-        initialChecks(name, description, configHash, agentIds, agentParams);
+        _initialChecks(name, description, configHash, agentIds, agentParams);
 
         // Collect non-zero canonical agent ids and slots / costs, remove any canonical agent Ids from the params map
         uint256[] memory newAgentIds = new uint256[](agentIds.length);
@@ -383,16 +389,20 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         _setServiceData(service, name, description, threshold, newAgentIds, newAgentParams, size);
 
         emit UpdateService(owner, name, threshold, serviceId);
+        success = true;
     }
 
     /// @dev Terminates the service.
     /// @param owner Owner of the service.
     /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
     function terminate(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         nonReentrant
+        returns (bool success, uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Check if the service is already terminated
@@ -407,22 +417,26 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
             service.state = ServiceState.TerminatedUnbonded;
         }
 
-        emit TerminateService(owner, serviceId);
-
         // Return registration deposit back to the owner
-        uint256 refund = service.securityDeposit;
+        refund = service.securityDeposit;
         // By design, the refund is always a non-zero value, so no check is needed here fo that
         (bool result, ) = owner.call{value: refund}("");
         if (!result) {
             // TODO When ERC20 token is used, change to the address of a token
             revert TransferFailed(address(0), address(this), owner, refund);
         }
+
+        emit Refund(owner, refund);
+        emit TerminateService(owner, serviceId);
+        success = true;
     }
 
     /// @dev Destroys the service instance.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
     function destroy(address owner, uint256 serviceId) external onlyManager onlyServiceOwner(owner, serviceId)
+        returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.TerminatedUnbonded && service.state != ServiceState.PreRegistration) {
@@ -432,13 +446,16 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         _burn(serviceId);
 
         emit DestroyService(owner, serviceId);
+        success = true;
     }
 
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param operator Operator of agent instances.
     /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
     function unbond(address operator, uint256 serviceId) external onlyManager nonReentrant
-        returns (uint256 refund)
+        returns (bool success, uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Service can only be in the terminated-bonded state or expired-registration in order to proceed
@@ -486,7 +503,9 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
             }
         }
 
-        emit OperatorUnbond(refund, operator, serviceId);
+        emit Refund(operator, refund);
+        emit OperatorUnbond(operator, serviceId);
+        success = true;
     }
 
     /// @dev Registers agent instances.
@@ -494,12 +513,13 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param serviceId Service Id to be updated.
     /// @param agentInstances Agent instance addresses.
     /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    /// @return success True, if function executed successfully.
     function registerAgents(
         address operator,
         uint256 serviceId,
         address[] memory agentInstances,
         uint256[] memory agentIds
-    ) external onlyManager nonReentrant payable
+    ) external onlyManager nonReentrant payable returns (bool success)
     {
         // Check if the length of canonical agent instance addresses array and ids array have the same length
         if (agentInstances.length != agentIds.length) {
@@ -557,22 +577,25 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
             emit RegisterInstance(operator, serviceId, agentInstance, agentId);
         }
 
-        // Update operator's bonding balance
-        service.mapOperatorsBalances[operator] += msg.value;
-        emit Deposit(operator, msg.value);
-
         // If the service agent instance capacity is reached, the service becomes finished-registration
         if (service.numAgentInstances == service.maxNumAgentInstances) {
             service.state = ServiceState.FinishedRegistration;
         }
+
+        // Update operator's bonding balance
+        service.mapOperatorsBalances[operator] += msg.value;
+
+        emit Deposit(operator, msg.value);
+        success = true;
     }
 
     /// @dev Slashes a specified agent instance.
     /// @param agentInstances Agent instances to slash.
     /// @param amounts Correspondent amounts to slash.
     /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
     function slash(address[] memory agentInstances, uint256[] memory amounts, uint256 serviceId) public
-        serviceExists(serviceId)
+        serviceExists(serviceId) returns (bool success)
     {
         // Check for the array size
         if (agentInstances.length != amounts.length) {
@@ -605,6 +628,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
             emit OperatorSlashed(amounts[i], operator, serviceId);
         }
+
+        success = true;
     }
 
     /// @dev Gets the service payment / reward.
@@ -621,9 +646,9 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
     /// @dev Creates Gnosis Safe proxy.
     /// @param gParams Structure with parameters to setup Gnosis Safe.
-    /// @return Address of the created proxy.
+    /// @return multisig Address of the created proxy.
     function _createGnosisSafeProxy(GnosisParams memory gParams) private
-        returns (address)
+        returns (address multisig)
     {
         bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
             gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
@@ -631,7 +656,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
         GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
         GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeParams, gParams.nonce);
-        return address(gProxy);
+        multisig = address(gProxy);
     }
 
     /// @dev Gets all agent instances
@@ -694,7 +719,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param paymentToken Token that should be used for the payment (0 is ETH)
     /// @param payment Value that should be paid
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
-    /// @return Address of the created multisig.
+    /// @return multisig Address of the created multisig.
     function createSafe(
         address owner,
         uint256 serviceId,
@@ -705,7 +730,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         uint256 payment,
         address payable paymentReceiver,
         uint256 nonce
-    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address)
+    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.FinishedRegistration) {
@@ -726,15 +751,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         gParams.payment = payment;
         gParams.paymentReceiver = paymentReceiver;
         gParams.nonce = nonce;
-        service.multisig = _createGnosisSafeProxy(gParams);
+        multisig = _createGnosisSafeProxy(gParams);
 
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         _updateComponentAgentServiceConnection(serviceId);
 
+        service.multisig = multisig;
         service.state = ServiceState.Deployed;
-
-        return service.multisig;
     }
 
     /// @dev Checks if the service Id exists.
