@@ -138,16 +138,16 @@ contract AgentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reentran
     /// @param owner Owner of the agent.
     /// @param tokenId Token Id.
     /// @param agentHash New IPFS hash of the agent.
-    function updateHash(address owner, uint256 tokenId, Multihash memory agentHash)
-        external
-        onlyManager
-        checkHash(agentHash)
+    /// @return success True, if function executed successfully.
+    function updateHash(address owner, uint256 tokenId, Multihash memory agentHash) external onlyManager
+        checkHash(agentHash) returns (bool success)
     {
         if (ownerOf(tokenId) != owner) {
             revert AgentNotFound(tokenId);
         }
         Agent storage agent = _mapTokenIdAgent[tokenId];
         agent.agentHashes.push(agentHash);
+        success = true;
     }
 
     /// @dev Check for the token / agent existence.
@@ -165,9 +165,7 @@ contract AgentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reentran
     /// @return description The agent description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getInfo(uint256 tokenId)
-        public
-        view
+    function getInfo(uint256 tokenId) public view
         returns (address owner, address developer, Multihash memory agentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
@@ -182,9 +180,7 @@ contract AgentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reentran
     /// @dev Gets component / agent dependencies.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getDependencies(uint256 tokenId)
-        public
-        view
+    function getDependencies(uint256 tokenId) public view
         returns (uint256 numDependencies, uint256[] memory dependencies)
     {
         if (!_exists(tokenId)) {
@@ -198,7 +194,9 @@ contract AgentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reentran
     /// @param tokenId Token Id.
     /// @return numHashes Number of hashes.
     /// @return agentHashes The list of agent hashes.
-    function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory agentHashes) {
+    function getHashes(uint256 tokenId) public view
+        returns (uint256 numHashes, Multihash[] memory agentHashes)
+    {
         if (!_exists(tokenId)) {
             revert AgentNotFound(tokenId);
         }

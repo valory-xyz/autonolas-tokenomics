@@ -133,16 +133,17 @@ contract ComponentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reen
     /// @param owner Owner of the component.
     /// @param tokenId Token Id.
     /// @param componentHash New IPFS hash of the component.
-    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash)
-        external
-        onlyManager
+    /// @return success True, if function executed successfully.
+    function updateHash(address owner, uint256 tokenId, Multihash memory componentHash) external onlyManager
         checkHash(componentHash)
+        returns (bool success)
     {
         if (ownerOf(tokenId) != owner) {
             revert ComponentNotFound(tokenId);
         }
         Component storage component = _mapTokenIdComponent[tokenId];
         component.componentHashes.push(componentHash);
+        success = true;
     }
 
     /// @dev Check for the token / component existence.
@@ -160,9 +161,7 @@ contract ComponentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reen
     /// @return description The component description.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getInfo(uint256 tokenId)
-        public
-        view
+    function getInfo(uint256 tokenId) public view
         returns (address owner, address developer, Multihash memory componentHash, string memory description,
             uint256 numDependencies, uint256[] memory dependencies)
     {
@@ -177,10 +176,8 @@ contract ComponentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reen
     /// @dev Gets component dependencies.
     /// @return numDependencies The number of components in the dependency list.
     /// @return dependencies The list of component dependencies.
-    function getDependencies(uint256 tokenId)
-    public
-    view
-    returns (uint256 numDependencies, uint256[] memory dependencies)
+    function getDependencies(uint256 tokenId) public view
+        returns (uint256 numDependencies, uint256[] memory dependencies)
     {
         if (!_exists(tokenId)) {
             revert ComponentNotFound(tokenId);
@@ -193,7 +190,9 @@ contract ComponentRegistry is IErrors, IStructs, ERC721Enumerable, Ownable, Reen
     /// @param tokenId Token Id.
     /// @return numHashes Number of hashes.
     /// @return componentHashes The list of component hashes.
-    function getHashes(uint256 tokenId) public view returns (uint256 numHashes, Multihash[] memory componentHashes) {
+    function getHashes(uint256 tokenId) public view
+        returns (uint256 numHashes, Multihash[] memory componentHashes)
+    {
         if (!_exists(tokenId)) {
             revert ComponentNotFound(tokenId);
         }

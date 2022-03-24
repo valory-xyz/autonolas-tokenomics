@@ -11,24 +11,24 @@ import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
+contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, ReentrancyGuard {
     event Deposit(address sender, uint256 amount);
+    event Refund(address sendee, uint256 amount);
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
     event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
-    event ActivateRegistration(address owner, uint256 deadline, uint256 serviceId);
+    event ActivateRegistration(address owner, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
-    event OperatorUnbond(uint256 refund, address operator, uint256 serviceId);
+    event OperatorUnbond(address operator, uint256 serviceId);
     event RewardService(uint256 serviceId, uint256 amount);
 
     enum ServiceState {
         NonExistent,
         PreRegistration,
         ActiveRegistration,
-        ExpiredRegistration,
         FinishedRegistration,
         Deployed,
         TerminatedBonded,
@@ -57,8 +57,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Service parameters
     struct Service {
-        // owner of the service and viability state: no owner - no service or deleted
-        address owner;
         // Registration activation deposit
         uint256 securityDeposit;
         // Reward balance
@@ -72,8 +70,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         string description;
         // IPFS hashes pointing to the config metadata
         Multihash[] configHashes;
-        // Deadline until which all agent instances must be registered for this service
-        uint256 registrationDeadline;
         // Agent instance signers threshold: must no less than ceil((n * 2 + 1) / 3) of all the agent instances combined
         uint256 threshold;
         // Total number of agent instances
@@ -99,9 +95,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Selector of the Gnosis Safe setup function
     bytes4 internal constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
-    // Minimum deadline in blocks for registering agent instances (4 hours now to reduce test time)
-    // TODO make this configurable via governance
-    uint256 private _MIN_REGISTRATION_DEADLINE = 1095;
     // Agent Registry
     address public immutable agentRegistry;
     // Gnosis Safe
@@ -110,25 +103,22 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     address public immutable gnosisSafeProxyFactory;
     // Service counter
     uint256 private _serviceIds;
-    // Actual number of services
-    uint256 private _actualNumServices;
     // The amount of funds slashed
     uint256 public slashedFunds;
     // Service Manager
     address private _manager;
     // Map of service counter => service
     mapping (uint256 => Service) private _mapServices;
-    // Map of owner address => set of service Ids that belong to that owner
-    mapping (address => uint256[]) private _mapOwnerSetServices;
     // Map of agent instance address => service id it is registered with and operator address that supplied the instance
-    mapping (address => OperatorServiceId) private _mapAllAgentInstances;
+    mapping (address => address) private _mapAgentInstanceOperators;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
     // Updated during the service deployment via createSafe() function
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
 
-    constructor(address _agentRegistry, address payable _gnosisSafeL2, address _gnosisSafeProxyFactory) {
+    constructor(string memory _name, string memory _symbol, address _agentRegistry, address payable _gnosisSafeL2,
+        address _gnosisSafeProxyFactory) ERC721(_name, _symbol) {
         agentRegistry = _agentRegistry;
         gnosisSafeL2 = _gnosisSafeL2;
         gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
@@ -144,7 +134,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Only the owner of the service is authorized to manipulate it
     modifier onlyServiceOwner(address owner, uint256 serviceId) {
-        if (owner == address(0) || _mapServices[serviceId].owner != owner) {
+        if (owner == address(0) || !_exists(serviceId) || ownerOf(serviceId) != owner) {
             revert ServiceNotFound(serviceId);
         }
         _;
@@ -152,7 +142,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     // Check for the service existence
     modifier serviceExists(uint256 serviceId) {
-        if (_mapServices[serviceId].owner == address(0)) {
+        if (!_exists(serviceId)) {
             revert ServiceDoesNotExist(serviceId);
         }
         _;
@@ -174,10 +164,13 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param configHash IPFS hash pointing to the config metadata.
     /// @param agentIds Canonical agent Ids.
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
-    function initialChecks(string memory name, string memory description, Multihash memory configHash,
-        uint256[] memory agentIds, AgentParams[] memory agentParams)
-        private
-        view
+    function _initialChecks(
+        string memory name,
+        string memory description,
+        Multihash memory configHash,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams
+    ) private view
     {
         // Checks for non-empty strings
         if(bytes(name).length == 0 || bytes(description).length == 0) {
@@ -190,7 +183,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Checking for non-empty arrays and correct number of values in them
-        if (agentIds.length == 0 || agentParams.length == 0 || agentIds.length != agentParams.length) {
+        if (agentIds.length == 0 || agentIds.length != agentParams.length) {
             revert WrongAgentsData(agentIds.length, agentParams.length);
         }
 
@@ -213,13 +206,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    /// @param deadline Agent instance registration deadline.
-    function activateRegistration(address owner, uint256 serviceId, uint256 deadline)
+    /// @return success True, if function executed successfully.
+    function activateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         nonReentrant
         payable
+        returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
         // Service must be inactive
@@ -231,14 +225,11 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             revert IncorrectRegistrationDepositValue(msg.value, service.securityDeposit, serviceId);
         }
 
-        // Activate the agent instance registration and set the registration deadline
-        uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
-        if (deadline <= minDeadline) {
-            revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
-        }
+        // Activate the agent instance registration
         service.state = ServiceState.ActiveRegistration;
-        service.registrationDeadline = deadline;
-        emit ActivateRegistration(owner, deadline, serviceId);
+
+        emit ActivateRegistration(owner, serviceId);
+        success = true;
     }
 
     /// @dev Sets the service data.
@@ -249,12 +240,17 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param agentIds Canonical agent Ids.
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param size Size of a canonical agent ids set.
-    function _setServiceData(Service storage service, string memory name, string memory description, uint256 threshold,
-        uint256[] memory agentIds, AgentParams[] memory agentParams, uint size)
-        private
+    function _setServiceData(
+        Service storage service,
+        string memory name,
+        string memory description,
+        uint256 threshold,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint size
+    ) private
     {
         // Updating high-level data components of the service
-        // Note that the deadline is not updated here since there is a different function for that
         service.name = name;
         service.description = description;
         service.threshold = threshold;
@@ -295,11 +291,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @return serviceId Created service Id.
-    function createService(address owner, string memory name, string memory description, Multihash memory configHash,
-        uint256[] memory agentIds, AgentParams[] memory agentParams, uint256 threshold)
-        external
-        onlyManager
-        returns (uint256 serviceId)
+    function createService(
+        address owner,
+        string memory name,
+        string memory description,
+        Multihash memory configHash,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint256 threshold
+    ) external onlyManager returns (uint256 serviceId)
     {
         // Check for the non-empty owner address
         if (owner == address(0)) {
@@ -307,7 +307,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Execute initial checks
-        initialChecks(name, description, configHash, agentIds, agentParams);
+        _initialChecks(name, description, configHash, agentIds, agentParams);
 
         // Check that there are no zero number of slots for a specific canonical agent id and no zero registration bond
         for (uint256 i = 0; i < agentIds.length; i++) {
@@ -322,18 +322,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
         // Set high-level data components of the service instance
         Service storage service = _mapServices[serviceId];
-        service.owner = owner;
         // Fist hash is always pushed, since the updated one has to be checked additionally
         service.configHashes.push(configHash);
 
         // Set service data
         _setServiceData(service, name, description, threshold, agentIds, agentParams, agentIds.length);
 
-        // Add service to the set of services for the owner
-        _mapOwnerSetServices[owner].push(serviceId);
-
-        // Increment the total number of services
-        _actualNumServices++;
+        // Mint the service instance to the owner
+        _safeMint(owner, serviceId);
 
         service.state = ServiceState.PreRegistration;
 
@@ -349,11 +345,17 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param agentParams Number of agent instances and required required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
-    function update(address owner, string memory name, string memory description, Multihash memory configHash,
-        uint256[] memory agentIds, AgentParams[] memory agentParams, uint256 threshold, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
+    /// @return success True, if function executed successfully.
+    function update(
+        address owner,
+        string memory name,
+        string memory description,
+        Multihash memory configHash,
+        uint256[] memory agentIds,
+        AgentParams[] memory agentParams,
+        uint256 threshold,
+        uint256 serviceId
+    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.PreRegistration) {
@@ -361,7 +363,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         }
 
         // Execute initial checks
-        initialChecks(name, description, configHash, agentIds, agentParams);
+        _initialChecks(name, description, configHash, agentIds, agentParams);
 
         // Collect non-zero canonical agent ids and slots / costs, remove any canonical agent Ids from the params map
         uint256[] memory newAgentIds = new uint256[](agentIds.length);
@@ -387,49 +389,20 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         _setServiceData(service, name, description, threshold, newAgentIds, newAgentParams, size);
 
         emit UpdateService(owner, name, threshold, serviceId);
-    }
-
-    /// @dev Sets agent instance registration deadline.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Service Id to be updated.
-    /// @param deadline Registration deadline.
-    function setRegistrationDeadline(address owner, uint256 serviceId, uint256 deadline)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-    {
-        Service storage service = _mapServices[serviceId];
-        // Registration deadline can be changed for the active-registration state when no agent are registered yet...
-        if (service.state == ServiceState.ActiveRegistration && service.numAgentInstances == 0) {
-            // Needs to be greater than the minimum required registration deadline
-            uint256 minDeadline = block.number + _MIN_REGISTRATION_DEADLINE;
-            if (deadline <= minDeadline) {
-                revert RegistrationDeadlineIncorrect(deadline, minDeadline, serviceId);
-            }
-        // ... Or, during the finished-registration state to shorten the registration time
-        } else if (service.state == ServiceState.FinishedRegistration) {
-            // Deadline must not be smaller than the current block
-            if (deadline < block.number) {
-                revert RegistrationDeadlineIncorrect(deadline, block.number, serviceId);
-            }
-            // Deadline can only be shortened compared to the previous value
-            if (deadline >= service.registrationDeadline) {
-                revert RegistrationDeadlineChangeRedundant(deadline, service.registrationDeadline, serviceId);
-            }
-        } else {
-            revert WrongServiceState(uint256(service.state), serviceId);
-        }
-        service.registrationDeadline = deadline;
+        success = true;
     }
 
     /// @dev Terminates the service.
     /// @param owner Owner of the service.
     /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
     function terminate(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         nonReentrant
+        returns (bool success, uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Check if the service is already terminated
@@ -444,60 +417,45 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             service.state = ServiceState.TerminatedUnbonded;
         }
 
-        emit TerminateService(owner, serviceId);
-
         // Return registration deposit back to the owner
-        uint256 refund = service.securityDeposit;
+        refund = service.securityDeposit;
         // By design, the refund is always a non-zero value, so no check is needed here fo that
         (bool result, ) = owner.call{value: refund}("");
         if (!result) {
             // TODO When ERC20 token is used, change to the address of a token
             revert TransferFailed(address(0), address(this), owner, refund);
         }
+
+        emit Refund(owner, refund);
+        emit TerminateService(owner, serviceId);
+        success = true;
     }
 
     /// @dev Destroys the service instance.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    function destroy(address owner, uint256 serviceId)
-    external
-    onlyManager
-    onlyServiceOwner(owner, serviceId)
+    /// @return success True, if function executed successfully.
+    function destroy(address owner, uint256 serviceId) external onlyManager onlyServiceOwner(owner, serviceId)
+        returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
-        if (service.state != ServiceState.TerminatedUnbonded) {
+        if (service.state != ServiceState.TerminatedUnbonded && service.state != ServiceState.PreRegistration) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
 
-        // Clean up the necessary service-associated data and remove the service from the owner's set of services
-        service.owner = address(0);
-        service.state = ServiceState.NonExistent;
-
-        // Need to update the set of owner service Ids
-        uint256 numServices = _mapOwnerSetServices[owner].length;
-        for (uint256 i = 0; i < numServices; i++) {
-            if (_mapOwnerSetServices[owner][i] == serviceId) {
-                // Pop the destroyed service Id
-                _mapOwnerSetServices[owner][i] = _mapOwnerSetServices[owner][numServices - 1];
-                _mapOwnerSetServices[owner].pop();
-                break;
-            }
-        }
-
-        // Reduce the actual number of services
-        _actualNumServices--;
+        _burn(serviceId);
 
         emit DestroyService(owner, serviceId);
+        success = true;
     }
 
     /// @dev Unbonds agent instances of the operator from the service.
     /// @param operator Operator of agent instances.
     /// @param serviceId Service Id.
-    function unbond(address operator, uint256 serviceId)
-        external
-        onlyManager
-        nonReentrant
-        returns (uint256 refund)
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function unbond(address operator, uint256 serviceId) external onlyManager nonReentrant
+        returns (bool success, uint256 refund)
     {
         Service storage service = _mapServices[serviceId];
         // Service can only be in the terminated-bonded state or expired-registration in order to proceed
@@ -523,7 +481,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < numAgentsUnbond; i++) {
             refund += service.mapAgentParams[agentInstances[i].id].bond;
             // Since the service is done, there's no need to clean-up the service-related data, just the state variables
-            delete _mapAllAgentInstances[agentInstances[i].instance];
+            delete _mapAgentInstanceOperators[agentInstances[i].instance];
         }
 
         // Calculate the refund
@@ -545,89 +503,105 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
             }
         }
 
-        emit OperatorUnbond(refund, operator, serviceId);
+        emit Refund(operator, refund);
+        emit OperatorUnbond(operator, serviceId);
+        success = true;
     }
 
-    /// @dev Registers agent instance.
+    /// @dev Registers agent instances.
     /// @param operator Address of the operator.
     /// @param serviceId Service Id to be updated.
-    /// @param agent Address of the agent instance.
-    /// @param agentId Canonical Id of the agent.
-    function registerAgent(address operator, uint256 serviceId, address agent, uint256 agentId)
-        external
-        onlyManager
-        serviceExists(serviceId)
-        nonReentrant
-        payable
+    /// @param agentInstances Agent instance addresses.
+    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    /// @return success True, if function executed successfully.
+    function registerAgents(
+        address operator,
+        uint256 serviceId,
+        address[] memory agentInstances,
+        uint256[] memory agentIds
+    ) external onlyManager nonReentrant payable returns (bool success)
     {
-        // Operator address must be different from agent instance one
-        // Also, operator address must not be used as an agent instance anywhere else
-        // TODO Need to check for the agent address to be EOA
-        if (operator == agent || _mapAllAgentInstances[operator].serviceId > 0) {
-            revert WrongOperator(serviceId);
+        // Check if the length of canonical agent instance addresses array and ids array have the same length
+        if (agentInstances.length != agentIds.length) {
+            revert WrongAgentsData(agentInstances.length, agentIds.length);
         }
 
         Service storage service = _mapServices[serviceId];
-
         // The service has to be active to register agents
         if (service.state != ServiceState.ActiveRegistration) {
             revert WrongServiceState(uint256(service.state), serviceId);
         }
 
-        // Check if the agent instance is already engaged with another service
-        if (_mapAllAgentInstances[agent].serviceId > 0) {
-            revert AgentInstanceRegistered(_mapAllAgentInstances[agent].serviceId);
+        // Check for the sufficient amount of bond fee is provided
+        uint256 numAgents = agentInstances.length;
+        uint256 totalBond = 0;
+        for (uint256 i = 0; i < numAgents; ++i) {
+            // Check if canonical agent Id exists in the service
+            uint256 agentId = agentIds[i];
+            if (service.mapAgentParams[agentId].slots == 0) {
+                revert AgentNotInService(agentId, serviceId);
+            }
+            totalBond += service.mapAgentParams[agentId].bond;
+        }
+        if (msg.value != totalBond) {
+            revert IncorrectAgentBondingValue(msg.value, totalBond, serviceId);
         }
 
-        // Check if the deadline for registering agent instances is still valid
-        if (service.registrationDeadline <= block.number) {
-            revert RegistrationTimeout(service.registrationDeadline, block.number, serviceId);
+        for (uint256 i = 0; i < numAgents; ++i) {
+            address agentInstance = agentInstances[i];
+            uint256 agentId = agentIds[i];
+
+            // Operator address must be different from agent instance one
+            // Also, operator address must not be used as an agent instance anywhere else
+            // TODO Need to check for the agent address to be EOA
+            if (operator == agentInstance || _mapAgentInstanceOperators[operator] != address(0)) {
+                revert WrongOperator(serviceId);
+            }
+
+            // Check if the agent instance is already engaged with another service
+            if (_mapAgentInstanceOperators[agentInstance] != address(0)) {
+                revert AgentInstanceRegistered(_mapAgentInstanceOperators[agentInstance]);
+            }
+
+            // Check if there is an empty slot for the agent instance in this specific service
+            if (service.mapAgentInstances[agentId].length == service.mapAgentParams[agentId].slots) {
+                revert AgentInstancesSlotsFilled(serviceId);
+            }
+
+            // Add agent instance and operator and set the instance engagement
+            service.mapAgentInstances[agentId].push(agentInstance);
+            service.mapOperatorsAgentInstances[operator].push(AgentInstance(agentInstance, agentId));
+            service.numAgentInstances++;
+            _mapAgentInstanceOperators[agentInstance] = operator;
+
+            emit RegisterInstance(operator, serviceId, agentInstance, agentId);
         }
-
-        // Check if canonical agent Id exists in the service
-        if (service.mapAgentParams[agentId].slots == 0) {
-            revert AgentNotInService(agentId, serviceId);
-        }
-
-        // Check if there is an empty slot for the agent instance in this specific service
-        if (service.mapAgentInstances[agentId].length == service.mapAgentParams[agentId].slots) {
-            revert AgentInstancesSlotsFilled(serviceId);
-        }
-
-        if (msg.value < service.mapAgentParams[agentId].bond) {
-            revert InsufficientAgentBondingValue(msg.value, service.mapAgentParams[agentId].bond, agentId, serviceId);
-        }
-
-        // Update operator's bonding / escrow balance
-        service.mapOperatorsBalances[operator] += msg.value;
-        emit Deposit(operator, msg.value);
-
-        // Add agent instance and operator and set the instance engagement
-        service.mapAgentInstances[agentId].push(agent);
-        service.mapOperatorsAgentInstances[operator].push(AgentInstance(agent, agentId));
-        service.numAgentInstances++;
-        _mapAllAgentInstances[agent] = OperatorServiceId(operator, serviceId);
 
         // If the service agent instance capacity is reached, the service becomes finished-registration
         if (service.numAgentInstances == service.maxNumAgentInstances) {
             service.state = ServiceState.FinishedRegistration;
         }
 
-        emit RegisterInstance(operator, serviceId, agent, agentId);
+        // Update operator's bonding balance
+        service.mapOperatorsBalances[operator] += msg.value;
+
+        emit Deposit(operator, msg.value);
+        success = true;
     }
 
     /// @dev Slashes a specified agent instance.
     /// @param agentInstances Agent instances to slash.
     /// @param amounts Correspondent amounts to slash.
     /// @param serviceId Service Id.
-    function slash(address[] memory agentInstances, uint256[] memory amounts, uint256 serviceId)
-        public
-        serviceExists(serviceId)
+    /// @return success True, if function executed successfully.
+    function slash(address[] memory agentInstances, uint256[] memory amounts, uint256 serviceId) public
+        serviceExists(serviceId) returns (bool success)
     {
         // Check for the array size
         if (agentInstances.length != amounts.length) {
             revert WrongAgentsData(agentInstances.length, amounts.length);
         }
+
         Service storage service = _mapServices[serviceId];
         // Only the multisig of a correspondent address can slash its agent instances
         if (msg.sender != service.multisig) {
@@ -638,10 +612,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         uint256 numInstancesToSlash = agentInstances.length;
         for (uint256 i = 0; i < numInstancesToSlash; ++i) {
             // Get the service Id from the agentInstance map
-            OperatorServiceId memory operatorServiceId = _mapAllAgentInstances[agentInstances[i]];
+            address operator = _mapAgentInstanceOperators[agentInstances[i]];
 
             // Slash the balance of the operator, make sure it does not go below zero
-            uint256 balance = service.mapOperatorsBalances[operatorServiceId.operator];
+            uint256 balance = service.mapOperatorsBalances[operator];
             if (amounts[i] >= balance) {
                 // We can't add to the slashed amount more than the balance
                 slashedFunds += balance;
@@ -650,20 +624,18 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
                 slashedFunds += amounts[i];
                 balance -= amounts[i];
             }
-            service.mapOperatorsBalances[operatorServiceId.operator] = balance;
+            service.mapOperatorsBalances[operator] = balance;
 
-            emit OperatorSlashed(amounts[i], operatorServiceId.operator, operatorServiceId.serviceId);
+            emit OperatorSlashed(amounts[i], operator, serviceId);
         }
+
+        success = true;
     }
 
     /// @dev Gets the service payment / reward.
     /// @param serviceId Service Id.
     /// @return rewardBalance Actual reward balance of a service Id.
-    function reward(uint256 serviceId)
-        public
-        payable
-        serviceExists(serviceId)
-        nonReentrant
+    function reward(uint256 serviceId) public serviceExists(serviceId) nonReentrant payable
         returns (uint256 rewardBalance)
     {
         rewardBalance = _mapServices[serviceId].rewardBalance;
@@ -674,21 +646,25 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
 
     /// @dev Creates Gnosis Safe proxy.
     /// @param gParams Structure with parameters to setup Gnosis Safe.
-    /// @return Address of the created proxy.
-    function _createGnosisSafeProxy(GnosisParams memory gParams) private returns (address) {
+    /// @return multisig Address of the created proxy.
+    function _createGnosisSafeProxy(GnosisParams memory gParams) private
+        returns (address multisig)
+    {
         bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
             gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
             gParams.paymentReceiver);
 
         GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
         GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeParams, gParams.nonce);
-        return address(gProxy);
+        multisig = address(gProxy);
     }
 
     /// @dev Gets all agent instances
     /// @param agentInstances Pre-allocated list of agent instance addresses.
     /// @param service Service instance.
-    function _getAgentInstances(Service storage service) private view returns (address[] memory agentInstances) {
+    function _getAgentInstances(Service storage service) private view
+        returns (address[] memory agentInstances)
+    {
         agentInstances = new address[](service.numAgentInstances);
         uint256 count;
         for (uint256 i = 0; i < service.agentIds.length; i++) {
@@ -743,13 +719,18 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param paymentToken Token that should be used for the payment (0 is ETH)
     /// @param payment Value that should be paid
     /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
-    /// @return Address of the created multisig.
-    function createSafe(address owner, uint256 serviceId, address to, bytes calldata data, address fallbackHandler,
-        address paymentToken, uint256 payment, address payable paymentReceiver, uint256 nonce)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-        returns (address)
+    /// @return multisig Address of the created multisig.
+    function createSafe(
+        address owner,
+        uint256 serviceId,
+        address to,
+        bytes calldata data,
+        address fallbackHandler,
+        address paymentToken,
+        uint256 payment,
+        address payable paymentReceiver,
+        uint256 nonce
+    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
     {
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.FinishedRegistration) {
@@ -770,55 +751,21 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         gParams.payment = payment;
         gParams.paymentReceiver = paymentReceiver;
         gParams.nonce = nonce;
-        service.multisig = _createGnosisSafeProxy(gParams);
+        multisig = _createGnosisSafeProxy(gParams);
 
         emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
 
         _updateComponentAgentServiceConnection(serviceId);
 
+        service.multisig = multisig;
         service.state = ServiceState.Deployed;
-
-        return service.multisig;
     }
 
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) public view returns (bool) {
-        return _mapServices[serviceId].owner != address(0);
-    }
-
-    /// @dev Gets the total number of services in the contract.
-    /// @return actualNumServices Actual number of services.
-    /// @return maxServiceId Max serviceId number.
-    function totalSupply() public view returns (uint256 actualNumServices, uint256 maxServiceId) {
-        actualNumServices = _actualNumServices;
-        maxServiceId = _serviceIds;
-    }
-
-    /// @dev Gets the number of services.
-    /// @param owner The owner of services.
-    /// @return Number of owned services.
-    function balanceOf(address owner) public view returns (uint256) {
-        return _mapOwnerSetServices[owner].length;
-    }
-
-    /// @dev Gets the owner of the service.
-    /// @param serviceId Service Id.
-    /// @return Address of the service owner.
-    function ownerOf(uint256 serviceId) public view serviceExists(serviceId) returns (address) {
-        return _mapServices[serviceId].owner;
-    }
-
-    /// @dev Gets the set of service Ids for a specified owner.
-    /// @param owner Address of the owner.
-    /// @return A set of service Ids.
-    function getServiceIdsOfOwner(address owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return _mapOwnerSetServices[owner];
+        return _exists(serviceId);
     }
 
     /// @dev Gets the high-level service information.
@@ -834,10 +781,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @return numAgentInstances Number of registered agent instances.
     /// @return agentInstances Set of agent instances currently registered for the service.
     /// @return multisig Agent instances multisig address.
-    function getServiceInfo(uint256 serviceId)
-        public
-        view
-        serviceExists(serviceId)
+    function getServiceInfo(uint256 serviceId) public view serviceExists(serviceId)
         returns (address owner, string memory name, string memory description, Multihash memory configHash,
             uint256 threshold, uint256 numAgentIds, uint256[] memory agentIds, AgentParams[] memory agentParams,
             uint256 numAgentInstances, address[] memory agentInstances, address multisig)
@@ -849,7 +793,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < service.agentIds.length; i++) {
             agentParams[i] = service.mapAgentParams[service.agentIds[i]];
         }
-        owner = service.owner;
+        owner = ownerOf(serviceId);
         name = service.name;
         description = service.description;
         uint256 configHashesSize = service.configHashes.length - 1;
@@ -865,10 +809,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param agentId Canonical agent Id.
     /// @return numAgentInstances Number of agent instances.
     /// @return agentInstances Set of agent instances for a specified canonical agent Id.
-    function getInstancesForAgentId(uint256 serviceId, uint256 agentId)
-        public
-        view
-        serviceExists(serviceId)
+    function getInstancesForAgentId(uint256 serviceId, uint256 agentId) public view serviceExists(serviceId)
         returns (uint256 numAgentInstances, address[] memory agentInstances)
     {
         Service storage service = _mapServices[serviceId];
@@ -883,40 +824,18 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param serviceId Service Id.
     /// @return numHashes Number of hashes.
     /// @return configHashes The list of component hashes.
-    function getConfigHashes(uint256 serviceId)
-        public
-        view
-        serviceExists(serviceId)
+    function getConfigHashes(uint256 serviceId) public view serviceExists(serviceId)
         returns (uint256 numHashes, Multihash[] memory configHashes)
     {
         Service storage service = _mapServices[serviceId];
         return (service.configHashes.length, service.configHashes);
     }
 
-    /// @dev Gets the agent instance registration deadline block number.
-    /// @return registrationDeadline Registration deadline.
-    function getRegistrationDeadline(uint256 serviceId)
-        public
-        view
-        serviceExists(serviceId)
-        returns (uint256 registrationDeadline)
-    {
-        registrationDeadline = _mapServices[serviceId].registrationDeadline;
-    }
-
-    /// @dev Gets the minimum registration deadline block number.
-    /// @return minDeadline Minimum deadline.
-    function getMinRegistrationDeadline() public view returns (uint256 minDeadline) {
-        minDeadline = _MIN_REGISTRATION_DEADLINE;
-    }
-
     /// @dev Gets the set of service Ids that contain specified agent Id.
     /// @param agentId Agent Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithAgentId(uint256 agentId)
-        public
-        view
+    function getServiceIdsCreatedWithAgentId(uint256 agentId) public view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapAgentIdSetServices[agentId];
@@ -927,9 +846,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param componentId Component Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithComponentId(uint256 componentId)
-        public
-        view
+    function getServiceIdsCreatedWithComponentId(uint256 componentId) public view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapComponentIdSetServices[componentId];
@@ -940,23 +857,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ReentrancyGuard {
     /// @param serviceId Service Id.
     /// @return state State of the service.
     function getServiceState(uint256 serviceId) public view returns (ServiceState state) {
-        Service storage service = _mapServices[serviceId];
-        state = service.state;
-
-        // The expired state is not recorded explicitly and needs to be checked additionally
-        if (state == ServiceState.ActiveRegistration && block.number > service.registrationDeadline) {
-            state = ServiceState.ExpiredRegistration;
-        }
+        state = _mapServices[serviceId].state;
     }
 
     /// @dev Gets the operator's balance in a specific service.
     /// @param operator Operator address.
     /// @param serviceId Service Id.
     /// @return balance The balance of the operator.
-    function getOperatorBalance(address operator, uint256 serviceId)
-        public
-        view
-        serviceExists(serviceId)
+    function getOperatorBalance(address operator, uint256 serviceId) public view serviceExists(serviceId)
         returns (uint256 balance)
     {
         balance = _mapServices[serviceId].mapOperatorsBalances[operator];
