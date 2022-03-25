@@ -14,6 +14,7 @@ import "./interfaces/IRegistry.sol";
 contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, ReentrancyGuard {
     event Deposit(address sender, uint256 amount);
     event Refund(address sendee, uint256 amount);
+    event ServiceRegistryManagerUpdated(address manager);
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
@@ -118,7 +119,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
 
     constructor(string memory _name, string memory _symbol, address _agentRegistry, address payable _gnosisSafeL2,
-        address _gnosisSafeProxyFactory) ERC721(_name, _symbol) {
+        address _gnosisSafeProxyFactory) ERC721(_name, _symbol)
+    {
         agentRegistry = _agentRegistry;
         gnosisSafeL2 = _gnosisSafeL2;
         gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
@@ -158,6 +160,13 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         revert WrongFunction();
     }
 
+    /// @dev Changes the service manager.
+    /// @param newManager Address of a new service manager.
+    function changeManager(address newManager) public onlyOwner {
+        _manager = newManager;
+        emit ServiceRegistryManagerUpdated(_manager);
+    }
+
     /// @dev Going through basic initial service checks.
     /// @param name Name of the service.
     /// @param description Description of the service.
@@ -195,41 +204,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
             }
             lastId = agentIds[i];
         }
-    }
-
-    /// @dev Changes the service manager.
-    /// @param newManager Address of a new service manager.
-    function changeManager(address newManager) public onlyOwner {
-        _manager = newManager;
-    }
-
-    /// @dev Activates the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function activateRegistration(address owner, uint256 serviceId)
-        external
-        onlyManager
-        onlyServiceOwner(owner, serviceId)
-        nonReentrant
-        payable
-        returns (bool success)
-    {
-        Service storage service = _mapServices[serviceId];
-        // Service must be inactive
-        if (service.state != ServiceState.PreRegistration) {
-            revert ServiceMustBeInactive(serviceId);
-        }
-
-        if (msg.value != service.securityDeposit) {
-            revert IncorrectRegistrationDepositValue(msg.value, service.securityDeposit, serviceId);
-        }
-
-        // Activate the agent instance registration
-        service.state = ServiceState.ActiveRegistration;
-
-        emit ActivateRegistration(owner, serviceId);
-        success = true;
     }
 
     /// @dev Sets the service data.
@@ -392,119 +366,32 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         success = true;
     }
 
-    /// @dev Terminates the service.
-    /// @param owner Owner of the service.
-    /// @param serviceId Service Id to be updated.
+    /// @dev Activates the service.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
-    /// @return refund Refund to return to the owner.
-    function terminate(address owner, uint256 serviceId)
+    function activateRegistration(address owner, uint256 serviceId)
         external
         onlyManager
         onlyServiceOwner(owner, serviceId)
         nonReentrant
-        returns (bool success, uint256 refund)
-    {
-        Service storage service = _mapServices[serviceId];
-        // Check if the service is already terminated
-        if (service.state == ServiceState.PreRegistration || service.state == ServiceState.TerminatedBonded ||
-            service.state == ServiceState.TerminatedUnbonded) {
-            revert WrongServiceState(uint256(service.state), serviceId);
-        }
-        // Define the state of the service depending on the number of bonded agent instances
-        if (service.numAgentInstances > 0) {
-            service.state = ServiceState.TerminatedBonded;
-        } else {
-            service.state = ServiceState.TerminatedUnbonded;
-        }
-
-        // Return registration deposit back to the owner
-        refund = service.securityDeposit;
-        // By design, the refund is always a non-zero value, so no check is needed here fo that
-        (bool result, ) = owner.call{value: refund}("");
-        if (!result) {
-            // TODO When ERC20 token is used, change to the address of a token
-            revert TransferFailed(address(0), address(this), owner, refund);
-        }
-
-        emit Refund(owner, refund);
-        emit TerminateService(owner, serviceId);
-        success = true;
-    }
-
-    /// @dev Destroys the service instance.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function destroy(address owner, uint256 serviceId) external onlyManager onlyServiceOwner(owner, serviceId)
+        payable
         returns (bool success)
     {
         Service storage service = _mapServices[serviceId];
-        if (service.state != ServiceState.TerminatedUnbonded && service.state != ServiceState.PreRegistration) {
-            revert WrongServiceState(uint256(service.state), serviceId);
+        // Service must be inactive
+        if (service.state != ServiceState.PreRegistration) {
+            revert ServiceMustBeInactive(serviceId);
         }
 
-        _burn(serviceId);
-
-        emit DestroyService(owner, serviceId);
-        success = true;
-    }
-
-    /// @dev Unbonds agent instances of the operator from the service.
-    /// @param operator Operator of agent instances.
-    /// @param serviceId Service Id.
-    /// @return success True, if function executed successfully.
-    /// @return refund The amount of refund returned to the operator.
-    function unbond(address operator, uint256 serviceId) external onlyManager nonReentrant
-        returns (bool success, uint256 refund)
-    {
-        Service storage service = _mapServices[serviceId];
-        // Service can only be in the terminated-bonded state or expired-registration in order to proceed
-        if (service.state != ServiceState.TerminatedBonded) {
-            revert WrongServiceState(uint256(service.state), serviceId);
+        if (msg.value != service.securityDeposit) {
+            revert IncorrectRegistrationDepositValue(msg.value, service.securityDeposit, serviceId);
         }
 
-        // Check for the operator and unbond all its agent instances
-        AgentInstance[] memory agentInstances = service.mapOperatorsAgentInstances[operator];
-        uint256 numAgentsUnbond = agentInstances.length;
-        if (numAgentsUnbond == 0) {
-            revert OperatorHasNoInstances(operator, serviceId);
-        }
+        // Activate the agent instance registration
+        service.state = ServiceState.ActiveRegistration;
 
-        // Subtract number of unbonded agent instances
-        service.numAgentInstances -= numAgentsUnbond;
-        if (service.numAgentInstances == 0) {
-            service.state = ServiceState.TerminatedUnbonded;
-        }
-
-        // Calculate registration refund and free all agent instances
-        refund = 0;
-        for (uint256 i = 0; i < numAgentsUnbond; i++) {
-            refund += service.mapAgentParams[agentInstances[i].id].bond;
-            // Since the service is done, there's no need to clean-up the service-related data, just the state variables
-            delete _mapAgentInstanceOperators[agentInstances[i].instance];
-        }
-
-        // Calculate the refund
-        uint256 balance = service.mapOperatorsBalances[operator];
-        // This situation is possible if the operator was slashed for the agent instance misbehavior
-        if (refund > balance) {
-            refund = balance;
-        }
-
-        // Refund the operator
-        if (refund > 0) {
-            // Operator's balance is essentially zero after the refund
-            service.mapOperatorsBalances[operator] = 0;
-            // Send the refund
-            (bool result, ) = operator.call{value: refund}("");
-            if (!result) {
-                // TODO When ERC20 token is used, change to the address of a token
-                revert TransferFailed(address(0), address(this), operator, refund);
-            }
-        }
-
-        emit Refund(operator, refund);
-        emit OperatorUnbond(operator, serviceId);
+        emit ActivateRegistration(owner, serviceId);
         success = true;
     }
 
@@ -642,6 +529,122 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         rewardBalance += msg.value;
         _mapServices[serviceId].rewardBalance = rewardBalance;
         emit RewardService(serviceId, msg.value);
+    }
+
+    /// @dev Terminates the service.
+    /// @param owner Owner of the service.
+    /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
+    function terminate(address owner, uint256 serviceId)
+        external
+        onlyManager
+        onlyServiceOwner(owner, serviceId)
+        nonReentrant
+        returns (bool success, uint256 refund)
+    {
+        Service storage service = _mapServices[serviceId];
+        // Check if the service is already terminated
+        if (service.state == ServiceState.PreRegistration || service.state == ServiceState.TerminatedBonded ||
+            service.state == ServiceState.TerminatedUnbonded) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+        // Define the state of the service depending on the number of bonded agent instances
+        if (service.numAgentInstances > 0) {
+            service.state = ServiceState.TerminatedBonded;
+        } else {
+            service.state = ServiceState.TerminatedUnbonded;
+        }
+
+        // Return registration deposit back to the owner
+        refund = service.securityDeposit;
+        // By design, the refund is always a non-zero value, so no check is needed here fo that
+        (bool result, ) = owner.call{value: refund}("");
+        if (!result) {
+            // TODO When ERC20 token is used, change to the address of a token
+            revert TransferFailed(address(0), address(this), owner, refund);
+        }
+
+        emit Refund(owner, refund);
+        emit TerminateService(owner, serviceId);
+        success = true;
+    }
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param operator Operator of agent instances.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function unbond(address operator, uint256 serviceId) external onlyManager nonReentrant
+        returns (bool success, uint256 refund)
+    {
+        Service storage service = _mapServices[serviceId];
+        // Service can only be in the terminated-bonded state or expired-registration in order to proceed
+        if (service.state != ServiceState.TerminatedBonded) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
+        // Check for the operator and unbond all its agent instances
+        AgentInstance[] memory agentInstances = service.mapOperatorsAgentInstances[operator];
+        uint256 numAgentsUnbond = agentInstances.length;
+        if (numAgentsUnbond == 0) {
+            revert OperatorHasNoInstances(operator, serviceId);
+        }
+
+        // Subtract number of unbonded agent instances
+        service.numAgentInstances -= numAgentsUnbond;
+        if (service.numAgentInstances == 0) {
+            service.state = ServiceState.TerminatedUnbonded;
+        }
+
+        // Calculate registration refund and free all agent instances
+        refund = 0;
+        for (uint256 i = 0; i < numAgentsUnbond; i++) {
+            refund += service.mapAgentParams[agentInstances[i].id].bond;
+            // Since the service is done, there's no need to clean-up the service-related data, just the state variables
+            delete _mapAgentInstanceOperators[agentInstances[i].instance];
+        }
+
+        // Calculate the refund
+        uint256 balance = service.mapOperatorsBalances[operator];
+        // This situation is possible if the operator was slashed for the agent instance misbehavior
+        if (refund > balance) {
+            refund = balance;
+        }
+
+        // Refund the operator
+        if (refund > 0) {
+            // Operator's balance is essentially zero after the refund
+            service.mapOperatorsBalances[operator] = 0;
+            // Send the refund
+            (bool result, ) = operator.call{value: refund}("");
+            if (!result) {
+                // TODO When ERC20 token is used, change to the address of a token
+                revert TransferFailed(address(0), address(this), operator, refund);
+            }
+        }
+
+        emit Refund(operator, refund);
+        emit OperatorUnbond(operator, serviceId);
+        success = true;
+    }
+
+    /// @dev Destroys the service instance.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
+    function destroy(address owner, uint256 serviceId) external onlyManager onlyServiceOwner(owner, serviceId)
+        returns (bool success)
+    {
+        Service storage service = _mapServices[serviceId];
+        if (service.state != ServiceState.TerminatedUnbonded && service.state != ServiceState.PreRegistration) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
+        _burn(serviceId);
+
+        emit DestroyService(owner, serviceId);
+        success = true;
     }
 
     /// @dev Creates Gnosis Safe proxy.

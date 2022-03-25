@@ -79,6 +79,14 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         (success, refund) = IService(serviceRegistry).terminate(msg.sender, serviceId);
     }
 
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
+        (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
+    }
+
     /// @dev Destroys the service instance and frees up its storage.
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
@@ -86,12 +94,11 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         success = IService(serviceRegistry).destroy(msg.sender, serviceId);
     }
 
-    /// @dev Unbonds agent instances of the operator from the service.
-    /// @param serviceId Service Id.
+    /// @dev Activates the service and its sensitive components.
+    /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
-    /// @return refund The amount of refund returned to the operator.
-    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
-        (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
+    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
+        success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
     }
 
     /// @dev Registers agent instances.
@@ -130,12 +137,5 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         multisig = IService(serviceRegistry).createSafe(msg.sender, serviceId, to, data, fallbackHandler,
             paymentToken, payment, paymentReceiver, nonce);
         emit GnosisSafeCreate(multisig);
-    }
-
-    /// @dev Activates the service and its sensitive components.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
-        success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
     }
 }

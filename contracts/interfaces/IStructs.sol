@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/**
- * @dev IPFS multihash.
- */
+/// @dev IPFS multihash.
 interface IStructs {
     // Canonical agent Id parameters
     struct AgentParams {

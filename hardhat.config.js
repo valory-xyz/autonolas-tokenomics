@@ -18,12 +18,31 @@ module.exports = {
         },
     },
     solidity: {
-        version: "0.8.4",
-        settings: {
-            optimizer: {
-                enabled: true,
-                runs: 1000,
+        compilers: [
+            {
+                version: "0.8.4",
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 1000,
+                    },
+                },
             },
-        },
-    },
+            {
+                version: "0.7.5",  // FixedPoint math from OlympusDAO, not compatible with 8.x
+                settings: {
+                    optimizer: {
+                        enabled: true,
+                        runs: 1000,
+                    },
+                },
+            },
+            {
+                version: "0.5.16", // uniswap
+            },
+            {
+                version: "0.6.6", // uniswap
+            }
+        ]
+    }
 };

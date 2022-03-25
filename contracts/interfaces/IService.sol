@@ -3,16 +3,8 @@ pragma solidity ^0.8.4;
 
 import "./IStructs.sol";
 
-/**
- * @dev Required interface for the service manipulation.
- */
+/// @dev Required interface for the service manipulation.
 interface IService is IStructs {
-    /// @dev Activates the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function activateRegistration(address owner, uint256 serviceId) external payable returns (bool success);
-
     /// @dev Creates a new service.
     /// @param owner Individual that creates and controls a service.
     /// @param name Name of the service.
@@ -52,25 +44,11 @@ interface IService is IStructs {
         uint256 serviceId
     ) external;
 
-    /// @dev Terminates the service.
-    /// @param owner Owner of the service.
-    /// @param serviceId Service Id to be updated.
-    /// @return success True, if function executed successfully.
-    /// @return refund Refund to return to the owner.
-    function terminate(address owner, uint256 serviceId) external returns (bool success, uint256 refund);
-
-    /// @dev Destroys the service instance.
+    /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
-    function destroy(address owner, uint256 serviceId) external returns (bool success);
-
-    /// @dev Unbonds agent instances of the operator from the service.
-    /// @param operator Operator of agent instances.
-    /// @param serviceId Service Id.
-    /// @return success True, if function executed successfully.
-    /// @return refund The amount of refund returned to the operator.
-    function unbond(address operator, uint256 serviceId) external returns (bool success, uint256 refund);
+    function activateRegistration(address owner, uint256 serviceId) external payable returns (bool success);
 
     /// @dev Registers agent instances.
     /// @param operator Address of the operator.
@@ -84,6 +62,26 @@ interface IService is IStructs {
         address[] memory agentInstances,
         uint256[] memory agentIds
     ) external payable returns (bool success);
+
+    /// @dev Terminates the service.
+    /// @param owner Owner of the service.
+    /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
+    function terminate(address owner, uint256 serviceId) external returns (bool success, uint256 refund);
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param operator Operator of agent instances.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function unbond(address operator, uint256 serviceId) external returns (bool success, uint256 refund);
+
+    /// @dev Destroys the service instance.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
+    function destroy(address owner, uint256 serviceId) external returns (bool success);
 
     /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
     /// @param owner Individual that creates and controls a service.
