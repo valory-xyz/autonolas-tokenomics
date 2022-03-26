@@ -4,9 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "./IStructs.sol";
 
-/**
- * @dev Required interface for the component / agent manipulation.
- */
+/// @dev Required interface for the component / agent manipulation.
 interface IRegistry is IStructs, IERC721Enumerable {
     /// @dev Creates component / agent.
     /// @param owner Owner of the component / agent.

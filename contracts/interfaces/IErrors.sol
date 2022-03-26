@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/**
- * @dev Errors.
- */
+/// @dev Errors.
 interface IErrors {
     /// @dev Only `manager` has a privilege, but the `sender` was provided.
     /// @param sender Sender address.
@@ -79,8 +77,11 @@ interface IErrors {
     /// @param serviceId Service Id.
     error AgentNotInService(uint256 agentId, uint256 serviceId);
 
-    /// @dev Zero value when it has to be greater than zero.
+    /// @dev Zero value when it has to be different from zero.
     error ZeroValue();
+
+    /// @dev Non-zero value when it has to be zero.
+    error NonZeroValue();
 
     /// @dev Service must be active.
     /// @param serviceId Service Id.
@@ -119,6 +120,34 @@ interface IErrors {
 
     /// @dev Fallback or receive function.
     error WrongFunction();
+
+    /// @dev Token is disabled.
+    /// @param tokenAddress Address of a token.
+    error UnauthorizedToken(address tokenAddress);
+
+    /// @dev Provided token address is incorrect.
+    /// @param provided Provided token address.
+    /// @param expected Expected token address.
+    error WrongTokenAddress(address provided, address expected);
+
+    /// @dev The product is expired.
+    /// @param tokenAddress Address of a token.
+    /// @param productId Product Id.
+    /// @param deadline The program expiry time.
+    /// @param curTime Current timestamp.
+    error ProductExpired(address tokenAddress, uint256 productId, uint256 deadline, uint256 curTime);
+
+    /// @dev The product supply is low for the requested payout.
+    /// @param tokenAddress Address of a token.
+    /// @param productId Product Id.
+    /// @param requested Requested payout.
+    /// @param actual Actual supply left.
+    error ProductSupplyLow(address tokenAddress, uint256 productId, uint256 requested, uint256 actual);
+
+    /// @dev Incorrect amount received / provided.
+    /// @param provided Provided amount is lower.
+    /// @param expected Expected amount.
+    error AmountLowerThan(uint256 provided, uint256 expected);
 
     /// @dev Incorrect deposit provided for the registration activation.
     /// @param sent Sent amount.
