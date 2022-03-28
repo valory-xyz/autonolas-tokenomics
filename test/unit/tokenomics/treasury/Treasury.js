@@ -9,7 +9,7 @@ describe("Treasury", async () => {
     const initialMint = "10000000000000000000000000";
 
     let deployer;
-    let erc20Factory;
+    let erc20Token;
     let olaFactory;
     let treasuryFactory;
     let dai;
@@ -25,17 +25,15 @@ describe("Treasury", async () => {
         // [deployer, alice, bob, carol] = await ethers.getSigners();
         [deployer] = await ethers.getSigners();
         // use dai as erc20 
-        erc20Factory = await ethers.getContractFactory("DAI");
+        erc20Token = await ethers.getContractFactory("ERC20Token");
         olaFactory = await ethers.getContractFactory("OLA");
         treasuryFactory = await ethers.getContractFactory("Treasury");
     });
 
     // These should not be in beforeEach.
     beforeEach(async () => {
-        //dai = await smock.fake(erc20Factory);
-        //lpToken = await smock.fake(erc20Factory);
-        dai = await erc20Factory.deploy(0);
-        lpToken = await erc20Factory.deploy(0);
+        dai = await erc20Token.deploy();
+        lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         treasury = await treasuryFactory.deploy(ola.address, deployer.address);
         
