@@ -10,7 +10,7 @@ describe("Bond Depository LP", async () => {
     // Increase timestamp by amount determined by `offset`
 
     let deployer, alice, bob;
-    let erc20Factory;
+    let erc20Token;
     let olaFactory;
     let depositoryFactory;
 
@@ -38,13 +38,13 @@ describe("Bond Depository LP", async () => {
     before(async () => {
         [deployer, alice, bob] = await ethers.getSigners();
         olaFactory = await ethers.getContractFactory("OLA");
-        erc20Factory = await ethers.getContractFactory("DAI");
+        erc20Token = await ethers.getContractFactory("ERC20Token");
         depositoryFactory = await ethers.getContractFactory("BondDepository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
     });
 
     beforeEach(async () => {
-        dai = await erc20Factory.deploy(0);
+        dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         treasury = await treasuryFactory.deploy(ola.address, deployer.address);
 
@@ -132,7 +132,7 @@ describe("Bond Depository LP", async () => {
         conclusion = block.timestamp + timeToConclusion;
     });
 
-    it("should create market", async () => {
+    it("should create product", async () => {
         expect(await depository.isActive(pairODAI.address, bid)).to.equal(true);
     });
 
