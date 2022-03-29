@@ -27,8 +27,7 @@ describe("Governance integration", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const TestServiceRegistry = await ethers.getContractFactory("TestServiceRegistry");
-        testServiceRegistry = await TestServiceRegistry.deploy("service registry", "SERVICE", addressZero, addressZero,
-            addressZero);
+        testServiceRegistry = await TestServiceRegistry.deploy("service registry", "SERVICE", addressZero);
         await testServiceRegistry.deployed();
 
         const Token = await ethers.getContractFactory("veOLA");

@@ -3,10 +3,9 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
-import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./AgentRegistry.sol";
 import "./interfaces/IErrors.sol";
+import "./interfaces/IMultisig.sol";
 import "./interfaces/IRegistry.sol";
 
 /// @title Service Registry - Smart contract for registering services
@@ -18,7 +17,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
-    event CreateSafeWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
+    event CreateMultisigWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
     event ActivateRegistration(address owner, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
@@ -41,19 +40,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         address instance;
         // Canonical agent Id
         uint256 id;
-    }
-
-    // Gnosis Safe parameters struct
-    struct GnosisParams {
-        address[] agentInstances;
-        uint256 threshold;
-        address to;
-        bytes data;
-        address fallbackHandler;
-        address paymentToken;
-        uint256 payment;
-        address payable paymentReceiver;
-        uint nonce;
     }
 
     // Service parameters
@@ -94,14 +80,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         ServiceState state;
     }
 
-    // Selector of the Gnosis Safe setup function
-    bytes4 internal constant _GNOSIS_SAFE_SETUP_SELECTOR = 0xb63e800d;
     // Agent Registry
     address public immutable agentRegistry;
-    // Gnosis Safe
-    address payable public immutable gnosisSafeL2;
-    // Gnosis Safe Factory
-    address public immutable gnosisSafeProxyFactory;
     // Service counter
     uint256 private _serviceIds;
     // The amount of funds slashed
@@ -113,17 +93,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     // Map of agent instance address => service id it is registered with and operator address that supplied the instance
     mapping (address => address) private _mapAgentInstanceOperators;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
-    // Updated during the service deployment via createSafe() function
+    // Updated during the service deployment via createMultisig() function
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
 
-    constructor(string memory _name, string memory _symbol, address _agentRegistry, address payable _gnosisSafeL2,
-        address _gnosisSafeProxyFactory) ERC721(_name, _symbol)
+    constructor(string memory _name, string memory _symbol, address _agentRegistry) ERC721(_name, _symbol)
     {
         agentRegistry = _agentRegistry;
-        gnosisSafeL2 = _gnosisSafeL2;
-        gnosisSafeProxyFactory = _gnosisSafeProxyFactory;
     }
 
     // Only the manager has a privilege to manipulate a service
@@ -647,21 +624,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         success = true;
     }
 
-    /// @dev Creates Gnosis Safe proxy.
-    /// @param gParams Structure with parameters to setup Gnosis Safe.
-    /// @return multisig Address of the created proxy.
-    function _createGnosisSafeProxy(GnosisParams memory gParams) private
-        returns (address multisig)
-    {
-        bytes memory safeParams = abi.encodeWithSelector(_GNOSIS_SAFE_SETUP_SELECTOR, gParams.agentInstances,
-            gParams.threshold, gParams.to, gParams.data, gParams.fallbackHandler, gParams.paymentToken, gParams.payment,
-            gParams.paymentReceiver);
-
-        GnosisSafeProxyFactory gFactory = GnosisSafeProxyFactory(gnosisSafeProxyFactory);
-        GnosisSafeProxy gProxy = gFactory.createProxyWithNonce(gnosisSafeL2, safeParams, gParams.nonce);
-        multisig = address(gProxy);
-    }
-
     /// @dev Gets all agent instances
     /// @param agentInstances Pre-allocated list of agent instance addresses.
     /// @param service Service instance.
@@ -713,26 +675,17 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
     }
 
-    /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    /// @param to Contract address for optional delegate call.
-    /// @param data Data payload for optional delegate call.
-    /// @param fallbackHandler Handler for fallback calls to this contract
-    /// @param paymentToken Token that should be used for the payment (0 is ETH)
-    /// @param payment Value that should be paid
-    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function createSafe(
+    function createMultisig(
         address owner,
         uint256 serviceId,
-        address to,
-        bytes calldata data,
-        address fallbackHandler,
-        address paymentToken,
-        uint256 payment,
-        address payable paymentReceiver,
-        uint256 nonce
+        address multisigImplementation,
+        bytes memory data
     ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
     {
         Service storage service = _mapServices[serviceId];
@@ -740,24 +693,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
             revert WrongServiceState(uint256(service.state), serviceId);
         }
 
-        // Get all agent instances for the safe
+        // Get all agent instances for the multisig
         address[] memory agentInstances = _getAgentInstances(service);
 
-        // Getting the Gnosis Safe multisig proxy for agent instances
-        GnosisParams memory gParams;
-        gParams.agentInstances = agentInstances;
-        gParams.threshold = service.threshold;
-        gParams.to = to;
-        gParams.data = data;
-        gParams.fallbackHandler = fallbackHandler;
-        gParams.paymentToken = paymentToken;
-        gParams.payment = payment;
-        gParams.paymentReceiver = paymentReceiver;
-        gParams.nonce = nonce;
-        multisig = _createGnosisSafeProxy(gParams);
+        // Create a multisig with agent instances
+        multisig = IMultisig(multisigImplementation).create(agentInstances, service.threshold, data);
 
-        emit CreateSafeWithAgents(serviceId, agentInstances, service.threshold);
+        emit CreateMultisigWithAgents(serviceId, agentInstances, service.threshold);
 
+        // Update component and agent maps of services
         _updateComponentAgentServiceConnection(serviceId);
 
         service.multisig = multisig;

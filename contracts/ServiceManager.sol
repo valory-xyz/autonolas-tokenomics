@@ -9,7 +9,7 @@ import "./interfaces/IService.sol";
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceManager is IErrors, IStructs, Ownable {
-    event GnosisSafeCreate(address multisig);
+    event MultisigCreate(address multisig);
 
     address public immutable serviceRegistry;
 
@@ -114,28 +114,18 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
     }
 
-    /// @dev Creates Safe instance controlled by the service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances.
     /// @param serviceId Correspondent service Id.
-    /// @param to Contract address for optional delegate call.
-    /// @param data Data payload for optional delegate call.
-    /// @param fallbackHandler Handler for fallback calls to this contract
-    /// @param paymentToken Token that should be used for the payment (0 is ETH)
-    /// @param payment Value that should be paid
-    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function serviceCreateSafe(
+    function serviceCreateMultisig(
         uint256 serviceId,
-        address to,
-        bytes calldata data,
-        address fallbackHandler,
-        address paymentToken,
-        uint256 payment,
-        address payable paymentReceiver,
-        uint256 nonce
-    ) public returns (address multisig)
+        address multisigImplementation,
+        bytes memory data
+    ) external returns (address multisig)
     {
-        multisig = IService(serviceRegistry).createSafe(msg.sender, serviceId, to, data, fallbackHandler,
-            paymentToken, payment, paymentReceiver, nonce);
-        emit GnosisSafeCreate(multisig);
+        multisig = IService(serviceRegistry).createMultisig(msg.sender, serviceId, multisigImplementation, data);
+        emit MultisigCreate(multisig);
     }
 }

@@ -33,6 +33,7 @@ interface IService is IStructs {
     /// @param agentParams Number of agent instances and required bond to register an instance in the service.
     /// @param threshold Signers threshold for a multisig composed by agent instances.
     /// @param serviceId Service Id to be updated.
+    /// @return success True, if function executed successfully.
     function update(
         address owner,
         string memory name,
@@ -42,7 +43,7 @@ interface IService is IStructs {
         AgentParams[] memory agentParams,
         uint256 threshold,
         uint256 serviceId
-    ) external;
+    ) external returns (bool success);
 
     /// @dev Activates the service.
     /// @param owner Individual that creates and controls a service.
@@ -83,25 +84,16 @@ interface IService is IStructs {
     /// @return success True, if function executed successfully.
     function destroy(address owner, uint256 serviceId) external returns (bool success);
 
-    /// @dev Creates Gnosis Safe instance controlled by the service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    /// @param to Contract address for optional delegate call.
-    /// @param data Data payload for optional delegate call.
-    /// @param fallbackHandler Handler for fallback calls to this contract
-    /// @param paymentToken Token that should be used for the payment (0 is ETH)
-    /// @param payment Value that should be paid
-    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
+    /// @param multisigImplementation Multisig implementation contract address.
+    /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function createSafe(
+    function createMultisig(
         address owner,
         uint256 serviceId,
-        address to,
-        bytes calldata data,
-        address fallbackHandler,
-        address paymentToken,
-        uint256 payment,
-        address payable paymentReceiver,
-        uint256 nonce
+        address multisigImplementation,
+        bytes memory data
     ) external returns (address multisig);
 }

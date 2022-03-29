@@ -7,6 +7,7 @@ describe("ServiceRegistry", function () {
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
+    let gnosisSafeMultisig;
     let signers;
     const name = "service name";
     const description = "service description";
@@ -28,6 +29,7 @@ describe("ServiceRegistry", function () {
     const agentHash = {hash: "0x" + "7".repeat(64), hashFunction: "0x12", size: "0x20"};
     const agentHash1 = {hash: "0x" + "8".repeat(64), hashFunction: "0x12", size: "0x20"};
     const AddressZero = "0x" + "0".repeat(40);
+    const payload = "0x";
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -48,9 +50,13 @@ describe("ServiceRegistry", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
-            gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
         await serviceRegistry.deployed();
+
+        const GnosisSafeMultisig = await ethers.getContractFactory("GnosisSafeMultisig");
+        gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        await gnosisSafeMultisig.deployed();
+
         signers = await ethers.getSigners();
     });
 
@@ -608,12 +614,11 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance], [agentId], {value: regBond});
             await expect(
-                serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
-                    AddressZero, 0, AddressZero, serviceId)
+                serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId, gnosisSafeMultisig.address, payload)
             ).to.be.revertedWith("WrongServiceState");
         });
 
-        it("Catching \"CreateSafeWithAgents\" event log when calling the Safe contract creation", async function () {
+        it("Catching \"CreateMultisigWithAgents\" event log when calling the Safe contract creation", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -652,10 +657,10 @@ describe("ServiceRegistry", function () {
             expect(state).to.equal(3);
 
             // Create safe
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const safe = await serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
-            expect(result.events[2].event).to.equal("CreateSafeWithAgents");
+            expect(result.events[2].event).to.equal("CreateMultisigWithAgents");
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(4);
 
@@ -706,10 +711,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId + 1, [agentInstances[2], agentInstances[3]],
                 [agentId + 1, agentId + 1], {value: 2*regBond});
 
-            await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
-            await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId + 1, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            await serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId, gnosisSafeMultisig.address, payload);
+            await serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId + 1, gnosisSafeMultisig.address, payload);
         });
     });
 
@@ -1114,8 +1117,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance.address], [agentId], {value: regBond});
 
             // Create multisig
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const safe = await serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
@@ -1170,8 +1173,8 @@ describe("ServiceRegistry", function () {
                 [agentInstances[0].address, agentInstances[1].address], [agentId, agentId], {value: 2*regBond});
 
             // Create multisig
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const safe = await serviceRegistry.connect(serviceManager).createMultisig(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
