@@ -114,18 +114,18 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
     }
 
-    /// @dev Creates multisig instance controlled by the set of service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
     /// @param serviceId Correspondent service Id.
     /// @param multisigImplementation Multisig implementation address.
     /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function serviceCreateMultisig(
+    function serviceDeploy(
         uint256 serviceId,
         address multisigImplementation,
         bytes memory data
     ) external returns (address multisig)
     {
-        multisig = IService(serviceRegistry).createMultisig(msg.sender, serviceId, multisigImplementation, data);
+        multisig = IService(serviceRegistry).deploy(msg.sender, serviceId, multisigImplementation, data);
         emit MultisigCreate(multisig);
     }
 }

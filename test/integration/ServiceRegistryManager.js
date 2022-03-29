@@ -228,7 +228,7 @@ describe("ServiceRegistry integration", function () {
 
             // Safe is not possible without all the registered agent instances
             await expect(
-                serviceManager.connect(owner).serviceCreateMultisig(serviceIds[0], gnosisSafeMultisig.address, payload)
+                serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload)
             ).to.be.revertedWith("WrongServiceState");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgents(serviceIds[0], [agentInstances[2]],
@@ -245,7 +245,7 @@ describe("ServiceRegistry integration", function () {
             ).to.be.revertedWith("WrongServiceState");
 
             // Creating Safe with blanc safe parameters for the test
-            const safe = await serviceManager.connect(owner).serviceCreateMultisig(serviceIds[0], gnosisSafeMultisig.address, payload);
+            const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
@@ -439,7 +439,7 @@ describe("ServiceRegistry integration", function () {
             expect(contractBalance).to.equal(expectedContractBalance);
 
             // Create multisig
-            const safe = await serviceManager.connect(owner).serviceCreateMultisig(serviceIds[0], gnosisSafeMultisig.address, payload);
+            const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 

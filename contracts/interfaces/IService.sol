@@ -84,13 +84,13 @@ interface IService is IStructs {
     /// @return success True, if function executed successfully.
     function destroy(address owner, uint256 serviceId) external returns (bool success);
 
-    /// @dev Creates multisig instance controlled by the set of service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
-    /// @param multisigImplementation Multisig implementation contract address.
+    /// @param multisigImplementation Multisig implementation address.
     /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function createMultisig(
+    function deploy(
         address owner,
         uint256 serviceId,
         address multisigImplementation,

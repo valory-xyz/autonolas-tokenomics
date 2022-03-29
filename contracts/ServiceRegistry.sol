@@ -17,13 +17,14 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     event CreateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event UpdateService(address owner, string name, uint256 threshold, uint256 serviceId);
     event RegisterInstance(address operator, uint256 serviceId, address agent, uint256 agentId);
-    event CreateMultisigWithAgents(uint256 serviceId, address[] agentInstances, uint256 threshold);
+    event CreateMultisigWithAgents(uint256 serviceId, address multisig, address[] agentInstances, uint256 threshold);
     event ActivateRegistration(address owner, uint256 serviceId);
     event DestroyService(address owner, uint256 serviceId);
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
     event OperatorUnbond(address operator, uint256 serviceId);
     event RewardService(uint256 serviceId, uint256 amount);
+    event DeployService(address owner, uint256 serviceId);
 
     enum ServiceState {
         NonExistent,
@@ -93,7 +94,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     // Map of agent instance address => service id it is registered with and operator address that supplied the instance
     mapping (address => address) private _mapAgentInstanceOperators;
     // Map of canonical agent Id => set of service Ids that incorporate this canonical agent Id
-    // Updated during the service deployment via createMultisig() function
+    // Updated during the service deployment via deploy() function
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
@@ -675,13 +676,13 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
     }
 
-    /// @dev Creates multisig instance controlled by the set of service agent instances.
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
     /// @param owner Individual that creates and controls a service.
     /// @param serviceId Correspondent service Id.
     /// @param multisigImplementation Multisig implementation address.
     /// @param data Data payload for the multisig creation.
     /// @return multisig Address of the created multisig.
-    function createMultisig(
+    function deploy(
         address owner,
         uint256 serviceId,
         address multisigImplementation,
@@ -699,13 +700,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         // Create a multisig with agent instances
         multisig = IMultisig(multisigImplementation).create(agentInstances, service.threshold, data);
 
-        emit CreateMultisigWithAgents(serviceId, agentInstances, service.threshold);
+        emit CreateMultisigWithAgents(serviceId, multisig, agentInstances, service.threshold);
 
         // Update component and agent maps of services
         _updateComponentAgentServiceConnection(serviceId);
 
         service.multisig = multisig;
         service.state = ServiceState.Deployed;
+
+        emit DeployService(owner, serviceId);
     }
 
     /// @dev Checks if the service Id exists.
