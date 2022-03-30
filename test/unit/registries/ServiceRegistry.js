@@ -656,7 +656,9 @@ describe("ServiceRegistry", function () {
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(3);
 
-            // Create safe
+            // Create safe passing a specific salt / nonce and payload (won't be used)
+            const payload = ethers.utils.solidityPack(["address", "address", "address", "address", "uint256", "uint256", "bytes"],
+                [AddressZero, AddressZero, AddressZero, AddressZero, 0, serviceId, "0xabcd"]);
             const safe = await serviceRegistry.connect(serviceManager).deploy(owner, serviceId,
                 gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
