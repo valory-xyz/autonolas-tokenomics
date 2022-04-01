@@ -13,6 +13,7 @@ describe("Bond Depository LP", async () => {
     let erc20Token;
     let olaFactory;
     let depositoryFactory;
+    let tokenomicsFactory;
 
     let dai;
     let ola;
@@ -20,6 +21,8 @@ describe("Bond Depository LP", async () => {
     let depository;
     let treasury;
     let treasuryFactory;
+    let tokenomics;
+    let epochLen = 100;
 
     let supply = "10000000000000000000000"; // 10,000
 
@@ -41,6 +44,7 @@ describe("Bond Depository LP", async () => {
         erc20Token = await ethers.getContractFactory("ERC20Token");
         depositoryFactory = await ethers.getContractFactory("BondDepository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
+        tokenomicsFactory = await ethers.getContractFactory("Tokenimics");
     });
 
     beforeEach(async () => {
@@ -48,10 +52,18 @@ describe("Bond Depository LP", async () => {
         ola = await olaFactory.deploy();
         treasury = await treasuryFactory.deploy(ola.address, deployer.address);
 
+        tokenomics = await tokenomicsFactory.deploy(
+            deployer.address,
+            ola.address,
+            treasury.address,
+            epochLen
+        );
+
         depository = await depositoryFactory.deploy(
             deployer.address,
             ola.address,
-            treasury.address
+            treasury.address,
+            tokenomics.address
         );
 
         await dai.mint(deployer.address, initialMint);
@@ -122,12 +134,14 @@ describe("Bond Depository LP", async () => {
         await dai.connect(alice).approve(depository.address, supply);
 
         await treasury.enableToken(pairODAI.address);
+        await tokenomics.changeManagerDepository(depository.address);
 
         await depository.create(
             pairODAI.address,
             supply,
             vesting
         );
+        
         const block = await ethers.provider.getBlock("latest");
         conclusion = block.timestamp + timeToConclusion;
     });

@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/ITreasury.sol";
+import "./interfaces/ITokenomics.sol";
 
 
 /// @title Bond Depository - Smart contract for OLA Bond Depository
@@ -51,6 +52,8 @@ contract BondDepository is IErrors, Ownable {
     IERC20 public immutable ola;
     // Treasury interface
     ITreasury public treasury;
+    // Tokenomics interface 
+    ITokenomics public tokenomics;
     // Depository manager
     address public manager;
     // Mapping of user address => list of bonds
@@ -58,11 +61,14 @@ contract BondDepository is IErrors, Ownable {
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
 
+    uint public constant E18 = 10**18;
+
     // TODO later fix government / manager
-    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury) {
+    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, ITokenomics iTokenomics) {
         manager = initManager;
         ola = iOLA;
         treasury = iTreasury;
+        tokenomics = iTokenomics;
     }
 
     // Only the manager has a privilege to manipulate a treasury
@@ -104,7 +110,9 @@ contract BondDepository is IErrors, Ownable {
         }
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
-        payout = _calculatePayoutFromLP(token, tokenAmount);
+        uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
+        uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
+        payout = _calculatePayoutFromLP(token, tokenAmount, df);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -258,13 +266,10 @@ contract BondDepository is IErrors, Ownable {
     // TODO This is the mocking function for the moment
     /// @dev Calculates discount factor.
     /// @param amount Initial OLA token amount.
+    /// @param df Discount
     /// @return amountDF OLA amount corrected by the DF.
-    function _calculateDF(uint256 amount) internal pure returns (uint256 amountDF) {
-        uint256 UCF = 50; // 50% just stub
-        uint256 USF = 60; // 60% just stub
-        uint256 sum = UCF + USF; // 50 + 60 = 110
-        amountDF = (amount / 100) * sum; // 110/100, fixed later
-
+    function _calculateDF(uint256 amount, uint256 df) internal pure returns (uint256 amountDF) {
+        amountDF = (amount * df) / E18; // df with decimals 18
         // The discounted amount cannot be smaller than the actual one
         if (amountDF < amount) {
             revert AmountLowerThan(amountDF, amount);
@@ -296,10 +301,12 @@ contract BondDepository is IErrors, Ownable {
     /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
     /// @param token Token address.
     /// @param amount Token amount.
+    /// @param df Discount
     /// @return resAmount Resulting amount of OLA tokens.
-    function _calculatePayoutFromLP(address token, uint256 amount) internal view
+    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
         returns (uint256 resAmount)
     {
+        // ******************* will be rewritten later with CumulativePrices
         // Calculation of removeLiquidity
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = pair.token0();
@@ -326,8 +333,10 @@ contract BondDepository is IErrors, Ownable {
         uint256 reserveOut = (token0 == address(ola)) ? balance0 : balance1;
         amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
+        // ******************** 
+
         // Get the resulting amount in OLA tokens
-        resAmount = _calculateDF(amountOLA);
+        resAmount = _calculateDF(amountOLA, df);
     }
 
     /// @dev Gets the product instance.
