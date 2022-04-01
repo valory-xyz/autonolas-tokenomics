@@ -71,29 +71,6 @@ contract ServiceManager is IErrors, IStructs, Ownable {
             threshold, serviceId);
     }
 
-    /// @dev Terminates the service.
-    /// @param serviceId Service Id.
-    /// @return success True, if function executed successfully.
-    /// @return refund Refund to return to the owner.
-    function serviceTerminate(uint256 serviceId) public returns (bool success, uint256 refund) {
-        (success, refund) = IService(serviceRegistry).terminate(msg.sender, serviceId);
-    }
-
-    /// @dev Unbonds agent instances of the operator from the service.
-    /// @param serviceId Service Id.
-    /// @return success True, if function executed successfully.
-    /// @return refund The amount of refund returned to the operator.
-    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
-        (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
-    }
-
-    /// @dev Destroys the service instance and frees up its storage.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function serviceDestroy(uint256 serviceId) public returns (bool success) {
-        success = IService(serviceRegistry).destroy(msg.sender, serviceId);
-    }
-
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
@@ -127,5 +104,28 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     {
         multisig = IService(serviceRegistry).deploy(msg.sender, serviceId, multisigImplementation, data);
         emit MultisigCreate(multisig);
+    }
+
+    /// @dev Terminates the service.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund Refund to return to the owner.
+    function serviceTerminate(uint256 serviceId) public returns (bool success, uint256 refund) {
+        (success, refund) = IService(serviceRegistry).terminate(msg.sender, serviceId);
+    }
+
+    /// @dev Unbonds agent instances of the operator from the service.
+    /// @param serviceId Service Id.
+    /// @return success True, if function executed successfully.
+    /// @return refund The amount of refund returned to the operator.
+    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
+        (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
+    }
+
+    /// @dev Destroys the service instance and frees up its storage.
+    /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
+    function serviceDestroy(uint256 serviceId) public returns (bool success) {
+        success = IService(serviceRegistry).destroy(msg.sender, serviceId);
     }
 }

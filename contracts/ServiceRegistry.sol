@@ -454,6 +454,41 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         success = true;
     }
 
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
+    /// @return multisig Address of the created multisig.
+    function deploy(
+        address owner,
+        uint256 serviceId,
+        address multisigImplementation,
+        bytes memory data
+    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
+    {
+        Service storage service = _mapServices[serviceId];
+        if (service.state != ServiceState.FinishedRegistration) {
+            revert WrongServiceState(uint256(service.state), serviceId);
+        }
+
+        // Get all agent instances for the multisig
+        address[] memory agentInstances = _getAgentInstances(service);
+
+        // Create a multisig with agent instances
+        multisig = IMultisig(multisigImplementation).create(agentInstances, service.threshold, data);
+
+        emit CreateMultisigWithAgents(serviceId, multisig, agentInstances, service.threshold);
+
+        // Update component and agent maps of services
+        _updateComponentAgentServiceConnection(serviceId);
+
+        service.multisig = multisig;
+        service.state = ServiceState.Deployed;
+
+        emit DeployService(owner, serviceId);
+    }
+
     /// @dev Slashes a specified agent instance.
     /// @param agentInstances Agent instances to slash.
     /// @param amounts Correspondent amounts to slash.
@@ -674,41 +709,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
                 }
             }
         }
-    }
-
-    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    /// @param multisigImplementation Multisig implementation address.
-    /// @param data Data payload for the multisig creation.
-    /// @return multisig Address of the created multisig.
-    function deploy(
-        address owner,
-        uint256 serviceId,
-        address multisigImplementation,
-        bytes memory data
-    ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
-    {
-        Service storage service = _mapServices[serviceId];
-        if (service.state != ServiceState.FinishedRegistration) {
-            revert WrongServiceState(uint256(service.state), serviceId);
-        }
-
-        // Get all agent instances for the multisig
-        address[] memory agentInstances = _getAgentInstances(service);
-
-        // Create a multisig with agent instances
-        multisig = IMultisig(multisigImplementation).create(agentInstances, service.threshold, data);
-
-        emit CreateMultisigWithAgents(serviceId, multisig, agentInstances, service.threshold);
-
-        // Update component and agent maps of services
-        _updateComponentAgentServiceConnection(serviceId);
-
-        service.multisig = multisig;
-        service.state = ServiceState.Deployed;
-
-        emit DeployService(owner, serviceId);
     }
 
     /// @dev Checks if the service Id exists.

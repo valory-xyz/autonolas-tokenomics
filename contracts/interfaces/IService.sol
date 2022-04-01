@@ -64,6 +64,19 @@ interface IService is IStructs {
         uint256[] memory agentIds
     ) external payable returns (bool success);
 
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
+    /// @param owner Individual that creates and controls a service.
+    /// @param serviceId Correspondent service Id.
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
+    /// @return multisig Address of the created multisig.
+    function deploy(
+        address owner,
+        uint256 serviceId,
+        address multisigImplementation,
+        bytes memory data
+    ) external returns (address multisig);
+
     /// @dev Terminates the service.
     /// @param owner Owner of the service.
     /// @param serviceId Service Id to be updated.
@@ -83,17 +96,4 @@ interface IService is IStructs {
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
     function destroy(address owner, uint256 serviceId) external returns (bool success);
-
-    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
-    /// @param owner Individual that creates and controls a service.
-    /// @param serviceId Correspondent service Id.
-    /// @param multisigImplementation Multisig implementation address.
-    /// @param data Data payload for the multisig creation.
-    /// @return multisig Address of the created multisig.
-    function deploy(
-        address owner,
-        uint256 serviceId,
-        address multisigImplementation,
-        bytes memory data
-    ) external returns (address multisig);
 }
