@@ -60,6 +60,8 @@ contract BondDepository is IErrors, Ownable {
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
 
+    uint public constant E18 = 10**18;
+
     // TODO later fix government / manager
     constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, ITokenomics iTokenomics) {
         manager = initManager;
@@ -108,7 +110,7 @@ contract BondDepository is IErrors, Ownable {
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
         uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
-        uint256 df = ITokenomics(tokenomics).getDForCalc(_epoch); // df uint with 18 decimals
+        uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
         payout = _calculatePayoutFromLP(token, tokenAmount, df);
 
         // Check for the sufficient supply
@@ -266,12 +268,7 @@ contract BondDepository is IErrors, Ownable {
     /// @param df Discount
     /// @return amountDF OLA amount corrected by the DF.
     function _calculateDF(uint256 amount, uint256 df) internal pure returns (uint256 amountDF) {
-        //uint256 UCF = 50; // 50% just stub
-        //uint256 USF = 60; // 60% just stub
-        //uint256 sum = UCF + USF; // 50 + 60 = 110
-        //amountDF = (amount / 100) * sum; // 110/100, fixed later
-
-        amountDF = (amount * df) / 1000000000000000000; // 10^18
+        amountDF = (amount * df) / E18; // df with decimals 18
         // The discounted amount cannot be smaller than the actual one
         if (amountDF < amount) {
             revert AmountLowerThan(amountDF, amount);

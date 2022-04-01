@@ -117,16 +117,26 @@ contract Tokenimics is IErrors, Ownable {
         FixedPoint.uq112x112 memory _ucf = FixedPoint.fraction(numerator, denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
         FixedPoint.uq112x112 memory _usf = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
         FixedPoint.uq112x112 memory _df = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        uint price0Cumulative;
-        uint price0CumulativeLast;
-        FixedPoint.uq112x112 memory price0Average;
-        uint timeElapsed;
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, price: FixedPoint.fraction(1, 1), priceCumulative: 0, ts: block.timestamp, blk: block.number, _exist: false });
         // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
         // *************** stub for interactions with Registry*
         // Treasury part, I will improve it later
-        if(_epoch > 0) {
-            PointEcomonics memory prePoint = mapEpochEconomics[_epoch-1];
+        (newPoint.price, newPoint.priceCumulative) = _CumulativePricesFromHistoryPoint(_epoch); 
+        newPoint._exist = true;
+        mapEpochEconomics[_epoch] = newPoint;
+    }
+
+    /// @dev produces the price for point
+    /// @param _epoch number of epoch
+    /// @return price0Average average price in form of fixed point 112.112
+    /// @return price0Cumulative cumulative price as uint
+    function _CumulativePricesFromHistoryPoint(uint256 _epoch) internal returns (FixedPoint.uq112x112 memory price0Average, uint256 price0Cumulative) {
+        uint timeElapsed;
+        uint256 price0CumulativeLast;
+        address[] memory tokensInTreasury = treasury.getTokenRegistry(); // list of trusted pairs
+        PointEcomonics memory prePoint = mapEpochEconomics[_epoch-1];
+
+        if(_epoch > 0) {    
             if(!prePoint._exist) {
                 price0CumulativeLast = prePoint.priceCumulative;
                 timeElapsed = block.timestamp - prePoint.ts;
@@ -138,39 +148,32 @@ contract Tokenimics is IErrors, Ownable {
             price0CumulativeLast = 0;
             timeElapsed = 1;
         }
-        address[] memory tokensInTreasury = treasury.getTokenRegistry(); // list of trusted pairs
+        
         for (uint256 i = 0; i < tokensInTreasury.length; i++) {
-            if(treasury.isEnabled(tokensInTreasury[i])) {
-                if(callDetectPair(tokensInTreasury[i])) { // ERC20 or LP
-                    // part for LP tokens 
-                    // OLA in trusted pair can be token0 or token1
-                    address addrTmp = IUniswapV2Pair(tokensInTreasury[i]).token0();
-                    if (addrTmp == address(ola)) { // re-check order price vs token!
-                        (price0Cumulative,,) = _currentCumulativePrices(tokensInTreasury[i]);
-                        newPoint.priceCumulative = price0Cumulative;
-                        if(price0Cumulative > price0CumulativeLast) {
-                            price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                        } else {
-                            price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                        }
-                        newPoint.price = price0Average; 
+            if(treasury.isEnabled(tokensInTreasury[i]) && callDetectPair(tokensInTreasury[i])) {
+                // part for LP tokens 
+                // OLA in trusted pair can be token0 or token1
+                address addrTmp = IUniswapV2Pair(tokensInTreasury[i]).token0();
+                if (addrTmp == address(ola)) { // re-check order price vs token!
+                    (price0Cumulative,,) = _currentCumulativePrices(tokensInTreasury[i]);
+                    if(price0Cumulative > price0CumulativeLast) {
+                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
                     } else {
-                        (,price0Cumulative,) = _currentCumulativePrices(tokensInTreasury[i]);
-                        newPoint.priceCumulative = price0Cumulative;
-                        if(price0Cumulative > price0CumulativeLast) {
-                            price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                        } else {
-                            price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                        }
-                        newPoint.price = price0Average; 
+                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
                     }
-                    break; // multi-LP (i.e. OLA-DAI, OLA-ETH, OLA-USDC, .. in single Treasury/Bonding) not supported yet, or neeed nested map
+                } else {
+
+                    if(price0Cumulative > price0CumulativeLast) {
+                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
+                    } else {
+                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
+                    }
                 }
+                break; // multi-LP (i.e. OLA-DAI, OLA-ETH, OLA-USDC, .. in single Treasury/Bonding) not supported yet, or neeed nested map
             }
         }
-        newPoint._exist = true;
-        mapEpochEconomics[_epoch] = newPoint;
-    }
+    } 
+
 
     /// @dev produces the cumulative price
     /// @param pair LPToken/Pool address.
@@ -215,7 +218,7 @@ contract Tokenimics is IErrors, Ownable {
     }
 
     // decode a uq112x112 into a uint with 18 decimals of precision
-    function getDForCalc(uint256 _epoch) external onlyManagerCheckpoint returns (uint256 df) {
+    function getDFForEpoch(uint256 _epoch) external onlyManagerCheckpoint returns (uint256 df) {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
         if (_PE._exist) {
             // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
