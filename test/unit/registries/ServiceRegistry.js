@@ -1184,6 +1184,11 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId,
                 [agentInstances[0].address, agentInstances[1].address], [agentId, agentId], {value: 2*regBond});
 
+            // Should fail without whitelisted multisig implementation
+            await expect(
+                serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload)
+            ).to.be.revertedWith("UnauthorizedMultisig");
+
             // Whitelist gnosis multisig implementation
             await serviceRegistry.addMultisigAddress(gnosisSafeMultisig.address);
 
