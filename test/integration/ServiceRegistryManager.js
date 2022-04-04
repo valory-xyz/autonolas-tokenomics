@@ -226,6 +226,9 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.connect(operators[0]).serviceRegisterAgents(serviceIds[0], [agentInstances[0], agentInstances[1]],
                 [newAgentIds[0], newAgentIds[1]], {value: 2*regBond});
 
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.addMultisigAddress(gnosisSafeMultisig.address);
+
             // Safe is not possible without all the registered agent instances
             await expect(
                 serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload)
@@ -437,6 +440,9 @@ describe("ServiceRegistry integration", function () {
             const expectedContractBalance = regBond + regDeposit;
             const contractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
             expect(contractBalance).to.equal(expectedContractBalance);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.addMultisigAddress(gnosisSafeMultisig.address);
 
             // Create multisig
             const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);

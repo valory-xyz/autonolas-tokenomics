@@ -121,9 +121,13 @@ interface IErrors {
     /// @dev Fallback or receive function.
     error WrongFunction();
 
-    /// @dev Token is disabled.
+    /// @dev Token is disabled or not whitelisted.
     /// @param tokenAddress Address of a token.
     error UnauthorizedToken(address tokenAddress);
+
+    /// @dev Multisig is not whitelisted.
+    /// @param multisig Address of a multisig implementation.
+    error UnauthorizedMultisig(address multisig);
 
     /// @dev Provided token address is incorrect.
     /// @param provided Provided token address.

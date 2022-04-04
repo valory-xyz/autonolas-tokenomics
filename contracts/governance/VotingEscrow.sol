@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./interfaces/IErrors.sol";
+import "../interfaces/IErrors.sol";
 
 /**
 @title Voting Escrow
@@ -315,7 +315,7 @@ contract VotingEscrow is IErrors, Ownable, ReentrancyGuard {
     }
 
     /// @notice Deposit and lock tokens for a user
-    /// @param _addr NFT that holds lock
+    /// @param _addr Address that holds lock
     /// @param _value Amount to deposit
     /// @param unlockTime New time when to unlock the tokens, or 0 if unchanged
     /// @param lockedBalance Previous locked amount / timestamp
@@ -530,7 +530,7 @@ contract VotingEscrow is IErrors, Ownable, ReentrancyGuard {
     /// @param addr User's wallet address
     /// @param _block Block to calculate the voting power at
     /// @return Voting power
-    function balanceOfAt(address addr, uint256 _block) external view returns (uint256) {
+    function balanceOfAt(address addr, uint256 _block) public view returns (uint256) {
         if (_block > block.number) {
             revert WrongBlockNumber(_block, block.number);
         }
