@@ -110,8 +110,8 @@ contract BondDepository is IErrors, Ownable {
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
         uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
-        uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
-        payout = _calculatePayoutFromLP(token, tokenAmount, df);
+        //uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, _epoch);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -260,82 +260,6 @@ contract BondDepository is IErrors, Ownable {
             }
         }
         return ids;
-    }
-
-    // TODO This is the mocking function for the moment
-    /// @dev Calculates discount factor.
-    /// @param amount Initial OLA token amount.
-    /// @param df Discount
-    /// @return amountDF OLA amount corrected by the DF.
-    function _calculateDF(uint256 amount, uint256 df) internal pure returns (uint256 amountDF) {
-        amountDF = (amount * df) / E18; // df with decimals 18
-        // The discounted amount cannot be smaller than the actual one
-        if (amountDF < amount) {
-            revert AmountLowerThan(amountDF, amount);
-        }
-    }
-
-    // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
-    // No license in file
-    // forked for Solidity 8.x
-    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-
-    /// @dev Gets the additional OLA amount from the LP pair token by swapping.
-    /// @param amountIn Initial OLA token amount.
-    /// @param reserveIn Token amount that is not OLA.
-    /// @param reserveOut Token amount in OLA wit fees.
-    /// @return amountOut Resulting OLA amount.
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
-        returns (uint256 amountOut)
-    {
-        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
-        require(reserveIn > 0 && reserveOut > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
-
-        uint256 amountInWithFee = amountIn * 997;
-        uint256 numerator = amountInWithFee / reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        amountOut = numerator / denominator;
-    }
-
-    /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param amount Token amount.
-    /// @param df Discount
-    /// @return resAmount Resulting amount of OLA tokens.
-    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
-        returns (uint256 resAmount)
-    {
-        // ******************* will be rewritten later with CumulativePrices
-        // Calculation of removeLiquidity
-        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        uint256 balance0 = IERC20(token0).balanceOf(address(pair));
-        uint256 balance1 = IERC20(token1).balanceOf(address(pair));
-        uint256 totalSupply = pair.totalSupply();
-
-        // Using balances ensures pro-rate distribution
-        uint256 amount0 = (amount * balance0) / totalSupply;
-        uint256 amount1 = (amount * balance1) / totalSupply;
-
-        require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
-        require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
-
-        // Get the initial OLA token amounts
-        uint256 amountOLA = (token0 == address(ola)) ? amount0 : amount1;
-        uint256 amountPairForOLA = (token0 == address(ola)) ? amount1 : amount0;
-
-        // Calculate swap tokens from the LP back to the OLA token
-        balance0 -= amount0;
-        balance1 -= amount1;
-        uint256 reserveIn = (token0 == address(ola)) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == address(ola)) ? balance0 : balance1;
-        amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
-
-        // ******************** 
-
-        // Get the resulting amount in OLA tokens
-        resAmount = _calculateDF(amountOLA, df);
     }
 
     /// @dev Gets the product instance.
