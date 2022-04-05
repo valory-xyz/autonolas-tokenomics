@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IOLA.sol";
+import "./interfaces/ITokenomics.sol";
+import "./interfaces/IWETH.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
@@ -34,6 +36,10 @@ contract Treasury is IErrors, Ownable {
 
     // OLA interface
     IOLA public immutable ola;
+    // WETH interface
+    IWETH public immutable weth;
+    // Tokenomics interface
+    ITokenomics public tokenomics;
     // Treasury manager
     address public manager;
     // Depository address
@@ -43,14 +49,17 @@ contract Treasury is IErrors, Ownable {
     // Token address => token info
     mapping(address => TokenInfo) public mapTokens;
 
-    constructor(address olaToken, address initManager) {
-        if (olaToken == address(0)) {
+    constructor(address _ola, address _weth, address _manager, address _tokenomics) {
+        if (_ola == address(0)) {
             revert ZeroAddress();
         }
 
-        ola = IOLA(olaToken);
-        manager = initManager;
-        depository = initManager;
+        ola = IOLA(_ola);
+        weth = IWETH(_weth);
+        mapTokens[_weth].state = TokenState.Enabled;
+        tokenomics = ITokenomics(_tokenomics);
+        manager = _manager;
+        depository = _manager;
     }
 
     // Only the manager has a privilege to manipulate a treasury
@@ -87,7 +96,7 @@ contract Treasury is IErrors, Ownable {
     /// @param tokenAmount Token amount to get OLA for.
     /// @param token Token address.
     /// @param olaMintAmount Amount of OLA token issued.
-    function deposit(uint256 tokenAmount, address token, uint256 olaMintAmount) external onlyDepository {
+    function depositTokenForOLA(uint256 tokenAmount, address token, uint256 olaMintAmount) external onlyDepository {
         // Check if the token is authorized by the registry
         if (mapTokens[token].state != TokenState.Enabled) {
             revert UnauthorizedToken(token);
@@ -99,9 +108,62 @@ contract Treasury is IErrors, Ownable {
         // Mint specified number of OLA tokens corresponding to tokens bonding deposit
         ola.mint(msg.sender, olaMintAmount);
 
+        tokenomics.depositToken(token, tokenAmount);
         emit Deposit(token, tokenAmount, olaMintAmount);
     }
 
+    /// @dev Deposits token funds.
+    /// @param tokenAmount Token amount to get OLA for.
+    /// @param token Token address.
+    function depositToken(uint256 tokenAmount, address token) external payable {
+        // If there's msg.value, we do a WETH deposit. Otherwise transfer tokens, but not both
+        if (msg.value > 0) {
+            // Deposit WETH
+            weth.deposit{value: msg.value}();
+            // In this case token is WETH, and the amount is msg.value
+            token = address(weth);
+            tokenAmount = msg.value;
+        } else {
+            // Check if the token is authorized by the registry
+            if (mapTokens[token].state != TokenState.Enabled) {
+                revert UnauthorizedToken(token);
+            }
+
+            // Transfer tokens to treasury and add to the token treasury reserves
+            IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+            mapTokens[token].reserves += tokenAmount;
+        }
+
+        tokenomics.depositToken(token, tokenAmount);
+        emit Deposit(token, tokenAmount, 0);
+    }
+
+    /// @dev Deposits WETH from protocol-owned services.
+    function depositFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+        // Check for the same length of arrays
+        uint256 numServices = serviceIds.length;
+        if (amounts.length != numServices) {
+            // TODO correct the revert
+            revert WrongAgentsData(numServices, amounts.length);
+        }
+
+        address wethToken = address(weth);
+        uint256 totalAmount;
+        for (uint256 i = 0; i < numServices; ++i) {
+            totalAmount += amounts[i];
+            tokenomics.depositToken(wethToken, amounts[i]);
+        }
+
+        // Check if the total transferred amount corresponds to the sum of amounts from services
+        if (msg.value != totalAmount) {
+            // TODO correct the revert
+            revert AmountLowerThan(msg.value, totalAmount);
+        }
+
+        // TODO Implement this function
+//        tokenomics.setServiceIds(serviceIds, amounts);
+        emit Deposit(wethToken, totalAmount, 0);
+    }
 
     /// @dev Allows manager to withdraw specified tokens from reserves
     /// @param tokenAmount Token amount to get reserves from.
@@ -116,6 +178,7 @@ contract Treasury is IErrors, Ownable {
         IERC20(token).safeTransfer(msg.sender, tokenAmount);
         mapTokens[token].reserves -= tokenAmount;
 
+        tokenomics.withdrawToken(token, tokenAmount);
         emit Withdrawal(token, tokenAmount);
     }
 

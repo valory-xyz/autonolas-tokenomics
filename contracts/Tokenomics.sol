@@ -30,8 +30,12 @@ contract Tokenimics is IErrors, Ownable {
     // Treasury interface
     ITreasury public treasury;
     // Tokenomics manager
-    address public managerDAO; // the usual way
-    address public managerDepository; // backup way
+    // The DAO manager
+    address public managerDAO;
+    // Depository manager
+    address public managerDepository;
+    // Autonolas address as owner in protocol-owned services
+    address public autonolas;
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epoch_len; // epoch len in blk
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
@@ -41,11 +45,22 @@ contract Tokenimics is IErrors, Ownable {
 
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
+    // Map of token deposits per epoch
+    mapping(uint256 => mapping(address => uint256)) mapEpochTokenDeposits;
+    // Set of protocol-owned services in current epoch
+    uint256[] serviceIdsEpoch;
+    // Set of protocol-owned services in previous epoch
+//    uint256[] serviceIdsPreviousEpoch;
+    // Map of service Ids and their amounts in current epoch
+    mapping(uint256 => uint256) mapServiceAmountsEpoch;
+    // Map of service Ids and their amounts in previous epoch
+//    mapping(uint256 => uint256) mapServiceAmountsPreviousEpoch;
 
     // TODO later fix government / manager
-    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, uint256 _epoch_len) {
-        managerDAO = initManager;
-        managerDepository = initManager;
+    constructor(address _manager, IERC20 iOLA, ITreasury iTreasury, uint256 _epoch_len) {
+        managerDAO = _manager;
+        managerDepository = _manager;
+        autonolas = _manager;
         ola = iOLA;
         treasury = iTreasury;
         epoch_len = _epoch_len;
@@ -55,6 +70,14 @@ contract Tokenimics is IErrors, Ownable {
     modifier onlyManager() {
         if (managerDAO != msg.sender) {
             revert ManagerOnly(msg.sender, managerDAO);
+        }
+        _;
+    }
+
+    // Only the manager has a privilege to manipulate a tokenomics
+    modifier onlyTreasury() {
+        if (address(treasury) != msg.sender) {
+            revert ManagerOnly(msg.sender, address(treasury));
         }
         _;
     }
@@ -79,6 +102,29 @@ contract Tokenimics is IErrors, Ownable {
     function changeManagerDepository(address newManager) external onlyOwner {
         managerDepository = newManager;
         emit TokenomicsManagerUpdated(newManager);
+    }
+
+    /// @dev Gets curretn epoch number.
+    function getEpoch() public view returns (uint256 epoch) {
+        epoch = block.number / epoch_len;
+    }
+
+    /// @dev Tracks the deposit token amount during the epoch.
+    function depositToken(address token, uint256 tokenAmount) public onlyTreasury {
+        uint256 epoch = getEpoch();
+        mapEpochTokenDeposits[epoch][token] += tokenAmount;
+    }
+
+    /// @dev Tracks the withdraw of token amount during the epoch.
+    function withdrawToken(address token, uint256 tokenAmount) public onlyTreasury {
+        uint256 epoch = getEpoch();
+        uint256 balance = mapEpochTokenDeposits[epoch][token];
+        if (balance >= tokenAmount) {
+            balance -= tokenAmount;
+        } else {
+            balance = 0;
+        }
+        mapEpochTokenDeposits[epoch][token] = balance;
     }
 
     /// @dev Detect UniswapV2Pair
@@ -127,6 +173,13 @@ contract Tokenimics is IErrors, Ownable {
         FixedPoint.uq112x112 memory _df = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: false });
         // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
+        uint256 numServices = serviceIdsEpoch.length;
+        uint256 ucf;
+        uint256 usf;
+        for (uint256 i = 0; i < numServices; ++i) {
+            uint256 revenue = mapServiceAmountsEpoch[serviceIdsEpoch[i]];
+            usf += revenue;
+        }
         // *************** stub for interactions with Registry*
         // Treasury part, I will improve it later
         newPoint._exist = true;
@@ -256,10 +309,6 @@ contract Tokenimics is IErrors, Ownable {
             _PE = mapEpochEconomics[_epoch];
             df = uint256(_PE.df._x / MAGIC_DENOMINATOR); 
         }
-    }
-
-    function getEpochLen() external view returns (uint256) {
-        return epoch_len;
     }
 
 }    
