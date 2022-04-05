@@ -227,7 +227,7 @@ describe("ServiceRegistry integration", function () {
                 [newAgentIds[0], newAgentIds[1]], {value: 2*regBond});
 
             // Whitelist gnosis multisig implementation
-            await serviceRegistry.addMultisigAddress(gnosisSafeMultisig.address);
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Safe is not possible without all the registered agent instances
             await expect(
@@ -442,7 +442,7 @@ describe("ServiceRegistry integration", function () {
             expect(contractBalance).to.equal(expectedContractBalance);
 
             // Whitelist gnosis multisig implementation
-            await serviceRegistry.addMultisigAddress(gnosisSafeMultisig.address);
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create multisig
             const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);

@@ -98,7 +98,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
-    // Map of whitelisted multisig implementations
+    // Map of policy for multisig implementations
     mapping (address => bool) public mapMultisigs;
 
     constructor(string memory _name, string memory _symbol, address _agentRegistry) ERC721(_name, _symbol)
@@ -827,25 +827,15 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         balance = _mapServices[serviceId].mapOperatorsBalances[operator];
     }
 
-    /// @dev Adds multisig implementation to a white list of multisig addresses.
-    /// @param multisig Address of a multisig implementation to whitelist.
+    /// @dev Controls multisig implementation address permission.
+    /// @param multisig Address of a multisig implementation.
+    /// @param permission Grant or revoke permission.
     /// @return success True, if function executed successfully.
-    function addMultisigAddress(address multisig) public onlyOwner returns (bool success) {
+    function changeMultisigPermission(address multisig, bool permission) public onlyOwner returns (bool success) {
         if (multisig == address(0)) {
             revert ZeroAddress();
         }
-        mapMultisigs[multisig] = true;
-        success = true;
-    }
-
-    /// @dev Removes multisig implementation from a set of whitelisted multisig addresses.
-    /// @param multisig Address of a multisig implementation to remove.
-    /// @return success True, if function executed successfully.
-    function removeMultisigAddress(address multisig) public onlyOwner returns (bool success) {
-        if (multisig == address(0)) {
-            revert ZeroAddress();
-        }
-        delete mapMultisigs[multisig];
+        mapMultisigs[multisig] = permission;
         success = true;
     }
 }

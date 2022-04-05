@@ -39,7 +39,7 @@ describe("Governance integration", function () {
         await token.deployed();
 
         const VotingEscrow = await ethers.getContractFactory("VotingEscrow");
-        escrow = await VotingEscrow.deploy(token.address, "name", "symbol", "0.1");
+        escrow = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1");
         await escrow.deployed();
 
         signers = await ethers.getSigners();
