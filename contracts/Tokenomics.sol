@@ -13,6 +13,7 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 /// @author AL
 contract Tokenimics is IErrors, Ownable {
 
+    using FixedPoint for *;
     event TokenomicsManagerUpdated(address manager);
 
     struct PointEcomonics {
@@ -35,6 +36,7 @@ contract Tokenimics is IErrors, Ownable {
     address public managerDepository; // backup way
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epoch_len; // epoch len in blk
+    // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816; // 2^(112 - log2(1e18))  
 
     // Mapping of epoch => point
@@ -128,60 +130,60 @@ contract Tokenimics is IErrors, Ownable {
 
     /// @dev produces the price for point
     /// @param _epoch number of epoch
-    /// @return price0Average average price in form of fixed point 112.112
-    /// @return price0Cumulative cumulative price as uint
-    function _CumulativePricesFromHistoryPoint(uint256 _epoch) internal returns (FixedPoint.uq112x112 memory price0Average, uint256 price0Cumulative) {
-        uint timeElapsed;
-        uint256 price0CumulativeLast;
+    /// @return priceAverage average price in form of fixed point 112.112
+    /// @return priceCumulative cumulative price as uint
+    function _CumulativePricesFromHistoryPoint(uint256 _epoch) internal returns (FixedPoint.uq112x112 memory priceAverage, uint256 priceCumulative) {
+        uint32 timeElapsed;
+        uint256 priceCumulativeLast;
         address[] memory tokensInTreasury = treasury.getTokenRegistry(); // list of trusted pairs
         PointEcomonics memory prePoint = mapEpochEconomics[_epoch-1];
 
         if(_epoch > 0) {    
             if(!prePoint._exist) {
-                price0CumulativeLast = prePoint.priceCumulative;
-                timeElapsed = block.timestamp - prePoint.ts;
+                priceCumulativeLast = prePoint.priceCumulative;
+                timeElapsed = block.timestamp > prePoint.ts ? uint32(block.timestamp - prePoint.ts) : 1;
             } else {
-                price0CumulativeLast = 0;
+                priceCumulativeLast = 0;
                 timeElapsed = 1;        
             }
         } else {
-            price0CumulativeLast = 0;
+            priceCumulativeLast = 0;
             timeElapsed = 1;
         }
         
         for (uint256 i = 0; i < tokensInTreasury.length; i++) {
             if(treasury.isEnabled(tokensInTreasury[i]) && callDetectPair(tokensInTreasury[i])) {
-                // part for LP tokens 
-                // OLA in trusted pair can be token0 or token1
-                address addrTmp = IUniswapV2Pair(tokensInTreasury[i]).token0();
-                if (addrTmp == address(ola)) { // re-check order price vs token!
-                    (price0Cumulative,,) = _currentCumulativePrices(tokensInTreasury[i]);
-                    if(price0Cumulative > price0CumulativeLast) {
-                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                    } else {
-                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                    }
-                } else {
-
-                    if(price0Cumulative > price0CumulativeLast) {
-                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                    } else {
-                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                    }
-                }
+                ( priceAverage, priceCumulative ) = _currentCumulativePrices(tokensInTreasury[i], priceCumulativeLast, timeElapsed);
                 break; // multi-LP (i.e. OLA-DAI, OLA-ETH, OLA-USDC, .. in single Treasury/Bonding) not supported yet, or neeed nested map
             }
         }
     } 
+
+    /// @dev produces the average price (OLA/non-OLA). ola_amount_out = non-ola_amount_in * p [ola/non-ola]
+    /// @param pair LPToken/Pool address.
+    /// @param priceCumulativeLast pre price cumulative
+    /// @param timeElapsed time for calc price
+    /// @return priceAverage average price for time
+    /// @return priceCumulative cumulative price non-ola-token
+    function _currentCumulativePrices(address pair, uint256 priceCumulativeLast, uint32 timeElapsed) internal view returns (FixedPoint.uq112x112 memory priceAverage, uint priceCumulative) {
+        ( uint price0Cumulative, uint price1Cumulative ) = _currentCumulativePrices(pair);
+        // if token0 is OLA then token1 is notOLA
+        // price0 = tk1/tk0, price1 = tk0/tk1 
+        // for calc tk1_amount_out = tk0_amount_in * p0, tk0_amount_out = tk1_amount_in * p1,  
+        priceCumulative = (IUniswapV2Pair(pair).token0() == address(ola)) ? price1Cumulative : price0Cumulative;
+        priceAverage = (priceCumulative > priceCumulativeLast) ? 
+            FixedPoint.uq112x112(uint224((priceCumulative - priceCumulativeLast) / timeElapsed)) :
+            FixedPoint.uq112x112(uint224((priceCumulativeLast - priceCumulative) / timeElapsed));
+    }
+
 
 
     /// @dev produces the cumulative price
     /// @param pair LPToken/Pool address.
     /// @return price0Cumulative cumulative price token0
     /// @return price1Cumulative cumulative price token1
-    /// @return blockTimestamp current block.timestamp
-    function _currentCumulativePrices(address pair) internal view returns (uint price0Cumulative, uint price1Cumulative, uint32 blockTimestamp) {
-        blockTimestamp =  uint32(block.timestamp);
+    function _currentCumulativePrices(address pair) internal view returns (uint price0Cumulative, uint price1Cumulative) {
+        uint32 blockTimestamp =  uint32(block.timestamp);
         price0Cumulative = IUniswapV2Pair(pair).price0CumulativeLast();
         price1Cumulative = IUniswapV2Pair(pair).price1CumulativeLast();
 
@@ -196,6 +198,18 @@ contract Tokenimics is IErrors, Ownable {
             // counterfactual
             price1Cumulative += uint(FixedPoint.fraction(reserve0, reserve1)._x) * timeElapsed;
         }
+    }
+
+    function convertTokenUsingTimeWeightedPriceWithDF(FixedPoint.uq112x112 memory priceAverage, FixedPoint.uq112x112 memory df, uint amountIn) internal pure 
+        returns (uint amountOut) 
+    {
+        uint amountOutTest = priceAverage.mul(amountIn).decode144();
+        amountOut = priceAverage.muluq(df).mul(amountIn).decode144();
+        require(amountOut >= amountOutTest,"wrong df");
+    }
+
+    function convertTokenUsingTimeWeightedPrice(FixedPoint.uq112x112 memory priceAverage, uint amountIn) internal pure returns (uint amountOut) {
+        amountOut = priceAverage.mul(amountIn).decode144();
     }
 
     /// @dev get Point by epoch
