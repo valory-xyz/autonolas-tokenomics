@@ -167,6 +167,14 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         emit Deposit(ETH_TOKEN_ADDRESS, totalAmount, 0);
     }
 
+    /// @dev Deposits ETH from protocol-owned service.
+    function depositFromService(uint256 serviceId) external payable nonReentrant {
+        tokenomics.depositToken(ETH_TOKEN_ADDRESS, msg.value); // for track per service?
+        // TODO Implement this function
+        // tokenomics.setServiceIds(serviceId, msg.value);  
+        emit Deposit(ETH_TOKEN_ADDRESS, msg.value, 0);
+    }
+
     /// @dev Allows manager to withdraw specified tokens from reserves
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token address.
