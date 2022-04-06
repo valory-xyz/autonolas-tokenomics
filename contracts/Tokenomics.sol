@@ -3,6 +3,9 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./ComponentRegistry.sol";
+import "./AgentRegistry.sol";
+import "./ServiceRegistry.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrors.sol";
 // Uniswapv2
@@ -14,7 +17,6 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 contract Tokenimics is IErrors, Ownable {
 
     using FixedPoint for *;
-    event TokenomicsManagerUpdated(address manager);
 
     struct PointEcomonics {
         FixedPoint.uq112x112 ucf;
@@ -29,43 +31,43 @@ contract Tokenimics is IErrors, Ownable {
     IERC20 public immutable ola;
     // Treasury interface
     ITreasury public treasury;
-    // Tokenomics manager
-    // The DAO manager
-    address public Governor;
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
-    uint256 public immutable epoch_len; // epoch len in blk
+    uint256 public immutable epochLen; // epoch len in blk
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816; // 2^(112 - log2(1e18))
     uint256 public constant E18 = 10**18;
     uint256 public max_df = 2 * E18;  // 200%
+    // Total service revenue per epoch: sum(r(s))
+    uint256 public totalServiceRevenue;
 
+    // Component Registry
+    address public immutable componentRegistry;
+    // Agent Registry
+    address public immutable agentRegistry;
+    // Service Registry
+    address payable public immutable serviceRegistry;
+    
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
-    // Map of token deposits per epoch
-    mapping(uint256 => mapping(address => uint256)) mapEpochTokenDeposits;
     // Set of protocol-owned services in current epoch
-    uint256[] serviceIdsEpoch;
+    uint256[] protocolServiceIds;
     // Set of protocol-owned services in previous epoch
 //    uint256[] serviceIdsPreviousEpoch;
     // Map of service Ids and their amounts in current epoch
-    mapping(uint256 => uint256) mapServiceAmountsEpoch;
+    mapping(uint256 => uint256) mapServiceAmounts;
+    mapping(uint256 => uint256) mapServiceIndexes;
     // Map of service Ids and their amounts in previous epoch
 //    mapping(uint256 => uint256) mapServiceAmountsPreviousEpoch;
 
     // TODO later fix government / manager
-    constructor(address _manager, IERC20 iOLA, ITreasury iTreasury, uint256 _epoch_len) {
-        Governor = _manager;
+    constructor(address _manager, IERC20 iOLA, ITreasury iTreasury, uint256 _epochLen, address _componentRegistry,
+        address _agentRegistry, address payable _serviceRegistry) {
         ola = iOLA;
         treasury = iTreasury;
-        epoch_len = _epoch_len;
-    }
-
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyManager() {
-        if (Governor != msg.sender) {
-            revert ManagerOnly(msg.sender, Governor);
-        }
-        _;
+        epochLen = _epochLen;
+        componentRegistry = _componentRegistry;
+        agentRegistry = _agentRegistry;
+        serviceRegistry = _serviceRegistry;
     }
 
     // Only the manager has a privilege to manipulate a tokenomics
@@ -76,34 +78,29 @@ contract Tokenimics is IErrors, Ownable {
         _;
     }
 
-    /// @dev Changes the tokenomics manager.
-    /// @param newManager Address of a new tokenomics manager.
-    function changeGovernor(address newManager) external onlyOwner {
-        Governor = newManager;
-        emit TokenomicsManagerUpdated(newManager);
-    }
-
     /// @dev Gets curretn epoch number.
     function getEpoch() public view returns (uint256 epoch) {
-        epoch = block.number / epoch_len;
+        epoch = block.number / epochLen;
     }
 
     /// @dev Tracks the deposit token amount during the epoch.
-    function depositToken(address token, uint256 tokenAmount) public onlyTreasury {
+    function trackServicesRevenue(address token, uint256[] memory serviceIds, uint256[] memory amounts)
+        public onlyTreasury {
         uint256 epoch = getEpoch();
-        mapEpochTokenDeposits[epoch][token] += tokenAmount;
-    }
 
-    /// @dev Tracks the withdraw of token amount during the epoch.
-    function withdrawToken(address token, uint256 tokenAmount) public onlyTreasury {
-        uint256 epoch = getEpoch();
-        uint256 balance = mapEpochTokenDeposits[epoch][token];
-        if (balance >= tokenAmount) {
-            balance -= tokenAmount;
-        } else {
-            balance = 0;
+        // Loop over service Ids and track their amounts
+        uint256 numServices = serviceIds.length;
+        for (uint256 i = 0; i < numServices; ++i) {
+            // Add a new service Id to the set of Ids if one was not currently in it
+            if (mapServiceAmounts[serviceIds[i]] == 0) {
+                mapServiceIndexes[serviceIds[i]] = serviceIds.length;
+                protocolServiceIds.push(serviceIds[i]);
+            }
+            mapServiceAmounts[serviceIds[i]] += amounts[i];
+
+            // Increase also the total service revenue
+            totalServiceRevenue += amounts[i];
         }
-        mapEpochTokenDeposits[epoch][token] = balance;
     }
 
     /// @dev Detect UniswapV2Pair
@@ -127,7 +124,7 @@ contract Tokenimics is IErrors, Ownable {
 
     /// @dev setup max df. guard dog
     /// @param _max_df maximum interest rate in %, 18 decimals
-    function setMaxDf(uint _max_df) external onlyManager {
+    function setMaxDf(uint _max_df) external onlyOwner {
         max_df = _max_df;
     }   
 
@@ -152,13 +149,92 @@ contract Tokenimics is IErrors, Ownable {
         FixedPoint.uq112x112 memory _df = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: false });
         // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
-        uint256 numServices = serviceIdsEpoch.length;
+
+        // Calculate UCF, USF
         uint256 ucf;
         uint256 usf;
-        for (uint256 i = 0; i < numServices; ++i) {
-            uint256 revenue = mapServiceAmountsEpoch[serviceIdsEpoch[i]];
-            usf += revenue;
+        {
+            // TODO Look for optimization possibilities
+            // Calculating UCFc
+            ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
+            uint256 numComponents = cRegistry.totalSupply();
+            uint256 numProfitableComponents;
+            uint256 numServices = protocolServiceIds.length;
+            // Array of sum(UCFc(epoch))
+            uint256[] memory ucfcs = new uint256[](numServices);
+            // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
+            uint256[] memory ucfcsNum = new uint256[](numServices);
+            // Loop over components
+            for (uint256 i = 0; i < numComponents; ++i) {
+                (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithComponentId(cRegistry.tokenByIndex(i));
+                bool profitable = false;
+                // Loop over services that include the component i
+                for (uint256 j = 0; j < serviceIds.length; ++j) {
+                    uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                    if (revenue > 0) {
+                        // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
+                        ucfcs[mapServiceIndexes[j]] += mapServiceAmounts[serviceIds[j]];
+                        // Increase |Cs(epoch)|
+                        ucfcsNum[mapServiceIndexes[j]]++;
+                        profitable = true;
+                    }
+                }
+                // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+                if (profitable) {
+                    ++numProfitableComponents;
+                }
+            }
+            // Calculate total UCFc
+            uint256 ucfc;
+            for (uint256 i = 0; i < numServices; ++i) {
+                ucfc += ucfcs[mapServiceIndexes[i]] / ucfcsNum[mapServiceIndexes[i]];
+            }
+            ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
+
+            // Calculating UCFa
+            AgentRegistry aRegistry = AgentRegistry(agentRegistry);
+            uint256 numAgents = aRegistry.totalSupply();
+            uint256 numProfitableAgents;
+            // Array of sum(UCFa(epoch))
+            uint256[] memory ucfas = new uint256[](numServices);
+            // Array of cardinality of components in a specific profitable service: |As(epoch)|
+            uint256[] memory ucfasNum = new uint256[](numServices);
+            // Loop over agents
+            for (uint256 i = 0; i < numAgents; ++i) {
+                (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithAgentId(aRegistry.tokenByIndex(i));
+                bool profitable = false;
+                // Loop over services that include the agent i
+                for (uint256 j = 0; j < serviceIds.length; ++j) {
+                    uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                    if (revenue > 0) {
+                        // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
+                        ucfas[mapServiceIndexes[j]] += mapServiceAmounts[serviceIds[j]];
+                        // Increase |Cs(epoch)|
+                        ucfasNum[mapServiceIndexes[j]]++;
+                        profitable = true;
+                    }
+                }
+                // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+                if (profitable) {
+                    ++numProfitableAgents;
+                }
+            }
+            // Calculate total UCFa
+            uint256 ucfa;
+            for (uint256 i = 0; i < numServices; ++i) {
+                ucfa += ucfas[mapServiceIndexes[i]] / ucfasNum[mapServiceIndexes[i]];
+            }
+            ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
+
+            uint256 ucf = (ucfc + ucfa) / 2;
+
+            // Calculating USF
+            for (uint256 i = 0; i < numServices; ++i) {
+                usf += mapServiceAmounts[protocolServiceIds[i]];
+            }
+            usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
         }
+
         // *************** stub for interactions with Registry*
         // Treasury part, I will improve it later
         newPoint._exist = true;

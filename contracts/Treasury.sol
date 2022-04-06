@@ -7,14 +7,14 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IOLA.sol";
 import "./interfaces/ITokenomics.sol";
-import "./interfaces/IWETH.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
 contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
-    event Deposit(address token, uint256 tokenAmount, uint256 olaMintAmount);
+    event DepositFromDepository(address token, uint256 tokenAmount, uint256 olaMintAmount);
+    event DepositFromServices(address token, uint256 amount);
     event Withdrawal(address token, uint256 tokenAmount);
     event TokenReserves(address token, uint256 reserves);
     event EnableToken(address token);
@@ -39,8 +39,6 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     IOLA public immutable ola;
     // Tokenomics interface
     ITokenomics public tokenomics;
-    // Treasury manager
-    address public manager;
     // Depository address
     address public depository;
     // Set of registered tokens
@@ -51,43 +49,27 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     // https://developer.kyber.network/docs/DappsGuide#contract-example
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // well-know representation ETH as address
 
-    constructor(address _ola, address _manager, address _tokenomics) {
+    constructor(address _ola, address _depository, address _tokenomics) {
         if (_ola == address(0)) {
             revert ZeroAddress();
         }
         ola = IOLA(_ola);
         mapTokens[ETH_TOKEN_ADDRESS].state = TokenState.Enabled;
         tokenomics = ITokenomics(_tokenomics);
-        manager = _manager;
-        depository = _manager;
-    }
-
-    // Only the manager has a privilege to manipulate a treasury
-    modifier onlyManager() {
-        if (manager != msg.sender) {
-            revert ManagerOnly(msg.sender, manager);
-        }
-        _;
+        depository = _depository;
     }
 
     // Only the depository has a privilege to control some actions of a treasury
     modifier onlyDepository() {
         if (depository != msg.sender) {
-            revert ManagerOnly(msg.sender, manager);
+            revert ManagerOnly(msg.sender, depository);
         }
         _;
     }
 
-    /// @dev Changes the treasury manager.
-    /// @param newManager Address of a new treasury manager.
-    function changeManager(address newManager) external onlyOwner {
-        manager = newManager;
-        emit TreasuryManagerUpdated(newManager);
-    }
-
     /// @dev Changes the depository address.
     /// @param newDepository Address of a new depository.
-    function changeDepository(address newDepository) external onlyManager {
+    function changeDepository(address newDepository) external onlyOwner {
         depository = newDepository;
         emit TreasuryDepositoryUpdated(newDepository);
     }
@@ -108,41 +90,11 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         // Mint specified number of OLA tokens corresponding to tokens bonding deposit
         ola.mint(msg.sender, olaMintAmount);
 
-        tokenomics.depositToken(token, tokenAmount);
-        emit Deposit(token, tokenAmount, olaMintAmount);
+        emit DepositFromDepository(token, tokenAmount, olaMintAmount);
     }
 
-    /*
-    /// @dev ****** not in this version ***** - postoponed 
-    /// @dev Deposits token funds.
-    /// @param tokenAmount Token amount to get OLA for.
-    /// @param token Token address.
-    function depositToken(uint256 tokenAmount, address token) external payable {
-        // If there's msg.value, we do a WETH deposit. Otherwise transfer tokens, but not both
-        if (msg.value > 0) {
-            // Deposit WETH
-            weth.deposit{value: msg.value}();
-            // In this case token is WETH, and the amount is msg.value
-            token = address(weth);
-            tokenAmount = msg.value;
-        } else {
-            // Check if the token is authorized by the registry
-            if (mapTokens[token].state != TokenState.Enabled) {
-                revert UnauthorizedToken(token);
-            }
-
-            // Transfer tokens to treasury and add to the token treasury reserves
-            IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
-            mapTokens[token].reserves += tokenAmount;
-        }
-
-        tokenomics.depositToken(token, tokenAmount);
-        emit Deposit(token, tokenAmount, 0);
-    }
-    */
-
-    /// @dev Deposits ETH from protocol-owned services.
-    function depositFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
+    /// @dev Deposits ETH from protocol-owned services in batch.
+    function depositFromServiceBatch(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
         // Check for the same length of arrays
         uint256 numServices = serviceIds.length;
         if (amounts.length != numServices) {
@@ -153,7 +105,6 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         uint256 totalAmount;
         for (uint256 i = 0; i < numServices; ++i) {
             totalAmount += amounts[i];
-            tokenomics.depositToken(ETH_TOKEN_ADDRESS, amounts[i]); // for track per service?
         }
 
         // Check if the total transferred amount corresponds to the sum of amounts from services
@@ -162,39 +113,50 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
             revert AmountLowerThan(msg.value, totalAmount);
         }
 
-        // TODO Implement this function
-//        tokenomics.setServiceIds(serviceIds, amounts);  
-        emit Deposit(ETH_TOKEN_ADDRESS, totalAmount, 0);
+        tokenomics.trackServicesRevenue(ETH_TOKEN_ADDRESS, serviceIds, amounts);
+        emit DepositFromServices(ETH_TOKEN_ADDRESS, totalAmount);
     }
 
     /// @dev Deposits ETH from protocol-owned service.
     function depositFromService(uint256 serviceId) external payable nonReentrant {
-        tokenomics.depositToken(ETH_TOKEN_ADDRESS, msg.value); // for track per service?
-        // TODO Implement this function
-        // tokenomics.setServiceIds(serviceId, msg.value);  
-        emit Deposit(ETH_TOKEN_ADDRESS, msg.value, 0);
+        if (msg.value == 0) {
+            revert ZeroValue();
+        }
+        uint256[] memory serviceIds = new uint256[](1);
+        serviceIds[0] = serviceId;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = msg.value;
+        tokenomics.trackServicesRevenue(ETH_TOKEN_ADDRESS, serviceIds, amounts); // for track per service?
+        emit DepositFromServices(ETH_TOKEN_ADDRESS, msg.value);
     }
 
-    /// @dev Allows manager to withdraw specified tokens from reserves
+    /// @dev Allows owner to transfer specified tokens from reserves to a specified address.
+    /// @param to Address to transfer funds to.
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token address.
-    function withdraw(uint256 tokenAmount, address token) external onlyManager {
+    function withdraw(address to, uint256 tokenAmount, address token) external onlyOwner {
         // Only approved token reserves can be used for redemptions
         if (mapTokens[token].state != TokenState.Enabled) {
             revert UnauthorizedToken(token);
         }
 
         // Transfer tokens from reserves to the manager
-        IERC20(token).safeTransfer(msg.sender, tokenAmount);
+        if (token == ETH_TOKEN_ADDRESS) {
+            (bool success, ) = to.call{value: tokenAmount}("");
+            if (!success) {
+                revert TransferFailed(token, address(this), to, tokenAmount);
+            }
+        } else {
+            IERC20(token).safeTransfer(to, tokenAmount);
+        }
         mapTokens[token].reserves -= tokenAmount;
 
-        tokenomics.withdrawToken(token, tokenAmount);
         emit Withdrawal(token, tokenAmount);
     }
 
     /// @dev Enables a token to be exchanged for OLA.
     /// @param token Token address.
-    function enableToken(address token) external onlyManager {
+    function enableToken(address token) external onlyOwner {
         TokenState state = mapTokens[token].state;
         if (state != TokenState.Enabled) {
             if (state == TokenState.NonExistent) {
@@ -207,7 +169,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
 
     /// @dev Disables a token from the ability to exchange for OLA.
     /// @param token Token address.
-    function disableToken(address token) external onlyManager {
+    function disableToken(address token) external onlyOwner {
         TokenState state = mapTokens[token].state;
         if (state != TokenState.Disabled) {
             // The reserves of a token must be zero in order to disable it
