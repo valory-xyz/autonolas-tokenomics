@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IOLA.sol";
 import "./interfaces/ITokenomics.sol";
@@ -10,7 +11,7 @@ import "./interfaces/IWETH.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
-contract Treasury is IErrors, Ownable {
+contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
     event Deposit(address token, uint256 tokenAmount, uint256 olaMintAmount);
@@ -36,8 +37,6 @@ contract Treasury is IErrors, Ownable {
 
     // OLA interface
     IOLA public immutable ola;
-    // WETH interface
-    IWETH public immutable weth;
     // Tokenomics interface
     ITokenomics public tokenomics;
     // Treasury manager
@@ -49,14 +48,15 @@ contract Treasury is IErrors, Ownable {
     // Token address => token info
     mapping(address => TokenInfo) public mapTokens;
 
-    constructor(address _ola, address _weth, address _manager, address _tokenomics) {
+    // https://developer.kyber.network/docs/DappsGuide#contract-example
+    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // well-know representation ETH as address
+
+    constructor(address _ola, address _manager, address _tokenomics) {
         if (_ola == address(0)) {
             revert ZeroAddress();
         }
-
         ola = IOLA(_ola);
-        weth = IWETH(_weth);
-        mapTokens[_weth].state = TokenState.Enabled;
+        mapTokens[ETH_TOKEN_ADDRESS].state = TokenState.Enabled;
         tokenomics = ITokenomics(_tokenomics);
         manager = _manager;
         depository = _manager;
@@ -112,6 +112,8 @@ contract Treasury is IErrors, Ownable {
         emit Deposit(token, tokenAmount, olaMintAmount);
     }
 
+    /*
+    /// @dev ****** not in this version ***** - postoponed 
     /// @dev Deposits token funds.
     /// @param tokenAmount Token amount to get OLA for.
     /// @param token Token address.
@@ -137,9 +139,10 @@ contract Treasury is IErrors, Ownable {
         tokenomics.depositToken(token, tokenAmount);
         emit Deposit(token, tokenAmount, 0);
     }
+    */
 
-    /// @dev Deposits WETH from protocol-owned services.
-    function depositFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+    /// @dev Deposits ETH from protocol-owned services.
+    function depositFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
         // Check for the same length of arrays
         uint256 numServices = serviceIds.length;
         if (amounts.length != numServices) {
@@ -147,22 +150,21 @@ contract Treasury is IErrors, Ownable {
             revert WrongAgentsData(numServices, amounts.length);
         }
 
-        address wethToken = address(weth);
         uint256 totalAmount;
         for (uint256 i = 0; i < numServices; ++i) {
             totalAmount += amounts[i];
-            tokenomics.depositToken(wethToken, amounts[i]);
+            tokenomics.depositToken(ETH_TOKEN_ADDRESS, amounts[i]); // for track per service?
         }
 
         // Check if the total transferred amount corresponds to the sum of amounts from services
-        if (msg.value != totalAmount) {
+        if (msg.value != totalAmount) { // not sure 
             // TODO correct the revert
             revert AmountLowerThan(msg.value, totalAmount);
         }
 
         // TODO Implement this function
-//        tokenomics.setServiceIds(serviceIds, amounts);
-        emit Deposit(wethToken, totalAmount, 0);
+//        tokenomics.setServiceIds(serviceIds, amounts);  
+        emit Deposit(ETH_TOKEN_ADDRESS, totalAmount, 0);
     }
 
     /// @dev Allows manager to withdraw specified tokens from reserves

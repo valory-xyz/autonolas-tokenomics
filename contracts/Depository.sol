@@ -59,7 +59,7 @@ contract BondDepository is IErrors, Ownable {
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
-
+    
 
     // TODO later fix government / manager
     constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, ITokenomics iTokenomics) {

@@ -31,11 +31,7 @@ contract Tokenimics is IErrors, Ownable {
     ITreasury public treasury;
     // Tokenomics manager
     // The DAO manager
-    address public managerDAO;
-    // Depository manager
-    address public managerDepository;
-    // Autonolas address as owner in protocol-owned services
-    address public autonolas;
+    address public Governor;
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epoch_len; // epoch len in blk
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
@@ -58,9 +54,7 @@ contract Tokenimics is IErrors, Ownable {
 
     // TODO later fix government / manager
     constructor(address _manager, IERC20 iOLA, ITreasury iTreasury, uint256 _epoch_len) {
-        managerDAO = _manager;
-        managerDepository = _manager;
-        autonolas = _manager;
+        Governor = _manager;
         ola = iOLA;
         treasury = iTreasury;
         epoch_len = _epoch_len;
@@ -68,8 +62,8 @@ contract Tokenimics is IErrors, Ownable {
 
     // Only the manager has a privilege to manipulate a tokenomics
     modifier onlyManager() {
-        if (managerDAO != msg.sender) {
-            revert ManagerOnly(msg.sender, managerDAO);
+        if (Governor != msg.sender) {
+            revert ManagerOnly(msg.sender, Governor);
         }
         _;
     }
@@ -82,25 +76,10 @@ contract Tokenimics is IErrors, Ownable {
         _;
     }
 
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyManagerCheckpoint() {
-        if (!(managerDepository == msg.sender || managerDAO == msg.sender)) {
-            revert ManagerOnly(msg.sender, managerDepository);
-        }
-        _;
-    }
-
     /// @dev Changes the tokenomics manager.
     /// @param newManager Address of a new tokenomics manager.
-    function changeManagerDAO(address newManager) external onlyOwner {
-        managerDAO = newManager;
-        emit TokenomicsManagerUpdated(newManager);
-    }
-
-    /// @dev Changes the tokenomics manager.
-    /// @param newManager Address of a new tokenomics manager.
-    function changeManagerDepository(address newManager) external onlyOwner {
-        managerDepository = newManager;
+    function changeGovernor(address newManager) external onlyOwner {
+        Governor = newManager;
         emit TokenomicsManagerUpdated(newManager);
     }
 
@@ -152,9 +131,9 @@ contract Tokenimics is IErrors, Ownable {
         max_df = _max_df;
     }   
 
-    /// @notice Record global data to checkpoint
+    /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
-    function checkpoint() external onlyManagerCheckpoint {
+    function checkpoint() external {
         uint256 _epoch = block.number / epoch_len;
         PointEcomonics memory lastPoint = mapEpochEconomics[_epoch];
         // if not exist
@@ -186,19 +165,19 @@ contract Tokenimics is IErrors, Ownable {
         mapEpochEconomics[_epoch] = newPoint;
     }
 
-    // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
+    // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
     /// @param token Token address.
     /// @param tokenAmount Token amount.
     /// @param _epoch epoch number
     /// @return resAmount Resulting amount of OLA tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external onlyManagerCheckpoint 
+    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external
         returns (uint256 resAmount)
     {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
         if (!_PE._exist) {
             _checkpoint(_epoch);
+            _PE = mapEpochEconomics[_epoch];
         }
-        _PE = mapEpochEconomics[_epoch];
         uint256 df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
         resAmount = _calculatePayoutFromLP(token, tokenAmount, df);
     }
@@ -284,7 +263,7 @@ contract Tokenimics is IErrors, Ownable {
         _PE = mapEpochEconomics[_epoch];
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision
+    // decode a uq112x112 into a uint with 18 decimals of precision, 0 if not exist
     function getDF(uint256 _epoch) public view returns (uint256 df) {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
         if (_PE._exist) {
@@ -296,19 +275,16 @@ contract Tokenimics is IErrors, Ownable {
         }
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision
-    // obsolete
-    function getDFForEpoch(uint256 _epoch) external onlyManagerCheckpoint returns (uint256 df) {
+    // decode a uq112x112 into a uint with 18 decimals of precision, re-calc if not exist
+    function getDFForEpoch(uint256 _epoch) external returns (uint256 df) {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
-        if (_PE._exist) {
-            // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
-            // a/b is encoded as (a << 112) / b or (a * 2^112) / b
-            df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
-        } else {
+        if (!_PE._exist) {
             _checkpoint(_epoch);
             _PE = mapEpochEconomics[_epoch];
-            df = uint256(_PE.df._x / MAGIC_DENOMINATOR); 
         }
+        // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
+        // a/b is encoded as (a << 112) / b or (a * 2^112) / b
+        df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
     }
 
 }    
