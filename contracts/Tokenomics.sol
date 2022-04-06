@@ -134,17 +134,17 @@ contract Tokenimics is IErrors, Ownable {
     /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
     function checkpoint() external {
-        uint256 _epoch = block.number / epoch_len;
-        PointEcomonics memory lastPoint = mapEpochEconomics[_epoch];
+        uint256 epoch = getEpoch();
+        PointEcomonics memory lastPoint = mapEpochEconomics[epoch];
         // if not exist
         if(!lastPoint._exist) {
-            _checkpoint(_epoch);
+            _checkpoint(epoch);
         }
     }
 
     /// @dev Record global data to new checkpoint
-    /// @param _epoch number of epoch
-    function _checkpoint(uint256 _epoch) internal {
+    /// @param epoch number of epoch
+    function _checkpoint(uint256 epoch) internal {
         uint numerator = 110; // stub for tests
         uint denominator = 100; // stub for tests
         FixedPoint.uq112x112 memory _ucf = FixedPoint.fraction(numerator, denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
@@ -162,7 +162,7 @@ contract Tokenimics is IErrors, Ownable {
         // *************** stub for interactions with Registry*
         // Treasury part, I will improve it later
         newPoint._exist = true;
-        mapEpochEconomics[_epoch] = newPoint;
+        mapEpochEconomics[epoch] = newPoint;
     }
 
     // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
