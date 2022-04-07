@@ -68,21 +68,6 @@ contract BondDepository is IErrors, Ownable {
         tokenomics = iTokenomics;
     }
 
-    // Only the manager has a privilege to manipulate a treasury
-    modifier onlyManager() {
-        if (manager != msg.sender) {
-            revert ManagerOnly(msg.sender, manager);
-        }
-        _;
-    }
-
-    /// @dev Changes the treasury manager.
-    /// @param newManager Address of a new treasury manager.
-    function changeManager(address newManager) external onlyOwner {
-        manager = newManager;
-        emit DepositoryManagerUpdated(newManager);
-    }
-
     /// @dev Deposits tokens in exchange for a bond from a specified product.
     /// @param token Token address.
     /// @param productId Product Id.
@@ -207,7 +192,7 @@ contract BondDepository is IErrors, Ownable {
     /// @param supply Supply in OLA tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(IERC20 token, uint256 supply, uint256 vesting) external onlyManager returns (uint256 productId) {
+    function create(IERC20 token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
         // Create a new product.
         productId = mapTokenProducts[address(token)].length;
         Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0);
@@ -219,7 +204,7 @@ contract BondDepository is IErrors, Ownable {
     /// @dev Cloe a bonding product.
     /// @param token Specified token.
     /// @param productId Product Id.
-    function close(address token, uint256 productId) external onlyManager {
+    function close(address token, uint256 productId) external onlyOwner {
         mapTokenProducts[token][productId].supply = 0;
         
         emit TerminateProduct(token, productId);
