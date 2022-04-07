@@ -14,7 +14,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
     event DepositFromDepository(address token, uint256 tokenAmount, uint256 olaMintAmount);
-    event DepositFromServices(address token, uint256 amount);
+    event DepositFromServices(address token, uint256[] amounts, uint256[] serviceIds);
     event Withdrawal(address token, uint256 tokenAmount);
     event TokenReserves(address token, uint256 reserves);
     event EnableToken(address token);
@@ -94,7 +94,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     }
 
     /// @dev Deposits ETH from protocol-owned services in batch.
-    function depositFromServiceBatch(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
+    function depositETHFromServiceBatch(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
         // Check for the same length of arrays
         uint256 numServices = serviceIds.length;
         if (amounts.length != numServices) {
@@ -113,12 +113,12 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
             revert AmountLowerThan(msg.value, totalAmount);
         }
 
-        tokenomics.trackServicesRevenue(ETH_TOKEN_ADDRESS, serviceIds, amounts);
-        emit DepositFromServices(ETH_TOKEN_ADDRESS, totalAmount);
+        tokenomics.trackServicesETHRevenue(serviceIds, amounts);
+        emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 
     /// @dev Deposits ETH from protocol-owned service.
-    function depositFromService(uint256 serviceId) external payable nonReentrant {
+    function depositETHFromService(uint256 serviceId) external payable nonReentrant {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -126,8 +126,8 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         serviceIds[0] = serviceId;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = msg.value;
-        tokenomics.trackServicesRevenue(ETH_TOKEN_ADDRESS, serviceIds, amounts); // for track per service?
-        emit DepositFromServices(ETH_TOKEN_ADDRESS, msg.value);
+        tokenomics.trackServicesETHRevenue(serviceIds, amounts); // for track per service?
+        emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 
     /// @dev Allows owner to transfer specified tokens from reserves to a specified address.

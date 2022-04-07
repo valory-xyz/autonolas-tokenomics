@@ -37,8 +37,13 @@ contract Tokenimics is IErrors, Ownable {
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816; // 2^(112 - log2(1e18))
     uint256 public constant E18 = 10**18;
     uint256 public max_df = 2 * E18;  // 200%
+
+    FixedPoint.uq112x112 alpha = FixedPoint.uq112x112(1); // 1.0 by default
+    uint256 beta = 1; // 1 by default, a == a^1 
+    FixedPoint.uq112x112 gamma = FixedPoint.uq112x112(1); // 1.0 by default
+
     // Total service revenue per epoch: sum(r(s))
-    uint256 public totalServiceRevenue;
+    uint256 public totalServiceETHRevenue;
 
     // Component Registry
     address public immutable componentRegistry;
@@ -60,8 +65,8 @@ contract Tokenimics is IErrors, Ownable {
 //    mapping(uint256 => uint256) mapServiceAmountsPreviousEpoch;
 
     // TODO later fix government / manager
-    constructor(address _manager, IERC20 iOLA, ITreasury iTreasury, uint256 _epochLen, address _componentRegistry,
-        address _agentRegistry, address payable _serviceRegistry) {
+    constructor(IERC20 iOLA, ITreasury iTreasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry) 
+    {
         ola = iOLA;
         treasury = iTreasury;
         epochLen = _epochLen;
@@ -84,10 +89,8 @@ contract Tokenimics is IErrors, Ownable {
     }
 
     /// @dev Tracks the deposit token amount during the epoch.
-    function trackServicesRevenue(address token, uint256[] memory serviceIds, uint256[] memory amounts)
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts)
         public onlyTreasury {
-        uint256 epoch = getEpoch();
-
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
@@ -99,7 +102,7 @@ contract Tokenimics is IErrors, Ownable {
             mapServiceAmounts[serviceIds[i]] += amounts[i];
 
             // Increase also the total service revenue
-            totalServiceRevenue += amounts[i];
+            totalServiceETHRevenue += amounts[i];
         }
     }
 
@@ -128,7 +131,29 @@ contract Tokenimics is IErrors, Ownable {
         max_df = _max_df;
     }
 
-    function _calculateUCFc() private returns (uint256 ucfc) {
+    /// @dev setup alpha
+    /// @param _numerator numerator
+    /// @param _denominator denominator
+    function setAlpha(uint256 _numerator, uint256 _denominator) external onlyOwner {
+        alpha = FixedPoint.fraction(_numerator,_denominator);
+    }
+
+    /// @dev setup beta
+    /// @param _beta beta
+    function setBeta(uint256 _beta) external onlyOwner {
+        beta = _beta;
+    }
+
+    /// @dev setup gamma
+    /// @param _numerator numerator
+    /// @param _denominator denominator
+    function setGamma(uint256 _numerator, uint256 _denominator) external onlyOwner {
+        gamma = FixedPoint.fraction(_numerator,_denominator);
+    }
+
+    
+
+    function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {
         ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
         uint256 numComponents = cRegistry.totalSupply();
         uint256 numProfitableComponents;
@@ -157,14 +182,25 @@ contract Tokenimics is IErrors, Ownable {
                 ++numProfitableComponents;
             }
         }
+        uint256 denominator;
         // Calculate total UCFc
         for (uint256 i = 0; i < numServices; ++i) {
-            ucfc += ucfcs[mapServiceIndexes[protocolServiceIds[i]]] / ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+            denominator = ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) { // avoid exception div by zero
+                // ucfc += ucfcs[mapServiceIndexes[protocolServiceIds[i]]] / ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+                ucfc = _add(ucfc,FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
+            }
         }
-        ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
+        denominator = numServices * numComponents;
+        if(denominator > 0) { // avoid exception div by zero
+            // ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
+            ucfc = ucfc.muluq(FixedPoint.fraction(numProfitableComponents,denominator));
+        } else {
+            ucfc = FixedPoint.uq112x112(0);
+        }
     }
 
-    function _calculateUCFa() private returns (uint256 ucfa) {
+    function _calculateUCFa() private view returns (FixedPoint.uq112x112 memory ucfa) {
         AgentRegistry aRegistry = AgentRegistry(agentRegistry);
         uint256 numAgents = aRegistry.totalSupply();
         uint256 numProfitableAgents;
@@ -193,11 +229,53 @@ contract Tokenimics is IErrors, Ownable {
                 ++numProfitableAgents;
             }
         }
+        uint256 denominator;
         // Calculate total UCFa
         for (uint256 i = 0; i < numServices; ++i) {
-            ucfa += ucfas[mapServiceIndexes[protocolServiceIds[i]]] / ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+            denominator = ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) { // avoid div by zero
+                // ucfa += ucfas[mapServiceIndexes[protocolServiceIds[i]]] / ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+                ucfa = _add(ucfa,FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));  
+            }
         }
-        ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
+        denominator = numServices * numAgents;
+        if(denominator > 0) { // avoid div by zero
+            // ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
+            ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents,denominator)); 
+        } else {
+            ucfa = FixedPoint.uq112x112(0);
+        }
+    }
+
+    /// @dev calc df by WD Math formula UCF, USF, DF v1 
+    /// @param dcm direct contribution measure DCM(t) by first version 
+    function _calculateDFv1(FixedPoint.uq112x112 memory dcm) internal view returns (FixedPoint.uq112x112 memory df) {
+        // alpha * DCM(t)^beta + gamma
+        FixedPoint.uq112x112 memory numerator = FixedPoint.uq112x112(1);
+        FixedPoint.uq112x112 memory _one = FixedPoint.uq112x112(1);
+        FixedPoint.uq112x112 memory denominator = _pow(dcm,beta);
+        denominator = _add(_one,denominator.muluq(alpha));
+        denominator = _add(denominator, gamma);
+        df = numerator.divuq(denominator);
+    }
+
+    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure returns (FixedPoint.uq112x112 memory r) {
+        uint224 z = x._x + y._x;
+        if(x._x > 0 && y._x > 0) assert(z > x._x && z > y._x);
+        return FixedPoint.uq112x112(uint224(z));
+    }
+
+    function _pow(FixedPoint.uq112x112 memory a, uint b) internal pure returns (FixedPoint.uq112x112 memory c) {
+        if(b == 0) {
+            return FixedPoint.uq112x112(1);
+        }
+        if(b == 1) {
+            return a;
+        }
+        for (uint i =0; i < b; ++i) {
+            a = a.muluq(a);
+        }
+        return a;
     }
 
     /// @notice Record global data to checkpoint, any can do it
@@ -214,36 +292,38 @@ contract Tokenimics is IErrors, Ownable {
     /// @dev Record global data to new checkpoint
     /// @param epoch number of epoch
     function _checkpoint(uint256 epoch) internal {
-        uint numerator = 110; // stub for tests
-        uint denominator = 100; // stub for tests
-        FixedPoint.uq112x112 memory _ucf = FixedPoint.fraction(numerator, denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        FixedPoint.uq112x112 memory _usf = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        FixedPoint.uq112x112 memory _df = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: false });
-        // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
-
+        FixedPoint.uq112x112 memory _ucf; // uq112x112(0) by default
+        FixedPoint.uq112x112 memory _usf; //
+        FixedPoint.uq112x112 memory _dcm; 
+        FixedPoint.uq112x112 memory _df; // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0. 
         // Calculate UCF, USF
         // TODO Look for optimization possibilities
         // Calculate total UCFc
-        uint256 ucfc = _calculateUCFc();
+        FixedPoint.uq112x112 memory _ucfc = _calculateUCFc();
 
         // Calculate total UCFa
-        uint256 ucfa = _calculateUCFa();
+        FixedPoint.uq112x112 memory _ucfa = _calculateUCFa();
 
         // Overall UCF calculation
-        uint256 ucf = (ucfc + ucfa) / 2;
-
+        //_ucf = (_ucfc + _ucfa) / 2;
+        _ucf = _add(_ucfc,_ucfa).divuq(FixedPoint.uq112x112(2));
         // Calculating USF
         uint256 numServices = protocolServiceIds.length;
         uint256 usf;
         for (uint256 i = 0; i < numServices; ++i) {
             usf += mapServiceAmounts[protocolServiceIds[i]];
         }
-        usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
-
-        // *************** stub for interactions with Registry*
-        // Treasury part, I will improve it later
-        newPoint._exist = true;
+        uint256 denominator = ServiceRegistry(serviceRegistry).totalSupply(); 
+        if(denominator > 0) {
+            // _usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
+            _usf =  FixedPoint.fraction(usf,denominator); 
+        }
+        //_dcm = (_ucf + _usf) / 2;
+        _dcm = _add(_ucf,_usf).divuq(FixedPoint.uq112x112(2));
+        // ToDO :: df/iterest rate
+        _df = _calculateDFv1(_dcm);
+        _df = _df.reciprocal(); // reverse_df = 1/df >= 1.0. think later
+        PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: true });
         mapEpochEconomics[epoch] = newPoint;
     }
 
