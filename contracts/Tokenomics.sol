@@ -56,13 +56,9 @@ contract Tokenimics is IErrors, Ownable {
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
     // Set of protocol-owned services in current epoch
     uint256[] protocolServiceIds;
-    // Set of protocol-owned services in previous epoch
-//    uint256[] serviceIdsPreviousEpoch;
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) mapServiceAmounts;
     mapping(uint256 => uint256) mapServiceIndexes;
-    // Map of service Ids and their amounts in previous epoch
-//    mapping(uint256 => uint256) mapServiceAmountsPreviousEpoch;
 
     // TODO later fix government / manager
     constructor(IERC20 iOLA, ITreasury iTreasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry) 
@@ -259,12 +255,16 @@ contract Tokenimics is IErrors, Ownable {
         df = numerator.divuq(denominator);
     }
 
-    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure returns (FixedPoint.uq112x112 memory r) {
+    /// @dev Sums two fixed points.
+    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure
+        returns (FixedPoint.uq112x112 memory r)
+    {
         uint224 z = x._x + y._x;
         if(x._x > 0 && y._x > 0) assert(z > x._x && z > y._x);
         return FixedPoint.uq112x112(uint224(z));
     }
 
+    /// @dev Pow of a fixed point.
     function _pow(FixedPoint.uq112x112 memory a, uint b) internal pure returns (FixedPoint.uq112x112 memory c) {
         if(b == 0) {
             return FixedPoint.uq112x112(1);
@@ -276,6 +276,17 @@ contract Tokenimics is IErrors, Ownable {
             a = a.muluq(a);
         }
         return a;
+    }
+
+    /// @dev Clears necessary data structures for the next epoch.
+    function _clearEpochData() internal {
+        uint256 numServices = protocolServiceIds.length;
+        for (uint256 i = 0; i < numServices; ++i) {
+            delete mapServiceAmounts[protocolServiceIds[i]];
+            delete mapServiceIndexes[protocolServiceIds[i]];
+        }
+        delete protocolServiceIds;
+        totalServiceETHRevenue = 0;
     }
 
     /// @notice Record global data to checkpoint, any can do it
@@ -325,6 +336,8 @@ contract Tokenimics is IErrors, Ownable {
         _df = _df.reciprocal(); // reverse_df = 1/df >= 1.0. think later
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: true });
         mapEpochEconomics[epoch] = newPoint;
+
+        _clearEpochData();
     }
 
     // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
