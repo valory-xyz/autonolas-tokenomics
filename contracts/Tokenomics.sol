@@ -126,7 +126,79 @@ contract Tokenimics is IErrors, Ownable {
     /// @param _max_df maximum interest rate in %, 18 decimals
     function setMaxDf(uint _max_df) external onlyOwner {
         max_df = _max_df;
-    }   
+    }
+
+    function _calculateUCFc() private returns (uint256 ucfc) {
+        ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
+        uint256 numComponents = cRegistry.totalSupply();
+        uint256 numProfitableComponents;
+        uint256 numServices = protocolServiceIds.length;
+        // Array of sum(UCFc(epoch))
+        uint256[] memory ucfcs = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
+        uint256[] memory ucfcsNum = new uint256[](numServices);
+        // Loop over components
+        for (uint256 i = 0; i < numComponents; ++i) {
+            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithComponentId(cRegistry.tokenByIndex(i));
+            bool profitable = false;
+            // Loop over services that include the component i
+            for (uint256 j = 0; j < serviceIds.length; ++j) {
+                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                if (revenue > 0) {
+                    // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
+                    ucfcs[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    // Increase |Cs(epoch)|
+                    ucfcsNum[mapServiceIndexes[serviceIds[j]]]++;
+                    profitable = true;
+                }
+            }
+            // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+            if (profitable) {
+                ++numProfitableComponents;
+            }
+        }
+        // Calculate total UCFc
+        for (uint256 i = 0; i < numServices; ++i) {
+            ucfc += ucfcs[mapServiceIndexes[protocolServiceIds[i]]] / ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+        }
+        ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
+    }
+
+    function _calculateUCFa() private returns (uint256 ucfa) {
+        AgentRegistry aRegistry = AgentRegistry(agentRegistry);
+        uint256 numAgents = aRegistry.totalSupply();
+        uint256 numProfitableAgents;
+        uint256 numServices = protocolServiceIds.length;
+        // Array of sum(UCFa(epoch))
+        uint256[] memory ucfas = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |As(epoch)|
+        uint256[] memory ucfasNum = new uint256[](numServices);
+        // Loop over agents
+        for (uint256 i = 0; i < numAgents; ++i) {
+            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithAgentId(aRegistry.tokenByIndex(i));
+            bool profitable = false;
+            // Loop over services that include the agent i
+            for (uint256 j = 0; j < serviceIds.length; ++j) {
+                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                if (revenue > 0) {
+                    // Add cit(c, s) * r(s) for component j to add to UCFa(epoch)
+                    ucfas[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    // Increase |As(epoch)|
+                    ucfasNum[mapServiceIndexes[serviceIds[j]]]++;
+                    profitable = true;
+                }
+            }
+            // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+            if (profitable) {
+                ++numProfitableAgents;
+            }
+        }
+        // Calculate total UCFa
+        for (uint256 i = 0; i < numServices; ++i) {
+            ucfa += ucfas[mapServiceIndexes[protocolServiceIds[i]]] / ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+        }
+        ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
+    }
 
     /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
@@ -151,89 +223,23 @@ contract Tokenimics is IErrors, Ownable {
         // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
 
         // Calculate UCF, USF
-        uint256 ucf;
+        // TODO Look for optimization possibilities
+        // Calculate total UCFc
+        uint256 ucfc = _calculateUCFc();
+
+        // Calculate total UCFa
+        uint256 ucfa = _calculateUCFa();
+
+        // Overall UCF calculation
+        uint256 ucf = (ucfc + ucfa) / 2;
+
+        // Calculating USF
+        uint256 numServices = protocolServiceIds.length;
         uint256 usf;
-        {
-            // TODO Look for optimization possibilities
-            // Calculating UCFc
-            ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
-            uint256 numComponents = cRegistry.totalSupply();
-            uint256 numProfitableComponents;
-            uint256 numServices = protocolServiceIds.length;
-            // Array of sum(UCFc(epoch))
-            uint256[] memory ucfcs = new uint256[](numServices);
-            // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
-            uint256[] memory ucfcsNum = new uint256[](numServices);
-            // Loop over components
-            for (uint256 i = 0; i < numComponents; ++i) {
-                (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithComponentId(cRegistry.tokenByIndex(i));
-                bool profitable = false;
-                // Loop over services that include the component i
-                for (uint256 j = 0; j < serviceIds.length; ++j) {
-                    uint256 revenue = mapServiceAmounts[serviceIds[j]];
-                    if (revenue > 0) {
-                        // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
-                        ucfcs[mapServiceIndexes[j]] += mapServiceAmounts[serviceIds[j]];
-                        // Increase |Cs(epoch)|
-                        ucfcsNum[mapServiceIndexes[j]]++;
-                        profitable = true;
-                    }
-                }
-                // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
-                if (profitable) {
-                    ++numProfitableComponents;
-                }
-            }
-            // Calculate total UCFc
-            uint256 ucfc;
-            for (uint256 i = 0; i < numServices; ++i) {
-                ucfc += ucfcs[mapServiceIndexes[i]] / ucfcsNum[mapServiceIndexes[i]];
-            }
-            ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
-
-            // Calculating UCFa
-            AgentRegistry aRegistry = AgentRegistry(agentRegistry);
-            uint256 numAgents = aRegistry.totalSupply();
-            uint256 numProfitableAgents;
-            // Array of sum(UCFa(epoch))
-            uint256[] memory ucfas = new uint256[](numServices);
-            // Array of cardinality of components in a specific profitable service: |As(epoch)|
-            uint256[] memory ucfasNum = new uint256[](numServices);
-            // Loop over agents
-            for (uint256 i = 0; i < numAgents; ++i) {
-                (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithAgentId(aRegistry.tokenByIndex(i));
-                bool profitable = false;
-                // Loop over services that include the agent i
-                for (uint256 j = 0; j < serviceIds.length; ++j) {
-                    uint256 revenue = mapServiceAmounts[serviceIds[j]];
-                    if (revenue > 0) {
-                        // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
-                        ucfas[mapServiceIndexes[j]] += mapServiceAmounts[serviceIds[j]];
-                        // Increase |Cs(epoch)|
-                        ucfasNum[mapServiceIndexes[j]]++;
-                        profitable = true;
-                    }
-                }
-                // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
-                if (profitable) {
-                    ++numProfitableAgents;
-                }
-            }
-            // Calculate total UCFa
-            uint256 ucfa;
-            for (uint256 i = 0; i < numServices; ++i) {
-                ucfa += ucfas[mapServiceIndexes[i]] / ucfasNum[mapServiceIndexes[i]];
-            }
-            ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
-
-            uint256 ucf = (ucfc + ucfa) / 2;
-
-            // Calculating USF
-            for (uint256 i = 0; i < numServices; ++i) {
-                usf += mapServiceAmounts[protocolServiceIds[i]];
-            }
-            usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
+        for (uint256 i = 0; i < numServices; ++i) {
+            usf += mapServiceAmounts[protocolServiceIds[i]];
         }
+        usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
 
         // *************** stub for interactions with Registry*
         // Treasury part, I will improve it later
