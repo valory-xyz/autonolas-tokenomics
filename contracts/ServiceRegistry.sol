@@ -98,6 +98,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
+    // Map of policy for multisig implementations
+    mapping (address => bool) public mapMultisigs;
 
     constructor(string memory _name, string memory _symbol, address _agentRegistry) ERC721(_name, _symbol)
     {
@@ -467,6 +469,11 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         bytes memory data
     ) external onlyManager onlyServiceOwner(owner, serviceId) returns (address multisig)
     {
+        // Check for the whitelisted multisig implementation
+        if (!mapMultisigs[multisigImplementation]) {
+            revert UnauthorizedMultisig(multisigImplementation);
+        }
+
         Service storage service = _mapServices[serviceId];
         if (service.state != ServiceState.FinishedRegistration) {
             revert WrongServiceState(uint256(service.state), serviceId);
@@ -532,7 +539,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         success = true;
     }
 
-    /// @dev Gets the service payment / reward.
+    /// @dev Rewards the service with payment.
     /// @param serviceId Service Id.
     /// @return rewardBalance Actual reward balance of a service Id.
     function reward(uint256 serviceId) public serviceExists(serviceId) nonReentrant payable
@@ -818,5 +825,17 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         returns (uint256 balance)
     {
         balance = _mapServices[serviceId].mapOperatorsBalances[operator];
+    }
+
+    /// @dev Controls multisig implementation address permission.
+    /// @param multisig Address of a multisig implementation.
+    /// @param permission Grant or revoke permission.
+    /// @return success True, if function executed successfully.
+    function changeMultisigPermission(address multisig, bool permission) public onlyOwner returns (bool success) {
+        if (multisig == address(0)) {
+            revert ZeroAddress();
+        }
+        mapMultisigs[multisig] = permission;
+        success = true;
     }
 }

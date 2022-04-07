@@ -83,6 +83,15 @@ interface IErrors {
     /// @dev Non-zero value when it has to be zero.
     error NonZeroValue();
 
+    /// @dev Value overflow.
+    /// @param provided Overflow value.
+    /// @param max Maximum possible value.
+    error Overflow(uint256 provided, uint256 max);
+
+    /// @dev Token is non-transferrable.
+    /// @param addr Token address.
+    error NonTransferrable(address addr);
+
     /// @dev Service must be active.
     /// @param serviceId Service Id.
     error ServiceMustBeActive(uint256 serviceId);
@@ -121,9 +130,13 @@ interface IErrors {
     /// @dev Fallback or receive function.
     error WrongFunction();
 
-    /// @dev Token is disabled.
+    /// @dev Token is disabled or not whitelisted.
     /// @param tokenAddress Address of a token.
     error UnauthorizedToken(address tokenAddress);
+
+    /// @dev Multisig is not whitelisted.
+    /// @param multisig Address of a multisig implementation.
+    error UnauthorizedMultisig(address multisig);
 
     /// @dev Provided token address is incorrect.
     /// @param provided Provided token address.

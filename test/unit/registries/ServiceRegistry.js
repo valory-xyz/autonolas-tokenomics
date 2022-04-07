@@ -609,6 +609,7 @@ describe("ServiceRegistry", function () {
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
@@ -636,6 +637,9 @@ describe("ServiceRegistry", function () {
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, [1]);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, [1, 2]);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create a service and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
@@ -694,6 +698,9 @@ describe("ServiceRegistry", function () {
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, [1]);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, [1, 2]);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create services and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
@@ -1102,9 +1109,12 @@ describe("ServiceRegistry", function () {
             const wrongMultisig = signers[9];
             const maxThreshold = 1;
 
-            // Create an agents
+            // Create agents
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create services and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
@@ -1173,6 +1183,14 @@ describe("ServiceRegistry", function () {
             /// Register agent instance
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId,
                 [agentInstances[0].address, agentInstances[1].address], [agentId, agentId], {value: 2*regBond});
+
+            // Should fail without whitelisted multisig implementation
+            await expect(
+                serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload)
+            ).to.be.revertedWith("UnauthorizedMultisig");
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create multisig
             const safe = await serviceRegistry.connect(serviceManager).deploy(owner, serviceId,
@@ -1282,6 +1300,30 @@ describe("ServiceRegistry", function () {
             const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await destroyService.wait();
             expect(result.events[2].event).to.equal("DestroyService");
+        });
+    });
+
+    context("Whitelisting multisig implementations", async function () {
+        it("Should fail when passing a zero address multisig", async function () {
+            await expect(
+                serviceRegistry.changeMultisigPermission(AddressZero, true)
+            ).to.be.revertedWith("ZeroAddress");
+
+            await expect(
+                serviceRegistry.changeMultisigPermission(AddressZero, false)
+            ).to.be.revertedWith("ZeroAddress");
+        });
+
+        it("Adding and removing multisig implementation addresses", async function () {
+            // Initially should be false
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(false);
+            // Authorizing and must be true
+            await serviceRegistry.changeMultisigPermission(signers[1].address, true);
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(true);
+            // Deleting and must be false
+            await serviceRegistry.changeMultisigPermission(signers[1].address, false);
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(false);
+            expect(await serviceRegistry.mapMultisigs(signers[2].address)).to.equal(false);
         });
     });
 });

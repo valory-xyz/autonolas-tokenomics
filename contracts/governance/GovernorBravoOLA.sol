@@ -3,13 +3,13 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/governance/compatibility/GovernorCompatibilityBravoUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesCompUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 
 /// @title Governor Bravo OLA - Smart contract for the governance
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract GovernorBravoOLA is GovernorSettingsUpgradeable, GovernorCompatibilityBravoUpgradeable, GovernorVotesCompUpgradeable, GovernorTimelockControlUpgradeable {
-    constructor(ERC20VotesCompUpgradeable _token, TimelockControllerUpgradeable _timelock, uint256 initialVotingDelay,
+contract GovernorBravoOLA is GovernorSettingsUpgradeable, GovernorCompatibilityBravoUpgradeable, GovernorVotesUpgradeable, GovernorTimelockControlUpgradeable {
+    constructor(ERC20VotesUpgradeable governanceToken, TimelockControllerUpgradeable timelock, uint256 initialVotingDelay,
         uint256 initialVotingPeriod, uint256 initialProposalThreshold) initializer
     {
         // Governor initialization
@@ -19,21 +19,20 @@ contract GovernorBravoOLA is GovernorSettingsUpgradeable, GovernorCompatibilityB
         __GovernorSettings_init(initialVotingDelay, initialVotingPeriod, initialProposalThreshold);
         // Bravo compatibility module initialization
         __GovernorCompatibilityBravo_init();
-        // Voting weight extraction from an ERC20VotesComp token
-        __GovernorVotesComp_init(_token);
+        // Voting weight extraction from a governance token
+        __GovernorVotes_init(governanceToken);
         // Timelock related module initialization
-        __GovernorTimelockControl_init(_timelock);
+        __GovernorTimelockControl_init(timelock);
     }
 
     // TODO Verify the return quorum value depending on the tokenomics
     /// @dev Minimum number of cast voted required for a proposal to be successful.
     /// @param blockNumber The snaphot block used for counting vote. This allows to scale the quroum depending on
-    ///                    values such as the totalSupply of a token at this block.
+    ///                    values such as the totalSupply of a escrow at this block.
     // solhint-disable-next-line
     function quorum(uint256 blockNumber) public pure override returns (uint256) {
         return 1e18;
     }
-
 
     /// @dev Current state of a proposal, following Compound’s convention.
     /// @param proposalId Proposal Id.
