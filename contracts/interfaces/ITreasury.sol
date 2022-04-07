@@ -7,7 +7,7 @@ interface ITreasury {
     /// @param tokenAmount Token amount to get OLA for.
     /// @param token Token address.
     /// @param olaMintAmount Amount of OLA token issued.
-    function deposit(uint256 tokenAmount, address token, uint256 olaMintAmount) external;
+    function depositTokenForOLA(uint256 tokenAmount, address token, uint256 olaMintAmount) external;
 
     /// @dev Allows manager to withdraw specified tokens from reserves
     /// @param tokenAmount Token amount to get reserves from.

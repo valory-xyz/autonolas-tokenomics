@@ -133,7 +133,7 @@ contract BondDepository is IErrors, Ownable {
         // Approve treasury for the specified token amount
         product.token.approve(address(treasury), tokenAmount);
         // Deposit that token amount to mint OLA tokens in exchange
-        treasury.deposit(tokenAmount, address(product.token), payout);
+        treasury.depositTokenForOLA(tokenAmount, address(product.token), payout);
     }
 
     /// @dev Redeem bonds for the user.
