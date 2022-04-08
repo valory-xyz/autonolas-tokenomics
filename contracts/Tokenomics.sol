@@ -25,7 +25,7 @@ contract Tokenomics is IErrors, Ownable {
         FixedPoint.uq112x112 df; // x > 1.0       
         uint256 ts; // timestamp
         uint256 blk; // block
-        bool    _exist; // ready or not
+        bool _exist; // ready or not
     }
 
     // OLA token address
@@ -44,9 +44,11 @@ contract Tokenomics is IErrors, Ownable {
     // Default max DF of 200% rounded with epsilon of E13
     uint256 public max_df = 2 * E18 + E13;
 
-    FixedPoint.uq112x112 alpha = FixedPoint.uq112x112(1); // 1.0 by default
-    uint256 beta = 1; // 1 by default, a == a^1 
-    FixedPoint.uq112x112 gamma = FixedPoint.uq112x112(1); // 1.0 by default
+    // 1.0 by default
+    FixedPoint.uq112x112 alpha = FixedPoint.fraction(1, 1);
+    // 1 by default, a == a^1
+    uint256 beta = 1;
+    FixedPoint.uq112x112 gamma = FixedPoint.fraction(1, 1);
 
     // Total service revenue per epoch: sum(r(s))
     uint256 public totalServiceETHRevenue;
@@ -101,9 +103,14 @@ contract Tokenomics is IErrors, Ownable {
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
+            // Check for the service Id existance
+            if (!ServiceRegistry(serviceRegistry).exists(serviceIds[i])) {
+                revert ServiceDoesNotExist(serviceIds[i]);
+            }
+
             // Add a new service Id to the set of Ids if one was not currently in it
             if (mapServiceAmounts[serviceIds[i]] == 0) {
-                mapServiceIndexes[serviceIds[i]] = serviceIds.length;
+                mapServiceIndexes[serviceIds[i]] = protocolServiceIds.length;
                 protocolServiceIds.push(serviceIds[i]);
             }
             mapServiceAmounts[serviceIds[i]] += amounts[i];
@@ -155,7 +162,7 @@ contract Tokenomics is IErrors, Ownable {
     /// @param _numerator numerator
     /// @param _denominator denominator
     function setGamma(uint256 _numerator, uint256 _denominator) external onlyOwner {
-        gamma = FixedPoint.fraction(_numerator,_denominator);
+        gamma = FixedPoint.fraction(_numerator, _denominator);
     }
 
     function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {
@@ -193,15 +200,16 @@ contract Tokenomics is IErrors, Ownable {
             denominator = ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid exception div by zero
-                ucfc = _add(ucfc,FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
+                ucfc = _add(ucfc, FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
             }
         }
+        ucfc = ucfc.muluq(FixedPoint.fraction(1, totalServiceETHRevenue));
         denominator = numServices * numComponents;
         if(denominator > 0) {
             // avoid exception div by zero
-            ucfc = ucfc.muluq(FixedPoint.fraction(numProfitableComponents,denominator));
+            ucfc = ucfc.muluq(FixedPoint.fraction(numProfitableComponents, denominator));
         } else {
-            ucfc = FixedPoint.uq112x112(0);
+            ucfc = FixedPoint.fraction(0, 1);
         }
     }
 
@@ -240,15 +248,16 @@ contract Tokenomics is IErrors, Ownable {
             denominator = ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid div by zero
-                ucfa = _add(ucfa,FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));  
+                ucfa = _add(ucfa, FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));
             }
         }
+        ucfa = ucfa.muluq(FixedPoint.fraction(1, totalServiceETHRevenue));
         denominator = numServices * numAgents;
         if(denominator > 0) {
             // avoid div by zero
-            ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents,denominator)); 
+            ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents, denominator));
         } else {
-            ucfa = FixedPoint.uq112x112(0);
+            ucfa = FixedPoint.fraction(0, 1);
         }
     }
 
@@ -256,12 +265,10 @@ contract Tokenomics is IErrors, Ownable {
     /// @param dcm direct contribution measure DCM(t) by first version 
     function _calculateDFv1(FixedPoint.uq112x112 memory dcm) internal view returns (FixedPoint.uq112x112 memory df) {
         // alpha * DCM(t)^beta + gamma
-        FixedPoint.uq112x112 memory numerator = FixedPoint.uq112x112(1);
-        FixedPoint.uq112x112 memory _one = FixedPoint.uq112x112(1);
-        FixedPoint.uq112x112 memory denominator = _pow(dcm, beta);
-        denominator = _add(_one, denominator.muluq(alpha));
-        denominator = _add(denominator, gamma);
-        df = numerator.divuq(denominator);
+        FixedPoint.uq112x112 memory _one = FixedPoint.fraction(1, 1);
+        df = _pow(dcm, beta);
+        df = _add(_one, df.muluq(alpha));
+        df = _add(df, gamma);
     }
 
     /// @dev Sums two fixed points.
@@ -276,14 +283,14 @@ contract Tokenomics is IErrors, Ownable {
     /// @dev Pow of a fixed point.
     function _pow(FixedPoint.uq112x112 memory a, uint b) internal pure returns (FixedPoint.uq112x112 memory c) {
         if(b == 0) {
-            return FixedPoint.uq112x112(1);
+            return FixedPoint.fraction(1, 1);
         }
 
         if(b == 1) {
             return a;
         }
 
-        c = FixedPoint.uq112x112(1);
+        c = FixedPoint.fraction(1, 1);
         while(b > 0) {
             // b % 2
             if((b & 1) == 1) {
@@ -321,38 +328,47 @@ contract Tokenomics is IErrors, Ownable {
     /// @dev Record global data to new checkpoint
     /// @param epoch number of epoch
     function _checkpoint(uint256 epoch) internal {
-        FixedPoint.uq112x112 memory _ucf; // uq112x112(0) by default
-        FixedPoint.uq112x112 memory _usf; //
-        FixedPoint.uq112x112 memory _dcm; 
-        FixedPoint.uq112x112 memory _df; // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0. 
+        FixedPoint.uq112x112 memory _ucf;
+        FixedPoint.uq112x112 memory _usf;
+        FixedPoint.uq112x112 memory _dcm;
+        // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
+        FixedPoint.uq112x112 memory _df;
         // Calculate UCF, USF
         // TODO Look for optimization possibilities
         // Calculate total UCFc
-        FixedPoint.uq112x112 memory _ucfc = _calculateUCFc();
+        if (totalServiceETHRevenue > 0) {
+            FixedPoint.uq112x112 memory _ucfc = _calculateUCFc();
 
-        // Calculate total UCFa
-        FixedPoint.uq112x112 memory _ucfa = _calculateUCFa();
+            // Calculate total UCFa
+            FixedPoint.uq112x112 memory _ucfa = _calculateUCFa();
 
-        // Overall UCF calculation
-        //_ucf = (_ucfc + _ucfa) / 2;
-        _ucf = _add(_ucfc, _ucfa).divuq(FixedPoint.uq112x112(2));
-        // Calculating USF
-        uint256 numServices = protocolServiceIds.length;
-        uint256 usf;
-        for (uint256 i = 0; i < numServices; ++i) {
-            usf += mapServiceAmounts[protocolServiceIds[i]];
+            // Overall UCF calculation
+            //_ucf = (_ucfc + _ucfa) / 2;
+            FixedPoint.uq112x112 memory _two = FixedPoint.fraction(2, 1);
+            _ucf = _add(_ucfc, _ucfa);
+            if (_ucf._x > 0) {
+                _ucf = _ucf.divuq(_two);
+            }
+            // Calculating USF
+            uint256 numServices = protocolServiceIds.length;
+            uint256 usf;
+            for (uint256 i = 0; i < numServices; ++i) {
+                usf += mapServiceAmounts[protocolServiceIds[i]];
+            }
+            uint256 denominator = totalServiceETHRevenue * ServiceRegistry(serviceRegistry).totalSupply();
+            if(denominator > 0) {
+                // _usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
+                _usf =  FixedPoint.fraction(usf, denominator);
+            }
+            //_dcm = (_ucf + _usf) / 2;
+            _dcm = _add(_ucf,_usf);
+            if (_dcm._x > 0) {
+                _dcm = _ucf.divuq(_two);
+            }
         }
-        uint256 denominator = ServiceRegistry(serviceRegistry).totalSupply(); 
-        if(denominator > 0) {
-            // _usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
-            _usf =  FixedPoint.fraction(usf,denominator); 
-        }
-        //_dcm = (_ucf + _usf) / 2;
-        _dcm = _add(_ucf,_usf).divuq(FixedPoint.uq112x112(2));
+
         // ToDO :: df/iterest rate
         _df = _calculateDFv1(_dcm);
-        // reverse_df = 1/df >= 1.0. think later
-        _df = _df.reciprocal();
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: true });
         mapEpochEconomics[epoch] = newPoint;
 
