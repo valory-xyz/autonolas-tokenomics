@@ -14,9 +14,10 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
-contract Tokenimics is IErrors, Ownable {
-
+contract Tokenomics is IErrors, Ownable {
     using FixedPoint for *;
+
+    event TreasuryUpdated(address treasury);
 
     struct PointEcomonics {
         FixedPoint.uq112x112 ucf;
@@ -27,10 +28,10 @@ contract Tokenimics is IErrors, Ownable {
         bool    _exist; // ready or not
     }
 
-    // OLA interface
-    IERC20 public immutable ola;
-    // Treasury interface
-    ITreasury public treasury;
+    // OLA token address
+    address public immutable ola;
+    // Treasury contract address
+    address public treasury;
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
@@ -61,10 +62,10 @@ contract Tokenimics is IErrors, Ownable {
     mapping(uint256 => uint256) mapServiceIndexes;
 
     // TODO later fix government / manager
-    constructor(IERC20 iOLA, ITreasury iTreasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry) 
+    constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
     {
-        ola = iOLA;
-        treasury = iTreasury;
+        ola = _ola;
+        treasury = _treasury;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
@@ -73,10 +74,15 @@ contract Tokenimics is IErrors, Ownable {
 
     // Only the manager has a privilege to manipulate a tokenomics
     modifier onlyTreasury() {
-        if (address(treasury) != msg.sender) {
-            revert ManagerOnly(msg.sender, address(treasury));
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
         }
         _;
+    }
+
+    function changeTreasury(address newTreasury) external onlyOwner {
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
     }
 
     /// @dev Gets curretn epoch number.
@@ -180,14 +186,14 @@ contract Tokenimics is IErrors, Ownable {
         // Calculate total UCFc
         for (uint256 i = 0; i < numServices; ++i) {
             denominator = ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
-            if(denominator > 0) { // avoid exception div by zero
-                // ucfc += ucfcs[mapServiceIndexes[protocolServiceIds[i]]] / ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) {
+                // avoid exception div by zero
                 ucfc = _add(ucfc,FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
             }
         }
         denominator = numServices * numComponents;
-        if(denominator > 0) { // avoid exception div by zero
-            // ucfc = ucfc * numProfitableComponents / (numServices * numComponents);
+        if(denominator > 0) {
+            // avoid exception div by zero
             ucfc = ucfc.muluq(FixedPoint.fraction(numProfitableComponents,denominator));
         } else {
             ucfc = FixedPoint.uq112x112(0);
@@ -227,14 +233,14 @@ contract Tokenimics is IErrors, Ownable {
         // Calculate total UCFa
         for (uint256 i = 0; i < numServices; ++i) {
             denominator = ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
-            if(denominator > 0) { // avoid div by zero
-                // ucfa += ucfas[mapServiceIndexes[protocolServiceIds[i]]] / ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) {
+                // avoid div by zero
                 ucfa = _add(ucfa,FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));  
             }
         }
         denominator = numServices * numAgents;
-        if(denominator > 0) { // avoid div by zero
-            // ucfa = ucfa * numProfitableAgents / (numServices * numAgents);
+        if(denominator > 0) {
+            // avoid div by zero
             ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents,denominator)); 
         } else {
             ucfa = FixedPoint.uq112x112(0);
@@ -267,24 +273,20 @@ contract Tokenimics is IErrors, Ownable {
         if(b == 0) {
             return FixedPoint.uq112x112(1);
         }
+
         if(b == 1) {
             return a;
         }
-        //result = 1
-        //while (pow > 0)
-        //    if pow mod 2 == 1
-        //        result *= value
-        //    value *= value
-        //    pow /= 2;
-        //return result;
+
         c = FixedPoint.uq112x112(1);
-        // cout << fast_power(2, 100) << endl; // Output: 976371285
         while(b > 0) {
-            if((b & 1) == 1) { // b % 2
+            // b % 2
+            if((b & 1) == 1) {
                 c = c.muluq(a);
             }
             a = a.muluq(a);
-            b >>= 1; // b = b / 2;
+            // b = b / 2;
+            b >>= 1;
         }
         return c;
     }
@@ -392,14 +394,14 @@ contract Tokenimics is IErrors, Ownable {
         require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
 
         // Get the initial OLA token amounts
-        uint256 amountOLA = (token0 == address(ola)) ? amount0 : amount1;
-        uint256 amountPairForOLA = (token0 == address(ola)) ? amount1 : amount0;
+        uint256 amountOLA = (token0 == ola) ? amount0 : amount1;
+        uint256 amountPairForOLA = (token0 == ola) ? amount1 : amount0;
 
         // Calculate swap tokens from the LP back to the OLA token
         balance0 -= amount0;
         balance1 -= amount1;
-        uint256 reserveIn = (token0 == address(ola)) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == address(ola)) ? balance0 : balance1;
+        uint256 reserveIn = (token0 == ola) ? balance1 : balance0;
+        uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
         amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
         // Get the resulting amount in OLA tokens

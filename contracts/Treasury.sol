@@ -20,7 +20,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     event EnableToken(address token);
     event DisableToken(address token);
     event TreasuryManagerUpdated(address manager);
-    event TreasuryDepositoryUpdated(address depository);
+    event DepositoryUpdated(address depository);
 
     enum TokenState {
         NonExistent,
@@ -35,10 +35,10 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         uint256 reserves;
     }
 
-    // OLA interface
-    IOLA public immutable ola;
-    // Tokenomics interface
-    ITokenomics public tokenomics;
+    // OLA token address
+    address public immutable ola;
+    // Tokenomics contract address
+    address public tokenomics;
     // Depository address
     address public depository;
     // Set of registered tokens
@@ -53,9 +53,9 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         if (_ola == address(0)) {
             revert ZeroAddress();
         }
-        ola = IOLA(_ola);
+        ola = _ola;
         mapTokens[ETH_TOKEN_ADDRESS].state = TokenState.Enabled;
-        tokenomics = ITokenomics(_tokenomics);
+        tokenomics = _tokenomics;
         depository = _depository;
     }
 
@@ -71,7 +71,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     /// @param newDepository Address of a new depository.
     function changeDepository(address newDepository) external onlyOwner {
         depository = newDepository;
-        emit TreasuryDepositoryUpdated(newDepository);
+        emit DepositoryUpdated(newDepository);
     }
 
     /// @dev Allows approved address to deposit an asset for OLA.
@@ -88,7 +88,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
         mapTokens[token].reserves += tokenAmount;
         // Mint specified number of OLA tokens corresponding to tokens bonding deposit
-        ola.mint(msg.sender, olaMintAmount);
+        IOLA(ola).mint(msg.sender, olaMintAmount);
 
         emit DepositFromDepository(token, tokenAmount, olaMintAmount);
     }
@@ -113,7 +113,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
             revert AmountLowerThan(msg.value, totalAmount);
         }
 
-        tokenomics.trackServicesETHRevenue(serviceIds, amounts);
+        ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
         emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 
@@ -126,7 +126,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         serviceIds[0] = serviceId;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = msg.value;
-        tokenomics.trackServicesETHRevenue(serviceIds, amounts); // for track per service?
+        ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
         emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 

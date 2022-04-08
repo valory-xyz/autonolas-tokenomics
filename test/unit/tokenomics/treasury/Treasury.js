@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("Treasury", async () => {
+describe.only("Treasury", async () => {
     const LARGE_APPROVAL = "100000000000000000000000000000000";
     // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
     // Initial mint for Frax and DAI (10,000,000)
@@ -12,10 +12,13 @@ describe("Treasury", async () => {
     let erc20Token;
     let olaFactory;
     let treasuryFactory;
+    let tokenomicsFactory;
     let dai;
     let lpToken;
     let ola;
     let treasury;
+    let tokenomics;
+    const epochLen = 100;
 
     /**
      * Everything in this block is only run once before all tests.
@@ -28,6 +31,21 @@ describe("Treasury", async () => {
         erc20Token = await ethers.getContractFactory("ERC20Token");
         olaFactory = await ethers.getContractFactory("OLA");
         treasuryFactory = await ethers.getContractFactory("Treasury");
+        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+
+        const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
+        componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
+            "https://localhost/component/");
+        await componentRegistry.deployed();
+
+        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
+        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/",
+            componentRegistry.address);
+        await agentRegistry.deployed();
+
+//        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
+//        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
+//        await serviceRegistry.deployed();
     });
 
     // These should not be in beforeEach.
@@ -35,7 +53,10 @@ describe("Treasury", async () => {
         dai = await erc20Token.deploy();
         lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy();
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address);
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+            agentRegistry.address, serviceRegistry.address);
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        await tokenomics.changeTreasury(treasury.address);
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);

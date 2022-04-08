@@ -17,7 +17,8 @@ contract BondDepository is IErrors, Ownable {
     event CreateBond(uint256 productId, uint256 amountOLA, uint256 tokenAmount);
     event CreateProduct(address token, uint256 productId, uint256 supply);
     event TerminateProduct(address token, uint256 productId);
-    event DepositoryManagerUpdated(address manager);
+    event TreasuryUpdated(address treasury);
+    event TokenomicsUpdated(address tokenomics);
 
     struct Bond {
         // OLA remaining to be paid out
@@ -48,24 +49,31 @@ contract BondDepository is IErrors, Ownable {
     }
 
     // OLA interface
-    IERC20 public immutable ola;
+    address public immutable ola;
     // Treasury interface
-    ITreasury public treasury;
+    address public treasury;
     // Tokenomics interface 
-    ITokenomics public tokenomics;
-    // Depository manager
-    address public manager;
+    address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
     
     // TODO later fix government / manager
-    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, ITokenomics iTokenomics) {
-        manager = initManager;
-        ola = iOLA;
-        treasury = iTreasury;
-        tokenomics = iTokenomics;
+    constructor(address _ola, address _treasury, address _tokenomics) {
+        ola = _ola;
+        treasury = _treasury;
+        tokenomics = _tokenomics;
+    }
+
+    function changeTreasury(address newTreasury) external onlyOwner {
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
+    }
+
+    function changeTokenomics(address newTokenomics) external onlyOwner {
+        tokenomics = newTokenomics;
+        emit TokenomicsUpdated(newTokenomics);
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
@@ -93,7 +101,7 @@ contract BondDepository is IErrors, Ownable {
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
         uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
-        //uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
+        // df uint with defined decimals
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, _epoch);
 
         // Check for the sufficient supply
@@ -116,9 +124,9 @@ contract BondDepository is IErrors, Ownable {
         // Transfer tokens to the depository
         product.token.safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
-        product.token.approve(address(treasury), tokenAmount);
+        product.token.approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLA tokens in exchange
-        treasury.depositTokenForOLA(tokenAmount, address(product.token), payout);
+        ITreasury(treasury).depositTokenForOLA(tokenAmount, address(product.token), payout);
     }
 
     /// @dev Redeem bonds for the user.
@@ -137,7 +145,7 @@ contract BondDepository is IErrors, Ownable {
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLA token
-        ola.transfer(user, payout);
+        IERC20(ola).transfer(user, payout);
     }
 
     /// @dev Redeems all redeemable products for a user. Best to query off-chain and input in redeem() to save gas.
