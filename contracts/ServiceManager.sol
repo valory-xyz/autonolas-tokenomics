@@ -9,7 +9,7 @@ import "./interfaces/IService.sol";
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceManager is IErrors, IStructs, Ownable {
-    event GnosisSafeCreate(address multisig);
+    event MultisigCreate(address multisig);
 
     address public immutable serviceRegistry;
 
@@ -71,6 +71,41 @@ contract ServiceManager is IErrors, IStructs, Ownable {
             threshold, serviceId);
     }
 
+    /// @dev Activates the service and its sensitive components.
+    /// @param serviceId Correspondent service Id.
+    /// @return success True, if function executed successfully.
+    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
+        success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
+    }
+
+    /// @dev Registers agent instances.
+    /// @param serviceId Service Id to be updated.
+    /// @param agentInstances Agent instance addresses.
+    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
+    /// @return success True, if function executed successfully.
+    function serviceRegisterAgents(
+        uint256 serviceId,
+        address[] memory agentInstances,
+        uint256[] memory agentIds
+    ) public payable returns (bool success) {
+        success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
+    }
+
+    /// @dev Creates multisig instance controlled by the set of service agent instances and deploys the service.
+    /// @param serviceId Correspondent service Id.
+    /// @param multisigImplementation Multisig implementation address.
+    /// @param data Data payload for the multisig creation.
+    /// @return multisig Address of the created multisig.
+    function serviceDeploy(
+        uint256 serviceId,
+        address multisigImplementation,
+        bytes memory data
+    ) external returns (address multisig)
+    {
+        multisig = IService(serviceRegistry).deploy(msg.sender, serviceId, multisigImplementation, data);
+        emit MultisigCreate(multisig);
+    }
+
     /// @dev Terminates the service.
     /// @param serviceId Service Id.
     /// @return success True, if function executed successfully.
@@ -92,50 +127,5 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @return success True, if function executed successfully.
     function serviceDestroy(uint256 serviceId) public returns (bool success) {
         success = IService(serviceRegistry).destroy(msg.sender, serviceId);
-    }
-
-    /// @dev Activates the service and its sensitive components.
-    /// @param serviceId Correspondent service Id.
-    /// @return success True, if function executed successfully.
-    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
-        success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
-    }
-
-    /// @dev Registers agent instances.
-    /// @param serviceId Service Id to be updated.
-    /// @param agentInstances Agent instance addresses.
-    /// @param agentIds Canonical Ids of the agent correspondent to the agent instance.
-    /// @return success True, if function executed successfully.
-    function serviceRegisterAgents(
-        uint256 serviceId,
-        address[] memory agentInstances,
-        uint256[] memory agentIds
-    ) public payable returns (bool success) {
-        success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
-    }
-
-    /// @dev Creates Safe instance controlled by the service agent instances.
-    /// @param serviceId Correspondent service Id.
-    /// @param to Contract address for optional delegate call.
-    /// @param data Data payload for optional delegate call.
-    /// @param fallbackHandler Handler for fallback calls to this contract
-    /// @param paymentToken Token that should be used for the payment (0 is ETH)
-    /// @param payment Value that should be paid
-    /// @param paymentReceiver Adddress that should receive the payment (or 0 if tx.origin)
-    /// @return multisig Address of the created multisig.
-    function serviceCreateSafe(
-        uint256 serviceId,
-        address to,
-        bytes calldata data,
-        address fallbackHandler,
-        address paymentToken,
-        uint256 payment,
-        address payable paymentReceiver,
-        uint256 nonce
-    ) public returns (address multisig)
-    {
-        multisig = IService(serviceRegistry).createSafe(msg.sender, serviceId, to, data, fallbackHandler,
-            paymentToken, payment, paymentReceiver, nonce);
-        emit GnosisSafeCreate(multisig);
     }
 }

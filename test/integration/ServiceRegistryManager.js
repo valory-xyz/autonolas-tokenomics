@@ -10,6 +10,7 @@ describe("ServiceRegistry integration", function () {
     let gnosisSafeProxyFactory;
     let serviceRegistry;
     let serviceManager;
+    let gnosisSafeMultisig;
     let signers;
     const name = "service name";
     const description = "service description";
@@ -25,8 +26,7 @@ describe("ServiceRegistry integration", function () {
     const componentHash = {hash: "0x" + "0".repeat(64), hashFunction: "0x12", size: "0x20"};
     const componentHash1 = {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"};
     const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
-    const nonce =  0;
-    const AddressZero = "0x" + "0".repeat(40);
+    const payload = "0x";
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -47,9 +47,12 @@ describe("ServiceRegistry integration", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
-            gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
         await serviceRegistry.deployed();
+
+        const GnosisSafeMultisig = await ethers.getContractFactory("GnosisSafeMultisig");
+        gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        await gnosisSafeMultisig.deployed();
 
         const ServiceManager = await ethers.getContractFactory("ServiceManager");
         serviceManager = await ServiceManager.deploy(serviceRegistry.address);
@@ -223,10 +226,12 @@ describe("ServiceRegistry integration", function () {
             await serviceManager.connect(operators[0]).serviceRegisterAgents(serviceIds[0], [agentInstances[0], agentInstances[1]],
                 [newAgentIds[0], newAgentIds[1]], {value: 2*regBond});
 
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+
             // Safe is not possible without all the registered agent instances
             await expect(
-                serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
-                    AddressZero, AddressZero, 0, AddressZero, nonce)
+                serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload)
             ).to.be.revertedWith("WrongServiceState");
             // Registering the final agent instance
             await serviceManager.connect(operators[0]).serviceRegisterAgents(serviceIds[0], [agentInstances[2]],
@@ -243,8 +248,7 @@ describe("ServiceRegistry integration", function () {
             ).to.be.revertedWith("WrongServiceState");
 
             // Creating Safe with blanc safe parameters for the test
-            const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, nonce);
+            const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
@@ -437,9 +441,11 @@ describe("ServiceRegistry integration", function () {
             const contractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
             expect(contractBalance).to.equal(expectedContractBalance);
 
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+
             // Create multisig
-            const safe = await serviceManager.connect(owner).serviceCreateSafe(serviceIds[0], AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceIds[0]);
+            const safe = await serviceManager.connect(owner).serviceDeploy(serviceIds[0], gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 

@@ -4,7 +4,7 @@ Let's first describe the list of possible states:
 - Service is pre-registration; -> Agent instance registration is not active yet
 - Service is active-registration; -> Agent instance registration is ongoing
 - Service is finished-registration; -> All the agent instances slots are registered
-- Service is deployed; -> Service is deployed and operates via created safe contract
+- Service is deployed; -> Service is deployed and operates via created multisig contract
 - Service is terminated-bonded; -> Some agents are bonded with stake
 - Service is terminated-unbonded; -> All agents have left the service and recovered their stake
 
@@ -44,7 +44,7 @@ would throw an error.
 - **Current state:** Service is active-registration
 - **Next state:** Service is active-registration or finished-registration
    
-### createSafe()
+### deploy()
 - **Current state:** finished-registration
 - **Next state:** Service is deployed
 
@@ -100,13 +100,13 @@ Functions to call from this state:
 
 ### Service is finished-registration
 Functions to call from this state:
-  - **createSafe()**
+  - **deploy()**
   - **terminate()**
 
 
 List of next possible states:
 1. **Service is deployed**
-    - Function call for this state: **createSafe()**
+    - Function call for this state: **deploy()**
 
 
 2. **Service is terminated-bonded**

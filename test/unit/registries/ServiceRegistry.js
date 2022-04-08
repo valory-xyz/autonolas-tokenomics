@@ -7,6 +7,7 @@ describe("ServiceRegistry", function () {
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
+    let gnosisSafeMultisig;
     let signers;
     const name = "service name";
     const description = "service description";
@@ -28,6 +29,7 @@ describe("ServiceRegistry", function () {
     const agentHash = {hash: "0x" + "7".repeat(64), hashFunction: "0x12", size: "0x20"};
     const agentHash1 = {hash: "0x" + "8".repeat(64), hashFunction: "0x12", size: "0x20"};
     const AddressZero = "0x" + "0".repeat(40);
+    const payload = "0x";
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -48,9 +50,13 @@ describe("ServiceRegistry", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
-            gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
         await serviceRegistry.deployed();
+
+        const GnosisSafeMultisig = await ethers.getContractFactory("GnosisSafeMultisig");
+        gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+        await gnosisSafeMultisig.deployed();
+
         signers = await ethers.getSigners();
     });
 
@@ -603,17 +609,17 @@ describe("ServiceRegistry", function () {
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
             await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
             await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds,
                 agentParams, maxThreshold);
             await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance], [agentId], {value: regBond});
             await expect(
-                serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x", AddressZero,
-                    AddressZero, 0, AddressZero, serviceId)
+                serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload)
             ).to.be.revertedWith("WrongServiceState");
         });
 
-        it("Catching \"CreateSafeWithAgents\" event log when calling the Safe contract creation", async function () {
+        it("Catching \"CreateMultisigWithAgents\" event log when calling the Safe contract creation", async function () {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -631,6 +637,9 @@ describe("ServiceRegistry", function () {
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, [1]);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, [1, 2]);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create a service and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
@@ -651,11 +660,13 @@ describe("ServiceRegistry", function () {
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(3);
 
-            // Create safe
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            // Create safe passing a specific salt / nonce and payload (won't be used)
+            const payload = ethers.utils.solidityPack(["address", "address", "address", "address", "uint256", "uint256", "bytes"],
+                [AddressZero, AddressZero, AddressZero, AddressZero, 0, serviceId, "0xabcd"]);
+            const safe = await serviceRegistry.connect(serviceManager).deploy(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
-            expect(result.events[2].event).to.equal("CreateSafeWithAgents");
+            expect(result.events[2].event).to.equal("CreateMultisigWithAgents");
             state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(4);
 
@@ -688,6 +699,9 @@ describe("ServiceRegistry", function () {
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, [1]);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, [1, 2]);
 
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+
             // Create services and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
             expect(state).to.equal(0);
@@ -706,10 +720,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId + 1, [agentInstances[2], agentInstances[3]],
                 [agentId + 1, agentId + 1], {value: 2*regBond});
 
-            await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
-            await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId + 1, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
+            await serviceRegistry.connect(serviceManager).deploy(owner, serviceId + 1, gnosisSafeMultisig.address, payload);
         });
     });
 
@@ -1097,9 +1109,12 @@ describe("ServiceRegistry", function () {
             const wrongMultisig = signers[9];
             const maxThreshold = 1;
 
-            // Create an agents
+            // Create agents
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
 
             // Create services and activate the agent instance registration
             let state = await serviceRegistry.getServiceState(serviceId);
@@ -1114,8 +1129,8 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance.address], [agentId], {value: regBond});
 
             // Create multisig
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const safe = await serviceRegistry.connect(serviceManager).deploy(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
@@ -1169,9 +1184,17 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId,
                 [agentInstances[0].address, agentInstances[1].address], [agentId, agentId], {value: 2*regBond});
 
+            // Should fail without whitelisted multisig implementation
+            await expect(
+                serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload)
+            ).to.be.revertedWith("UnauthorizedMultisig");
+
+            // Whitelist gnosis multisig implementation
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+
             // Create multisig
-            const safe = await serviceRegistry.connect(serviceManager).createSafe(owner, serviceId, AddressZero, "0x",
-                AddressZero, AddressZero, 0, AddressZero, serviceId);
+            const safe = await serviceRegistry.connect(serviceManager).deploy(owner, serviceId,
+                gnosisSafeMultisig.address, payload);
             const result = await safe.wait();
             const proxyAddress = result.events[0].address;
 
@@ -1277,6 +1300,30 @@ describe("ServiceRegistry", function () {
             const destroyService = await serviceRegistry.connect(serviceManager).destroy(owner, serviceId);
             const result = await destroyService.wait();
             expect(result.events[2].event).to.equal("DestroyService");
+        });
+    });
+
+    context("Whitelisting multisig implementations", async function () {
+        it("Should fail when passing a zero address multisig", async function () {
+            await expect(
+                serviceRegistry.changeMultisigPermission(AddressZero, true)
+            ).to.be.revertedWith("ZeroAddress");
+
+            await expect(
+                serviceRegistry.changeMultisigPermission(AddressZero, false)
+            ).to.be.revertedWith("ZeroAddress");
+        });
+
+        it("Adding and removing multisig implementation addresses", async function () {
+            // Initially should be false
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(false);
+            // Authorizing and must be true
+            await serviceRegistry.changeMultisigPermission(signers[1].address, true);
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(true);
+            // Deleting and must be false
+            await serviceRegistry.changeMultisigPermission(signers[1].address, false);
+            expect(await serviceRegistry.mapMultisigs(signers[1].address)).to.equal(false);
+            expect(await serviceRegistry.mapMultisigs(signers[2].address)).to.equal(false);
         });
     });
 });

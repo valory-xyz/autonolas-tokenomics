@@ -86,8 +86,7 @@ async function main() {
     const maxThreshold = agentParams[0][0] + agentParams[1][0];
 
     const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-    const serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address,
-        gnosisSafeL2.address, gnosisSafeProxyFactory.address);
+    const serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
     await serviceRegistry.deployed();
 
     const ServiceManager = await ethers.getContractFactory("ServiceManager");
@@ -119,11 +118,16 @@ async function main() {
     await gnosisSafeProxyFactory.createProxyWithNonce(gnosisSafeL2.address, setupData, nonce).then((tx) => tx.wait());
 
     // Deploying governance contracts
-    // Deploy voting token
-    const Token = await ethers.getContractFactory("veOLA");
+    // Deploy OLA token and voting escrow
+    const Token = await ethers.getContractFactory("OLA");
     const token = await Token.deploy();
     await token.deployed();
-    console.log("veOLA token deployed to", token.address);
+    console.log("OLA token deployed to", token.address);
+
+    const VotingEscrow = await ethers.getContractFactory("VotingEscrow");
+    const escrow = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1");
+    await escrow.deployed();
+    console.log("Voting Escrow deployed to", escrow.address);
 
     // Deploy timelock with a multisig being a proposer
     const executors = [];
@@ -135,7 +139,7 @@ async function main() {
 
     // Deploy Governance Bravo
     const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
-    const governorBravo = await GovernorBravo.deploy(token.address, timelock.address, initialVotingDelay,
+    const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
         initialVotingPeriod, initialProposalThreshold);
     await governorBravo.deployed();
     console.log("Governor Bravo deployed to", governorBravo.address);
