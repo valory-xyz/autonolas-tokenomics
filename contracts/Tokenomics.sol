@@ -35,9 +35,14 @@ contract Tokenomics is IErrors, Ownable {
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
-    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816; // 2^(112 - log2(1e18))
+    // 2^(112 - log2(1e18))
+    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
+    // Epsilon subject to rounding error
+    uint256 public constant E13 = 10**13;
+    // Maximum precision number to be considered
     uint256 public constant E18 = 10**18;
-    uint256 public max_df = 2 * E18;  // 200%
+    // Default max DF of 200% rounded with epsilon of E13
+    uint256 public max_df = 2 * E18 + E13;
 
     FixedPoint.uq112x112 alpha = FixedPoint.uq112x112(1); // 1.0 by default
     uint256 beta = 1; // 1 by default, a == a^1 
@@ -130,7 +135,7 @@ contract Tokenomics is IErrors, Ownable {
     /// @dev setup max df. guard dog
     /// @param _max_df maximum interest rate in %, 18 decimals
     function setMaxDf(uint _max_df) external onlyOwner {
-        max_df = _max_df;
+        max_df = _max_df + E13;
     }
 
     /// @dev setup alpha
@@ -253,8 +258,8 @@ contract Tokenomics is IErrors, Ownable {
         // alpha * DCM(t)^beta + gamma
         FixedPoint.uq112x112 memory numerator = FixedPoint.uq112x112(1);
         FixedPoint.uq112x112 memory _one = FixedPoint.uq112x112(1);
-        FixedPoint.uq112x112 memory denominator = _pow(dcm,beta);
-        denominator = _add(_one,denominator.muluq(alpha));
+        FixedPoint.uq112x112 memory denominator = _pow(dcm, beta);
+        denominator = _add(_one, denominator.muluq(alpha));
         denominator = _add(denominator, gamma);
         df = numerator.divuq(denominator);
     }
@@ -330,7 +335,7 @@ contract Tokenomics is IErrors, Ownable {
 
         // Overall UCF calculation
         //_ucf = (_ucfc + _ucfa) / 2;
-        _ucf = _add(_ucfc,_ucfa).divuq(FixedPoint.uq112x112(2));
+        _ucf = _add(_ucfc, _ucfa).divuq(FixedPoint.uq112x112(2));
         // Calculating USF
         uint256 numServices = protocolServiceIds.length;
         uint256 usf;
@@ -346,7 +351,8 @@ contract Tokenomics is IErrors, Ownable {
         _dcm = _add(_ucf,_usf).divuq(FixedPoint.uq112x112(2));
         // ToDO :: df/iterest rate
         _df = _calculateDFv1(_dcm);
-        _df = _df.reciprocal(); // reverse_df = 1/df >= 1.0. think later
+        // reverse_df = 1/df >= 1.0. think later
+        _df = _df.reciprocal();
         PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: true });
         mapEpochEconomics[epoch] = newPoint;
 

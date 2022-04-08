@@ -12,7 +12,7 @@ import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
-contract BondDepository is IErrors, Ownable {
+contract Depository is IErrors, Ownable {
     using SafeERC20 for IERC20;
 
     event CreateBond(uint256 productId, uint256 amountOLA, uint256 tokenAmount);
@@ -101,7 +101,7 @@ contract BondDepository is IErrors, Ownable {
         }
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
-        uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
+        uint256 _epoch = block.number / ITokenomics(tokenomics).epochLen();
         // df uint with defined decimals
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, _epoch);
 

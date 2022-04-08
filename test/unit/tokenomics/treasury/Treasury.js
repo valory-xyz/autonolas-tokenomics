@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe.only("Treasury", async () => {
+describe("Treasury", async () => {
     const LARGE_APPROVAL = "100000000000000000000000000000000";
     // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
     // Initial mint for Frax and DAI (10,000,000)
@@ -13,6 +13,9 @@ describe.only("Treasury", async () => {
     let olaFactory;
     let treasuryFactory;
     let tokenomicsFactory;
+    let componentRegistry;
+    let agentRegistry;
+    let serviceRegistry;
     let dai;
     let lpToken;
     let ola;
@@ -43,9 +46,9 @@ describe.only("Treasury", async () => {
             componentRegistry.address);
         await agentRegistry.deployed();
 
-//        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-//        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
-//        await serviceRegistry.deployed();
+        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
+        await serviceRegistry.deployed();
     });
 
     // These should not be in beforeEach.
@@ -53,9 +56,12 @@ describe.only("Treasury", async () => {
         dai = await erc20Token.deploy();
         lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy();
+        // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
+        // Depository contract is irrelevant here, so we are using a deployer's address
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
         
         await dai.mint(deployer.address, initialMint);
@@ -71,7 +77,7 @@ describe.only("Treasury", async () => {
         // Deposit 10,000 DAI to treasury,  1,000 OLA gets minted to deployer with 9000 as excess reserves (ready to be minted)
         await treasury
             .connect(deployer)
-            .deposit("10000000000000000000000", dai.address, "1000000000000000000000");
+            .depositTokenForOLA("10000000000000000000000", dai.address, "1000000000000000000000");
     });
 
     it("deposit ok", async () => {
@@ -81,7 +87,7 @@ describe.only("Treasury", async () => {
     it("withdraw ok", async () => {
         await treasury
             .connect(deployer)
-            .withdraw("10000000000000000000000", dai.address);
+            .withdraw(deployer.address, "10000000000000000000000", dai.address);
         expect(await dai.balanceOf(deployer.address)).to.equal("10000000000000000000000000"); // back to initialMint
     });
         
