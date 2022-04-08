@@ -14,6 +14,9 @@ describe("Bond Depository LP", async () => {
     let olaFactory;
     let depositoryFactory;
     let tokenomicsFactory;
+    let componentRegistry;
+    let agentRegistry;
+    let serviceRegistry;
 
     let dai;
     let ola;
@@ -42,34 +45,44 @@ describe("Bond Depository LP", async () => {
         [deployer, alice, bob] = await ethers.getSigners();
         olaFactory = await ethers.getContractFactory("OLA");
         erc20Token = await ethers.getContractFactory("ERC20Token");
-        depositoryFactory = await ethers.getContractFactory("BondDepository");
+        depositoryFactory = await ethers.getContractFactory("Depository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
-        tokenomicsFactory = await ethers.getContractFactory("Tokenimics");
+        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+
+        const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
+        componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
+            "https://localhost/component/");
+        await componentRegistry.deployed();
+
+        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
+        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/",
+            componentRegistry.address);
+        await agentRegistry.deployed();
+
+        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
+        await serviceRegistry.deployed();
     });
 
     beforeEach(async () => {
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address);
+        // Correct treasury address is missing here, it will be defined just one line below
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+            agentRegistry.address, serviceRegistry.address);
+        // Correct depository address is missing here, it will be defined just one line below
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        // Change to the correct treasury address
+        await tokenomics.changeTreasury(treasury.address);
+        // Change to the correct depository address
+        depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
+        await treasury.changeDepository(depository.address);
 
-        tokenomics = await tokenomicsFactory.deploy(
-            deployer.address,
-            ola.address,
-            treasury.address,
-            epochLen
-        );
-
-        depository = await depositoryFactory.deploy(
-            deployer.address,
-            ola.address,
-            treasury.address,
-            tokenomics.address
-        );
-
+        // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
         await ola.mint(deployer.address, initialMint);
         await ola.mint(alice.address, initialMint);
-        await treasury.changeDepository(depository.address);
+        // Change treasury address
         await ola.changeTreasury(treasury.address);
 
         const wethFactory = await ethers.getContractFactory("WETH9");
@@ -134,7 +147,6 @@ describe("Bond Depository LP", async () => {
         await dai.connect(alice).approve(depository.address, supply);
 
         await treasury.enableToken(pairODAI.address);
-        await tokenomics.changeManagerDepository(depository.address);
 
         await depository.create(
             pairODAI.address,

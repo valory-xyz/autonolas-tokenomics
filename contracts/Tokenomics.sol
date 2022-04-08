@@ -3,6 +3,9 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./ComponentRegistry.sol";
+import "./AgentRegistry.sol";
+import "./ServiceRegistry.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrors.sol";
 // Uniswapv2
@@ -11,72 +14,103 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
-contract Tokenimics is IErrors, Ownable {
+contract Tokenomics is IErrors, Ownable {
+    using FixedPoint for *;
 
-    event TokenomicsManagerUpdated(address manager);
+    event TreasuryUpdated(address treasury);
 
     struct PointEcomonics {
         FixedPoint.uq112x112 ucf;
         FixedPoint.uq112x112 usf;
-        FixedPoint.uq112x112 df; // x > 1.0
-        FixedPoint.uq112x112 price;
-        uint256 priceCumulative;        
+        FixedPoint.uq112x112 df; // x > 1.0       
         uint256 ts; // timestamp
         uint256 blk; // block
         bool    _exist; // ready or not
     }
 
-    // OLA interface
-    IERC20 public immutable ola;
-    // Treasury interface
-    ITreasury public treasury;
-    // Tokenomics manager
-    address public managerDAO; // the usual way
-    address public managerDepository; // backup way
+    // OLA token address
+    address public immutable ola;
+    // Treasury contract address
+    address public treasury;
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
-    uint256 public immutable epoch_len; // epoch len in blk
-    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816; // 2^(112 - log2(1e18))  
+    uint256 public immutable epochLen; // epoch len in blk
+    // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
+    // 2^(112 - log2(1e18))
+    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
+    // Epsilon subject to rounding error
+    uint256 public constant E13 = 10**13;
+    // Maximum precision number to be considered
+    uint256 public constant E18 = 10**18;
+    // Default max DF of 200% rounded with epsilon of E13
+    uint256 public max_df = 2 * E18 + E13;
 
+    FixedPoint.uq112x112 alpha = FixedPoint.uq112x112(1); // 1.0 by default
+    uint256 beta = 1; // 1 by default, a == a^1 
+    FixedPoint.uq112x112 gamma = FixedPoint.uq112x112(1); // 1.0 by default
+
+    // Total service revenue per epoch: sum(r(s))
+    uint256 public totalServiceETHRevenue;
+
+    // Component Registry
+    address public immutable componentRegistry;
+    // Agent Registry
+    address public immutable agentRegistry;
+    // Service Registry
+    address payable public immutable serviceRegistry;
+    
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
+    // Set of protocol-owned services in current epoch
+    uint256[] protocolServiceIds;
+    // Map of service Ids and their amounts in current epoch
+    mapping(uint256 => uint256) mapServiceAmounts;
+    mapping(uint256 => uint256) mapServiceIndexes;
 
     // TODO later fix government / manager
-    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, uint256 _epoch_len) {
-        managerDAO = initManager;
-        managerDepository = initManager;
-        ola = iOLA;
-        treasury = iTreasury;
-        epoch_len = _epoch_len;
+    constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
+    {
+        ola = _ola;
+        treasury = _treasury;
+        epochLen = _epochLen;
+        componentRegistry = _componentRegistry;
+        agentRegistry = _agentRegistry;
+        serviceRegistry = _serviceRegistry;
     }
 
     // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyManager() {
-        if (managerDAO != msg.sender) {
-            revert ManagerOnly(msg.sender, managerDAO);
+    modifier onlyTreasury() {
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
         }
         _;
     }
 
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyManagerCheckpoint() {
-        if (!(managerDepository == msg.sender || managerDAO == msg.sender)) {
-            revert ManagerOnly(msg.sender, managerDepository);
+    function changeTreasury(address newTreasury) external onlyOwner {
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
+    }
+
+    /// @dev Gets curretn epoch number.
+    function getEpoch() public view returns (uint256 epoch) {
+        epoch = block.number / epochLen;
+    }
+
+    /// @dev Tracks the deposit token amount during the epoch.
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts)
+        public onlyTreasury {
+        // Loop over service Ids and track their amounts
+        uint256 numServices = serviceIds.length;
+        for (uint256 i = 0; i < numServices; ++i) {
+            // Add a new service Id to the set of Ids if one was not currently in it
+            if (mapServiceAmounts[serviceIds[i]] == 0) {
+                mapServiceIndexes[serviceIds[i]] = serviceIds.length;
+                protocolServiceIds.push(serviceIds[i]);
+            }
+            mapServiceAmounts[serviceIds[i]] += amounts[i];
+
+            // Increase also the total service revenue
+            totalServiceETHRevenue += amounts[i];
         }
-        _;
-    }
-
-    /// @dev Changes the tokenomics manager.
-    /// @param newManager Address of a new tokenomics manager.
-    function changeManagerDAO(address newManager) external onlyOwner {
-        managerDAO = newManager;
-        emit TokenomicsManagerUpdated(newManager);
-    }
-
-    /// @dev Changes the tokenomics manager.
-    /// @param newManager Address of a new tokenomics manager.
-    function changeManagerDepository(address newManager) external onlyOwner {
-        managerDepository = newManager;
-        emit TokenomicsManagerUpdated(newManager);
     }
 
     /// @dev Detect UniswapV2Pair
@@ -98,104 +132,322 @@ contract Tokenimics is IErrors, Ownable {
         return success;
     }
 
-    /// @notice Record global data to checkpoint
+    /// @dev setup max df. guard dog
+    /// @param _max_df maximum interest rate in %, 18 decimals
+    function setMaxDf(uint _max_df) external onlyOwner {
+        max_df = _max_df + E13;
+    }
+
+    /// @dev setup alpha
+    /// @param _numerator numerator
+    /// @param _denominator denominator
+    function setAlpha(uint256 _numerator, uint256 _denominator) external onlyOwner {
+        alpha = FixedPoint.fraction(_numerator,_denominator);
+    }
+
+    /// @dev setup beta
+    /// @param _beta beta
+    function setBeta(uint256 _beta) external onlyOwner {
+        beta = _beta;
+    }
+
+    /// @dev setup gamma
+    /// @param _numerator numerator
+    /// @param _denominator denominator
+    function setGamma(uint256 _numerator, uint256 _denominator) external onlyOwner {
+        gamma = FixedPoint.fraction(_numerator,_denominator);
+    }
+
+    function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {
+        ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
+        uint256 numComponents = cRegistry.totalSupply();
+        uint256 numProfitableComponents;
+        uint256 numServices = protocolServiceIds.length;
+        // Array of sum(UCFc(epoch))
+        uint256[] memory ucfcs = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
+        uint256[] memory ucfcsNum = new uint256[](numServices);
+        // Loop over components
+        for (uint256 i = 0; i < numComponents; ++i) {
+            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithComponentId(cRegistry.tokenByIndex(i));
+            bool profitable = false;
+            // Loop over services that include the component i
+            for (uint256 j = 0; j < serviceIds.length; ++j) {
+                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                if (revenue > 0) {
+                    // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
+                    ucfcs[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    // Increase |Cs(epoch)|
+                    ucfcsNum[mapServiceIndexes[serviceIds[j]]]++;
+                    profitable = true;
+                }
+            }
+            // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+            if (profitable) {
+                ++numProfitableComponents;
+            }
+        }
+        uint256 denominator;
+        // Calculate total UCFc
+        for (uint256 i = 0; i < numServices; ++i) {
+            denominator = ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) {
+                // avoid exception div by zero
+                ucfc = _add(ucfc,FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
+            }
+        }
+        denominator = numServices * numComponents;
+        if(denominator > 0) {
+            // avoid exception div by zero
+            ucfc = ucfc.muluq(FixedPoint.fraction(numProfitableComponents,denominator));
+        } else {
+            ucfc = FixedPoint.uq112x112(0);
+        }
+    }
+
+    function _calculateUCFa() private view returns (FixedPoint.uq112x112 memory ucfa) {
+        AgentRegistry aRegistry = AgentRegistry(agentRegistry);
+        uint256 numAgents = aRegistry.totalSupply();
+        uint256 numProfitableAgents;
+        uint256 numServices = protocolServiceIds.length;
+        // Array of sum(UCFa(epoch))
+        uint256[] memory ucfas = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |As(epoch)|
+        uint256[] memory ucfasNum = new uint256[](numServices);
+        // Loop over agents
+        for (uint256 i = 0; i < numAgents; ++i) {
+            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithAgentId(aRegistry.tokenByIndex(i));
+            bool profitable = false;
+            // Loop over services that include the agent i
+            for (uint256 j = 0; j < serviceIds.length; ++j) {
+                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                if (revenue > 0) {
+                    // Add cit(c, s) * r(s) for component j to add to UCFa(epoch)
+                    ucfas[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    // Increase |As(epoch)|
+                    ucfasNum[mapServiceIndexes[serviceIds[j]]]++;
+                    profitable = true;
+                }
+            }
+            // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
+            if (profitable) {
+                ++numProfitableAgents;
+            }
+        }
+        uint256 denominator;
+        // Calculate total UCFa
+        for (uint256 i = 0; i < numServices; ++i) {
+            denominator = ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+            if(denominator > 0) {
+                // avoid div by zero
+                ucfa = _add(ucfa,FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));  
+            }
+        }
+        denominator = numServices * numAgents;
+        if(denominator > 0) {
+            // avoid div by zero
+            ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents,denominator)); 
+        } else {
+            ucfa = FixedPoint.uq112x112(0);
+        }
+    }
+
+    /// @dev calc df by WD Math formula UCF, USF, DF v1 
+    /// @param dcm direct contribution measure DCM(t) by first version 
+    function _calculateDFv1(FixedPoint.uq112x112 memory dcm) internal view returns (FixedPoint.uq112x112 memory df) {
+        // alpha * DCM(t)^beta + gamma
+        FixedPoint.uq112x112 memory numerator = FixedPoint.uq112x112(1);
+        FixedPoint.uq112x112 memory _one = FixedPoint.uq112x112(1);
+        FixedPoint.uq112x112 memory denominator = _pow(dcm, beta);
+        denominator = _add(_one, denominator.muluq(alpha));
+        denominator = _add(denominator, gamma);
+        df = numerator.divuq(denominator);
+    }
+
+    /// @dev Sums two fixed points.
+    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure
+        returns (FixedPoint.uq112x112 memory r)
+    {
+        uint224 z = x._x + y._x;
+        if(x._x > 0 && y._x > 0) assert(z > x._x && z > y._x);
+        return FixedPoint.uq112x112(uint224(z));
+    }
+
+    /// @dev Pow of a fixed point.
+    function _pow(FixedPoint.uq112x112 memory a, uint b) internal pure returns (FixedPoint.uq112x112 memory c) {
+        if(b == 0) {
+            return FixedPoint.uq112x112(1);
+        }
+
+        if(b == 1) {
+            return a;
+        }
+
+        c = FixedPoint.uq112x112(1);
+        while(b > 0) {
+            // b % 2
+            if((b & 1) == 1) {
+                c = c.muluq(a);
+            }
+            a = a.muluq(a);
+            // b = b / 2;
+            b >>= 1;
+        }
+        return c;
+    }
+
+    /// @dev Clears necessary data structures for the next epoch.
+    function _clearEpochData() internal {
+        uint256 numServices = protocolServiceIds.length;
+        for (uint256 i = 0; i < numServices; ++i) {
+            delete mapServiceAmounts[protocolServiceIds[i]];
+            delete mapServiceIndexes[protocolServiceIds[i]];
+        }
+        delete protocolServiceIds;
+        totalServiceETHRevenue = 0;
+    }
+
+    /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
-    function checkpoint() external onlyManagerCheckpoint {
-        uint256 _epoch = block.number / epoch_len;
-        PointEcomonics memory lastPoint = mapEpochEconomics[_epoch];
+    function checkpoint() external {
+        uint256 epoch = getEpoch();
+        PointEcomonics memory lastPoint = mapEpochEconomics[epoch];
         // if not exist
         if(!lastPoint._exist) {
-            _checkpoint(_epoch);
+            _checkpoint(epoch);
         }
     }
 
     /// @dev Record global data to new checkpoint
-    /// @param _epoch number of epoch
-    function _checkpoint(uint256 _epoch) internal {
-        uint numerator = 110; // stub for tests
-        uint denominator = 100; // stub for tests
-        FixedPoint.uq112x112 memory _ucf = FixedPoint.fraction(numerator, denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        FixedPoint.uq112x112 memory _usf = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        FixedPoint.uq112x112 memory _df = FixedPoint.fraction(numerator,denominator); // uq112x112((uint224(110) << 112) / 100) i.e. 1.1
-        PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, price: FixedPoint.fraction(1, 1), priceCumulative: 0, ts: block.timestamp, blk: block.number, _exist: false });
-        // here we calculate the real UCF,USF from Treasury/Component-Agent-Services ..
-        // *************** stub for interactions with Registry*
-        // Treasury part, I will improve it later
-        (newPoint.price, newPoint.priceCumulative) = _CumulativePricesFromHistoryPoint(_epoch); 
-        newPoint._exist = true;
-        mapEpochEconomics[_epoch] = newPoint;
+    /// @param epoch number of epoch
+    function _checkpoint(uint256 epoch) internal {
+        FixedPoint.uq112x112 memory _ucf; // uq112x112(0) by default
+        FixedPoint.uq112x112 memory _usf; //
+        FixedPoint.uq112x112 memory _dcm; 
+        FixedPoint.uq112x112 memory _df; // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0. 
+        // Calculate UCF, USF
+        // TODO Look for optimization possibilities
+        // Calculate total UCFc
+        FixedPoint.uq112x112 memory _ucfc = _calculateUCFc();
+
+        // Calculate total UCFa
+        FixedPoint.uq112x112 memory _ucfa = _calculateUCFa();
+
+        // Overall UCF calculation
+        //_ucf = (_ucfc + _ucfa) / 2;
+        _ucf = _add(_ucfc, _ucfa).divuq(FixedPoint.uq112x112(2));
+        // Calculating USF
+        uint256 numServices = protocolServiceIds.length;
+        uint256 usf;
+        for (uint256 i = 0; i < numServices; ++i) {
+            usf += mapServiceAmounts[protocolServiceIds[i]];
+        }
+        uint256 denominator = ServiceRegistry(serviceRegistry).totalSupply(); 
+        if(denominator > 0) {
+            // _usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
+            _usf =  FixedPoint.fraction(usf,denominator); 
+        }
+        //_dcm = (_ucf + _usf) / 2;
+        _dcm = _add(_ucf,_usf).divuq(FixedPoint.uq112x112(2));
+        // ToDO :: df/iterest rate
+        _df = _calculateDFv1(_dcm);
+        // reverse_df = 1/df >= 1.0. think later
+        _df = _df.reciprocal();
+        PointEcomonics memory newPoint = PointEcomonics({ucf: _ucf, usf: _usf, df: _df, ts: block.timestamp, blk: block.number, _exist: true });
+        mapEpochEconomics[epoch] = newPoint;
+
+        _clearEpochData();
     }
 
-    /// @dev produces the price for point
-    /// @param _epoch number of epoch
-    /// @return price0Average average price in form of fixed point 112.112
-    /// @return price0Cumulative cumulative price as uint
-    function _CumulativePricesFromHistoryPoint(uint256 _epoch) internal returns (FixedPoint.uq112x112 memory price0Average, uint256 price0Cumulative) {
-        uint timeElapsed;
-        uint256 price0CumulativeLast;
-        address[] memory tokensInTreasury = treasury.getTokenRegistry(); // list of trusted pairs
-        PointEcomonics memory prePoint = mapEpochEconomics[_epoch-1];
-
-        if(_epoch > 0) {    
-            if(!prePoint._exist) {
-                price0CumulativeLast = prePoint.priceCumulative;
-                timeElapsed = block.timestamp - prePoint.ts;
-            } else {
-                price0CumulativeLast = 0;
-                timeElapsed = 1;        
-            }
-        } else {
-            price0CumulativeLast = 0;
-            timeElapsed = 1;
+    // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
+    /// @param token Token address.
+    /// @param tokenAmount Token amount.
+    /// @param _epoch epoch number
+    /// @return resAmount Resulting amount of OLA tokens.
+    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external
+        returns (uint256 resAmount)
+    {
+        PointEcomonics memory _PE = mapEpochEconomics[_epoch];
+        if (!_PE._exist) {
+            _checkpoint(_epoch);
+            _PE = mapEpochEconomics[_epoch];
         }
-        
-        for (uint256 i = 0; i < tokensInTreasury.length; i++) {
-            if(treasury.isEnabled(tokensInTreasury[i]) && callDetectPair(tokensInTreasury[i])) {
-                // part for LP tokens 
-                // OLA in trusted pair can be token0 or token1
-                address addrTmp = IUniswapV2Pair(tokensInTreasury[i]).token0();
-                if (addrTmp == address(ola)) { // re-check order price vs token!
-                    (price0Cumulative,,) = _currentCumulativePrices(tokensInTreasury[i]);
-                    if(price0Cumulative > price0CumulativeLast) {
-                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                    } else {
-                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                    }
-                } else {
+        uint256 df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
+        resAmount = _calculatePayoutFromLP(token, tokenAmount, df);
+    }
 
-                    if(price0Cumulative > price0CumulativeLast) {
-                        price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
-                    } else {
-                        price0Average = FixedPoint.uq112x112(uint224((price0CumulativeLast - price0Cumulative) / timeElapsed));
-                    }
-                }
-                break; // multi-LP (i.e. OLA-DAI, OLA-ETH, OLA-USDC, .. in single Treasury/Bonding) not supported yet, or neeed nested map
-            }
-        }
-    } 
+    /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
+    /// @param token Token address.
+    /// @param amount Token amount.
+    /// @param df Discount
+    /// @return resAmount Resulting amount of OLA tokens.
+    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
+        returns (uint256 resAmount)
+    {
+        // Calculation of removeLiquidity
+        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
+        address token0 = pair.token0();
+        address token1 = pair.token1();
+        uint256 balance0 = IERC20(token0).balanceOf(address(pair));
+        uint256 balance1 = IERC20(token1).balanceOf(address(pair));
+        uint256 totalSupply = pair.totalSupply();
 
+        // Using balances ensures pro-rate distribution
+        uint256 amount0 = (amount * balance0) / totalSupply;
+        uint256 amount1 = (amount * balance1) / totalSupply;
 
-    /// @dev produces the cumulative price
-    /// @param pair LPToken/Pool address.
-    /// @return price0Cumulative cumulative price token0
-    /// @return price1Cumulative cumulative price token1
-    /// @return blockTimestamp current block.timestamp
-    function _currentCumulativePrices(address pair) internal view returns (uint price0Cumulative, uint price1Cumulative, uint32 blockTimestamp) {
-        blockTimestamp =  uint32(block.timestamp);
-        price0Cumulative = IUniswapV2Pair(pair).price0CumulativeLast();
-        price1Cumulative = IUniswapV2Pair(pair).price1CumulativeLast();
+        require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
+        require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
 
-        // if time has elapsed since the last update on the pair, mock the accumulated price values
-        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
-        if (blockTimestamp > blockTimestampLast) {
-            // subtraction overflow is desired
-            uint32 timeElapsed = blockTimestamp - blockTimestampLast;
-            // addition overflow is desired
-            // counterfactual
-            price0Cumulative += uint(FixedPoint.fraction(reserve1, reserve0)._x) * timeElapsed;
-            // counterfactual
-            price1Cumulative += uint(FixedPoint.fraction(reserve0, reserve1)._x) * timeElapsed;
-        }
+        // Get the initial OLA token amounts
+        uint256 amountOLA = (token0 == ola) ? amount0 : amount1;
+        uint256 amountPairForOLA = (token0 == ola) ? amount1 : amount0;
+
+        // Calculate swap tokens from the LP back to the OLA token
+        balance0 -= amount0;
+        balance1 -= amount1;
+        uint256 reserveIn = (token0 == ola) ? balance1 : balance0;
+        uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
+        amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+
+        // Get the resulting amount in OLA tokens
+        resAmount = _calculateDF(amountOLA, df);
+    }
+
+    // TODO This is the mocking function for the moment
+    /// @dev Calculates discount factor.
+    /// @param amount Initial OLA token amount.
+    /// @param df Discount
+    /// @return amountDF OLA amount corrected by the DF.
+    function _calculateDF(uint256 amount, uint256 df) internal view returns (uint256 amountDF) {
+        require(df < max_df,"df watch dog"); // rewrite later to normal description in english
+        amountDF = (amount * df) / E18; // df with decimals 18
+        // The discounted amount cannot be smaller than the actual one
+        if (amountDF < amount) {
+            revert AmountLowerThan(amountDF, amount);
+        } 
+    }
+
+    // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
+    // No license in file
+    // forked for Solidity 8.x
+    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
+
+    /// @dev Gets the additional OLA amount from the LP pair token by swapping.
+    /// @param amountIn Initial OLA token amount.
+    /// @param reserveIn Token amount that is not OLA.
+    /// @param reserveOut Token amount in OLA wit fees.
+    /// @return amountOut Resulting OLA amount.
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
+        returns (uint256 amountOut)
+    {
+        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
+        require(reserveIn > 0 && reserveOut > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
+
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee / reserveOut;
+        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
+        amountOut = numerator / denominator;
     }
 
     /// @dev get Point by epoch
@@ -205,7 +457,7 @@ contract Tokenimics is IErrors, Ownable {
         _PE = mapEpochEconomics[_epoch];
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision
+    // decode a uq112x112 into a uint with 18 decimals of precision, 0 if not exist
     function getDF(uint256 _epoch) public view returns (uint256 df) {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
         if (_PE._exist) {
@@ -217,22 +469,16 @@ contract Tokenimics is IErrors, Ownable {
         }
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision
-    function getDFForEpoch(uint256 _epoch) external onlyManagerCheckpoint returns (uint256 df) {
+    // decode a uq112x112 into a uint with 18 decimals of precision, re-calc if not exist
+    function getDFForEpoch(uint256 _epoch) external returns (uint256 df) {
         PointEcomonics memory _PE = mapEpochEconomics[_epoch];
-        if (_PE._exist) {
-            // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
-            // a/b is encoded as (a << 112) / b or (a * 2^112) / b
-            df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
-        } else {
+        if (!_PE._exist) {
             _checkpoint(_epoch);
             _PE = mapEpochEconomics[_epoch];
-            df = uint256(_PE.df._x / MAGIC_DENOMINATOR); 
         }
-    }
-
-    function getEpochLen() external view returns (uint256) {
-        return epoch_len;
+        // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
+        // a/b is encoded as (a << 112) / b or (a * 2^112) / b
+        df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
     }
 
 }    

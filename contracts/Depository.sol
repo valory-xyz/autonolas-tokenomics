@@ -12,13 +12,14 @@ import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
-contract BondDepository is IErrors, Ownable {
+contract Depository is IErrors, Ownable {
     using SafeERC20 for IERC20;
 
     event CreateBond(uint256 productId, uint256 amountOLA, uint256 tokenAmount);
     event CreateProduct(address token, uint256 productId, uint256 supply);
     event TerminateProduct(address token, uint256 productId);
-    event DepositoryManagerUpdated(address manager);
+    event TreasuryUpdated(address treasury);
+    event TokenomicsUpdated(address tokenomics);
 
     struct Bond {
         // OLA remaining to be paid out
@@ -49,41 +50,31 @@ contract BondDepository is IErrors, Ownable {
     }
 
     // OLA interface
-    IERC20 public immutable ola;
+    address public immutable ola;
     // Treasury interface
-    ITreasury public treasury;
+    address public treasury;
     // Tokenomics interface 
-    ITokenomics public tokenomics;
-    // Depository manager
-    address public manager;
+    address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
-
-    uint public constant E18 = 10**18;
-
+    
     // TODO later fix government / manager
-    constructor(address initManager, IERC20 iOLA, ITreasury iTreasury, ITokenomics iTokenomics) {
-        manager = initManager;
-        ola = iOLA;
-        treasury = iTreasury;
-        tokenomics = iTokenomics;
+    constructor(address _ola, address _treasury, address _tokenomics) {
+        ola = _ola;
+        treasury = _treasury;
+        tokenomics = _tokenomics;
     }
 
-    // Only the manager has a privilege to manipulate a treasury
-    modifier onlyManager() {
-        if (manager != msg.sender) {
-            revert ManagerOnly(msg.sender, manager);
-        }
-        _;
+    function changeTreasury(address newTreasury) external onlyOwner {
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
     }
 
-    /// @dev Changes the treasury manager.
-    /// @param newManager Address of a new treasury manager.
-    function changeManager(address newManager) external onlyOwner {
-        manager = newManager;
-        emit DepositoryManagerUpdated(newManager);
+    function changeTokenomics(address newTokenomics) external onlyOwner {
+        tokenomics = newTokenomics;
+        emit TokenomicsUpdated(newTokenomics);
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
@@ -110,9 +101,9 @@ contract BondDepository is IErrors, Ownable {
         }
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
-        uint256 _epoch = block.number / ITokenomics(tokenomics).getEpochLen();
-        uint256 df = ITokenomics(tokenomics).getDFForEpoch(_epoch); // df uint with 18 decimals
-        payout = _calculatePayoutFromLP(token, tokenAmount, df);
+        uint256 _epoch = block.number / ITokenomics(tokenomics).epochLen();
+        // df uint with defined decimals
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, _epoch);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -134,9 +125,9 @@ contract BondDepository is IErrors, Ownable {
         // Transfer tokens to the depository
         product.token.safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
-        product.token.approve(address(treasury), tokenAmount);
+        product.token.approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLA tokens in exchange
-        treasury.deposit(tokenAmount, address(product.token), payout);
+        ITreasury(treasury).depositTokenForOLA(tokenAmount, address(product.token), payout);
     }
 
     /// @dev Redeem bonds for the user.
@@ -155,7 +146,7 @@ contract BondDepository is IErrors, Ownable {
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLA token
-        ola.transfer(user, payout);
+        IERC20(ola).transfer(user, payout);
     }
 
     /// @dev Redeems all redeemable products for a user. Best to query off-chain and input in redeem() to save gas.
@@ -210,7 +201,7 @@ contract BondDepository is IErrors, Ownable {
     /// @param supply Supply in OLA tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(IERC20 token, uint256 supply, uint256 vesting) external onlyManager returns (uint256 productId) {
+    function create(IERC20 token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
         // Create a new product.
         productId = mapTokenProducts[address(token)].length;
         Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0);
@@ -222,7 +213,7 @@ contract BondDepository is IErrors, Ownable {
     /// @dev Cloe a bonding product.
     /// @param token Specified token.
     /// @param productId Product Id.
-    function close(address token, uint256 productId) external onlyManager {
+    function close(address token, uint256 productId) external onlyOwner {
         mapTokenProducts[token][productId].supply = 0;
         
         emit TerminateProduct(token, productId);
@@ -261,82 +252,6 @@ contract BondDepository is IErrors, Ownable {
             }
         }
         return ids;
-    }
-
-    // TODO This is the mocking function for the moment
-    /// @dev Calculates discount factor.
-    /// @param amount Initial OLA token amount.
-    /// @param df Discount
-    /// @return amountDF OLA amount corrected by the DF.
-    function _calculateDF(uint256 amount, uint256 df) internal pure returns (uint256 amountDF) {
-        amountDF = (amount * df) / E18; // df with decimals 18
-        // The discounted amount cannot be smaller than the actual one
-        if (amountDF < amount) {
-            revert AmountLowerThan(amountDF, amount);
-        }
-    }
-
-    // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
-    // No license in file
-    // forked for Solidity 8.x
-    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-
-    /// @dev Gets the additional OLA amount from the LP pair token by swapping.
-    /// @param amountIn Initial OLA token amount.
-    /// @param reserveIn Token amount that is not OLA.
-    /// @param reserveOut Token amount in OLA wit fees.
-    /// @return amountOut Resulting OLA amount.
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
-        returns (uint256 amountOut)
-    {
-        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
-        require(reserveIn > 0 && reserveOut > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
-
-        uint256 amountInWithFee = amountIn * 997;
-        uint256 numerator = amountInWithFee / reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        amountOut = numerator / denominator;
-    }
-
-    /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param amount Token amount.
-    /// @param df Discount
-    /// @return resAmount Resulting amount of OLA tokens.
-    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
-        returns (uint256 resAmount)
-    {
-        // ******************* will be rewritten later with CumulativePrices
-        // Calculation of removeLiquidity
-        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        uint256 balance0 = IERC20(token0).balanceOf(address(pair));
-        uint256 balance1 = IERC20(token1).balanceOf(address(pair));
-        uint256 totalSupply = pair.totalSupply();
-
-        // Using balances ensures pro-rate distribution
-        uint256 amount0 = (amount * balance0) / totalSupply;
-        uint256 amount1 = (amount * balance1) / totalSupply;
-
-        require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
-        require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
-
-        // Get the initial OLA token amounts
-        uint256 amountOLA = (token0 == address(ola)) ? amount0 : amount1;
-        uint256 amountPairForOLA = (token0 == address(ola)) ? amount1 : amount0;
-
-        // Calculate swap tokens from the LP back to the OLA token
-        balance0 -= amount0;
-        balance1 -= amount1;
-        uint256 reserveIn = (token0 == address(ola)) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == address(ola)) ? balance0 : balance1;
-        amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
-
-        // ******************** 
-
-        // Get the resulting amount in OLA tokens
-        resAmount = _calculateDF(amountOLA, df);
     }
 
     /// @dev Gets the product instance.

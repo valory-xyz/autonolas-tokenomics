@@ -12,10 +12,16 @@ describe("Treasury", async () => {
     let erc20Token;
     let olaFactory;
     let treasuryFactory;
+    let tokenomicsFactory;
+    let componentRegistry;
+    let agentRegistry;
+    let serviceRegistry;
     let dai;
     let lpToken;
     let ola;
     let treasury;
+    let tokenomics;
+    const epochLen = 100;
 
     /**
      * Everything in this block is only run once before all tests.
@@ -28,6 +34,21 @@ describe("Treasury", async () => {
         erc20Token = await ethers.getContractFactory("ERC20Token");
         olaFactory = await ethers.getContractFactory("OLA");
         treasuryFactory = await ethers.getContractFactory("Treasury");
+        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+
+        const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
+        componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
+            "https://localhost/component/");
+        await componentRegistry.deployed();
+
+        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
+        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/",
+            componentRegistry.address);
+        await agentRegistry.deployed();
+
+        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
+        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
+        await serviceRegistry.deployed();
     });
 
     // These should not be in beforeEach.
@@ -35,7 +56,13 @@ describe("Treasury", async () => {
         dai = await erc20Token.deploy();
         lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy();
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address);
+        // Correct treasury address is missing here, it will be defined just one line below
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+            agentRegistry.address, serviceRegistry.address);
+        // Depository contract is irrelevant here, so we are using a deployer's address
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        // Change to the correct treasury address
+        await tokenomics.changeTreasury(treasury.address);
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
@@ -50,7 +77,7 @@ describe("Treasury", async () => {
         // Deposit 10,000 DAI to treasury,  1,000 OLA gets minted to deployer with 9000 as excess reserves (ready to be minted)
         await treasury
             .connect(deployer)
-            .deposit("10000000000000000000000", dai.address, "1000000000000000000000");
+            .depositTokenForOLA("10000000000000000000000", dai.address, "1000000000000000000000");
     });
 
     it("deposit ok", async () => {
@@ -60,7 +87,7 @@ describe("Treasury", async () => {
     it("withdraw ok", async () => {
         await treasury
             .connect(deployer)
-            .withdraw("10000000000000000000000", dai.address);
+            .withdraw(deployer.address, "10000000000000000000000", dai.address);
         expect(await dai.balanceOf(deployer.address)).to.equal("10000000000000000000000000"); // back to initialMint
     });
         
