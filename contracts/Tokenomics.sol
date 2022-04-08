@@ -147,8 +147,6 @@ contract Tokenimics is IErrors, Ownable {
         gamma = FixedPoint.fraction(_numerator,_denominator);
     }
 
-    
-
     function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {
         ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
         uint256 numComponents = cRegistry.totalSupply();
@@ -272,10 +270,22 @@ contract Tokenimics is IErrors, Ownable {
         if(b == 1) {
             return a;
         }
-        for (uint i =0; i < b; ++i) {
+        //result = 1
+        //while (pow > 0)
+        //    if pow mod 2 == 1
+        //        result *= value
+        //    value *= value
+        //    pow /= 2;
+        //return result;
+        c = FixedPoint.uq112x112(1);
+        while(b > 0) {
+            if((b % 2) == 1) {
+                c = c.muluq(a);
+            }
             a = a.muluq(a);
+            b = b / 2;
         }
-        return a;
+        return c;
     }
 
     /// @dev Clears necessary data structures for the next epoch.
