@@ -278,12 +278,13 @@ contract Tokenimics is IErrors, Ownable {
         //    pow /= 2;
         //return result;
         c = FixedPoint.uq112x112(1);
+        // cout << fast_power(2, 100) << endl; // Output: 976371285
         while(b > 0) {
-            if((b % 2) == 1) {
+            if((b & 1) == 1) { // b % 2
                 c = c.muluq(a);
             }
             a = a.muluq(a);
-            b = b / 2;
+            b >>= 1; // b = b / 2;
         }
         return c;
     }
