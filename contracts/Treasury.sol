@@ -95,6 +95,10 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
 
     /// @dev Deposits ETH from protocol-owned services in batch.
     function depositETHFromServiceBatch(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
+        if (msg.value == 0) {
+            revert ZeroValue();
+        }
+
         // Check for the same length of arrays
         uint256 numServices = serviceIds.length;
         if (amounts.length != numServices) {
@@ -114,6 +118,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         }
 
         ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+
         emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 
@@ -122,11 +127,13 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         if (msg.value == 0) {
             revert ZeroValue();
         }
+
         uint256[] memory serviceIds = new uint256[](1);
         serviceIds[0] = serviceId;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = msg.value;
         ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+
         emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
     }
 

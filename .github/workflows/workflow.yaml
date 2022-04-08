@@ -37,7 +37,7 @@ jobs:
 
       # Run hardhat coverage and upload codecov report
       - name: Remove depository lp coverage for now due to uniswap issue
-        run: rm -rf test/unit/tokenomics/depository
+        run: rm -rf test/unit/tokenomics/depository test/integration/Tokenomics*
       - name: Solidity coverage summary
         run: ./node_modules/.bin/hardhat coverage
       - name: Upload coverage to Codecov
