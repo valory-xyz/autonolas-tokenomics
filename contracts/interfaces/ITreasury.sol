@@ -22,10 +22,6 @@ interface ITreasury {
     /// @param token Token address.
     function disableToken(address token) external;
 
-    /// @dev Gets the token registry set.
-    /// @return Set of token registry.
-    function getTokenRegistry() external view returns (address[] memory);
-
     /// @dev Gets information about token being enabled.
     /// @param token Token address.
     /// @return enabled True is token is enabled.

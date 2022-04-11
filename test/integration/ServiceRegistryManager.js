@@ -105,6 +105,39 @@ describe("ServiceRegistry integration", function () {
             expect(await serviceRegistry.exists(2)).to.equal(true);
             expect(await serviceRegistry.exists(3)).to.equal(false);
         });
+
+        it("Pausing and unpausing", async function () {
+            const manager = signers[2];
+            const owner = signers[3];
+
+            await agentRegistry.changeManager(manager.address);
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash, description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+
+            // Can't unpause unpaused contract
+            await expect(
+                serviceManager.unpause()
+            ).to.be.revertedWith("Pausable: not paused");
+
+            // Pause the contract
+            await serviceManager.pause();
+
+            // Try creating a contract when paused
+            await expect(
+                serviceManager.serviceCreate(owner.address, name, description, configHash, [1], [[1, regBond]], 1)
+            ).to.be.revertedWith("Pausable: paused");
+
+            // Try to pause again
+            await expect(
+                serviceManager.pause()
+            ).to.be.revertedWith("Pausable: paused");
+
+            // Unpause the contract
+            await serviceManager.unpause();
+
+            // Create a service
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, [1], [[1, regBond]], 1);
+        });
     });
     
     context("Service creation and update via manager", async function () {

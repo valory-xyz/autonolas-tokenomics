@@ -34,7 +34,7 @@ describe("ERC20 OLA with vault", () => {
     describe("mint", () => {
         it("must be done by vault", async () => {
             await expect(ola.connect(bob).mint(bob.address, 100)).to.be.revertedWith(
-                "Unauthorized"
+                "ManagerOnly"
             );
         });
 

@@ -132,14 +132,14 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.changeManager(serviceManager.address);
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [], [], threshold)
-            ).to.be.revertedWith("WrongAgentsData");
+            ).to.be.revertedWith("WrongArrayLength");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1], [], threshold)
-            ).to.be.revertedWith("WrongAgentsData");
+            ).to.be.revertedWith("WrongArrayLength");
             await expect(
                 serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1, 3], [[2, regBond]],
                     threshold)
-            ).to.be.revertedWith("WrongAgentsData");
+            ).to.be.revertedWith("WrongArrayLength");
         });
 
         it("Should fail when creating a service with non existent canonical agent", async function () {
@@ -1092,7 +1092,7 @@ describe("ServiceRegistry", function () {
             // Should fail when dimentions of arrays don't match
             await expect(
                 serviceRegistry.slash([wrongAgentInstance, AddressZero], [regFine], serviceId)
-            ).to.be.revertedWith("WrongAgentsData");
+            ).to.be.revertedWith("WrongArrayLength");
 
             // Simulate slashing with the agent instance that is not in the service
             await expect(
