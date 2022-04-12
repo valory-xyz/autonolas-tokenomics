@@ -102,8 +102,7 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         // Check for the same length of arrays
         uint256 numServices = serviceIds.length;
         if (amounts.length != numServices) {
-            // TODO correct the revert
-            revert WrongAgentsData(numServices, amounts.length);
+            revert WrongArrayLength(numServices, amounts.length);
         }
 
         uint256 totalAmount;
@@ -112,9 +111,8 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         }
 
         // Check if the total transferred amount corresponds to the sum of amounts from services
-        if (msg.value != totalAmount) { // not sure 
-            // TODO correct the revert
-            revert AmountLowerThan(msg.value, totalAmount);
+        if (msg.value != totalAmount) {
+            revert WrongAmount(msg.value, totalAmount);
         }
 
         ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
@@ -186,12 +184,6 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
             mapTokens[token].state = TokenState.Disabled;
             emit DisableToken(token);
         }
-    }
-
-    /// @dev Gets the token registry set.
-    /// @return Set of token registry.
-    function getTokenRegistry() public view returns (address[] memory) {
-        return tokenRegistry;
     }
 
     /// @dev Gets information about token being enabled.

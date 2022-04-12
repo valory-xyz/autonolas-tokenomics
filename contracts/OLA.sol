@@ -5,10 +5,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "./interfaces/IErrors.sol";
 
 /// @title OLA - Smart contract for the main OLA token
 /// @author AL
-contract OLA is Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
+contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     // TODO Maximum possible number of tokens
     // uint256 public constant maxSupply = 500000000e18; // 500 million OLA
     event TreasuryUpdated(address indexed treasury);
@@ -19,9 +20,10 @@ contract OLA is Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
         treasury = msg.sender;
     }
 
-    modifier onlyTreasury() {
-        // TODO change to revert
-        require(msg.sender == treasury || msg.sender == owner(), "OLA: Unauthorized access");
+    modifier onlyManager() {
+        if (msg.sender != treasury && msg.sender != owner()) {
+            revert ManagerOnly(msg.sender, treasury);
+        }
         _;
     }
 
@@ -35,7 +37,7 @@ contract OLA is Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     /// @dev Mints OLA tokens.
     /// @param account Account address.
     /// @param amount OLA token amount.
-    function mint(address account, uint256 amount) public onlyTreasury {
+    function mint(address account, uint256 amount) public onlyManager {
         super._mint(account, amount);
     }
 

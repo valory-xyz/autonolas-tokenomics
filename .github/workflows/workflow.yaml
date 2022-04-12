@@ -19,7 +19,7 @@ jobs:
       - name: Run ESLint
         run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
       - name: Run solhint
-        run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol contracts/governance/*.sol contracts/multisigs/*.sol
+        run: ./node_modules/.bin/solhint contracts/*.sol contracts/interfaces/*.sol contracts/governance/*.sol contracts/multisigs/*.sol contracts/test/*.sol
 
       # Compile the code
       - name: Compile, adjust uniswap library hash and recompile again

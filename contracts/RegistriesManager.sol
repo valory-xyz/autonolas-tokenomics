@@ -24,10 +24,13 @@ contract RegistriesManager is IStructs, Ownable, Pausable {
     /// @param description Description of the agent.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted agent.
-    function mintAgent(address owner, address developer, Multihash memory agentHash,
-        string memory description, uint256[] memory dependencies)
-        public
-        returns (uint256)
+    function mintAgent(
+        address owner,
+        address developer,
+        Multihash memory agentHash,
+        string memory description,
+        uint256[] memory dependencies
+    ) external whenNotPaused returns (uint256)
     {
         return IRegistry(agentRegistry).create(owner, developer, agentHash, description, dependencies);
     }
@@ -35,7 +38,7 @@ contract RegistriesManager is IStructs, Ownable, Pausable {
     /// @dev Updates the agent hash.
     /// @param tokenId Token Id.
     /// @param agentHash New IPFS hash of the agent.
-    function updateAgentHash(uint256 tokenId, Multihash memory agentHash) public {
+    function updateAgentHash(uint256 tokenId, Multihash memory agentHash) external {
         return IRegistry(agentRegistry).updateHash(msg.sender, tokenId, agentHash);
     }
 
@@ -46,10 +49,13 @@ contract RegistriesManager is IStructs, Ownable, Pausable {
     /// @param description Description of the component.
     /// @param dependencies Set of component dependencies in a sorted ascending order.
     /// @return The id of a minted component.
-    function mintComponent(address owner, address developer, Multihash memory componentHash,
-        string memory description, uint256[] memory dependencies)
-        public
-        returns (uint256)
+    function mintComponent(
+        address owner,
+        address developer,
+        Multihash memory componentHash,
+        string memory description,
+        uint256[] memory dependencies
+    ) external whenNotPaused returns (uint256)
     {
         return IRegistry(componentRegistry).create(owner, developer, componentHash, description, dependencies);
     }
@@ -57,7 +63,17 @@ contract RegistriesManager is IStructs, Ownable, Pausable {
     /// @dev Updates the component hash.
     /// @param tokenId Token Id.
     /// @param componentHash New IPFS hash of the component.
-    function updateComponentHash(uint256 tokenId, Multihash memory componentHash) public {
+    function updateComponentHash(uint256 tokenId, Multihash memory componentHash) external {
         return IRegistry(componentRegistry).updateHash(msg.sender, tokenId, componentHash);
+    }
+
+    /// @dev Pauses the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Unpauses the contract.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

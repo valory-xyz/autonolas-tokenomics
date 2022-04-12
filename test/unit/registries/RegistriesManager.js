@@ -37,6 +37,41 @@ describe("RegistriesManager", function () {
             expect(await registriesManager.componentRegistry()).to.equal(componentRegistry.address);
             expect(await registriesManager.agentRegistry()).to.equal(agentRegistry.address);
         });
+
+        it("Pausing and unpausing", async function () {
+            const user = signers[3];
+
+            // Can't unpause unpaused contract
+            await expect(
+                registriesManager.unpause()
+            ).to.be.revertedWith("Pausable: not paused");
+
+            // Pause the contract
+            await registriesManager.pause();
+
+            // Try minting when paused
+            await expect(
+                registriesManager.mintComponent(user.address, user.address, componentHashes[0], description, dependencies)
+            ).to.be.revertedWith("Pausable: paused");
+
+            await expect(
+                registriesManager.mintAgent(user.address, user.address, componentHashes[0], description, dependencies)
+            ).to.be.revertedWith("Pausable: paused");
+
+            // Try to pause again
+            await expect(
+                registriesManager.pause()
+            ).to.be.revertedWith("Pausable: paused");
+
+            // Unpause the contract
+            await registriesManager.unpause();
+
+            // Mint component and agent
+            await componentRegistry.changeManager(registriesManager.address);
+            await agentRegistry.changeManager(registriesManager.address);
+            await registriesManager.mintComponent(user.address, user.address, componentHashes[0], description, dependencies);
+            await registriesManager.mintAgent(user.address, user.address, componentHashes[1], description, dependencies);
+        });
     });
 
     context("Updating hashes", async function () {

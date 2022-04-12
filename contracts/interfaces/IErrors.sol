@@ -32,10 +32,10 @@ interface IErrors {
     /// @param agentId Component Id.
     error WrongAgentId(uint256 agentId);
 
-    /// @dev Inconsistent data of cannonical agent Ids and their correspondent slots.
-    /// @param numAgentIds Number of canonical agent Ids.
-    /// @param numAgentSlots Numberf of canonical agent Id slots.
-    error WrongAgentsData(uint256 numAgentIds, uint256 numAgentSlots);
+    /// @dev Wrong length of two arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Numberf of values in a second array.
+    error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
     /// @dev Canonical agent Id is not found.
     /// @param agentId Canonical agent Id.
@@ -161,6 +161,11 @@ interface IErrors {
     /// @param provided Provided amount is lower.
     /// @param expected Expected amount.
     error AmountLowerThan(uint256 provided, uint256 expected);
+
+    /// @dev Wrong amount received / provided.
+    /// @param provided Provided amount.
+    /// @param expected Expected amount.
+    error WrongAmount(uint256 provided, uint256 expected);
 
     /// @dev Incorrect deposit provided for the registration activation.
     /// @param sent Sent amount.

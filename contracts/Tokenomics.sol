@@ -42,13 +42,13 @@ contract Tokenomics is IErrors, Ownable {
     // Maximum precision number to be considered
     uint256 public constant E18 = 10**18;
     // Default max DF of 200% rounded with epsilon of E13
-    uint256 public max_df = 2 * E18 + E13;
+    uint256 public maxDF = 2 * E18 + E13;
 
     // 1.0 by default
-    FixedPoint.uq112x112 alpha = FixedPoint.fraction(1, 1);
+    FixedPoint.uq112x112 public alpha = FixedPoint.fraction(1, 1);
     // 1 by default, a == a^1
-    uint256 beta = 1;
-    FixedPoint.uq112x112 gamma = FixedPoint.fraction(1, 1);
+    uint256 public beta = 1;
+    FixedPoint.uq112x112 public gamma = FixedPoint.fraction(1, 1);
 
     // Total service revenue per epoch: sum(r(s))
     uint256 public totalServiceETHRevenue;
@@ -63,10 +63,10 @@ contract Tokenomics is IErrors, Ownable {
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
     // Set of protocol-owned services in current epoch
-    uint256[] protocolServiceIds;
+    uint256[] private _protocolServiceIds;
     // Map of service Ids and their amounts in current epoch
-    mapping(uint256 => uint256) mapServiceAmounts;
-    mapping(uint256 => uint256) mapServiceIndexes;
+    mapping(uint256 => uint256) private _mapServiceAmounts;
+    mapping(uint256 => uint256) private _mapServiceIndexes;
 
     // TODO later fix government / manager
     constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
@@ -97,6 +97,27 @@ contract Tokenomics is IErrors, Ownable {
         epoch = block.number / epochLen;
     }
 
+    /// @dev Changes tokenomics parameters.
+    /// @param _alphaNumerator Numerator for alpha value.
+    /// @param _alphaDenominator Denominator for alpha value.
+    /// @param _beta Beta value.
+    /// @param _gammaNumerator Numerator for gamma value.
+    /// @param _gammaDenominator Denominator for gamma value.
+    /// @param _maxDF Maximum interest rate in %, 18 decimals.
+    function changeTokenomicsParameters(
+        uint256 _alphaNumerator,
+        uint256 _alphaDenominator,
+        uint256 _beta,
+        uint256 _gammaNumerator,
+        uint256 _gammaDenominator,
+        uint256 _maxDF
+    ) external onlyOwner {
+        alpha = FixedPoint.fraction(_alphaNumerator, _alphaDenominator);
+        beta = _beta;
+        gamma = FixedPoint.fraction(_gammaNumerator, _gammaDenominator);
+        maxDF = _maxDF + E13;
+    }
+
     /// @dev Tracks the deposit token amount during the epoch.
     function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts)
         public onlyTreasury {
@@ -109,11 +130,11 @@ contract Tokenomics is IErrors, Ownable {
             }
 
             // Add a new service Id to the set of Ids if one was not currently in it
-            if (mapServiceAmounts[serviceIds[i]] == 0) {
-                mapServiceIndexes[serviceIds[i]] = protocolServiceIds.length;
-                protocolServiceIds.push(serviceIds[i]);
+            if (_mapServiceAmounts[serviceIds[i]] == 0) {
+                _mapServiceIndexes[serviceIds[i]] = _protocolServiceIds.length;
+                _protocolServiceIds.push(serviceIds[i]);
             }
-            mapServiceAmounts[serviceIds[i]] += amounts[i];
+            _mapServiceAmounts[serviceIds[i]] += amounts[i];
 
             // Increase also the total service revenue
             totalServiceETHRevenue += amounts[i];
@@ -139,37 +160,11 @@ contract Tokenomics is IErrors, Ownable {
         return success;
     }
 
-    /// @dev setup max df. guard dog
-    /// @param _max_df maximum interest rate in %, 18 decimals
-    function setMaxDf(uint _max_df) external onlyOwner {
-        max_df = _max_df + E13;
-    }
-
-    /// @dev setup alpha
-    /// @param _numerator numerator
-    /// @param _denominator denominator
-    function setAlpha(uint256 _numerator, uint256 _denominator) external onlyOwner {
-        alpha = FixedPoint.fraction(_numerator,_denominator);
-    }
-
-    /// @dev setup beta
-    /// @param _beta beta
-    function setBeta(uint256 _beta) external onlyOwner {
-        beta = _beta;
-    }
-
-    /// @dev setup gamma
-    /// @param _numerator numerator
-    /// @param _denominator denominator
-    function setGamma(uint256 _numerator, uint256 _denominator) external onlyOwner {
-        gamma = FixedPoint.fraction(_numerator, _denominator);
-    }
-
     function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {
         ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
         uint256 numComponents = cRegistry.totalSupply();
         uint256 numProfitableComponents;
-        uint256 numServices = protocolServiceIds.length;
+        uint256 numServices = _protocolServiceIds.length;
         // Array of sum(UCFc(epoch))
         uint256[] memory ucfcs = new uint256[](numServices);
         // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
@@ -180,12 +175,12 @@ contract Tokenomics is IErrors, Ownable {
             bool profitable = false;
             // Loop over services that include the component i
             for (uint256 j = 0; j < serviceIds.length; ++j) {
-                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
                     // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
-                    ucfcs[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    ucfcs[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |Cs(epoch)|
-                    ucfcsNum[mapServiceIndexes[serviceIds[j]]]++;
+                    ucfcsNum[_mapServiceIndexes[serviceIds[j]]]++;
                     profitable = true;
                 }
             }
@@ -197,10 +192,10 @@ contract Tokenomics is IErrors, Ownable {
         uint256 denominator;
         // Calculate total UCFc
         for (uint256 i = 0; i < numServices; ++i) {
-            denominator = ucfcsNum[mapServiceIndexes[protocolServiceIds[i]]];
+            denominator = ucfcsNum[_mapServiceIndexes[_protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid exception div by zero
-                ucfc = _add(ucfc, FixedPoint.fraction(ucfcs[mapServiceIndexes[protocolServiceIds[i]]], denominator));
+                ucfc = _add(ucfc, FixedPoint.fraction(ucfcs[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
             }
         }
         ucfc = ucfc.muluq(FixedPoint.fraction(1, totalServiceETHRevenue));
@@ -217,7 +212,7 @@ contract Tokenomics is IErrors, Ownable {
         AgentRegistry aRegistry = AgentRegistry(agentRegistry);
         uint256 numAgents = aRegistry.totalSupply();
         uint256 numProfitableAgents;
-        uint256 numServices = protocolServiceIds.length;
+        uint256 numServices = _protocolServiceIds.length;
         // Array of sum(UCFa(epoch))
         uint256[] memory ucfas = new uint256[](numServices);
         // Array of cardinality of components in a specific profitable service: |As(epoch)|
@@ -228,12 +223,12 @@ contract Tokenomics is IErrors, Ownable {
             bool profitable = false;
             // Loop over services that include the agent i
             for (uint256 j = 0; j < serviceIds.length; ++j) {
-                uint256 revenue = mapServiceAmounts[serviceIds[j]];
+                uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
                     // Add cit(c, s) * r(s) for component j to add to UCFa(epoch)
-                    ucfas[mapServiceIndexes[serviceIds[j]]] += mapServiceAmounts[serviceIds[j]];
+                    ucfas[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |As(epoch)|
-                    ucfasNum[mapServiceIndexes[serviceIds[j]]]++;
+                    ucfasNum[_mapServiceIndexes[serviceIds[j]]]++;
                     profitable = true;
                 }
             }
@@ -245,10 +240,10 @@ contract Tokenomics is IErrors, Ownable {
         uint256 denominator;
         // Calculate total UCFa
         for (uint256 i = 0; i < numServices; ++i) {
-            denominator = ucfasNum[mapServiceIndexes[protocolServiceIds[i]]];
+            denominator = ucfasNum[_mapServiceIndexes[_protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid div by zero
-                ucfa = _add(ucfa, FixedPoint.fraction(ucfas[mapServiceIndexes[protocolServiceIds[i]]], denominator));
+                ucfa = _add(ucfa, FixedPoint.fraction(ucfas[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
             }
         }
         ucfa = ucfa.muluq(FixedPoint.fraction(1, totalServiceETHRevenue));
@@ -305,12 +300,12 @@ contract Tokenomics is IErrors, Ownable {
 
     /// @dev Clears necessary data structures for the next epoch.
     function _clearEpochData() internal {
-        uint256 numServices = protocolServiceIds.length;
+        uint256 numServices = _protocolServiceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
-            delete mapServiceAmounts[protocolServiceIds[i]];
-            delete mapServiceIndexes[protocolServiceIds[i]];
+            delete _mapServiceAmounts[_protocolServiceIds[i]];
+            delete _mapServiceIndexes[_protocolServiceIds[i]];
         }
-        delete protocolServiceIds;
+        delete _protocolServiceIds;
         totalServiceETHRevenue = 0;
     }
 
@@ -350,10 +345,10 @@ contract Tokenomics is IErrors, Ownable {
                 _ucf = _ucf.divuq(_two);
             }
             // Calculating USF
-            uint256 numServices = protocolServiceIds.length;
+            uint256 numServices = _protocolServiceIds.length;
             uint256 usf;
             for (uint256 i = 0; i < numServices; ++i) {
-                usf += mapServiceAmounts[protocolServiceIds[i]];
+                usf += _mapServiceAmounts[_protocolServiceIds[i]];
             }
             uint256 denominator = totalServiceETHRevenue * ServiceRegistry(serviceRegistry).totalSupply();
             if(denominator > 0) {
@@ -426,22 +421,18 @@ contract Tokenomics is IErrors, Ownable {
         uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
         amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
-        // Get the resulting amount in OLA tokens
-        resAmount = _calculateDF(amountOLA, df);
-    }
+        // The resulting DF amount cannot be bigger than the maximum possible one
+        if (df > maxDF) {
+            revert AmountLowerThan(maxDF, df);
+        }
 
-    // TODO This is the mocking function for the moment
-    /// @dev Calculates discount factor.
-    /// @param amount Initial OLA token amount.
-    /// @param df Discount
-    /// @return amountDF OLA amount corrected by the DF.
-    function _calculateDF(uint256 amount, uint256 df) internal view returns (uint256 amountDF) {
-        require(df < max_df,"df watch dog"); // rewrite later to normal description in english
-        amountDF = (amount * df) / E18; // df with decimals 18
+        // Get the resulting amount in OLA tokens
+        resAmount = (amountOLA * df) / E18; // df with decimals 18
+
         // The discounted amount cannot be smaller than the actual one
-        if (amountDF < amount) {
-            revert AmountLowerThan(amountDF, amount);
-        } 
+        if (resAmount < amountOLA) {
+            revert AmountLowerThan(resAmount, amountOLA);
+        }
     }
 
     // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol

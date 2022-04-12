@@ -2,13 +2,14 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/IService.sol";
 
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract ServiceManager is IErrors, IStructs, Ownable {
+contract ServiceManager is IErrors, IStructs, Ownable, Pausable {
     event MultisigCreate(address multisig);
 
     address public immutable serviceRegistry;
@@ -43,7 +44,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         uint256[] memory agentIds,
         AgentParams[] memory agentParams,
         uint256 threshold
-    ) public returns (uint256)
+    ) external whenNotPaused returns (uint256)
     {
         return IService(serviceRegistry).createService(owner, name, description, configHash, agentIds, agentParams,
             threshold);
@@ -65,7 +66,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         AgentParams[] memory agentParams,
         uint256 threshold,
         uint256 serviceId
-    ) public
+    ) external
     {
         IService(serviceRegistry).update(msg.sender, name, description, configHash, agentIds, agentParams,
             threshold, serviceId);
@@ -74,7 +75,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @dev Activates the service and its sensitive components.
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
-    function serviceActivateRegistration(uint256 serviceId) public payable returns (bool success) {
+    function serviceActivateRegistration(uint256 serviceId) external payable returns (bool success) {
         success = IService(serviceRegistry).activateRegistration{value: msg.value}(msg.sender, serviceId);
     }
 
@@ -87,7 +88,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
         uint256 serviceId,
         address[] memory agentInstances,
         uint256[] memory agentIds
-    ) public payable returns (bool success) {
+    ) external payable returns (bool success) {
         success = IService(serviceRegistry).registerAgents{value: msg.value}(msg.sender, serviceId, agentInstances, agentIds);
     }
 
@@ -110,7 +111,7 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @param serviceId Service Id.
     /// @return success True, if function executed successfully.
     /// @return refund Refund to return to the owner.
-    function serviceTerminate(uint256 serviceId) public returns (bool success, uint256 refund) {
+    function serviceTerminate(uint256 serviceId) external returns (bool success, uint256 refund) {
         (success, refund) = IService(serviceRegistry).terminate(msg.sender, serviceId);
     }
 
@@ -118,14 +119,24 @@ contract ServiceManager is IErrors, IStructs, Ownable {
     /// @param serviceId Service Id.
     /// @return success True, if function executed successfully.
     /// @return refund The amount of refund returned to the operator.
-    function serviceUnbond(uint256 serviceId) public returns (bool success, uint256 refund) {
+    function serviceUnbond(uint256 serviceId) external returns (bool success, uint256 refund) {
         (success, refund) = IService(serviceRegistry).unbond(msg.sender, serviceId);
     }
 
     /// @dev Destroys the service instance and frees up its storage.
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
-    function serviceDestroy(uint256 serviceId) public returns (bool success) {
+    function serviceDestroy(uint256 serviceId) external returns (bool success) {
         success = IService(serviceRegistry).destroy(msg.sender, serviceId);
+    }
+
+    /// @dev Pauses the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Unpauses the contract.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 }

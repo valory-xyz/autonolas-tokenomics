@@ -173,7 +173,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
         // Checking for non-empty arrays and correct number of values in them
         if (agentIds.length == 0 || agentIds.length != agentParams.length) {
-            revert WrongAgentsData(agentIds.length, agentParams.length);
+            revert WrongArrayLength(agentIds.length, agentParams.length);
         }
 
         // Check for canonical agent Ids existence and for duplicate Ids
@@ -390,7 +390,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     {
         // Check if the length of canonical agent instance addresses array and ids array have the same length
         if (agentInstances.length != agentIds.length) {
-            revert WrongAgentsData(agentInstances.length, agentIds.length);
+            revert WrongArrayLength(agentInstances.length, agentIds.length);
         }
 
         Service storage service = _mapServices[serviceId];
@@ -506,7 +506,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     {
         // Check for the array size
         if (agentInstances.length != amounts.length) {
-            revert WrongAgentsData(agentInstances.length, amounts.length);
+            revert WrongArrayLength(agentInstances.length, amounts.length);
         }
 
         Service storage service = _mapServices[serviceId];
