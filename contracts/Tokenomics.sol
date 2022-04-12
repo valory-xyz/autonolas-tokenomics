@@ -97,6 +97,27 @@ contract Tokenomics is IErrors, Ownable {
         epoch = block.number / epochLen;
     }
 
+    /// @dev Changes tokenomics parameters.
+    /// @param _alphaNumerator Numerator for alpha value.
+    /// @param _alphaDenominator Denominator for alpha value.
+    /// @param _beta Beta value.
+    /// @param _gammaNumerator Numerator for gamma value.
+    /// @param _gammaDenominator Denominator for gamma value.
+    /// @param _maxDF Maximum interest rate in %, 18 decimals.
+    function changeTokenomicsParameters(
+        uint256 _alphaNumerator,
+        uint256 _alphaDenominator,
+        uint256 _beta,
+        uint256 _gammaNumerator,
+        uint256 _gammaDenominator,
+        uint256 _maxDF
+    ) external onlyOwner {
+        alpha = FixedPoint.fraction(_alphaNumerator, _alphaDenominator);
+        beta = _beta;
+        gamma = FixedPoint.fraction(_gammaNumerator, _gammaDenominator);
+        maxDF = _maxDF + E13;
+    }
+
     /// @dev Tracks the deposit token amount during the epoch.
     function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts)
         public onlyTreasury {
@@ -137,47 +158,6 @@ contract Tokenomics is IErrors, Ownable {
             )
         }
         return success;
-    }
-
-    /// @dev Changes tokenomics parameters.
-    /// @param _alphaNumerator Numerator for alpha value.
-    /// @param _alphaDenominator Denominator for alpha value.
-    /// @param _beta Beta value.
-    /// @param _gammaNumerator Numerator for gamma value.
-    /// @param _gammaDenominator Denominator for gamma value.
-    /// @param _maxDF Maximum interest rate in %, 18 decimals.
-    function changeTokenomicsParameters(
-        uint256 _alphaNumerator,
-        uint256 _alphaDenominator,
-        uint256 _beta,
-        uint256 _gammaNumerator,
-        uint256 _gammaDenominator,
-        uint256 _maxDF
-    ) external onlyOwner {
-        alpha = FixedPoint.fraction(_alphaNumerator, _alphaDenominator);
-        beta = _beta;
-        gamma = FixedPoint.fraction(_gammaNumerator, _gammaDenominator);
-        maxDF = _maxDF + E13;
-    }
-
-    /// @dev setup alpha
-    /// @param _numerator numerator
-    /// @param _denominator denominator
-    function setAlpha(uint256 _numerator, uint256 _denominator) external onlyOwner {
-        alpha = FixedPoint.fraction(_numerator,_denominator);
-    }
-
-    /// @dev setup beta
-    /// @param _beta beta
-    function setBeta(uint256 _beta) external onlyOwner {
-        beta = _beta;
-    }
-
-    /// @dev setup gamma
-    /// @param _numerator numerator
-    /// @param _denominator denominator
-    function setGamma(uint256 _numerator, uint256 _denominator) external onlyOwner {
-        gamma = FixedPoint.fraction(_numerator, _denominator);
     }
 
     function _calculateUCFc() private view returns (FixedPoint.uq112x112 memory ucfc) {

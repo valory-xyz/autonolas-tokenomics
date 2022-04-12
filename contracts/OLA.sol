@@ -20,7 +20,6 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
         treasury = msg.sender;
     }
 
-    // TODO Do we allow minting to something other than treasury? What about airdrop? Multiple airdrops?
     modifier onlyManager() {
         if (msg.sender != treasury && msg.sender != owner()) {
             revert ManagerOnly(msg.sender, treasury);
