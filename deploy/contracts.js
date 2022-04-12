@@ -24,6 +24,7 @@ module.exports = async () => {
     const initialVotingDelay = 1; // blocks
     const initialVotingPeriod = 45818; // blocks ±= 1 week
     const initialProposalThreshold = 0; // voting power
+    const quorum = 1; // quorum factor
 
     const [deployer] = await ethers.getSigners();
     console.log("Deploying contracts with the account:", deployer.address);
@@ -140,7 +141,7 @@ module.exports = async () => {
     // Deploy Governance Bravo
     const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
     const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-        initialVotingPeriod, initialProposalThreshold);
+        initialVotingPeriod, initialProposalThreshold, quorum);
     await governorBravo.deployed();
     console.log("Governor Bravo deployed to", governorBravo.address);
 

@@ -21,6 +21,7 @@ describe("Governance unit", function () {
     const initialVotingDelay = 1; // blocks
     const initialVotingPeriod = 45818; // blocks ±= 1 week
     const initialProposalThreshold = fiveETHBalance; // required voting power
+    const quorum = 1; // quorum factor
     const proposalDescription = "Proposal 0";
     beforeEach(async function () {
         const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
@@ -81,7 +82,7 @@ describe("Governance unit", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
             // console.log("Governor Bravo deployed to", governorBravo.address);
 
@@ -162,7 +163,7 @@ describe("Governance unit", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
 
             // Initial proposal threshold is 10 eth, our delegatee voting power is 5 eth
