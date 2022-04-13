@@ -46,14 +46,15 @@ describe("Tokenomics integration", async () => {
     const maxThreshold = 1;
     const name = "service name";
     const description = "service description";
-    const regServiceRevenue = 100000;
+    const milETHBalance = ethers.utils.parseEther("1000000");
+    const regServiceRevenue = milETHBalance;
     const agentId = 1;
     const agentParams = [1, regBond];
     const serviceId = 1;
     const payload = "0x";
     const magicDenominator = 5192296858534816;
     const E18 = 10**18;
-    const delta = 1.0 / 10**13;
+    const delta = 1.0 / 10**10;
 
     let signers;
 
@@ -158,11 +159,9 @@ describe("Tokenomics integration", async () => {
 
         // Checking the values with delta rounding error
         const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
-        const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
-        expect(ucf).to.greaterThanOrEqual(0.5);
-        expect(ucf).to.lessThan(0.5 + delta);
+        expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
 
-        expect(usf).to.greaterThanOrEqual(1);
-        expect(usf).to.lessThan(1 + delta);
+        const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
+        expect(Math.abs(usf - 1.0)).to.lessThan(delta);
     });
 });

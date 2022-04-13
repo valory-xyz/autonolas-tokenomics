@@ -49,18 +49,17 @@ contract Depository is IErrors, Ownable {
         uint256 sold;
     }
 
-    // OLA interface
+    // OLA token address
     address public immutable ola;
-    // Treasury interface
+    // Treasury address
     address public treasury;
-    // Tokenomics interface 
+    // Tokenomics address
     address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
-    
-    // TODO later fix government / manager
+
     constructor(address _ola, address _treasury, address _tokenomics) {
         ola = _ola;
         treasury = _treasury;

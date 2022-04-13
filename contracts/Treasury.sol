@@ -19,8 +19,10 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     event TokenReserves(address token, uint256 reserves);
     event EnableToken(address token);
     event DisableToken(address token);
-    event TreasuryManagerUpdated(address manager);
+    event TreasuryUpdated(address treasury);
+    event TokenomicsUpdated(address tokenomics);
     event DepositoryUpdated(address depository);
+    event DispenserUpdated(address dispenser);
 
     enum TokenState {
         NonExistent,
@@ -37,10 +39,12 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
 
     // OLA token address
     address public immutable ola;
-    // Tokenomics contract address
-    address public tokenomics;
     // Depository address
     address public depository;
+    // Dispenser contract address
+    address public dispenser;
+    // Tokenomics contract address
+    address public tokenomics;
     // Set of registered tokens
     address[] public tokenRegistry;
     // Token address => token info
@@ -49,14 +53,15 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     // https://developer.kyber.network/docs/DappsGuide#contract-example
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // well-know representation ETH as address
 
-    constructor(address _ola, address _depository, address _tokenomics) {
+    constructor(address _ola, address _depository, address _dispenser, address _tokenomics) {
         if (_ola == address(0)) {
             revert ZeroAddress();
         }
         ola = _ola;
         mapTokens[ETH_TOKEN_ADDRESS].state = TokenState.Enabled;
-        tokenomics = _tokenomics;
         depository = _depository;
+        dispenser = _dispenser;
+        tokenomics = _tokenomics;
     }
 
     // Only the depository has a privilege to control some actions of a treasury
@@ -67,11 +72,30 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         _;
     }
 
+    modifier onlyDispenser() {
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+        _;
+    }
+
     /// @dev Changes the depository address.
     /// @param newDepository Address of a new depository.
     function changeDepository(address newDepository) external onlyOwner {
         depository = newDepository;
         emit DepositoryUpdated(newDepository);
+    }
+
+    /// @dev Changes dispenser address.
+    /// @param newDispenser Address of a new dispenser.
+    function changeDispenser(address newDispenser) external onlyOwner {
+        dispenser = newDispenser;
+        emit DispenserUpdated(newDispenser);
+    }
+
+    function changeTokenomics(address newTokenomics) external onlyOwner {
+        tokenomics = newTokenomics;
+        emit TokenomicsUpdated(newTokenomics);
     }
 
     /// @dev Allows approved address to deposit an asset for OLA.
@@ -191,5 +215,23 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     /// @return enabled True is token is enabled.
     function isEnabled(address token) public view returns (bool enabled) {
         enabled = (mapTokens[token].state == TokenState.Enabled);
+    }
+
+    /// @dev Requests OLA funds from treasury.
+    /// @param amount Amount of OLA.
+    function requestFunds(uint256 amount) external onlyDispenser {
+        // Check current OLA balance
+        uint256 balance = IOLA(ola).balanceOf(address(this));
+
+        // If the balance is insufficient, mint the difference
+        // TODO Check if minting is not causing the inflation go beyond the limits, and refuse if that's the case
+        // TODO or allocate OLA tokens differently as by means suggested (breaking up LPs etc)
+        if (amount > balance) {
+            balance = amount - balance;
+            IOLA(ola).mint(address(this), balance);
+        }
+
+        // Transfer funds to the dispenser
+        IERC20(ola).safeTransfer(dispenser, amount);
     }
 }
