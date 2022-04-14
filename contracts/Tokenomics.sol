@@ -223,7 +223,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
             if (profitable) {
                 // Add address of a profitable component owner
-                address owner = IERC721Enumerable(componentRegistry).ownerOf(i);
+                address owner = IERC721Enumerable(componentRegistry).ownerOf(componentId);
                 _profitableComponents.push(owner);
                 // Increase the profitable component number
                 ++numProfitableComponents;
@@ -282,7 +282,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
             if (profitable) {
                 // Add address of a profitable component owner
-                address owner = IERC721Enumerable(agentRegistry).ownerOf(i);
+                address owner = IERC721Enumerable(agentRegistry).ownerOf(agentId);
                 _profitableAgents.push(owner);
                 // Increase a profitable agent number
                 ++numProfitableAgents;

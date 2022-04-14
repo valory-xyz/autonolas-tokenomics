@@ -57,7 +57,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     // https://developer.kyber.network/docs/DappsGuide#contract-example
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // well-know representation ETH as address
 
-    constructor(address _ola, address _depository, address _dispenser, address _tokenomics) {
+    constructor(address _ola, address _depository, address _tokenomics, address _dispenser) {
         if (_ola == address(0)) {
             revert ZeroAddress();
         }

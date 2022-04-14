@@ -13,6 +13,8 @@ describe("Tokenomics integration", async () => {
     let olaFactory;
     let depositoryFactory;
     let tokenomicsFactory;
+    let veFactory;
+    let dispenserFactory;
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
@@ -25,6 +27,8 @@ describe("Tokenomics integration", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
+    let ve;
+    let dispenser;
     let epochLen = 100;
 
     let supply = "10000000000000000000000"; // 10,000
@@ -69,6 +73,8 @@ describe("Tokenomics integration", async () => {
         depositoryFactory = await ethers.getContractFactory("Depository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
         tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        dispenserFactory = await ethers.getContractFactory("Dispenser");
+        veFactory = await ethers.getContractFactory("VotingEscrow");
 
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -106,12 +112,17 @@ describe("Tokenomics integration", async () => {
         tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, deployer.address);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
+
+        ve = await veFactory.deploy(ola.address, "Governance OLA", "veOLA", "0.1", deployer.address);
+        dispenser = await dispenserFactory.deploy(ola.address, ve.address, treasury.address, tokenomics.address);
+        await ve.changeDispenser(dispenser.address);
+        await treasury.changeDispenser(dispenser.address);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -151,7 +162,7 @@ describe("Tokenomics integration", async () => {
         await treasury.depositETHFromService(1, {value: regServiceRevenue});
 
         // Calculate current epoch parameters
-        await tokenomics.checkpoint();
+        await treasury.allocateRewards();
 
         // Get the information from tokenomics point
         const epoch = await tokenomics.getEpoch();
