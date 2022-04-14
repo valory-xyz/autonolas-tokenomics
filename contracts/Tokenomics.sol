@@ -3,9 +3,8 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./ComponentRegistry.sol";
-import "./AgentRegistry.sol";
-import "./ServiceRegistry.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+import "./interfaces/IService.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
@@ -22,8 +21,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     address public immutable ola;
     // Treasury contract address
     address public treasury;
-    // Dispenser contract address
-    address public dispenser;
 
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
@@ -47,8 +44,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     uint256 public totalServiceRevenueETH;
 
     // Staking parameters with multiplying by 100
-    // componentFraction + agentFraction + stakerFraction = 100%
-    uint256 public stakerFraction = 50;
+    // treasuryFraction + componentFraction + agentFraction + stakerFraction = 100%
+    uint256 public treasuryFraction = 10;
+    uint256 public stakerFraction = 40;
     uint256 public componentFraction = 33;
     uint256 public agentFraction = 17;
 
@@ -61,6 +59,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
+    // Set of UCFc(epoch)
+    uint256[] private _ucfcs;
+    // Set of UCFa(epoch)
+    uint256[] private _ucfas;
     // Set of profitable components in current epoch
     address[] private _profitableComponents;
     // Set of profitable agents in current epoch
@@ -75,7 +77,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     // TODO later fix government / manager
-    constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
+    constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry,
+        address payable _serviceRegistry)
     {
         ola = _ola;
         treasury = _treasury;
@@ -93,23 +96,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         _;
     }
 
-    modifier onlyDispenser() {
-        if (dispenser != msg.sender) {
-            revert ManagerOnly(msg.sender, dispenser);
-        }
-        _;
-    }
-
     /// @dev Changes treasury address.
     function changeTreasury(address newTreasury) external onlyOwner {
         treasury = newTreasury;
         emit TreasuryUpdated(newTreasury);
-    }
-
-    /// @dev Changes dispenser address.
-    function changeDispenser(address newDispenser) external onlyOwner {
-        dispenser = newDispenser;
-        emit TreasuryUpdated(newDispenser);
     }
 
     /// @dev Gets curretn epoch number.
@@ -142,15 +132,17 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @param _stakerFraction Fraction for stakers.
     /// @param _componentFraction Fraction for component owners.
     function changeStakingParameters(
+        uint256 _treasuryFraction,
         uint256 _stakerFraction,
         uint256 _componentFraction,
         uint256 _agentFraction
     ) external onlyOwner {
         // Check that the sum of fractions is 100%
-        if (_stakerFraction + _componentFraction + _agentFraction != 100) {
-            revert AmountLowerThan(_stakerFraction + _componentFraction + _agentFraction, 100);
+        if (_treasuryFraction + _stakerFraction + _componentFraction + _agentFraction != 100) {
+            revert WrongAmount(_treasuryFraction + _stakerFraction + _componentFraction + _agentFraction, 100);
         }
 
+        treasuryFraction = _treasuryFraction;
         stakerFraction = _stakerFraction;
         componentFraction = _componentFraction;
         agentFraction = _agentFraction;
@@ -163,7 +155,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
             // Check for the service Id existance
-            if (!ServiceRegistry(serviceRegistry).exists(serviceIds[i])) {
+            if (!IService(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
 
@@ -199,28 +191,30 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     function _calculateUCFc() private returns (FixedPoint.uq112x112 memory ucfc) {
-        ComponentRegistry cRegistry = ComponentRegistry(componentRegistry);
-        uint256 numComponents = cRegistry.totalSupply();
+        uint256 numComponents = IERC721Enumerable(componentRegistry).totalSupply();
         uint256 numProfitableComponents;
         uint256 numServices = _protocolServiceIds.length;
-        // Array of sum(UCFc(epoch))
-        uint256[] memory ucfcs = new uint256[](numServices);
-        // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
-        uint256[] memory ucfcsNum = new uint256[](numServices);
 
         // Clear the previous epoch profitable set of components
         delete _profitableComponents;
+        delete _ucfcs;
+
+        // Allocate set of UCFc for the current epoch number of services
+        _ucfcs = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
+        uint256[] memory ucfcsNum = new uint256[](numServices);
 
         // Loop over components
         for (uint256 i = 0; i < numComponents; ++i) {
-            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithComponentId(cRegistry.tokenByIndex(i));
+            uint256 componentId = IERC721Enumerable(componentRegistry).tokenByIndex(i);
+            (, uint256[] memory serviceIds) = IService(serviceRegistry).getServiceIdsCreatedWithComponentId(componentId);
             bool profitable = false;
             // Loop over services that include the component i
             for (uint256 j = 0; j < serviceIds.length; ++j) {
                 uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
                     // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
-                    ucfcs[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
+                    _ucfcs[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |Cs(epoch)|
                     ucfcsNum[_mapServiceIndexes[serviceIds[j]]]++;
                     profitable = true;
@@ -229,7 +223,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
             if (profitable) {
                 // Add address of a profitable component owner
-                address owner = cRegistry.ownerOf(i);
+                address owner = IERC721Enumerable(componentRegistry).ownerOf(i);
                 _profitableComponents.push(owner);
                 // Increase the profitable component number
                 ++numProfitableComponents;
@@ -242,7 +236,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             denominator = ucfcsNum[_mapServiceIndexes[_protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid exception div by zero
-                ucfc = _add(ucfc, FixedPoint.fraction(ucfcs[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
+                ucfc = _add(ucfc, FixedPoint.fraction(_ucfcs[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
             }
         }
         ucfc = ucfc.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
@@ -256,28 +250,30 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     function _calculateUCFa() private returns (FixedPoint.uq112x112 memory ucfa) {
-        AgentRegistry aRegistry = AgentRegistry(agentRegistry);
-        uint256 numAgents = aRegistry.totalSupply();
+        uint256 numAgents = IERC721Enumerable(agentRegistry).totalSupply();
         uint256 numProfitableAgents;
         uint256 numServices = _protocolServiceIds.length;
-        // Array of sum(UCFa(epoch))
-        uint256[] memory ucfas = new uint256[](numServices);
-        // Array of cardinality of components in a specific profitable service: |As(epoch)|
-        uint256[] memory ucfasNum = new uint256[](numServices);
 
         // Clear the previous epoch profitable set of agents
         delete _profitableAgents;
+        delete _ucfas;
 
+        // Allocate set of UCFa for the current epoch number of services
+        _ucfas = new uint256[](numServices);
+        // Array of cardinality of components in a specific profitable service: |As(epoch)|
+        uint256[] memory ucfasNum = new uint256[](numServices);
+        
         // Loop over agents
         for (uint256 i = 0; i < numAgents; ++i) {
-            (, uint256[] memory serviceIds) = ServiceRegistry(serviceRegistry).getServiceIdsCreatedWithAgentId(aRegistry.tokenByIndex(i));
+            uint256 agentId = IERC721Enumerable(agentRegistry).tokenByIndex(i);
+            (, uint256[] memory serviceIds) = IService(serviceRegistry).getServiceIdsCreatedWithAgentId(agentId);
             bool profitable = false;
             // Loop over services that include the agent i
             for (uint256 j = 0; j < serviceIds.length; ++j) {
                 uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
                     // Add cit(c, s) * r(s) for component j to add to UCFa(epoch)
-                    ucfas[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
+                    _ucfas[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |As(epoch)|
                     ucfasNum[_mapServiceIndexes[serviceIds[j]]]++;
                     profitable = true;
@@ -286,7 +282,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
             if (profitable) {
                 // Add address of a profitable component owner
-                address owner = aRegistry.ownerOf(i);
+                address owner = IERC721Enumerable(agentRegistry).ownerOf(i);
                 _profitableAgents.push(owner);
                 // Increase a profitable agent number
                 ++numProfitableAgents;
@@ -299,7 +295,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             denominator = ucfasNum[_mapServiceIndexes[_protocolServiceIds[i]]];
             if(denominator > 0) {
                 // avoid div by zero
-                ucfa = _add(ucfa, FixedPoint.fraction(ucfas[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
+                ucfa = _add(ucfa, FixedPoint.fraction(_ucfas[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
             }
         }
         ucfa = ucfa.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
@@ -367,7 +363,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
     /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
-    function checkpoint() external onlyDispenser {
+    function checkpoint() external onlyTreasury {
         uint256 epoch = getEpoch();
         PointEcomonics memory lastPoint = mapEpochEconomics[epoch];
         // if not exist
@@ -407,9 +403,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             for (uint256 i = 0; i < numServices; ++i) {
                 usf += _mapServiceAmounts[_protocolServiceIds[i]];
             }
-            uint256 denominator = totalServiceRevenueETH * ServiceRegistry(serviceRegistry).totalSupply();
+            uint256 denominator = totalServiceRevenueETH * IERC721Enumerable(serviceRegistry).totalSupply();
             if(denominator > 0) {
-                // _usf = usf / ServiceRegistry(serviceRegistry).totalSupply();
+                // _usf = usf / IERC721Enumerable(serviceRegistry).totalSupply();
                 _usf =  FixedPoint.fraction(usf, denominator);
             }
             //_dcm = (_ucf + _usf) / 2;
@@ -419,10 +415,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             }
         }
 
-        uint256 totalServiceRevenueOLA = _getExchangeAmountOLA(ETH_TOKEN_ADDRESS, totalServiceRevenueETH);
+        uint256 totalRewardOLA = _getExchangeAmountOLA(ETH_TOKEN_ADDRESS, totalServiceRevenueETH);
         _df = _calculateDFv1(_dcm);
-        PointEcomonics memory newPoint = PointEcomonics(_ucf, _usf, _df, stakerFraction, componentFraction,
-            agentFraction, totalServiceRevenueOLA, block.timestamp, block.number, true);
+        PointEcomonics memory newPoint = PointEcomonics(_ucf, _usf, _df, treasuryFraction, stakerFraction,
+            componentFraction, agentFraction, totalRewardOLA, block.timestamp, block.number, true);
         mapEpochEconomics[epoch] = newPoint;
 
         _clearEpochData();
@@ -540,32 +536,26 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         }
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision, re-calc if not exist
-    function getDFForEpoch(uint256 _epoch) external onlyDispenser returns (uint256 df) {
-        PointEcomonics memory _PE = mapEpochEconomics[_epoch];
-        if (!_PE.exists) {
-            _checkpoint(_epoch);
-            _PE = mapEpochEconomics[_epoch];
-        }
-        // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
-        // a/b is encoded as (a << 112) / b or (a * 2^112) / b
-        df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
-    }
-
     /// @dev Gets exchange rate for OLA.
     /// @param token Token address to be exchanged for OLA.
     /// @param tokenAmount Token amount.
     /// @return amountOLA Amount of OLA tokens.
-    function _getExchangeAmountOLA(address token, uint256 tokenAmount) private returns (uint256 amountOLA) {
+    function _getExchangeAmountOLA(address token, uint256 tokenAmount) private pure returns (uint256 amountOLA) {
         // TODO Exchange rate is a stub for now
         amountOLA = tokenAmount;
     }
 
-    function getProfitableComponents() external view returns (address[] memory profitableComponents) {
+    function getProfitableComponents() external view
+        returns (address[] memory profitableComponents, uint256[] memory ucfcs)
+    {
         profitableComponents = _profitableComponents;
+        ucfcs = _ucfcs;
     }
 
-    function getProfitableAgents() external view returns (address[] memory profitableAgents) {
+    function getProfitableAgents() external view
+        returns (address[] memory profitableAgents, uint256[] memory ucfas)
+    {
         profitableAgents = _profitableAgents;
+        ucfas = _ucfas;
     }
 }    

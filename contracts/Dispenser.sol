@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./governance/VotingEscrow.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/ITreasury.sol";
@@ -13,7 +14,7 @@ import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
-contract Depository is IErrors, IStructs, Ownable, ReentrancyGuard {
+contract Dispenser is IErrors, IStructs, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event VotingEscrowUpdated(address ve);
@@ -28,8 +29,10 @@ contract Depository is IErrors, IStructs, Ownable, ReentrancyGuard {
     address public treasury;
     // Tokenomics address
     address public tokenomics;
-    // Mapping of owner of component / agent address => revenue amount
-    mapping(address => uint256) public mapOwnersRevenue;
+    // Mapping of owner of component / agent address => reward amount
+    mapping(address => uint256) public mapOwnerRewards;
+    // Mapping of staker address => reward amount
+    mapping(address => uint256) public mapStakerRewards;
 
     constructor(address _ola, address _ve, address _treasury, address _tokenomics) {
         ola = _ola;
@@ -38,7 +41,23 @@ contract Depository is IErrors, IStructs, Ownable, ReentrancyGuard {
         tokenomics = _tokenomics;
     }
 
-    function changeVeotingEscrow(address newVE) external onlyOwner {
+    // Only treasury has a privilege to manipulate a dispenser
+    modifier onlyTreasury() {
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
+        }
+        _;
+    }
+
+    // Only voting escrow has a privilege to manipulate a dispenser
+    modifier onlyVotingEscrow() {
+        if (ve != msg.sender) {
+            revert ManagerOnly(msg.sender, ve);
+        }
+        _;
+    }
+
+    function changeVotingEscrow(address newVE) external onlyOwner {
         ve = newVE;
         emit VotingEscrowUpdated(newVE);
     }
@@ -53,59 +72,120 @@ contract Depository is IErrors, IStructs, Ownable, ReentrancyGuard {
         emit TokenomicsUpdated(newTokenomics);
     }
 
-    /// @dev Starts a new epoch.
-    function startNewEpoch() external onlyOwner {
-        // Gets the latest economical point of epoch
-        PointEcomonics memory point = ITokenomics(tokenomics).getLastPoint();
+    /// @dev Distributes rewards between component and agent owners.
+    function _distributeOwnerRewards(uint256 componentFraction, uint256 agentFraction, uint256 amountOLA) internal {
+        uint256 componentReward = componentFraction * amountOLA / 100;
+        uint256 agentReward = agentFraction * amountOLA / 100;
+        uint256 componentRewardLeft = componentReward;
+        uint256 agentRewardLeft = agentReward;
 
-        // If the point exists, it was already started and there is no need to continue
-        if (!point.exists) {
-            // Process the epoch data
-            ITokenomics(tokenomics).checkpoint();
+        // Get components owners and their UCFc-s
+        (address[] memory profitableComponents, uint256[] memory ucfcs) =
+        ITokenomics(tokenomics).getProfitableComponents();
 
-            // Request OLA funds from treasury for the last epoch
-            uint256 amountOLA = point.totalRevenue;
-            ITreasury(treasury).requestFunds(amountOLA);
-
-            // Distribute rewards information between component and agent owners
-            uint256 componentReward = point.componentFraction * amountOLA / 100;
-            uint256 agentReward = point.agentFraction * amountOLA / 100;
-
-            // Iterating over components
-            address[] memory profitableComponents = ITokenomics(tokenomics).getProfitableComponents();
-            uint256 numComponents = profitableComponents.length;
-            if (numComponents > 0) {
-                uint256 rewardPerComponent = componentReward / numComponents;
-                for (uint256 i = 0; i < numComponents; ++i) {
-                    mapOwnersRevenue[profitableComponents[i]] += rewardPerComponent;
-                }
+        uint256 numComponents = profitableComponents.length;
+        uint256 sumProfits;
+        if (numComponents > 0) {
+            // Calculate overall profits of UCFc-s
+            for (uint256 i = 0; i < numComponents; ++i) {
+                sumProfits += ucfcs[i];
             }
 
-            // Iterating over agents
-            address[] memory profitableAgents = ITokenomics(tokenomics).getProfitableAgents();
-            uint256 numAgents = profitableAgents.length;
-            if (numAgents > 0) {
-                uint256 rewardPerAgent = agentReward / numAgents;
-                for (uint256 i = 0; i < numAgents; ++i) {
-                    mapOwnersRevenue[profitableAgents[i]] += rewardPerAgent;
+            // Calculate reward per component owner
+            for (uint256 i = 0; i < numComponents; ++i) {
+                uint256 rewardPerComponent = componentReward * ucfcs[i] / sumProfits;
+                // If there is a rounding error, floor to the correct value
+                if (rewardPerComponent > componentRewardLeft) {
+                    rewardPerComponent = componentRewardLeft;
                 }
+                componentRewardLeft -= rewardPerComponent;
+                mapOwnerRewards[profitableComponents[i]] += rewardPerComponent;
             }
         }
+
+        // Get components owners and their UCFa-s
+        (address[] memory profitableAgents, uint256[] memory ucfas) = ITokenomics(tokenomics).getProfitableAgents();
+        uint256 numAgents = profitableAgents.length;
+        if (numAgents > 0) {
+            // Calculate overall profits of UCFa-s
+            sumProfits = 0;
+            for (uint256 i = 0; i < numAgents; ++i) {
+                sumProfits += ucfas[i];
+            }
+
+            uint256 rewardPerAgent;
+            for (uint256 i = 0; i < numAgents; ++i) {
+                rewardPerAgent = agentReward * ucfas[i] / sumProfits;
+                // If there is a rounding error, floor to the correct value
+                if (rewardPerAgent > agentRewardLeft) {
+                    rewardPerAgent = agentRewardLeft;
+                }
+                agentRewardLeft -= rewardPerAgent;
+                mapOwnerRewards[profitableAgents[i]] += rewardPerAgent;
+            }
+        }
+    }
+
+    /// @dev Distributes rewards between stakers.
+    function _distributeStakerRewards(uint256 stakerFraction, uint256 amountOLA) internal {
+        VotingEscrow veContract = VotingEscrow(ve);
+        address[] memory accounts = veContract.getLockAccounts();
+
+        // Get the overall amount of rewards for stakers
+        uint256 rewardLeft = stakerFraction * amountOLA / 100 ;
+
+        // Iterate over staker addresses and distribute
+        uint256 numAccounts = accounts.length;
+        uint256 supply = veContract.totalSupply();
+        if (supply > 0) {
+            for (uint256 i = 0; i < numAccounts; ++i) {
+                uint256 balance = veContract.balanceOf(accounts[i]);
+                // Reward for this specific staker
+                uint256 reward = amountOLA * balance / supply;
+
+                // If there is a rounding error, floor to the correct value
+                if (reward > rewardLeft) {
+                    reward = rewardLeft;
+                }
+                rewardLeft -= reward;
+                mapStakerRewards[accounts[i]] += reward;
+            }
+        }
+    }
+
+    /// @dev Distributes rewards.
+    function distributeRewards(
+        uint256 componentFraction,
+        uint256 agentFraction,
+        uint256 stakerFraction,
+        uint256 amountOLA
+    ) external onlyTreasury
+    {
+        // Distribute rewards between component and agent owners
+        _distributeOwnerRewards(componentFraction, agentFraction, amountOLA);
+
+        // Distribute rewards for stakers
+        _distributeStakerRewards(stakerFraction, amountOLA);
     }
 
     /// @dev Withdraws rewards for owners of components / agents.
     /// @param account Account address.
     function withdrawOwnerReward(address account) external nonReentrant {
-        uint256 balance = mapOwnersRevenue[account];
+        uint256 balance = mapOwnerRewards[account];
         if (balance > 0) {
-            mapOwnersRevenue[account] = 0;
+            mapOwnerRewards[account] = 0;
             IERC20(ola).safeTransferFrom(address(this), account, balance);
         }
     }
 
     /// @dev Withdraws rewards for stakers.
     /// @param account Account address.
-    function withdrawStakingReward(address account) external nonReentrant {
-
+    /// @return balance Reward balance.
+    function withdrawStakingReward(address account) external onlyVotingEscrow returns (uint256 balance) {
+        balance = mapStakerRewards[account];
+        if (balance > 0) {
+            mapStakerRewards[account] = 0;
+            IERC20(ola).safeTransferFrom(address(this), ve, balance);
+        }
     }
 }

@@ -14,6 +14,6 @@ interface ITokenomics is IStructs {
     function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external;
     function checkpoint() external;
     function getExchangeAmountOLA(address token, uint256 tokenAmount) external returns (uint256 amount);
-    function getProfitableComponents() external view returns (address[] memory profitableComponents);
-    function getProfitableAgents() external view returns (address[] memory profitableAgents);
+    function getProfitableComponents() external view returns (address[] memory profitableComponents, uint256[] memory ucfcs);
+    function getProfitableAgents() external view returns (address[] memory profitableAgents, uint256[] memory ucfcs);
 }

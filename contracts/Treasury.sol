@@ -4,13 +4,15 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./interfaces/IDispenser.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IOLA.sol";
 import "./interfaces/ITokenomics.sol";
+import "./interfaces/IStructs.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
-contract Treasury is IErrors, Ownable, ReentrancyGuard  {
+contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
     event DepositFromDepository(address token, uint256 tokenAmount, uint256 olaMintAmount);
@@ -23,6 +25,8 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
     event TokenomicsUpdated(address tokenomics);
     event DepositoryUpdated(address depository);
     event DispenserUpdated(address dispenser);
+    event TransferToDispenser(uint256 amount);
+    event TransferToProtocol(uint256 amount);
 
     enum TokenState {
         NonExistent,
@@ -217,21 +221,67 @@ contract Treasury is IErrors, Ownable, ReentrancyGuard  {
         enabled = (mapTokens[token].state == TokenState.Enabled);
     }
 
-    /// @dev Requests OLA funds from treasury.
+    /// @dev Sends OLA funds to dispenser.
     /// @param amount Amount of OLA.
-    function requestFunds(uint256 amount) external onlyDispenser {
-        // Check current OLA balance
-        uint256 balance = IOLA(ola).balanceOf(address(this));
+    function _sendFundsToDispenser(uint256 amount) internal {
+        if (amount > 0) {
+            // Check current OLA balance
+            uint256 balance = IOLA(ola).balanceOf(address(this));
 
-        // If the balance is insufficient, mint the difference
-        // TODO Check if minting is not causing the inflation go beyond the limits, and refuse if that's the case
-        // TODO or allocate OLA tokens differently as by means suggested (breaking up LPs etc)
-        if (amount > balance) {
-            balance = amount - balance;
-            IOLA(ola).mint(address(this), balance);
+            // If the balance is insufficient, mint the difference
+            // TODO Check if minting is not causing the inflation go beyond the limits, and refuse if that's the case
+            // TODO or allocate OLA tokens differently as by means suggested (breaking up LPs etc)
+            if (amount > balance) {
+                balance = amount - balance;
+                IOLA(ola).mint(address(this), balance);
+            }
+
+            // Transfer funds to the dispenser
+            IERC20(ola).safeTransfer(dispenser, amount);
+
+            emit TransferToDispenser(amount);
         }
+    }
 
-        // Transfer funds to the dispenser
-        IERC20(ola).safeTransfer(dispenser, amount);
+    /// @dev Sends (mints) funds to itself
+    /// @param amount OLA amount.
+    function _sendFundsToProtocol(uint256 amount) internal {
+        if (amount > 0) {
+            IOLA(ola).mint(address(this), amount);
+            emit TransferToProtocol(amount);
+        }
+    }
+
+    /// @dev Starts a new epoch.
+    function allocateRewards() external onlyOwner {
+        // Gets the latest economical point of epoch
+        PointEcomonics memory point = ITokenomics(tokenomics).getLastPoint();
+
+        // If the point exists, it was already started and there is no need to continue
+        if (!point.exists) {
+            // Process the epoch data
+            ITokenomics(tokenomics).checkpoint();
+
+            // Request OLA funds from treasury for the last epoch
+            uint256 amountOLA = point.totalRewardOLA;
+            // Get OLA amount that has to stay as a reward in Treasury
+            uint256 protocolReward = amountOLA * point.treasuryFraction / 100;
+
+            // Protocol reward must be lower than the overall reward
+            if (amountOLA < protocolReward) {
+                revert AmountLowerThan(amountOLA, protocolReward);
+            }
+            amountOLA -= protocolReward;
+
+            // Send funds to dispenser and protocol
+            _sendFundsToDispenser(amountOLA);
+            _sendFundsToProtocol(protocolReward);
+
+            // Distribute rewards
+            if (amountOLA > 0) {
+                IDispenser(dispenser).distributeRewards(point.componentFraction, point.agentFraction,
+                    point.stakerFraction, amountOLA);
+            }
+        }
     }
 }
