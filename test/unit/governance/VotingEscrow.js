@@ -54,14 +54,14 @@ describe("VotingEscrow", function () {
             const lockDuration = block.timestamp + 7 * 86400; // 1 week
 
             // Balance should be zero before the lock
-            expect(await ve.balanceOf(owner.address)).to.equal(0);
+            expect(await ve.getVotes(owner.address)).to.equal(0);
             await ve.createLock(oneETHBalance, lockDuration);
             await ve.connect(owner).createLock(oneETHBalance, lockDuration);
 
             // Balance is time-based, it changes slightly every fraction of a time
             // Use the second address for locked funds to compare
-            const balanceDeployer = await ve.balanceOf(signers[0].address);
-            const balanceOwner = await ve.balanceOf(owner.address);
+            const balanceDeployer = await ve.getVotes(signers[0].address);
+            const balanceOwner = await ve.getVotes(owner.address);
             expect(balanceDeployer > 0).to.be.true;
             expect(balanceDeployer).to.equal(balanceOwner);
         });
@@ -205,9 +205,9 @@ describe("VotingEscrow", function () {
 
             // Balance is time-based, it changes slightly every fraction of a time
             // Use both balances to check for the supply
-            const balanceDeployer = await ve.balanceOf(signers[0].address);
-            const balanceOwner = await ve.balanceOf(owner.address);
-            const supply = await ve.totalSupply();
+            const balanceDeployer = await ve.getVotes(signers[0].address);
+            const balanceOwner = await ve.getVotes(owner.address);
+            const supply = await ve.totalSupplyLocked();
             const sumBalance = BigInt(balanceOwner) + BigInt(balanceDeployer);
             expect(supply).to.equal(sumBalance.toString());
         });
