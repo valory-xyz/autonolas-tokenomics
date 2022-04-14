@@ -126,12 +126,12 @@ describe("Governance unit", function () {
             }
 
             // Given 1 eth worth of voting power from every address, the cumulative voting power must be 10
-            const vPower = await escrow.balanceOf(delegatee);
+            const vPower = await escrow.getVotes(delegatee);
             expect(ethers.utils.formatEther(vPower) > 0).to.be.true;
 
             // The rest of addresses must have zero voting power
             for (let i = 2; i <= numDelegators; i++) {
-                expect(await escrow.balanceOf(signers[i].address)).to.be.equal(0);
+                expect(await escrow.getVotes(signers[i].address)).to.be.equal(0);
             }
         });
 
