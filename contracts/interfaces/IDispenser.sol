@@ -5,16 +5,15 @@ pragma solidity ^0.8.4;
 interface IDispenser {
     /// @dev Distributes rewards.
     function distributeRewards(
-        uint256 componentFraction,
-        uint256 agentFraction,
-        uint256 stakerFraction,
-        uint256 amountOLA
+        uint256 stakerReward,
+        uint256 componentReward,
+        uint256 agentReward
     ) external;
 
     /// @dev Withdraws rewards for stakers.
     /// @param account Account address.
     /// @return balance Reward balance.
-    function withdrawStakingReward(address account) external returns (uint256 balance);
+    function withdrawStakingRewards(address account) external returns (uint256 balance);
 
     /// @dev Gets the paused state.
     /// @return True, if paused.

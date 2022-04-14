@@ -126,7 +126,7 @@ async function main() {
     console.log("OLA token deployed to", token.address);
 
     const VotingEscrow = await ethers.getContractFactory("VotingEscrow");
-    const escrow = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1");
+    const escrow = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1", AddressZero);
     await escrow.deployed();
     console.log("Voting Escrow deployed to", escrow.address);
 

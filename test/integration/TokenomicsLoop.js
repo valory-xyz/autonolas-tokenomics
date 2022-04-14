@@ -31,8 +31,6 @@ describe("Tokenomics integration", async () => {
     let dispenser;
     let epochLen = 100;
 
-    let supply = "10000000000000000000000"; // 10,000
-
     let vesting = 60 * 60 *24;
     let timeToConclusion = 60 * 60 * 24;
     let conclusion;
@@ -66,7 +64,7 @@ describe("Tokenomics integration", async () => {
      * Everything in this block is only run once before all tests.
      * This is the home for setup methods
      */
-    before(async () => {
+    beforeEach(async () => {
         signers = await ethers.getSigners();
         olaFactory = await ethers.getContractFactory("OLA");
         erc20Token = await ethers.getContractFactory("ERC20Token");
@@ -102,9 +100,7 @@ describe("Tokenomics integration", async () => {
         const GnosisSafeMultisig = await ethers.getContractFactory("GnosisSafeMultisig");
         gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await gnosisSafeMultisig.deployed();
-    });
 
-    beforeEach(async () => {
         const deployer = signers[0];
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
@@ -174,5 +170,46 @@ describe("Tokenomics integration", async () => {
 
         const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
         expect(Math.abs(usf - 1.0)).to.lessThan(delta);
+    });
+
+    it("Dispenser for an agent owner", async () => {
+        const mechManager = signers[3];
+        const serviceManager = signers[4];
+        const owner = signers[5];
+        const ownerAddress = owner.address;
+        const operator = signers[6].address;
+        const agentInstance = signers[7].address;
+
+        // Create one agent
+        await agentRegistry.changeManager(mechManager.address);
+        await agentRegistry.connect(mechManager).create(ownerAddress, ownerAddress, agentHash, description, []);
+
+        // Create one service
+        await serviceRegistry.changeManager(serviceManager.address);
+        await serviceRegistry.connect(serviceManager).createService(ownerAddress, name, description, configHash, [agentId],
+            [agentParams], maxThreshold);
+
+        // Register agent instances
+        await serviceRegistry.connect(serviceManager).activateRegistration(ownerAddress, serviceId, {value: regDeposit});
+        await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance], [agentId], {value: regBond});
+
+        // Deploy the service
+        await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+        await serviceRegistry.connect(serviceManager).deploy(ownerAddress, serviceId, gnosisSafeMultisig.address, payload);
+
+        // Send deposits from a service
+        await treasury.depositETHFromService(1, {value: regServiceRevenue});
+
+        // Calculate current epoch parameters
+        await treasury.allocateRewards();
+
+        // Get owner rewards
+        await dispenser.connect(owner).withdrawOwnerRewards();
+        const balance = await ola.balanceOf(ownerAddress);
+
+        // Check the received reward
+        const agentFraction = await tokenomics.agentFraction();
+        const expectedReward = regServiceRevenue * agentFraction / 100;
+        expect(Number(balance)).to.equal(expectedReward);
     });
 });

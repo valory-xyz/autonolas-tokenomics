@@ -261,11 +261,15 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
         if (!point.exists) {
             // Process the epoch data
             ITokenomics(tokenomics).checkpoint();
+            point = ITokenomics(tokenomics).getLastPoint();
 
             // Request OLA funds from treasury for the last epoch
             uint256 amountOLA = point.totalRewardOLA;
             // Get OLA amount that has to stay as a reward in Treasury
             uint256 protocolReward = amountOLA * point.treasuryFraction / 100;
+            uint256 stakerReward = amountOLA * point.stakerFraction / 100;
+            uint256 componentReward = amountOLA * point.componentFraction / 100;
+            uint256 agentReward = amountOLA * point.agentFraction / 100;
 
             // Protocol reward must be lower than the overall reward
             if (amountOLA < protocolReward) {
@@ -281,8 +285,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
                 _sendFundsToDispenser(amountOLA);
                 // Distribute rewards
                 if (amountOLA > 0) {
-                    IDispenser(dispenser).distributeRewards(point.componentFraction, point.agentFraction,
-                        point.stakerFraction, amountOLA);
+                    IDispenser(dispenser).distributeRewards(stakerReward, componentReward, agentReward);
                 }
             }
         }

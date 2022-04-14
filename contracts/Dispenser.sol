@@ -74,9 +74,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Distributes rewards between component and agent owners.
-    function _distributeOwnerRewards(uint256 componentFraction, uint256 agentFraction, uint256 amountOLA) internal {
-        uint256 componentReward = componentFraction * amountOLA / 100;
-        uint256 agentReward = agentFraction * amountOLA / 100;
+    function _distributeOwnerRewards(uint256 componentReward, uint256 agentReward) internal {
         uint256 componentRewardLeft = componentReward;
         uint256 agentRewardLeft = agentReward;
 
@@ -128,12 +126,12 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Distributes rewards between stakers.
-    function _distributeStakerRewards(uint256 stakerFraction, uint256 amountOLA) internal {
+    function _distributeStakerRewards(uint256 stakerReward) internal {
         VotingEscrow veContract = VotingEscrow(ve);
         address[] memory accounts = veContract.getLockAccounts();
 
         // Get the overall amount of rewards for stakers
-        uint256 rewardLeft = stakerFraction * amountOLA / 100 ;
+        uint256 rewardLeft = stakerReward;
 
         // Iterate over staker addresses and distribute
         uint256 numAccounts = accounts.length;
@@ -142,7 +140,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
             for (uint256 i = 0; i < numAccounts; ++i) {
                 uint256 balance = veContract.balanceOf(accounts[i]);
                 // Reward for this specific staker
-                uint256 reward = amountOLA * balance / supply;
+                uint256 reward = stakerReward * balance / supply;
 
                 // If there is a rounding error, floor to the correct value
                 if (reward > rewardLeft) {
@@ -156,37 +154,35 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
 
     /// @dev Distributes rewards.
     function distributeRewards(
-        uint256 componentFraction,
-        uint256 agentFraction,
-        uint256 stakerFraction,
-        uint256 amountOLA
+        uint256 stakerReward,
+        uint256 componentReward,
+        uint256 agentReward
     ) external onlyTreasury whenNotPaused
     {
         // Distribute rewards between component and agent owners
-        _distributeOwnerRewards(componentFraction, agentFraction, amountOLA);
+        _distributeOwnerRewards(componentReward, agentReward);
 
         // Distribute rewards for stakers
-        _distributeStakerRewards(stakerFraction, amountOLA);
+        _distributeStakerRewards(stakerReward);
     }
 
     /// @dev Withdraws rewards for owners of components / agents.
-    /// @param account Account address.
-    function withdrawOwnerReward(address account) external nonReentrant {
-        uint256 balance = mapOwnerRewards[account];
+    function withdrawOwnerRewards() external nonReentrant {
+        uint256 balance = mapOwnerRewards[msg.sender];
         if (balance > 0) {
-            mapOwnerRewards[account] = 0;
-            IERC20(ola).safeTransferFrom(address(this), account, balance);
+            mapOwnerRewards[msg.sender] = 0;
+            IERC20(ola).safeTransfer(msg.sender, balance);
         }
     }
 
     /// @dev Withdraws rewards for stakers.
     /// @param account Account address.
     /// @return balance Reward balance.
-    function withdrawStakingReward(address account) external onlyVotingEscrow returns (uint256 balance) {
+    function withdrawStakingRewards(address account) external onlyVotingEscrow returns (uint256 balance) {
         balance = mapStakerRewards[account];
         if (balance > 0) {
             mapStakerRewards[account] = 0;
-            IERC20(ola).safeTransferFrom(address(this), ve, balance);
+            IERC20(ola).safeTransfer(ve, balance);
         }
     }
 
