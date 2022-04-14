@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,7 +15,7 @@ import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
-contract Dispenser is IErrors, IStructs, Ownable, ReentrancyGuard {
+contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event VotingEscrowUpdated(address ve);
@@ -159,7 +160,7 @@ contract Dispenser is IErrors, IStructs, Ownable, ReentrancyGuard {
         uint256 agentFraction,
         uint256 stakerFraction,
         uint256 amountOLA
-    ) external onlyTreasury
+    ) external onlyTreasury whenNotPaused
     {
         // Distribute rewards between component and agent owners
         _distributeOwnerRewards(componentFraction, agentFraction, amountOLA);
@@ -187,5 +188,11 @@ contract Dispenser is IErrors, IStructs, Ownable, ReentrancyGuard {
             mapStakerRewards[account] = 0;
             IERC20(ola).safeTransferFrom(address(this), ve, balance);
         }
+    }
+
+    /// @dev Gets the paused state.
+    /// @return True, if paused.
+    function isPaused() external returns (bool) {
+        return paused();
     }
 }

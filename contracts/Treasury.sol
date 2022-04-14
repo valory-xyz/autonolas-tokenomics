@@ -273,14 +273,17 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
             }
             amountOLA -= protocolReward;
 
-            // Send funds to dispenser and protocol
-            _sendFundsToDispenser(amountOLA);
+            // Send funds to protocol
             _sendFundsToProtocol(protocolReward);
 
-            // Distribute rewards
-            if (amountOLA > 0) {
-                IDispenser(dispenser).distributeRewards(point.componentFraction, point.agentFraction,
-                    point.stakerFraction, amountOLA);
+            if (!IDispenser(dispenser).isPaused()) {
+                // Send funds to dispenser
+                _sendFundsToDispenser(amountOLA);
+                // Distribute rewards
+                if (amountOLA > 0) {
+                    IDispenser(dispenser).distributeRewards(point.componentFraction, point.agentFraction,
+                        point.stakerFraction, amountOLA);
+                }
             }
         }
     }

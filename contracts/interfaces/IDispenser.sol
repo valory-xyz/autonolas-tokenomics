@@ -15,4 +15,8 @@ interface IDispenser {
     /// @param account Account address.
     /// @return balance Reward balance.
     function withdrawStakingReward(address account) external returns (uint256 balance);
+
+    /// @dev Gets the paused state.
+    /// @return True, if paused.
+    function isPaused() external returns (bool);
 }
