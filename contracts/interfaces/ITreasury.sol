@@ -29,4 +29,7 @@ interface ITreasury {
 
     /// @dev Requests OLA funds from treasury.
     function requestFunds(uint256 amount) external;
+
+    /// @dev Starts a new epoch.
+    function allocateRewards() external returns (bool);
 }

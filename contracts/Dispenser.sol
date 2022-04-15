@@ -13,7 +13,7 @@ import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
 
-/// @title Bond Depository - Smart contract for OLA Bond Depository
+/// @title Dispenser - Smart contract for rewards
 /// @author AL
 contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;

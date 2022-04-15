@@ -45,8 +45,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
     // Staking parameters with multiplying by 100
     // treasuryFraction + componentFraction + agentFraction + stakerFraction = 100%
-    uint256 public treasuryFraction = 10;
-    uint256 public stakerFraction = 40;
+    uint256 public treasuryFraction = 0;
+    uint256 public stakerFraction = 50;
     uint256 public componentFraction = 33;
     uint256 public agentFraction = 17;
 
@@ -131,7 +131,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @dev Sets staking parameters in fractions of distributed rewards.
     /// @param _stakerFraction Fraction for stakers.
     /// @param _componentFraction Fraction for component owners.
-    function changeStakingParameters(
+    function changeRewardFraction(
         uint256 _treasuryFraction,
         uint256 _stakerFraction,
         uint256 _componentFraction,

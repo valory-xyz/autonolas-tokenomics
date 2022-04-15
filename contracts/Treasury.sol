@@ -253,41 +253,43 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     }
 
     /// @dev Starts a new epoch.
-    function allocateRewards() external onlyOwner {
+    function allocateRewards() external onlyOwner returns (bool) {
         // Gets the latest economical point of epoch
         PointEcomonics memory point = ITokenomics(tokenomics).getLastPoint();
-
         // If the point exists, it was already started and there is no need to continue
-        if (!point.exists) {
-            // Process the epoch data
-            ITokenomics(tokenomics).checkpoint();
-            point = ITokenomics(tokenomics).getLastPoint();
+        if (point.exists) {
+            return false;
+        }
 
-            // Request OLA funds from treasury for the last epoch
-            uint256 amountOLA = point.totalRewardOLA;
-            // Get OLA amount that has to stay as a reward in Treasury
-            uint256 protocolReward = amountOLA * point.treasuryFraction / 100;
-            uint256 stakerReward = amountOLA * point.stakerFraction / 100;
-            uint256 componentReward = amountOLA * point.componentFraction / 100;
-            uint256 agentReward = amountOLA * point.agentFraction / 100;
+        // Process the epoch data
+        ITokenomics(tokenomics).checkpoint();
+        point = ITokenomics(tokenomics).getLastPoint();
 
-            // Protocol reward must be lower than the overall reward
-            if (amountOLA < protocolReward) {
-                revert AmountLowerThan(amountOLA, protocolReward);
-            }
-            amountOLA -= protocolReward;
+        // Request OLA funds from treasury for the last epoch
+        uint256 amountOLA = point.totalRewardOLA;
+        // Get OLA amount that has to stay as a reward in Treasury
+        uint256 protocolReward = amountOLA * point.treasuryFraction / 100;
+        uint256 stakerReward = amountOLA * point.stakerFraction / 100;
+        uint256 componentReward = amountOLA * point.componentFraction / 100;
+        uint256 agentReward = amountOLA * point.agentFraction / 100;
 
-            // Send funds to protocol
-            _sendFundsToProtocol(protocolReward);
+        // Protocol reward must be lower than the overall reward
+        if (amountOLA < protocolReward) {
+            revert AmountLowerThan(amountOLA, protocolReward);
+        }
+        amountOLA -= protocolReward;
 
-            if (!IDispenser(dispenser).isPaused()) {
-                // Send funds to dispenser
-                _sendFundsToDispenser(amountOLA);
-                // Distribute rewards
-                if (amountOLA > 0) {
-                    IDispenser(dispenser).distributeRewards(stakerReward, componentReward, agentReward);
-                }
+        // Send funds to protocol
+        _sendFundsToProtocol(protocolReward);
+
+        if (!IDispenser(dispenser).isPaused()) {
+            // Send funds to dispenser
+            _sendFundsToDispenser(amountOLA);
+            // Distribute rewards
+            if (amountOLA > 0) {
+                IDispenser(dispenser).distributeRewards(stakerReward, componentReward, agentReward);
             }
         }
+        return true;
     }
 }
