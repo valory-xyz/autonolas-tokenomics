@@ -7,6 +7,7 @@ describe("Treasury", async () => {
     // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
     // Initial mint for Frax and DAI (10,000,000)
     const initialMint = "10000000000000000000000000";
+    const AddressZero = "0x" + "0".repeat(40);
 
     let deployer;
     let erc20Token;
@@ -57,10 +58,11 @@ describe("Treasury", async () => {
         lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
         // Depository contract is irrelevant here, so we are using a deployer's address
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        // Dispenser address is irrelevant in these tests, so its contract is passed as a zero address
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, AddressZero);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
         

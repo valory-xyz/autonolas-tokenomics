@@ -13,6 +13,8 @@ describe("Tokenomics integration", async () => {
     let olaFactory;
     let depositoryFactory;
     let tokenomicsFactory;
+    let veFactory;
+    let dispenserFactory;
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
@@ -25,9 +27,9 @@ describe("Tokenomics integration", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
+    let ve;
+    let dispenser;
     let epochLen = 100;
-
-    let supply = "10000000000000000000000"; // 10,000
 
     let vesting = 60 * 60 *24;
     let timeToConclusion = 60 * 60 * 24;
@@ -46,14 +48,15 @@ describe("Tokenomics integration", async () => {
     const maxThreshold = 1;
     const name = "service name";
     const description = "service description";
-    const regServiceRevenue = 100000;
+    const milETHBalance = ethers.utils.parseEther("1000000");
+    const regServiceRevenue = milETHBalance;
     const agentId = 1;
     const agentParams = [1, regBond];
     const serviceId = 1;
     const payload = "0x";
     const magicDenominator = 5192296858534816;
     const E18 = 10**18;
-    const delta = 1.0 / 10**13;
+    const delta = 1.0 / 10**10;
 
     let signers;
 
@@ -61,13 +64,15 @@ describe("Tokenomics integration", async () => {
      * Everything in this block is only run once before all tests.
      * This is the home for setup methods
      */
-    before(async () => {
+    beforeEach(async () => {
         signers = await ethers.getSigners();
         olaFactory = await ethers.getContractFactory("OLA");
         erc20Token = await ethers.getContractFactory("ERC20Token");
         depositoryFactory = await ethers.getContractFactory("Depository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
         tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        dispenserFactory = await ethers.getContractFactory("Dispenser");
+        veFactory = await ethers.getContractFactory("VotingEscrow");
 
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -95,22 +100,26 @@ describe("Tokenomics integration", async () => {
         const GnosisSafeMultisig = await ethers.getContractFactory("GnosisSafeMultisig");
         gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await gnosisSafeMultisig.deployed();
-    });
 
-    beforeEach(async () => {
         const deployer = signers[0];
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, deployer.address);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
+        await tokenomics.changeDepository(depository.address);
+
+        ve = await veFactory.deploy(ola.address, "Governance OLA", "veOLA", "0.1", deployer.address);
+        dispenser = await dispenserFactory.deploy(ola.address, ve.address, treasury.address, tokenomics.address);
+        await ve.changeDispenser(dispenser.address);
+        await treasury.changeDispenser(dispenser.address);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -150,7 +159,7 @@ describe("Tokenomics integration", async () => {
         await treasury.depositETHFromService(1, {value: regServiceRevenue});
 
         // Calculate current epoch parameters
-        await tokenomics.checkpoint();
+        await treasury.allocateRewards();
 
         // Get the information from tokenomics point
         const epoch = await tokenomics.getEpoch();
@@ -158,11 +167,50 @@ describe("Tokenomics integration", async () => {
 
         // Checking the values with delta rounding error
         const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
-        const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
-        expect(ucf).to.greaterThanOrEqual(0.5);
-        expect(ucf).to.lessThan(0.5 + delta);
+        expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
 
-        expect(usf).to.greaterThanOrEqual(1);
-        expect(usf).to.lessThan(1 + delta);
+        const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
+        expect(Math.abs(usf - 1.0)).to.lessThan(delta);
+    });
+
+    it("Dispenser for an agent owner", async () => {
+        const mechManager = signers[3];
+        const serviceManager = signers[4];
+        const owner = signers[5];
+        const ownerAddress = owner.address;
+        const operator = signers[6].address;
+        const agentInstance = signers[7].address;
+
+        // Create one agent
+        await agentRegistry.changeManager(mechManager.address);
+        await agentRegistry.connect(mechManager).create(ownerAddress, ownerAddress, agentHash, description, []);
+
+        // Create one service
+        await serviceRegistry.changeManager(serviceManager.address);
+        await serviceRegistry.connect(serviceManager).createService(ownerAddress, name, description, configHash, [agentId],
+            [agentParams], maxThreshold);
+
+        // Register agent instances
+        await serviceRegistry.connect(serviceManager).activateRegistration(ownerAddress, serviceId, {value: regDeposit});
+        await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId, [agentInstance], [agentId], {value: regBond});
+
+        // Deploy the service
+        await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+        await serviceRegistry.connect(serviceManager).deploy(ownerAddress, serviceId, gnosisSafeMultisig.address, payload);
+
+        // Send deposits from a service
+        await treasury.depositETHFromService(1, {value: regServiceRevenue});
+
+        // Calculate current epoch parameters
+        await treasury.allocateRewards();
+
+        // Get owner rewards
+        await dispenser.connect(owner).withdrawOwnerRewards();
+        const balance = await ola.balanceOf(ownerAddress);
+
+        // Check the received reward
+        const agentFraction = await tokenomics.agentFraction();
+        const expectedReward = regServiceRevenue * agentFraction / 100;
+        expect(Number(balance)).to.equal(expectedReward);
     });
 });
