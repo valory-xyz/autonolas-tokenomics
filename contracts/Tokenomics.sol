@@ -27,6 +27,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
     // 2^(112 - log2(1e18))
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
+    uint256 public constant INITIAL_DF = (110 * 10**18) / 100; // 10% with 18 decimals
     // Epsilon subject to rounding error
     uint256 public constant E13 = 10**13;
     // Maximum precision number to be considered
@@ -429,16 +430,27 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @param tokenAmount Token amount.
     /// @param _epoch epoch number
     /// @return resAmount Resulting amount of OLA tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external
+    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external view
         returns (uint256 resAmount)
     {
-        PointEcomonics memory _PE = mapEpochEconomics[_epoch];
-        if (!_PE.exists) {
-            _checkpoint(_epoch);
-            _PE = mapEpochEconomics[_epoch];
+        uint256 df;
+        PointEcomonics memory _PE;
+        // avoid start checkpoint from calculatePayoutFromLP
+        uint256 _epochC = _epoch + 1; 
+        for (uint256 i = _epochC; i > 0; i--) {
+            _PE = mapEpochEconomics[i-1];
+            // if current point undefined, so calculatePayoutFromLP called before mined tx(checkpoint)
+            if(_PE.exists) {
+                df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
+                break;
+            }
         }
-        uint256 df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
-        resAmount = _calculatePayoutFromLP(token, tokenAmount, df);
+        if(df > 0) {
+            resAmount = _calculatePayoutFromLP(token, tokenAmount, df);
+        } else {
+            // if df undefined in points
+            resAmount = _calculatePayoutFromLP(token, tokenAmount, INITIAL_DF);
+        }
     }
 
     /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
@@ -524,15 +536,22 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         _PE = mapEpochEconomics[epoch];
     }
 
-    // decode a uq112x112 into a uint with 18 decimals of precision, 0 if not exist
+    // decode a uq112x112 into a uint with 18 decimals of precision (cycle into the past), INITIAL_DF if not exist
     function getDF(uint256 _epoch) public view returns (uint256 df) {
-        PointEcomonics memory _PE = mapEpochEconomics[_epoch];
-        if (_PE.exists) {
-            // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
-            // a/b is encoded as (a << 112) / b or (a * 2^112) / b
-            df = uint256(_PE.df._x / MAGIC_DENOMINATOR); // 2^(112 - log2(1e18))
-        } else {
-            df = 0;
+        PointEcomonics memory _PE;
+        uint256 _epochC = _epoch + 1; 
+        for (uint256 i = _epochC; i > 0; i--) {
+            _PE = mapEpochEconomics[i-1];
+            // if current point undefined, so getDF called before mined tx(checkpoint)
+            if(_PE.exists) {
+                // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
+                // a/b is encoded as (a << 112) / b or (a * 2^112) / b
+                df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
+                break;
+            }
+        }
+        if (df == 0) {
+            df = INITIAL_DF;
         }
     }
 
