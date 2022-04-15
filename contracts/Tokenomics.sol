@@ -104,7 +104,7 @@ contract Tokenomics is IErrors, Ownable {
     /// @param _gammaNumerator Numerator for gamma value.
     /// @param _gammaDenominator Denominator for gamma value.
     /// @param _maxDF Maximum interest rate in %, 18 decimals.
-    function changeTokenomicsParameters(
+    function changeParameters(
         uint256 _alphaNumerator,
         uint256 _alphaDenominator,
         uint256 _beta,

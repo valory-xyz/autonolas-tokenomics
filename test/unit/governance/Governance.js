@@ -21,6 +21,7 @@ describe("Governance unit", function () {
     const initialVotingDelay = 1; // blocks
     const initialVotingPeriod = 45818; // blocks ±= 1 week
     const initialProposalThreshold = fiveETHBalance; // required voting power
+    const quorum = 1; // quorum factor
     const proposalDescription = "Proposal 0";
     beforeEach(async function () {
         const GnosisSafeL2 = await ethers.getContractFactory("GnosisSafeL2");
@@ -81,7 +82,7 @@ describe("Governance unit", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
             // console.log("Governor Bravo deployed to", governorBravo.address);
 
@@ -125,12 +126,12 @@ describe("Governance unit", function () {
             }
 
             // Given 1 eth worth of voting power from every address, the cumulative voting power must be 10
-            const vPower = await escrow.balanceOf(delegatee);
+            const vPower = await escrow.getVotes(delegatee);
             expect(ethers.utils.formatEther(vPower) > 0).to.be.true;
 
             // The rest of addresses must have zero voting power
             for (let i = 2; i <= numDelegators; i++) {
-                expect(await escrow.balanceOf(signers[i].address)).to.be.equal(0);
+                expect(await escrow.getVotes(signers[i].address)).to.be.equal(0);
             }
         });
 
@@ -162,7 +163,7 @@ describe("Governance unit", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
 
             // Initial proposal threshold is 10 eth, our delegatee voting power is 5 eth

@@ -19,6 +19,7 @@ describe("Governance integration", function () {
     const initialVotingDelay = 0; // blocks
     const initialVotingPeriod = 1; // blocks
     const initialProposalThreshold = fiveETHBalance; // required voting power
+    const quorum = 1; // quorum factor
     const proposalDescription = "Proposal to change value";
     const controlValue = 20;
     beforeEach(async function () {
@@ -63,7 +64,7 @@ describe("Governance integration", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
             // console.log("Governor Bravo deployed to", governorBravo.address);
 
@@ -116,7 +117,7 @@ describe("Governance integration", function () {
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
             const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
-                initialVotingPeriod, initialProposalThreshold);
+                initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
 
             // Grand governorBravo an admin, proposer and executor role in the timelock

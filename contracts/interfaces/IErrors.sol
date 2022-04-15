@@ -89,8 +89,8 @@ interface IErrors {
     error Overflow(uint256 provided, uint256 max);
 
     /// @dev Token is non-transferrable.
-    /// @param addr Token address.
-    error NonTransferrable(address addr);
+    /// @param account Token address.
+    error NonTransferrable(address account);
 
     /// @dev Service must be active.
     /// @param serviceId Service Id.
@@ -187,37 +187,37 @@ interface IErrors {
     error TransferFailed(address token, address from, address to, uint256 value);
 
     /// @dev No existing lock value is found.
-    /// @param addr Address that is checked for the locked value.
-    error NoValueLocked(address addr);
+    /// @param account Address that is checked for the locked value.
+    error NoValueLocked(address account);
 
     /// @dev Locked value is not zero.
-    /// @param addr Address that is checked for the locked value.
+    /// @param account Address that is checked for the locked value.
     /// @param amount Locked amount.
-    error LockedValueNotZero(address addr, int128 amount);
+    error LockedValueNotZero(address account, int128 amount);
 
     /// @dev Value lock is expired.
-    /// @param addr Address that is checked for the locked value.
+    /// @param account Address that is checked for the locked value.
     /// @param deadline The lock expiration deadline.
     /// @param curTime Current timestamp.
-    error LockExpired(address addr, uint256 deadline, uint256 curTime);
+    error LockExpired(address account, uint256 deadline, uint256 curTime);
 
     /// @dev Value lock is not expired.
-    /// @param addr Address that is checked for the locked value.
+    /// @param account Address that is checked for the locked value.
     /// @param deadline The lock expiration deadline.
     /// @param curTime Current timestamp.
-    error LockNotExpired(address addr, uint256 deadline, uint256 curTime);
+    error LockNotExpired(address account, uint256 deadline, uint256 curTime);
 
     /// @dev Provided unlock time is incorrect.
-    /// @param addr Address that is checked for the locked value.
+    /// @param account Address that is checked for the locked value.
     /// @param minUnlockTime Minimal unlock time that can be set.
     /// @param providedUnlockTime Provided unlock time.
-    error UnlockTimeIncorrect(address addr, uint256 minUnlockTime, uint256 providedUnlockTime);
+    error UnlockTimeIncorrect(address account, uint256 minUnlockTime, uint256 providedUnlockTime);
 
     /// @dev Provided unlock time is bigger than the maximum allowed.
-    /// @param addr Address that is checked for the locked value.
+    /// @param account Address that is checked for the locked value.
     /// @param maxUnlockTime Max unlock time that can be set.
     /// @param providedUnlockTime Provided unlock time.
-    error MaxUnlockTimeReached(address addr, uint256 maxUnlockTime, uint256 providedUnlockTime);
+    error MaxUnlockTimeReached(address account, uint256 maxUnlockTime, uint256 providedUnlockTime);
 
     /// @dev Provided block number is incorrect (has not been processed yet).
     /// @param providedBlockNumber Provided block number.
