@@ -121,6 +121,9 @@ contract Depository is IErrors, Ownable {
         mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
         emit CreateBond(productId, payout, tokenAmount);
 
+        // Take into account this bond in current epoch
+        ITokenomics(tokenomics).usedBond(payout);
+
         // Transfer tokens to the depository
         product.token.safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
@@ -202,6 +205,10 @@ contract Depository is IErrors, Ownable {
     /// @return productId New bond product Id.
     function create(IERC20 token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
         // Create a new product.
+        if(!ITokenomics(tokenomics).allowedNewBond(supply)) {
+            // fixed later to correct revert
+            revert AmountLowerThan(ITokenomics(tokenomics).getBondLeft(), supply);
+        }
         productId = mapTokenProducts[address(token)].length;
         Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0);
         mapTokenProducts[address(token)].push(product);

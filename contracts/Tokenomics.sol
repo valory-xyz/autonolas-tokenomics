@@ -10,17 +10,21 @@ import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
+
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 contract Tokenomics is IErrors, IStructs, Ownable {
     using FixedPoint for *;
 
     event TreasuryUpdated(address treasury);
+    event DepositoryUpdated(address depository);
 
     // OLA token address
     address public immutable ola;
     // Treasury contract address
     address public treasury;
+    // Depository contract address
+    address public depository;
 
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
@@ -28,6 +32,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // 2^(112 - log2(1e18))
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
     uint256 public constant INITIAL_DF = (110 * 10**18) / 100; // 10% with 18 decimals
+    uint256 public maxBond = 2000000 * 10**18; // 2M OLA with 18 decimals
     // Epsilon subject to rounding error
     uint256 public constant E13 = 10**13;
     // Maximum precision number to be considered
@@ -50,6 +55,12 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     uint256 public stakerFraction = 50;
     uint256 public componentFraction = 33;
     uint256 public agentFraction = 17;
+
+    //Discount Factor v2
+    //Bond(t)
+    uint256 private _bondPerEpoch;
+    // MaxBond(e) - sum(BondingProgram)
+    uint256 private _bondLeft = maxBond;
 
     // Component Registry
     address public immutable componentRegistry;
@@ -78,11 +89,12 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     // TODO later fix government / manager
-    constructor(address _ola, address _treasury, uint256 _epochLen, address _componentRegistry, address _agentRegistry,
+    constructor(address _ola, address _treasury, address _depository, uint256 _epochLen, address _componentRegistry, address _agentRegistry,
         address payable _serviceRegistry)
     {
         ola = _ola;
         treasury = _treasury;
+        depository = _depository;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
@@ -97,10 +109,24 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         _;
     }
 
+    // Only the manager has a privilege to manipulate a tokenomics
+    modifier onlyDepository() {
+        if (depository != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+        _;
+    }
+
     /// @dev Changes treasury address.
     function changeTreasury(address newTreasury) external onlyOwner {
         treasury = newTreasury;
         emit TreasuryUpdated(newTreasury);
+    }
+
+    /// @dev Changes treasury address.
+    function changeDepository(address newDepository) external onlyOwner {
+        depository = newDepository;
+        emit DepositoryUpdated(newDepository);
     }
 
     /// @dev Gets curretn epoch number.
@@ -115,18 +141,34 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @param _gammaNumerator Numerator for gamma value.
     /// @param _gammaDenominator Denominator for gamma value.
     /// @param _maxDF Maximum interest rate in %, 18 decimals.
+    /// @param _maxBond MaxBond OLA, 18 decimals
     function changeTokenomicsParameters(
         uint256 _alphaNumerator,
         uint256 _alphaDenominator,
         uint256 _beta,
         uint256 _gammaNumerator,
         uint256 _gammaDenominator,
-        uint256 _maxDF
+        uint256 _maxDF,
+        uint256 _maxBond
     ) external onlyOwner {
         alpha = FixedPoint.fraction(_alphaNumerator, _alphaDenominator);
         beta = _beta;
         gamma = FixedPoint.fraction(_gammaNumerator, _gammaDenominator);
         maxDF = _maxDF + E13;
+        // take into account the change during the epoch
+        if(_maxBond > maxBond) {
+            uint256 delta = _maxBond - maxBond;
+            _bondLeft += delta; 
+        }
+        if(_maxBond < maxBond) {
+            uint256 delta = maxBond - _maxBond;
+            if(delta < _bondLeft) {
+                _bondLeft -= delta;
+            } else {
+                _bondLeft = 0;
+            }
+        }
+        maxBond = _maxBond;
     }
 
     /// @dev Sets staking parameters in fractions of distributed rewards.
@@ -147,6 +189,21 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         stakerFraction = _stakerFraction;
         componentFraction = _componentFraction;
         agentFraction = _agentFraction;
+    }
+
+    /// @dev take into account the bonding program in this epoch. 
+    /// @dev programs exceeding the limit in the epoch are not allowed
+    function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
+        if(_bondLeft >= amount) {
+            _bondLeft -= amount;
+            return true;
+        }
+        return false;
+    }
+
+    /// @dev take into account materialization OLA per Depository.deposit() for currents program
+    function usedBond(uint256 payout) external onlyDepository {
+        _bondPerEpoch += payout;
     }
 
     /// @dev Tracks the deposit token amount during the epoch.
@@ -360,6 +417,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         }
         delete _protocolServiceIds;
         totalServiceRevenueETH = 0;
+        // clean bonding data
+        _bondLeft = maxBond;
+        _bondPerEpoch = 0;
     }
 
     /// @notice Record global data to checkpoint, any can do it
@@ -576,5 +636,13 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     {
         profitableAgents = _profitableAgents;
         ucfas = _ucfas;
+    }
+
+    function getBondLeft() external view returns (uint256 bondLeft) {
+        bondLeft = _bondLeft;
+    }
+
+    function getBondCurrentEpoch() external view returns (uint256 bondPerEpoch) {
+        bondPerEpoch = _bondPerEpoch;
     }
 }    

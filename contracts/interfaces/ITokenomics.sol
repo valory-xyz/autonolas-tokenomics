@@ -16,4 +16,8 @@ interface ITokenomics is IStructs {
     function getExchangeAmountOLA(address token, uint256 tokenAmount) external returns (uint256 amount);
     function getProfitableComponents() external view returns (address[] memory profitableComponents, uint256[] memory ucfcs);
     function getProfitableAgents() external view returns (address[] memory profitableAgents, uint256[] memory ucfcs);
+    function usedBond(uint256 payout) external;
+    function allowedNewBond(uint256 amount) external returns(bool);
+    function getBondLeft() external view returns (uint256 bondLeft);
+    function getBondCurrentEpoch() external view returns (uint256 bondPerEpoch);
 }

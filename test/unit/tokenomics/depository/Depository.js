@@ -69,7 +69,7 @@ describe("Depository LP", async () => {
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, AddressZero);
@@ -78,6 +78,7 @@ describe("Depository LP", async () => {
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
+        await tokenomics.changeDepository(depository.address);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
