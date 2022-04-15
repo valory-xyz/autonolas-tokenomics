@@ -49,18 +49,17 @@ contract Depository is IErrors, Ownable {
         uint256 sold;
     }
 
-    // OLA interface
+    // OLA token address
     address public immutable ola;
-    // Treasury interface
+    // Treasury address
     address public treasury;
-    // Tokenomics interface 
+    // Tokenomics address
     address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
-    
-    // TODO later fix government / manager
+
     constructor(address _ola, address _treasury, address _tokenomics) {
         ola = _ola;
         treasury = _treasury;
@@ -121,6 +120,9 @@ contract Depository is IErrors, Ownable {
         // Create and add a new bond
         mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
         emit CreateBond(productId, payout, tokenAmount);
+
+        // Take into account this bond in current epoch
+        ITokenomics(tokenomics).usedBond(payout);
 
         // Transfer tokens to the depository
         product.token.safeTransferFrom(msg.sender, address(this), tokenAmount);
@@ -203,6 +205,10 @@ contract Depository is IErrors, Ownable {
     /// @return productId New bond product Id.
     function create(IERC20 token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
         // Create a new product.
+        if(!ITokenomics(tokenomics).allowedNewBond(supply)) {
+            // fixed later to correct revert
+            revert AmountLowerThan(ITokenomics(tokenomics).getBondLeft(), supply);
+        }
         productId = mapTokenProducts[address(token)].length;
         Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0);
         mapTokenProducts[address(token)].push(product);

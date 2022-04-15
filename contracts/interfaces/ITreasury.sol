@@ -26,4 +26,10 @@ interface ITreasury {
     /// @param token Token address.
     /// @return enabled True is token is enabled.
     function isEnabled(address token) external view returns (bool enabled);
+
+    /// @dev Requests OLA funds from treasury.
+    function requestFunds(uint256 amount) external;
+
+    /// @dev Starts a new epoch.
+    function allocateRewards() external returns (bool);
 }

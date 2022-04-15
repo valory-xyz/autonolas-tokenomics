@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
+import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
+
 /// @dev IPFS multihash.
 interface IStructs {
     // Canonical agent Id parameters
@@ -19,5 +21,19 @@ interface IStructs {
         uint8 hashFunction;
         // Length of the hash is 32 bytes, or 0x20 in hex
         uint8 size;
+    }
+
+    struct PointEcomonics {
+        FixedPoint.uq112x112 ucf;
+        FixedPoint.uq112x112 usf;
+        FixedPoint.uq112x112 df; // x > 1.0
+        uint256 treasuryFraction;
+        uint256 stakerFraction;
+        uint256 componentFraction;
+        uint256 agentFraction;
+        uint256 totalRewardOLA;
+        uint256 ts; // timestamp
+        uint256 blk; // block
+        bool exists; // ready or not
     }
 }

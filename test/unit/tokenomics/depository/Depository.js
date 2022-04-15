@@ -2,12 +2,13 @@
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 
-describe("Bond Depository LP", async () => {
+describe("Depository LP", async () => {
     const LARGE_APPROVAL = "100000000000000000000000000000000";
     // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
     // Initial mint for ola and DAI (40,000)
     const initialMint       = "40000000000000000000000";
     // Increase timestamp by amount determined by `offset`
+    const AddressZero = "0x" + "0".repeat(40);
 
     let deployer, alice, bob;
     let erc20Token;
@@ -68,15 +69,16 @@ describe("Bond Depository LP", async () => {
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, epochLen, componentRegistry.address,
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address);
+        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, AddressZero);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
+        await tokenomics.changeDepository(depository.address);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);

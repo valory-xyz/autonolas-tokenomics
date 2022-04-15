@@ -96,4 +96,23 @@ interface IService is IStructs {
     /// @param serviceId Correspondent service Id.
     /// @return success True, if function executed successfully.
     function destroy(address owner, uint256 serviceId) external returns (bool success);
+
+    /// @dev Checks if the service Id exists.
+    /// @param serviceId Service Id.
+    /// @return true if the service exists, false otherwise.
+    function exists(uint256 serviceId) external view returns (bool);
+
+    /// @dev Gets the set of service Ids that contain specified agent Id.
+    /// @param agentId Agent Id.
+    /// @return numServiceIds Number of service Ids.
+    /// @return serviceIds Set of service Ids.
+    function getServiceIdsCreatedWithAgentId(uint256 agentId) external view
+        returns (uint256 numServiceIds, uint256[] memory serviceIds);
+
+    /// @dev Gets the set of service Ids that contain specified component Id (through the agent Id).
+    /// @param componentId Component Id.
+    /// @return numServiceIds Number of service Ids.
+    /// @return serviceIds Set of service Ids.
+    function getServiceIdsCreatedWithComponentId(uint256 componentId) external view
+        returns (uint256 numServiceIds, uint256[] memory serviceIds);
 }
