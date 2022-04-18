@@ -11,6 +11,7 @@ import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 
+
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 contract Tokenomics is IErrors, IStructs, Ownable {
@@ -545,6 +546,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         balance1 -= amount1;
         uint256 reserveIn = (token0 == ola) ? balance1 : balance0;
         uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
+        
         amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
         // The resulting DF amount cannot be bigger than the maximum possible one

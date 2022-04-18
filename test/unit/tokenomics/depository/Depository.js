@@ -18,6 +18,7 @@ describe("Depository LP", async () => {
     let componentRegistry;
     let agentRegistry;
     let serviceRegistry;
+    let router;
 
     let dai;
     let ola;
@@ -97,7 +98,7 @@ describe("Depository LP", async () => {
 
         // Deploy Router02
         const Router = await ethers.getContractFactory("UniswapV2Router02");
-        const router = await Router.deploy(factory.address, weth.address);
+        router = await Router.deploy(factory.address, weth.address);
         await router.deployed();
         // console.log("Uniswap router02 deployed to:", router.address);
 
@@ -118,7 +119,8 @@ describe("Depository LP", async () => {
         // console.log("balance dai for deployer:",(await dai.balanceOf(deployer.address)));
         
         // Add liquidity
-        const amountola = await ola.balanceOf(deployer.address);
+        //const amountola = await ola.balanceOf(deployer.address);
+        const amountola = "5000000000000000000000";
         const minAmountola = "50000000000";
         const amountDAI = "10000000000000000000000";
         const minAmountDAI = "1000000000000000000000";
@@ -138,8 +140,8 @@ describe("Depository LP", async () => {
             deadline
         );
 
-        // console.log("deployer LP balance:",await pairODAI.balanceOf(deployer.address));
-        // console.log("LP total supply:",await pairODAI.totalSupply());
+        //console.log("deployer LP balance:",await pairODAI.balanceOf(deployer.address));
+        //console.log("LP total supply:",await pairODAI.totalSupply());
         await pairODAI.connect(deployer).transfer(bob.address,"35355339059326876");
         // console.log("balance LP for bob:",(await pairODAI.balanceOf(bob.address)));
 
@@ -206,6 +208,40 @@ describe("Depository LP", async () => {
     });
     // ok test 10-03-22
     it("should allow a deposit", async () => {
+        // Add liquidity
+        //const amountola = await ola.balanceOf(deployer.address);
+        //const amountola = "10000000000000000000000";
+        //const minAmountola = "50000000000";
+        const amountola = "22200000000000000000000";
+        const minAmountola = "1000000000000000000000";
+        const amountDAI = "9900000000000000000000";
+        const minAmountDAI = "1000000000000000000000";
+        //const amountDAI = "100000000000"; // amountDAI/100000000000
+        //const minAmountDAI = "10000000000"; // amountDAI/1000000000000
+        const deadline = Date.now() + 1000;
+        const toAddress = deployer.address;
+        await ola.approve(router.address, LARGE_APPROVAL);
+        await dai.approve(router.address, LARGE_APPROVAL);
+        const readd = true;
+        if(readd) {
+            //console.log("+++ before :: addLiquidity");
+            //console.log("deployer LP balance:",await pairODAI.balanceOf(deployer.address));
+            //console.log("LP total supply:",await pairODAI.totalSupply());
+            await router.connect(deployer).addLiquidity(
+                dai.address,
+                ola.address,
+                amountDAI,
+                amountola,
+                minAmountDAI,
+                minAmountola,
+                toAddress,
+                deadline
+            );
+            //console.log("+++ after :: addLiquidity");
+            //console.log("deployer LP balance:",await pairODAI.balanceOf(deployer.address));
+            //console.log("LP total supply:",await pairODAI.totalSupply());
+        }
+
         let dp = await treasury.depository();
         // console.log("depository.address:",depository.address);
         // console.log("treasury allow deposit:",dp);
@@ -217,13 +253,18 @@ describe("Depository LP", async () => {
             .connect(bob)
             .deposit(pairODAI.address, bid, amount, bob.address);
         expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
+        const res = await depository.getBondStatus(bob.address,0);
+        expect(Number(res.payout)).to.equal(6874999999999902);
     });
     // ok test 11-03-22
     it("should not allow a deposit greater than max payout", async () => {
         let amount = (await pairODAI.balanceOf(deployer.address)); 
+        //await expect(
+        //    depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
+        //).to.be.revertedWith("ProductSupplyLow");
         await expect(
             depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
-        ).to.be.revertedWith("ProductSupplyLow");
+        ).to.be.revertedWith("ds-math-sub-underflow");
     });
     // ok test 11-03-22
     it("should not redeem before vested", async () => {
