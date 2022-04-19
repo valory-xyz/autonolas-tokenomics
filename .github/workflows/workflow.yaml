@@ -23,11 +23,7 @@ jobs:
 
       # Compile the code
       - name: Compile, adjust uniswap library hash and recompile again
-        run: |
-          ./scripts/uni-adjust/adjust-point.sh
-          ./node_modules/.bin/hardhat compile
-          ./scripts/uni-adjust/adjust-pair.sh
-          ./node_modules/.bin/hardhat compile
+        run: npm run compile
 
       # Run tests and deploy script(s)
       - name: Run tests

@@ -167,6 +167,11 @@ interface IErrors {
     /// @param expected Expected amount.
     error WrongAmount(uint256 provided, uint256 expected);
 
+    /// @dev Insufficient token allowance.
+    /// @param provided Provided amount.
+    /// @param expected Minimum expected amount.
+    error InsufficientAllowance(uint256 provided, uint256 expected);
+
     /// @dev Incorrect deposit provided for the registration activation.
     /// @param sent Sent amount.
     /// @param expected Expected amount.

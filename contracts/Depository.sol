@@ -9,9 +9,9 @@ import "./interfaces/IErrors.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
-
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Depository is IErrors, Ownable {
     using SafeERC20 for IERC20;
 
@@ -100,10 +100,10 @@ contract Depository is IErrors, Ownable {
         }
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
-        uint256 _epoch = block.number / ITokenomics(tokenomics).epochLen();
+        uint256 epoch = block.number / ITokenomics(tokenomics).epochLen();
         // df uint with defined decimals
-        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, _epoch);
-
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, epoch);
+        
         // Check for the sufficient supply
         if (payout > product.supply) {
             revert ProductSupplyLow(token, productId, payout, product.supply);
@@ -124,6 +124,10 @@ contract Depository is IErrors, Ownable {
         // Take into account this bond in current epoch
         ITokenomics(tokenomics).usedBond(payout);
 
+        // Uniswap allowance implementation does not revert with the accurate message, check before SafeMath is engaged
+        if (product.token.allowance(msg.sender, address(this)) < tokenAmount) {
+            revert InsufficientAllowance(product.token.allowance((msg.sender), address(this)), tokenAmount);
+        }
         // Transfer tokens to the depository
         product.token.safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount

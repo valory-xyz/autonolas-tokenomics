@@ -11,8 +11,10 @@ import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 
+
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Tokenomics is IErrors, IStructs, Ownable {
     using FixedPoint for *;
 
@@ -488,16 +490,16 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
     /// @param token Token address.
     /// @param tokenAmount Token amount.
-    /// @param _epoch epoch number
+    /// @param epoch epoch number
     /// @return resAmount Resulting amount of OLA tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint _epoch) external view
+    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint256 epoch) external view
         returns (uint256 resAmount)
     {
         uint256 df;
         PointEcomonics memory _PE;
         // avoid start checkpoint from calculatePayoutFromLP
-        uint256 _epochC = _epoch + 1; 
-        for (uint256 i = _epochC; i > 0; i--) {
+        uint256 epochC = epoch + 1; 
+        for (uint256 i = epochC; i > 0; i--) {
             _PE = mapEpochEconomics[i-1];
             // if current point undefined, so calculatePayoutFromLP called before mined tx(checkpoint)
             if(_PE.exists) {
@@ -545,6 +547,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         balance1 -= amount1;
         uint256 reserveIn = (token0 == ola) ? balance1 : balance0;
         uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
+        
         amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
         // The resulting DF amount cannot be bigger than the maximum possible one
@@ -584,10 +587,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     /// @dev get Point by epoch
-    /// @param _epoch number of a epoch
+    /// @param epoch number of a epoch
     /// @return _PE raw point
-    function getPoint(uint256 _epoch) public view returns (PointEcomonics memory _PE) {
-        _PE = mapEpochEconomics[_epoch];
+    function getPoint(uint256 epoch) public view returns (PointEcomonics memory _PE) {
+        _PE = mapEpochEconomics[epoch];
     }
 
     /// @dev Get last epoch Point.
@@ -597,10 +600,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     // decode a uq112x112 into a uint with 18 decimals of precision (cycle into the past), INITIAL_DF if not exist
-    function getDF(uint256 _epoch) public view returns (uint256 df) {
+    function getDF(uint256 epoch) public view returns (uint256 df) {
         PointEcomonics memory _PE;
-        uint256 _epochC = _epoch + 1; 
-        for (uint256 i = _epochC; i > 0; i--) {
+        uint256 epochC = epoch + 1; 
+        for (uint256 i = epochC; i > 0; i--) {
             _PE = mapEpochEconomics[i-1];
             // if current point undefined, so getDF called before mined tx(checkpoint)
             if(_PE.exists) {
