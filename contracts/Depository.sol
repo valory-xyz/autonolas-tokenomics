@@ -9,7 +9,6 @@ import "./interfaces/IErrors.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
-
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -104,7 +103,7 @@ contract Depository is IErrors, Ownable {
         uint256 epoch = block.number / ITokenomics(tokenomics).epochLen();
         // df uint with defined decimals
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount, epoch);
-
+        
         // Check for the sufficient supply
         if (payout > product.supply) {
             revert ProductSupplyLow(token, productId, payout, product.supply);
