@@ -9,6 +9,10 @@ interface ITreasury {
     /// @param olaMintAmount Amount of OLA token issued.
     function depositTokenForOLA(uint256 tokenAmount, address token, uint256 olaMintAmount) external;
 
+    /// @dev Deposits ETH from protocol-owned service.
+    /// @param serviceId Service Id.
+    function depositETHFromService(uint256 serviceId) external payable;
+
     /// @dev Allows manager to withdraw specified tokens from reserves
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token address.

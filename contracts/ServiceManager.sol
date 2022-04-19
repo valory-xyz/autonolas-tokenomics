@@ -6,16 +6,23 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "./interfaces/IService.sol";
+import "./interfaces/ITreasury.sol";
 
 /// @title Service Manager - Periphery smart contract for managing services
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract ServiceManager is IErrors, IStructs, Ownable, Pausable {
+    event TreasuryUpdated(address treasury);
     event MultisigCreate(address multisig);
+    event RewardService(uint256 serviceId, uint256 amount);
 
+    // Service registry address
     address public immutable serviceRegistry;
+    // Treasury address
+    address public treasury;
 
-    constructor(address _serviceRegistry) {
+    constructor(address _serviceRegistry, address _treasury) {
         serviceRegistry = _serviceRegistry;
+        treasury = _treasury;
     }
 
     /// @dev Fallback function
@@ -26,6 +33,13 @@ contract ServiceManager is IErrors, IStructs, Ownable, Pausable {
     /// @dev Receive function
     receive() external payable {
         revert WrongFunction();
+    }
+
+    /// @dev Changes the treasury address.
+    /// @param newTreasury Address of a new treasury.
+    function changeTreasury(address newTreasury) external onlyOwner {
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
     }
 
     /// @dev Creates a new service.
@@ -128,6 +142,14 @@ contract ServiceManager is IErrors, IStructs, Ownable, Pausable {
     /// @return success True, if function executed successfully.
     function serviceDestroy(uint256 serviceId) external returns (bool success) {
         success = IService(serviceRegistry).destroy(msg.sender, serviceId);
+    }
+
+    /// @dev Rewards the protocol-owned service with an ETH payment.
+    /// @param serviceId Service Id.
+    function serviceReward(uint256 serviceId) external payable
+    {
+        ITreasury(treasury).depositETHFromService{value: msg.value}(serviceId);
+        emit RewardService(serviceId, msg.value);
     }
 
     /// @dev Pauses the contract.

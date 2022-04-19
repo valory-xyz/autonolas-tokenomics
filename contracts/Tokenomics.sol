@@ -207,8 +207,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     /// @dev Tracks the deposit token amount during the epoch.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts)
-        public onlyTreasury {
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) public onlyTreasury {
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {

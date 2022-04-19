@@ -16,7 +16,6 @@ describe("ServiceRegistry", function () {
     const regBond = 1000;
     const regDeposit = 1000;
     const regFine = 500;
-    const regReward = 2000;
     const agentIds = [1, 2];
     const agentParams = [[3, regBond], [4, regBond]];
     const serviceId = 1;
@@ -1239,28 +1238,6 @@ describe("ServiceRegistry", function () {
             await serviceRegistry.connect(serviceManager).terminate(owner, serviceId);
             const unbond = await serviceRegistry.connect(serviceManager).callStatic.unbond(operator, serviceId);
             expect(Number(unbond.refund)).to.equal(0);
-        });
-
-        it("Reward a service twice, get its reward balance", async function () {
-            const mechManager = signers[3];
-            const serviceManager = signers[4];
-            const owner = signers[5].address;
-            const somebody = signers[6];
-            const maxThreshold = 2;
-
-            // Create an agent
-            await agentRegistry.changeManager(mechManager.address);
-            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
-
-            // Create a service and activate the agent instance registration
-            await serviceRegistry.changeManager(serviceManager.address);
-            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, [1],
-                [[2, regBond]], maxThreshold);
-
-            // Reward service twice and check the result
-            let reward = await serviceRegistry.connect(somebody).reward(serviceId, {value: regReward});
-            reward = await serviceRegistry.connect(somebody).callStatic.reward(serviceId, {value: regReward});
-            expect(reward).to.equal(2 * regReward);
         });
     });
 
