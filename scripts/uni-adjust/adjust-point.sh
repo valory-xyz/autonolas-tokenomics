@@ -2,7 +2,6 @@
 FILE="./node_modules/@uniswap/lib/contracts/libraries/BitMath.sol"
 case "$(uname -s)" in
    Darwin)
-     echo 'Mac OS X'
      sed -i.bu "s/uint128(-1)/type(uint128).max/g" $FILE
      sed -i.bu "s/uint64(-1)/type(uint64).max/g" $FILE
      sed -i.bu "s/uint32(-1)/type(uint32).max/g" $FILE
@@ -11,7 +10,6 @@ case "$(uname -s)" in
      ;;
 
    Linux)
-     echo 'Linux'
      sed -i "s/uint128(-1)/type(uint128).max/g" $FILE                                      
      sed -i "s/uint64(-1)/type(uint64).max/g" $FILE   
      sed -i "s/uint32(-1)/type(uint32).max/g" $FILE
@@ -28,7 +26,6 @@ FILE="./node_modules/@uniswap/lib/contracts/libraries/FixedPoint.sol"
 rm -rf $FILE
 case "$(uname -s)" in
    Darwin)
-     echo 'Mac OS X'
 cat << 'EOF' > ./node_modules/@uniswap/lib/contracts/libraries/FixedPoint.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity >=0.4.0;
@@ -185,7 +182,6 @@ library FixedPoint {
 EOF
      ;;
    Linux)
-     echo 'Linux'
 cat << EOF > ./node_modules/@uniswap/lib/contracts/libraries/FixedPoint.sol
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity >=0.4.0;
@@ -351,7 +347,6 @@ FILE="./node_modules/@uniswap/lib/contracts/libraries/FullMath.sol"
 rm -rf $FILE
 case "$(uname -s)" in
    Darwin)
-     echo 'Mac OS X'
 cat << 'EOF' >> ./node_modules/@uniswap/lib/contracts/libraries/FullMath.sol
 // SPDX-License-Identifier: CC-BY-4.0
 pragma solidity >=0.4.0;
@@ -413,7 +408,6 @@ EOF
      ;;
 
    Linux)
-     echo 'Linux'
 cat << 'EOF' >> ./node_modules/@uniswap/lib/contracts/libraries/FullMath.sol
 // SPDX-License-Identifier: CC-BY-4.0
 pragma solidity >=0.4.0;
