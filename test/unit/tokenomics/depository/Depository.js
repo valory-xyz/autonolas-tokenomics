@@ -143,13 +143,13 @@ describe("Depository LP", async () => {
             deadline
         );
 
-//        console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
-//        console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
+        //        console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
+        //        console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
         // send half of the balance from deployer
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(2);
         await pairODAI.connect(deployer).transfer(bob.address, amountTo);
-//        console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
-//        console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
+        //        console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
+        //        console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
 
         await ola.connect(alice).approve(depository.address, LARGE_APPROVAL);
         await dai.connect(bob).approve(depository.address, LARGE_APPROVAL);
