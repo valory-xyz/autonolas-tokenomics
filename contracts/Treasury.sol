@@ -12,6 +12,7 @@ import "./interfaces/IStructs.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     

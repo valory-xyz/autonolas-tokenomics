@@ -15,6 +15,7 @@ import "./interfaces/ITokenomics.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
