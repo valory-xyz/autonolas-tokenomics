@@ -492,7 +492,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @param tokenAmount Token amount.
     /// @param epoch epoch number
     /// @return resAmount Resulting amount of OLA tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint epoch) external view
+    function calculatePayoutFromLP(address token, uint256 tokenAmount, uint256 epoch) external view
         returns (uint256 resAmount)
     {
         uint256 df;
