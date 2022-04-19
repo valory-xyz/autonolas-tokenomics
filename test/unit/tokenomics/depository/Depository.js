@@ -8,9 +8,9 @@ describe("Depository LP", async () => {
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
     // Initial mint for OLA and DAI (40,000)
     const initialMint = "4" + "0".repeat(4) + decimals;
-    // Increase timestamp by amount determined by `offset`
+
     const AddressZero = "0x" + "0".repeat(40);
-    const E18 = 1 + "0".repeat(18);
+    const E18 = "1" + "0".repeat(18);
 
     let deployer, alice, bob;
     let erc20Token;

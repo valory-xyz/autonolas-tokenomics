@@ -11,7 +11,6 @@ import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 
-
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -85,7 +84,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     uint256[] private _protocolServiceIds;
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) private _mapServiceAmounts;
-    mapping(uint256 => uint256) private _mapServiceIndexes;
 
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -221,7 +219,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
             // Add a new service Id to the set of Ids if one was not currently in it
             if (_mapServiceAmounts[serviceIds[i]] == 0) {
-                _mapServiceIndexes[serviceIds[i]] = _protocolServiceIds.length;
                 _protocolServiceIds.push(serviceIds[i]);
             }
             _mapServiceAmounts[serviceIds[i]] += amounts[i];
@@ -260,9 +257,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         delete _ucfcs;
 
         // Allocate set of UCFc for the current epoch number of services
-        _ucfcs = new uint256[](numServices);
+        _ucfcs = new uint256[](numComponents);
         // Array of cardinality of components in a specific profitable service: |Cs(epoch)|
-        uint256[] memory ucfcsNum = new uint256[](numServices);
+        uint256[] memory ucfcsNum = new uint256[](numComponents);
 
         // Loop over components
         for (uint256 i = 0; i < numComponents; ++i) {
@@ -274,9 +271,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
                     // Add cit(c, s) * r(s) for component j to add to UCFc(epoch)
-                    _ucfcs[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
+                    _ucfcs[i] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |Cs(epoch)|
-                    ucfcsNum[_mapServiceIndexes[serviceIds[j]]]++;
+                    ucfcsNum[i]++;
                     profitable = true;
                 }
             }
@@ -292,11 +289,11 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         uint256 denominator;
         // Calculate total UCFc
-        for (uint256 i = 0; i < numServices; ++i) {
-            denominator = ucfcsNum[_mapServiceIndexes[_protocolServiceIds[i]]];
+        for (uint256 i = 0; i < numComponents; ++i) {
+            denominator = ucfcsNum[i];
             if(denominator > 0) {
                 // avoid exception div by zero
-                ucfc = _add(ucfc, FixedPoint.fraction(_ucfcs[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
+                ucfc = _add(ucfc, FixedPoint.fraction(_ucfcs[i], denominator));
             }
         }
         ucfc = ucfc.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
@@ -319,9 +316,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         delete _ucfas;
 
         // Allocate set of UCFa for the current epoch number of services
-        _ucfas = new uint256[](numServices);
-        // Array of cardinality of components in a specific profitable service: |As(epoch)|
-        uint256[] memory ucfasNum = new uint256[](numServices);
+        _ucfas = new uint256[](numAgents);
+        // Array of cardinality of agents in a specific profitable service: |As(epoch)|
+        uint256[] memory ucfasNum = new uint256[](numAgents);
         
         // Loop over agents
         for (uint256 i = 0; i < numAgents; ++i) {
@@ -332,10 +329,10 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             for (uint256 j = 0; j < serviceIds.length; ++j) {
                 uint256 revenue = _mapServiceAmounts[serviceIds[j]];
                 if (revenue > 0) {
-                    // Add cit(c, s) * r(s) for component j to add to UCFa(epoch)
-                    _ucfas[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
+                    // Add cit(a, s) * r(s) for component j to add to UCFa(epoch)
+                    _ucfas[i] += _mapServiceAmounts[serviceIds[j]];
                     // Increase |As(epoch)|
-                    ucfasNum[_mapServiceIndexes[serviceIds[j]]]++;
+                    ucfasNum[i]++;
                     profitable = true;
                 }
             }
@@ -351,11 +348,11 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         uint256 denominator;
         // Calculate total UCFa
-        for (uint256 i = 0; i < numServices; ++i) {
-            denominator = ucfasNum[_mapServiceIndexes[_protocolServiceIds[i]]];
+        for (uint256 i = 0; i < numAgents; ++i) {
+            denominator = ucfasNum[i];
             if(denominator > 0) {
                 // avoid div by zero
-                ucfa = _add(ucfa, FixedPoint.fraction(_ucfas[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
+                ucfa = _add(ucfa, FixedPoint.fraction(_ucfas[i], denominator));
             }
         }
         ucfa = ucfa.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
@@ -415,7 +412,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         uint256 numServices = _protocolServiceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
             delete _mapServiceAmounts[_protocolServiceIds[i]];
-            delete _mapServiceIndexes[_protocolServiceIds[i]];
         }
         delete _protocolServiceIds;
         totalServiceRevenueETH = 0;
