@@ -105,10 +105,10 @@ describe("Depository LP", async () => {
         await router.deployed();
         // console.log("Uniswap router02 deployed to:", router.address);
 
-        //        var json = require("../../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
-        //        const actual_bytecode1 = json["bytecode"];
-        //        const COMPUTED_INIT_CODE_HASH1 = ethers.utils.keccak256(actual_bytecode1);
-        //        console.log("init hash:", COMPUTED_INIT_CODE_HASH1, "in UniswapV2Library :: hash:0xe9d807835bf1c75fb519759197ec594400ca78aa1d4b77743b1de676f24f8103");
+        var json = require("../../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
+        const actual_bytecode1 = json["bytecode"];
+        const COMPUTED_INIT_CODE_HASH1 = ethers.utils.keccak256(actual_bytecode1);
+        console.log("init hash:", COMPUTED_INIT_CODE_HASH1, "in UniswapV2Library :: hash:0xe9d807835bf1c75fb519759197ec594400ca78aa1d4b77743b1de676f24f8103");
            
         //const pairODAItxReceipt = await factory.createPair(ola.address, dai.address);
         await factory.createPair(ola.address, dai.address);
@@ -143,13 +143,13 @@ describe("Depository LP", async () => {
             deadline
         );
 
-        //        console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
-        //        console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
+        console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
+        console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
         // send half of the balance from deployer
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(2);
         await pairODAI.connect(deployer).transfer(bob.address, amountTo);
-        //        console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
-        //        console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
+        console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
+        console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
 
         await ola.connect(alice).approve(depository.address, LARGE_APPROVAL);
         await dai.connect(bob).approve(depository.address, LARGE_APPROVAL);
@@ -233,12 +233,12 @@ describe("Depository LP", async () => {
         ).to.be.revertedWith("InsufficientAllowance");
     });
 
-    it("should not allow a deposit greater than max payout", async () => {
+    it.only("should not allow a deposit greater than max payout", async () => {
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
         // Transfer all LP tokens back to deployer
         await pairODAI.connect(bob).transfer(deployer.address, amountTo);
         const amount = (await pairODAI.balanceOf(deployer.address));
-        //        console.log("LP token in:",amount);
+        console.log("LP token in:",amount);
 
         const totalSupply = (await pairODAI.totalSupply());
         // Calculate payout based on the amount of LP
@@ -250,31 +250,31 @@ describe("Depository LP", async () => {
         // Get the balances of tokens in LP
         let balance0 = (await token0.balanceOf(pairODAI.address));
         let balance1 = (await token1.balanceOf(pairODAI.address));
-        //        console.log("token0",token0.address);
-        //        console.log("token1",token1.address);
-        //        console.log("balance0",balance0);
-        //        console.log("balance1",balance1);
-        //        console.log("ola token",ola.address);
-        //        console.log("totalSupply LP",totalSupply);
+        console.log("token0",token0.address);
+        console.log("token1",token1.address);
+        console.log("balance0",balance0);
+        console.log("balance1",balance1);
+        console.log("ola token",ola.address);
+        console.log("totalSupply LP",totalSupply);
 
         // Token fractions based on the LP tokens amount and total supply
         const amount0 = ethers.BigNumber.from(amount).mul(balance0).div(totalSupply);
         const amount1 = ethers.BigNumber.from(amount).mul(balance1).div(totalSupply);
-        //        console.log("token0 amount ref LP",amount0);
-        //        console.log("token1 amount ref LP",amount1);
+        console.log("token0 amount ref LP",amount0);
+        console.log("token1 amount ref LP",amount1);
 
         // This is equivalent to removing the liquidity
         let amountOLA = amount1;
         balance0 = balance0.sub(amount0);
         balance1 = balance1.sub(amount1);
-        //        console.log("balance0",balance0);
-        //        console.log("balance1",balance1);
+        console.log("balance0",balance0);
+        console.log("balance1",balance1);
 
         // This is the equivalent of a swap operation to calculate additional OLA
         const reserveIn = balance0;
         const reserveOut = balance1;
         let amountIn = amount0;
-        //        console.log("amountIn",amountIn);
+        console.log("amountIn",amountIn);
         // amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
 
         // We use this tutorial to correctly calculate the in-out amounts:
@@ -284,18 +284,18 @@ describe("Depository LP", async () => {
         const denominator = (reserveIn.mul(1000)).add(amountInWithFee);
         const amountOut = numerator.div(denominator);
         amountOLA = amountOLA.add(amountOut);
-        //        console.log("amountInWithFee",amountInWithFee);
-        //        console.log("numerator",numerator);
-        //        console.log("denominator",denominator);
-        //        console.log("delta amountOut:",amountOut);
-        //        console.log("sutotal amountOLA:",amountOLA);
+        console.log("amountInWithFee",amountInWithFee);
+        console.log("numerator",numerator);
+        console.log("denominator",denominator);
+        console.log("delta amountOut:",amountOut);
+        console.log("sutotal amountOLA:",amountOLA);
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amount, 0);
         const df = await tokenomics.getDF(0);
 
         // Payouts with direct calculation and via DF must be equal
         expect(amountOLA.mul(df).div(E18)).to.equal(payout);
-        //        console.log("payout direclty", payout);
-        //        console.log("payout via df", amountOLA.mul(df).div(E18));
+        console.log("payout direclty", payout);
+        console.log("payout via df", amountOLA.mul(df).div(E18));
 
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
         await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
