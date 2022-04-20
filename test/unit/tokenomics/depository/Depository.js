@@ -1,4 +1,4 @@
-/*global describe, before, beforeEach, it*/
+/*global describe, beforeEach, it*/
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 
@@ -46,7 +46,8 @@ describe("Depository LP", async () => {
      * Everything in this block is only run once before all tests.
      * This is the home for setup methods
      */
-    before(async () => {
+
+    beforeEach(async () => {
         [deployer, alice, bob] = await ethers.getSigners();
         olaFactory = await ethers.getContractFactory("OLA");
         erc20Token = await ethers.getContractFactory("ERC20Token");
@@ -67,9 +68,7 @@ describe("Depository LP", async () => {
         const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
         serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
         await serviceRegistry.deployed();
-    });
 
-    beforeEach(async () => {
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
@@ -233,7 +232,7 @@ describe("Depository LP", async () => {
         ).to.be.revertedWith("InsufficientAllowance");
     });
 
-    it.only("should not allow a deposit greater than max payout", async () => {
+    it("should not allow a deposit greater than max payout", async () => {
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
         // Transfer all LP tokens back to deployer
         await pairODAI.connect(bob).transfer(deployer.address, amountTo);
