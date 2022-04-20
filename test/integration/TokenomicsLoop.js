@@ -212,13 +212,14 @@ describe("Tokenomics integration", async () => {
 
             // Checking the values with delta rounding error
             const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
+            console.log(ucf);
             expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
 
             const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
             expect(Math.abs(usf - 1.0)).to.lessThan(delta);
         });
 
-        it.only("Calculate tokenomics factors. Two services with one agent for each, 3 agents in total", async () => {
+        it("Calculate tokenomics factors. Two services with one agent for each, 3 agents in total", async () => {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
@@ -276,7 +277,7 @@ describe("Tokenomics integration", async () => {
             expect(Math.abs(usf - 0.5)).to.lessThan(delta);
         });
 
-        it.only("Calculate tokenomics factors. Two services with different set of agents are deployed", async () => {
+        it("Calculate tokenomics factors. Two services with different set of agents are deployed", async () => {
             const mechManager = signers[1];
             const serviceManager = signers[2];
             const owner = signers[3].address;

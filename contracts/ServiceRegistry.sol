@@ -98,6 +98,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
+    // Map of service Id => set of unique agent Ids
+    mapping (uint256 => uint256[]) private _mapServiceIdSetAgents;
+    // Map of service Id => set of unique component Ids
+    mapping (uint256 => uint256[]) private _mapServiceIdSetComponents;
     // Map of policy for multisig implementations
     mapping (address => bool) public mapMultisigs;
 
@@ -489,6 +493,8 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
 
         // Update component and agent maps of services
         _updateComponentAgentServiceConnection(serviceId);
+        // Update maps of service Id to component and agent Ids
+        _updateServiceComponentAgentConnection(serviceId);
 
         service.multisig = multisig;
         service.state = ServiceState.Deployed;
@@ -718,6 +724,13 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
     }
 
+    /// @dev Update the map of service Id => set of components / canonical agent Ids.
+    /// @param serviceId Service Id.
+    function _updateServiceComponentAgentConnection(uint256 serviceId) private {
+        Service storage service = _mapServices[serviceId];
+        _mapServiceIdSetAgents[serviceId] = service.agentIds;
+    }
+
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
@@ -792,7 +805,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param agentId Agent Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithAgentId(uint256 agentId) public view
+    function getServiceIdsCreatedWithAgentId(uint256 agentId) external view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapAgentIdSetServices[agentId];
@@ -803,11 +816,33 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param componentId Component Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithComponentId(uint256 componentId) public view
+    function getServiceIdsCreatedWithComponentId(uint256 componentId) external view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapComponentIdSetServices[componentId];
         numServiceIds = serviceIds.length;
+    }
+
+    /// @dev Gets the set of canonical agent Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numAgentIds Number of agent Ids.
+    /// @return agentIds Set of agent Ids.
+    function getAgentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numAgentIds, uint256[] memory agentIds)
+    {
+        agentIds = _mapServiceIdSetAgents[serviceId];
+        numAgentIds = agentIds.length;
+    }
+
+    /// @dev Gets the set of component Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numComponentIds Number of component Ids.
+    /// @return componentIds Set of component Ids.
+    function getComponentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numComponentIds, uint256[] memory componentIds)
+    {
+        componentIds = _mapServiceIdSetComponents[serviceId];
+        numComponentIds = componentIds.length;
     }
 
     /// @dev Gets the service state.

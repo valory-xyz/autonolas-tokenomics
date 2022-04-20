@@ -115,4 +115,18 @@ interface IService is IStructs {
     /// @return serviceIds Set of service Ids.
     function getServiceIdsCreatedWithComponentId(uint256 componentId) external view
         returns (uint256 numServiceIds, uint256[] memory serviceIds);
+
+    /// @dev Gets the set of canonical agent Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numAgentIds Number of agent Ids.
+    /// @return agentIds Set of agent Ids.
+    function getAgentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numAgentIds, uint256[] memory agentIds);
+
+    /// @dev Gets the set of component Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numComponentIds Number of component Ids.
+    /// @return componentIds Set of component Ids.
+    function getComponentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numComponentIds, uint256[] memory componentIds);
 }

@@ -9,6 +9,7 @@ import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "hardhat/console.sol";
 
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
@@ -251,7 +252,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         return success;
     }
 
-    function _calculateComponentTokenomics(uint256 componentRewards) private returns (FixedPoint.uq112x112 memory ucfc) {
+    function _calculateComponentTokenomics(uint256 totalRewards, uint256 componentRewards) private
+        returns (FixedPoint.uq112x112 memory ucfc)
+    {
         uint256 numComponents = IERC721Enumerable(componentRegistry).totalSupply();
         uint256 numProfitableComponents;
         uint256 numServices = _protocolServiceIds.length;
@@ -302,7 +305,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 ucfc = _add(ucfc, FixedPoint.fraction(ucfcsRev[i], denominator));
             }
         }
-        ucfc = ucfc.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
+        ucfc = ucfc.muluq(FixedPoint.fraction(1, totalRewards));
         denominator = numServices * numComponents;
         if(denominator > 0) {
             // avoid exception div by zero
@@ -312,7 +315,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         }
     }
 
-    function _calculateAgentTokenomics(uint256 agentRewards) private returns (FixedPoint.uq112x112 memory ucfa) {
+    function _calculateAgentTokenomics(uint256 totalRewards, uint256 agentRewards) private
+        returns (FixedPoint.uq112x112 memory ucfa)
+    {
         uint256 numAgents = IERC721Enumerable(agentRegistry).totalSupply();
         uint256 numProfitableAgents;
         uint256 numServices = _protocolServiceIds.length;
@@ -321,70 +326,74 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         delete _profitableAgentOwners;
         delete _agentRewards;
 
-        // Allocate set of UCFa for the current epoch number of services
-        uint256[] memory ucfasRevPerService = new uint256[](numServices);
-        // Allocate set of agent revenues as a fraction of reward nominator
-        uint256[] memory ucfasRev = new uint256[](numAgents);
-        // Array of cardinality of agents in a specific profitable service: |As(epoch)|
-        uint256[] memory ucfasNumPerService = new uint256[](numServices);
+        // Set of agent revenues UCFa-s (eq. 3)
+        uint256[] memory ucfasRev = new uint256[](numAgents + 1);
+        // Set of agent revenues UCFa-s divided by the cardinality of agent Ids in each service (eq. 10)
+        uint256[] memory ucfas = new uint256[](numAgents + 1);
         // Overall profits of UCFa-s
         uint256 sumProfits = 0;
 
-        // Loop over agents
+        // Loop over profitable service Ids to calculate initial UCFa-s (eq. 3)
+        for (uint256 i = 0; i < numServices; ++i) {
+            uint256 serviceId = _protocolServiceIds[i];
+            (uint256 numServiceAgents, uint256[] memory agentIds) = IService(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+            // Add to UCFa part for each agent Id
+            for (uint256 j = 0; j < numServiceAgents; ++j) {
+                ucfasRev[agentIds[j]] += _mapServiceAmounts[serviceId];
+                sumProfits += _mapServiceAmounts[serviceId];
+            }
+        }
+
+        // Calculate all complete UCFa-s divided by the cardinality of agent Ids in each service (eq. 10, right part)
+        for (uint256 i = 0; i < numServices; ++i) {
+            uint256 serviceId = _protocolServiceIds[i];
+            (uint256 numServiceAgents, uint256[] memory agentIds) = IService(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+            for (uint256 j = 0; j < numServiceAgents; ++j) {
+                // Sum(UCFa[i]) / |As(epoch)|
+                ucfas[i] += ucfasRev[agentIds[j]] / numServiceAgents;
+            }
+        }
+
+        for (uint256 i = 0; i < numServices; ++i) {
+            console.log("i", i);
+            console.log("ucfa", ucfas[i]);
+        }
+
+        // Calculate agent related values
         for (uint256 i = 0; i < numAgents; ++i) {
             uint256 agentId = IERC721Enumerable(agentRegistry).tokenByIndex(i);
-            (, uint256[] memory serviceIds) = IService(serviceRegistry).getServiceIdsCreatedWithAgentId(agentId);
-            bool profitable = false;
-            // Loop over services that include the agent i
-            for (uint256 j = 0; j < serviceIds.length; ++j) {
-                uint256 revenue = _mapServiceAmounts[serviceIds[j]];
-                if (revenue > 0) {
-                    // Add cit(a, s) * r(s) for component j to add to UCFa(epoch)
-                    ucfasRevPerService[_mapServiceIndexes[serviceIds[j]]] += _mapServiceAmounts[serviceIds[j]];
-                    // Add to total revenue per agent per service as a fraction of reward nominator
-                    ucfasRev[i] += _mapServiceAmounts[serviceIds[j]];
-                    // Increase |As(epoch)|
-                    ucfasNumPerService[_mapServiceIndexes[serviceIds[j]]]++;
-                    profitable = true;
-                }
-            }
-            // If at least one service has profitable component, increase the component cardinality: Cref(epoch-1)
-            if (profitable) {
+            if (ucfasRev[agentId] > 0) {
                 // Add address of a profitable component owner
                 address owner = IERC721Enumerable(agentRegistry).ownerOf(agentId);
                 _profitableAgentOwners.push(owner);
                 // Increase a profitable agent number
                 ++numProfitableAgents;
-                // Adding profits of agents to the overall sum
-                sumProfits += ucfasRev[i];
+                // Calculate agent rewards
+                _agentRewards.push(agentRewards * ucfasRev[agentId] / sumProfits);
             }
         }
 
-        uint256 denominator;
-        // Calculate total UCFa. Nominator in formula
+        for (uint256 i = 0; i < numProfitableAgents; ++i) {
+            console.log("i", i);
+            console.log("agent rewards", _agentRewards[i]);
+        }
+
+        // Calculate total UCFa (eq. 10)
+        uint256 ucfaSum;
         for (uint256 i = 0; i < numServices; ++i) {
-            denominator = ucfasNumPerService[_mapServiceIndexes[_protocolServiceIds[i]]];
-            if(denominator > 0) {
-                // avoid div by zero
-                ucfa = _add(ucfa, FixedPoint.fraction(ucfasRevPerService[_mapServiceIndexes[_protocolServiceIds[i]]], denominator));
-            }
-        }
-        ucfa = ucfa.muluq(FixedPoint.fraction(1, totalServiceRevenueETH));
-        denominator = numServices * numAgents;
-        if(denominator > 0) {
-            // avoid div by zero
-            ucfa = ucfa.muluq(FixedPoint.fraction(numProfitableAgents, denominator));
-        } else {
-            ucfa = FixedPoint.fraction(0, 1);
+            ucfaSum += ucfas[i];
         }
 
-        // Calculate agent rewards
-        agentRewards = totalServiceRevenueETH * agentFraction / 100;
-        for (uint256 i = 0; i < numAgents; ++i) {
-            if (ucfasRev[i] > 0) {
-                _agentRewards.push(agentRewards * ucfasRev[i] / sumProfits);
-            }
+        console.log("ucfSum", ucfaSum);
+
+        uint256 denominator = totalRewards * numServices * numAgents;
+        if (denominator == 0) {
+            revert ZeroValue();
         }
+
+        console.log("nominator", numProfitableAgents * ucfaSum);
+        console.log("denominator", denominator);
+        ucfa = FixedPoint.fraction(numProfitableAgents * ucfaSum, denominator);
     }
 
     /// @dev calc df by WD Math formula UCF, USF, DF v1 
@@ -474,12 +483,12 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         // Calculate UCF, USF
         // TODO Look for optimization possibilities
-        if (totalServiceRevenueETH > 0) {
+        if (rewards[0] > 0) {
             // Calculate total UCFc
-            FixedPoint.uq112x112 memory _ucfc = _calculateComponentTokenomics(rewards[3]);
+            FixedPoint.uq112x112 memory _ucfc = _calculateComponentTokenomics(rewards[0], rewards[3]);
 
             // Calculate total UCFa
-            FixedPoint.uq112x112 memory _ucfa = _calculateAgentTokenomics(rewards[4]);
+            FixedPoint.uq112x112 memory _ucfa = _calculateAgentTokenomics(rewards[0], rewards[4]);
 
             // Overall UCF calculation
             //_ucf = (_ucfc + _ucfa) / 2;

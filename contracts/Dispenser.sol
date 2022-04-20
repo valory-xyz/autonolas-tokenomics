@@ -83,7 +83,6 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
         (address[] memory profitableComponentOwners, uint256[] memory componentRewards) =
             ITokenomics(tokenomics).getProfitableComponents();
         uint256 numComponents = profitableComponentOwners.length;
-        uint256 sumProfits;
         if (numComponents > 0) {
             // Calculate reward per component owner
             for (uint256 i = 0; i < numComponents; ++i) {
@@ -175,7 +174,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
 
     /// @dev Gets the paused state.
     /// @return True, if paused.
-    function isPaused() external returns (bool) {
+    function isPaused() external view returns (bool) {
         return paused();
     }
 }
