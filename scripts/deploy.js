@@ -91,7 +91,8 @@ async function main() {
     await serviceRegistry.deployed();
 
     const ServiceManager = await ethers.getContractFactory("ServiceManager");
-    const serviceManager = await ServiceManager.deploy(serviceRegistry.address);
+    // Treasury address is irrelevant at the moment
+    const serviceManager = await ServiceManager.deploy(serviceRegistry.address, deployer.address);
     await serviceManager.deployed();
 
     console.log("ServiceRegistry deployed to:", serviceRegistry.address);

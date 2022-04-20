@@ -23,7 +23,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     event TerminateService(address owner, uint256 serviceId);
     event OperatorSlashed(uint256 amount, address operator, uint256 serviceId);
     event OperatorUnbond(address operator, uint256 serviceId);
-    event RewardService(uint256 serviceId, uint256 amount);
     event DeployService(address owner, uint256 serviceId);
 
     enum ServiceState {
@@ -47,8 +46,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     struct Service {
         // Registration activation deposit
         uint256 securityDeposit;
-        // Reward balance
-        uint256 rewardBalance;
         address proxyContract;
         // Multisig address for agent instances
         address multisig;
@@ -537,18 +534,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
 
         success = true;
-    }
-
-    /// @dev Rewards the service with payment.
-    /// @param serviceId Service Id.
-    /// @return rewardBalance Actual reward balance of a service Id.
-    function reward(uint256 serviceId) public serviceExists(serviceId) nonReentrant payable
-        returns (uint256 rewardBalance)
-    {
-        rewardBalance = _mapServices[serviceId].rewardBalance;
-        rewardBalance += msg.value;
-        _mapServices[serviceId].rewardBalance = rewardBalance;
-        emit RewardService(serviceId, msg.value);
     }
 
     /// @dev Terminates the service.

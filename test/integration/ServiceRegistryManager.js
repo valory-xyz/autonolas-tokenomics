@@ -11,6 +11,9 @@ describe("ServiceRegistry integration", function () {
     let serviceRegistry;
     let serviceManager;
     let gnosisSafeMultisig;
+    let token;
+    let treasury;
+    let tokenomics;
     let signers;
     const name = "service name";
     const description = "service description";
@@ -18,6 +21,7 @@ describe("ServiceRegistry integration", function () {
     const regBond = 1000;
     const regDeposit = 1000;
     const regFine = 500;
+    const regReward = 2000;
     const agentIds = [1, 2];
     const agentParams = [[3, regBond], [4, regBond]];
     const serviceIds = [1, 2];
@@ -27,6 +31,7 @@ describe("ServiceRegistry integration", function () {
     const componentHash1 = {hash: "0x" + "1".repeat(64), hashFunction: "0x12", size: "0x20"};
     const componentHash2 = {hash: "0x" + "2".repeat(64), hashFunction: "0x12", size: "0x20"};
     const payload = "0x";
+    const AddressZero = "0x" + "0".repeat(40);
     beforeEach(async function () {
         const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
         componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
@@ -54,9 +59,26 @@ describe("ServiceRegistry integration", function () {
         gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await gnosisSafeMultisig.deployed();
 
+        const Token = await ethers.getContractFactory("OLA");
+        token = await Token.deploy();
+        await token.deployed();
+
+        // Depositary and dispenser are irrelevant in this set of tests, tokenomics will be correctly assigned below
+        const Treasury = await ethers.getContractFactory("Treasury");
+        treasury = await Treasury.deploy(token.address, AddressZero, AddressZero, AddressZero);
+        await treasury.deployed();
+
         const ServiceManager = await ethers.getContractFactory("ServiceManager");
-        serviceManager = await ServiceManager.deploy(serviceRegistry.address);
+        serviceManager = await ServiceManager.deploy(serviceRegistry.address, treasury.address);
         await serviceManager.deployed();
+
+        const Tokenomics = await ethers.getContractFactory("Tokenomics");
+        tokenomics = await Tokenomics.deploy(token.address, treasury.address, AddressZero, 1, componentRegistry.address,
+            agentRegistry.address, serviceRegistry.address);
+        await tokenomics.deployed();
+
+        // Change to the correct tokenomics address
+        await treasury.changeTokenomics(tokenomics.address);
 
         signers = await ethers.getSigners();
     });
@@ -514,6 +536,33 @@ describe("ServiceRegistry integration", function () {
             // Check the balance of the contract - it must be the total minus the slashed fine minus the deposit
             const newContractBalance = Number(await ethers.provider.getBalance(serviceRegistry.address));
             expect(newContractBalance).to.equal(contractBalance - regFine - regDeposit);
+        });
+
+        it("Reward a protocol-owned service", async function () {
+            const somebody = signers[1];
+            const manager = signers[2];
+            const owner = signers[3];
+            await agentRegistry.changeManager(manager.address);
+
+            // Create an agent and a service
+            await agentRegistry.connect(manager).create(owner.address, owner.address, componentHash,
+                description, []);
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceManager.serviceCreate(owner.address, name, description, configHash, [1], [[1, regBond]], 1);
+
+            // Should fail if nothing is sent
+            await expect(
+                serviceManager.connect(somebody).serviceReward(serviceIds[0])
+            ).to.be.revertedWith("ZeroValue");
+
+            // Should fail on a non-existent service
+            await expect(
+                serviceManager.connect(somebody).serviceReward(serviceIds[1], {value: regReward})
+            ).to.be.revertedWith("ServiceDoesNotExist");
+
+            const reward = await serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward});
+            const result = await reward.wait();
+            expect(result.events[1].event).to.equal("RewardService");
         });
     });
 });
