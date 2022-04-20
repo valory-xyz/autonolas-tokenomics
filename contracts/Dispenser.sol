@@ -75,64 +75,50 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Distributes rewards between component and agent owners.
-    function _distributeOwnerRewards(uint256 componentReward, uint256 agentReward) internal {
-        uint256 componentRewardLeft = componentReward;
-        uint256 agentRewardLeft = agentReward;
+    function _distributeOwnerRewards(uint256 componentRewards, uint256 agentRewards) internal {
+        uint256 componentRewardLeft = componentRewards;
+        uint256 agentRewardLeft = agentRewards;
 
-        // Get components owners and their UCFc-s
-        (address[] memory profitableComponents, uint256[] memory ucfcs) =
-        ITokenomics(tokenomics).getProfitableComponents();
-
-        uint256 numComponents = profitableComponents.length;
+        // Get component owners and their rewards
+        (address[] memory profitableComponentOwners, uint256[] memory componentRewards) =
+            ITokenomics(tokenomics).getProfitableComponents();
+        uint256 numComponents = profitableComponentOwners.length;
         uint256 sumProfits;
         if (numComponents > 0) {
-            // Calculate overall profits of UCFc-s
-            for (uint256 i = 0; i < numComponents; ++i) {
-                sumProfits += ucfcs[i];
-            }
-
             // Calculate reward per component owner
             for (uint256 i = 0; i < numComponents; ++i) {
-                uint256 rewardPerComponent = componentReward * ucfcs[i] / sumProfits;
                 // If there is a rounding error, floor to the correct value
-                if (rewardPerComponent > componentRewardLeft) {
-                    rewardPerComponent = componentRewardLeft;
+                if (componentRewards[i] > agentRewardLeft) {
+                    componentRewards[i] = agentRewardLeft;
                 }
-                componentRewardLeft -= rewardPerComponent;
-                mapOwnerRewards[profitableComponents[i]] += rewardPerComponent;
+                agentRewardLeft -= componentRewards[i];
+                mapOwnerRewards[profitableComponentOwners[i]] += componentRewards[i];
             }
         }
 
-        // Get components owners and their UCFa-s
-        (address[] memory profitableAgents, uint256[] memory ucfas) = ITokenomics(tokenomics).getProfitableAgents();
-        uint256 numAgents = profitableAgents.length;
+        // Get agent owners and their rewards
+        (address[] memory profitableAgentOwners, uint256[] memory agentRewards) =
+            ITokenomics(tokenomics).getProfitableAgents();
+        uint256 numAgents = profitableAgentOwners.length;
         if (numAgents > 0) {
-            // Calculate overall profits of UCFa-s
-            sumProfits = 0;
             for (uint256 i = 0; i < numAgents; ++i) {
-                sumProfits += ucfas[i];
-            }
-
-            uint256 rewardPerAgent;
-            for (uint256 i = 0; i < numAgents; ++i) {
-                rewardPerAgent = agentReward * ucfas[i] / sumProfits;
                 // If there is a rounding error, floor to the correct value
-                if (rewardPerAgent > agentRewardLeft) {
-                    rewardPerAgent = agentRewardLeft;
+                if (agentRewards[i] > agentRewardLeft) {
+                    agentRewards[i] = agentRewardLeft;
                 }
-                agentRewardLeft -= rewardPerAgent;
-                mapOwnerRewards[profitableAgents[i]] += rewardPerAgent;
+                agentRewardLeft -= agentRewards[i];
+                mapOwnerRewards[profitableAgentOwners[i]] += agentRewards[i];
             }
         }
     }
 
     /// @dev Distributes rewards between stakers.
-    function _distributeStakerRewards(uint256 stakerReward) internal {
+    function _distributeStakerRewards(uint256 stakerRewards) internal {
         VotingEscrow veContract = VotingEscrow(ve);
         address[] memory accounts = veContract.getLockAccounts();
 
         // Get the overall amount of rewards for stakers
-        uint256 rewardLeft = stakerReward;
+        uint256 rewardLeft = stakerRewards;
 
         // Iterate over staker addresses and distribute
         uint256 numAccounts = accounts.length;
@@ -141,7 +127,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
             for (uint256 i = 0; i < numAccounts; ++i) {
                 uint256 balance = veContract.balanceOf(accounts[i]);
                 // Reward for this specific staker
-                uint256 reward = stakerReward * balance / supply;
+                uint256 reward = stakerRewards * balance / supply;
 
                 // If there is a rounding error, floor to the correct value
                 if (reward > rewardLeft) {
@@ -155,16 +141,16 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
 
     /// @dev Distributes rewards.
     function distributeRewards(
-        uint256 stakerReward,
-        uint256 componentReward,
-        uint256 agentReward
+        uint256 stakerRewards,
+        uint256 componentRewards,
+        uint256 agentRewards
     ) external onlyTreasury whenNotPaused
     {
         // Distribute rewards between component and agent owners
-        _distributeOwnerRewards(componentReward, agentReward);
+        _distributeOwnerRewards(componentRewards, agentRewards);
 
         // Distribute rewards for stakers
-        _distributeStakerRewards(stakerReward);
+        _distributeStakerRewards(stakerRewards);
     }
 
     /// @dev Withdraws rewards for owners of components / agents.

@@ -218,14 +218,14 @@ describe("Tokenomics integration", async () => {
             expect(Math.abs(usf - 1.0)).to.lessThan(delta);
         });
 
-        it.only("Calculate tokenomics factors. Two services are deployed", async () => {
+        it.only("Calculate tokenomics factors. Two services with one agent for each, 3 agents in total", async () => {
             const mechManager = signers[3];
             const serviceManager = signers[4];
             const owner = signers[5].address;
             const operator = signers[6].address;
             const agentInstances = [signers[7].address, signers[8].address];
 
-            // Create agents
+            // Create 3 agents
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, []);
@@ -283,7 +283,7 @@ describe("Tokenomics integration", async () => {
             const operator = signers[4].address;
             const agentInstances = [signers[5].address, signers[6].address, signers[7].address, signers[8].address];
 
-            // Create agents
+            // Create 3 agents
             await agentRegistry.changeManager(mechManager.address);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, []);
             await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, []);

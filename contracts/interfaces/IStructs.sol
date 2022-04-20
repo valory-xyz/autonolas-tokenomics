@@ -27,11 +27,10 @@ interface IStructs {
         FixedPoint.uq112x112 ucf;
         FixedPoint.uq112x112 usf;
         FixedPoint.uq112x112 df; // x > 1.0
-        uint256 treasuryFraction;
-        uint256 stakerFraction;
-        uint256 componentFraction;
-        uint256 agentFraction;
-        uint256 totalRewardOLA;
+        uint256 treasuryRewards;
+        uint256 stakerRewards;
+        uint256 componentRewards;
+        uint256 agentRewards;
         uint256 ts; // timestamp
         uint256 blk; // block
         bool exists; // ready or not
