@@ -105,10 +105,10 @@ describe("Depository LP", async () => {
         await router.deployed();
         // console.log("Uniswap router02 deployed to:", router.address);
 
-        var json = require("../../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
-        const actual_bytecode1 = json["bytecode"];
-        const COMPUTED_INIT_CODE_HASH1 = ethers.utils.keccak256(actual_bytecode1);
-        console.log("init hash:", COMPUTED_INIT_CODE_HASH1, "in UniswapV2Library :: hash:0xe9d807835bf1c75fb519759197ec594400ca78aa1d4b77743b1de676f24f8103");
+        //var json = require("../../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
+        //const actual_bytecode1 = json["bytecode"];
+        //const COMPUTED_INIT_CODE_HASH1 = ethers.utils.keccak256(actual_bytecode1);
+        //console.log("init hash:", COMPUTED_INIT_CODE_HASH1, "in UniswapV2Library :: hash:0xe9d807835bf1c75fb519759197ec594400ca78aa1d4b77743b1de676f24f8103");
            
         //const pairODAItxReceipt = await factory.createPair(ola.address, dai.address);
         await factory.createPair(ola.address, dai.address);
