@@ -555,6 +555,11 @@ describe("ServiceRegistry integration", function () {
                 serviceManager.connect(somebody).serviceReward(serviceIds[0])
             ).to.be.revertedWith("ZeroValue");
 
+            // Should fail on a non-existent service
+            await expect(
+                serviceManager.connect(somebody).serviceReward(serviceIds[1], {value: regReward})
+            ).to.be.revertedWith("ServiceDoesNotExist");
+
             const reward = await serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward});
             const result = await reward.wait();
             expect(result.events[1].event).to.equal("RewardService");
