@@ -87,10 +87,10 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
             // Calculate reward per component owner
             for (uint256 i = 0; i < numComponents; ++i) {
                 // If there is a rounding error, floor to the correct value
-                if (componentRewards[i] > agentRewardLeft) {
-                    componentRewards[i] = agentRewardLeft;
+                if (componentRewards[i] > componentRewardLeft) {
+                    componentRewards[i] = componentRewardLeft;
                 }
-                agentRewardLeft -= componentRewards[i];
+                componentRewardLeft -= componentRewards[i];
                 mapOwnerRewards[profitableComponentOwners[i]] += componentRewards[i];
             }
         }

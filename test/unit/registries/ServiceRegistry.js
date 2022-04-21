@@ -679,6 +679,18 @@ describe("ServiceRegistry", function () {
                 expect(serviceIdFromComponentId.numServiceIds).to.equal(1);
                 expect(serviceIdFromComponentId.serviceIds[0]).to.equal(serviceId);
             }
+
+            const componentIdsFromServiceId = await serviceRegistry.getComponentIdsOfServiceId(serviceId);
+            expect(componentIdsFromServiceId.numComponentIds).to.equal(2);
+            for (let i = 0; i < componentIdsFromServiceId.numComponentIds; i++) {
+                expect(componentIdsFromServiceId.componentIds[i]).to.equal(i + 1);
+            }
+
+            const agentIdsFromServiceId = await serviceRegistry.getAgentIdsOfServiceId(serviceId);
+            expect(agentIdsFromServiceId.numAgentIds).to.equal(2);
+            for (let i = 0; i < agentIdsFromServiceId.numAgentIds; i++) {
+                expect(agentIdsFromServiceId.agentIds[i]).to.equal(i + 1);
+            }
         });
 
         it("Making sure we get correct mapping of _mapComponentIdSetServices formed", async function () {

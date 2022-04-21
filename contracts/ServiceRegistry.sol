@@ -492,6 +492,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         emit CreateMultisigWithAgents(serviceId, multisig, agentInstances, service.threshold);
 
         // Update component and agent maps of services
+        // TODO this function might be not needed anymore, since we use the data in tokenomics from the one below
         _updateComponentAgentServiceConnection(serviceId);
         // Update maps of service Id to component and agent Ids
         _updateServiceComponentAgentConnection(serviceId);
@@ -728,8 +729,72 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param serviceId Service Id.
     function _updateServiceComponentAgentConnection(uint256 serviceId) private {
         Service storage service = _mapServices[serviceId];
+        // Set of canonical agent Ids is straightforward
         _mapServiceIdSetAgents[serviceId] = service.agentIds;
+
+        uint256[] memory agents = service.agentIds;
+        uint256 numAgents = agents.length;
+        // Array of numbers of components per each agent Id
+        uint256[] memory numComponents = new uint256[](numAgents);
+        // 2D array of all the sets of components per each agent Id
+        uint256[][] memory components = new uint256[][](numAgents);
+
+        // Get total possible number of components and lists of components
+        uint maxNumComponents;
+        for (uint256 i = 0; i < numAgents; ++i) {
+            (numComponents[i], components[i]) = IRegistry(agentRegistry).getDependencies(agents[i]);
+            maxNumComponents += numComponents[i];
+        }
+
+        // Lists of components are sorted, take unique values in ascending order
+        uint256[] memory allComponents = new uint256[](maxNumComponents);
+        // Processed component counter
+        uint256[] memory processedComponents = new uint256[](numAgents);
+        // Minimal component Id
+        uint256 minComponent;
+        // Overall component counter
+        uint256 counter;
+        // Iterate until we process all components, at the maximum of the sum of all the components in all agents
+        for (counter = 0; counter < maxNumComponents; ++counter) {
+            uint256[] memory checkComponents = new uint256[](numAgents);
+            // Index of a minimal component
+            uint256 minIdxComponent;
+            // Amount of components identified as the next minimal component number
+            uint256 numComponentsCheck;
+            uint256 tryMinComponent = type(uint256).max;
+            // Assemble an array of all first components from each component array
+            for (uint256 i = 0; i < numAgents; ++i) {
+                // Either get a component that has a higher id than the last one ore reach the end of the processed Ids
+                for (; processedComponents[i] < numComponents[i]; ++processedComponents[i]) {
+                    if (minComponent < components[i][processedComponents[i]]) {
+                        // Out of those component Ids that are higher than the last one, pich the minimal
+                        if (components[i][processedComponents[i]] < tryMinComponent) {
+                            tryMinComponent = components[i][processedComponents[i]];
+                            minIdxComponent = i;
+                        }
+                        numComponentsCheck++;
+                        break;
+                    }
+                }
+            }
+            minComponent = tryMinComponent;
+
+            // If minimal component Id is greater than the last one, it should be added, otherwise we reached the end
+            if (numComponentsCheck > 0) {
+                allComponents[counter] = minComponent;
+                processedComponents[minIdxComponent]++;
+            } else {
+                break;
+            }
+        }
+
+        uint256[] memory componentIds = new uint256[](counter);
+        for (uint256 i = 0; i < counter; ++i) {
+            componentIds[i] = allComponents[i];
+        }
+        _mapServiceIdSetComponents[serviceId] = componentIds;
     }
+
 
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
