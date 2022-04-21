@@ -756,7 +756,6 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         uint256 counter;
         // Iterate until we process all components, at the maximum of the sum of all the components in all agents
         for (counter = 0; counter < maxNumComponents; ++counter) {
-            uint256[] memory checkComponents = new uint256[](numAgents);
             // Index of a minimal component
             uint256 minIdxComponent;
             // Amount of components identified as the next minimal component number

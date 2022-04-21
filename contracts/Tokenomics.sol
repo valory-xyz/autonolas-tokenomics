@@ -9,7 +9,6 @@ import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "hardhat/console.sol";
 
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
@@ -293,11 +292,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             ucfcs[i] /= numServiceComponents;
         }
 
-        for (uint256 i = 0; i < numServices; ++i) {
-            console.log("i", i);
-            console.log("ucfc", ucfcs[i]);
-        }
-
         // Calculate component related values
         for (uint256 i = 0; i < numComponents; ++i) {
             // Get the component Id from the index list
@@ -313,26 +307,16 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             }
         }
 
-        for (uint256 i = 0; i < numProfitableComponents; ++i) {
-            console.log("i", i);
-            console.log("component rewards", _componentRewards[i]);
-        }
-
         // Calculate total UCFa (eq. 10)
         uint256 ucfcSum;
         for (uint256 i = 0; i < numServices; ++i) {
             ucfcSum += ucfcs[i];
         }
 
-        console.log("ucfcSum", ucfcSum);
-
         uint256 denominator = totalRewards * numServices * numComponents;
         if (denominator == 0) {
             revert ZeroValue();
         }
-
-        console.log("nominator", numProfitableComponents * ucfcSum);
-        console.log("denominator", denominator);
         ucfc = FixedPoint.fraction(numProfitableComponents * ucfcSum, denominator);
     }
 
@@ -366,11 +350,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             }
         }
 
-        for (uint256 i = 0; i < ucfasRev.length; ++i) {
-            console.log("i", i);
-            console.log("ucfai", ucfasRev[i]);
-        }
-
         // Calculate all complete UCFa-s divided by the cardinality of agent Ids in each service (eq. 10, right part)
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = _protocolServiceIds[i];
@@ -380,11 +359,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 ucfas[i] += ucfasRev[agentIds[j]];
             }
             ucfas[i] /= numServiceAgents;
-        }
-
-        for (uint256 i = 0; i < numServices; ++i) {
-            console.log("i", i);
-            console.log("ucfa", ucfas[i]);
         }
 
         // Calculate agent related values
@@ -402,28 +376,16 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             }
         }
 
-        console.log("agentRewards", agentRewards);
-        console.log("sumProfits", sumProfits);
-        for (uint256 i = 0; i < numProfitableAgents; ++i) {
-            console.log("i", i);
-            console.log("agent rewards", _agentRewards[i]);
-        }
-
         // Calculate total UCFa (eq. 10)
         uint256 ucfaSum;
         for (uint256 i = 0; i < numServices; ++i) {
             ucfaSum += ucfas[i];
         }
 
-        console.log("ucfaSum", ucfaSum);
-
         uint256 denominator = totalRewards * numServices * numAgents;
         if (denominator == 0) {
             revert ZeroValue();
         }
-
-        console.log("nominator", numProfitableAgents * ucfaSum);
-        console.log("denominator", denominator);
         ucfa = FixedPoint.fraction(numProfitableAgents * ucfaSum, denominator);
     }
 
