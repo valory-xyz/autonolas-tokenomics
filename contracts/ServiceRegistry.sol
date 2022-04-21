@@ -95,6 +95,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     mapping (uint256 => uint256[]) private _mapAgentIdSetServices;
     // Map of component Id => set of service Ids that incorporate canonical agents built on top of that component Id
     mapping (uint256 => uint256[]) private _mapComponentIdSetServices;
+    // Map of service Id => set of unique agent Ids
+    mapping (uint256 => uint256[]) private _mapServiceIdSetAgents;
+    // Map of service Id => set of unique component Ids
+    mapping (uint256 => uint256[]) private _mapServiceIdSetComponents;
     // Map of policy for multisig implementations
     mapping (address => bool) public mapMultisigs;
 
@@ -485,7 +489,10 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         emit CreateMultisigWithAgents(serviceId, multisig, agentInstances, service.threshold);
 
         // Update component and agent maps of services
+        // TODO this function might be not needed anymore, since we use the data in tokenomics from the one below
         _updateComponentAgentServiceConnection(serviceId);
+        // Update maps of service Id to component and agent Ids
+        _updateServiceComponentAgentConnection(serviceId);
 
         service.multisig = multisig;
         service.state = ServiceState.Deployed;
@@ -703,6 +710,76 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
         }
     }
 
+    /// @dev Update the map of service Id => set of components / canonical agent Ids.
+    /// @param serviceId Service Id.
+    function _updateServiceComponentAgentConnection(uint256 serviceId) private {
+        Service storage service = _mapServices[serviceId];
+        // Set of canonical agent Ids is straightforward
+        _mapServiceIdSetAgents[serviceId] = service.agentIds;
+
+        uint256[] memory agents = service.agentIds;
+        uint256 numAgents = agents.length;
+        // Array of numbers of components per each agent Id
+        uint256[] memory numComponents = new uint256[](numAgents);
+        // 2D array of all the sets of components per each agent Id
+        uint256[][] memory components = new uint256[][](numAgents);
+
+        // Get total possible number of components and lists of components
+        uint maxNumComponents;
+        for (uint256 i = 0; i < numAgents; ++i) {
+            (numComponents[i], components[i]) = IRegistry(agentRegistry).getDependencies(agents[i]);
+            maxNumComponents += numComponents[i];
+        }
+
+        // Lists of components are sorted, take unique values in ascending order
+        uint256[] memory allComponents = new uint256[](maxNumComponents);
+        // Processed component counter
+        uint256[] memory processedComponents = new uint256[](numAgents);
+        // Minimal component Id
+        uint256 minComponent;
+        // Overall component counter
+        uint256 counter;
+        // Iterate until we process all components, at the maximum of the sum of all the components in all agents
+        for (counter = 0; counter < maxNumComponents; ++counter) {
+            // Index of a minimal component
+            uint256 minIdxComponent;
+            // Amount of components identified as the next minimal component number
+            uint256 numComponentsCheck;
+            uint256 tryMinComponent = type(uint256).max;
+            // Assemble an array of all first components from each component array
+            for (uint256 i = 0; i < numAgents; ++i) {
+                // Either get a component that has a higher id than the last one ore reach the end of the processed Ids
+                for (; processedComponents[i] < numComponents[i]; ++processedComponents[i]) {
+                    if (minComponent < components[i][processedComponents[i]]) {
+                        // Out of those component Ids that are higher than the last one, pich the minimal
+                        if (components[i][processedComponents[i]] < tryMinComponent) {
+                            tryMinComponent = components[i][processedComponents[i]];
+                            minIdxComponent = i;
+                        }
+                        numComponentsCheck++;
+                        break;
+                    }
+                }
+            }
+            minComponent = tryMinComponent;
+
+            // If minimal component Id is greater than the last one, it should be added, otherwise we reached the end
+            if (numComponentsCheck > 0) {
+                allComponents[counter] = minComponent;
+                processedComponents[minIdxComponent]++;
+            } else {
+                break;
+            }
+        }
+
+        uint256[] memory componentIds = new uint256[](counter);
+        for (uint256 i = 0; i < counter; ++i) {
+            componentIds[i] = allComponents[i];
+        }
+        _mapServiceIdSetComponents[serviceId] = componentIds;
+    }
+
+
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
@@ -777,7 +854,7 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param agentId Agent Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithAgentId(uint256 agentId) public view
+    function getServiceIdsCreatedWithAgentId(uint256 agentId) external view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapAgentIdSetServices[agentId];
@@ -788,11 +865,33 @@ contract ServiceRegistry is IErrors, IStructs, Ownable, ERC721Enumerable, Reentr
     /// @param componentId Component Id.
     /// @return numServiceIds Number of service Ids.
     /// @return serviceIds Set of service Ids.
-    function getServiceIdsCreatedWithComponentId(uint256 componentId) public view
+    function getServiceIdsCreatedWithComponentId(uint256 componentId) external view
         returns (uint256 numServiceIds, uint256[] memory serviceIds)
     {
         serviceIds = _mapComponentIdSetServices[componentId];
         numServiceIds = serviceIds.length;
+    }
+
+    /// @dev Gets the set of canonical agent Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numAgentIds Number of agent Ids.
+    /// @return agentIds Set of agent Ids.
+    function getAgentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numAgentIds, uint256[] memory agentIds)
+    {
+        agentIds = _mapServiceIdSetAgents[serviceId];
+        numAgentIds = agentIds.length;
+    }
+
+    /// @dev Gets the set of component Ids that contain specified service Id.
+    /// @param serviceId Service Id.
+    /// @return numComponentIds Number of component Ids.
+    /// @return componentIds Set of component Ids.
+    function getComponentIdsOfServiceId(uint256 serviceId) external view
+        returns (uint256 numComponentIds, uint256[] memory componentIds)
+    {
+        componentIds = _mapServiceIdSetComponents[serviceId];
+        numComponentIds = componentIds.length;
     }
 
     /// @dev Gets the service state.

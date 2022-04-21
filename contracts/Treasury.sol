@@ -246,7 +246,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
 
     /// @dev Sends (mints) funds to itself
     /// @param amount OLA amount.
-    function _sendFundsToProtocol(uint256 amount) internal {
+    function _sendFundsToTreasury(uint256 amount) internal {
         if (amount > 0) {
             IOLA(ola).mint(address(this), amount);
             emit TransferToProtocol(amount);
@@ -266,29 +266,16 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
         ITokenomics(tokenomics).checkpoint();
         point = ITokenomics(tokenomics).getLastPoint();
 
-        // Request OLA funds from treasury for the last epoch
-        uint256 amountOLA = point.totalRewardOLA;
-        // Get OLA amount that has to stay as a reward in Treasury
-        uint256 protocolReward = amountOLA * point.treasuryFraction / 100;
-        uint256 stakerReward = amountOLA * point.stakerFraction / 100;
-        uint256 componentReward = amountOLA * point.componentFraction / 100;
-        uint256 agentReward = amountOLA * point.agentFraction / 100;
-
-        // Protocol reward must be lower than the overall reward
-        if (amountOLA < protocolReward) {
-            revert AmountLowerThan(amountOLA, protocolReward);
-        }
-        amountOLA -= protocolReward;
-
-        // Send funds to protocol
-        _sendFundsToProtocol(protocolReward);
+        // Request overall OLA reward funds from treasury for the last epoch, for treasury itself and other rewards
+        _sendFundsToTreasury(point.treasuryRewards);
 
         if (!IDispenser(dispenser).isPaused()) {
             // Send funds to dispenser
-            _sendFundsToDispenser(amountOLA);
+            uint256 rewards = point.stakerRewards + point.componentRewards + point.agentRewards;
+            _sendFundsToDispenser(rewards);
             // Distribute rewards
-            if (amountOLA > 0) {
-                IDispenser(dispenser).distributeRewards(stakerReward, componentReward, agentReward);
+            if (rewards > 0) {
+                IDispenser(dispenser).distributeRewards(point.stakerRewards, point.componentRewards, point.agentRewards);
             }
         }
         return true;
