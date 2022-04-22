@@ -62,8 +62,10 @@ describe("Tokenomics integration", async () => {
     const magicDenominator = 5192296858534816;
     const E18 = 10**18;
     const delta = 1.0 / 10**10;
+    const oneWeek = 7 * 86400;
 
     let signers;
+    let deployer;
 
     /**
      * Everything in this block is only run once before all tests.
@@ -106,7 +108,7 @@ describe("Tokenomics integration", async () => {
         gnosisSafeMultisig = await GnosisSafeMultisig.deploy(gnosisSafeL2.address, gnosisSafeProxyFactory.address);
         await gnosisSafeMultisig.deployed();
 
-        const deployer = signers[0];
+        deployer = signers[0];
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
@@ -215,7 +217,6 @@ describe("Tokenomics integration", async () => {
 
             // Checking the values with delta rounding error
             const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
-            console.log(ucf);
             expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
 
             const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
@@ -392,7 +393,7 @@ describe("Tokenomics integration", async () => {
             expect(Math.abs(usf - 0.666666666666666)).to.lessThan(delta);
         });
 
-        it("Tokenomics factors. Two services with two agents and two components, one service is not profitable", async () => {
+        it("Tokenomics factors. Two services with three agents and four components", async () => {
             const mechManager = signers[1];
             const serviceManager = signers[2];
             const owner = signers[3].address;
@@ -458,6 +459,84 @@ describe("Tokenomics integration", async () => {
             // Checking the values with delta rounding error
             const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
             expect(Math.abs(ucf - 0.97222222222222)).to.lessThan(delta);
+
+            const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
+            expect(Math.abs(usf - 1.0)).to.lessThan(delta);
+        });
+
+        it("Tokenomics factors. Two services with three agents and four components, one component is not utilized", async () => {
+            const mechManager = signers[1];
+            const serviceManager = signers[2];
+            const owner = signers[3].address;
+            const operator = signers[4].address;
+            const agentInstances = [signers[5].address, signers[6].address, signers[7].address, signers[8].address,
+                signers[9].address];
+
+            // Create 4 components and 3 agents based on them
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(owner, owner, componentHash, description, []);
+            await componentRegistry.connect(mechManager).create(owner, owner, componentHash1, description, []);
+            await componentRegistry.connect(mechManager).create(owner, owner, componentHash2, description, []);
+            await componentRegistry.connect(mechManager).create(owner, owner, configHash2, description, []);
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash, description, [1, 2]);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash1, description, [2]);
+            await agentRegistry.connect(mechManager).create(owner, owner, agentHash2, description, [3]);
+
+            // Create 2 services
+            const agentIds = [[1, 2], [1, 3]];
+            const agentParams = [[1, regBond], [1, regBond]];
+            const threshold = 2;
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash, agentIds[0],
+                agentParams, threshold);
+            await serviceRegistry.connect(serviceManager).createService(owner, name, description, configHash1, agentIds[1],
+                agentParams, threshold);
+
+            // Register agent instances
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, serviceId, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).activateRegistration(owner, 2, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId,
+                [agentInstances[0], agentInstances[1]], agentIds[0], {value: 2 * regBond});
+            await serviceRegistry.connect(serviceManager).registerAgents(operator, 2, [agentInstances[2], agentInstances[3]],
+                agentIds[1], {value: 2 * regBond});
+
+            // Deploy services
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+            await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
+            await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
+
+            // Send deposits services
+            await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
+                {value: tripleRegServiceRevenue});
+
+            // Calculate current epoch parameters
+            await treasury.allocateRewards();
+
+            // Get the information from tokenomics point
+            const epoch = await tokenomics.getEpoch();
+            const point = await tokenomics.getPoint(epoch);
+
+            // Calculation of ucfc
+            // ucfc[1] = 1, ucfc[2] = 1, ucfc[3] = 2/3
+            // |Cs(1)| = 2, |Cs(2)| = 3
+            // ucfcs[1] = sum(ucfc_s1[i]) / |Cs(1)| = (1 + 1) / 2 = 1
+            // ucfcs[2] = sum(ucfc_s2[i]) / |Cs(2)| = (1 + 1 + 2/3) / 3 = 8/9
+            // ucfc = sum(ucfas) / |S| = (8/9 + 1) / 2 = 17/18
+            // Since not all components are engaged:
+            // ucfc = ucfc * |Cref| / |Ctotal| = ucfc * 3 / 4 = 17/24
+            // Calculation of ucfa
+            // ucfa[1] = 1, ucfa[2] = 1/3, ucfa[3] = 2/3
+            // |As(1)| = 2, |As(2)| = 2
+            // ucfas[1] = sum(ucfa_s1[i]) / |As(1)| = (1 + 1/3) / 2 = 2/3
+            // ucfas[2] = sum(ucfa_s2[i]) / |As(2)| = (1 + 2/3) / 2 = 5/6
+            // ucfa = sum(ucfas) / |S| = (2/3 + 5/6) / 2 = 3/4
+            // Total UCF
+            // UCF = (ucfc + ucfa) / 2 = 0.72916(6)
+
+            // Checking the values with delta rounding error
+            const ucf = Number(point.ucf / magicDenominator) * 1.0 / E18;
+            expect(Math.abs(ucf - 0.72916666666666)).to.lessThan(delta);
 
             const usf = Number(point.usf / magicDenominator) * 1.0 / E18;
             expect(Math.abs(usf - 1.0)).to.lessThan(delta);
@@ -562,6 +641,130 @@ describe("Tokenomics integration", async () => {
             const agentFraction = await tokenomics.agentFraction();
             const expectedRewards= tripleRegServiceRevenue * agentFraction / 100;
             expect(Number(balance1) + Number(balance2)).to.equal(expectedRewards);
+        });
+
+        it("Dispenser for several agent owners and stakers", async () => {
+            const staker = signers[2];
+            const mechManager = signers[3];
+            const serviceManager = signers[4];
+            const componentOwners = [signers[15], signers[16]];
+            const agentOwners = [signers[5], signers[6]];
+            const operator = signers[7].address;
+            const agentInstances = [signers[8].address, signers[9].address, signers[10].address];
+            const serviceOwner = signers[11].address;
+
+            // Create two components and two agents each for their owner
+            await componentRegistry.changeManager(mechManager.address);
+            await componentRegistry.connect(mechManager).create(componentOwners[0].address, componentOwners[0].address, componentHash, description, []);
+            await componentRegistry.connect(mechManager).create(componentOwners[1].address, componentOwners[1].address, componentHash1, description, []);
+            await agentRegistry.changeManager(mechManager.address);
+            await agentRegistry.connect(mechManager).create(agentOwners[0].address, agentOwners[0].address, agentHash, description, [1]);
+            await agentRegistry.connect(mechManager).create(agentOwners[1].address, agentOwners[1].address, agentHash1, description, [2]);
+
+            // Create two services
+            const agentIds = [[1, 2], [1]];
+            const agentParams1 = [[1, regBond], [1, regBond]];
+            const agentParams2 = [[1, regBond]];
+            const threshold1 = 2;
+            const threshold2 = 1;
+            await serviceRegistry.changeManager(serviceManager.address);
+            await serviceRegistry.connect(serviceManager).createService(serviceOwner, name, description, configHash, agentIds[0],
+                agentParams1, threshold1);
+            await serviceRegistry.connect(serviceManager).createService(serviceOwner, name, description, configHash, agentIds[1],
+                agentParams2, threshold2);
+
+            // Register agent instances
+            await serviceRegistry.connect(serviceManager).activateRegistration(serviceOwner, serviceId, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).activateRegistration(serviceOwner, 2, {value: regDeposit});
+            await serviceRegistry.connect(serviceManager).registerAgents(operator, serviceId,
+                [agentInstances[0], agentInstances[1]], agentIds[0], {value: 2 * regBond});
+            await serviceRegistry.connect(serviceManager).registerAgents(operator, 2, [agentInstances[2]],
+                agentIds[1], {value: regBond});
+
+            // Deploy the service
+            await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
+            await serviceRegistry.connect(serviceManager).deploy(serviceOwner, serviceId, gnosisSafeMultisig.address, payload);
+            await serviceRegistry.connect(serviceManager).deploy(serviceOwner, 2, gnosisSafeMultisig.address, payload);
+
+            // Stake OLA with 2 stakers: deployer and staker
+            await ola.transfer(staker.address, twoHundredETHBalance);
+            await ola.approve(ve.address, hundredETHBalance);
+            await ola.connect(staker).approve(ve.address, twoHundredETHBalance);
+            const blockNumber = await ethers.provider.getBlockNumber();
+            const block = await ethers.provider.getBlock(blockNumber);
+            const lockDuration = block.timestamp + oneWeek;
+
+            // Balance should be zero before the lock and specified amount after the lock
+            expect(await ve.getVotes(deployer.address)).to.equal(0);
+            await ve.createLock(hundredETHBalance, lockDuration);
+            await ve.connect(staker).createLock(twoHundredETHBalance, lockDuration);
+            const balanceDeployer = await ve.balanceOf(deployer.address);
+            expect(balanceDeployer).to.equal(hundredETHBalance);
+            const balanceStaker = await ve.balanceOf(staker.address);
+            expect(balanceStaker).to.equal(twoHundredETHBalance);
+
+            // Send deposits from a service
+            await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
+                {value: tripleRegServiceRevenue});
+
+            // Calculate current epoch parameters
+            await treasury.allocateRewards();
+
+            // Get owners rewards
+            await dispenser.connect(componentOwners[0]).withdrawOwnerRewards();
+            await dispenser.connect(componentOwners[1]).withdrawOwnerRewards();
+            const balanceComponentOwner1 = await ola.balanceOf(componentOwners[0].address);
+            const balanceComponentOwner2 = await ola.balanceOf(componentOwners[1].address);
+            await dispenser.connect(agentOwners[0]).withdrawOwnerRewards();
+            await dispenser.connect(agentOwners[1]).withdrawOwnerRewards();
+            const balanceAgentOwner1 = await ola.balanceOf(agentOwners[0].address);
+            const balanceAgentOwner2 = await ola.balanceOf(agentOwners[1].address);
+
+            // Check the received reward
+            const componentFraction = await tokenomics.componentFraction();
+            const expectedComponentRewards = tripleRegServiceRevenue * componentFraction / 100;
+            // Calculate component reward difference with the expected value
+            const diffComponentReward = Number(expectedComponentRewards) -
+                (Number(balanceComponentOwner1) + Number(balanceComponentOwner2));
+            //console.log(Number(expectedComponentRewards) / E18);
+            //console.log(Number(balanceComponentOwner1) / E18);
+            //console.log(Number(balanceComponentOwner2) / E18);
+            //console.log(diffComponentReward);
+            expect(diffComponentReward / E18).to.lessThan(delta);
+            const agentFraction = await tokenomics.agentFraction();
+            const expectedAgentRewards = tripleRegServiceRevenue * agentFraction / 100;
+            // Calculate agent reward difference with the expected value
+            const diffAgentReward = Number(expectedAgentRewards) -
+                (Number(balanceAgentOwner1) + Number(balanceAgentOwner2));
+            expect(diffAgentReward / E18).to.lessThan(delta);
+
+            // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
+            ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
+            ethers.provider.send("evm_mine"); // mine the next block
+            await ve.withdraw();
+            await ve.connect(staker).withdraw();
+
+            // Staker balance must increase on the stakerFraction amount of the received service revenue
+            const stakerFraction = await tokenomics.stakerFraction();
+            const expectedStakerRewards = tripleRegServiceRevenue * stakerFraction / 100;
+            const deployerBalance = await ola.balanceOf(deployer.address);
+            const stakerBalance = await ola.balanceOf(staker.address);
+            const sumBalance = Number(deployerBalance) + Number(stakerBalance);
+
+            // Calculate balance after staking was received minus the initial OLA balance minus the expected reward in ETH
+            const balanceDiff = (sumBalance - Number(initialMint) - Number(expectedStakerRewards)) / E18;
+            expect(Math.abs(balanceDiff)).to.lessThan(delta);
+
+            //console.log(deployerBalance)
+            //console.log(stakerBalance);
+            //console.log("sumBalance", sumBalance / E18);
+            //console.log("initial OLA", Number(initialMint) / E18);
+            //console.log("expectedStakerRewards", Number(expectedStakerRewards) / E18);
+            //console.log(stakerBalance);
+            //console.log(balanceDeployer);
+            //console.log((Number(stakerBalance) - Number(initialMint)) / E18);
+            //console.log(expectedStakerRewards);
+            //expect(Number(stakerBalance) - Number(initialMint) / E18 ).to.equal(expectedStakerRewards);
         });
     });
 });
