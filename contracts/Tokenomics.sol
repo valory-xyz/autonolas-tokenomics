@@ -283,13 +283,14 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         // Calculate all complete UCFa-s divided by the cardinality of component Ids in each service (eq. 10, right part)
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = _protocolServiceIds[i];
-            (uint256 numServiceComponents, uint256[] memory componentIds) = IService(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+            (uint256 numServiceComponents, uint256[] memory componentIds) = IService(serviceRegistry).getComponentIdsOfServiceId(serviceId);
             for (uint256 j = 0; j < numServiceComponents; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|
                 ucfcs[i] += ucfcsRev[componentIds[j]];
             }
             ucfcs[i] /= numServiceComponents;
         }
+
 
         // Calculate component related values
         for (uint256 i = 0; i < numComponents; ++i) {
