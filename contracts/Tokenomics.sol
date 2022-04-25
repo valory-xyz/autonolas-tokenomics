@@ -38,8 +38,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     uint256 public constant E13 = 10**13;
     // Maximum precision number to be considered
     uint256 public constant E18 = 10**18;
-    // Default max DF of 200% rounded with epsilon of E13
-    uint256 public maxDF = 2 * E18 + E13;
+    // Default max DF of 200% rounded with epsilon of E13 (100% is a factor of 2)
+    uint256 public maxDF = 3 * E18 + E13;
 
     // 1.0 by default
     FixedPoint.uq112x112 public alpha = FixedPoint.fraction(1, 1);
