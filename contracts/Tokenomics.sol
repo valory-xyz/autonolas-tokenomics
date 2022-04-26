@@ -87,6 +87,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) private _mapServiceAmounts;
     mapping(uint256 => uint256) private _mapServiceIndexes;
+    // Map of whitelisted service owners
+    mapping(address => bool) private _mapServiceOwners;
 
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -194,6 +196,17 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         agentFraction = _agentFraction;
     }
 
+    function changeServiceOwnerWhiteList(address[] memory accounts, bool[] memory permissions) external onlyOwner {
+        uint256 numAccounts = accounts.length;
+        // Check the array size
+        if (permissions.length != numAccounts) {
+            revert WrongArrayLength(numAccounts, permissions.length);
+        }
+        for (uint256 i = 0; i < numAccounts; ++i) {
+            _mapServiceOwners[accounts[i]] = permissions[i];
+        }
+    }
+
     /// @dev take into account the bonding program in this epoch. 
     /// @dev programs exceeding the limit in the epoch are not allowed
     function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
@@ -214,9 +227,14 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
-            // Check for the service Id existance
+            // Check for the service Id existence
             if (!IService(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
+            }
+            // Check for the whitelisted service owner
+            address owner = IERC721Enumerable(serviceRegistry).ownerOf(serviceIds[i]);
+            if (!_mapServiceOwners[owner]) {
+                revert UnauthorizedAccount(owner);
             }
 
             // Add a new service Id to the set of Ids if one was not currently in it

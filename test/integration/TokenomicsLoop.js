@@ -181,6 +181,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits from a service
             await treasury.depositETHFromService(1, {value: regServiceRevenue});
 
@@ -223,6 +225,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits from a service
             await treasury.depositETHFromService(1, {value: regServiceRevenue});
 
@@ -272,6 +276,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Fail if the sent amount and the sum of specified amount for each service do not match
             await expect(
                 treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, regServiceRevenue], {value: regServiceRevenue})
@@ -335,6 +341,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits services
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, regServiceRevenue], {value: doubleRegServiceRevenue});
 
@@ -393,6 +401,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits services
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, regServiceRevenue], {value: doubleRegServiceRevenue});
 
@@ -455,6 +465,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits services
             await treasury.depositETHFromServiceBatch([1, 2], [doubleRegServiceRevenue, regServiceRevenue],
                 {value: tripleRegServiceRevenue});
@@ -524,6 +536,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits services
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
                 {value: tripleRegServiceRevenue});
@@ -588,6 +602,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.changeMultisigPermission(gnosisSafeMultisig.address, true);
             await serviceRegistry.connect(serviceManager).deploy(ownerAddress, serviceId, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([ownerAddress], [true]);
             // Send deposits from a service
             await treasury.depositETHFromService(1, {value: regServiceRevenue});
 
@@ -642,6 +658,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(serviceOwner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(serviceOwner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([serviceOwner], [true]);
             // Send deposits from a service
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
                 {value: tripleRegServiceRevenue});
@@ -721,6 +739,8 @@ describe("Tokenomics integration", async () => {
             const balanceStaker = await ve.balanceOf(staker.address);
             expect(balanceStaker).to.equal(twoHundredETHBalance);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([serviceOwner], [true]);
             // Send deposits from a service
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
                 {value: tripleRegServiceRevenue});
@@ -855,6 +875,8 @@ describe("Tokenomics integration", async () => {
             await serviceRegistry.connect(serviceManager).deploy(owner, serviceId, gnosisSafeMultisig.address, payload);
             await serviceRegistry.connect(serviceManager).deploy(owner, 2, gnosisSafeMultisig.address, payload);
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send deposits services
             await treasury.depositETHFromServiceBatch([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
                 {value: tripleRegServiceRevenue});
@@ -974,6 +996,8 @@ describe("Tokenomics integration", async () => {
             const stakerFraction = await tokenomics.stakerFraction();
             const expectedStakerRewardsEpoch1 = tripleRegServiceRevenue * stakerFraction / 100;
 
+            // Whitelist a service owner
+            await tokenomics.changeServiceOwnerWhiteList([owner], [true]);
             // Send service revenues for the next epoch
             await treasury.depositETHFromServiceBatch([1, 2], [doubleRegServiceRevenue, regServiceRevenue],
                 {value: tripleRegServiceRevenue});

@@ -10,9 +10,7 @@ import "./interfaces/IErrors.sol";
 /// @title OLA - Smart contract for the main OLA token
 /// @author AL
 contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
-    // TODO Maximum possible number of tokens
-    // uint256 public constant maxSupply = 500000000e18; // 500 million OLA
-    event TreasuryUpdated(address indexed treasury);
+    event TreasuryUpdated(address treasury);
 
     // One year interval
     uint256 public constant oneYear = 1 days * 365;
@@ -56,6 +54,28 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     /// @param account Account address.
     /// @param amount OLA token amount.
     function mint(address account, uint256 amount) public onlyManager {
+        _inflationControl(amount);
+        super._mint(account, amount);
+    }
+
+    /// @dev Burns OLA tokens.
+    /// @param amount OLA token amount.
+    function burn(uint256 amount) public override {
+        super._burn(msg.sender, amount);
+        _adjustTotalSupply();
+    }
+
+    /// @dev Burns OLA tokens from a specific address.
+    /// @param account Account address.
+    /// @param amount OLA token amount.
+    function burnFrom(address account, uint256 amount) public override {
+        super.burnFrom(account, amount);
+        _adjustTotalSupply();
+    }
+
+    /// @dev Provides various checks for the inflation control.
+    /// @param amount Amount of OLA to mint.
+    function _inflationControl(uint256 amount) internal {
         // Scenario for the first ten years
         uint256 totalSupply = super.totalSupply();
         if (block.timestamp - timeLaunch < tenYears) {
@@ -80,25 +100,10 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
                 revert WrongAmount(totalSupply + amount, maxSupplyCap);
             }
         }
-        super._mint(account, amount);
     }
 
-    /// @dev Burns OLA tokens.
-    /// @param amount OLA token amount.
-    function burn(uint256 amount) public override {
-        super._burn(msg.sender, amount);
-        // If we passed ten years and the total supply dropped below, we need to adjust the end-of-ten-year supply
-        uint256 totalSupply = super.totalSupply();
-        if (totalSupplyAfterTenYears > 0 && totalSupplyAfterTenYears > totalSupply) {
-            totalSupplyAfterTenYears = totalSupply;
-        }
-    }
-
-    /// @dev Burns OLA tokens from a specific address.
-    /// @param account Account address.
-    /// @param amount OLA token amount.
-    function burnFrom(address account, uint256 amount) public override {
-        super.burnFrom(account, amount);
+    /// @dev Adjusts total supply after burn, if needed.
+    function _adjustTotalSupply() internal {
         // If we passed ten years and the total supply dropped below, we need to adjust the end-of-ten-year supply
         uint256 totalSupply = super.totalSupply();
         if (totalSupplyAfterTenYears > 0 && totalSupplyAfterTenYears > totalSupply) {

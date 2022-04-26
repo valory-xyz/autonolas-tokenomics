@@ -561,6 +561,17 @@ describe("ServiceRegistry integration", function () {
                 serviceManager.connect(somebody).serviceReward(serviceIds[1], {value: regReward})
             ).to.be.revertedWith("ServiceDoesNotExist");
 
+            // Should fail if the service owner is not whitelisted
+            await expect(
+                serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward})
+            ).to.be.revertedWith("UnauthorizedAccount");
+
+            // Should fail if trying to set the whitelisted owners with incorrect number of permissions set
+            await expect(
+                tokenomics.changeServiceOwnerWhiteList([owner.address], [true, false])
+            ).to.be.revertedWith("WrongArrayLength");
+
+            await tokenomics.changeServiceOwnerWhiteList([owner.address], [true]);
             const reward = await serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward});
             const result = await reward.wait();
             expect(result.events[1].event).to.equal("RewardService");

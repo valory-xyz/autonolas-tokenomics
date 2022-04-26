@@ -79,9 +79,9 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Distributes rewards between component and agent owners.
-    function _distributeOwnerRewards(uint256 componentRewards, uint256 agentRewards) internal {
-        uint256 componentRewardLeft = componentRewards;
-        uint256 agentRewardLeft = agentRewards;
+    function _distributeOwnerRewards(uint256 totalComponentRewards, uint256 totalAgentRewards) internal {
+        uint256 componentRewardLeft = totalComponentRewards;
+        uint256 agentRewardLeft = totalAgentRewards;
 
         // Get component owners and their rewards
         (address[] memory profitableComponentOwners, uint256[] memory componentRewards) =
