@@ -35,6 +35,10 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     mapping(address => uint256) public mapOwnerRewards;
     // Mapping of staker address => reward amount
     mapping(address => uint256) public mapStakerRewards;
+    // Mapping Id => account address for veOLA
+    mapping(address => uint256) private _mapLockedAccountIds;
+    // Set of locking accounts for veOLA
+    address[] private _lockedAccounts;
 
     constructor(address _ola, address _ve, address _treasury, address _tokenomics) {
         ola = _ola;
@@ -114,26 +118,29 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     /// @dev Distributes rewards between stakers.
     function _distributeStakerRewards(uint256 stakerRewards) internal {
         VotingEscrow veContract = VotingEscrow(ve);
-        address[] memory accounts = veContract.getLockAccounts();
 
         // Get the overall amount of rewards for stakers
         uint256 rewardLeft = stakerRewards;
 
         // Iterate over staker addresses and distribute
-        uint256 numAccounts = accounts.length;
+        uint256 numAccounts = _lockedAccounts.length;
         uint256 supply = veContract.totalSupply();
         if (supply > 0) {
             for (uint256 i = 0; i < numAccounts; ++i) {
-                uint256 balance = veContract.balanceOf(accounts[i]);
-                // Reward for this specific staker
-                uint256 reward = stakerRewards * balance / supply;
+                uint256 balance = veContract.balanceOf(_lockedAccounts[i]);
+                // If the account has already unlocked, its balance will be zero
+                // When they unstake, they will be removed from the set of locked accounts
+                if (balance > 0) {
+                    // Reward for this specific staker
+                    uint256 reward = stakerRewards * balance / supply;
 
-                // If there is a rounding error, floor to the correct value
-                if (reward > rewardLeft) {
-                    reward = rewardLeft;
+                    // If there is a rounding error, floor to the correct value
+                    if (reward > rewardLeft) {
+                        reward = rewardLeft;
+                    }
+                    rewardLeft -= reward;
+                    mapStakerRewards[_lockedAccounts[i]] += reward;
                 }
-                rewardLeft -= reward;
-                mapStakerRewards[accounts[i]] += reward;
             }
         }
     }
@@ -162,13 +169,21 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Withdraws rewards for stakers.
-    /// @param account Account address.
     /// @return balance Reward balance.
-    function withdrawStakingRewards(address account) external onlyVotingEscrow returns (uint256 balance) {
-        balance = mapStakerRewards[account];
+    function withdrawStakingRewards() external nonReentrant returns (uint256 balance) {
+        balance = mapStakerRewards[msg.sender];
         if (balance > 0) {
-            mapStakerRewards[account] = 0;
-            IERC20(ola).safeTransfer(ve, balance);
+            mapStakerRewards[msg.sender] = 0;
+            IERC20(ola).safeTransfer(msg.sender, balance);
+
+            // Clean up the veOLA-related account information
+            uint256 id = _mapLockedAccountIds[msg.sender];
+            uint256 numAccounts = _lockedAccounts.length;
+            _lockedAccounts[id] = _lockedAccounts[numAccounts - 1];
+            address addr = _lockedAccounts[id];
+            _lockedAccounts.pop();
+            _mapLockedAccountIds[addr] = id;
+            _mapLockedAccountIds[msg.sender] = 0;
         }
     }
 
@@ -176,5 +191,13 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     /// @return True, if paused.
     function isPaused() external view returns (bool) {
         return paused();
+    }
+
+    /// @dev Adds account to the set of current locked accounts.
+    /// @param account Account address.
+    function addLockedAccount(address account) external {
+        uint256 id = _lockedAccounts.length;
+        _mapLockedAccountIds[account] = id;
+        _lockedAccounts.push(account);
     }
 }

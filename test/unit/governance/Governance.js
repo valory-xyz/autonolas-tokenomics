@@ -7,7 +7,8 @@ describe("Governance unit", function () {
     let gnosisSafeL2;
     let gnosisSafeProxyFactory;
     let token;
-    let escrow;
+    let ve;
+    let dispenser;
     let signers;
     const oneWeek = 7 * 86400;
     const oneETHBalance = ethers.utils.parseEther("1");
@@ -33,13 +34,18 @@ describe("Governance unit", function () {
         await gnosisSafeProxyFactory.deployed();
 
         const Token = await ethers.getContractFactory("OLA");
-        token = await Token.deploy();
+        token = await Token.deploy(0, AddressZero);
         await token.deployed();
 
         // Dispenser address is irrelevant in these tests, so its contract is passed as a zero address
         const VotingEscrow = await ethers.getContractFactory("VotingEscrow");
-        escrow = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1", AddressZero);
-        await escrow.deployed();
+        ve = await VotingEscrow.deploy(token.address, "Governance OLA", "veOLA", "0.1", AddressZero);
+        await ve.deployed();
+
+        const Dispenser = await ethers.getContractFactory("Dispenser");
+        dispenser = await Dispenser.deploy(token.address, ve.address, AddressZero, AddressZero);
+        await dispenser.deployed();
+        ve.changeDispenser(dispenser.address);
 
         signers = await ethers.getSigners();
 
@@ -50,7 +56,7 @@ describe("Governance unit", function () {
     });
 
     context("Initialization", async function () {
-        it("Governance setup: deploy escrow, timelock, governorBravo, drop deployer role", async function () {
+        it("Governance setup: deploy ve, timelock, governorBravo, drop deployer role", async function () {
             // Deploy Safe multisig
             const safeSigners = signers.slice(1, 10).map(
                 function (currentElement) {
@@ -82,7 +88,7 @@ describe("Governance unit", function () {
 
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
-            const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
+            const governorBravo = await GovernorBravo.deploy(ve.address, timelock.address, initialVotingDelay,
                 initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
             // console.log("Governor Bravo deployed to", governorBravo.address);
@@ -98,7 +104,7 @@ describe("Governance unit", function () {
             ).to.be.revertedWith("AccessControl: account ");
         });
 
-        it("Deposit for voting power: deposit 10 eth worth of escrow to address 1", async function () {
+        it("Deposit for voting power: deposit 10 eth worth of ve to address 1", async function () {
             // Get the list of delegators and a delegatee address
             const numDelegators = 10;
             const delegatee = signers[1].address;
@@ -110,9 +116,9 @@ describe("Governance unit", function () {
                 expect(ethers.utils.formatEther(balance) == 1).to.be.true;
             }
 
-            // Approve signers[1]-signers[10] for 1 ETH by voting escrow
+            // Approve signers[1]-signers[10] for 1 ETH by voting ve
             for (let i = 1; i <= numDelegators; i++) {
-                await token.connect(signers[i]).approve(escrow.address, oneETHBalance);
+                await token.connect(signers[i]).approve(ve.address, oneETHBalance);
             }
 
             // Define 1 week for the lock duration
@@ -121,18 +127,18 @@ describe("Governance unit", function () {
             const lockDuration = block.timestamp + oneWeek;
 
             // Deposit tokens as a voting power to a chosen delegatee
-            await escrow.connect(signers[1]).createLock(oneETHBalance, lockDuration);
+            await ve.connect(signers[1]).createLock(oneETHBalance, lockDuration);
             for (let i = 2; i <= numDelegators; i++) {
-                await escrow.connect(signers[i]).depositFor(delegatee, oneETHBalance);
+                await ve.connect(signers[i]).depositFor(delegatee, oneETHBalance);
             }
 
             // Given 1 eth worth of voting power from every address, the cumulative voting power must be 10
-            const vPower = await escrow.getVotes(delegatee);
+            const vPower = await ve.getVotes(delegatee);
             expect(ethers.utils.formatEther(vPower) > 0).to.be.true;
 
             // The rest of addresses must have zero voting power
             for (let i = 2; i <= numDelegators; i++) {
-                expect(await escrow.getVotes(signers[i].address)).to.be.equal(0);
+                expect(await ve.getVotes(signers[i].address)).to.be.equal(0);
             }
         });
 
@@ -140,8 +146,8 @@ describe("Governance unit", function () {
             const balance = await token.balanceOf(signers[0].address);
             expect(ethers.utils.formatEther(balance) == 10).to.be.true;
 
-            // Approve signers[0] for 10 ETH by voting escrow
-            await token.connect(signers[0]).approve(escrow.address, tenETHBalance);
+            // Approve signers[0] for 10 ETH by voting ve
+            await token.connect(signers[0]).approve(ve.address, tenETHBalance);
 
             // Define 4 years for the lock duration.
             // This will result in voting power being almost exactly as ETH amount locked:
@@ -152,7 +158,7 @@ describe("Governance unit", function () {
             const lockDuration = block.timestamp + fourYears;
 
             // Lock 5 ETH, which is lower than the initial proposal threshold by a bit
-            await escrow.connect(signers[0]).createLock(fiveETHBalance, lockDuration);
+            await ve.connect(signers[0]).createLock(fiveETHBalance, lockDuration);
 
             // Deploy simple version of a timelock
             const executors = [];
@@ -163,7 +169,7 @@ describe("Governance unit", function () {
 
             // Deploy Governance Bravo
             const GovernorBravo = await ethers.getContractFactory("GovernorBravoOLA");
-            const governorBravo = await GovernorBravo.deploy(escrow.address, timelock.address, initialVotingDelay,
+            const governorBravo = await GovernorBravo.deploy(ve.address, timelock.address, initialVotingDelay,
                 initialVotingPeriod, initialProposalThreshold, quorum);
             await governorBravo.deployed();
 
@@ -175,7 +181,7 @@ describe("Governance unit", function () {
             ).to.be.revertedWith("GovernorCompatibilityBravo: proposer votes below proposal threshold");
 
             // Adding voting power, and the proposal must go through, 4 + 2 of ETH in voting power is almost 6 > 5 required
-            await escrow.connect(signers[0]).increaseAmount(twoETHBalance);
+            await ve.connect(signers[0]).increaseAmount(twoETHBalance);
             await governorBravo.connect(signers[0])["propose(address[],uint256[],bytes[],string)"]([AddressZero], [0],
                 ["0x"], proposalDescription);
         });

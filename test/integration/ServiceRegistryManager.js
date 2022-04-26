@@ -60,7 +60,7 @@ describe("ServiceRegistry integration", function () {
         await gnosisSafeMultisig.deployed();
 
         const Token = await ethers.getContractFactory("OLA");
-        token = await Token.deploy();
+        token = await Token.deploy(0, AddressZero);
         await token.deployed();
 
         // Depositary and dispenser are irrelevant in this set of tests, tokenomics will be correctly assigned below
@@ -79,6 +79,7 @@ describe("ServiceRegistry integration", function () {
 
         // Change to the correct tokenomics address
         await treasury.changeTokenomics(tokenomics.address);
+        await token.changeTreasury(treasury.address);
 
         signers = await ethers.getSigners();
     });

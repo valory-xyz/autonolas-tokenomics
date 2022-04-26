@@ -110,7 +110,7 @@ describe("Tokenomics integration", async () => {
 
         deployer = signers[0];
         dai = await erc20Token.deploy();
-        ola = await olaFactory.deploy();
+        ola = await olaFactory.deploy(0, deployer.address);
         // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
             agentRegistry.address, serviceRegistry.address);
@@ -118,6 +118,7 @@ describe("Tokenomics integration", async () => {
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, deployer.address);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
+        await ola.changeTreasury(treasury.address);
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
@@ -759,7 +760,9 @@ describe("Tokenomics integration", async () => {
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
             ethers.provider.send("evm_mine"); // mine the next block
             await ve.withdraw();
+            await dispenser.connect(deployer).withdrawStakingRewards();
             await ve.connect(staker).withdraw();
+            await dispenser.connect(staker).withdrawStakingRewards();
 
             // Staker balance must increase on the stakerFraction amount of the received service revenue
             const stakerFraction = await tokenomics.stakerFraction();
@@ -1033,7 +1036,9 @@ describe("Tokenomics integration", async () => {
             // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
             await ve.withdraw();
+            await dispenser.connect(deployer).withdrawStakingRewards();
             await ve.connect(staker).withdraw();
+            await dispenser.connect(staker).withdrawStakingRewards();
 
             // Staker balance must increase on the stakerFraction amount of the received service revenue plus the previous epoch rewards
             const expectedStakerRewards = tripleRegServiceRevenue * stakerFraction / 100 + expectedStakerRewardsEpoch1;

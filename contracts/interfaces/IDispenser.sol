@@ -10,10 +10,9 @@ interface IDispenser {
         uint256 agentReward
     ) external;
 
-    /// @dev Withdraws rewards for stakers.
+    /// @dev Adds account to the set of current locked accounts.
     /// @param account Account address.
-    /// @return balance Reward balance.
-    function withdrawStakingRewards(address account) external returns (uint256 balance);
+    function addLockedAccount(address account) external;
 
     /// @dev Gets the paused state.
     /// @return True, if paused.

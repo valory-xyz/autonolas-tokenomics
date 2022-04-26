@@ -103,7 +103,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
         emit TokenomicsUpdated(newTokenomics);
     }
 
-    /// @dev Allows approved address to deposit an asset for OLA.
+    /// @dev Allows the depository to deposit an asset for OLA.
     /// @param tokenAmount Token amount to get OLA for.
     /// @param token Token address.
     /// @param olaMintAmount Amount of OLA token issued.

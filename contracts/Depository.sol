@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
@@ -201,9 +200,8 @@ contract Depository is IErrors, Ownable {
         matured = !bond.redeemed && bond.maturity <= block.timestamp && bond.payout != 0;
     }
 
-    // TODO For now only Uniswapv2 is supported
     /// @dev Creates a new bond product.
-    /// @param token Uniswapv2 LP token to be deposited for pairs like OLA-DAI, OLA-ETH, etc.
+    /// @param token LP token to be deposited for pairs like OLA-DAI, OLA-ETH, etc.
     /// @param supply Supply in OLA tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
