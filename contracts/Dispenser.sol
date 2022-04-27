@@ -145,7 +145,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
         // Go back in blocks of points until we reach the last block we start calculating rewards from
         uint256 i;
         for (i = numPoints; i > 0; --i) {
-            if (points[i].blockNumber <= prevBlockNumber) {
+            if (points[i-1].blockNumber <= prevBlockNumber) {
                 break;
             }
         }
