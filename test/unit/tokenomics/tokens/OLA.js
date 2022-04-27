@@ -109,16 +109,15 @@ describe("ERC20 OLA with treasury", () => {
             let block = await ethers.provider.getBlock(blockNumber);
             await ethers.provider.send("evm_mine", [block.timestamp + tenYears + 1000]);
 
-            let totalSupply = new ethers.BigNumber.from(await ola.totalSupply());
+            // Calculate expected supply cap starting from the max for 10 years, i.e. 1 billion
             const supplyCapFraction = await ola.maxMintCapFraction();
-            let expectedSupplyCap = totalSupply.add(totalSupply.mul(supplyCapFraction).div(100));
+            let expectedSupplyCap = supplyCap + (supplyCap * supplyCapFraction) / 100;
+            //console.log(expectedSupplyCap);
 
             // Mint up to the supply cap that is up to the renewed supply cap after ten years
-            // New total supply is 500 * 1.02 = 510 million. We can safely mint 9 million
-            amount = "9" + "0".repeat(24);
-            let totalSupplyAfterTenYears = totalSupply;
+            // New total supply is 1 * 1.02 = 1.02 billion. We can safely mint 9 million
+            amount = "519" + "0".repeat(24);
             await ola.connect(treasury).mint(deployer.address, amount);
-            expect(await ola.totalSupplyAfterTenYears()).to.equal(totalSupplyAfterTenYears);
             const updatedTotalSupply = await ola.totalSupply();
             expect(Number(updatedTotalSupply)).to.be.lessThan(Number(expectedSupplyCap));
             //console.log("updated total supply", updatedTotalSupply);
@@ -133,33 +132,27 @@ describe("ERC20 OLA with treasury", () => {
             block = await ethers.provider.getBlock(blockNumber);
             await ethers.provider.send("evm_mine", [block.timestamp + threeYears + 1000]);
             // Calculate max supply cap after 4 years in total
-            expectedSupplyCap = new ethers.BigNumber.from(totalSupplyAfterTenYears);
+            expectedSupplyCap = supplyCap;
             for (let i = 0; i < 4; ++i) {
-                expectedSupplyCap = expectedSupplyCap.add(expectedSupplyCap.mul(supplyCapFraction).div(100));
+                expectedSupplyCap += supplyCap + (supplyCap * supplyCapFraction) / 100;
             }
 
-            // The max supply now is 541,216,080 * E18
+            // The max supply now is 1,082,432,160 * E18
             // Mint 30 million more
-            amount = "3" + "0".repeat(25);
+            amount = "6" + "0".repeat(25);
             await ola.connect(treasury).mint(deployer.address, amount);
 
             // Mint 5 more million must fail
             amount = "5" + "0".repeat(24);
             await expect(ola.connect(treasury).mint(deployer.address, amount)).to.be.revertedWith("WrongAmount");
 
-            // Burn 10 million
-            amount = "1" + "0".repeat(25);
+            // Burn the amount such that the total supply drops below 1 billion
+            amount = "1" + "0".repeat(26);
+            // Total supply minus the amount to be burned
+            const expectedTotalSupply = new ethers.BigNumber.from(await ola.totalSupply()).sub(amount);
             await ola.connect(deployer).burn(amount);
-            // Updated supply must not decrease since it didn't drop to the ten year total supply
-            expect(await ola.totalSupplyAfterTenYears()).to.equal(totalSupplyAfterTenYears);
-
-            // Burn the amount below the 10 years total supply
-            totalSupply = new ethers.BigNumber.from(await ola.totalSupply());
-            amount = "5" + "0".repeat(26);
-            await ola.connect(deployer).burn(amount);
-            // Updated supply must decrease to the burned amount
-            totalSupplyAfterTenYears = totalSupply.sub(amount);
-            expect(await ola.totalSupplyAfterTenYears()).to.equal(totalSupplyAfterTenYears);
+            // Check the final total amount
+            expect(await ola.totalSupply()).to.equal(expectedTotalSupply);
         });
     });
 });

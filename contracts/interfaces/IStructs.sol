@@ -23,6 +23,7 @@ interface IStructs {
         uint8 size;
     }
 
+    // Structure for tokenomics
     struct PointEcomonics {
         FixedPoint.uq112x112 ucf;
         FixedPoint.uq112x112 usf;
@@ -31,8 +32,23 @@ interface IStructs {
         uint256 stakerRewards;
         uint256 componentRewards;
         uint256 agentRewards;
+        uint256 totalDonationETH;
         uint256 ts; // timestamp
         uint256 blk; // block
         bool exists; // ready or not
+    }
+
+    // Structure for voting escrow points
+    struct PointVoting {
+        // b: y = ax + b
+        int128 bias;
+        // a: dweight / dt
+        int128 slope;
+        // Timestamp
+        uint256 ts;
+        // Block number
+        uint256 blockNumber;
+        // Total balance or account balance
+        uint256 balance;
     }
 }

@@ -10,10 +10,6 @@ interface IDispenser {
         uint256 agentReward
     ) external;
 
-    /// @dev Adds account to the set of current locked accounts.
-    /// @param account Account address.
-    function addLockedAccount(address account) external;
-
     /// @dev Gets the paused state.
     /// @return True, if paused.
     function isPaused() external returns (bool);

@@ -18,8 +18,6 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     uint256 public constant tenYears = 10 * oneYear;
     // Total supply cap for the first ten years (one billion OLA tokens)
     uint256 public constant supplyCap = 1_000_000_000e18;
-    // Total supply after ten years (changed only once)
-    uint256 public totalSupplyAfterTenYears;
     // Maximum mint amount after first ten years
     uint256 public constant maxMintCapFraction = 2;
     // Initial timestamp of the token deployment
@@ -62,7 +60,6 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     /// @param amount OLA token amount.
     function burn(uint256 amount) public override {
         super._burn(msg.sender, amount);
-        _adjustTotalSupply();
     }
 
     /// @dev Burns OLA tokens from a specific address.
@@ -70,7 +67,6 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     /// @param amount OLA token amount.
     function burnFrom(address account, uint256 amount) public override {
         super.burnFrom(account, amount);
-        _adjustTotalSupply();
     }
 
     /// @dev Provides various checks for the inflation control.
@@ -84,14 +80,10 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
                 revert WrongAmount(totalSupply + amount, supplyCap);
             }
         } else {
-            // Set the "initial" total supply after ten years if it was not yet set
-            if (totalSupplyAfterTenYears == 0) {
-                totalSupplyAfterTenYears = totalSupply;
-            }
             // Number of years after ten years have passed
             uint256 numYears = (block.timestamp - tenYears - timeLaunch) / oneYear + 1;
             // Calculate maximum mint amount to date
-            uint256 maxSupplyCap = totalSupplyAfterTenYears;
+            uint256 maxSupplyCap = supplyCap;
             for (uint256 i = 0; i < numYears; ++i) {
                 maxSupplyCap += maxSupplyCap * maxMintCapFraction / 100;
             }
@@ -99,15 +91,6 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
                 // Check for the requested mint overflow
                 revert WrongAmount(totalSupply + amount, maxSupplyCap);
             }
-        }
-    }
-
-    /// @dev Adjusts total supply after burn, if needed.
-    function _adjustTotalSupply() internal {
-        // If we passed ten years and the total supply dropped below, we need to adjust the end-of-ten-year supply
-        uint256 totalSupply = super.totalSupply();
-        if (totalSupplyAfterTenYears > 0 && totalSupplyAfterTenYears > totalSupply) {
-            totalSupplyAfterTenYears = totalSupply;
         }
     }
 }
