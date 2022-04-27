@@ -111,11 +111,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     /// @dev Distributes rewards.
-    function distributeRewards(
-        uint256 stakerRewards,
-        uint256 componentRewards,
-        uint256 agentRewards
-    ) external onlyTreasury whenNotPaused
+    function distributeRewards(uint256 componentRewards, uint256 agentRewards) external onlyTreasury whenNotPaused
     {
         // Distribute rewards between component and agent owners
         _distributeOwnerRewards(componentRewards, agentRewards);
@@ -144,17 +140,18 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
         // Go back in blocks of points until we reach the last block we start calculating rewards from
         uint256 i;
         for (i = numPoints; i > 0; --i) {
-            if (points[i-1].blockNumber <= prevBlockNumber) {
+            if (points[i - 1].blockNumber <= prevBlockNumber) {
+                // This is done to enter the if condition in the loop below for the first time
+                if (prevBlockNumber == points[i - 1].blockNumber) {
+                    prevBlockNumber++;
+                }
                 break;
             }
         }
 
-        // This is done to enter the if condition the first time
-        if (prevBlockNumber == points[i].blockNumber) {
-            prevBlockNumber++;
-        }
+        // Starting from the very last block we can start collecting rewards from
         for (; i > 0; --i) {
-            uint256 blockNumber = points[i].blockNumber;
+            uint256 blockNumber = points[i - 1].blockNumber;
             // Skip all the other points with the same block number
             if (prevBlockNumber > blockNumber) {
                 // If we reached the point where the last reward was taken, no more reward can be accumulated
@@ -163,7 +160,7 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
                 }
                 // Get the total supply at that block number and the account balance
                 uint256 supply = IVotingEscrow(ve).totalSupplyAt(blockNumber);
-                uint256 balance = points[i].balance;
+                uint256 balance = points[i - 1].balance;
 
                 // Get the epoch number at that block and its tokenomics parameters
                 uint256 epochNumber = ITokenomics(tokenomics).getEpoch(blockNumber);

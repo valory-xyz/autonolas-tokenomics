@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe.only("Tokenomics integration", async () => {
+describe("Tokenomics integration", async () => {
     const decimals = "0".repeat(18);
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
     // Initial mint for ola and DAI (40,000)
@@ -678,7 +678,7 @@ describe.only("Tokenomics integration", async () => {
             expect(Number(balance1) + Number(balance2)).to.equal(expectedRewards);
         });
 
-        it.only("Dispenser for several agent owners and stakers", async () => {
+        it("Dispenser for several agent owners and stakers", async () => {
             const staker = signers[2];
             const mechManager = signers[3];
             const serviceManager = signers[4];
