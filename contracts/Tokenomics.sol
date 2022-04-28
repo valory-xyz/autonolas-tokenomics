@@ -557,9 +557,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         uint256 df;
         PointEcomonics memory _PE;
         // avoid start checkpoint from calculatePayoutFromLP
-        uint256 epochC = epoch + 1; 
-        for (uint256 i = epochC; i > 0; i--) {
-            _PE = mapEpochEconomics[i-1];
+        for (uint256 i = epoch + 1; i > 0; i--) {
+            _PE = mapEpochEconomics[i - 1];
             // if current point undefined, so calculatePayoutFromLP called before mined tx(checkpoint)
             if(_PE.exists) {
                 df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
@@ -661,9 +660,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // decode a uq112x112 into a uint with 18 decimals of precision (cycle into the past), INITIAL_DF if not exist
     function getDF(uint256 epoch) public view returns (uint256 df) {
         PointEcomonics memory _PE;
-        uint256 epochC = epoch + 1; 
-        for (uint256 i = epochC; i > 0; i--) {
-            _PE = mapEpochEconomics[i-1];
+        for (uint256 i = epoch + 1; i > 0; i--) {
+            _PE = mapEpochEconomics[i - 1];
             // if current point undefined, so getDF called before mined tx(checkpoint)
             if(_PE.exists) {
                 // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27

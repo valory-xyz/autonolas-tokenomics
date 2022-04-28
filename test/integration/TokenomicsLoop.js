@@ -678,7 +678,7 @@ describe("Tokenomics integration", async () => {
             expect(Number(balance1) + Number(balance2)).to.equal(expectedRewards);
         });
 
-        it("Dispenser for several agent owners and stakers", async () => {
+        it.only("Dispenser for several agent owners and stakers", async () => {
             const staker = signers[2];
             const mechManager = signers[3];
             const serviceManager = signers[4];

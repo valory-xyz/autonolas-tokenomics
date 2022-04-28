@@ -11,11 +11,12 @@ import "./interfaces/IStructs.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
+import "hardhat/console.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
+contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event VotingEscrowUpdated(address ve);
@@ -127,63 +128,92 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     }
 
     function calculateStakingRewards(address account) public view
-        returns (uint256 reward, uint256 lastRewardBlockNumber)
+        returns (uint256 reward, uint256 startBlockNumber)
     {
         // Block number at which the reward was obtained last time
-        lastRewardBlockNumber = _mapLastRewardBlocks[msg.sender];
-        // Get the last block of a previous epoch, which is the very first block we have the tokenomics info about
-        uint256 prevEpoch = ITokenomics(tokenomics).getEpoch(block.number) - 1;
-        uint256 initialBlockNumber = prevEpoch * ITokenomics(tokenomics).epochLen() - 1;
-        uint256 prevBlockNumber = initialBlockNumber;
-        // Get account's history points with balances
-        (uint256 numPoints, PointVoting[] memory points) = IVotingEscrow(ve).getHistoryPoints(account);
-        // Go back in blocks of points until we reach the last block we start calculating rewards from
-        uint256 i;
-        for (i = numPoints; i > 0; --i) {
-            if (points[i - 1].blockNumber <= prevBlockNumber) {
-                // This is done to enter the if condition in the loop below for the first time
-                if (prevBlockNumber == points[i - 1].blockNumber) {
-                    prevBlockNumber++;
-                }
-                break;
-            }
+        startBlockNumber = _mapLastRewardBlocks[msg.sender] + 1;
+        // Get the last block of a previous epoch, which is the very last block we have the tokenomics info about
+        uint256 epochLen = ITokenomics(tokenomics).epochLen();
+        uint256 endBlockNumber = (block.number / epochLen) * epochLen;
+        // If we are in a zero's epoch, we don't have any rewards
+        if (endBlockNumber == 0) {
+            return (0, 0);
+        } else {
+            endBlockNumber--;
         }
 
-        // Starting from the very last block we can start collecting rewards from
-        for (; i > 0; --i) {
-            uint256 blockNumber = points[i - 1].blockNumber;
-            // Skip all the other points with the same block number
-            if (prevBlockNumber > blockNumber) {
-                // If we reached the point where the last reward was taken, no more reward can be accumulated
-                if (blockNumber == lastRewardBlockNumber) {
-                    break;
+        // Get account's history points with block number checkpoints and balances
+        (, uint256[] memory accountBlocks, uint256[] memory accountBalances) =
+        IVotingEscrow(ve).getHistoryAccountBalances(account, startBlockNumber, endBlockNumber);
+        // Get overall history points of with block number checkpoints and supply balances
+        (, uint256[] memory supplyBlocks, uint256[] memory supplyBalances) =
+        IVotingEscrow(ve).getHistoryTotalSupply(startBlockNumber, endBlockNumber);
+
+        console.log("account block length", accountBlocks.length);
+        console.log("account balances length", accountBalances.length);
+        console.log("account block", accountBlocks[0]);
+        console.log("account balance", accountBalances[0]);
+        console.log("supply block length", supplyBlocks.length);
+        console.log("supply balance length", supplyBalances.length);
+        console.log("supply block", supplyBlocks[0]);
+        console.log("supply balance", supplyBalances[0]);
+        // index 0: account, index 1: supply
+        uint256[] memory balances = new uint256[](2);
+        uint256[] memory counters = new uint256[](2);
+        {
+            uint256 rewardEpoch;
+            console.log("startBlockNumber", startBlockNumber);
+            console.log("endBlockNumber", endBlockNumber);
+            startBlockNumber = accountBlocks[0];
+            for (uint256 iBlock = startBlockNumber; iBlock < endBlockNumber; ++iBlock) {
+                console.log("iBlock", iBlock);
+                console.log("counter account", counters[0]);
+                console.log("counter supply", counters[1]);
+
+                // As soon as the new checkpoint block number is reached, switch to its balance and continue until next one
+                if (counters[0] < accountBlocks.length && iBlock == accountBlocks[counters[0]]) {
+                    balances[0] = accountBalances[counters[0]];
+                    counters[0]++;
                 }
-                // Get the total supply at that block number and the account balance
-                uint256 supply = IVotingEscrow(ve).totalSupplyAt(blockNumber);
-                uint256 balance = points[i - 1].balance;
+                // Same for the supply checkpoint
+                if (counters[1] < supplyBlocks.length && iBlock == supplyBlocks[counters[1]]) {
+                    balances[1] = supplyBalances[counters[1]];
+                    counters[1]++;
+                }
 
                 // Get the epoch number at that block and its tokenomics parameters
-                uint256 epochNumber = ITokenomics(tokenomics).getEpoch(blockNumber);
-                PointEcomonics memory pe = ITokenomics(tokenomics).getPoint(epochNumber);
-
+                uint256 epochNumber = iBlock / epochLen;
                 // Add to the reward depending on the staker reward
-                reward += balance * pe.stakerRewards / supply;
+                if (balances[1] > 0) {
+                    rewardEpoch += balances[0] / balances[1];
+                }
 
-                // Checkpoint of the last block number
-                prevBlockNumber = blockNumber;
+                // Check for the end of epoch and get the tokenomics point
+                if (iBlock % epochLen == 0) {
+                    PointEcomonics memory pe = ITokenomics(tokenomics).getPoint(epochNumber);
+                    reward += rewardEpoch * pe.stakerRewards;
+                    rewardEpoch = 0;
+                }
             }
         }
+        // Check that we have traversed all the block checkpoints
+        if (accountBlocks.length != counters[0]) {
+            revert WrongArrayLength(accountBlocks.length, counters[0]);
+        }
+        if (supplyBlocks.length != counters[1]) {
+            revert WrongArrayLength(supplyBlocks.length, counters[1]);
+        }
         // Update the block number of the received reward as the one we started from
-        lastRewardBlockNumber = initialBlockNumber;
+        startBlockNumber = endBlockNumber;
     }
 
     /// @dev Withdraws rewards for stakers.
     /// @return reward Reward balance.
     function withdrawStakingRewards() external nonReentrant returns (uint256 reward) {
-        uint256 lastRewardBlockNumber;
-        (reward, lastRewardBlockNumber) = calculateStakingRewards(msg.sender);
+        uint256 startBlockNumber;
+        (reward, startBlockNumber) = calculateStakingRewards(msg.sender);
         if (reward > 0) {
-            _mapLastRewardBlocks[msg.sender] = lastRewardBlockNumber;
+            _mapLastRewardBlocks[msg.sender] = startBlockNumber;
             IERC20(ola).safeTransfer(msg.sender, reward);
         }
     }

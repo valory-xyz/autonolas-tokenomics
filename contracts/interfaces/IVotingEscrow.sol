@@ -4,15 +4,23 @@ pragma solidity ^0.8.4;
 import "./IStructs.sol";
 
 /// @dev Interface for voting escrow.
-interface IVotingEscrow is IStructs {
-    /// @dev Gets historical points off an account.
+interface IVotingEscrow {
+    /// @dev Gets historical points of an account.
     /// @param account Account address.
-    /// @return numPoints Number of historical points.
-    /// @return points Set of points.
-    function getHistoryPoints(address account) external view returns (uint256 numPoints, PointVoting[] memory points);
+    /// @param startBlock Starting block.
+    /// @param endBlock Ending block.
+    /// @return numBlockCheckpoints Number of distinct block numbers where balances change.
+    /// @return blocks Set of block numbers where balances change.
+    /// @return balances Set of balances correspondent to set of block numbers.
+    function getHistoryAccountBalances(address account, uint256 startBlock, uint256 endBlock) external view
+        returns (uint256 numBlockCheckpoints, uint256[] memory blocks, uint256[] memory balances);
 
-    /// @dev Gets total supply at a specific block number.
-    /// @param blockNumber Block number.
-    /// @return Token supply.
-    function totalSupplyAt(uint256 blockNumber) external view returns (uint256);
+    /// @dev Gets historical total supply values.
+    /// @param startBlock Starting block.
+    /// @param endBlock Ending block.
+    /// @return numBlockCheckpoints Number of distinct block numbers where balances change.
+    /// @return blocks Set of block numbers where balances change.
+    /// @return balances Set of balances correspondent to set of block numbers.
+    function getHistoryTotalSupply(uint256 startBlock, uint256 endBlock) external view
+        returns (uint256 numBlockCheckpoints, uint256[] memory blocks, uint256[] memory balances);
 }
