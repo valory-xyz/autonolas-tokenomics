@@ -199,7 +199,9 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
                 if (balances[1] > 0) {
                     rewardEpoch += balances[0] * pe.stakerRewards / (balances[1] * epochLen);
                     console.log("iBlock", iBlock);
-                    console.log("rewardEpoch", rewardEpoch);
+                    console.log("rewardEpoch", rewardEpoch/10**18);
+                    console.log("balances[0]", balances[0]/10**18);
+                    console.log("balances[1]", balances[1]/10**18);
                 }
 
                 // Check for the end of epoch and get the tokenomics point
