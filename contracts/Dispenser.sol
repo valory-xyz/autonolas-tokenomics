@@ -131,7 +131,7 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
         returns (uint256 reward, uint256 startBlockNumber)
     {
         // Block number at which the reward was obtained last time
-        startBlockNumber = _mapLastRewardBlocks[msg.sender];
+        startBlockNumber = _mapLastRewardBlocks[account];
         // Get the last block of a previous epoch, which is the very last block we have the tokenomics info about
         uint256 epochLen = ITokenomics(tokenomics).epochLen();
         uint256 endBlockNumber = (block.number / epochLen) * epochLen;
@@ -153,33 +153,53 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
         // index 0: account, index 1: supply
         uint256[] memory balances = new uint256[](2);
         uint256[] memory counters = new uint256[](2);
-        // Sync with supply blocks
-        for (; counters[1] < supplyBlocks.length; ++counters[1]) {
-            if (supplyBlocks[counters[1]] > startBlockNumber) {
+        // Sync with account and supply blocks
+        for (; counters[1] < supplyBlocks.length - 1; ++counters[1]) {
+            if (supplyBlocks[counters[1] + 1] > startBlockNumber) {
                 break;
             }
         }
 
-//        console.log("account block length", accountBlocks.length);
-//        console.log("account balances length", accountBalances.length);
-//        console.log("account block", accountBlocks[0]);
-//        console.log("account balance", accountBalances[0]);
-//        console.log("supply block length", supplyBlocks.length);
-//        console.log("supply balance length", supplyBalances.length);
-//        console.log("supply block", supplyBlocks[0]);
-//        console.log("supply balance", supplyBalances[0]);
-//        for(uint256 i = 0; i < supplyBlocks.length; ++i) {
-//            console.log("i", i);
-//            console.log("supply block", supplyBlocks[i]);
-//            console.log("supply balance", supplyBalances[i]);
+        console.log("startBlockNumber", startBlockNumber);
+        console.log("endBlockNumber", endBlockNumber);
+//        {
+//            if (account == address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC)) {
+//                console.log("account block length", accountBlocks.length);
+//                console.log("account balances length", accountBalances.length);
+//                console.log("account block", accountBlocks[0]);
+//                console.log("account balance", accountBalances[0]);
+//                console.log("supply block length", supplyBlocks.length);
+//                console.log("supply balance length", supplyBalances.length);
+//                console.log("supply block", supplyBlocks[0]);
+//                console.log("supply balance", supplyBalances[0]);
+//                for(uint256 i = 0; i < supplyBlocks.length; ++i) {
+//                    console.log("i", i);
+//                    console.log("supply block", supplyBlocks[i]);
+//                    console.log("supply balance", supplyBalances[i]);
+//                }
+//
+//                console.log("iCount 0", counters[0]);
+//                console.log("iCount 1", counters[1]);
+//            }
 //        }
         {
             uint256 rewardEpoch;
-//            console.log("startBlockNumber", startBlockNumber);
-//            console.log("endBlockNumber", endBlockNumber);
             uint256 epochNumber = startBlockNumber / epochLen;
             PointEcomonics memory pe = ITokenomics(tokenomics).getPoint(epochNumber);
             for (uint256 iBlock = startBlockNumber; iBlock < endBlockNumber; ++iBlock) {
+                // Check for the end of epoch and get the tokenomics point
+                if (iBlock % epochLen == 0) {
+                    // Get the epoch number at that block and its tokenomics parameters
+                    epochNumber = iBlock / epochLen;
+                    pe = ITokenomics(tokenomics).getPoint(epochNumber);
+                    reward += rewardEpoch;
+//                    {
+//                        console.log("iBlock", iBlock);
+//                        console.log("reward", reward);
+//                        console.log("epoch", epochNumber);
+//                    }
+                    rewardEpoch = 0;
+                }
 //                console.log("iBlock", iBlock);
 //                console.log("counter account", counters[0]);
 //                console.log("counter supply", counters[1]);
@@ -197,29 +217,18 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
 
                 // Add to the reward depending on the staker reward
                 if (balances[1] > 0) {
-                    rewardEpoch += balances[0] * pe.stakerRewards / (balances[1] * epochLen);
-                    console.log("iBlock", iBlock);
-                    console.log("rewardEpoch", rewardEpoch/10**18);
-                    console.log("balances[0]", balances[0]/10**18);
-                    console.log("balances[1]", balances[1]/10**18);
-                }
-
-                // Check for the end of epoch and get the tokenomics point
-                if (iBlock % epochLen == 0) {
-                    // Get the epoch number at that block and its tokenomics parameters
-                    epochNumber = iBlock / epochLen;
-                    pe = ITokenomics(tokenomics).getPoint(epochNumber);
-                    reward += rewardEpoch;
-                    console.log("iBlock", iBlock);
-                    console.log("reward", reward);
-                    console.log("epoch", epochNumber);
-                    console.log("staking reward", pe.stakerRewards);
-                    rewardEpoch = 0;
+                    rewardEpoch += balances[0] * pe.stakerRewards / balances[1];
+//                    console.log("iBlock", iBlock);
+//                    console.log("rewardEpoch", rewardEpoch / 10**18);
+//                    console.log("balances[0]", balances[0]);
+//                    console.log("balances[1]", balances[1]);
                 }
             }
             // Add reward for the last considered epoch
             reward += rewardEpoch;
-            console.log("total reward", reward);
+            reward /= epochLen;
+            console.log("total reward", reward/10**18);
+//            console.log("address\n\n", account);
         }
 
         // Check that we have traversed all the block checkpoints

@@ -678,7 +678,7 @@ describe("Tokenomics integration", async () => {
             expect(Number(balance1) + Number(balance2)).to.equal(expectedRewards);
         });
 
-        it.only("Dispenser for several agent owners and stakers", async () => {
+        it("Dispenser for several agent owners and stakers", async () => {
             const staker = signers[2];
             const mechManager = signers[3];
             const serviceManager = signers[4];
@@ -744,6 +744,12 @@ describe("Tokenomics integration", async () => {
             await treasury.depositETHFromServices([1, 2], [regServiceRevenue, doubleRegServiceRevenue],
                 {value: tripleRegServiceRevenue});
 
+            let currentBlock = await ethers.provider.getBlock("latest");
+            let currentEpoch = Math.ceil(currentBlock.number / epochLen);
+            // Move to the beginning of the epoch block
+            for (let i = currentBlock.number; i < currentEpoch * epochLen; i++) {
+                await ethers.provider.send("evm_mine");
+            }
             // Calculate current epoch parameters
             await treasury.allocateRewards();
 
@@ -777,7 +783,7 @@ describe("Tokenomics integration", async () => {
 
             // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
-            const currentBlock = await ethers.provider.getBlock("latest");
+            currentBlock = await ethers.provider.getBlock("latest");
             // Mine blocks until the next epoch
             for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
                 await ethers.provider.send("evm_mine");
@@ -793,17 +799,6 @@ describe("Tokenomics integration", async () => {
             const deployerBalance = await ola.balanceOf(deployer.address);
             const stakerBalance = await ola.balanceOf(staker.address);
             const sumBalance = Number(deployerBalance) + Number(stakerBalance);
-
-            console.log(deployerBalance)
-            console.log(stakerBalance);
-            //console.log("sumBalance", sumBalance / E18);
-            //console.log("initial OLA", Number(initialMint) / E18);
-            console.log("expectedStakerRewards", Number(expectedStakerRewards) / E18);
-            //console.log(stakerBalance);
-            //console.log(balanceDeployer);
-            //console.log((Number(stakerBalance) - Number(initialMint)) / E18);
-            //console.log(expectedStakerRewards);
-            //expect(Number(stakerBalance) - Number(initialMint) / E18 ).to.equal(expectedStakerRewards);
 
             // Calculate balance after staking was received minus the initial OLA balance minus the expected reward in ETH
             const balanceDiff = (sumBalance - Number(initialMint) - Number(expectedStakerRewards)) / E18;
@@ -918,6 +913,12 @@ describe("Tokenomics integration", async () => {
             const productId = 0;
             expect(await depository.isActive(pairODAI.address, productId)).to.equal(true);
 
+            let currentBlock = await ethers.provider.getBlock("latest");
+            let currentEpoch = Math.ceil(currentBlock.number / epochLen);
+            // Move to the beginning of the epoch block
+            for (let i = currentBlock.number; i < currentEpoch * epochLen; i++) {
+                await ethers.provider.send("evm_mine");
+            }
             // !!!!!!!!!!!!!!!!!!    EPOCH 1    !!!!!!!!!!!!!!!!!!!!
             await treasury.allocateRewards();
 
@@ -1014,7 +1015,7 @@ describe("Tokenomics integration", async () => {
             await treasury.depositETHFromServices([1, 2], [doubleRegServiceRevenue, regServiceRevenue],
                 {value: tripleRegServiceRevenue});
 
-            const currentBlock = await ethers.provider.getBlock("latest");
+            currentBlock = await ethers.provider.getBlock("latest");
             // Mine blocks until the next epoch
             for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
                 await ethers.provider.send("evm_mine");
@@ -1071,6 +1072,11 @@ describe("Tokenomics integration", async () => {
 
             // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
+            currentBlock = await ethers.provider.getBlock("latest");
+            // Mine blocks until the next epoch
+            for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
+                await ethers.provider.send("evm_mine");
+            }
             await ve.withdraw();
             await dispenser.connect(deployer).withdrawStakingRewards();
             await ve.connect(staker).withdraw();
