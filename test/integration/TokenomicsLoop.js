@@ -777,7 +777,11 @@ describe("Tokenomics integration", async () => {
 
             // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
-            ethers.provider.send("evm_mine"); // mine the next block
+            const currentBlock = await ethers.provider.getBlock("latest");
+            // Mine blocks until the next epoch
+            for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
+                await ethers.provider.send("evm_mine");
+            }
             await ve.withdraw();
             await dispenser.connect(deployer).withdrawStakingRewards();
             await ve.connect(staker).withdraw();
@@ -790,6 +794,17 @@ describe("Tokenomics integration", async () => {
             const stakerBalance = await ola.balanceOf(staker.address);
             const sumBalance = Number(deployerBalance) + Number(stakerBalance);
 
+            console.log(deployerBalance)
+            console.log(stakerBalance);
+            //console.log("sumBalance", sumBalance / E18);
+            //console.log("initial OLA", Number(initialMint) / E18);
+            console.log("expectedStakerRewards", Number(expectedStakerRewards) / E18);
+            //console.log(stakerBalance);
+            //console.log(balanceDeployer);
+            //console.log((Number(stakerBalance) - Number(initialMint)) / E18);
+            //console.log(expectedStakerRewards);
+            //expect(Number(stakerBalance) - Number(initialMint) / E18 ).to.equal(expectedStakerRewards);
+
             // Calculate balance after staking was received minus the initial OLA balance minus the expected reward in ETH
             const balanceDiff = (sumBalance - Number(initialMint) - Number(expectedStakerRewards)) / E18;
             expect(Math.abs(balanceDiff)).to.lessThan(delta);
@@ -799,8 +814,6 @@ describe("Tokenomics integration", async () => {
             //console.log("sumBalance", sumBalance / E18);
             //console.log("initial OLA", Number(initialMint) / E18);
             //console.log("expectedStakerRewards", Number(expectedStakerRewards) / E18);
-            //console.log(stakerBalance);
-            //console.log(balanceDeployer);
             //console.log((Number(stakerBalance) - Number(initialMint)) / E18);
             //console.log(expectedStakerRewards);
             //expect(Number(stakerBalance) - Number(initialMint) / E18 ).to.equal(expectedStakerRewards);
