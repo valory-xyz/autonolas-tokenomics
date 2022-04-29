@@ -11,7 +11,6 @@ import "./interfaces/IStructs.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "hardhat/console.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
@@ -160,28 +159,6 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
             }
         }
 
-        console.log("startBlockNumber", startBlockNumber);
-        console.log("endBlockNumber", endBlockNumber);
-//        {
-//            if (account == address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC)) {
-//                console.log("account block length", accountBlocks.length);
-//                console.log("account balances length", accountBalances.length);
-//                console.log("account block", accountBlocks[0]);
-//                console.log("account balance", accountBalances[0]);
-//                console.log("supply block length", supplyBlocks.length);
-//                console.log("supply balance length", supplyBalances.length);
-//                console.log("supply block", supplyBlocks[0]);
-//                console.log("supply balance", supplyBalances[0]);
-//                for(uint256 i = 0; i < supplyBlocks.length; ++i) {
-//                    console.log("i", i);
-//                    console.log("supply block", supplyBlocks[i]);
-//                    console.log("supply balance", supplyBalances[i]);
-//                }
-//
-//                console.log("iCount 0", counters[0]);
-//                console.log("iCount 1", counters[1]);
-//            }
-//        }
         {
             uint256 rewardEpoch;
             uint256 epochNumber = startBlockNumber / epochLen;
@@ -192,17 +169,10 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
                     // Get the epoch number at that block and its tokenomics parameters
                     epochNumber = iBlock / epochLen;
                     pe = ITokenomics(tokenomics).getPoint(epochNumber);
+                    // Add to the overall reward
                     reward += rewardEpoch;
-//                    {
-//                        console.log("iBlock", iBlock);
-//                        console.log("reward", reward);
-//                        console.log("epoch", epochNumber);
-//                    }
                     rewardEpoch = 0;
                 }
-//                console.log("iBlock", iBlock);
-//                console.log("counter account", counters[0]);
-//                console.log("counter supply", counters[1]);
 
                 // As soon as the new checkpoint block number is reached, switch to its balance and continue until next one
                 if (counters[0] < accountBlocks.length && iBlock == accountBlocks[counters[0]]) {
@@ -218,17 +188,11 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
                 // Add to the reward depending on the staker reward
                 if (balances[1] > 0) {
                     rewardEpoch += balances[0] * pe.stakerRewards / balances[1];
-//                    console.log("iBlock", iBlock);
-//                    console.log("rewardEpoch", rewardEpoch / 10**18);
-//                    console.log("balances[0]", balances[0]);
-//                    console.log("balances[1]", balances[1]);
                 }
             }
             // Add reward for the last considered epoch
             reward += rewardEpoch;
             reward /= epochLen;
-            console.log("total reward", reward/10**18);
-//            console.log("address\n\n", account);
         }
 
         // Check that we have traversed all the block checkpoints
