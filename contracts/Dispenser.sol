@@ -6,17 +6,16 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./governance/VotingEscrow.sol";
 import "./interfaces/IErrors.sol";
 import "./interfaces/IStructs.sol";
-import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
-
+import "./interfaces/ITreasury.sol";
+import "./interfaces/IVotingEscrow.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
+contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event VotingEscrowUpdated(address ve);
@@ -33,12 +32,8 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     address public tokenomics;
     // Mapping of owner of component / agent address => reward amount
     mapping(address => uint256) public mapOwnerRewards;
-    // Mapping of staker address => reward amount
-    mapping(address => uint256) public mapStakerRewards;
-    // Mapping Id => account address for veOLA
-    mapping(address => uint256) private _mapLockedAccountIds;
-    // Set of locking accounts for veOLA
-    address[] private _lockedAccounts;
+    // Mapping account => last taken reward block for staking
+    mapping(address => uint256) private _mapLastRewardBlocks;
 
     constructor(address _ola, address _ve, address _treasury, address _tokenomics) {
         ola = _ola;
@@ -115,48 +110,11 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @dev Distributes rewards between stakers.
-    function _distributeStakerRewards(uint256 stakerRewards) internal {
-        VotingEscrow veContract = VotingEscrow(ve);
-
-        // Get the overall amount of rewards for stakers
-        uint256 rewardLeft = stakerRewards;
-
-        // Iterate over staker addresses and distribute
-        uint256 numAccounts = _lockedAccounts.length;
-        uint256 supply = veContract.totalSupply();
-        if (supply > 0) {
-            for (uint256 i = 0; i < numAccounts; ++i) {
-                uint256 balance = veContract.balanceOf(_lockedAccounts[i]);
-                // If the account has already unlocked, its balance will be zero
-                // When they unstake, they will be removed from the set of locked accounts
-                if (balance > 0) {
-                    // Reward for this specific staker
-                    uint256 reward = stakerRewards * balance / supply;
-
-                    // If there is a rounding error, floor to the correct value
-                    if (reward > rewardLeft) {
-                        reward = rewardLeft;
-                    }
-                    rewardLeft -= reward;
-                    mapStakerRewards[_lockedAccounts[i]] += reward;
-                }
-            }
-        }
-    }
-
     /// @dev Distributes rewards.
-    function distributeRewards(
-        uint256 stakerRewards,
-        uint256 componentRewards,
-        uint256 agentRewards
-    ) external onlyTreasury whenNotPaused
+    function distributeRewards(uint256 componentRewards, uint256 agentRewards) external onlyTreasury whenNotPaused
     {
         // Distribute rewards between component and agent owners
         _distributeOwnerRewards(componentRewards, agentRewards);
-
-        // Distribute rewards for stakers
-        _distributeStakerRewards(stakerRewards);
     }
 
     /// @dev Withdraws rewards for owners of components / agents.
@@ -168,22 +126,94 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    /// @dev Withdraws rewards for stakers.
-    /// @return balance Reward balance.
-    function withdrawStakingRewards() external nonReentrant returns (uint256 balance) {
-        balance = mapStakerRewards[msg.sender];
-        if (balance > 0) {
-            mapStakerRewards[msg.sender] = 0;
-            IERC20(ola).safeTransfer(msg.sender, balance);
+    function calculateStakingRewards(address account) public view
+        returns (uint256 reward, uint256 startBlockNumber)
+    {
+        // Block number at which the reward was obtained last time
+        startBlockNumber = _mapLastRewardBlocks[account];
+        // Get the last block of a previous epoch, which is the very last block we have the tokenomics info about
+        uint256 epochLen = ITokenomics(tokenomics).epochLen();
+        uint256 endBlockNumber = (block.number / epochLen) * epochLen;
+        // If we are in a zero's epoch, we don't have any rewards
+        if (endBlockNumber == 0) {
+            return (0, 0);
+        }
 
-            // Clean up the veOLA-related account information
-            uint256 id = _mapLockedAccountIds[msg.sender];
-            uint256 numAccounts = _lockedAccounts.length;
-            _lockedAccounts[id] = _lockedAccounts[numAccounts - 1];
-            address addr = _lockedAccounts[id];
-            _lockedAccounts.pop();
-            _mapLockedAccountIds[addr] = id;
-            _mapLockedAccountIds[msg.sender] = 0;
+        // Get account's history points with block number checkpoints and balances
+        (, uint256[] memory accountBlocks, uint256[] memory accountBalances) =
+        IVotingEscrow(ve).getHistoryAccountBalances(account, startBlockNumber, endBlockNumber);
+        // Get overall history points of with block number checkpoints and supply balances
+        (, uint256[] memory supplyBlocks, uint256[] memory supplyBalances) =
+        IVotingEscrow(ve).getHistoryTotalSupply(startBlockNumber, endBlockNumber);
+        if (startBlockNumber == 0) {
+            startBlockNumber = accountBlocks[0];
+        }
+
+        // index 0: account, index 1: supply
+        uint256[] memory balances = new uint256[](2);
+        uint256[] memory counters = new uint256[](2);
+        // Sync with account and supply blocks
+        for (; counters[1] < supplyBlocks.length - 1; ++counters[1]) {
+            if (supplyBlocks[counters[1] + 1] > startBlockNumber) {
+                break;
+            }
+        }
+
+        {
+            uint256 rewardEpoch;
+            uint256 epochNumber = startBlockNumber / epochLen;
+            PointEcomonics memory pe = ITokenomics(tokenomics).getPoint(epochNumber);
+            for (uint256 iBlock = startBlockNumber; iBlock < endBlockNumber; ++iBlock) {
+                // Check for the end of epoch and get the tokenomics point
+                if (iBlock % epochLen == 0) {
+                    // Get the epoch number at that block and its tokenomics parameters
+                    epochNumber = iBlock / epochLen;
+                    pe = ITokenomics(tokenomics).getPoint(epochNumber);
+                    // Add to the overall reward
+                    reward += rewardEpoch;
+                    rewardEpoch = 0;
+                }
+
+                // As soon as the new checkpoint block number is reached, switch to its balance and continue until next one
+                if (counters[0] < accountBlocks.length && iBlock == accountBlocks[counters[0]]) {
+                    balances[0] = accountBalances[counters[0]];
+                    counters[0]++;
+                }
+                // Same for the supply checkpoint
+                if (counters[1] < supplyBlocks.length && iBlock == supplyBlocks[counters[1]]) {
+                    balances[1] = supplyBalances[counters[1]];
+                    counters[1]++;
+                }
+
+                // Add to the reward depending on the staker reward
+                if (balances[1] > 0) {
+                    rewardEpoch += balances[0] * pe.stakerRewards / balances[1];
+                }
+            }
+            // Add reward for the last considered epoch
+            reward += rewardEpoch;
+            reward /= epochLen;
+        }
+
+        // Check that we have traversed all the block checkpoints
+        if (accountBlocks.length != counters[0]) {
+            revert WrongArrayLength(accountBlocks.length, counters[0]);
+        }
+        if (supplyBlocks.length != counters[1]) {
+            revert WrongArrayLength(supplyBlocks.length, counters[1]);
+        }
+        // Update the block number of the received reward as the one we started from
+        startBlockNumber = endBlockNumber;
+    }
+
+    /// @dev Withdraws rewards for stakers.
+    /// @return reward Reward balance.
+    function withdrawStakingRewards() external nonReentrant returns (uint256 reward) {
+        uint256 startBlockNumber;
+        (reward, startBlockNumber) = calculateStakingRewards(msg.sender);
+        if (reward > 0) {
+            _mapLastRewardBlocks[msg.sender] = startBlockNumber;
+            IERC20(ola).safeTransfer(msg.sender, reward);
         }
     }
 
@@ -191,13 +221,5 @@ contract Dispenser is IErrors, IStructs, Ownable, Pausable, ReentrancyGuard {
     /// @return True, if paused.
     function isPaused() external view returns (bool) {
         return paused();
-    }
-
-    /// @dev Adds account to the set of current locked accounts.
-    /// @param account Account address.
-    function addLockedAccount(address account) external {
-        uint256 id = _lockedAccounts.length;
-        _mapLockedAccountIds[account] = id;
-        _lockedAccounts.push(account);
     }
 }

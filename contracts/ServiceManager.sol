@@ -148,7 +148,11 @@ contract ServiceManager is IErrors, IStructs, Ownable, Pausable {
     /// @param serviceId Service Id.
     function serviceReward(uint256 serviceId) external payable
     {
-        ITreasury(treasury).depositETHFromService{value: msg.value}(serviceId);
+        uint256[] memory serviceIds = new uint256[](1);
+        serviceIds[0] = serviceId;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = msg.value;
+        ITreasury(treasury).depositETHFromServices{value: msg.value}(serviceIds, amounts);
         emit RewardService(serviceId, msg.value);
     }
 
