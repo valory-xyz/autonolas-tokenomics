@@ -58,8 +58,8 @@ describe("Treasury", async () => {
         lpToken = await erc20Token.deploy();
         ola = await olaFactory.deploy(0, AddressZero);
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
-            agentRegistry.address, serviceRegistry.address);
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, deployer.address,
+            epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Dispenser address is irrelevant in these tests, so its contract is passed as a zero address
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, AddressZero);

@@ -19,6 +19,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
     event TreasuryUpdated(address treasury);
     event DepositoryUpdated(address depository);
+    event DispenserUpdated(address dispenser);
 
     // OLA token address
     address public immutable ola;
@@ -26,6 +27,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     address public treasury;
     // Depository contract address
     address public depository;
+    // Dispenser contract address
+    address public dispenser;
 
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
@@ -76,10 +79,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
-    // Set of UCFc(epoch)
-    uint256[] private _componentRewards;
-    // Set of UCFa(epoch)
-    uint256[] private _agentRewards;
     // Set of profitable components in current epoch
     address[] private _profitableComponentOwners;
     // Set of profitable agents in current epoch
@@ -91,17 +90,20 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     mapping(uint256 => uint256) private _mapServiceIndexes;
     // Map of whitelisted service owners
     mapping(address => bool) private _mapServiceOwners;
+    // Mapping of owner of component / agent address => reward amount
+    mapping(address => uint256) public mapOwnerRewards;
 
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     // TODO later fix government / manager
-    constructor(address _ola, address _treasury, address _depository, uint256 _epochLen, address _componentRegistry, address _agentRegistry,
-        address payable _serviceRegistry)
+    constructor(address _ola, address _treasury, address _depository, address _dispenser, uint256 _epochLen,
+        address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
     {
         ola = _ola;
         treasury = _treasury;
         depository = _depository;
+        dispenser = _dispenser;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
@@ -124,6 +126,14 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         _;
     }
 
+    // Only the manager has a privilege to manipulate a tokenomics
+    modifier onlyDispenser() {
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+        _;
+    }
+
     /// @dev Changes treasury address.
     function changeTreasury(address newTreasury) external onlyOwner {
         treasury = newTreasury;
@@ -134,6 +144,12 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     function changeDepository(address newDepository) external onlyOwner {
         depository = newDepository;
         emit DepositoryUpdated(newDepository);
+    }
+
+    /// @dev Changes treasury address.
+    function changeDispenser(address newDispenser) external onlyOwner {
+        dispenser = newDispenser;
+        emit DispenserUpdated(newDispenser);
     }
 
     /// @dev Converts the block number into epoch number.
@@ -288,7 +304,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         // Clear the previous epoch profitable set of components
         delete _profitableComponentOwners;
-        delete _componentRewards;
 
         // Set of component revenues UCFa-s (eq. 3). Agent Id-s start from "1", so the index can be equal to the set size
         uint256[] memory ucfcsRev = new uint256[](numComponents + 1);
@@ -333,7 +348,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 // Increase a profitable component number
                 ++numProfitableComponents;
                 // Calculate component rewards
-                _componentRewards.push(componentRewards * ucfcsRev[componentId] / sumProfits);
+                mapOwnerRewards[owner] += componentRewards * ucfcsRev[componentId] / sumProfits;
             }
         }
 
@@ -358,7 +373,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         // Clear the previous epoch profitable set of agents
         delete _profitableAgentOwners;
-        delete _agentRewards;
 
         // Set of agent revenues UCFa-s (eq. 3). Agent Id-s start from "1", so the index can be equal to the set size
         uint256[] memory ucfasRev = new uint256[](numAgents + 1);
@@ -402,7 +416,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 // Increase a profitable agent number
                 ++numProfitableAgents;
                 // Calculate agent rewards
-                _agentRewards.push(agentRewards * ucfasRev[agentId] / sumProfits);
+                mapOwnerRewards[owner] += agentRewards * ucfasRev[agentId] / sumProfits;
             }
         }
 
@@ -684,25 +698,26 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         amountOLA = tokenAmount;
     }
 
-    function getProfitableComponents() external view
-        returns (address[] memory profitableComponentOwners, uint256[] memory componentRewards)
-    {
-        profitableComponentOwners = _profitableComponentOwners;
-        componentRewards = _componentRewards;
-    }
-
-    function getProfitableAgents() external view
-        returns (address[] memory profitableAgentOwners, uint256[] memory agentRewards)
-    {
-        profitableAgentOwners = _profitableAgentOwners;
-        agentRewards = _agentRewards;
-    }
-
     function getBondLeft() external view returns (uint256 bondLeft) {
         bondLeft = _bondLeft;
     }
 
     function getBondCurrentEpoch() external view returns (uint256 bondPerEpoch) {
         bondPerEpoch = _bondPerEpoch;
+    }
+
+    /// @dev Gets the component / agent owner reward.
+    /// @param account Account address.
+    /// @return reward Reward amount.
+    function getOwnerRewards(address account) external view returns (uint256 reward) {
+        reward = mapOwnerRewards[account];
+    }
+
+    /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
+    /// @param account Account address.
+    /// @return reward Reward amount.
+    function accountOwnerRewards(address account) external onlyDispenser returns (uint256 reward) {
+        reward = mapOwnerRewards[account];
+        mapOwnerRewards[account] = 0;
     }
 }    

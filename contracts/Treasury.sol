@@ -258,10 +258,6 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
             // Send funds to dispenser
             uint256 rewards = point.stakerRewards + point.componentRewards + point.agentRewards;
             _sendFundsToDispenser(rewards);
-            // Distribute rewards
-            if (rewards > 0) {
-                IDispenser(dispenser).distributeRewards(point.componentRewards, point.agentRewards);
-            }
         }
         return true;
     }

@@ -30,10 +30,8 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
     address public treasury;
     // Tokenomics address
     address public tokenomics;
-    // Mapping of owner of component / agent address => reward amount
-    mapping(address => uint256) public mapOwnerRewards;
     // Mapping account => last taken reward block for staking
-    mapping(address => uint256) private _mapLastRewardBlocks;
+    mapping(address => uint256) public mapLastRewardBlocks;
 
     constructor(address _ola, address _ve, address _treasury, address _tokenomics) {
         ola = _ola;
@@ -73,56 +71,11 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
         emit TokenomicsUpdated(newTokenomics);
     }
 
-    /// @dev Distributes rewards between component and agent owners.
-    function _distributeOwnerRewards(uint256 totalComponentRewards, uint256 totalAgentRewards) internal {
-        uint256 componentRewardLeft = totalComponentRewards;
-        uint256 agentRewardLeft = totalAgentRewards;
-
-        // Get component owners and their rewards
-        (address[] memory profitableComponentOwners, uint256[] memory componentRewards) =
-            ITokenomics(tokenomics).getProfitableComponents();
-        uint256 numComponents = profitableComponentOwners.length;
-        if (numComponents > 0) {
-            // Calculate reward per component owner
-            for (uint256 i = 0; i < numComponents; ++i) {
-                // If there is a rounding error, floor to the correct value
-                if (componentRewards[i] > componentRewardLeft) {
-                    componentRewards[i] = componentRewardLeft;
-                }
-                componentRewardLeft -= componentRewards[i];
-                mapOwnerRewards[profitableComponentOwners[i]] += componentRewards[i];
-            }
-        }
-
-        // Get agent owners and their rewards
-        (address[] memory profitableAgentOwners, uint256[] memory agentRewards) =
-            ITokenomics(tokenomics).getProfitableAgents();
-        uint256 numAgents = profitableAgentOwners.length;
-        if (numAgents > 0) {
-            for (uint256 i = 0; i < numAgents; ++i) {
-                // If there is a rounding error, floor to the correct value
-                if (agentRewards[i] > agentRewardLeft) {
-                    agentRewards[i] = agentRewardLeft;
-                }
-                agentRewardLeft -= agentRewards[i];
-                mapOwnerRewards[profitableAgentOwners[i]] += agentRewards[i];
-            }
-        }
-    }
-
-    /// @dev Distributes rewards.
-    function distributeRewards(uint256 componentRewards, uint256 agentRewards) external onlyTreasury whenNotPaused
-    {
-        // Distribute rewards between component and agent owners
-        _distributeOwnerRewards(componentRewards, agentRewards);
-    }
-
     /// @dev Withdraws rewards for owners of components / agents.
     function withdrawOwnerRewards() external nonReentrant {
-        uint256 balance = mapOwnerRewards[msg.sender];
-        if (balance > 0) {
-            mapOwnerRewards[msg.sender] = 0;
-            IERC20(ola).safeTransfer(msg.sender, balance);
+        uint256 reward = ITokenomics(tokenomics).accountOwnerRewards(msg.sender);
+        if (reward > 0) {
+            IERC20(ola).safeTransfer(msg.sender, reward);
         }
     }
 
@@ -136,7 +89,7 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
         // Epoch length
         uint256 epochLen = ITokenomics(tokenomics).epochLen();
         // Block number at which the reward was obtained last time
-        startBlockNumber = _mapLastRewardBlocks[account];
+        startBlockNumber = mapLastRewardBlocks[account];
         if (startBlockNumber == 0) {
             startBlockNumber = epochLen - 1;
         }
@@ -176,7 +129,7 @@ contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
         uint256 startBlockNumber;
         (reward, startBlockNumber) = calculateStakingRewards(msg.sender);
         if (reward > 0) {
-            _mapLastRewardBlocks[msg.sender] = startBlockNumber;
+            mapLastRewardBlocks[msg.sender] = startBlockNumber;
             IERC20(ola).safeTransfer(msg.sender, reward);
         }
     }

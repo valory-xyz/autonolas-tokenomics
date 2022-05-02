@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "./IStructs.sol";
-
 /// @dev Interface for voting escrow.
 interface IVotingEscrow {
     /// @dev Gets the account balance at a specific block number.

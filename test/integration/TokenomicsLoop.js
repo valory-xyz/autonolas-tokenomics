@@ -111,8 +111,8 @@ describe("Tokenomics integration", async () => {
         dai = await erc20Token.deploy();
         ola = await olaFactory.deploy(0, deployer.address);
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, epochLen, componentRegistry.address,
-            agentRegistry.address, serviceRegistry.address);
+        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, deployer.address,
+            epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, deployer.address);
         // Change to the correct treasury address
@@ -127,6 +127,7 @@ describe("Tokenomics integration", async () => {
         dispenser = await dispenserFactory.deploy(ola.address, ve.address, treasury.address, tokenomics.address);
         await ve.changeDispenser(dispenser.address);
         await treasury.changeDispenser(dispenser.address);
+        await tokenomics.changeDispenser(dispenser.address);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);

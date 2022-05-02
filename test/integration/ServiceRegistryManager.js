@@ -73,8 +73,8 @@ describe("ServiceRegistry integration", function () {
         await serviceManager.deployed();
 
         const Tokenomics = await ethers.getContractFactory("Tokenomics");
-        tokenomics = await Tokenomics.deploy(token.address, treasury.address, AddressZero, 1, componentRegistry.address,
-            agentRegistry.address, serviceRegistry.address);
+        tokenomics = await Tokenomics.deploy(token.address, treasury.address, AddressZero, AddressZero, 1,
+            componentRegistry.address, agentRegistry.address, serviceRegistry.address);
         await tokenomics.deployed();
 
         // Change to the correct tokenomics address
