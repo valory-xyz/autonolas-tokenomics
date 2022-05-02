@@ -69,7 +69,7 @@ describe("Treasury", async () => {
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
         await treasury.changeDepository(deployer.address);
-        await ola.changeTreasury(treasury.address);
+        await ola.changeMinter(treasury.address);
 
         // toggle DAI as reserve token (as example)
         await treasury.enableToken(dai.address);

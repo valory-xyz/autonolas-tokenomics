@@ -88,7 +88,7 @@ describe("Depository LP", async () => {
         await ola.mint(deployer.address, initialMint);
         await ola.mint(alice.address, initialMint);
         // Change treasury address
-        await ola.changeTreasury(treasury.address);
+        await ola.changeMinter(treasury.address);
 
         const wethFactory = await ethers.getContractFactory("WETH9");
         const weth = await wethFactory.deploy();

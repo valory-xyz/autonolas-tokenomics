@@ -79,7 +79,7 @@ describe("ServiceRegistry integration", function () {
 
         // Change to the correct tokenomics address
         await treasury.changeTokenomics(tokenomics.address);
-        await token.changeTreasury(treasury.address);
+        await token.changeMinter(treasury.address);
 
         signers = await ethers.getSigners();
     });

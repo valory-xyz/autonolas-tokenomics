@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("ERC20 OLA with treasury", () => {
+describe("OLA", () => {
     let deployer;
     let treasury;
     let bob;
@@ -22,7 +22,7 @@ describe("ERC20 OLA with treasury", () => {
         // Treasury address is deployer by default
         ola = await olaFactory.deploy(initSupply, deployer.address);
         // Changing the treasury address
-        await ola.connect(deployer).changeTreasury(treasury.address);
+        await ola.connect(deployer).changeMinter(treasury.address);
         //console.log("Deployer:",deployer.address);
         //console.log("Vault:",treasury.address);
         //const newVault = await ola.treasury();

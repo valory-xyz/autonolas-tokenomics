@@ -117,7 +117,7 @@ describe("Tokenomics integration", async () => {
         treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, deployer.address);
         // Change to the correct treasury address
         await tokenomics.changeTreasury(treasury.address);
-        await ola.changeTreasury(treasury.address);
+        await ola.changeMinter(treasury.address);
         // Change to the correct depository address
         depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
         await treasury.changeDepository(depository.address);
@@ -131,8 +131,6 @@ describe("Tokenomics integration", async () => {
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
         await ola.mint(deployer.address, initialMint);
-        // Change treasury address
-        await ola.changeTreasury(treasury.address);
 
         // WETH contract deployment
         const WETH = await ethers.getContractFactory("WETH9");
@@ -784,8 +782,8 @@ describe("Tokenomics integration", async () => {
             // Withdraw skating by the deployer (considered rewards for 1 epoch) and a staker
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
             currentBlock = await ethers.provider.getBlock("latest");
-            // Mine blocks until the next epoch
-            for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
+            // Mine blocks until the two next epochs
+            for (let i = currentBlock.number; i < 2 * epochLen + currentBlock.number; i++) {
                 await ethers.provider.send("evm_mine");
             }
             await ve.withdraw();
@@ -1074,7 +1072,7 @@ describe("Tokenomics integration", async () => {
             ethers.provider.send("evm_increaseTime", [oneWeek + 10000]);
             currentBlock = await ethers.provider.getBlock("latest");
             // Mine blocks until the next epoch
-            for (let i = currentBlock.number; i < epochLen + currentBlock.number; i++) {
+            for (let i = currentBlock.number; i < 2 * epochLen + currentBlock.number; i++) {
                 await ethers.provider.send("evm_mine");
             }
             await ve.withdraw();
