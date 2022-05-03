@@ -10,7 +10,7 @@ import "./interfaces/IErrors.sol";
 /// @title OLA - Smart contract for the main OLA token
 /// @author AL
 contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
-    event TreasuryUpdated(address treasury);
+    event MinterUpdated(address minter);
 
     // One year interval
     uint256 public constant oneYear = 1 days * 365;
@@ -23,11 +23,11 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     // Initial timestamp of the token deployment
     uint256 public timeLaunch;
 
-    // Treasury address
-    address public treasury;
+    // Minter address
+    address public minter;
 
-    constructor(uint256 _supply, address _treasury) ERC20("OLA Token", "OLA") ERC20Permit("OLA Token") {
-        treasury = _treasury;
+    constructor(uint256 _supply, address _minter) ERC20("OLA Token", "OLA") ERC20Permit("OLA Token") {
+        minter = _minter;
         timeLaunch = block.timestamp;
         if (_supply > 0) {
             mint(msg.sender, _supply);
@@ -35,17 +35,17 @@ contract OLA is IErrors, Context, Ownable, ERC20, ERC20Burnable, ERC20Permit {
     }
 
     modifier onlyManager() {
-        if (msg.sender != treasury && msg.sender != owner()) {
-            revert ManagerOnly(msg.sender, treasury);
+        if (msg.sender != minter && msg.sender != owner()) {
+            revert ManagerOnly(msg.sender, minter);
         }
         _;
     }
 
-    /// @dev Changes the treasury address.
-    /// @param newTreasury Address of a new treasury.
-    function changeTreasury(address newTreasury) external onlyOwner {
-        treasury = newTreasury;
-        emit TreasuryUpdated(treasury);
+    /// @dev Changes the minter address.
+    /// @param newMinter Address of a new minter.
+    function changeMinter(address newMinter) external onlyOwner {
+        minter = newMinter;
+        emit MinterUpdated(minter);
     }
 
     /// @dev Mints OLA tokens.

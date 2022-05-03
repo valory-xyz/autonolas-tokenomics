@@ -27,4 +27,9 @@ interface ITokenomics is IStructs {
     function allowedNewBond(uint256 amount) external returns(bool);
     function getBondLeft() external view returns (uint256 bondLeft);
     function getBondCurrentEpoch() external view returns (uint256 bondPerEpoch);
+
+    /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
+    /// @param account Account address.
+    /// @return reward Reward amount.
+    function accountOwnerRewards(address account) external returns (uint256 reward);
 }
