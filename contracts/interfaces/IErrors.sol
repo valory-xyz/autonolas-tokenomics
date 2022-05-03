@@ -138,6 +138,10 @@ interface IErrors {
     /// @param multisig Address of a multisig implementation.
     error UnauthorizedMultisig(address multisig);
 
+    /// @dev Account is not whitelisted.
+    /// @param account Account address.
+    error UnauthorizedAccount(address account);
+
     /// @dev Provided token address is incorrect.
     /// @param provided Provided token address.
     /// @param expected Expected token address.

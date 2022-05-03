@@ -60,7 +60,7 @@ describe("ServiceRegistry integration", function () {
         await gnosisSafeMultisig.deployed();
 
         const Token = await ethers.getContractFactory("OLA");
-        token = await Token.deploy();
+        token = await Token.deploy(0, AddressZero);
         await token.deployed();
 
         // Depositary and dispenser are irrelevant in this set of tests, tokenomics will be correctly assigned below
@@ -73,12 +73,13 @@ describe("ServiceRegistry integration", function () {
         await serviceManager.deployed();
 
         const Tokenomics = await ethers.getContractFactory("Tokenomics");
-        tokenomics = await Tokenomics.deploy(token.address, treasury.address, AddressZero, 1, componentRegistry.address,
-            agentRegistry.address, serviceRegistry.address);
+        tokenomics = await Tokenomics.deploy(token.address, treasury.address, AddressZero, AddressZero, 1,
+            componentRegistry.address, agentRegistry.address, serviceRegistry.address);
         await tokenomics.deployed();
 
         // Change to the correct tokenomics address
         await treasury.changeTokenomics(tokenomics.address);
+        await token.changeMinter(treasury.address);
 
         signers = await ethers.getSigners();
     });
@@ -560,6 +561,16 @@ describe("ServiceRegistry integration", function () {
                 serviceManager.connect(somebody).serviceReward(serviceIds[1], {value: regReward})
             ).to.be.revertedWith("ServiceDoesNotExist");
 
+            // Should fail if trying to set the whitelisted owners with incorrect number of permissions set
+            await expect(
+                tokenomics.changeServiceOwnerWhiteList([owner.address], [true, false])
+            ).to.be.revertedWith("WrongArrayLength");
+
+            // Donate to a service (funds will be sent directly to the Treasury as a donation)
+            await serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward});
+
+            await tokenomics.changeServiceOwnerWhiteList([owner.address], [true]);
+            // Deposit to a service as a protocol-owned service owner (funds will be counted towards rewards)
             const reward = await serviceManager.connect(somebody).serviceReward(serviceIds[0], {value: regReward});
             const result = await reward.wait();
             expect(result.events[1].event).to.equal("RewardService");

@@ -17,7 +17,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
     event DepositFromDepository(address token, uint256 tokenAmount, uint256 olaMintAmount);
-    event DepositFromServices(address token, uint256[] amounts, uint256[] serviceIds);
+    event DepositFromServices(address token, uint256[] amounts, uint256[] serviceIds, uint256 revenue, uint256 donation);
     event Withdrawal(address token, uint256 tokenAmount);
     event TokenReserves(address token, uint256 reserves);
     event EnableToken(address token);
@@ -103,7 +103,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
         emit TokenomicsUpdated(newTokenomics);
     }
 
-    /// @dev Allows approved address to deposit an asset for OLA.
+    /// @dev Allows the depository to deposit an asset for OLA.
     /// @param tokenAmount Token amount to get OLA for.
     /// @param token Token address.
     /// @param olaMintAmount Amount of OLA token issued.
@@ -123,7 +123,7 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
     }
 
     /// @dev Deposits ETH from protocol-owned services in batch.
-    function depositETHFromServiceBatch(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
+    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -144,24 +144,9 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
             revert WrongAmount(msg.value, totalAmount);
         }
 
-        ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        (uint256 revenueETH, uint256 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
 
-        emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
-    }
-
-    /// @dev Deposits ETH from protocol-owned service.
-    function depositETHFromService(uint256 serviceId) external payable nonReentrant {
-        if (msg.value == 0) {
-            revert ZeroValue();
-        }
-
-        uint256[] memory serviceIds = new uint256[](1);
-        serviceIds[0] = serviceId;
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = msg.value;
-        ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
-
-        emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds);
+        emit DepositFromServices(ETH_TOKEN_ADDRESS, amounts, serviceIds, revenueETH, donationETH);
     }
 
     /// @dev Allows owner to transfer specified tokens from reserves to a specified address.
@@ -273,10 +258,6 @@ contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
             // Send funds to dispenser
             uint256 rewards = point.stakerRewards + point.componentRewards + point.agentRewards;
             _sendFundsToDispenser(rewards);
-            // Distribute rewards
-            if (rewards > 0) {
-                IDispenser(dispenser).distributeRewards(point.stakerRewards, point.componentRewards, point.agentRewards);
-            }
         }
         return true;
     }

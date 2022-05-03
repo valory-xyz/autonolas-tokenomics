@@ -19,6 +19,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
     event TreasuryUpdated(address treasury);
     event DepositoryUpdated(address depository);
+    event DispenserUpdated(address dispenser);
 
     // OLA token address
     address public immutable ola;
@@ -26,6 +27,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     address public treasury;
     // Depository contract address
     address public depository;
+    // Dispenser contract address
+    address public dispenser;
 
     bytes4  private constant FUNC_SELECTOR = bytes4(keccak256("kLast()")); // is pair or pure ERC20?
     uint256 public immutable epochLen; // epoch len in blk
@@ -50,7 +53,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     FixedPoint.uq112x112 private _two = FixedPoint.fraction(2, 1);
 
     // Total service revenue per epoch: sum(r(s))
-    uint256 public totalServiceRevenueETH;
+    uint256 public epochServiceRevenueETH;
+    // Donation balance
+    uint256 public donationBalanceETH;
 
     // Staking parameters with multiplying by 100
     // treasuryFraction + componentFraction + agentFraction + stakerFraction = 100%
@@ -74,10 +79,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     
     // Mapping of epoch => point
     mapping(uint256 => PointEcomonics) public mapEpochEconomics;
-    // Set of UCFc(epoch)
-    uint256[] private _componentRewards;
-    // Set of UCFa(epoch)
-    uint256[] private _agentRewards;
     // Set of profitable components in current epoch
     address[] private _profitableComponentOwners;
     // Set of profitable agents in current epoch
@@ -87,17 +88,22 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) private _mapServiceAmounts;
     mapping(uint256 => uint256) private _mapServiceIndexes;
+    // Map of whitelisted service owners
+    mapping(address => bool) private _mapServiceOwners;
+    // Mapping of owner of component / agent address => reward amount
+    mapping(address => uint256) public mapOwnerRewards;
 
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     // TODO later fix government / manager
-    constructor(address _ola, address _treasury, address _depository, uint256 _epochLen, address _componentRegistry, address _agentRegistry,
-        address payable _serviceRegistry)
+    constructor(address _ola, address _treasury, address _depository, address _dispenser, uint256 _epochLen,
+        address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
     {
         ola = _ola;
         treasury = _treasury;
         depository = _depository;
+        dispenser = _dispenser;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
@@ -120,6 +126,14 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         _;
     }
 
+    // Only the manager has a privilege to manipulate a tokenomics
+    modifier onlyDispenser() {
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+        _;
+    }
+
     /// @dev Changes treasury address.
     function changeTreasury(address newTreasury) external onlyOwner {
         treasury = newTreasury;
@@ -132,9 +146,21 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         emit DepositoryUpdated(newDepository);
     }
 
-    /// @dev Gets curretn epoch number.
-    function getEpoch() public view returns (uint256 epoch) {
-        epoch = block.number / epochLen;
+    /// @dev Changes treasury address.
+    function changeDispenser(address newDispenser) external onlyOwner {
+        dispenser = newDispenser;
+        emit DispenserUpdated(newDispenser);
+    }
+
+    /// @dev Converts the block number into epoch number.
+    /// @param blockNumber Block number.
+    /// @return epochNumber Epoch number
+    function getEpoch(uint256 blockNumber) external view returns (uint256 epochNumber) {
+        epochNumber = blockNumber / epochLen;
+    }
+
+    function getCurrentEpoch() public view returns (uint256 epochNumber) {
+        epochNumber = block.number / epochLen;
     }
 
     /// @dev Changes tokenomics parameters.
@@ -194,6 +220,17 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         agentFraction = _agentFraction;
     }
 
+    function changeServiceOwnerWhiteList(address[] memory accounts, bool[] memory permissions) external onlyOwner {
+        uint256 numAccounts = accounts.length;
+        // Check the array size
+        if (permissions.length != numAccounts) {
+            revert WrongArrayLength(numAccounts, permissions.length);
+        }
+        for (uint256 i = 0; i < numAccounts; ++i) {
+            _mapServiceOwners[accounts[i]] = permissions[i];
+        }
+    }
+
     /// @dev take into account the bonding program in this epoch. 
     /// @dev programs exceeding the limit in the epoch are not allowed
     function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
@@ -210,25 +247,34 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     }
 
     /// @dev Tracks the deposit token amount during the epoch.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) public onlyTreasury {
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) public onlyTreasury
+        returns (uint256 revenueETH, uint256 donationETH)
+    {
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
-            // Check for the service Id existance
+            // Check for the service Id existence
             if (!IService(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
-
-            // Add a new service Id to the set of Ids if one was not currently in it
-            if (_mapServiceAmounts[serviceIds[i]] == 0) {
-                _mapServiceIndexes[serviceIds[i]] = _protocolServiceIds.length;
-                _protocolServiceIds.push(serviceIds[i]);
+            // Check for the whitelisted service owner
+            address owner = IERC721Enumerable(serviceRegistry).ownerOf(serviceIds[i]);
+            // If not, accept it as donation
+            if (!_mapServiceOwners[owner]) {
+                donationETH += amounts[i];
+            } else {
+                // Add a new service Id to the set of Ids if one was not currently in it
+                if (_mapServiceAmounts[serviceIds[i]] == 0) {
+                    _mapServiceIndexes[serviceIds[i]] = _protocolServiceIds.length;
+                    _protocolServiceIds.push(serviceIds[i]);
+                }
+                _mapServiceAmounts[serviceIds[i]] += amounts[i];
+                revenueETH += amounts[i];
             }
-            _mapServiceAmounts[serviceIds[i]] += amounts[i];
-
-            // Increase also the total service revenue
-            totalServiceRevenueETH += amounts[i];
         }
+        // Increase the total service revenue per epoch and donation balance
+        epochServiceRevenueETH += revenueETH;
+        donationBalanceETH += donationETH;
     }
 
     /// @dev Detect UniswapV2Pair
@@ -258,7 +304,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         // Clear the previous epoch profitable set of components
         delete _profitableComponentOwners;
-        delete _componentRewards;
 
         // Set of component revenues UCFa-s (eq. 3). Agent Id-s start from "1", so the index can be equal to the set size
         uint256[] memory ucfcsRev = new uint256[](numComponents + 1);
@@ -303,7 +348,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 // Increase a profitable component number
                 ++numProfitableComponents;
                 // Calculate component rewards
-                _componentRewards.push(componentRewards * ucfcsRev[componentId] / sumProfits);
+                mapOwnerRewards[owner] += componentRewards * ucfcsRev[componentId] / sumProfits;
             }
         }
 
@@ -328,7 +373,6 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         // Clear the previous epoch profitable set of agents
         delete _profitableAgentOwners;
-        delete _agentRewards;
 
         // Set of agent revenues UCFa-s (eq. 3). Agent Id-s start from "1", so the index can be equal to the set size
         uint256[] memory ucfasRev = new uint256[](numAgents + 1);
@@ -372,7 +416,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
                 // Increase a profitable agent number
                 ++numProfitableAgents;
                 // Calculate agent rewards
-                _agentRewards.push(agentRewards * ucfasRev[agentId] / sumProfits);
+                mapOwnerRewards[owner] += agentRewards * ucfasRev[agentId] / sumProfits;
             }
         }
 
@@ -439,7 +483,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             delete _mapServiceIndexes[_protocolServiceIds[i]];
         }
         delete _protocolServiceIds;
-        totalServiceRevenueETH = 0;
+        epochServiceRevenueETH = 0;
         // clean bonding data
         _bondLeft = maxBond;
         _bondPerEpoch = 0;
@@ -448,7 +492,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
     /// @notice Record global data to checkpoint, any can do it
     /// @dev Checked point exist or not 
     function checkpoint() external onlyTreasury {
-        uint256 epoch = getEpoch();
+        uint256 epoch = getCurrentEpoch();
         PointEcomonics memory lastPoint = mapEpochEconomics[epoch];
         // if not exist
         if(!lastPoint.exists) {
@@ -468,7 +512,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         // Get total amount of OLA as profits for rewards, and all the rewards categories
         // 0: total rewards, 1: treasuryRewards, 2: staterRewards, 3: componentRewards, 4: agentRewards
         uint256[] memory rewards = new uint256[](5);
-        rewards[0] = _getExchangeAmountOLA(ETH_TOKEN_ADDRESS, totalServiceRevenueETH);
+        rewards[0] = _getExchangeAmountOLA(ETH_TOKEN_ADDRESS, epochServiceRevenueETH);
         rewards[1] = rewards[0] * treasuryFraction / 100;
         rewards[2] = rewards[0] * stakerFraction / 100;
         rewards[3] = rewards[0] * componentFraction / 100;
@@ -510,7 +554,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
         _df = _calculateDFv1(_dcm);
         PointEcomonics memory newPoint = PointEcomonics(_ucf, _usf, _df, rewards[1], rewards[2],
-            rewards[3], rewards[4], block.timestamp, block.number, true);
+            rewards[3], rewards[4], donationBalanceETH, block.timestamp, block.number, true);
         mapEpochEconomics[epoch] = newPoint;
 
         _clearEpochData();
@@ -527,9 +571,8 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         uint256 df;
         PointEcomonics memory _PE;
         // avoid start checkpoint from calculatePayoutFromLP
-        uint256 epochC = epoch + 1; 
-        for (uint256 i = epochC; i > 0; i--) {
-            _PE = mapEpochEconomics[i-1];
+        for (uint256 i = epoch + 1; i > 0; i--) {
+            _PE = mapEpochEconomics[i - 1];
             // if current point undefined, so calculatePayoutFromLP called before mined tx(checkpoint)
             if(_PE.exists) {
                 df = uint256(_PE.df._x / MAGIC_DENOMINATOR);
@@ -624,16 +667,15 @@ contract Tokenomics is IErrors, IStructs, Ownable {
 
     /// @dev Get last epoch Point.
     function getLastPoint() external view returns (PointEcomonics memory _PE) {
-        uint256 epoch = getEpoch();
+        uint256 epoch = getCurrentEpoch();
         _PE = mapEpochEconomics[epoch];
     }
 
     // decode a uq112x112 into a uint with 18 decimals of precision (cycle into the past), INITIAL_DF if not exist
     function getDF(uint256 epoch) public view returns (uint256 df) {
         PointEcomonics memory _PE;
-        uint256 epochC = epoch + 1; 
-        for (uint256 i = epochC; i > 0; i--) {
-            _PE = mapEpochEconomics[i-1];
+        for (uint256 i = epoch + 1; i > 0; i--) {
+            _PE = mapEpochEconomics[i - 1];
             // if current point undefined, so getDF called before mined tx(checkpoint)
             if(_PE.exists) {
                 // https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27
@@ -656,25 +698,26 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         amountOLA = tokenAmount;
     }
 
-    function getProfitableComponents() external view
-        returns (address[] memory profitableComponentOwners, uint256[] memory componentRewards)
-    {
-        profitableComponentOwners = _profitableComponentOwners;
-        componentRewards = _componentRewards;
-    }
-
-    function getProfitableAgents() external view
-        returns (address[] memory profitableAgentOwners, uint256[] memory agentRewards)
-    {
-        profitableAgentOwners = _profitableAgentOwners;
-        agentRewards = _agentRewards;
-    }
-
     function getBondLeft() external view returns (uint256 bondLeft) {
         bondLeft = _bondLeft;
     }
 
     function getBondCurrentEpoch() external view returns (uint256 bondPerEpoch) {
         bondPerEpoch = _bondPerEpoch;
+    }
+
+    /// @dev Gets the component / agent owner reward.
+    /// @param account Account address.
+    /// @return reward Reward amount.
+    function getOwnerRewards(address account) external view returns (uint256 reward) {
+        reward = mapOwnerRewards[account];
+    }
+
+    /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
+    /// @param account Account address.
+    /// @return reward Reward amount.
+    function accountOwnerRewards(address account) external onlyDispenser returns (uint256 reward) {
+        reward = mapOwnerRewards[account];
+        mapOwnerRewards[account] = 0;
     }
 }    
