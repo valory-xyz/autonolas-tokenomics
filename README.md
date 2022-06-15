@@ -1,4 +1,4 @@
-# On-chain Protocol
+# Autonolas Tokenomics
 
 ## Introduction
 

@@ -6,7 +6,7 @@ describe("Depository LP", async () => {
     const decimals = "0".repeat(18);
     // 1 million token
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
-    // Initial mint for OLA and DAI (40,000)
+    // Initial mint for OLAS and DAI (40,000)
     const initialMint = "4" + "0".repeat(4) + decimals;
 
     const AddressZero = "0x" + "0".repeat(40);
@@ -14,16 +14,13 @@ describe("Depository LP", async () => {
 
     let deployer, alice, bob;
     let erc20Token;
-    let olaFactory;
+    let olasFactory;
     let depositoryFactory;
     let tokenomicsFactory;
-    let componentRegistry;
-    let agentRegistry;
-    let serviceRegistry;
     let router;
 
     let dai;
-    let ola;
+    let olas;
     let pairODAI;
     let depository;
     let treasury;
@@ -49,47 +46,34 @@ describe("Depository LP", async () => {
 
     beforeEach(async () => {
         [deployer, alice, bob] = await ethers.getSigners();
-        olaFactory = await ethers.getContractFactory("OLA");
+        // Note: this is not a real OLAS token, just an ERC20 mock-up
+        olasFactory = await ethers.getContractFactory("ERC20Token");
         erc20Token = await ethers.getContractFactory("ERC20Token");
         depositoryFactory = await ethers.getContractFactory("Depository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
         tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
 
-        const ComponentRegistry = await ethers.getContractFactory("ComponentRegistry");
-        componentRegistry = await ComponentRegistry.deploy("agent components", "MECHCOMP",
-            "https://localhost/component/");
-        await componentRegistry.deployed();
-
-        const AgentRegistry = await ethers.getContractFactory("AgentRegistry");
-        agentRegistry = await AgentRegistry.deploy("agent", "MECH", "https://localhost/agent/",
-            componentRegistry.address);
-        await agentRegistry.deployed();
-
-        const ServiceRegistry = await ethers.getContractFactory("ServiceRegistry");
-        serviceRegistry = await ServiceRegistry.deploy("service registry", "SERVICE", agentRegistry.address);
-        await serviceRegistry.deployed();
-
         dai = await erc20Token.deploy();
-        ola = await olaFactory.deploy(0);
+        olas = await olasFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(ola.address, deployer.address, deployer.address, deployer.address,
-            deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
+        tokenomics = await tokenomicsFactory.deploy(olas.address, deployer.address, deployer.address, deployer.address,
+            deployer.address, epochLen, AddressZero, AddressZero, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(ola.address, deployer.address, tokenomics.address, AddressZero);
+        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeRewardFraction(50, 33, 17, 0, 0);
         // Change to the correct depository address
-        depository = await depositoryFactory.deploy(ola.address, treasury.address, tokenomics.address);
+        depository = await depositoryFactory.deploy(olas.address, treasury.address, tokenomics.address);
         // Change to the correct addresses
         await treasury.changeManagers(depository.address, AddressZero, AddressZero);
         await tokenomics.changeManagers(treasury.address, depository.address, AddressZero, AddressZero);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
-        await ola.mint(deployer.address, initialMint);
-        await ola.mint(alice.address, initialMint);
-        // Change treasury address
-        await ola.changeMinter(treasury.address);
+        await olas.mint(deployer.address, initialMint);
+        await olas.mint(alice.address, initialMint);
+        // Change the minter to treasury
+        await olas.changeMinter(treasury.address);
 
         const wethFactory = await ethers.getContractFactory("WETH9");
         const weth = await wethFactory.deploy();
@@ -110,31 +94,31 @@ describe("Depository LP", async () => {
         //const COMPUTED_INIT_CODE_HASH1 = ethers.utils.keccak256(actual_bytecode1);
         //console.log("init hash:", COMPUTED_INIT_CODE_HASH1, "in UniswapV2Library :: hash:0xe9d807835bf1c75fb519759197ec594400ca78aa1d4b77743b1de676f24f8103");
            
-        //const pairODAItxReceipt = await factory.createPair(ola.address, dai.address);
-        await factory.createPair(ola.address, dai.address);
+        //const pairODAItxReceipt = await factory.createPair(olas.address, dai.address);
+        await factory.createPair(olas.address, dai.address);
         // const pairODAIdata = factory.interface.decodeFunctionData("createPair", pairODAItxReceipt.data);
-        // console.log("ola[%s]:DAI[%s] pool", pairODAIdata[0], pairODAIdata[1]); 
+        // console.log("olas[%s]:DAI[%s] pool", pairODAIdata[0], pairODAIdata[1]); 
         let pairAddress = await factory.allPairs(0);
-        // console.log("ola - DAI address:", pairAddress);
+        // console.log("olas - DAI address:", pairAddress);
         pairODAI = await ethers.getContractAt("UniswapV2Pair", pairAddress);
         // let reserves = await pairODAI.getReserves();
-        // console.log("ola - DAI reserves:", reserves.toString());
+        // console.log("olas - DAI reserves:", reserves.toString());
         // console.log("balance dai for deployer:",(await dai.balanceOf(deployer.address)));
         
         // Add liquidity
-        //const amountOLA = await ola.balanceOf(deployer.address);
+        //const amountOLA = await olas.balanceOf(deployer.address);
         const amountOLA = "5"  + "0".repeat(3) + decimals;
         const minAmountOLA =  "5" + "0".repeat(2) + decimals;
         const amountDAI = "1" + "0".repeat(4) + decimals;
         const minAmountDAI = "1" + "0".repeat(3) + decimals;
         const deadline = Date.now() + 1000;
         const toAddress = deployer.address;
-        await ola.approve(router.address, LARGE_APPROVAL);
+        await olas.approve(router.address, LARGE_APPROVAL);
         await dai.approve(router.address, LARGE_APPROVAL);
 
         await router.connect(deployer).addLiquidity(
             dai.address,
-            ola.address,
+            olas.address,
             amountDAI,
             amountOLA,
             minAmountDAI,
@@ -151,7 +135,7 @@ describe("Depository LP", async () => {
         //console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
         //console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
 
-        await ola.connect(alice).approve(depository.address, LARGE_APPROVAL);
+        await olas.connect(alice).approve(depository.address, LARGE_APPROVAL);
         await dai.connect(bob).approve(depository.address, LARGE_APPROVAL);
         await pairODAI.connect(bob).approve(depository.address, LARGE_APPROVAL);
         await dai.connect(alice).approve(depository.address, supplyProductOLA);
@@ -213,7 +197,7 @@ describe("Depository LP", async () => {
     });
 
     it("should allow a deposit", async () => {
-        await ola.approve(router.address, LARGE_APPROVAL);
+        await olas.approve(router.address, LARGE_APPROVAL);
         await dai.approve(router.address, LARGE_APPROVAL);
 
         const bamount = (await pairODAI.balanceOf(bob.address));
@@ -254,7 +238,7 @@ describe("Depository LP", async () => {
         //console.log("token1",token1.address);
         //console.log("balance0",balance0);
         //console.log("balance1",balance1);
-        //console.log("ola token",ola.address);
+        //console.log("olas token",olas.address);
         //console.log("totalSupply LP",totalSupply);
 
         // Token fractions based on the LP tokens amount and total supply
@@ -264,15 +248,15 @@ describe("Depository LP", async () => {
         //console.log("token1 amount ref LP",amount1);
 
         // This is equivalent to removing the liquidity
-        // Get the initial OLA token amounts
-        // uint256 amountOLA = (token0 == ola) ? amount0 : amount1;
-        // uint256 amountPairForOLA = (token0 == ola) ? amount1 : amount0;
+        // Get the initial OLAS token amounts
+        // uint256 amountOLA = (token0 == olas) ? amount0 : amount1;
+        // uint256 amountPairForOLA = (token0 == olas) ? amount1 : amount0;
         let amountOLA;
         let amountPairForOLA;
         let reserveIn;
         let reserveOut;
         let amountIn;
-        if(token1.address == ola.address) {
+        if(token1.address == olas.address) {
             amountOLA = amount1;
             amountPairForOLA = amount0;
         } else {
@@ -284,8 +268,8 @@ describe("Depository LP", async () => {
         //console.log("balance0",balance0);
         //console.log("balance1",balance1);
 
-        // This is the equivalent of a swap operation to calculate additional OLA
-        if(token1.address == ola.address) {
+        // This is the equivalent of a swap operation to calculate additional OLAS
+        if(token1.address == olas.address) {
             reserveIn = balance0;
             reserveOut = balance1;
             amountIn = amountPairForOLA;
@@ -329,14 +313,14 @@ describe("Depository LP", async () => {
     });
 
     it("should not redeem before vested", async () => {
-        let balance = await ola.balanceOf(bob.address);
+        let balance = await olas.balanceOf(bob.address);
         let bamount = (await pairODAI.balanceOf(bob.address)); 
         // console.log("bob LP:%s depoist:%s",bamount,amount);
         await depository
             .connect(bob)
             .deposit(pairODAI.address, bid, bamount, bob.address);
         await depository.connect(bob).redeemAll(bob.address);
-        expect(await ola.balanceOf(bob.address)).to.equal(balance);
+        expect(await olas.balanceOf(bob.address)).to.equal(balance);
     });
     // ok test 11-03-22
     it("should redeem after vested", async () => {
@@ -351,7 +335,7 @@ describe("Depository LP", async () => {
 
         await network.provider.send("evm_increaseTime", [vesting+60]);
         await depository.redeemAll(bob.address);
-        const bobBalance = Number(await ola.balanceOf(bob.address));
+        const bobBalance = Number(await olas.balanceOf(bob.address));
         expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
         expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
     });
