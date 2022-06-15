@@ -5,15 +5,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IDispenser.sol";
-import "./interfaces/IErrors.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLA.sol";
 import "./interfaces/ITokenomics.sol";
-import "./interfaces/IStructs.sol";
+import "./interfaces/IStructsTokenomics.sol";
 
 /// @title Treasury - Smart contract for managing OLA Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Treasury is IErrors, IStructs, Ownable, ReentrancyGuard  {
+contract Treasury is IErrorsTokenomics, IStructsTokenomics, Ownable, ReentrancyGuard  {
     using SafeERC20 for IERC20;
     
     event DepositLPFromDepository(address token, uint256 tokenAmount, uint256 olaMintAmount);

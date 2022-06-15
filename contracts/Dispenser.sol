@@ -6,14 +6,14 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IErrors.sol";
-import "./interfaces/IStructs.sol";
+import "./interfaces/IErrorsTokenomics.sol";
+import "./interfaces/IStructsTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is IStructs, IErrors, Ownable, Pausable, ReentrancyGuard {
+contract Dispenser is IStructsTokenomics, IErrorsTokenomics, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     event TokenomicsUpdated(address tokenomics);

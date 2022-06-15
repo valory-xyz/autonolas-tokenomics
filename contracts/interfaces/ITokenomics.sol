@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.14;
 
-import "./IStructs.sol";
+import "./IStructsTokenomics.sol";
 
 /// @dev Interface for tokenomics management.
-interface ITokenomics is IStructs {
+interface ITokenomics is IStructsTokenomics {
     /// @dev Gets the current epoch number.
     /// @return Current epoch number.
     function getCurrentEpoch() external view returns (uint256);

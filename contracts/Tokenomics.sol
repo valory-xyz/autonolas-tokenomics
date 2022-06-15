@@ -7,16 +7,16 @@ import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IOLA.sol";
-import "./interfaces/IService.sol";
+import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITreasury.sol";
-import "./interfaces/IErrors.sol";
-import "./interfaces/IStructs.sol";
+import "./interfaces/IErrorsTokenomics.sol";
+import "./interfaces/IStructsTokenomics.sol";
 import "./interfaces/IVotingEscrow.sol";
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is IErrors, IStructs, Ownable {
+contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     using FixedPoint for *;
 
     event TreasuryUpdated(address treasury);
@@ -327,7 +327,7 @@ contract Tokenomics is IErrors, IStructs, Ownable {
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
             // Check for the service Id existence
-            if (!IService(serviceRegistry).exists(serviceIds[i])) {
+            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
             // Check for the whitelisted service owner
@@ -374,9 +374,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             uint256 numServiceUnits;
             uint256[] memory unitIds;
             if (registry == componentRegistry) {
-                (numServiceUnits, unitIds) = IService(serviceRegistry).getComponentIdsOfServiceId(serviceId);
+                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getComponentIdsOfServiceId(serviceId);
             } else {
-                (numServiceUnits, unitIds) = IService(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getAgentIdsOfServiceId(serviceId);
             }
             // Add to UCFa part for each agent Id
             uint256 amount = mapServiceAmounts[serviceId];
@@ -393,9 +393,9 @@ contract Tokenomics is IErrors, IStructs, Ownable {
             uint256 numServiceUnits;
             uint256[] memory unitIds;
             if (registry == componentRegistry) {
-                (numServiceUnits, unitIds) = IService(serviceRegistry).getComponentIdsOfServiceId(serviceId);
+                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getComponentIdsOfServiceId(serviceId);
             } else {
-                (numServiceUnits, unitIds) = IService(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getAgentIdsOfServiceId(serviceId);
             }
             for (uint256 j = 0; j < numServiceUnits; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|
