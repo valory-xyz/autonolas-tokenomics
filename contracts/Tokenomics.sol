@@ -114,6 +114,9 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
+    // Max slippage 10000 = 100%
+    uint256 public constant MAXSLIPPAGE = 10_000;
+
     constructor(address _ola, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
         address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
     {
@@ -598,6 +601,51 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             amountOLA = _calculatePayoutFromLP(token, tokenAmount, 1e18 + epsilonRate);
         }
     }
+
+    /// @dev Get reserve OLA/totalSupply
+    /// @param token Token address.
+    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
+    function getCreatePrice(address token) public view
+        returns (uint256 priceLP)
+    {
+        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
+        address token0 = pair.token0();
+        address token1 = pair.token1();
+        uint112 reserve0;
+        uint112 reserve1;
+        // requires low gas
+        (reserve0, reserve1,) = pair.getReserves();
+        uint256 totalSupply = pair.totalSupply();
+        // token0 != ola ||  token1 != ola, this should never happen
+        if(token0 == ola ||  token1 == ola) {
+            // if OLAS == token0 in pair then price0 = reserve0/totalSupply else price1 = reserve1/totalSupply
+            FixedPoint.uq112x112 memory fp0 = (token0 == ola) ? FixedPoint.fraction(reserve0, totalSupply) : FixedPoint.fraction(reserve1, totalSupply);
+            // for optimization - this number does not exceed type(uint224).max
+            priceLP = fp0._x / MAGIC_DENOMINATOR;
+        }
+    }
+
+    /// @dev reserve ratio in slippage range?
+    /// @param token Token address.
+    /// @param priceLP Reserve ration by create.
+    /// @param slippage tolerance in reserve ratio %
+    /// @return True if ok
+    function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool)
+    {
+        uint256 priceLPnow = getCreatePrice(token);
+        uint256 delta = priceLP * slippage / 10000;
+        // this should never happen
+        if(priceLPnow == 0 || delta > priceLP) {
+            return false;
+        }
+        uint256 maxRange = priceLP + delta;
+        // always priceLP >= delta 
+        uint256 minRange = priceLP - delta;
+        if(priceLPnow > maxRange || priceLPnow < minRange) {
+            return false;
+        }
+        return true;
+    } 
 
     /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
     /// @param token Token address.

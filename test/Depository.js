@@ -38,6 +38,8 @@ describe("Depository LP", async () => {
     var bid = 0;
     let first;
     let id;
+    // 200 == 2%
+    let slippage = 200;
 
     /**
      * Everything in this block is only run once before all tests.
@@ -145,7 +147,8 @@ describe("Depository LP", async () => {
         await depository.create(
             pairODAI.address,
             supplyProductOLA,
-            vesting
+            vesting,
+            slippage
         );
         
         const block = await ethers.provider.getBlock("latest");
@@ -171,7 +174,8 @@ describe("Depository LP", async () => {
         await depository.create(
             pairODAI.address,
             supplyProductOLA,
-            vesting
+            vesting,
+            slippage
         );
         let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
         expect(Number(first)).to.equal(0);
@@ -183,7 +187,8 @@ describe("Depository LP", async () => {
         await depository.create(
             pairODAI.address,
             supplyProductOLA,
-            vesting
+            vesting,
+            slippage
         );
         // close the first bond
         await depository.close(pairODAI.address, 0);

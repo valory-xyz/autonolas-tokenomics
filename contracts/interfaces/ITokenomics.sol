@@ -46,4 +46,17 @@ interface ITokenomics is IStructsTokenomics {
     /// @param amount Amount of requested OLA tokens to mint.
     /// @return True if the mint is allowed.
     function isAllowedMint(uint256 amount) external returns (bool);
+
+
+    /// @dev check reserve ratio in slippage range
+    /// @param token Token address.
+    /// @param priceLP Reserve ration by create.
+    /// @param slippage tolerance in reserve ratio %
+    /// @return True if ok
+    function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool);
+
+    /// @dev Get reserveX/reserveY at the time of product creation
+    /// @param token Token address.
+    /// @return priceLP Resulting reserve ratio.
+    function getCreatePrice(address token) external view returns (uint256 priceLP);
 }

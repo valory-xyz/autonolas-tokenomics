@@ -165,6 +165,13 @@ interface IErrorsTokenomics {
     /// @param actual Actual supply left.
     error ProductSupplyLow(address tokenAddress, uint256 productId, uint256 requested, uint256 actual);
 
+    /// @dev The product supply is low for the requested payout.
+    /// @param tokenAddress Address of a token.
+    /// @param productId Product Id.
+    /// @param slippage Tolerance.
+    error ProductSlippageOverflow(address tokenAddress, uint256 productId, uint256 slippage);
+
+
     /// @dev Minting is rejected due to the requested amount bigger than the current inflation policy cap.
     /// @param amount Amount of tokens to mint.
     error MintRejectedByInflationPolicy(uint256 amount);
