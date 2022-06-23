@@ -8,6 +8,8 @@ import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
+import "hardhat/console.sol";
+
 /// @title Bond Depository - Smart contract for OLA Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -88,7 +90,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         }
     }
 
-    /// @dev Deposits tokens in exchange for a bond from a specified product.
+    /// @dev Deposits tokens in exchange for a bond from a specified product with slippage cheking.
     /// @param token Token address.
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
@@ -117,7 +119,71 @@ contract Depository is IErrorsTokenomics, Ownable {
 
         // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
-        
+
+        // Check for the sufficient supply
+        if (payout > product.supply) {
+            revert ProductSupplyLow(token, productId, payout, product.supply);
+        }
+
+        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLA tokens
+        product.supply -= payout;
+        product.purchased += tokenAmount;
+        product.sold += payout;
+
+        numBonds = mapUserBonds[user].length;
+        expiry = product.expiry;
+
+        // Create and add a new bond
+        mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
+        emit CreateBond(productId, payout, tokenAmount);
+
+        // Take into account this bond in current epoch
+        ITokenomics(tokenomics).usedBond(payout);
+
+        // Uniswap allowance implementation does not revert with the accurate message, check before SafeMath is engaged
+        if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
+            revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
+        }
+        // Transfer tokens to the depository
+        IERC20(product.token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        // Approve treasury for the specified token amount
+        IERC20(product.token).approve(treasury, tokenAmount);
+        // Deposit that token amount to mint OLA tokens in exchange
+        ITreasury(treasury).depositTokenForOLA(tokenAmount, address(product.token), payout);
+    }
+
+    /// @dev Deposits tokens in exchange for a bond from a specified product. As in main branch with debug
+    /// @param token Token address.
+    /// @param productId Product Id.
+    /// @param tokenAmount Token amount to deposit for the bond.
+    /// @param user Address of a payout recipient.
+    /// @return payout The amount of OLA tokens due.
+    /// @return expiry Timestamp for payout redemption.
+    /// @return numBonds Number of user bonds.
+    function depositOriginal(address token, uint256 productId, uint256 tokenAmount, address user) external
+        returns (uint256 payout, uint256 expiry, uint256 numBonds)
+    {
+        Product storage product = mapTokenProducts[token][productId];
+        // Check for the correctly provided token in the product
+        if (token != address(product.token)) {
+            revert WrongTokenAddress(token, address(product.token));
+        }
+
+        // Check for the product expiry
+        uint256 currentTime = uint256(block.timestamp);
+        if (currentTime > product.expiry) {
+            revert ProductExpired(token, productId, product.expiry, currentTime);
+        }
+
+        // No slippage check here
+
+
+        // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
+
+        console.log("deposit :: payout",payout);
+        console.log("deposit :: product.supply",product.supply);
+
         // Check for the sufficient supply
         if (payout > product.supply) {
             revert ProductSupplyLow(token, productId, payout, product.supply);
