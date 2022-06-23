@@ -616,7 +616,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         // requires low gas
         (reserve0, reserve1,) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
-        // token0 != ola ||  token1 != ola, this should never happen
+        // token0 != ola &&  token1 != ola, this should never happen
         if(token0 == ola ||  token1 == ola) {
             // if OLAS == token0 in pair then price0 = reserve0/totalSupply else price1 = reserve1/totalSupply
             FixedPoint.uq112x112 memory fp0 = (token0 == ola) ? FixedPoint.fraction(reserve0, totalSupply) : FixedPoint.fraction(reserve1, totalSupply);
