@@ -534,13 +534,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         PointUnits memory ucfa;
         if (rewards[0] > 0) {
             // Calculate total UCFc
-            uint256 numComponents = IERC721Enumerable(componentRegistry).totalSupply();
-            // TODO If there are no components, all their part of rewards go to treasury
-            if (numComponents == 0) {
-                rewards[1] += rewards[3];
-            } else {
-                ucfc = _calculateUnitTokenomics(componentRegistry, rewards[3], rewards[5]);
-            }
+            ucfc = _calculateUnitTokenomics(componentRegistry, rewards[3], rewards[5]);
             ucfc.ucfWeight = ucfcWeight;
             ucfc.unitWeight = componentWeight;
 
