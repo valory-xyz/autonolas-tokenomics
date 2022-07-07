@@ -372,12 +372,14 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
             uint256 numServiceUnits;
-            uint256[] memory unitIds;
+            uint32[] memory unitIds;
+            IServiceTokenomics.UnitType unitType;
             if (registry == componentRegistry) {
-                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getComponentIdsOfServiceId(serviceId);
+                unitType = IServiceTokenomics.UnitType.Component;
             } else {
-                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+                unitType = IServiceTokenomics.UnitType.Agent;
             }
+            (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             // Add to UCFa part for each agent Id
             uint256 amount = mapServiceAmounts[serviceId];
             for (uint256 j = 0; j < numServiceUnits; ++j) {
@@ -391,12 +393,14 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
             uint256 numServiceUnits;
-            uint256[] memory unitIds;
+            uint32[] memory unitIds;
+            IServiceTokenomics.UnitType unitType;
             if (registry == componentRegistry) {
-                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getComponentIdsOfServiceId(serviceId);
+                unitType = IServiceTokenomics.UnitType.Component;
             } else {
-                (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getAgentIdsOfServiceId(serviceId);
+                unitType = IServiceTokenomics.UnitType.Agent;
             }
+            (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             for (uint256 j = 0; j < numServiceUnits; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|
                 ucfus[i] += ucfuRevs[unitIds[j]];

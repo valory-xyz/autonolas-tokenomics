@@ -3,24 +3,6 @@ pragma solidity ^0.8.14;
 
 /// @dev Interface for tokenomics structs.
 interface IStructsTokenomics {
-    // Canonical agent Id parameters
-    struct AgentParams {
-        // Number of agent instances
-        uint256 slots;
-        // Bond per agent instance
-        uint256 bond;
-    }
-
-    // Multihash according to self-describing hashes standard. For more information of multihashes please visit https://multiformats.io/multihash/
-    struct Multihash {
-        // IPFS uses a sha2-256 hashing function. Each IPFS hash has to start with 1220.
-        bytes32 hash;
-        // Code in hex for sha2-256 is 0x12
-        uint8 hashFunction;
-        // Length of the hash is 32 bytes, or 0x20 in hex
-        uint8 size;
-    }
-
     // TODO Pack these numbers into a single (double) uint256
     // Structure for component / agent tokenomics-related statistics
     struct PointUnits {
@@ -68,21 +50,5 @@ interface IStructsTokenomics {
         uint256 ts;
         // Block number
         uint256 blockNumber;
-    }
-
-    // Structure for voting escrow points
-    // The struct size is two storage slots of 2 * uint256 (128 + 128 + 64 + 64 + 128)
-    struct PointVoting {
-        // w(i) = at + b (bias)
-        int128 bias;
-        // dw / dt = a (slope)
-        int128 slope;
-        // Timestamp. It will never practically be bigger than 2^64 - 1
-        uint64 ts;
-        // Block number. It will not be bigger than the timestamp
-        uint64 blockNumber;
-        // Token amount. It will never practically be bigger. Initial OLA cap is 1 bn tokens, or 1e27.
-        // After 10 years, the inflation rate is 2% per year. It would take 1340+ years to reach 2^128 - 1
-        uint128 balance;
     }
 }
