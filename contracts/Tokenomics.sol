@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "./interfaces/IOLA.sol";
+import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IErrorsTokenomics.sol";
@@ -126,7 +126,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
-        decimalsUnit = 10 ** IOLA(_ola).decimals();
+        decimalsUnit = 10 ** IOLAS(_ola).decimals();
 
         inflationCaps = new uint[](10);
         inflationCaps[0] = 520_000_000e18;
@@ -289,7 +289,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     /// @return remainder OLA amount possible to mint.
     function _getInflationRemainderForYear() public returns (uint256 remainder) {
         // OLA token time launch
-        uint256 timeLaunch = IOLA(ola).timeLaunch();
+        uint256 timeLaunch = IOLAS(ola).timeLaunch();
         // One year of time
         uint256 oneYear = 1 days * 365;
         // Current year
@@ -300,7 +300,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             uint256 supply = IERC20(ola).totalSupply();
             remainder = inflationCaps[numYears] - supply;
         } else {
-            remainder = IOLA(ola).inflationRemainder();
+            remainder = IOLAS(ola).inflationRemainder();
         }
     }
 
@@ -350,16 +350,17 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     }
 
     /// @dev Calculates tokenomics for components / agents of protocol-owned services.
-    /// @param registry Address of a component / agent registry contract.
+    /// @param unitType Unit type as component or agent.
     /// @param unitRewards Component / agent allocated rewards.
     /// @param unitTopUps Component / agent allocated top-ups.
     /// @return ucfu Calculated UCFc / UCFa.
-    function _calculateUnitTokenomics(address registry, uint256 unitRewards, uint256 unitTopUps) private
+    function _calculateUnitTokenomics(IServiceTokenomics.UnitType unitType, uint256 unitRewards, uint256 unitTopUps) private
         returns (PointUnits memory ucfu)
     {
         uint256 numServices = protocolServiceIds.length;
 
         // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
+        address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
         ucfu.numUnits = IERC721Enumerable(registry).totalSupply();
         // Set of agent revenues UCFu-s. Agent / component Ids start from "1", so the index can be equal to the set size
         uint256[] memory ucfuRevs = new uint256[](ucfu.numUnits + 1);
@@ -373,12 +374,6 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             uint256 serviceId = protocolServiceIds[i];
             uint256 numServiceUnits;
             uint32[] memory unitIds;
-            IServiceTokenomics.UnitType unitType;
-            if (registry == componentRegistry) {
-                unitType = IServiceTokenomics.UnitType.Component;
-            } else {
-                unitType = IServiceTokenomics.UnitType.Agent;
-            }
             (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             // Add to UCFa part for each agent Id
             uint256 amount = mapServiceAmounts[serviceId];
@@ -394,12 +389,6 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             uint256 serviceId = protocolServiceIds[i];
             uint256 numServiceUnits;
             uint32[] memory unitIds;
-            IServiceTokenomics.UnitType unitType;
-            if (registry == componentRegistry) {
-                unitType = IServiceTokenomics.UnitType.Component;
-            } else {
-                unitType = IServiceTokenomics.UnitType.Agent;
-            }
             (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             for (uint256 j = 0; j < numServiceUnits; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|
@@ -421,7 +410,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
                 mapOwnerRewards[owner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
                 // Calculate OLA top-ups
                 uint256 amountOLA = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
-                if (registry == componentRegistry) {
+                if (unitType == IServiceTokenomics.UnitType.Component) {
                     amountOLA = (amountOLA * componentWeight) / (componentWeight + agentWeight);
                 } else {
                     amountOLA = (amountOLA * agentWeight)  / (componentWeight + agentWeight);
@@ -429,10 +418,10 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
                 mapOwnerTopUps[owner] += amountOLA;
 
                 // Check if the component / agent is used for the first time
-                if (registry == componentRegistry && !mapComponents[unitId]) {
+                if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
                     ucfu.numNewUnits++;
                     mapComponents[unitId] = true;
-                } else if (registry == agentRegistry && !mapAgents[unitId]){
+                } else if (unitType == IServiceTokenomics.UnitType.Agent && !mapAgents[unitId]){
                     ucfu.numNewUnits++;
                     mapAgents[unitId] = true;
                 }
@@ -495,7 +484,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     /// @dev Gets top-up value for epoch.
     /// @return topUp Top-up value.
     function getTopUpPerEpoch() public view returns (uint256 topUp) {
-        topUp = (IOLA(ola).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
+        topUp = (IOLAS(ola).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
     }
 
     /// @dev Record global data to new checkpoint
@@ -534,12 +523,12 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         PointUnits memory ucfa;
         if (rewards[0] > 0) {
             // Calculate total UCFc
-            ucfc = _calculateUnitTokenomics(componentRegistry, rewards[3], rewards[5]);
+            ucfc = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5]);
             ucfc.ucfWeight = ucfcWeight;
             ucfc.unitWeight = componentWeight;
 
             // Calculate total UCFa
-            ucfa = _calculateUnitTokenomics(agentRegistry, rewards[4], rewards[5]);
+            ucfa = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5]);
             ucfa.ucfWeight = ucfaWeight;
             ucfa.unitWeight = agentWeight;
 

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IDispenser.sol";
 import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IOLA.sol";
+import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/IStructsTokenomics.sol";
 
@@ -117,7 +117,7 @@ contract Treasury is IErrorsTokenomics, IStructsTokenomics, Ownable, ReentrancyG
         mapTokens[token].reserves += tokenAmount;
         // Mint specified number of OLA tokens corresponding to tokens bonding deposit if the amount is possible to mint
         if (ITokenomics(tokenomics).isAllowedMint(olaMintAmount)) {
-            IOLA(ola).mint(msg.sender, olaMintAmount);
+            IOLAS(ola).mint(msg.sender, olaMintAmount);
         } else {
             revert MintRejectedByInflationPolicy(olaMintAmount);
         }
@@ -263,7 +263,7 @@ contract Treasury is IErrorsTokenomics, IStructsTokenomics, Ownable, ReentrancyG
         }
         if (amountOLA > 0) {
             if (ITokenomics(tokenomics).isAllowedMint(amountOLA)) {
-                IOLA(ola).mint(dispenser, amountOLA);
+                IOLAS(ola).mint(dispenser, amountOLA);
             }
             emit TransferToDispenserOLA(amountOLA);
         }

@@ -3,7 +3,7 @@ pragma solidity ^0.8.14;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IOLA is IERC20 {
+interface IOLAS is IERC20 {
     /// @dev Mints OLA tokens.
     /// @param account Account address.
     /// @param amount OLA token amount.
