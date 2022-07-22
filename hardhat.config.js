@@ -1,9 +1,6 @@
-require("hardhat-deploy");
-require("@nomiclabs/hardhat-waffle");
-require("solidity-coverage");
-require("hardhat-gas-reporter");
-require("hardhat-contract-sizer");
-//require("@nomiclabs/hardhat-ganache");
+require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-ethers");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig

@@ -1,6 +1,7 @@
 /*global describe, beforeEach, it*/
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
+//const { helpers } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Depository LP", async () => {
     const decimals = "0".repeat(18);
@@ -214,7 +215,7 @@ describe("Depository LP", async () => {
         let amount = (await pairODAI.balanceOf(bob.address));
         await expect(
             depository.deposit(pairODAI.address, bid, amount, bob.address)
-        ).to.be.revertedWith("InsufficientAllowance");
+        ).to.be.revertedWithCustomError(depository, "InsufficientAllowance");
     });
 
     it("should not allow a deposit greater than max payout", async () => {
@@ -309,7 +310,7 @@ describe("Depository LP", async () => {
 
         await expect(
             depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
-        ).to.be.revertedWith("ProductSupplyLow");
+        ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
     });
 
     it("should not redeem before vested", async () => {
@@ -333,6 +334,7 @@ describe("Depository LP", async () => {
             .connect(bob)
             .deposit(pairODAI.address, bid, amount, bob.address);
 
+        // TODO: Change that to helpers.time.increase(vesting+60)
         await network.provider.send("evm_increaseTime", [vesting+60]);
         await depository.redeemAll(bob.address);
         const bobBalance = Number(await olas.balanceOf(bob.address));
