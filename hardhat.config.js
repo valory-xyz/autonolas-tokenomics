@@ -12,7 +12,7 @@ const accounts = {
 
 module.exports = {
     networks: {
-        ganache: {
+        local: {
             url: "http://localhost:8545",
         },
         hardhat: {
