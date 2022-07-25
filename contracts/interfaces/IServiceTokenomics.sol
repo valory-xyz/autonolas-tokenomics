@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.14;
-
-import "./IStructsTokenomics.sol";
+pragma solidity ^0.8.15;
 
 /// @dev Required interface for the service manipulation.
-interface IServiceTokenomics is IStructsTokenomics {
+interface IServiceTokenomics {
     enum UnitType {
         Component,
         Agent
