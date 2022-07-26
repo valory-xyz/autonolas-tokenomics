@@ -2,21 +2,67 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IStructsTokenomics.sol";
+import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
+
+// TODO: Optimize structs together with its variable sizes
+// Structure for component / agent tokenomics-related statistics
+struct PointUnits {
+    // Total absolute number of components / agents
+    uint256 numUnits;
+    // Number of components / agents that were part of profitable services
+    uint256 numProfitableUnits;
+    // Allocated rewards for components / agents
+    uint256 unitRewards;
+    // Cumulative UCFc-s / UCFa-s
+    uint256 ucfuSum;
+    // Coefficient weight of units for the final UCF formula, set by the government
+    uint256 ucfWeight;
+    // Number of new units
+    uint256 numNewUnits;
+    // Number of new owners
+    uint256 numNewOwners;
+    // Component / agent weight for new valuable code
+    uint256 unitWeight;
+}
+
+// Structure for tokenomics
+struct PointEcomonics {
+    // UCFc
+    PointUnits ucfc;
+    // UCFa
+    PointUnits ucfa;
+    // Discount factor
+    uint256 df;
+    // Profitable number of services
+    uint256 numServices;
+    // Treasury rewards
+    uint256 treasuryRewards;
+    // Staking rewards
+    uint256 stakerRewards;
+    // Donation in ETH
+    uint256 totalDonationETH;
+    // Top-ups for component / agent owners
+    uint256 ownerTopUps;
+    // Top-ups for stakers
+    uint256 stakerTopUps;
+    // Number of valuable devs can be paid per units of capital per epoch
+    uint256 devsPerCapital;
+    // Timestamp
+    uint256 ts;
+    // Block number
+    uint256 blockNumber;
+}
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
+contract Tokenomics is IErrorsTokenomics, Ownable {
     using FixedPoint for *;
 
     event TreasuryUpdated(address treasury);
@@ -25,8 +71,8 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     event VotingEscrowUpdated(address ve);
     event EpochLengthUpdated(uint256 epochLength);
 
-    // OLA token address
-    address public immutable ola;
+    // OLAS token address
+    address public immutable olas;
     // Treasury contract address
     address public treasury;
     // Depository contract address
@@ -45,7 +91,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
     // 2^(112 - log2(1e18))
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
-    // ~120k of OLA tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
+    // ~120k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
     uint256 public maxBond = 120_000 * 1e18;
     // TODO Decide which rate has to be put by default
     // Default epsilon rate that contributes to the interest rate: 50% or 0.5
@@ -59,7 +105,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     uint256 public agentWeight = 1;
     // Number of valuable devs can be paid per units of capital per epoch
     uint256 public devsPerCapital = 1;
-    // 10^(OLA decimals) that represent a whole unit in OLA token
+    // 10^(OLAS decimals) that represent a whole unit in OLAS token
     uint256 public immutable decimalsUnit;
 
     // Total service revenue per epoch: sum(r(s))
@@ -72,7 +118,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     uint256 public stakerFraction = 50;
     uint256 public componentFraction = 33;
     uint256 public agentFraction = 17;
-    // Top-up of OLA and bonding parameters with multiplying by 100
+    // Top-up of OLAS and bonding parameters with multiplying by 100
     uint256 public topUpOwnerFraction = 40;
     uint256 public topUpStakerFraction = 20;
 
@@ -106,18 +152,28 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
     mapping(address => uint256) public mapOwnerRewards;
-    // Mapping of owner of component / agent address => top-up amount (in OLA)
+    // Mapping of owner of component / agent address => top-up amount (in OLAS)
     mapping(address => uint256) public mapOwnerTopUps;
-    // Map of whitelisted service owners
+    // Map of whitelisted service owners for protocol-owned services
     mapping(address => bool) private _mapServiceOwners;
 
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
-    constructor(address _ola, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
+    /// @dev Tokenomics constructor.
+    /// @param _olas OLAS token address.
+    /// @param _treasury Treasury address.
+    /// @param _depository Depository address.
+    /// @param _dispenser Dispenser address.
+    /// @param _ve Voting Escrow address.
+    /// @param _epochLen Epoch length.
+    /// @param _componentRegistry Component registry address.
+    /// @param _agentRegistry Agent registry address.
+    /// @param _serviceRegistry Service registry address.
+    constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
         address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
     {
-        ola = _ola;
+        olas = _olas;
         treasury = _treasury;
         depository = _depository;
         dispenser = _dispenser;
@@ -126,7 +182,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
-        decimalsUnit = 10 ** IOLAS(_ola).decimals();
+        decimalsUnit = 10 ** IOLAS(_olas).decimals();
 
         inflationCaps = new uint[](10);
         inflationCaps[0] = 520_000_000e18;
@@ -189,12 +245,6 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         }
     }
 
-    /// @dev Gets the current epoch number.
-    /// @return Current epoch number.
-    function getCurrentEpoch() external view returns (uint256) {
-        return epochCounter;
-    }
-
     /// @dev Changes tokenomics parameters.
     /// @param _ucfcWeight UCFc weighs for the UCF contribution.
     /// @param _ucfaWeight UCFa weight for the UCF contribution.
@@ -202,10 +252,10 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     /// @param _agentWeight Agent weight for new valuable code.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
-    /// @param _maxBond MaxBond OLA, 18 decimals.
+    /// @param _maxBond MaxBond OLAS, 18 decimals.
     /// @param _epochLen New epoch length.
     /// @param _blockTimeETH Time between blocks for ETH.
-    /// @param _bondAutoControl True to enable auto-tuning of max bonding value depending on the OLA remainder
+    /// @param _bondAutoControl True to enable auto-tuning of max bonding value depending on the OLAS remainder
     function changeTokenomicsParameters(
         uint256 _ucfcWeight,
         uint256 _ucfaWeight,
@@ -235,8 +285,8 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     /// @param _stakerFraction Fraction for stakers.
     /// @param _componentFraction Fraction for component owners.
     /// @param _agentFraction Fraction for agent owners.
-    /// @param _topUpOwnerFraction Fraction for OLA top-up for component / agent owners.
-    /// @param _topUpStakerFraction Fraction for OLA top-up for stakers.
+    /// @param _topUpOwnerFraction Fraction for OLAS top-up for component / agent owners.
+    /// @param _topUpStakerFraction Fraction for OLAS top-up for stakers.
     function changeRewardFraction(
         uint256 _stakerFraction,
         uint256 _componentFraction,
@@ -249,7 +299,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             revert WrongAmount(_stakerFraction + _componentFraction + _agentFraction, 100);
         }
 
-        // Same check for OLA-related fractions
+        // Same check for OLAS-related fractions
         if (_topUpOwnerFraction + _topUpStakerFraction > 100) {
             revert WrongAmount(_topUpOwnerFraction + _topUpStakerFraction, 100);
         }
@@ -262,6 +312,9 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         topUpStakerFraction = _topUpStakerFraction;
     }
 
+    /// @dev (De-)whitelists service owners for protocol-owned services.
+    /// @param accounts Set of account addresses.
+    /// @param permissions Set of corresponding permissions for each account address.
     function changeServiceOwnerWhiteList(address[] memory accounts, bool[] memory permissions) external onlyOwner {
         uint256 numAccounts = accounts.length;
         // Check the array size
@@ -273,8 +326,8 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         }
     }
 
-    /// @dev Checks for the OLA minting ability WRT the inflation schedule.
-    /// @param amount Amount of requested OLA tokens to mint.
+    /// @dev Checks for the OLAS minting ability WRT the inflation schedule.
+    /// @param amount Amount of requested OLAS tokens to mint.
     /// @return True if the mint is allowed.
     function isAllowedMint(uint256 amount) public returns (bool) {
         uint256 remainder = _getInflationRemainderForYear();
@@ -285,27 +338,29 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         return true;
     }
 
-    /// @dev Gets remainder of possible OLA allocation for the current year.
-    /// @return remainder OLA amount possible to mint.
-    function _getInflationRemainderForYear() public returns (uint256 remainder) {
-        // OLA token time launch
-        uint256 timeLaunch = IOLAS(ola).timeLaunch();
+    /// @dev Gets remainder of possible OLAS allocation for the current year.
+    /// @return remainder OLAS amount possible to mint.
+    function _getInflationRemainderForYear() internal returns (uint256 remainder) {
+        // OLAS token time launch
+        uint256 timeLaunch = IOLAS(olas).timeLaunch();
         // One year of time
         uint256 oneYear = 1 days * 365;
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
         // For the first 10 years we check the inflation cap that is pre-defined
         if (numYears < 10) {
-            // OLA token supply to-date
-            uint256 supply = IERC20(ola).totalSupply();
+            // OLAS token supply to-date
+            uint256 supply = IToken(olas).totalSupply();
             remainder = inflationCaps[numYears] - supply;
         } else {
-            remainder = IOLAS(ola).inflationRemainder();
+            remainder = IOLAS(olas).inflationRemainder();
         }
     }
 
-    /// @dev take into account the bonding program in this epoch. 
-    /// @dev programs exceeding the limit in the epoch are not allowed
+    /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
+    /// @notice Programs exceeding the limit in the epoch are not allowed.
+    /// @param amount Requested amount for the bond program.
+    /// @return True if effective bond threshold is not reached.
     function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
         if(effectiveBond >= amount && isAllowedMint(amount)) {
             effectiveBond -= amount;
@@ -314,13 +369,16 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         return false;
     }
 
-    /// @dev take into account materialization OLA per Depository.deposit() for currents program
+    /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
+    /// @param payout Payout amount for the LP pair.
     function usedBond(uint256 payout) external onlyDepository {
         bondPerEpoch += payout;
     }
 
-    /// @dev Tracks the deposit token amount during the epoch.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) public onlyTreasury
+    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @param serviceIds Set of service Ids.
+    /// @param amounts Correspondent set of ETH amounts provided by services.
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external onlyTreasury
         returns (uint256 revenueETH, uint256 donationETH)
     {
         // Loop over service Ids and track their amounts
@@ -331,7 +389,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
             // Check for the whitelisted service owner
-            address owner = IERC721Enumerable(serviceRegistry).ownerOf(serviceIds[i]);
+            address owner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
             // If not, accept it as donation
             if (!_mapServiceOwners[owner]) {
                 donationETH += amounts[i];
@@ -361,7 +419,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
 
         // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
         address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
-        ucfu.numUnits = IERC721Enumerable(registry).totalSupply();
+        ucfu.numUnits = IToken(registry).totalSupply();
         // Set of agent revenues UCFu-s. Agent / component Ids start from "1", so the index can be equal to the set size
         uint256[] memory ucfuRevs = new uint256[](ucfu.numUnits + 1);
         // Set of agent revenues UCFu-s divided by the cardinality of agent Ids in each service
@@ -400,22 +458,23 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         // Calculate component / agent related values
         for (uint256 i = 0; i < ucfu.numUnits; ++i) {
             // Get the agent Id from the index list
-            uint256 unitId = IERC721Enumerable(registry).tokenByIndex(i);
+            // For our architecture it's the identity function (see tokenByIndex() in autonolas-registries)
+            uint256 unitId = i + 1;
             if (ucfuRevs[unitId] > 0) {
                 // Add address of a profitable component owner
-                address owner = IERC721Enumerable(registry).ownerOf(unitId);
+                address owner = IToken(registry).ownerOf(unitId);
                 // Increase a profitable agent number
                 ++ucfu.numProfitableUnits;
                 // Calculate agent rewards in ETH
                 mapOwnerRewards[owner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
-                // Calculate OLA top-ups
-                uint256 amountOLA = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
+                // Calculate OLAS top-ups
+                uint256 amountOLAS = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
                 if (unitType == IServiceTokenomics.UnitType.Component) {
-                    amountOLA = (amountOLA * componentWeight) / (componentWeight + agentWeight);
+                    amountOLAS = (amountOLAS * componentWeight) / (componentWeight + agentWeight);
                 } else {
-                    amountOLA = (amountOLA * agentWeight)  / (componentWeight + agentWeight);
+                    amountOLAS = (amountOLAS * agentWeight)  / (componentWeight + agentWeight);
                 }
-                mapOwnerTopUps[owner] += amountOLA;
+                mapOwnerTopUps[owner] += amountOLAS;
 
                 // Check if the component / agent is used for the first time
                 if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
@@ -483,13 +542,13 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
 
     /// @dev Gets top-up value for epoch.
     /// @return topUp Top-up value.
-    function getTopUpPerEpoch() public view returns (uint256 topUp) {
-        topUp = (IOLAS(ola).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
+    function getTopUpPerEpoch() external view returns (uint256 topUp) {
+        topUp = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
     }
 
     /// @dev Record global data to new checkpoint
     function _checkpoint() internal {
-        // Get total amount of OLA as profits for rewards, and all the rewards categories
+        // Get total amount of OLAS as profits for rewards, and all the rewards categories
         // 0: total rewards, 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         // 5: topUpOwnerFraction, 6: topUpStakerFraction, 7: bondFraction
         uint256[] memory rewards = new uint256[](8);
@@ -499,8 +558,8 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         rewards[4] = rewards[0] * agentFraction / 100;
         rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
-        // Top-ups and bonding possibility in OLA are recalculated based on the inflation schedule per epoch
-        uint256 totalTopUps = getTopUpPerEpoch();
+        // Top-ups and bonding possibility in OLAS are recalculated based on the inflation schedule per epoch
+        uint256 totalTopUps = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
         rewards[5] = totalTopUps * topUpOwnerFraction / 100;
         rewards[6] = totalTopUps * topUpStakerFraction / 100;
         rewards[7] = totalTopUps - rewards[5] - rewards[6];
@@ -537,7 +596,7 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
             uint256 newOwners = ucfc.numNewOwners + ucfa.numNewOwners;
             //  f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
-            //  Convert amount of tokens with OLA decimals (18 by default) to fixed point x.x
+            //  Convert amount of tokens with OLAS decimals (18 by default) to fixed point x.x
             FixedPoint.uq112x112 memory fp1 = FixedPoint.fraction(rewards[1], decimalsUnit);
             // For consistency multiplication with fp1
             FixedPoint.uq112x112 memory fp2 = FixedPoint.fraction(codeUnits * devsPerCapital, 1);
@@ -571,26 +630,27 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         _clearEpochData();
     }
 
-    /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation). Any can do it
+    // TODO: Specify the doc mentioned below
+    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
     /// @param token Token address.
     /// @param tokenAmount Token amount.
-    /// @return amountOLA Resulting amount of OLA tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount) external view returns (uint256 amountOLA)
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutFromLP(address token, uint256 tokenAmount) external view returns (uint256 amountOLAS)
     {
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         if(pe.df > 0) {
-            amountOLA = _calculatePayoutFromLP(token, tokenAmount, pe.df);
+            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, pe.df);
         } else {
             // if df is undefined
-            amountOLA = _calculatePayoutFromLP(token, tokenAmount, 1e18 + epsilonRate);
+            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, 1e18 + epsilonRate);
         }
     }
 
-    /// @dev Calculates the amount of OLA tokens based on LP (see the doc for explanation of price computation).
+    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
     /// @param token Token address.
     /// @param amount Token amount.
     /// @param df Discount
-    /// @return resAmount Resulting amount of OLA tokens.
+    /// @return resAmount Resulting amount of OLAS tokens.
     function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
         returns (uint256 resAmount)
     {
@@ -598,8 +658,8 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = pair.token0();
         address token1 = pair.token1();
-        uint256 balance0 = IERC20(token0).balanceOf(address(pair));
-        uint256 balance1 = IERC20(token1).balanceOf(address(pair));
+        uint256 balance0 = IToken(token0).balanceOf(address(pair));
+        uint256 balance1 = IToken(token1).balanceOf(address(pair));
         uint256 totalSupply = pair.totalSupply();
 
         // Using balances ensures pro-rate distribution
@@ -609,24 +669,24 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
         require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
         require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
 
-        // Get the initial OLA token amounts
-        uint256 amountOLA = (token0 == ola) ? amount0 : amount1;
-        uint256 amountPairForOLA = (token0 == ola) ? amount1 : amount0;
+        // Get the initial OLAS token amounts
+        uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
+        uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
 
-        // Calculate swap tokens from the LP back to the OLA token
+        // Calculate swap tokens from the LP back to the OLAS token
         balance0 -= amount0;
         balance1 -= amount1;
-        uint256 reserveIn = (token0 == ola) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == ola) ? balance0 : balance1;
+        uint256 reserveIn = (token0 == olas) ? balance1 : balance0;
+        uint256 reserveOut = (token0 == olas) ? balance0 : balance1;
         
-        amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+        amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
-        // Get the resulting amount in OLA tokens
-        resAmount = (amountOLA * df) / 1e18; // df with decimals 18
+        // Get the resulting amount in OLAS tokens
+        resAmount = (amountOLAS * df) / 1e18; // df with decimals 18
 
         // The discounted amount cannot be smaller than the actual one
-        if (resAmount < amountOLA) {
-            revert AmountLowerThan(resAmount, amountOLA);
+        if (resAmount < amountOLAS) {
+            revert AmountLowerThan(resAmount, amountOLAS);
         }
     }
 
@@ -635,11 +695,11 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     // forked for Solidity 8.x
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
 
-    /// @dev Gets the additional OLA amount from the LP pair token by swapping.
-    /// @param amountIn Initial OLA token amount.
-    /// @param reserveIn Token amount that is not OLA.
-    /// @param reserveOut Token amount in OLA wit fees.
-    /// @return amountOut Resulting OLA amount.
+    /// @dev Gets the additional OLAS amount from the LP pair token by swapping.
+    /// @param amountIn Initial OLAS token amount.
+    /// @param reserveIn Token amount that is not OLAS.
+    /// @param reserveOut Token amount in OLAS wit fees.
+    /// @return amountOut Resulting OLAS amount.
     function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
         returns (uint256 amountOut)
     {
@@ -691,13 +751,24 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     /// @dev get Point by epoch
     /// @param epoch number of a epoch
     /// @return pe raw point
-    function getPoint(uint256 epoch) public view returns (PointEcomonics memory pe) {
+    function getPoint(uint256 epoch) external view returns (PointEcomonics memory pe) {
         pe = mapEpochEconomics[epoch];
     }
 
-    /// @dev Get last epoch Point.
+    /// @dev Gets last epoch Point.
     function getLastPoint() external view returns (PointEcomonics memory pe) {
         pe = mapEpochEconomics[epochCounter - 1];
+    }
+
+    /// @dev Gets rewards data of the last epoch.
+    /// @return treasuryRewards Treasury rewards.
+    /// @return accountRewards Cumulative staker, component and agent rewards.
+    /// @return accountTopUps Cumulative staker, component and agent top-ups.
+    function getRewardsData() external returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps) {
+        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
+        treasuryRewards = pe.treasuryRewards;
+        accountRewards = pe.stakerRewards + pe.ucfc.unitRewards + pe.ucfa.unitRewards;
+        accountTopUps = pe.ownerTopUps + pe.stakerTopUps;
     }
 
     /// @dev Gets discount factor.
@@ -714,12 +785,15 @@ contract Tokenomics is IErrorsTokenomics, IStructsTokenomics, Ownable {
     }
 
     /// @dev Sums two fixed points.
+    /// @param x Point x.
+    /// @param y Point y.
+    /// @return r Result of x + y.
     function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure
         returns (FixedPoint.uq112x112 memory r)
     {
         uint224 z = x._x + y._x;
-        if(x._x > 0 && y._x > 0) assert(z > x._x && z > y._x);
-        return FixedPoint.uq112x112(uint224(z));
+        if (x._x > 0 && y._x > 0) assert (z > x._x && z > y._x);
+        r = FixedPoint.uq112x112(uint224(z));
     }
 
     /// @dev Calculated UCF of a specified epoch.
