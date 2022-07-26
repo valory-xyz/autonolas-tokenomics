@@ -62,7 +62,7 @@ describe("Treasury", async () => {
         // Deposit 10,000 DAI to treasury,  1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
         await treasury
             .connect(deployer)
-            .depositTokenForOLA("10000000000000000000000", dai.address, "1000000000000000000000");
+            .depositTokenForOLAS("10000000000000000000000", dai.address, "1000000000000000000000");
     });
 
     it("Deposit", async () => {

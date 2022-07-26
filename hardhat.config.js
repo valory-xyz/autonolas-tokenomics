@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
+require("hardhat-gas-reporter");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -11,6 +12,9 @@ const accounts = {
 };
 
 module.exports = {
+    gasReporter: {
+        enabled: true
+    },
     networks: {
         local: {
             url: "http://localhost:8545",

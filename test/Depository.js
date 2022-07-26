@@ -297,7 +297,7 @@ describe("Depository LP", async () => {
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amount);
 
         // Gets DF
-        let lastEpoch = await tokenomics.getCurrentEpoch() - 1;
+        let lastEpoch = await tokenomics.epochCounter() - 1;
         const df = await tokenomics.getDF(lastEpoch);
 
         // Payouts with direct calculation and via DF must be equal
