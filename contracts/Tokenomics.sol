@@ -764,7 +764,9 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @return treasuryRewards Treasury rewards.
     /// @return accountRewards Cumulative staker, component and agent rewards.
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
-    function getRewardsData() external returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps) {
+    function getRewardsData() external view
+        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps)
+    {
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         treasuryRewards = pe.treasuryRewards;
         accountRewards = pe.stakerRewards + pe.ucfc.unitRewards + pe.ucfa.unitRewards;
