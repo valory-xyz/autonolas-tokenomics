@@ -134,7 +134,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Agent Registry
     address public immutable agentRegistry;
     // Service Registry
-    address payable public immutable serviceRegistry;
+    address public immutable serviceRegistry;
 
     // Inflation caps for the first ten years
     uint256[] public inflationCaps;
@@ -171,7 +171,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
-        address _componentRegistry, address _agentRegistry, address payable _serviceRegistry)
+        address _componentRegistry, address _agentRegistry, address _serviceRegistry)
     {
         olas = _olas;
         treasury = _treasury;

@@ -11,13 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository and submodules
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: recursive
 
       # Install modules
       - name: Install modules
         run: yarn install
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
 
       # Run linters
       - name: Run ESLint
@@ -29,9 +34,13 @@ jobs:
       - name: Compile, adjust uniswap library hash and recompile again
         run: npm run compile
 
-      # Compile the code and run tests and deploy script(s)
-      - name: Run tests
+      # Compile the code and run hardhat tests
+      - name: Run hardhat tests
         run: ./node_modules/.bin/hardhat test
+
+      # Compile the code and run foundry tests
+      - name: Run foundry tests
+        run: forge test --hh -vvv
 
       # Run hardhat coverage and upload codecov report
       - name: Remove depository lp coverage for now due to the Uniswap issue
