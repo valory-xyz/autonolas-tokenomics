@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.14;
+pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITreasury.sol";
@@ -10,20 +9,21 @@ import "./interfaces/ITokenomics.sol";
 
 import "hardhat/console.sol";
 
-/// @title Bond Depository - Smart contract for OLA Bond Depository
+/// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Depository is IErrorsTokenomics, Ownable {
+    // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
-    event CreateBond(uint256 productId, uint256 amountOLA, uint256 tokenAmount);
+    event CreateBond(uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address token, uint256 productId, uint256 supply);
     event TerminateProduct(address token, uint256 productId);
     event TreasuryUpdated(address treasury);
     event TokenomicsUpdated(address tokenomics);
 
     struct Bond {
-        // OLA remaining to be paid out
+        // OLAS remaining to be paid out
         uint256 payout;
         // Bond creation time
         uint256 creation;
@@ -38,7 +38,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     struct Product {
         // Token to accept as a payment
         address token;
-        // Supply remaining in OLA tokens
+        // Supply remaining in OLAS tokens
         uint256 supply;
         // Vesting time in sec
         uint256 vesting;
@@ -46,7 +46,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         uint256 expiry;
         // Number of specified tokens purchased
         uint256 purchased;
-        // Number of OLA tokens sold
+        // Number of OLAS tokens sold
         uint256 sold;
         // Slippage < MAXSLIPPAGE
         // for possible optimization - this number does not exceed type(uint16).max
@@ -56,8 +56,8 @@ contract Depository is IErrorsTokenomics, Ownable {
         uint256 priceLP;
     }
 
-    // OLA token address
-    address public immutable ola;
+    // OLAS token address
+    address public immutable olas;
     // Treasury address
     address public treasury;
     // Tokenomics address
@@ -70,8 +70,12 @@ contract Depository is IErrorsTokenomics, Ownable {
     // Max slippage 10000 = 100%
     uint256 public constant MAXSLIPPAGE = 10_000;
 
-    constructor(address _ola, address _treasury, address _tokenomics) {
-        ola = _ola;
+    /// @dev Depository constructor.
+    /// @param _olas OLAS token address.
+    /// @param _treasury Treasury address.
+    /// @param _tokenomics Tokenomics address.
+    constructor(address _olas, address _treasury, address _tokenomics) {
+        olas = _olas;
         treasury = _treasury;
         tokenomics = _tokenomics;
     }
@@ -95,7 +99,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
     /// @param user Address of a payout recipient.
-    /// @return payout The amount of OLA tokens due.
+    /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return numBonds Number of user bonds.
     function deposit(address token, uint256 productId, uint256 tokenAmount, address user) external
@@ -116,8 +120,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         if(!ITokenomics(tokenomics).slippageIsOK(token, product.priceLP, product.slippage)) {
             revert ProductSlippageOverflow(token, productId, product.slippage);
         }
-
-        // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
+        // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
 
         // Check for the sufficient supply
@@ -125,7 +128,7 @@ contract Depository is IErrorsTokenomics, Ownable {
             revert ProductSupplyLow(token, productId, payout, product.supply);
         }
 
-        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLA tokens
+        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
         product.supply -= payout;
         product.purchased += tokenAmount;
         product.sold += payout;
@@ -148,8 +151,8 @@ contract Depository is IErrorsTokenomics, Ownable {
         IERC20(product.token).safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
         IERC20(product.token).approve(treasury, tokenAmount);
-        // Deposit that token amount to mint OLA tokens in exchange
-        ITreasury(treasury).depositTokenForOLA(tokenAmount, address(product.token), payout);
+        // Deposit that token amount to mint OLAS tokens in exchange
+        ITreasury(treasury).depositTokenForOLAS(tokenAmount, address(product.token), payout);
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product. As in main branch with debug
@@ -157,7 +160,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
     /// @param user Address of a payout recipient.
-    /// @return payout The amount of OLA tokens due.
+    /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return numBonds Number of user bonds.
     function depositOriginal(address token, uint256 productId, uint256 tokenAmount, address user) external
@@ -178,7 +181,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         // No slippage check here
 
 
-        // Calculate the payout in OLA tokens based on the LP pair with the discount factor (DF) calculation
+        // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
 
         console.log("deposit :: payout",payout);
@@ -189,7 +192,7 @@ contract Depository is IErrorsTokenomics, Ownable {
             revert ProductSupplyLow(token, productId, payout, product.supply);
         }
 
-        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLA tokens
+        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
         product.supply -= payout;
         product.purchased += tokenAmount;
         product.sold += payout;
@@ -212,14 +215,14 @@ contract Depository is IErrorsTokenomics, Ownable {
         IERC20(product.token).safeTransferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
         IERC20(product.token).approve(treasury, tokenAmount);
-        // Deposit that token amount to mint OLA tokens in exchange
-        ITreasury(treasury).depositTokenForOLA(tokenAmount, address(product.token), payout);
+        // Deposit that token amount to mint OLAS tokens in exchange
+        ITreasury(treasury).depositTokenForOLAS(tokenAmount, address(product.token), payout);
     }
 
     /// @dev Redeem bonds for the user.
     /// @param user Address of a payout recipient.
     /// @param indexes Bond indexes to redeem.
-    /// @return payout Total payout sent in OLA tokens.
+    /// @return payout Total payout sent in OLAS tokens.
     function redeem(address user, uint256[] memory indexes) public returns (uint256 payout) {
         for (uint256 i = 0; i < indexes.length; i++) {
             // Get the amount to pay and the maturity status
@@ -231,13 +234,13 @@ contract Depository is IErrorsTokenomics, Ownable {
                 payout += pay;
             }
         }
-        // No reentrancy risk here since it's the last operation, and originated from the OLA token
-        IERC20(ola).transfer(user, payout);
+        // No reentrancy risk here since it's the last operation, and originated from the OLAS token
+        IERC20(olas).transfer(user, payout);
     }
 
     /// @dev Redeems all redeemable products for a user. Best to query off-chain and input in redeem() to save gas.
     /// @param user Address of the user to redeem all bonds for.
-    /// @return payout Total payout sent in OLA tokens.
+    /// @return payout Total payout sent in OLAS tokens.
     function redeemAll(address user) external returns (uint256 payout) {
         payout = redeem(user, getPendingBonds(user));
     }
@@ -273,7 +276,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @dev Calculates the maturity and payout to claim for a single bond.
     /// @param user Address of a payout recipient.
     /// @param index The user bond index.
-    /// @return payout The payout amount in OLA.
+    /// @return payout The payout amount in OLAS.
     /// @return matured True if the payout can be redeemed.
     function getBondStatus(address user, uint256 index) public view returns (uint256 payout, bool matured) {
         Bond memory bond = mapUserBonds[user][index];
@@ -282,8 +285,8 @@ contract Depository is IErrorsTokenomics, Ownable {
     }
 
     /// @dev Creates a new bond product.
-    /// @param token LP token to be deposited for pairs like OLA-DAI, OLA-ETH, etc.
-    /// @param supply Supply in OLA tokens.
+    /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
+    /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @param slippage Parts per 10,000 i.e. 185 == 1.85%. ToDo: optimizing storage
     /// @return productId New bond product Id.
@@ -363,7 +366,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param token Token address.
     /// @param productId Product Id.
     /// @return Product instance.
-    function getProduct(address token, uint256 productId) public view returns (Product memory) {
+    function getProduct(address token, uint256 productId) external view returns (Product memory) {
         return mapTokenProducts[token][productId];
     }
 }

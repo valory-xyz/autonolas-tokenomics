@@ -1,6 +1,7 @@
 /*global describe, beforeEach, it*/
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
+//const { helpers } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Depository LP", async () => {
     const decimals = "0".repeat(18);
@@ -120,8 +121,8 @@ describe("Depository LP", async () => {
         // console.log("balance dai for deployer:",(await dai.balanceOf(deployer.address)));
         
         // Add liquidity
-        //const amountOLA = await olas.balanceOf(deployer.address);
-        const amountOLA = "5"  + "0".repeat(3) + decimals;
+        //const amountOLAS = await olas.balanceOf(deployer.address);
+        const amountOLAS = "5"  + "0".repeat(3) + decimals;
         const minAmountOLA =  "5" + "0".repeat(2) + decimals;
         const amountDAI = "1" + "0".repeat(4) + decimals;
         const minAmountDAI = "1" + "0".repeat(3) + decimals;
@@ -134,7 +135,7 @@ describe("Depository LP", async () => {
             dai.address,
             olas.address,
             amountDAI,
-            amountOLA,
+            amountOLAS,
             minAmountDAI,
             minAmountOLA,
             toAddress,
@@ -233,7 +234,7 @@ describe("Depository LP", async () => {
         let amount = (await pairODAI.balanceOf(bob.address));
         await expect(
             depository.deposit(pairODAI.address, bid, amount, bob.address)
-        ).to.be.revertedWith("InsufficientAllowance");
+        ).to.be.revertedWithCustomError(depository, "InsufficientAllowance");
     });
 
     it("should not allow a deposit greater than max payout", async () => {
@@ -268,19 +269,19 @@ describe("Depository LP", async () => {
 
         // This is equivalent to removing the liquidity
         // Get the initial OLAS token amounts
-        // uint256 amountOLA = (token0 == olas) ? amount0 : amount1;
-        // uint256 amountPairForOLA = (token0 == olas) ? amount1 : amount0;
-        let amountOLA;
-        let amountPairForOLA;
+        // uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
+        // uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
+        let amountOLAS;
+        let amountPairForOLAS;
         let reserveIn;
         let reserveOut;
         let amountIn;
         if(token1.address == olas.address) {
-            amountOLA = amount1;
-            amountPairForOLA = amount0;
+            amountOLAS = amount1;
+            amountPairForOLAS = amount0;
         } else {
-            amountOLA = amount0;
-            amountPairForOLA = amount1;
+            amountOLAS = amount0;
+            amountPairForOLAS = amount1;
         }
         balance0 = balance0.sub(amount0);
         balance1 = balance1.sub(amount1);
@@ -291,14 +292,14 @@ describe("Depository LP", async () => {
         if(token1.address == olas.address) {
             reserveIn = balance0;
             reserveOut = balance1;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         } else {
             reserveIn = balance1;
             reserveOut = balance0;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         }
         //console.log("amountIn",amountIn);
-        // amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+        // amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
         // We use this tutorial to correctly calculate the in-out amounts:
         // https://ethereum.org/en/developers/tutorials/uniswap-v2-annotated-code/#why-v2
@@ -306,22 +307,22 @@ describe("Depository LP", async () => {
         const numerator = amountInWithFee.div(reserveOut);
         const denominator = (reserveIn.mul(1000)).add(amountInWithFee);
         const amountOut = numerator.div(denominator);
-        amountOLA = amountOLA.add(amountOut);
+        amountOLAS = amountOLAS.add(amountOut);
         //console.log("amountInWithFee",amountInWithFee);
         //console.log("numerator",numerator);
         //console.log("denominator",denominator);
         //console.log("delta amountOut:",amountOut);
-        //console.log("sutotal amountOLA:",amountOLA);
+        //console.log("sutotal amountOLAS:",amountOLAS);
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amount);
 
         // Gets DF
-        let lastEpoch = await tokenomics.getCurrentEpoch() - 1;
+        let lastEpoch = await tokenomics.epochCounter() - 1;
         const df = await tokenomics.getDF(lastEpoch);
 
         // Payouts with direct calculation and via DF must be equal
-        expect(amountOLA.mul(df).div(E18)).to.equal(payout);
+        expect(amountOLAS.mul(df).div(E18)).to.equal(payout);
         //console.log("payout direclty", payout);
-        //console.log("payout via df", amountOLA.mul(df).div(E18));
+        //console.log("payout via df", amountOLAS.mul(df).div(E18));
         //console.log("supply product",supplyProductOLA);
 
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
@@ -329,7 +330,7 @@ describe("Depository LP", async () => {
 
         await expect(
             depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
-        ).to.be.revertedWith("ProductSupplyLow");
+        ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
     });
 
     it.only("should allow deposit via smart-contract", async () => {
@@ -356,19 +357,19 @@ describe("Depository LP", async () => {
 
         // This is equivalent to removing the liquidity
         // Get the initial OLAS token amounts
-        // uint256 amountOLA = (token0 == olas) ? amount0 : amount1;
-        // uint256 amountPairForOLA = (token0 == olas) ? amount1 : amount0;
-        let amountOLA;
-        let amountPairForOLA;
+        // uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
+        // uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
+        let amountOLAS;
+        let amountPairForOLAS;
         let reserveIn;
         let reserveOut;
         let amountIn;
         if(token1.address == olas.address) {
-            amountOLA = amount1;
-            amountPairForOLA = amount0;
+            amountOLAS = amount1;
+            amountPairForOLAS = amount0;
         } else {
-            amountOLA = amount0;
-            amountPairForOLA = amount1;
+            amountOLAS = amount0;
+            amountPairForOLAS = amount1;
         }
         balance0 = balance0.sub(amount0);
         balance1 = balance1.sub(amount1);
@@ -377,14 +378,14 @@ describe("Depository LP", async () => {
         if(token1.address == olas.address) {
             reserveIn = balance0;
             reserveOut = balance1;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         } else {
             reserveIn = balance1;
             reserveOut = balance0;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         }
         //console.log("amountIn",amountIn);
-        // amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+        // amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
         // We use this tutorial to correctly calculate the in-out amounts:
         // https://ethereum.org/en/developers/tutorials/uniswap-v2-annotated-code/#why-v2
@@ -392,15 +393,15 @@ describe("Depository LP", async () => {
         const numerator = amountInWithFee.div(reserveOut);
         const denominator = (reserveIn.mul(1000)).add(amountInWithFee);
         const amountOut = numerator.div(denominator);
-        amountOLA = amountOLA.add(amountOut);
+        amountOLAS = amountOLAS.add(amountOut);
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amountTo);
 
         // Gets DF
-        let lastEpoch = await tokenomics.getCurrentEpoch() - 1;
+        let lastEpoch = await tokenomics.epochCounter() - 1;
         const df = await tokenomics.getDF(lastEpoch);
 
         // Payouts with direct calculation and via DF must be equal
-        expect(amountOLA.mul(df).div(E18)).to.equal(payout);
+        expect(amountOLAS.mul(df).div(E18)).to.equal(payout);
 
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
         //await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
@@ -437,19 +438,19 @@ describe("Depository LP", async () => {
 
         // This is equivalent to removing the liquidity
         // Get the initial OLAS token amounts
-        // uint256 amountOLA = (token0 == olas) ? amount0 : amount1;
-        // uint256 amountPairForOLA = (token0 == olas) ? amount1 : amount0;
-        let amountOLA;
-        let amountPairForOLA;
+        // uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
+        // uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
+        let amountOLAS;
+        let amountPairForOLAS;
         let reserveIn;
         let reserveOut;
         let amountIn;
         if(token1.address == olas.address) {
-            amountOLA = amount1;
-            amountPairForOLA = amount0;
+            amountOLAS = amount1;
+            amountPairForOLAS = amount0;
         } else {
-            amountOLA = amount0;
-            amountPairForOLA = amount1;
+            amountOLAS = amount0;
+            amountPairForOLAS = amount1;
         }
         balance0 = balance0.sub(amount0);
         balance1 = balance1.sub(amount1);
@@ -458,14 +459,14 @@ describe("Depository LP", async () => {
         if(token1.address == olas.address) {
             reserveIn = balance0;
             reserveOut = balance1;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         } else {
             reserveIn = balance1;
             reserveOut = balance0;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         }
         //console.log("amountIn",amountIn);
-        // amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+        // amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
         // We use this tutorial to correctly calculate the in-out amounts:
         // https://ethereum.org/en/developers/tutorials/uniswap-v2-annotated-code/#why-v2
@@ -473,17 +474,17 @@ describe("Depository LP", async () => {
         const numerator = amountInWithFee.div(reserveOut);
         const denominator = (reserveIn.mul(1000)).add(amountInWithFee);
         const amountOut = numerator.div(denominator);
-        amountOLA = amountOLA.add(amountOut);
+        amountOLAS = amountOLAS.add(amountOut);
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amountTo);
 
         // Gets DF
-        let lastEpoch = await tokenomics.getCurrentEpoch() - 1;
+        let lastEpoch = await tokenomics.epochCounter() - 1;
         const df = await tokenomics.getDF(lastEpoch);
 
         // Payouts with direct calculation and via DF must be equal
-        expect(amountOLA.mul(df).div(E18)).to.equal(payout);
+        expect(amountOLAS.mul(df).div(E18)).to.equal(payout);
         console.log("payout direclty", payout);
-        console.log("payout via df", amountOLA.mul(df).div(E18));
+        console.log("payout via df", amountOLAS.mul(df).div(E18));
         console.log("supply product",supplyProductOLA);
 
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
@@ -522,19 +523,19 @@ describe("Depository LP", async () => {
 
         // This is equivalent to removing the liquidity
         // Get the initial OLAS token amounts
-        // uint256 amountOLA = (token0 == olas) ? amount0 : amount1;
-        // uint256 amountPairForOLA = (token0 == olas) ? amount1 : amount0;
-        let amountOLA;
-        let amountPairForOLA;
+        // uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
+        // uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
+        let amountOLAS;
+        let amountPairForOLAS;
         let reserveIn;
         let reserveOut;
         let amountIn;
         if(token1.address == olas.address) {
-            amountOLA = amount1;
-            amountPairForOLA = amount0;
+            amountOLAS = amount1;
+            amountPairForOLAS = amount0;
         } else {
-            amountOLA = amount0;
-            amountPairForOLA = amount1;
+            amountOLAS = amount0;
+            amountPairForOLAS = amount1;
         }
         balance0 = balance0.sub(amount0);
         balance1 = balance1.sub(amount1);
@@ -543,14 +544,14 @@ describe("Depository LP", async () => {
         if(token1.address == olas.address) {
             reserveIn = balance0;
             reserveOut = balance1;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         } else {
             reserveIn = balance1;
             reserveOut = balance0;
-            amountIn = amountPairForOLA;
+            amountIn = amountPairForOLAS;
         }
         //console.log("amountIn",amountIn);
-        // amountOLA = amountOLA + getAmountOut(amountPairForOLA, reserveIn, reserveOut);
+        // amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
         // We use this tutorial to correctly calculate the in-out amounts:
         // https://ethereum.org/en/developers/tutorials/uniswap-v2-annotated-code/#why-v2
@@ -558,17 +559,17 @@ describe("Depository LP", async () => {
         const numerator = amountInWithFee.div(reserveOut);
         const denominator = (reserveIn.mul(1000)).add(amountInWithFee);
         const amountOut = numerator.div(denominator);
-        amountOLA = amountOLA.add(amountOut);
+        amountOLAS = amountOLAS.add(amountOut);
         const payout = await tokenomics.calculatePayoutFromLP(pairODAI.address, amountTo);
 
         // Gets DF
-        let lastEpoch = await tokenomics.getCurrentEpoch() - 1;
+        let lastEpoch = await tokenomics.epochCounter() - 1;
         const df = await tokenomics.getDF(lastEpoch);
 
         // Payouts with direct calculation and via DF must be equal
-        expect(amountOLA.mul(df).div(E18)).to.equal(payout);
+        expect(amountOLAS.mul(df).div(E18)).to.equal(payout);
         console.log("payout direclty", payout);
-        console.log("payout via df", amountOLA.mul(df).div(E18));
+        console.log("payout via df", amountOLAS.mul(df).div(E18));
         console.log("supply product",supplyProductOLA);
 
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
@@ -576,7 +577,7 @@ describe("Depository LP", async () => {
         //depository.connect(deployer).deposit(pairODAI.address, bid, amountTo, deployer.address);
         await expect(
             attackDeposit.attackDepositMustFail(depository.address, pairODAI.address, olas.address, bid, amountTo, router.address)
-        ).to.be.revertedWith("ProductSlippageOverflow");
+        ).to.be.revertedWithCustomError(depository, "ProductSlippageOverflow");
 
     });
 
@@ -601,6 +602,7 @@ describe("Depository LP", async () => {
             .connect(bob)
             .deposit(pairODAI.address, bid, amount, bob.address);
 
+        // TODO: Change that to helpers.time.increase(vesting+60)
         await network.provider.send("evm_increaseTime", [vesting+60]);
         await depository.redeemAll(bob.address);
         const bobBalance = Number(await olas.balanceOf(bob.address));

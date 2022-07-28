@@ -1,9 +1,7 @@
-require("hardhat-deploy");
-require("@nomiclabs/hardhat-waffle");
-require("solidity-coverage");
+require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-ethers");
 require("hardhat-gas-reporter");
-require("hardhat-contract-sizer");
-//require("@nomiclabs/hardhat-ganache");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -14,8 +12,11 @@ const accounts = {
 };
 
 module.exports = {
+    gasReporter: {
+        enabled: true
+    },
     networks: {
-        ganache: {
+        local: {
             url: "http://localhost:8545",
         },
         hardhat: {
@@ -26,7 +27,7 @@ module.exports = {
     solidity: {
         compilers: [
             {
-                version: "0.8.14",
+                version: "0.8.15",
                 settings: {
                     optimizer: {
                         enabled: true,

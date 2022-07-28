@@ -1,30 +1,35 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.14;
-
-import "./IStructsTokenomics.sol";
+pragma solidity ^0.8.15;
 
 /// @dev Interface for tokenomics management.
-interface ITokenomics is IStructsTokenomics {
-    /// @dev Gets the current epoch number.
-    /// @return Current epoch number.
-    function getCurrentEpoch() external view returns (uint256);
-
+interface ITokenomics {
     /// @dev Gets effective bond (bond left).
     /// @return Effective bond.
     function effectiveBond() external pure returns (uint256);
 
-    function epochLen() external view returns (uint256);
-    function getDF(uint256 epoch) external view returns (uint256 df);
-    function getPoint(uint256 epoch) external view returns (PointEcomonics memory _PE);
-    function getLastPoint() external view returns (PointEcomonics memory _PE);
-    function calculatePayoutFromLP(address token, uint256 tokenAmount) external returns (uint256 amountOLA);
+    /// @dev Record global data to the checkpoint
+    function checkpoint() external;
+
+    /// @dev Calculates the amount of OLAS tokens based on LP.
+    /// @param token Token address.
+    /// @param tokenAmount Token amount.
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutFromLP(address token, uint256 tokenAmount) external returns (uint256 amountOLAS);
+
+    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @param serviceIds Set of service Ids.
+    /// @param amounts Correspondent set of ETH amounts provided by services.
     function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 revenueETH, uint256 donationETH);
-    function checkpoint() external;
-    function getExchangeAmountOLA(address token, uint256 tokenAmount) external returns (uint256 amount);
-    function getProfitableComponents() external view returns (address[] memory profitableComponents, uint256[] memory ucfcs);
-    function getProfitableAgents() external view returns (address[] memory profitableAgents, uint256[] memory ucfcs);
+
+    /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
+    /// @param payout Payout amount for the LP pair.
     function usedBond(uint256 payout) external;
+
+    /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
+    /// @notice Programs exceeding the limit in the epoch are not allowed.
+    /// @param amount Requested amount for the bond program.
+    /// @return True if effective bond threshold is not reached.
     function allowedNewBond(uint256 amount) external returns(bool);
 
     /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
@@ -47,15 +52,21 @@ interface ITokenomics is IStructsTokenomics {
     /// @return True if the mint is allowed.
     function isAllowedMint(uint256 amount) external returns (bool);
 
+    /// @dev Gets rewards data of the last epoch.
+    /// @return treasuryRewards Treasury rewards.
+    /// @return accountRewards Cumulative staker, component and agent rewards.
+    /// @return accountTopUps Cumulative staker, component and agent top-ups.
+    function getRewardsData() external view
+        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     /// @dev check reserve ratio in slippage range
     /// @param token Token address.
     /// @param priceLP Reserve ration by create.
-    /// @param slippage tolerance in reserve ratio %
-    /// @return True if ok
+    /// @param slippage tolerance in reserve ratio %.
+    /// @return True if successful.
     function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool);
 
-    /// @dev Get reserveX/reserveY at the time of product creation
+    /// @dev Get reserveX/reserveY at the time of product creation.
     /// @param token Token address.
     /// @return priceLP Resulting reserve ratio.
     function getCreatePrice(address token) external view returns (uint256 priceLP);

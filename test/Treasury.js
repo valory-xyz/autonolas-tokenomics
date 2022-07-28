@@ -15,7 +15,6 @@ describe("Treasury", async () => {
     let treasuryFactory;
     let tokenomicsFactory;
     let dai;
-    let lpToken;
     let olas;
     let treasury;
     let tokenomics;
@@ -39,7 +38,6 @@ describe("Treasury", async () => {
     // These should not be in beforeEach.
     beforeEach(async () => {
         dai = await erc20Token.deploy();
-        lpToken = await erc20Token.deploy();
         olas = await olasFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy(olas.address, deployer.address, deployer.address, deployer.address,
@@ -56,13 +54,11 @@ describe("Treasury", async () => {
 
         // toggle DAI as reserve token (as example)
         await treasury.enableToken(dai.address);
-        // toggle liquidity depositor (as example)
-        await treasury.enableToken(lpToken.address);
 
         // Deposit 10,000 DAI to treasury,  1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
         await treasury
             .connect(deployer)
-            .depositTokenForOLA("10000000000000000000000", dai.address, "1000000000000000000000");
+            .depositTokenForOLAS("10000000000000000000000", dai.address, "1000000000000000000000");
     });
 
     it("Deposit", async () => {
