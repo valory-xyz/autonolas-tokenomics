@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IErrorsTokenomics.sol";
@@ -9,6 +10,8 @@ import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
+
+import "hardhat/console.sol";
 
 // TODO: Optimize structs together with its variable sizes
 // Structure for component / agent tokenomics-related statistics
@@ -187,7 +190,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         serviceRegistry = _serviceRegistry;
         decimalsUnit = 10 ** IOLAS(_olas).decimals();
 
-        inflationCaps = new uint[](10);
+        inflationCaps = new uint256[](10);
         inflationCaps[0] = 520_000_000e18;
         inflationCaps[1] = 590_000_000e18;
         inflationCaps[2] = 660_000_000e18;
@@ -649,10 +652,25 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         }
     }
 
+    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
+    /// @param token Token address.
+    /// @param tokenAmount Token amount.
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutFromLPv2(address token, uint256 tokenAmount) external view returns (uint256 amountOLAS)
+    {
+        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
+        if(pe.df > 0) {
+            amountOLAS = _calculatePayoutFromLPv2(token, tokenAmount, pe.df);
+        } else {
+            // if df is undefined
+            amountOLAS = _calculatePayoutFromLPv2(token, tokenAmount, 1e18 + epsilonRate);
+        }
+    }
+
     /// @dev Get reserve OLAS / totalSupply.
     /// @param token Token address.
     /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
-    function getCreatePrice(address token) public view
+    function getCurrentPriceLP(address token) public view
         returns (uint256 priceLP)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
@@ -661,10 +679,10 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         uint112 reserve0;
         uint112 reserve1;
         // requires low gas
-        (reserve0, reserve1,) = pair.getReserves();
+        (reserve0, reserve1, ) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
-        // token0 != olas &&  token1 != olas, this should never happen
-        if(token0 == olas ||  token1 == olas) {
+        // token0 != olas && token1 != olas, this should never happen
+        if (token0 == olas || token1 == olas) {
             // if OLAS == token0 in pair then price0 = reserve0/totalSupply else price1 = reserve1/totalSupply
             FixedPoint.uq112x112 memory fp0 = (token0 == olas) ? FixedPoint.fraction(reserve0, totalSupply) : FixedPoint.fraction(reserve1, totalSupply);
             // for optimization - this number does not exceed type(uint224).max
@@ -679,16 +697,16 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @return True if successful.
     function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool)
     {
-        uint256 priceLPnow = getCreatePrice(token);
+        uint256 priceLPnow = getCurrentPriceLP(token);
         uint256 delta = priceLP * slippage / 10000;
         // this should never happen
-        if(priceLPnow == 0 || delta > priceLP) {
+        if (priceLPnow == 0 || delta > priceLP) {
             return false;
         }
         uint256 maxRange = priceLP + delta;
         // always priceLP >= delta 
         uint256 minRange = priceLP - delta;
-        if(priceLPnow > maxRange || priceLPnow < minRange) {
+        if (priceLPnow > maxRange || priceLPnow < minRange) {
             return false;
         }
         return true;
@@ -703,7 +721,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         returns (uint256 resAmount)
     {
         // Calculation of removeLiquidity
-        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
+        IUniswapV2Pair pair = IUniswapV2Pair(token);
         address token0 = pair.token0();
         address token1 = pair.token1();
         uint256 balance0 = IToken(token0).balanceOf(address(pair));
@@ -727,7 +745,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         uint256 reserveIn = (token0 == olas) ? balance1 : balance0;
         uint256 reserveOut = (token0 == olas) ? balance0 : balance1;
         
-        amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
+//        amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
 
         // Get the resulting amount in OLAS tokens
         resAmount = (amountOLAS * df) / 1e18; // df with decimals 18
@@ -735,6 +753,39 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // The discounted amount cannot be smaller than the actual one
         if (resAmount < amountOLAS) {
             revert AmountLowerThan(resAmount, amountOLAS);
+        }
+    }
+
+    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
+    /// @param token Token address.
+    /// @param amount Token amount.
+    /// @param df Discount factor.
+    /// @return resAmount Resulting amount of OLAS tokens.
+    function _calculatePayoutFromLPv2(address token, uint256 amount, uint256 df) internal view
+        returns (uint256 resAmount)
+    {
+        // Calculation of the LP amount
+        IUniswapV2Pair pair = IUniswapV2Pair(token);
+        uint256 totalSupply = pair.totalSupply();
+        (uint256 r0, uint256 r1, ) = pair.getReserves();
+        // Square root in 2**112 to avoid getting zero
+        uint256 sqrtK = (Babylonian.sqrt(r0 * r1) * 1e18) / totalSupply;
+        console.log("r0", r0);
+        console.log("r1", r1);
+        console.log("totalSupply", totalSupply);
+        console.log("DF", df);
+        console.log("sqrt", sqrtK / 1e18);
+        console.log("amount", amount);
+
+        // Get the OLAS amount based on the LP amount
+        amount *= sqrtK / 1e18;
+
+        // Get the resulting amount in OLAS tokens
+        resAmount = (amount * df) / 1e18; // df with decimals 18
+
+        // The discounted amount cannot be smaller than the actual one
+        if (resAmount < amount) {
+            revert AmountLowerThan(resAmount, amount);
         }
     }
 

@@ -122,6 +122,9 @@ contract Depository is IErrorsTokenomics, Ownable {
         }
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
+        uint256 payout2 = ITokenomics(tokenomics).calculatePayoutFromLPv2(token, tokenAmount);
+        console.log("deposit :: payout", payout);
+        console.log("deposit :: payout2", payout2);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -184,8 +187,8 @@ contract Depository is IErrorsTokenomics, Ownable {
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
 
-        console.log("deposit :: payout",payout);
-        console.log("deposit :: product.supply",product.supply);
+        console.log("depositOriginal :: payout", payout);
+        console.log("depositOriginal :: product.supply", product.supply);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -308,7 +311,7 @@ contract Depository is IErrorsTokenomics, Ownable {
 
         // Create a new product
         productId = mapTokenProducts[token].length;
-        uint256 priceLP = ITokenomics(tokenomics).getCreatePrice(token);
+        uint256 priceLP = ITokenomics(tokenomics).getCurrentPriceLP(token);
         if(priceLP > 0) {
             Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, slippage, priceLP);
             mapTokenProducts[token].push(product);

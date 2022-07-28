@@ -16,6 +16,12 @@ interface ITokenomics {
     /// @return amountOLAS Resulting amount of OLAS tokens.
     function calculatePayoutFromLP(address token, uint256 tokenAmount) external returns (uint256 amountOLAS);
 
+    /// @dev Calculates the amount of OLAS tokens based on LP.
+    /// @param token Token address.
+    /// @param tokenAmount Token amount.
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutFromLPv2(address token, uint256 tokenAmount) external returns (uint256 amountOLAS);
+
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
@@ -69,5 +75,5 @@ interface ITokenomics {
     /// @dev Get reserveX/reserveY at the time of product creation.
     /// @param token Token address.
     /// @return priceLP Resulting reserve ratio.
-    function getCreatePrice(address token) external view returns (uint256 priceLP);
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
 }
