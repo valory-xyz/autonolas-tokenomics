@@ -142,8 +142,8 @@ describe("Depository LP", async () => {
             deadline
         );
 
-        console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
-        console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
+        //console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
+        //console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
         // send half of the balance from deployer
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
         await pairODAI.connect(deployer).transfer(bob.address, amountTo);
@@ -163,8 +163,6 @@ describe("Depository LP", async () => {
             vesting,
             slippage
         );
-        
-
 
         const block = await ethers.provider.getBlock("latest");
         conclusion = block.timestamp + timeToConclusion;
@@ -333,33 +331,7 @@ describe("Depository LP", async () => {
         ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
     });
 
-    it.only("Liquidate all the tokens in favor of OLAS", async () => {
-        const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
-
-        const minAmountOLA =  "50" + decimals;
-        const minAmountDAI = "100" + decimals;
-        const deadline = Date.now() + 1000;
-
-        await pairODAI.connect(bob).approve(router.address, LARGE_APPROVAL);
-
-        console.log("OLAS balance:", await olas.balanceOf(bob.address));
-        const amounts = await router.connect(bob).removeLiquidity(
-            dai.address,
-            olas.address,
-            amountTo,
-            minAmountDAI,
-            minAmountOLA,
-            bob.address,
-            deadline
-        );
-
-        console.log("amountA:", amounts.amountA);
-        console.log("amountB:", amounts.amountB);
-        console.log("after OLAS balance:", await olas.balanceOf(bob.address));
-        // 1249999999999999999823
-    });
-
-    it.only("should allow deposit via smart-contract", async () => {
+    it("should allow deposit via smart-contract", async () => {
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
         // Transfer all LP tokens back to deployer
         // await pairODAI.connect(bob).transfer(deployer.address, amountTo);
@@ -524,7 +496,7 @@ describe("Depository LP", async () => {
         expect(Number(res.payout)).to.equal(1.95e+21);
     });
 
-    it("proof of protect agains attack via smart-contract use deposit with slippage check", async () => {
+    it("proof of protect against attack via smart-contract use deposit with slippage check", async () => {
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
         // Transfer all LP tokens back to deployer
         // await pairODAI.connect(bob).transfer(deployer.address, amountTo);

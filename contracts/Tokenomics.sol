@@ -11,8 +11,6 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
 
-import "hardhat/console.sol";
-
 // TODO: Optimize structs together with its variable sizes
 // Structure for component / agent tokenomics-related statistics
 struct PointUnits {
@@ -652,21 +650,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         }
     }
 
-    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param tokenAmount Token amount.
-    /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLPv2(address token, uint256 tokenAmount) external view returns (uint256 amountOLAS)
-    {
-        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
-        if(pe.df > 0) {
-            amountOLAS = _calculatePayoutFromLPv2(token, tokenAmount, pe.df);
-        } else {
-            // if df is undefined
-            amountOLAS = _calculatePayoutFromLPv2(token, tokenAmount, 1e18 + epsilonRate);
-        }
-    }
-
     /// @dev Get reserve OLAS / totalSupply.
     /// @param token Token address.
     /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
@@ -753,39 +736,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // The discounted amount cannot be smaller than the actual one
         if (resAmount < amountOLAS) {
             revert AmountLowerThan(resAmount, amountOLAS);
-        }
-    }
-
-    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param amount Token amount.
-    /// @param df Discount factor.
-    /// @return resAmount Resulting amount of OLAS tokens.
-    function _calculatePayoutFromLPv2(address token, uint256 amount, uint256 df) internal view
-        returns (uint256 resAmount)
-    {
-        // Calculation of the LP amount
-        IUniswapV2Pair pair = IUniswapV2Pair(token);
-        uint256 totalSupply = pair.totalSupply();
-        (uint256 r0, uint256 r1, ) = pair.getReserves();
-        // Square root in 2**112 to avoid getting zero
-        uint256 sqrtK = (Babylonian.sqrt(r0 * r1) * 1e18) / totalSupply;
-        console.log("r0", r0);
-        console.log("r1", r1);
-        console.log("totalSupply", totalSupply);
-        console.log("DF", df);
-        console.log("sqrt", sqrtK / 1e18);
-        console.log("amount", amount);
-
-        // Get the OLAS amount based on the LP amount
-        amount *= sqrtK / 1e18;
-
-        // Get the resulting amount in OLAS tokens
-        resAmount = (amount * df) / 1e18; // df with decimals 18
-
-        // The discounted amount cannot be smaller than the actual one
-        if (resAmount < amount) {
-            revert AmountLowerThan(resAmount, amount);
         }
     }
 

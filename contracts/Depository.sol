@@ -7,8 +7,6 @@ import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
-import "hardhat/console.sol";
-
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -122,9 +120,6 @@ contract Depository is IErrorsTokenomics, Ownable {
         }
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
-        uint256 payout2 = ITokenomics(tokenomics).calculatePayoutFromLPv2(token, tokenAmount);
-        console.log("deposit :: payout", payout);
-        console.log("deposit :: payout2", payout2);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -186,9 +181,6 @@ contract Depository is IErrorsTokenomics, Ownable {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
-
-        console.log("depositOriginal :: payout", payout);
-        console.log("depositOriginal :: product.supply", product.supply);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
