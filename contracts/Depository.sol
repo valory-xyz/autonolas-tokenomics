@@ -46,9 +46,6 @@ contract Depository is IErrorsTokenomics, Ownable {
         uint256 purchased;
         // Number of OLAS tokens sold
         uint256 sold;
-        // Slippage < MAXSLIPPAGE
-        // for possible optimization - this number does not exceed type(uint16).max
-        uint256 slippage;
         // priceLP (reserve0/totalSupply or reserve1/totalSupply)
         // for optimization - this number does not exceed type(uint224).max 
         uint256 priceLP;
@@ -64,9 +61,6 @@ contract Depository is IErrorsTokenomics, Ownable {
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
     mapping(address => Product[]) public mapTokenProducts;
-
-    // Max slippage 10000 = 100%
-    uint256 public constant MAXSLIPPAGE = 10_000;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
@@ -92,7 +86,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         }
     }
 
-    /// @dev Deposits tokens in exchange for a bond from a specified product with slippage cheking.
+    /// @dev Deposits tokens in exchange for a bond from a specified product.
     /// @param token Token address.
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
@@ -103,6 +97,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     function deposit(address token, uint256 productId, uint256 tokenAmount, address user) external
         returns (uint256 payout, uint256 expiry, uint256 numBonds)
     {
+        // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
         // Check for the correctly provided token in the product
         if (token != address(product.token)) {
@@ -115,72 +110,8 @@ contract Depository is IErrorsTokenomics, Ownable {
             revert ProductExpired(token, productId, product.expiry, currentTime);
         }
 
-        if(!ITokenomics(tokenomics).slippageIsOK(token, product.priceLP, product.slippage)) {
-            revert ProductSlippageOverflow(token, productId, product.slippage);
-        }
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
-        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
-
-        // Check for the sufficient supply
-        if (payout > product.supply) {
-            revert ProductSupplyLow(token, productId, payout, product.supply);
-        }
-
-        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
-        product.supply -= payout;
-        product.purchased += tokenAmount;
-        product.sold += payout;
-
-        numBonds = mapUserBonds[user].length;
-        expiry = product.expiry;
-
-        // Create and add a new bond
-        mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
-        emit CreateBond(productId, payout, tokenAmount);
-
-        // Take into account this bond in current epoch
-        ITokenomics(tokenomics).usedBond(payout);
-
-        // Uniswap allowance implementation does not revert with the accurate message, check before SafeMath is engaged
-        if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
-            revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
-        }
-        // Transfer tokens to the depository
-        IERC20(product.token).safeTransferFrom(msg.sender, address(this), tokenAmount);
-        // Approve treasury for the specified token amount
-        IERC20(product.token).approve(treasury, tokenAmount);
-        // Deposit that token amount to mint OLAS tokens in exchange
-        ITreasury(treasury).depositTokenForOLAS(tokenAmount, address(product.token), payout);
-    }
-
-    /// @dev Deposits tokens in exchange for a bond from a specified product. As in main branch with debug
-    /// @param token Token address.
-    /// @param productId Product Id.
-    /// @param tokenAmount Token amount to deposit for the bond.
-    /// @param user Address of a payout recipient.
-    /// @return payout The amount of OLAS tokens due.
-    /// @return expiry Timestamp for payout redemption.
-    /// @return numBonds Number of user bonds.
-    function depositOriginal(address token, uint256 productId, uint256 tokenAmount, address user) external
-        returns (uint256 payout, uint256 expiry, uint256 numBonds)
-    {
-        Product storage product = mapTokenProducts[token][productId];
-        // Check for the correctly provided token in the product
-        if (token != address(product.token)) {
-            revert WrongTokenAddress(token, address(product.token));
-        }
-
-        // Check for the product expiry
-        uint256 currentTime = uint256(block.timestamp);
-        if (currentTime > product.expiry) {
-            revert ProductExpired(token, productId, product.expiry, currentTime);
-        }
-
-        // No slippage check here
-
-
-        // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
-        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -283,17 +214,11 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
-    /// @param slippage Parts per 10,000 i.e. 185 == 1.85%. ToDo: optimizing storage
     /// @return productId New bond product Id.
-    function create(address token, uint256 supply, uint256 vesting, uint256 slippage) external onlyOwner returns (uint256 productId) {
+    function create(address token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
         // Check if the LP token is enabled and that it is the LP token
         if (!ITreasury(treasury).isEnabled(token) || !ITreasury(treasury).checkPair(token)) {
             revert UnauthorizedToken(token);
-        }
-
-        // slippage <= MAXSLIPPAGE
-        if(slippage > MAXSLIPPAGE) {
-            revert Overflow(slippage,MAXSLIPPAGE);
         }
 
         // Check if the bond amount is beyond the limits
@@ -304,12 +229,12 @@ contract Depository is IErrorsTokenomics, Ownable {
         // Create a new product
         productId = mapTokenProducts[token].length;
         uint256 priceLP = ITokenomics(tokenomics).getCurrentPriceLP(token);
-        if(priceLP > 0) {
-            Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, slippage, priceLP);
+        if (priceLP > 0) {
+            Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, priceLP);
             mapTokenProducts[token].push(product);
             emit CreateProduct(token, productId, supply);
         } else {
-            revert UnauthorizedToken(token);
+            revert ZeroValue();
         }
     }
 

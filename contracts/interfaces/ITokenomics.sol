@@ -11,10 +11,11 @@ interface ITokenomics {
     function checkpoint() external;
 
     /// @dev Calculates the amount of OLAS tokens based on LP.
-    /// @param token Token address.
-    /// @param tokenAmount Token amount.
+    /// @param tokenAmount LP token amount.
+    /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount) external returns (uint256 amountOLAS);
+    function calculatePayoutFromLP(uint256 tokenAmount, uint256 priceLP) external
+        returns (uint256 amountOLAS);
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
@@ -58,13 +59,6 @@ interface ITokenomics {
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
     function getRewardsData() external view
         returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
-
-    /// @dev check reserve ratio in slippage range
-    /// @param token Token address.
-    /// @param priceLP Reserve ration by create.
-    /// @param slippage tolerance in reserve ratio %.
-    /// @return True if successful.
-    function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool);
 
     /// @dev Get reserveX/reserveY at the time of product creation.
     /// @param token Token address.

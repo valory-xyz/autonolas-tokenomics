@@ -636,25 +636,25 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
 
     // TODO: Specify the doc mentioned below
     /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param tokenAmount Token amount.
+    /// @param tokenAmount LP token amount.
+    /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount) external view returns (uint256 amountOLAS)
+    function calculatePayoutFromLP(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS)
     {
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         if(pe.df > 0) {
-            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, pe.df);
+            amountOLAS = (tokenAmount * priceLP * pe.df) / 1e18;
         } else {
             // if df is undefined
-            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, 1e18 + epsilonRate);
+            amountOLAS = (tokenAmount * priceLP * (1e18 + epsilonRate)) / 1e18;
         }
     }
 
     /// @dev Get reserve OLAS / totalSupply.
     /// @param token Token address.
     /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
-    function getCurrentPriceLP(address token) public view
-        returns (uint256 priceLP)
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = pair.token0();
@@ -666,99 +666,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         uint256 totalSupply = pair.totalSupply();
         // token0 != olas && token1 != olas, this should never happen
         if (token0 == olas || token1 == olas) {
-            // if OLAS == token0 in pair then price0 = reserve0/totalSupply else price1 = reserve1/totalSupply
-            FixedPoint.uq112x112 memory fp0 = (token0 == olas) ? FixedPoint.fraction(reserve0, totalSupply) : FixedPoint.fraction(reserve1, totalSupply);
-            // for optimization - this number does not exceed type(uint224).max
-            priceLP = fp0._x / MAGIC_DENOMINATOR;
+            priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
         }
-    }
-
-    /// @dev reserve ratio in slippage range?
-    /// @param token Token address.
-    /// @param priceLP Reserve ration by create.
-    /// @param slippage tolerance in reserve ratio %.
-    /// @return True if successful.
-    function slippageIsOK(address token, uint256 priceLP, uint256 slippage) external view returns (bool)
-    {
-        uint256 priceLPnow = getCurrentPriceLP(token);
-        uint256 delta = priceLP * slippage / 10000;
-        // this should never happen
-        if (priceLPnow == 0 || delta > priceLP) {
-            return false;
-        }
-        uint256 maxRange = priceLP + delta;
-        // always priceLP >= delta 
-        uint256 minRange = priceLP - delta;
-        if (priceLPnow > maxRange || priceLPnow < minRange) {
-            return false;
-        }
-        return true;
-    } 
-
-    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param amount Token amount.
-    /// @param df Discount
-    /// @return resAmount Resulting amount of OLAS tokens.
-    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
-        returns (uint256 resAmount)
-    {
-        // Calculation of removeLiquidity
-        IUniswapV2Pair pair = IUniswapV2Pair(token);
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        uint256 balance0 = IToken(token0).balanceOf(address(pair));
-        uint256 balance1 = IToken(token1).balanceOf(address(pair));
-        uint256 totalSupply = pair.totalSupply();
-
-        // Using balances ensures pro-rate distribution
-        uint256 amount0 = (amount * balance0) / totalSupply;
-        uint256 amount1 = (amount * balance1) / totalSupply;
-
-        require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
-        require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
-
-        // Get the initial OLAS token amounts
-        uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
-        uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
-
-        // Calculate swap tokens from the LP back to the OLAS token
-        balance0 -= amount0;
-        balance1 -= amount1;
-        uint256 reserveIn = (token0 == olas) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == olas) ? balance0 : balance1;
-        
-//        amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
-
-        // Get the resulting amount in OLAS tokens
-        resAmount = (amountOLAS * df) / 1e18; // df with decimals 18
-
-        // The discounted amount cannot be smaller than the actual one
-        if (resAmount < amountOLAS) {
-            revert AmountLowerThan(resAmount, amountOLAS);
-        }
-    }
-
-    // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
-    // No license in file
-    // forked for Solidity 8.x
-    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-
-    /// @dev Gets the additional OLAS amount from the LP pair token by swapping.
-    /// @param amountIn Initial OLAS token amount.
-    /// @param reserveIn Token amount that is not OLAS.
-    /// @param reserveOut Token amount in OLAS wit fees.
-    /// @return amountOut Resulting OLAS amount.
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
-        returns (uint256 amountOut)
-    {
-        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
-        require(reserveIn > 0 && reserveOut > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
-
-        uint256 amountInWithFee = amountIn * 997;
-        uint256 numerator = amountInWithFee / reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        amountOut = numerator / denominator;
     }
 
     /// @dev Calculates staking rewards.
