@@ -46,6 +46,9 @@ contract Depository is IErrorsTokenomics, Ownable {
         uint256 purchased;
         // Number of OLAS tokens sold
         uint256 sold;
+        // priceLP (reserve0/totalSupply or reserve1/totalSupply)
+        // for optimization - this number does not exceed type(uint224).max 
+        uint256 priceLP;
     }
 
     // OLAS token address
@@ -94,6 +97,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     function deposit(address token, uint256 productId, uint256 tokenAmount, address user) external
         returns (uint256 payout, uint256 expiry, uint256 numBonds)
     {
+        // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
         // Check for the correctly provided token in the product
         if (token != address(product.token)) {
@@ -107,8 +111,8 @@ contract Depository is IErrorsTokenomics, Ownable {
         }
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
-        payout = ITokenomics(tokenomics).calculatePayoutFromLP(token, tokenAmount);
-        
+        payout = ITokenomics(tokenomics).calculatePayoutFromLP(tokenAmount, product.priceLP);
+
         // Check for the sufficient supply
         if (payout > product.supply) {
             revert ProductSupplyLow(token, productId, payout, product.supply);
@@ -224,10 +228,14 @@ contract Depository is IErrorsTokenomics, Ownable {
 
         // Create a new product
         productId = mapTokenProducts[token].length;
-        Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0);
-        mapTokenProducts[token].push(product);
-
-        emit CreateProduct(token, productId, supply);
+        uint256 priceLP = ITokenomics(tokenomics).getCurrentPriceLP(token);
+        if (priceLP > 0) {
+            Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, priceLP);
+            mapTokenProducts[token].push(product);
+            emit CreateProduct(token, productId, supply);
+        } else {
+            revert ZeroValue();
+        }
     }
 
     /// @dev Close a bonding product.

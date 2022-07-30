@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IErrorsTokenomics.sol";
@@ -160,6 +161,9 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // TODO sync address constants with other contracts
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
+    // Max slippage 10000 = 100%
+    uint256 public constant MAXSLIPPAGE = 10_000;
+
     /// @dev Tokenomics constructor.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
@@ -184,7 +188,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         serviceRegistry = _serviceRegistry;
         decimalsUnit = 10 ** IOLAS(_olas).decimals();
 
-        inflationCaps = new uint[](10);
+        inflationCaps = new uint256[](10);
         inflationCaps[0] = 520_000_000e18;
         inflationCaps[1] = 590_000_000e18;
         inflationCaps[2] = 660_000_000e18;
@@ -632,84 +636,38 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
 
     // TODO: Specify the doc mentioned below
     /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param token Token address.
-    /// @param tokenAmount Token amount.
+    /// @param tokenAmount LP token amount.
+    /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(address token, uint256 tokenAmount) external view returns (uint256 amountOLAS)
+    function calculatePayoutFromLP(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS)
     {
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         if(pe.df > 0) {
-            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, pe.df);
+            amountOLAS = (tokenAmount * priceLP * pe.df) / 1e18;
         } else {
             // if df is undefined
-            amountOLAS = _calculatePayoutFromLP(token, tokenAmount, 1e18 + epsilonRate);
+            amountOLAS = (tokenAmount * priceLP * (1e18 + epsilonRate)) / 1e18;
         }
     }
 
-    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
+    /// @dev Get reserve OLAS / totalSupply.
     /// @param token Token address.
-    /// @param amount Token amount.
-    /// @param df Discount
-    /// @return resAmount Resulting amount of OLAS tokens.
-    function _calculatePayoutFromLP(address token, uint256 amount, uint256 df) internal view
-        returns (uint256 resAmount)
+    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
-        // Calculation of removeLiquidity
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = pair.token0();
         address token1 = pair.token1();
-        uint256 balance0 = IToken(token0).balanceOf(address(pair));
-        uint256 balance1 = IToken(token1).balanceOf(address(pair));
+        uint112 reserve0;
+        uint112 reserve1;
+        // requires low gas
+        (reserve0, reserve1, ) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
-
-        // Using balances ensures pro-rate distribution
-        uint256 amount0 = (amount * balance0) / totalSupply;
-        uint256 amount1 = (amount * balance1) / totalSupply;
-
-        require(balance0 > amount0, "UniswapV2: INSUFFICIENT_LIQUIDITY token0");
-        require(balance1 > amount1, "UniswapV2: INSUFFICIENT_LIQUIDITY token1");
-
-        // Get the initial OLAS token amounts
-        uint256 amountOLAS = (token0 == olas) ? amount0 : amount1;
-        uint256 amountPairForOLAS = (token0 == olas) ? amount1 : amount0;
-
-        // Calculate swap tokens from the LP back to the OLAS token
-        balance0 -= amount0;
-        balance1 -= amount1;
-        uint256 reserveIn = (token0 == olas) ? balance1 : balance0;
-        uint256 reserveOut = (token0 == olas) ? balance0 : balance1;
-        
-        amountOLAS = amountOLAS + getAmountOut(amountPairForOLAS, reserveIn, reserveOut);
-
-        // Get the resulting amount in OLAS tokens
-        resAmount = (amountOLAS * df) / 1e18; // df with decimals 18
-
-        // The discounted amount cannot be smaller than the actual one
-        if (resAmount < amountOLAS) {
-            revert AmountLowerThan(resAmount, amountOLAS);
+        // token0 != olas && token1 != olas, this should never happen
+        if (token0 == olas || token1 == olas) {
+            priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
         }
-    }
-
-    // UniswapV2 https://github.com/Uniswap/v2-periphery/blob/master/contracts/libraries/UniswapV2Library.sol
-    // No license in file
-    // forked for Solidity 8.x
-    // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
-
-    /// @dev Gets the additional OLAS amount from the LP pair token by swapping.
-    /// @param amountIn Initial OLAS token amount.
-    /// @param reserveIn Token amount that is not OLAS.
-    /// @param reserveOut Token amount in OLAS wit fees.
-    /// @return amountOut Resulting OLAS amount.
-    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure
-        returns (uint256 amountOut)
-    {
-        require(amountIn > 0, "UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT");
-        require(reserveIn > 0 && reserveOut > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
-
-        uint256 amountInWithFee = amountIn * 997;
-        uint256 numerator = amountInWithFee / reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        amountOut = numerator / denominator;
     }
 
     /// @dev Calculates staking rewards.
