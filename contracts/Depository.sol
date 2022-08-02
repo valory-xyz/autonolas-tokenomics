@@ -33,6 +33,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         bool redeemed;
     }
 
+    // TODO: Unify vesting and expiry
     struct Product {
         // Token to accept as a payment
         address token;
@@ -100,6 +101,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
         // Check for the correctly provided token in the product
+        // TODO: Remove, since this scenario is not possible (line above protects against that)
         if (token != address(product.token)) {
             revert WrongTokenAddress(token, address(product.token));
         }
@@ -142,7 +144,7 @@ contract Depository is IErrorsTokenomics, Ownable {
         // Approve treasury for the specified token amount
         IERC20(product.token).approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLAS tokens in exchange
-        ITreasury(treasury).depositTokenForOLAS(tokenAmount, address(product.token), payout);
+        ITreasury(treasury).depositTokenForOLAS(tokenAmount, product.token, payout);
     }
 
     /// @dev Redeem bonds for the user.
@@ -229,13 +231,14 @@ contract Depository is IErrorsTokenomics, Ownable {
         // Create a new product
         productId = mapTokenProducts[token].length;
         uint256 priceLP = ITokenomics(tokenomics).getCurrentPriceLP(token);
-        if (priceLP > 0) {
-            Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, priceLP);
-            mapTokenProducts[token].push(product);
-            emit CreateProduct(token, productId, supply);
-        } else {
+        // Check for the pool liquidity as the LP price being greater than zero
+        if (priceLP == 0) {
             revert ZeroValue();
         }
+
+        Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, priceLP);
+        mapTokenProducts[token].push(product);
+        emit CreateProduct(token, productId, supply);
     }
 
     /// @dev Close a bonding product.
@@ -249,9 +252,9 @@ contract Depository is IErrorsTokenomics, Ownable {
 
     /// @dev Gets activity information about a given product.
     /// @param productId Product Id.
-    /// @return status True if
+    /// @return status True if the product is active.
     function isActive(address token, uint256 productId) public view returns (bool status) {
-        status = (mapTokenProducts[token][productId].supply > 0 &&
+        status = (mapTokenProducts[token].length > productId && mapTokenProducts[token][productId].supply > 0 &&
             mapTokenProducts[token][productId].expiry > block.timestamp);
     }
 
@@ -260,7 +263,7 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @return ids Active product Ids.
     function getActiveProductsForToken(address token) external view returns (uint256[] memory ids) {
         // Calculate the number of active products
-        uint numProducts = mapTokenProducts[token].length;
+        uint256 numProducts = mapTokenProducts[token].length;
         bool[] memory positions = new bool[](numProducts);
         uint256 numActive;
         for (uint256 i = 0; i < numProducts; i++) {

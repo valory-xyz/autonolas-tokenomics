@@ -1,14 +1,16 @@
-/*global describe, before, beforeEach, it*/
+/*global describe, before, beforeEach, it, context*/
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 describe("Treasury", async () => {
-    const LARGE_APPROVAL = "100000000000000000000000000000000";
+    const LARGE_APPROVAL = "1" + "0".repeat(32);
     // const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
     // Initial mint for Frax and DAI (10,000,000)
-    const initialMint = "10000000000000000000000000";
+    const initialMint = "1" + "0".repeat(26);
+    const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = "0x" + "0".repeat(40);
 
+    let signers;
     let deployer;
     let erc20Token;
     let olasFactory;
@@ -19,14 +21,15 @@ describe("Treasury", async () => {
     let treasury;
     let tokenomics;
     const epochLen = 100;
+    const regDepositFromServices = 1000;
 
     /**
      * Everything in this block is only run once before all tests.
      * This is the home for setup methodss
      */
     before(async () => {
-        // [deployer, alice, bob, carol] = await ethers.getSigners();
-        [deployer] = await ethers.getSigners();
+        signers = await ethers.getSigners();
+        deployer = signers[0];
         // use dai as erc20 
         erc20Token = await ethers.getContractFactory("ERC20Token");
         // Note: this is not a real OLAS token, just an ERC20 mock-up
@@ -54,22 +57,123 @@ describe("Treasury", async () => {
 
         // toggle DAI as reserve token (as example)
         await treasury.enableToken(dai.address);
-
-        // Deposit 10,000 DAI to treasury,  1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
-        await treasury
-            .connect(deployer)
-            .depositTokenForOLAS("10000000000000000000000", dai.address, "1000000000000000000000");
     });
 
-    it("Deposit", async () => {
-        expect(await olas.totalSupply()).to.equal("1000000000000000000000");
+    context("Initialization", async function () {
+        it("Changing managers and owners", async function () {
+            const account = signers[1];
+
+            // Trying to change owner from a non-owner account address
+            //await expect(
+            //    treasury.connect(account).changeOwner(account.address)
+            //).to.be.revertedWith("OwnerOnly");
+
+            // Changing depository, dispenser and tokenomics addresses
+            await treasury.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address);
+            expect(await treasury.depository()).to.equal(account.address);
+            expect(await treasury.dispenser()).to.equal(deployer.address);
+            expect(await treasury.tokenomics()).to.equal(signers[2].address);
+
+            // Changing the owner
+            //await treasury.connect(deployer).changeOwner(account.address);
+
+            // Trying to change owner from the previous owner address
+            //await expect(
+            //    treasury.connect(deployer).changeOwner(deployer.address)
+            //).to.be.revertedWith("OwnerOnly");
+        });
+
+        it("Disable LP token", async () => {
+            // Disable token that was never enabled does not break anything
+            await treasury.disableToken(olas.address);
+
+            // Disable a token that was enabled
+            await treasury.disableToken(dai.address);
+        });
     });
 
-    it("Withdraw", async () => {
-        await treasury
-            .connect(deployer)
-            .withdraw(deployer.address, "10000000000000000000000", dai.address, true);
-        expect(await dai.balanceOf(deployer.address)).to.equal("10000000000000000000000000"); // back to initialMint
+    context("Deposits LP tokens for OLAS", async function () {
+        it("Deposit to the treasury from depository for OLAS", async () => {
+            // Deposit 10,000 DAI to treasury,  1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
+            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit);
+            expect(await olas.totalSupply()).to.equal(defaultDeposit);
+        });
+
+        it("Should fail when trying to deposit for the unauthorized token", async () => {
+            await expect(
+                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, olas.address, defaultDeposit)
+            ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
+        });
+
+        it("Should fail when trying to deposit for the amount bigger than the inflation policy allows", async () => {
+            await expect(
+                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit.repeat(2))
+            ).to.be.revertedWithCustomError(treasury, "MintRejectedByInflationPolicy");
+        });
+
+        it("Should fail when trying to disable an LP token that has reserves", async () => {
+            // Try to disable token that has reserves
+            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit);
+            await expect(
+                treasury.disableToken(dai.address)
+            ).to.be.revertedWithCustomError(treasury, "NonZeroValue");
+        });
     });
-        
+
+    context("Deposits ETH from protocol-owned services", async function () {
+        it("Should fail when depositing a zero value", async () => {
+            await expect(
+                treasury.connect(deployer).depositETHFromServices([], [])
+            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
+        });
+
+        it("Should fail when input arrays do not match", async () => {
+            await expect(
+                treasury.connect(deployer).depositETHFromServices([], [1], {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(treasury, "WrongArrayLength");
+        });
+
+        it("Should fail when the amount does not match the total input amount from services", async () => {
+            await expect(
+                treasury.connect(deployer).depositETHFromServices([1], [100], {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(treasury, "WrongAmount");
+        });
+
+        it("Should fail when the amount does not match the total input amount from services", async () => {
+            await expect(
+                treasury.connect(deployer).depositETHFromServices([1], [100], {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(treasury, "WrongAmount");
+        });
+
+        it("Deposit ETH from one protocol-owned service", async () => {
+            //await expect(
+            //    treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices})
+            //).to.be.revertedWithCustomError(treasury, "WrongAmount");
+        });
+    });
+
+    context("Withdraws", async function () {
+        it("Withdraw specified LP tokens from reserves to a specified address", async () => {
+            // Deposit
+            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+            // Withdraw
+            await treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", dai.address, true);
+            // back to initialMint
+            expect(await dai.balanceOf(deployer.address)).to.equal(initialMint);
+        });
+
+        it("Should fail when trying to withdraw from unauthorized token", async () => {
+            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+            await expect(
+                treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", olas.address, true)
+            ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
+        });
+    });
+
+    context("Allocate rewards", async function () {
+        it("Start new epoch and allocate rewards without any balances", async () => {
+            // There are no allocated rewards
+            await treasury.connect(deployer).allocateRewards();
+        });
+    });
 });

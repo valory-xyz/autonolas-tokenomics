@@ -69,9 +69,6 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     /// @param _tokenomics Tokenomics address.
     /// @param _dispenser Dispenser address.
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable {
-        if (_olas == address(0)) {
-            revert ZeroAddress();
-        }
         olas = _olas;
         ETHOwned = msg.value;
         depository = _depository;

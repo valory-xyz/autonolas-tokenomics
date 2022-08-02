@@ -1,4 +1,4 @@
-/*global describe, beforeEach, it*/
+/*global describe, beforeEach, it, context*/
 const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 //const { helpers } = require("@nomicfoundation/hardhat-network-helpers");
@@ -18,6 +18,7 @@ describe("Depository LP", async () => {
     let depositoryFactory;
     let tokenomicsFactory;
     let router;
+    let factory;
 
     let dai;
     let olas;
@@ -91,7 +92,7 @@ describe("Depository LP", async () => {
         const weth = await wethFactory.deploy();
         // Deploy Uniswap factory
         const Factory = await ethers.getContractFactory("UniswapV2Factory");
-        const factory = await Factory.deploy(deployer.address);
+        factory = await Factory.deploy(deployer.address);
         await factory.deployed();
         // console.log("Uniswap factory deployed to:", factory.address);
 
@@ -160,132 +161,211 @@ describe("Depository LP", async () => {
         conclusion = block.timestamp + timeToConclusion;
     });
 
-    it("should create product", async () => {
-        expect(await depository.isActive(pairODAI.address, bid)).to.equal(true);
+    context("Initialization", async function () {
+        it("Changing managers and owners", async function () {
+            const account = alice;
+
+            // Trying to change owner from a non-owner account address
+            //await expect(
+            //    depository.connect(account).changeOwner(account.address)
+            //).to.be.revertedWith("OwnerOnly");
+
+            // Changing treasury and tokenomics addresses
+            await depository.connect(deployer).changeManagers(account.address, deployer.address);
+            expect(await depository.treasury()).to.equal(account.address);
+            expect(await depository.tokenomics()).to.equal(deployer.address);
+
+            // Changing the owner
+            //await depository.connect(deployer).changeOwner(account.address);
+
+            // Trying to change owner from the previous owner address
+            //await expect(
+            //    depository.connect(deployer).changeOwner(owner.address)
+            //).to.be.revertedWith("OwnerOnly");
+        });
     });
 
-    it("should conclude in correct amount of time", async () => {
-        let [, , , concludes] = await depository.getProduct(pairODAI.address, bid);
-        // console.log(concludes,conclusion);
-        // timestamps are a bit inaccurate with tests
-        var upperBound = conclusion * 1.0033;
-        var lowerBound = conclusion * 0.9967;
-        expect(Number(concludes)).to.be.greaterThan(lowerBound);
-        expect(Number(concludes)).to.be.lessThan(upperBound);
+    context("Bond products", async function () {
+        it("Should fail when the LP token is not authorized for the product", async () => {
+            // Token address is not enabled
+            await expect(
+                depository.create(alice.address, supplyProductOLA, vesting)
+            ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
+
+            // Token is not an LP token
+            await treasury.enableToken(alice.address);
+            await expect(
+                depository.create(alice.address, supplyProductOLA, vesting)
+            ).to.be.reverted;
+        });
+
+        it("Create a product", async () => {
+            // Create a second product, the first one is already created
+            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            // Check for the product being active
+            expect(await depository.isActive(pairODAI.address, bid)).to.equal(true);
+            expect(await depository.isActive(pairODAI.address, bid + 1)).to.equal(true);
+            expect(await depository.isActive(pairODAI.address, bid + 2)).to.equal(false);
+        });
+
+        it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
+            await expect(
+                depository.create(pairODAI.address, supplyProductOLA.repeat(2), vesting)
+            ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
+        });
+
+        it("Should return IDs of all products", async () => {
+            // create a second bond
+            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
+            expect(Number(first)).to.equal(0);
+            expect(Number(second)).to.equal(1);
+        });
+
+        it("Should include product Id in active products set for the LP token", async () => {
+            [id] = await depository.getActiveProductsForToken(pairODAI.address);
+            expect(Number(id)).to.equal(bid);
+        });
+
+        it("Get correct active product Ids when closing others", async () => {
+            // Create a second bonding product
+            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            // Close the first bonding product
+            await depository.close(pairODAI.address, 0);
+            [first] = await depository.getActiveProductsForToken(pairODAI.address);
+            expect(Number(first)).to.equal(1);
+        });
+
+        it("The program should expire in a specified amount of time", async () => {
+            const product = await depository.getProduct(pairODAI.address, bid);
+            // timestamps are a bit inaccurate with tests
+            var upperBound = conclusion * 1.0033;
+            var lowerBound = conclusion * 0.9967;
+            expect(Number(product.expiry)).to.be.greaterThan(lowerBound);
+            expect(Number(product.expiry)).to.be.lessThan(upperBound);
+        });
+
+        it("Should fail when there is no liquidity in the LP token pool", async () => {
+            // Create one more ERC20 token
+            const ercToken = await olasFactory.deploy();
+
+            // Create an LP token
+            await factory.createPair(olas.address, ercToken.address);
+            const pAddress = await factory.allPairs(1);
+            const pairDOLAS = await ethers.getContractAt("UniswapV2Pair", pAddress);
+
+            // Enable the new LP token without liquidity
+            await treasury.enableToken(pairDOLAS.address);
+
+            // Try to create a bonding product with it
+            await expect(
+                depository.create(pairDOLAS.address, supplyProductOLA, vesting)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+        });
     });
 
-    it("should return IDs of all products", async () => {
-        // create a second bond
-        await depository.create(pairODAI.address, supplyProductOLA, vesting);
-        let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
-        expect(Number(first)).to.equal(0);
-        expect(Number(second)).to.equal(1);
+    context("Bond deposits", async function () {
+        it("Deposit to a bonding product for the OLAS payout", async () => {
+            await olas.approve(router.address, LARGE_APPROVAL);
+            await dai.approve(router.address, LARGE_APPROVAL);
+
+            const bamount = (await pairODAI.balanceOf(bob.address));
+            await depository.connect(bob).deposit(pairODAI.address, bid, bamount, bob.address);
+            expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
+            const res = await depository.getBondStatus(bob.address, 0);
+            // 1250 * 1.5 = 1875 * e18 =  1.875 * e21
+            expect(Number(res.payout)).to.equal(1.875e+21);
+        });
+
+        it("Should not allow to deposit after the bonding product is expired", async () => {
+            const bamount = (await pairODAI.balanceOf(bob.address));
+            await network.provider.send("evm_increaseTime", [vesting+60]);
+            await expect(
+                depository.connect(bob).deposit(pairODAI.address, bid, bamount, bob.address)
+            ).to.be.revertedWithCustomError(depository, "ProductExpired");
+        });
+
+        it("Should not allow a deposit with insufficient allowance", async () => {
+            let amount = (await pairODAI.balanceOf(bob.address));
+            await expect(
+                depository.deposit(pairODAI.address, bid, amount, bob.address)
+            ).to.be.revertedWithCustomError(depository, "InsufficientAllowance");
+        });
+
+        it("Should not allow a deposit greater than max payout", async () => {
+            const amount = (await pairODAI.balanceOf(deployer.address));
+
+            // Trying to deposit the amount that would result in an overflow payout for the LP supply
+            await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
+
+            await expect(
+                depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
+            ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
+        });
     });
 
-    it("should update IDs of products", async () => {
-        // create a second bond
-        await depository.create(pairODAI.address, supplyProductOLA, vesting);
-        // close the first bond
-        await depository.close(pairODAI.address, 0);
-        [first] = await depository.getActiveProductsForToken(pairODAI.address);
-        expect(Number(first)).to.equal(1);
+    context("Redeem", async function () {
+        it("Should not redeem before the product is vested", async () => {
+            let balance = await olas.balanceOf(bob.address);
+            let bamount = (await pairODAI.balanceOf(bob.address));
+            // console.log("bob LP:%s depoist:%s",bamount,amount);
+            await depository
+                .connect(bob)
+                .deposit(pairODAI.address, bid, bamount, bob.address);
+            await depository.connect(bob).redeemAll(bob.address);
+            expect(await olas.balanceOf(bob.address)).to.equal(balance);
+        });
+
+        it("Redeem OLAS after the product is vested", async () => {
+            let amount = (await pairODAI.balanceOf(bob.address));
+            let [expectedPayout,,] = await depository
+                .connect(bob)
+                .callStatic.deposit(pairODAI.address, bid, amount, bob.address);
+            // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
+            await depository
+                .connect(bob)
+                .deposit(pairODAI.address, bid, amount, bob.address);
+
+            // TODO: Change that to helpers.time.increase(vesting+60)
+            await network.provider.send("evm_increaseTime", [vesting+60]);
+            await depository.redeemAll(bob.address);
+            const bobBalance = Number(await olas.balanceOf(bob.address));
+            expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
+            expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
+        });
+
+        it("Close all products", async () => {
+            let product = await depository.getProduct(pairODAI.address, bid);
+            expect(Number(product.supply)).to.be.greaterThan(0);
+            await depository.close(pairODAI.address, bid);
+            product = await depository.getProduct(pairODAI.address, bid);
+            expect(Number(product.supply)).to.equal(0);
+        });
     });
 
-    it("should include ID in live products for quote token", async () => {
-        [id] = await depository.getActiveProductsForToken(pairODAI.address);
-        expect(Number(id)).to.equal(bid);
-    });
+    context("Attacks", async function () {
+        it("proof of protect against attack via smart-contract use deposit", async () => {
+            const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
+            // Transfer all LP tokens back to deployer
+            // await pairODAI.connect(bob).transfer(deployer.address, amountTo);
+            await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
 
-    it("should allow a deposit", async () => {
-        await olas.approve(router.address, LARGE_APPROVAL);
-        await dai.approve(router.address, LARGE_APPROVAL);
+            // Trying to deposit the amount that would result in an overflow payout for the LP supply
+            //await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
+            //depository.connect(deployer).deposit(pairODAI.address, bid, amountTo, deployer.address);
+            const payout = await attackDeposit.callStatic.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
+                bid, amountTo, router.address);
 
-        const bamount = (await pairODAI.balanceOf(bob.address));
-        await depository
-            .connect(bob)
-            .deposit(pairODAI.address, bid, bamount, bob.address);
-        expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
-        const res = await depository.getBondStatus(bob.address, 0);
-        // 1250 * 1.5 = 1875 * e18 =  1.875 * e21
-        expect(Number(res.payout)).to.equal(1.875e+21);
-    });
+            // Try to attack via flash loan
+            await attackDeposit.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
+                bid, amountTo, router.address);
 
-    it("should not allow a deposit with insufficient allowance", async () => {
-        let amount = (await pairODAI.balanceOf(bob.address));
-        await expect(
-            depository.deposit(pairODAI.address, bid, amount, bob.address)
-        ).to.be.revertedWithCustomError(depository, "InsufficientAllowance");
-    });
+            // Check that the flash attack did not do anything but obtained the same bond as everybody
+            const res = await depository.getBondStatus(attackDeposit.address, 0);
+            expect(res.payout).to.equal(payout);
 
-    it("should not allow a deposit greater than max payout", async () => {
-        const amount = (await pairODAI.balanceOf(deployer.address));
-
-        // Trying to deposit the amount that would result in an overflow payout for the LP supply
-        await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
-
-        await expect(
-            depository.connect(deployer).deposit(pairODAI.address, bid, amount, deployer.address)
-        ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
-    });
-
-    it("proof of protect against attack via smart-contract use deposit", async () => {
-        const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
-        // Transfer all LP tokens back to deployer
-        // await pairODAI.connect(bob).transfer(deployer.address, amountTo);
-        await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
-
-        // Trying to deposit the amount that would result in an overflow payout for the LP supply
-        //await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
-        //depository.connect(deployer).deposit(pairODAI.address, bid, amountTo, deployer.address);
-        const payout = await attackDeposit.callStatic.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
-            bid, amountTo, router.address);
-
-        // Try to attack via flash loan
-        await attackDeposit.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
-            bid, amountTo, router.address);
-
-        // Check that the flash attack did not do anything but obtained the same bond as everybody
-        const res = await depository.getBondStatus(attackDeposit.address, 0);
-        expect(res.payout).to.equal(payout);
-
-        // We know that the payout for any account under these parameters must be 1.875 * e21
-        expect(Number(res.payout)).to.equal(1.875e+21);
-    });
-
-    it("should not redeem before vested", async () => {
-        let balance = await olas.balanceOf(bob.address);
-        let bamount = (await pairODAI.balanceOf(bob.address)); 
-        // console.log("bob LP:%s depoist:%s",bamount,amount);
-        await depository
-            .connect(bob)
-            .deposit(pairODAI.address, bid, bamount, bob.address);
-        await depository.connect(bob).redeemAll(bob.address);
-        expect(await olas.balanceOf(bob.address)).to.equal(balance);
-    });
-    // ok test 11-03-22
-    it("should redeem after vested", async () => {
-        let amount = (await pairODAI.balanceOf(bob.address));
-        let [expectedPayout,,] = await depository
-            .connect(bob)
-            .callStatic.deposit(pairODAI.address, bid, amount, bob.address);
-        // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
-        await depository
-            .connect(bob)
-            .deposit(pairODAI.address, bid, amount, bob.address);
-
-        // TODO: Change that to helpers.time.increase(vesting+60)
-        await network.provider.send("evm_increaseTime", [vesting+60]);
-        await depository.redeemAll(bob.address);
-        const bobBalance = Number(await olas.balanceOf(bob.address));
-        expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
-        expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
-    });
-    // ok test 11-03-22
-    it("should close a product", async () => {
-        let product = await depository.getProduct(pairODAI.address, bid);
-        expect(Number(product.supply)).to.be.greaterThan(0);
-        await depository.close(pairODAI.address, bid);
-        product = await depository.getProduct(pairODAI.address, bid);
-        expect(Number(product.supply)).to.equal(0);
+            // We know that the payout for any account under these parameters must be 1.875 * e21
+            expect(Number(res.payout)).to.equal(1.875e+21);
+        });
     });
 });

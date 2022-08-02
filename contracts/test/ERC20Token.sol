@@ -39,4 +39,10 @@ contract ERC20Token is ERC20, Ownable {
 
         _mint(to, amount);
     }
+
+    /// @dev Gets the reminder of OLA possible for the mint.
+    /// @return remainder OLA token remainder.
+    function inflationRemainder() external view returns (uint256 remainder) {
+        return totalSupply();
+    }
 }

@@ -10,6 +10,7 @@ import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
+import "./interfaces/IVotingEscrow.sol";
 
 // TODO: Optimize structs together with its variable sizes
 // Structure for component / agent tokenomics-related statistics
@@ -657,16 +658,18 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        uint112 reserve0;
-        uint112 reserve1;
-        // requires low gas
-        (reserve0, reserve1, ) = pair.getReserves();
         uint256 totalSupply = pair.totalSupply();
-        // token0 != olas && token1 != olas, this should never happen
-        if (token0 == olas || token1 == olas) {
-            priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
+        if (totalSupply > 0) {
+            address token0 = pair.token0();
+            address token1 = pair.token1();
+            uint112 reserve0;
+            uint112 reserve1;
+            // requires low gas
+            (reserve0, reserve1, ) = pair.getReserves();
+            // token0 != olas && token1 != olas, this should never happen
+            if (token0 == olas || token1 == olas) {
+                priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
+            }
         }
     }
 
