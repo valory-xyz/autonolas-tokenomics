@@ -20,8 +20,7 @@ describe("Treasury", async () => {
     let olas;
     let treasury;
     let tokenomics;
-    const epochLen = 100;
-    const regDepositFromServices = 1000;
+    const regDepositFromServices = "1" + "0".repeat(25);
 
     /**
      * Everything in this block is only run once before all tests.
@@ -35,21 +34,17 @@ describe("Treasury", async () => {
         // Note: this is not a real OLAS token, just an ERC20 mock-up
         olasFactory = await ethers.getContractFactory("ERC20Token");
         treasuryFactory = await ethers.getContractFactory("Treasury");
-        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        tokenomicsFactory = await ethers.getContractFactory("MockTokenomics");
     });
 
     // These should not be in beforeEach.
     beforeEach(async () => {
         dai = await erc20Token.deploy();
         olas = await olasFactory.deploy();
-        // Correct treasury address is missing here, it will be defined just one line below
-        tokenomics = await tokenomicsFactory.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            deployer.address, epochLen, AddressZero, AddressZero, AddressZero);
+        tokenomics = await tokenomicsFactory.deploy();
         // Depository contract is irrelevant here, so we are using a deployer's address
-        // Dispenser address is irrelevant in these tests, so its contract is passed as a zero address
-        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
-        // Change to the correct treasury address
-        await tokenomics.changeManagers(treasury.address, AddressZero, AddressZero, AddressZero);
+        // Dispenser address is irrelevant in these tests, so we are using a deployer's address
+        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
@@ -146,9 +141,7 @@ describe("Treasury", async () => {
         });
 
         it("Deposit ETH from one protocol-owned service", async () => {
-            //await expect(
-            //    treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices})
-            //).to.be.revertedWithCustomError(treasury, "WrongAmount");
+            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
         });
     });
 
@@ -157,7 +150,7 @@ describe("Treasury", async () => {
             // Deposit
             await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
             // Withdraw
-            await treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", dai.address, true);
+            await treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", dai.address);
             // back to initialMint
             expect(await dai.balanceOf(deployer.address)).to.equal(initialMint);
         });
@@ -165,14 +158,29 @@ describe("Treasury", async () => {
         it("Should fail when trying to withdraw from unauthorized token", async () => {
             await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
             await expect(
-                treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", olas.address, true)
+                treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", olas.address)
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
+        });
+
+        it("Send ETH directly to treasury and withdraw", async () => {
+            // Send ETH to treasury
+            const amount = ethers.utils.parseEther("10");
+            await deployer.sendTransaction({to: treasury.address, value: amount});
+
+            // Check the ETH balance of the reasury
+            expect(await treasury.ETHOwned()).to.equal(amount);
+
+            // Withdraw ETH
+            const success = await treasury.callStatic.withdraw(deployer.address, amount, AddressZero);
+            expect(success).to.equal(true);
         });
     });
 
     context("Allocate rewards", async function () {
         it("Start new epoch and allocate rewards without any balances", async () => {
-            // There are no allocated rewards
+            // Deposit ETH for protocol-owned services
+            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+            // Allocate rewards
             await treasury.connect(deployer).allocateRewards();
         });
     });

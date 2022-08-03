@@ -10,7 +10,6 @@ import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "./interfaces/IVotingEscrow.sol";
 
 // TODO: Optimize structs together with its variable sizes
 // Structure for component / agent tokenomics-related statistics
@@ -158,9 +157,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     mapping(address => uint256) public mapOwnerTopUps;
     // Map of whitelisted service owners for protocol-owned services
     mapping(address => bool) private _mapServiceOwners;
-
-    // TODO sync address constants with other contracts
-    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
     // Max slippage 10000 = 100%
     uint256 public constant MAXSLIPPAGE = 10_000;
@@ -327,20 +323,22 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             revert WrongArrayLength(numAccounts, permissions.length);
         }
         for (uint256 i = 0; i < numAccounts; ++i) {
+            if (accounts[i] == address(0)) {
+                revert ZeroAddress();
+            }
             _mapServiceOwners[accounts[i]] = permissions[i];
         }
     }
 
     /// @dev Checks for the OLAS minting ability WRT the inflation schedule.
     /// @param amount Amount of requested OLAS tokens to mint.
-    /// @return True if the mint is allowed.
-    function isAllowedMint(uint256 amount) public returns (bool) {
+    /// @return allowed True if the mint is allowed.
+    function isAllowedMint(uint256 amount) external returns (bool allowed) {
         uint256 remainder = _getInflationRemainderForYear();
         // For the first 10 years we check the inflation cap that is pre-defined
-        if (amount > remainder) {
-            return false;
+        if (amount < (remainder + 1)) {
+            allowed = true;
         }
-        return true;
     }
 
     /// @dev Gets remainder of possible OLAS allocation for the current year.
@@ -367,7 +365,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param amount Requested amount for the bond program.
     /// @return True if effective bond threshold is not reached.
     function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
-        if(effectiveBond >= amount && isAllowedMint(amount)) {
+        uint256 remainder = _getInflationRemainderForYear();
+        if (effectiveBond >= amount && amount < (remainder + 1)) {
             effectiveBond -= amount;
             return true;
         }
@@ -381,6 +380,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     }
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external onlyTreasury
@@ -394,6 +394,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
             // Check for the whitelisted service owner
+            // TODO: change the owner map to the service Id map as suggested in https://github.com/valory-xyz/autonolas-v1/issues/102
             address owner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
             // If not, accept it as donation
             if (!_mapServiceOwners[owner]) {
@@ -518,7 +519,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @dev Record global data to the checkpoint
     function checkpoint() external onlyTreasury {
         PointEcomonics memory lastPoint = mapEpochEconomics[epochCounter - 1];
-        // New point can be calculated only if we passed number of blocks equal to the epoch length
+        // New point can be calculated only if we passed the number of blocks equal to the epoch length
         if (block.number > lastPoint.blockNumber) {
             uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
             if (diffNumBlocks >= epochLen) {
