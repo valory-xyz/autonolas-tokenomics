@@ -8,8 +8,6 @@ describe("Tokenomics", async () => {
 
     let signers;
     let deployer;
-    let olasFactory;
-    let tokenomicsFactory;
     let olas;
     let tokenomics;
     let serviceRegistry;
@@ -24,8 +22,8 @@ describe("Tokenomics", async () => {
         signers = await ethers.getSigners();
         deployer = signers[0];
         // Note: this is not a real OLAS token, just an ERC20 mock-up
-        olasFactory = await ethers.getContractFactory("ERC20Token");
-        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        const olasFactory = await ethers.getContractFactory("ERC20Token");
+        const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         olas = await olasFactory.deploy();
         await olas.deployed();
 
@@ -42,7 +40,7 @@ describe("Tokenomics", async () => {
             deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
 
         // Mint the initial balance
-        olas.mint(deployer.address, initialMint);
+        await olas.mint(deployer.address, initialMint);
     });
 
     context("Initialization", async function () {
@@ -147,29 +145,70 @@ describe("Tokenomics", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             await tokenomics.connect(deployer).checkpoint();
+
+            // Set the auto-control of effective bond calculation
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 1, 10, true);
+            await ethers.provider.send("evm_mine");
+            await tokenomics.connect(deployer).checkpoint();
         });
 
         it("Checkpoint with revenues", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             // Whitelist service owners
-            const accounts = await serviceRegistry.getServiceOwners();
+            const accounts = await serviceRegistry.getUnitOwners();
             await tokenomics.connect(deployer).changeServiceOwnerWhiteList(accounts, [true, true]);
             // Send the revenues to services
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
+
             // Get the UCF and check the values with delta rounding error
             const lastEpoch = await tokenomics.epochCounter() - 1;
             const ucf = Number(await tokenomics.getUCF(lastEpoch) / magicDenominator) * 1.0 / E18;
             expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
+
+            // Get the epochs data
+            // Get the very first point
+            await tokenomics.getPoint(1);
+            // Get the last point
+            await tokenomics.getLastPoint();
+
+            // Get DF of the last epoch
+            const df = Number(await tokenomics.getDF(lastEpoch)) / E18;
+            expect(df).to.greaterThan(1);
+
+            // Get the OLAS payout for the LP from the df
+            const amountOLAS = await tokenomics.calculatePayoutFromLP(regDepositFromServices, 1);
+            expect(amountOLAS).to.greaterThan(regDepositFromServices);
         });
     });
 
     context("Rewards", async function () {
         it("Calculate rewards", async () => {
-            const accounts = await serviceRegistry.getServiceOwners();
+            // Skip the number of blocks within the epoch
+            await ethers.provider.send("evm_mine");
+            // Whitelist service owners
+            const accounts = await serviceRegistry.getUnitOwners();
+            await tokenomics.connect(deployer).changeServiceOwnerWhiteList(accounts, [true, true]);
+            // Send the revenues to services
+            await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+            // Get the rewards data
+            const rewardsData = await tokenomics.getRewardsData();
+            expect(rewardsData.accountRewards).to.greaterThan(0);
+            expect(rewardsData.accountTopUps).to.greaterThan(0);
+
+            // Calculate staking rewards
             const result = await tokenomics.calculateStakingRewards(accounts[0], 1);
+            // Get owner rewards
+            await tokenomics.getOwnerRewards(accounts[0]);
+            expect(result.endEpochNumber).to.equal(2);
+
+            // Get the top-up number per epoch
+            const topUp = await tokenomics.getTopUpPerEpoch();
+            expect(topUp).to.greaterThan(0);
         });
     });
 });

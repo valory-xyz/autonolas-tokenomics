@@ -486,7 +486,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
                 if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
                     ucfu.numNewUnits++;
                     mapComponents[unitId] = true;
-                } else if (unitType == IServiceTokenomics.UnitType.Agent && !mapAgents[unitId]){
+                } else {
                     ucfu.numNewUnits++;
                     mapAgents[unitId] = true;
                 }
@@ -775,28 +775,26 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // Number of components can be equal to zero for all the services, so the UCFc is just zero by default
         if (denominator > 0) {
             ucfc = FixedPoint.fraction(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum, denominator);
-        }
 
-        // Calculate UCFa
-        denominator = totalRewards * pe.numServices * pe.ucfa.numUnits;
-        // Number of agents must always be greater than zero, since at least one agent is used by a service
-        if (denominator == 0) {
-            revert ZeroValue();
-        }
-        FixedPoint.uq112x112 memory ucfa = FixedPoint.fraction(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum, denominator);
+            // Calculate UCFa
+            denominator = totalRewards * pe.numServices * pe.ucfa.numUnits;
+            // Number of agents must always be greater than zero, since at least one agent is used by a service
+            if (denominator > 0) {
+                FixedPoint.uq112x112 memory ucfa = FixedPoint.fraction(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum, denominator);
 
-        // Calculate UCF
-        denominator = pe.ucfc.ucfWeight + pe.ucfa.ucfWeight;
-        if (denominator == 0) {
-            revert ZeroValue();
+                // Calculate UCF
+                denominator = pe.ucfc.ucfWeight + pe.ucfa.ucfWeight;
+                if (denominator > 0) {
+                    FixedPoint.uq112x112 memory weightedUCFc = FixedPoint.fraction(pe.ucfc.ucfWeight, 1);
+                    FixedPoint.uq112x112 memory weightedUCFa = FixedPoint.fraction(pe.ucfa.ucfWeight, 1);
+                    weightedUCFc = ucfc.muluq(weightedUCFc);
+                    weightedUCFa = ucfa.muluq(weightedUCFa);
+                    ucf = _add(weightedUCFc, weightedUCFa);
+                    FixedPoint.uq112x112 memory fraction = FixedPoint.fraction(1, denominator);
+                    ucf = ucf.muluq(fraction);
+                }
+            }
         }
-        FixedPoint.uq112x112 memory weightedUCFc = FixedPoint.fraction(pe.ucfc.ucfWeight, 1);
-        FixedPoint.uq112x112 memory weightedUCFa = FixedPoint.fraction(pe.ucfa.ucfWeight, 1);
-        weightedUCFc = ucfc.muluq(weightedUCFc);
-        weightedUCFa = ucfa.muluq(weightedUCFa);
-        ucf = _add(weightedUCFc, weightedUCFa);
-        FixedPoint.uq112x112 memory fraction = FixedPoint.fraction(1, denominator);
-        ucf = ucf.muluq(fraction);
     }
 
     /// @dev Gets the component / agent owner reward.

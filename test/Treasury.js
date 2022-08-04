@@ -82,8 +82,17 @@ describe("Treasury", async () => {
             // Disable token that was never enabled does not break anything
             await treasury.disableToken(olas.address);
 
+            // Enable the token
+            await treasury.enableToken(olas.address);
+
+            // Try to enable the same token
+            await treasury.enableToken(olas.address);
+
             // Disable a token that was enabled
             await treasury.disableToken(dai.address);
+
+            // Re-enable the disabled token
+            await treasury.disableToken(olas.address);
         });
     });
 
@@ -95,6 +104,11 @@ describe("Treasury", async () => {
         });
 
         it("Should fail when trying to deposit for the unauthorized token", async () => {
+            // Try to call the function not from depository
+            await expect(
+                treasury.connect(signers[1]).depositTokenForOLAS(defaultDeposit, olas.address, defaultDeposit)
+            ).to.be.revertedWithCustomError(treasury, "ManagerOnly");
+            // Now try with unauthorized token
             await expect(
                 treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, olas.address, defaultDeposit)
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
