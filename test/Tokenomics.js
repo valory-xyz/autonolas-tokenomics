@@ -4,7 +4,6 @@ const { expect } = require("chai");
 
 describe("Tokenomics", async () => {
     const initialMint = "1" + "0".repeat(26);
-    const AddressZero = "0x" + "0".repeat(40);
 
     let signers;
     let deployer;
@@ -90,15 +89,15 @@ describe("Tokenomics", async () => {
         it("Whitelisting and de-whitelisting service owners", async function () {
             // Trying to mismatch the number of accounts and permissions
             await expect(
-                tokenomics.connect(deployer).changeServiceOwnerWhiteList([AddressZero], [])
+                tokenomics.connect(deployer).changeProtocolServicesWhiteList([0], [])
             ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
 
             // Trying to whitelist zero addresses
             await expect(
-                tokenomics.connect(deployer).changeServiceOwnerWhiteList([AddressZero], [true])
-            ).to.be.revertedWithCustomError(tokenomics, "ZeroAddress");
+                tokenomics.connect(deployer).changeProtocolServicesWhiteList([0], [true])
+            ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
 
-            await tokenomics.connect(deployer).changeServiceOwnerWhiteList([deployer.address], [true]);
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1], [true]);
         });
     });
 
@@ -155,9 +154,8 @@ describe("Tokenomics", async () => {
         it("Checkpoint with revenues", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
-            // Whitelist service owners
-            const accounts = await serviceRegistry.getUnitOwners();
-            await tokenomics.connect(deployer).changeServiceOwnerWhiteList(accounts, [true, true]);
+            // Whitelist service Ids
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
             // Start new epoch and calculate tokenomics parameters and rewards
@@ -190,7 +188,7 @@ describe("Tokenomics", async () => {
             await ethers.provider.send("evm_mine");
             // Whitelist service owners
             const accounts = await serviceRegistry.getUnitOwners();
-            await tokenomics.connect(deployer).changeServiceOwnerWhiteList(accounts, [true, true]);
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
             // Start new epoch and calculate tokenomics parameters and rewards

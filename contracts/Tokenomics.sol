@@ -155,8 +155,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     mapping(address => uint256) public mapOwnerRewards;
     // Mapping of owner of component / agent address => top-up amount (in OLAS)
     mapping(address => uint256) public mapOwnerTopUps;
-    // Map of whitelisted service owners for protocol-owned services
-    mapping(address => bool) private _mapServiceOwners;
+    // Map of protocol-owned service Ids
+    mapping(uint256 => bool) public mapProtocolServices;
 
     // Max slippage 10000 = 100%
     uint256 public constant MAXSLIPPAGE = 10_000;
@@ -313,20 +313,20 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         topUpStakerFraction = _topUpStakerFraction;
     }
 
-    /// @dev (De-)whitelists service owners for protocol-owned services.
-    /// @param accounts Set of account addresses.
+    /// @dev (De-)whitelists protocol-owned services.
+    /// @param serviceIds Set of service Ids.
     /// @param permissions Set of corresponding permissions for each account address.
-    function changeServiceOwnerWhiteList(address[] memory accounts, bool[] memory permissions) external onlyOwner {
-        uint256 numAccounts = accounts.length;
+    function changeProtocolServicesWhiteList(uint256[] memory serviceIds, bool[] memory permissions) external onlyOwner {
+        uint256 numServices = serviceIds.length;
         // Check the array size
-        if (permissions.length != numAccounts) {
-            revert WrongArrayLength(numAccounts, permissions.length);
+        if (permissions.length != numServices) {
+            revert WrongArrayLength(numServices, permissions.length);
         }
-        for (uint256 i = 0; i < numAccounts; ++i) {
-            if (accounts[i] == address(0)) {
-                revert ZeroAddress();
+        for (uint256 i = 0; i < numServices; ++i) {
+            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
+                revert ServiceDoesNotExist(serviceIds[i]);
             }
-            _mapServiceOwners[accounts[i]] = permissions[i];
+            mapProtocolServices[serviceIds[i]] = permissions[i];
         }
     }
 
@@ -393,19 +393,18 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
-            // Check for the whitelisted service owner
-            // TODO: change the owner map to the service Id map as suggested in https://github.com/valory-xyz/autonolas-v1/issues/102
-            address owner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
-            // If not, accept it as donation
-            if (!_mapServiceOwners[owner]) {
-                donationETH += amounts[i];
-            } else {
+            // Check for the whitelisted services
+            if (mapProtocolServices[serviceIds[i]]) {
+                // If this is a protocol-owned service, accept funds as revenue
                 // Add a new service Id to the set of Ids if one was not currently in it
                 if (mapServiceAmounts[serviceIds[i]] == 0) {
                     protocolServiceIds.push(serviceIds[i]);
                 }
                 mapServiceAmounts[serviceIds[i]] += amounts[i];
                 revenueETH += amounts[i];
+            } else {
+                // If the service is not a protocol-owned one, accept funds as donation
+                donationETH += amounts[i];
             }
         }
         // Increase the total service revenue per epoch and donation balance
@@ -422,6 +421,10 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         returns (PointUnits memory ucfu)
     {
         uint256 numServices = protocolServiceIds.length;
+        // Array of numbers of units per each service Id
+        uint256[] memory numServiceUnits = new uint256[](numServices);
+        // 2D array of all the sets of units per each service Id
+        uint32[][] memory serviceUnitIds = new uint32[][](numServices);
 
         // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
         address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
@@ -436,29 +439,23 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // Loop over profitable service Ids to calculate initial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
-            uint256 numServiceUnits;
-            uint32[] memory unitIds;
-            (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
+            (numServiceUnits[i], serviceUnitIds[i]) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             // Add to UCFa part for each agent Id
             uint256 amount = mapServiceAmounts[serviceId];
-            for (uint256 j = 0; j < numServiceUnits; ++j) {
+            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
                 // Sum the amounts for the corresponding components / agents
-                ucfuRevs[unitIds[j]] += amount;
+                ucfuRevs[serviceUnitIds[i][j]] += amount;
                 sumProfits += amount;
             }
         }
 
         // Calculate all complete UCFu-s divided by the cardinality of agent Ids in each service
         for (uint256 i = 0; i < numServices; ++i) {
-            uint256 serviceId = protocolServiceIds[i];
-            uint256 numServiceUnits;
-            uint32[] memory unitIds;
-            (numServiceUnits, unitIds) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
-            for (uint256 j = 0; j < numServiceUnits; ++j) {
+            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|
-                ucfus[i] += ucfuRevs[unitIds[j]];
+                ucfus[i] += ucfuRevs[serviceUnitIds[i][j]];
             }
-            ucfus[i] /= numServiceUnits;
+            ucfus[i] /= numServiceUnits[i];
         }
 
         // Calculate component / agent related values

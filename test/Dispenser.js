@@ -102,9 +102,8 @@ describe("Dispenser", async () => {
             await componentRegistry.changeUnitOwner(1, deployer.address);
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
-            // Whitelist service owners
-            const accounts = await serviceRegistry.getUnitOwners();
-            await tokenomics.connect(deployer).changeServiceOwnerWhiteList(accounts, [true, true]);
+            // Whitelist service Ids
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
