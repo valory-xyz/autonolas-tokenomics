@@ -16,7 +16,7 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     
     event DepositLPFromDepository(address token, uint256 tokenAmount, uint256 olasMintAmount);
     event DepositETHFromServices(uint256[] amounts, uint256[] serviceIds, uint256 revenue, uint256 donation);
-    event Withdrawal(address token, uint256 tokenAmount);
+    event Withdraw(address token, uint256 tokenAmount);
     event TokenReserves(address token, uint256 reserves);
     event EnableToken(address token);
     event DisableToken(address token);
@@ -60,18 +60,12 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     // Token address => token info related to bonding
     mapping(address => TokenInfo) public mapTokens;
 
-    // https://developer.kyber.network/docs/DappsGuide#contract-example
-    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE); // well-know representation ETH as address
-
     /// @dev Treasury constructor.
     /// @param _olas OLAS token address.
     /// @param _depository Depository address.
     /// @param _tokenomics Tokenomics address.
     /// @param _dispenser Dispenser address.
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable {
-        if (_olas == address(0)) {
-            revert ZeroAddress();
-        }
         olas = _olas;
         ETHOwned = msg.value;
         depository = _depository;
@@ -165,30 +159,33 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     /// @dev Allows owner to transfer specified tokens from reserves to a specified address.
     /// @param to Address to transfer funds to.
     /// @param tokenAmount Token amount to get reserves from.
-    /// @param token Token address.
-    /// @param bonding Indicates if bonding of LP token is used.
-    function withdraw(address to, uint256 tokenAmount, address token, bool bonding) external onlyOwner {
-        if (bonding) {
+    /// @param token Token address or ETH (zero address).
+    /// @return success True is the transfer is successful.
+    function withdraw(address to, uint256 tokenAmount, address token) external onlyOwner
+        returns (bool success)
+    {
+        // All the LP tokens must go under the bonding condition
+        if (token != address(0)) {
             // Only approved token reserves can be used for redemptions
             if (mapTokens[token].state != TokenState.Enabled) {
                 revert UnauthorizedToken(token);
             }
+            // Decrease the global LP token record
             mapTokens[token].reserves -= tokenAmount;
-        } else {
-            ETHOwned -= tokenAmount;
-        }
-
-        // Transfer tokens from reserves to the manager
-        if (token == ETH_TOKEN_ADDRESS) {
-            (bool success, ) = to.call{value: tokenAmount}("");
-            if (!success) {
-                revert TransferFailed(token, address(this), to, tokenAmount);
-            }
-        } else {
+            success = true;
+            emit Withdraw(token, tokenAmount);
+            // Transfer LP token
             IERC20(token).safeTransfer(to, tokenAmount);
+        } else if (ETHOwned >= tokenAmount) {
+            // This branch is used to transfer ETH to a specified address
+            ETHOwned -= tokenAmount;
+            emit Withdraw(address(0), tokenAmount);
+            // Send ETH to the specified address
+            (success, ) = to.call{value: tokenAmount}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), to, tokenAmount);
+            }
         }
-
-        emit Withdrawal(token, tokenAmount);
     }
 
     /// @dev Enables a token to be exchanged for OLAS.
@@ -264,7 +261,7 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
             if (success) {
                 emit TransferToDispenserETH(amountETH);
             } else {
-                revert TransferFailed(ETH_TOKEN_ADDRESS, address(this), dispenser, amountETH);
+                revert TransferFailed(address(0), address(this), dispenser, amountETH);
             }
         }
         if (amountOLAS > 0) {
