@@ -40,20 +40,22 @@ contract MockRegistry {
     /// @dev Gets the owner of the token Id.
     /// @param tokenId Token Id.
     /// @return account Token Id owner address.
-    function ownerOf(uint256 tokenId) external pure returns (address account) {
-        if (tokenId == 1) {
-            account = address(1);
-        }
-        if (tokenId == 2) {
-            account = address(2);
-        }
+    function ownerOf(uint256 tokenId) external view returns (address account) {
+        account = accounts[tokenId - 1];
     }
 
+    /// @dev Changes the component / agent / service owner.
+    function changeUnitOwner(uint256 tokenId, address newOwner) external {
+        accounts[tokenId - 1] = newOwner;
+    }
+
+    /// @dev Gets the total supply of units.
     function totalSupply() external view returns(uint256) {
         return accounts.length;
     }
 
-    function getServiceOwners() external view returns (address[] memory) {
+    /// @dev Gets service owners.
+    function getUnitOwners() external view returns (address[] memory) {
         return accounts;
     }
 }
