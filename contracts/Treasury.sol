@@ -60,6 +60,9 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     // Token address => token info related to bonding
     mapping(address => TokenInfo) public mapTokens;
 
+    // A well-known representation of an ETH as address
+    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+
     /// @dev Treasury constructor.
     /// @param _olas OLAS token address.
     /// @param _depository Depository address.
@@ -156,16 +159,25 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
         emit DepositETHFromServices(amounts, serviceIds, revenueETH, donationETH);
     }
 
-    /// @dev Allows owner to transfer specified tokens from reserves to a specified address.
+    /// @dev Allows owner to transfer tokens from reserves to a specified address.
     /// @param to Address to transfer funds to.
     /// @param tokenAmount Token amount to get reserves from.
-    /// @param token Token address or ETH (zero address).
+    /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
     function withdraw(address to, uint256 tokenAmount, address token) external onlyOwner
         returns (bool success)
     {
         // All the LP tokens must go under the bonding condition
-        if (token != address(0)) {
+        if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
+            // This branch is used to transfer ETH to a specified address
+            ETHOwned -= tokenAmount;
+            emit Withdraw(address(0), tokenAmount);
+            // Send ETH to the specified address
+            (success, ) = to.call{value: tokenAmount}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), to, tokenAmount);
+            }
+        } else {
             // Only approved token reserves can be used for redemptions
             if (mapTokens[token].state != TokenState.Enabled) {
                 revert UnauthorizedToken(token);
@@ -176,15 +188,6 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
             emit Withdraw(token, tokenAmount);
             // Transfer LP token
             IERC20(token).safeTransfer(to, tokenAmount);
-        } else if (ETHOwned >= tokenAmount) {
-            // This branch is used to transfer ETH to a specified address
-            ETHOwned -= tokenAmount;
-            emit Withdraw(address(0), tokenAmount);
-            // Send ETH to the specified address
-            (success, ) = to.call{value: tokenAmount}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), to, tokenAmount);
-            }
         }
     }
 

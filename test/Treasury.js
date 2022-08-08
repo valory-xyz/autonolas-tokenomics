@@ -8,7 +8,7 @@ describe("Treasury", async () => {
     // Initial mint for Frax and DAI (10,000,000)
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
-    const AddressZero = "0x" + "0".repeat(40);
+    const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
     let signers;
     let deployer;
@@ -185,7 +185,7 @@ describe("Treasury", async () => {
             expect(await treasury.ETHOwned()).to.equal(amount);
 
             // Withdraw ETH
-            const success = await treasury.callStatic.withdraw(deployer.address, amount, AddressZero);
+            const success = await treasury.callStatic.withdraw(deployer.address, amount, ETHAddress);
             expect(success).to.equal(true);
         });
     });
