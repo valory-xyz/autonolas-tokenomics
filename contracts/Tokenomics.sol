@@ -52,15 +52,33 @@ struct PointEcomonics {
     uint256 ownerTopUps;
     // Top-ups for stakers
     uint256 stakerTopUps;
-    // Number of valuable devs can be paid per units of capital per epoch
-    uint256 devsPerCapital;
     // Timestamp
     uint256 ts;
     // Block number
     uint256 blockNumber;
 }
 
-/// @title Tokenomics - Smart contract for store/interface for key tokenomics params
+/// @dev Interface for contribution measures.
+interface IContributionMeasures {
+    /// @dev Gets tokenomics contributions.
+    /// @param protocolServiceIds Set of protocol-owned services in current epoch.
+    /// @param treasuryRewards Treasury rewards.
+    /// @param componentRewards Component rewards.
+    /// @param agentRewards Agent rewards.
+    function getContributions(
+        uint256[] memory protocolServiceIds,
+        uint256 treasuryRewards,
+        uint256 componentRewards,
+        uint256 agentRewards
+    ) external returns (PointUnits memory ucfc, PointUnits memory ucfa, uint256 fKD);
+
+    /// @dev Calculates UCF of by specified epoch point parameters.
+    /// @param pe Epoch point.
+    /// @return ucf UCF value.
+    function getUCF(PointEcomonics memory pe) external view returns (uint256  ucf);
+}
+
+/// @title Tokenomics - Smart contract for key tokenomics parameters
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Tokenomics is IErrorsTokenomics, Ownable {
@@ -98,17 +116,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Default epsilon rate that contributes to the interest rate: 50% or 0.5
     uint256 public epsilonRate = 5 * 1e17;
 
-    // UCFc / UCFa weights for the UCF contribution
-    uint256 public ucfcWeight = 1;
-    uint256 public ucfaWeight = 1;
-    // Component / agent weights for new valuable code
-    uint256 public componentWeight = 1;
-    uint256 public agentWeight = 1;
-    // Number of valuable devs can be paid per units of capital per epoch
-    uint256 public devsPerCapital = 1;
-    // 10^(OLAS decimals) that represent a whole unit in OLAS token
-    uint256 public immutable decimalsUnit;
-
     // Total service revenue per epoch: sum(r(s))
     uint256 public epochServiceRevenueETH;
     // Donation balance
@@ -130,12 +137,11 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
-    // Component Registry
-    address public immutable componentRegistry;
-    // Agent Registry
-    address public immutable agentRegistry;
-    // Service Registry
+    // Service Registry address
+    // TODO: Debate if this must be mutable for cases when serviceRegistry changes
     address public immutable serviceRegistry;
+    // Contribution Measures address
+    address public contributionMeasures;
 
     // Inflation caps for the first ten years
     uint256[] public inflationCaps;
@@ -158,9 +164,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Map of protocol-owned service Ids
     mapping(uint256 => bool) public mapProtocolServices;
 
-    // Max slippage 10000 = 100%
-    uint256 public constant MAXSLIPPAGE = 10_000;
-
     /// @dev Tokenomics constructor.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
@@ -168,11 +171,10 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param _dispenser Dispenser address.
     /// @param _ve Voting Escrow address.
     /// @param _epochLen Epoch length.
-    /// @param _componentRegistry Component registry address.
-    /// @param _agentRegistry Agent registry address.
-    /// @param _serviceRegistry Service registry address.
+    /// @param _serviceRegistry Service Registry address.
+    /// @param _contributionMeasures Contribution Measures address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
-        address _componentRegistry, address _agentRegistry, address _serviceRegistry)
+        address _serviceRegistry, address _contributionMeasures)
     {
         olas = _olas;
         treasury = _treasury;
@@ -180,10 +182,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         dispenser = _dispenser;
         ve = _ve;
         epochLen = _epochLen;
-        componentRegistry = _componentRegistry;
-        agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
-        decimalsUnit = 10 ** IOLAS(_olas).decimals();
+        contributionMeasures = _contributionMeasures;
 
         inflationCaps = new uint256[](10);
         inflationCaps[0] = 520_000_000e18;
@@ -227,7 +227,10 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
     /// @param _ve Voting Escrow address.
-    function changeManagers(address _treasury, address _depository, address _dispenser, address _ve) external onlyOwner {
+    /// @param _contributionMeasures Contribution Measures address.
+    function changeManagers(address _treasury, address _depository, address _dispenser, address _ve,
+        address _contributionMeasures) external onlyOwner
+    {
         if (_treasury != address(0)) {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
@@ -244,36 +247,24 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             ve = _ve;
             emit VotingEscrowUpdated(_ve);
         }
+        if (_contributionMeasures != address(0)) {
+            contributionMeasures = _contributionMeasures;
+        }
     }
 
     /// @dev Changes tokenomics parameters.
-    /// @param _ucfcWeight UCFc weighs for the UCF contribution.
-    /// @param _ucfaWeight UCFa weight for the UCF contribution.
-    /// @param _componentWeight Component weight for new valuable code.
-    /// @param _agentWeight Agent weight for new valuable code.
-    /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _maxBond MaxBond OLAS, 18 decimals.
     /// @param _epochLen New epoch length.
     /// @param _blockTimeETH Time between blocks for ETH.
     /// @param _bondAutoControl True to enable auto-tuning of max bonding value depending on the OLAS remainder
     function changeTokenomicsParameters(
-        uint256 _ucfcWeight,
-        uint256 _ucfaWeight,
-        uint256 _componentWeight,
-        uint256 _agentWeight,
-        uint256 _devsPerCapital,
         uint256 _epsilonRate,
         uint256 _maxBond,
         uint256 _epochLen,
         uint256 _blockTimeETH,
         bool _bondAutoControl
     ) external onlyOwner {
-        ucfcWeight = _ucfcWeight;
-        ucfaWeight = _ucfaWeight;
-        componentWeight = _componentWeight;
-        agentWeight = _agentWeight;
-        devsPerCapital = _devsPerCapital;
         epsilonRate = _epsilonRate;
         // take into account the change during the epoch
         _adjustMaxBond(_maxBond);
@@ -313,6 +304,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         topUpStakerFraction = _topUpStakerFraction;
     }
 
+    // TODO Think of a possibility to have a round-up map like Gnosis Safe stores owners. Otherwise it would be difficult to track the list of whitelisted service Ids
     /// @dev (De-)whitelists protocol-owned services.
     /// @param serviceIds Set of service Ids.
     /// @param permissions Set of corresponding permissions for each account address.
@@ -412,97 +404,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         donationBalanceETH += donationETH;
     }
 
-    /// @dev Calculates tokenomics for components / agents of protocol-owned services.
-    /// @param unitType Unit type as component or agent.
-    /// @param unitRewards Component / agent allocated rewards.
-    /// @param unitTopUps Component / agent allocated top-ups.
-    /// @return ucfu Calculated UCFc / UCFa.
-    function _calculateUnitTokenomics(IServiceTokenomics.UnitType unitType, uint256 unitRewards, uint256 unitTopUps) private
-        returns (PointUnits memory ucfu)
-    {
-        uint256 numServices = protocolServiceIds.length;
-        // Array of numbers of units per each service Id
-        uint256[] memory numServiceUnits = new uint256[](numServices);
-        // 2D array of all the sets of units per each service Id
-        uint32[][] memory serviceUnitIds = new uint32[][](numServices);
-
-        // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
-        address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
-        ucfu.numUnits = IToken(registry).totalSupply();
-        // Set of agent revenues UCFu-s. Agent / component Ids start from "1", so the index can be equal to the set size
-        uint256[] memory ucfuRevs = new uint256[](ucfu.numUnits + 1);
-        // Set of agent revenues UCFu-s divided by the cardinality of agent Ids in each service
-        uint256[] memory ucfus = new uint256[](numServices);
-        // Overall profits of UCFu-s
-        uint256 sumProfits = 0;
-
-        // Loop over profitable service Ids to calculate initial UCFu-s
-        for (uint256 i = 0; i < numServices; ++i) {
-            uint256 serviceId = protocolServiceIds[i];
-            (numServiceUnits[i], serviceUnitIds[i]) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
-            // Add to UCFa part for each agent Id
-            uint256 amount = mapServiceAmounts[serviceId];
-            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
-                // Sum the amounts for the corresponding components / agents
-                ucfuRevs[serviceUnitIds[i][j]] += amount;
-                sumProfits += amount;
-            }
-        }
-
-        // Calculate all complete UCFu-s divided by the cardinality of agent Ids in each service
-        for (uint256 i = 0; i < numServices; ++i) {
-            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
-                // Sum(UCFa[i]) / |As(epoch)|
-                ucfus[i] += ucfuRevs[serviceUnitIds[i][j]];
-            }
-            ucfus[i] /= numServiceUnits[i];
-        }
-
-        // Calculate component / agent related values
-        for (uint256 i = 0; i < ucfu.numUnits; ++i) {
-            // Get the agent Id from the index list
-            // For our architecture it's the identity function (see tokenByIndex() in autonolas-registries)
-            uint256 unitId = i + 1;
-            if (ucfuRevs[unitId] > 0) {
-                // Add address of a profitable component owner
-                address owner = IToken(registry).ownerOf(unitId);
-                // Increase a profitable agent number
-                ++ucfu.numProfitableUnits;
-                // Calculate agent rewards in ETH
-                mapOwnerRewards[owner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
-                // Calculate OLAS top-ups
-                uint256 amountOLAS = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
-                if (unitType == IServiceTokenomics.UnitType.Component) {
-                    amountOLAS = (amountOLAS * componentWeight) / (componentWeight + agentWeight);
-                } else {
-                    amountOLAS = (amountOLAS * agentWeight)  / (componentWeight + agentWeight);
-                }
-                mapOwnerTopUps[owner] += amountOLAS;
-
-                // Check if the component / agent is used for the first time
-                if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
-                    ucfu.numNewUnits++;
-                    mapComponents[unitId] = true;
-                } else {
-                    ucfu.numNewUnits++;
-                    mapAgents[unitId] = true;
-                }
-                // Check if the owner has introduced component / agent for the first time 
-                if (!mapOwners[owner]) {
-                    mapOwners[owner] = true;
-                    ucfu.numNewOwners++;
-                }
-            }
-        }
-
-        // Calculate total UCFu
-        for (uint256 i = 0; i < numServices; ++i) {
-            ucfu.ucfuSum += ucfus[i];
-        }
-        // Record unit rewards
-        ucfu.unitRewards = unitRewards;
-    }
-
     /// @dev Clears necessary data structures for the next epoch.
     function _clearEpochData() internal {
         uint256 numServices = protocolServiceIds.length;
@@ -551,6 +452,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
 
     /// @dev Record global data to new checkpoint
     function _checkpoint() internal {
+        // TODO Need to check for the condition of epochServiceRevenueETH == 0?
         // Get total amount of OLAS as profits for rewards, and all the rewards categories
         // 0: total rewards, 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         // 5: topUpOwnerFraction, 6: topUpStakerFraction, 7: bondFraction
@@ -578,43 +480,16 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             _adjustMaxBond(rewards[7]);
         }
 
-        // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
+        // df = 1/(1 + interest_rate) by documentation, reverse_df = 1/df >= 1.0.
         uint256 df;
         // Calculate UCFc, UCFa, rewards allocated from them and DF
         PointUnits memory ucfc;
         PointUnits memory ucfa;
         if (rewards[0] > 0) {
-            // Calculate total UCFc
-            ucfc = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5]);
-            ucfc.ucfWeight = ucfcWeight;
-            ucfc.unitWeight = componentWeight;
-
-            // Calculate total UCFa
-            ucfa = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5]);
-            ucfa.ucfWeight = ucfaWeight;
-            ucfa.unitWeight = agentWeight;
-
-            // Calculate DF from epsilon rate and f(K,D)
-            uint256 codeUnits = componentWeight * ucfc.numNewUnits + agentWeight * ucfa.numNewUnits;
-            uint256 newOwners = ucfc.numNewOwners + ucfa.numNewOwners;
-            //  f(K(e), D(e)) = d * k * K(e) + d * D(e)
-            // fKD = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
-            //  Convert amount of tokens with OLAS decimals (18 by default) to fixed point x.x
-            FixedPoint.uq112x112 memory fp1 = FixedPoint.fraction(rewards[1], decimalsUnit);
-            // For consistency multiplication with fp1
-            FixedPoint.uq112x112 memory fp2 = FixedPoint.fraction(codeUnits * devsPerCapital, 1);
-            // fp1 == codeUnits * devsPerCapital * rewards[1]
-            fp1 = fp1.muluq(fp2);
-            // fp2 = codeUnits * newOwners
-            fp2 = FixedPoint.fraction(codeUnits * newOwners, 1);
-            // fp = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
-            FixedPoint.uq112x112 memory fp = _add(fp1, fp2);
-            // 1/100 rational number
-            FixedPoint.uq112x112 memory fp3 = FixedPoint.fraction(1, 100);
-            // fp = fp/100 - calculate the final value in fixed point
-            fp = fp.muluq(fp3);
             // fKD in the state that is comparable with epsilon rate
-            uint256 fKD = fp._x / MAGIC_DENOMINATOR;
+            uint256 fKD;
+            (ucfc, ucfa, fKD) = IContributionMeasures(contributionMeasures).getContributions(protocolServiceIds,
+                rewards[1], rewards[4], rewards[5]);
 
             // Compare with epsilon rate and choose the smallest one
             if (fKD > epsilonRate) {
@@ -625,8 +500,9 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         }
 
         uint256 numServices = protocolServiceIds.length;
+        // TODO Double check parameters we need to put into the struct. Do we need devsPerCapital?
         PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, df, numServices, rewards[1], rewards[2],
-            donationBalanceETH, rewards[5], rewards[6], devsPerCapital, block.timestamp, block.number);
+            donationBalanceETH, rewards[5], rewards[6], block.timestamp, block.number);
         mapEpochEconomics[epochCounter] = newPoint;
         epochCounter++;
 
@@ -745,53 +621,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         }
     }
 
-    /// @dev Sums two fixed points.
-    /// @param x Point x.
-    /// @param y Point y.
-    /// @return r Result of x + y.
-    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure
-        returns (FixedPoint.uq112x112 memory r)
-    {
-        uint224 z = x._x + y._x;
-        if (x._x > 0 && y._x > 0) assert (z > x._x && z > y._x);
-        r = FixedPoint.uq112x112(uint224(z));
-    }
-
-    /// @dev Calculated UCF of a specified epoch.
+    /// @dev Calculates UCF of a specified epoch.
     /// @param epoch Epoch number.
     /// @return ucf UCF value.
-    function getUCF(uint256 epoch) external view returns (FixedPoint.uq112x112 memory ucf) {
+    function getUCF(uint256 epoch) external view returns (uint256 ucf) {
         PointEcomonics memory pe = mapEpochEconomics[epoch];
-
-        // Total rewards per epoch
-        uint256 totalRewards = pe.treasuryRewards + pe.stakerRewards + pe.ucfc.unitRewards + pe.ucfa.unitRewards;
-
-        // Calculate UCFc
-        uint256 denominator = totalRewards * pe.numServices * pe.ucfc.numUnits;
-        FixedPoint.uq112x112 memory ucfc;
-        // Number of components can be equal to zero for all the services, so the UCFc is just zero by default
-        if (denominator > 0) {
-            ucfc = FixedPoint.fraction(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum, denominator);
-
-            // Calculate UCFa
-            denominator = totalRewards * pe.numServices * pe.ucfa.numUnits;
-            // Number of agents must always be greater than zero, since at least one agent is used by a service
-            if (denominator > 0) {
-                FixedPoint.uq112x112 memory ucfa = FixedPoint.fraction(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum, denominator);
-
-                // Calculate UCF
-                denominator = pe.ucfc.ucfWeight + pe.ucfa.ucfWeight;
-                if (denominator > 0) {
-                    FixedPoint.uq112x112 memory weightedUCFc = FixedPoint.fraction(pe.ucfc.ucfWeight, 1);
-                    FixedPoint.uq112x112 memory weightedUCFa = FixedPoint.fraction(pe.ucfa.ucfWeight, 1);
-                    weightedUCFc = ucfc.muluq(weightedUCFc);
-                    weightedUCFa = ucfa.muluq(weightedUCFa);
-                    ucf = _add(weightedUCFc, weightedUCFa);
-                    FixedPoint.uq112x112 memory fraction = FixedPoint.fraction(1, denominator);
-                    ucf = ucf.muluq(fraction);
-                }
-            }
-        }
+        ucf = IContributionMeasures(contributionMeasures).getUCF(pe);
     }
 
     /// @dev Gets the component / agent owner reward.
