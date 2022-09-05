@@ -60,17 +60,15 @@ struct PointEcomonics {
 
 /// @dev Interface for contribution measures.
 interface IContributionMeasures {
-    /// @dev Gets tokenomics contributions.
-    /// @param protocolServiceIds Set of protocol-owned services in current epoch.
+    /// @dev Calculates valuable tokenomics contributions based on component and agent contribution factors.
+    /// @param ucfc Unit Contribution Factor (components).
+    /// @param ucfa Unit Contribution Factor (agents).
     /// @param treasuryRewards Treasury rewards.
-    /// @param componentRewards Component rewards.
-    /// @param agentRewards Agent rewards.
-    function getContributions(
-        uint256[] memory protocolServiceIds,
-        uint256 treasuryRewards,
-        uint256 componentRewards,
-        uint256 agentRewards
-    ) external returns (PointUnits memory ucfc, PointUnits memory ucfa, uint256 fKD);
+    function calculateValuableContributions(
+        PointUnits memory ucfc,
+        PointUnits memory ucfa,
+        uint256 treasuryRewards
+    ) external returns (uint256 fKD);
 
     /// @dev Calculates UCF of by specified epoch point parameters.
     /// @param pe Epoch point.
@@ -107,14 +105,15 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     uint256 public epochCounter = 1;
     // ETH average block time
     uint256 public blockTimeETH = 14;
-    // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
-    // 2^(112 - log2(1e18))
-    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
     // ~120k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
     uint256 public maxBond = 120_000 * 1e18;
     // TODO Decide which rate has to be put by default
     // Default epsilon rate that contributes to the interest rate: 50% or 0.5
     uint256 public epsilonRate = 5 * 1e17;
+
+    // Component / agent weights for new valuable code
+    uint256 public componentWeight = 1;
+    uint256 public agentWeight = 1;
 
     // Total service revenue per epoch: sum(r(s))
     uint256 public epochServiceRevenueETH;
@@ -137,8 +136,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
+    // TODO: Debate if registries must be mutable for cases when their contract versions change
+    // Component Registry
+    address public immutable componentRegistry;
+    // Agent Registry
+    address public immutable agentRegistry;
     // Service Registry address
-    // TODO: Debate if this must be mutable for cases when serviceRegistry changes
     address public immutable serviceRegistry;
     // Contribution Measures address
     address public contributionMeasures;
@@ -171,10 +174,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param _dispenser Dispenser address.
     /// @param _ve Voting Escrow address.
     /// @param _epochLen Epoch length.
+    /// @param _componentRegistry Component registry address.
+    /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service Registry address.
     /// @param _contributionMeasures Contribution Measures address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
-        address _serviceRegistry, address _contributionMeasures)
+        address _componentRegistry, address _agentRegistry, address _serviceRegistry, address _contributionMeasures)
     {
         olas = _olas;
         treasury = _treasury;
@@ -182,6 +187,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         dispenser = _dispenser;
         ve = _ve;
         epochLen = _epochLen;
+        componentRegistry = _componentRegistry;
+        agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
         contributionMeasures = _contributionMeasures;
 
@@ -450,6 +457,100 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         topUp = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
     }
 
+    /// @dev Calculates unit contribution factors for components / agents of protocol-owned services.
+    /// @param unitType Unit type as component or agent.
+    /// @param unitRewards Component / agent allocated rewards.
+    /// @param unitTopUps Component / agent allocated top-ups.
+    /// @return ucfu Calculated UCFc / UCFa.
+    function _calculateUCF(
+        IServiceTokenomics.UnitType unitType,
+        uint256 unitRewards,
+        uint256 unitTopUps
+    ) internal returns (PointUnits memory ucfu)
+    {
+        uint256 numServices = protocolServiceIds.length;
+        // Array of numbers of units per each service Id
+        uint256[] memory numServiceUnits = new uint256[](numServices);
+        // 2D array of all the sets of units per each service Id
+        uint32[][] memory serviceUnitIds = new uint32[][](numServices);
+
+        // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
+        address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
+        ucfu.numUnits = IToken(registry).totalSupply();
+        // Set of agent revenues UCFu-s. Agent / component Ids start from "1", so the index can be equal to the set size
+        uint256[] memory ucfuRevs = new uint256[](ucfu.numUnits + 1);
+        // Set of agent revenues UCFu-s divided by the cardinality of agent Ids in each service
+        uint256[] memory ucfus = new uint256[](numServices);
+        // Overall profits of UCFu-s
+        uint256 sumProfits = 0;
+
+        // Loop over profitable service Ids to calculate initial UCFu-s
+        for (uint256 i = 0; i < numServices; ++i) {
+            uint256 serviceId = protocolServiceIds[i];
+            (numServiceUnits[i], serviceUnitIds[i]) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
+            // Add to UCFa part for each agent Id
+            uint256 amount = mapServiceAmounts[serviceId];
+            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
+                // Sum the amounts for the corresponding components / agents
+                ucfuRevs[serviceUnitIds[i][j]] += amount;
+                sumProfits += amount;
+            }
+        }
+
+        // Calculate all complete UCFu-s divided by the cardinality of agent Ids in each service
+        for (uint256 i = 0; i < numServices; ++i) {
+            for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
+                // Sum(UCFa[i]) / |As(epoch)|
+                ucfus[i] += ucfuRevs[serviceUnitIds[i][j]];
+            }
+            ucfus[i] /= numServiceUnits[i];
+        }
+
+        // Calculate component / agent related values
+        for (uint256 i = 0; i < ucfu.numUnits; ++i) {
+            // Get the agent Id from the index list
+            // For our architecture it's the identity function (see tokenByIndex() in autonolas-registries)
+            uint256 unitId = i + 1;
+            if (ucfuRevs[unitId] > 0) {
+                // Add address of a profitable component owner
+                address owner = IToken(registry).ownerOf(unitId);
+                // Increase a profitable agent number
+                ++ucfu.numProfitableUnits;
+                // Calculate agent rewards in ETH
+                mapOwnerRewards[owner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
+                // Calculate OLAS top-ups
+                uint256 amountOLAS = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
+                if (unitType == IServiceTokenomics.UnitType.Component) {
+                    amountOLAS = (amountOLAS * componentWeight) / (componentWeight + agentWeight);
+                } else {
+                    amountOLAS = (amountOLAS * agentWeight)  / (componentWeight + agentWeight);
+                }
+                mapOwnerTopUps[owner] += amountOLAS;
+
+                // Check if the component / agent is used for the first time
+                if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
+                    ucfu.numNewUnits++;
+                    mapComponents[unitId] = true;
+                } else {
+                    ucfu.numNewUnits++;
+                    mapAgents[unitId] = true;
+                }
+                // Check if the owner has introduced component / agent for the first time
+                if (!mapOwners[owner]) {
+                    mapOwners[owner] = true;
+                    ucfu.numNewOwners++;
+                }
+            }
+        }
+
+        // Calculate total UCFu
+        for (uint256 i = 0; i < numServices; ++i) {
+            ucfu.ucfuSum += ucfus[i];
+        }
+        // Record unit rewards
+        ucfu.unitRewards = unitRewards;
+    }
+
     /// @dev Record global data to new checkpoint
     function _checkpoint() internal {
         // TODO Need to check for the condition of epochServiceRevenueETH == 0?
@@ -483,13 +584,13 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // df = 1/(1 + interest_rate) by documentation, reverse_df = 1/df >= 1.0.
         uint256 df;
         // Calculate UCFc, UCFa, rewards allocated from them and DF
-        PointUnits memory ucfc;
-        PointUnits memory ucfa;
+        PointUnits memory ucfc = _calculateUCF(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5]);
+        PointUnits memory ucfa = _calculateUCF(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5]);
+
+        // Calculate fKD and df
         if (rewards[0] > 0) {
             // fKD in the state that is comparable with epsilon rate
-            uint256 fKD;
-            (ucfc, ucfa, fKD) = IContributionMeasures(contributionMeasures).getContributions(protocolServiceIds,
-                rewards[1], rewards[4], rewards[5]);
+            uint256 fKD = IContributionMeasures(contributionMeasures).calculateValuableContributions(ucfc, ucfa, rewards[1]);
 
             // Compare with epsilon rate and choose the smallest one
             if (fKD > epsilonRate) {

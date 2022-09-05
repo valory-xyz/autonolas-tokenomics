@@ -10,6 +10,7 @@ describe("Tokenomics", async () => {
     let olas;
     let tokenomics;
     let serviceRegistry;
+    let contributionMeasures;
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(25);
     const magicDenominator = 5192296858534816;
@@ -34,9 +35,14 @@ describe("Tokenomics", async () => {
         const componentRegistry = await ServiceRegistry.deploy();
         const agentRegistry = await ServiceRegistry.deploy();
 
+        const ContributionMeasures = await ethers.getContractFactory("ContributionMeasures");
+        contributionMeasures = await ContributionMeasures.deploy();
+        await contributionMeasures.deployed();
+
         // Treasury address is deployer since there are functions that require treasury only
         tokenomics = await tokenomicsFactory.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
+            deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address,
+            contributionMeasures.address);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -53,7 +59,7 @@ describe("Tokenomics", async () => {
 
             // Changing depository, dispenser and tokenomics addresses
             await tokenomics.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address,
-                signers[3].address);
+                signers[3].address, signers[4].address);
             expect(await tokenomics.treasury()).to.equal(account.address);
             expect(await tokenomics.depository()).to.equal(deployer.address);
             expect(await tokenomics.dispenser()).to.equal(signers[2].address);
