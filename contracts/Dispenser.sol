@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/IErrorsTokenomics.sol";
@@ -10,13 +9,16 @@ import "./interfaces/ITokenomics.sol";
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is IErrorsTokenomics, Ownable, ReentrancyGuard {
+contract Dispenser is IErrorsTokenomics, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address tokenomics);
     event TransferETHFailed(address account, uint256 amount);
     event ReceivedETH(address sender, uint amount);
 
+    // Owner address
+    address public owner;
     // OLAS token address
     address public immutable olas;
     // Tokenomics address
@@ -30,11 +32,34 @@ contract Dispenser is IErrorsTokenomics, Ownable, ReentrancyGuard {
     constructor(address _olas, address _tokenomics) {
         olas = _olas;
         tokenomics = _tokenomics;
+        owner = msg.sender;
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
     }
 
     /// @dev Changes the tokenomics addess.
     /// @param _tokenomics Tokenomics address.
-    function changeTokenomics(address _tokenomics) external onlyOwner {
+    function changeTokenomics(address _tokenomics) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         tokenomics = _tokenomics;
         emit TokenomicsUpdated(_tokenomics);
     }

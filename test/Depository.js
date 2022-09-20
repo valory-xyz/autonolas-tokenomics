@@ -273,8 +273,8 @@ describe("Depository LP", async () => {
             await depository.connect(bob).deposit(pairODAI.address, bid, bamount, bob.address);
             expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
             const res = await depository.getBondStatus(bob.address, 0);
-            // 1250 * 1.5 = 1875 * e18 =  1.875 * e21
-            expect(Number(res.payout)).to.equal(1.875e+21);
+            // 1250 * 1.1 = 1375 * e18 =  1.375 * e21
+            expect(Number(res.payout)).to.equal(1.375e+21);
         });
 
         it("Should not allow to deposit after the bonding product is expired", async () => {
@@ -344,7 +344,7 @@ describe("Depository LP", async () => {
     });
 
     context("Attacks", async function () {
-        it("proof of protect against attack via smart-contract use deposit", async () => {
+        it("Proof of protect against attack via smart-contract use deposit", async () => {
             const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(bob.address));
             // Transfer all LP tokens back to deployer
             // await pairODAI.connect(bob).transfer(deployer.address, amountTo);
@@ -364,8 +364,8 @@ describe("Depository LP", async () => {
             const res = await depository.getBondStatus(attackDeposit.address, 0);
             expect(res.payout).to.equal(payout);
 
-            // We know that the payout for any account under these parameters must be 1.875 * e21
-            expect(Number(res.payout)).to.equal(1.875e+21);
+            // We know that the payout for any account under these parameters must be 1.375 * e21
+            expect(Number(res.payout)).to.equal(1.375e+21);
         });
     });
 });

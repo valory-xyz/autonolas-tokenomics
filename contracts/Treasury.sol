@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IErrorsTokenomics.sol";
@@ -11,24 +10,25 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
+contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
     using SafeERC20 for IERC20;
-    
-    event DepositLPFromDepository(address token, uint256 tokenAmount, uint256 olasMintAmount);
+
+    event OwnerUpdated(address indexed owner);
+    event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
     event DepositETHFromServices(uint256[] amounts, uint256[] serviceIds, uint256 revenue, uint256 donation);
-    event Withdraw(address token, uint256 tokenAmount);
-    event TokenReserves(address token, uint256 reserves);
-    event EnableToken(address token);
-    event DisableToken(address token);
-    event TreasuryUpdated(address treasury);
-    event TokenomicsUpdated(address tokenomics);
-    event DepositoryUpdated(address depository);
-    event DispenserUpdated(address dispenser);
+    event Withdraw(address indexed token, uint256 tokenAmount);
+    event TokenReserves(address indexed token, uint256 reserves);
+    event EnableToken(address indexed token);
+    event DisableToken(address indexed token);
+    event TreasuryUpdated(address indexed treasury);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event DepositoryUpdated(address indexed depository);
+    event DispenserUpdated(address indexed dispenser);
     event TransferToDispenserETH(uint256 amount);
     event TransferToDispenserOLAS(uint256 amount);
     event TransferETHFailed(address account, uint256 amount);
     event TransferOLASFailed(address account, uint256 amount);
-    event ReceivedETH(address sender, uint amount);
+    event ReceivedETH(address indexed sender, uint amount);
 
     enum TokenState {
         NonExistent,
@@ -43,6 +43,8 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
         uint256 reserves;
     }
 
+    // Owner address
+    address public owner;
     // OLAS token address
     address public immutable olas;
     // Depository address
@@ -74,21 +76,36 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
         depository = _depository;
         dispenser = _dispenser;
         tokenomics = _tokenomics;
+        owner = msg.sender;
     }
 
-    // Only the depository has a privilege to control some actions of a treasury
-    modifier onlyDepository() {
-        if (depository != msg.sender) {
-            revert ManagerOnly(msg.sender, depository);
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
         }
-        _;
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
     }
 
     /// @dev Changes various managing contract addresses.
     /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
     /// @param _tokenomics Tokenomics address.
-    function changeManagers(address _depository, address _dispenser, address _tokenomics) external onlyOwner {
+    function changeManagers(address _depository, address _dispenser, address _tokenomics) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         if (_depository != address(0)) {
             depository = _depository;
             emit DepositoryUpdated(_depository);
@@ -107,8 +124,13 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
-    function depositTokenForOLAS(uint256 tokenAmount, address token, uint256 olasMintAmount) external onlyDepository
+    function depositTokenForOLAS(uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
+        // Check for the depository access
+        if (depository != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
         // Check if the token is authorized by the registry
         if (mapTokens[token].state != TokenState.Enabled) {
             revert UnauthorizedToken(token);
@@ -164,9 +186,12 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    function withdraw(address to, uint256 tokenAmount, address token) external onlyOwner
-        returns (bool success)
-    {
+    function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
             // This branch is used to transfer ETH to a specified address
@@ -193,7 +218,12 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
 
     /// @dev Enables a token to be exchanged for OLAS.
     /// @param token Token address.
-    function enableToken(address token) external onlyOwner {
+    function enableToken(address token) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         TokenState state = mapTokens[token].state;
         if (state != TokenState.Enabled) {
             if (state == TokenState.NonExistent) {
@@ -206,7 +236,12 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
 
     /// @dev Disables a token from the ability to exchange for OLAS.
     /// @param token Token address.
-    function disableToken(address token) external onlyOwner {
+    function disableToken(address token) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         TokenState state = mapTokens[token].state;
         if (state != TokenState.Disabled) {
             // The reserves of a token must be zero in order to disable it
@@ -276,7 +311,12 @@ contract Treasury is IErrorsTokenomics, Ownable, ReentrancyGuard  {
     }
 
     /// @dev Starts new epoch and allocates rewards.
-    function allocateRewards() external onlyOwner {
+    function allocateRewards() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // Process the epoch data
         ITokenomics(tokenomics).checkpoint();
         // Get the rewards data
