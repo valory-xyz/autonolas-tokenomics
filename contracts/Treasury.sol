@@ -2,28 +2,22 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
 
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
+contract Treasury is GenericTokenomics  {
     using SafeERC20 for IERC20;
 
-    event OwnerUpdated(address indexed owner);
     event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
     event DepositETHFromServices(uint256[] amounts, uint256[] serviceIds, uint256 revenue, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
     event TokenReserves(address indexed token, uint256 reserves);
     event EnableToken(address indexed token);
     event DisableToken(address indexed token);
-    event TreasuryUpdated(address indexed treasury);
-    event TokenomicsUpdated(address indexed tokenomics);
-    event DepositoryUpdated(address indexed depository);
-    event DispenserUpdated(address indexed dispenser);
     event TransferToDispenserETH(uint256 amount);
     event TransferToDispenserOLAS(uint256 amount);
     event TransferETHFailed(address account, uint256 amount);
@@ -43,17 +37,6 @@ contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
         uint256 reserves;
     }
 
-    // Owner address
-    address public owner;
-    // OLAS token address
-    address public immutable olas;
-    // Depository address
-    address public depository;
-    // Dispenser contract address
-    address public dispenser;
-    // Tokenomics contract address
-    address public tokenomics;
-    // ETH received from services
     uint256 public ETHFromServices;
     // ETH owned by treasury
     uint256 public ETHOwned;
@@ -70,54 +53,10 @@ contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
     /// @param _depository Depository address.
     /// @param _tokenomics Tokenomics address.
     /// @param _dispenser Dispenser address.
-    constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable {
-        olas = _olas;
+    constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
+        GenericTokenomics(_olas, _tokenomics, address(0), _depository, _dispenser)
+    {
         ETHOwned = msg.value;
-        depository = _depository;
-        dispenser = _dispenser;
-        tokenomics = _tokenomics;
-        owner = msg.sender;
-    }
-
-    /// @dev Changes the owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
-    }
-
-    /// @dev Changes various managing contract addresses.
-    /// @param _depository Depository address.
-    /// @param _dispenser Dispenser address.
-    /// @param _tokenomics Tokenomics address.
-    function changeManagers(address _depository, address _dispenser, address _tokenomics) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        if (_depository != address(0)) {
-            depository = _depository;
-            emit DepositoryUpdated(_depository);
-        }
-        if (_dispenser != address(0)) {
-            dispenser = _dispenser;
-            emit DispenserUpdated(_dispenser);
-        }
-        if (_tokenomics != address(0)) {
-            tokenomics = _tokenomics;
-            emit TokenomicsUpdated(_tokenomics);
-        }
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -153,7 +92,13 @@ contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
     /// @dev Deposits ETH from protocol-owned services in batch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable nonReentrant {
+    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -179,6 +124,7 @@ contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
         ETHOwned += donationETH;
 
         emit DepositETHFromServices(amounts, serviceIds, revenueETH, donationETH);
+        _locked = 1;
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
@@ -319,6 +265,7 @@ contract Treasury is IErrorsTokenomics, ReentrancyGuard  {
 
         // Process the epoch data
         ITokenomics(tokenomics).checkpoint();
+        // TODO Only if the new epoch started we need to get the rewards calculation
         // Get the rewards data
         (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
 

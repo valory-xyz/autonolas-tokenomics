@@ -1,76 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is IErrorsTokenomics, ReentrancyGuard {
+contract Dispenser is GenericTokenomics {
     using SafeERC20 for IERC20;
 
-    event OwnerUpdated(address indexed owner);
-    event TokenomicsUpdated(address tokenomics);
     event TransferETHFailed(address account, uint256 amount);
     event ReceivedETH(address sender, uint amount);
 
-    // Owner address
-    address public owner;
-    // OLAS token address
-    address public immutable olas;
-    // Tokenomics address
-    address public tokenomics;
     // Mapping account => last reward block for staking
     mapping(address => uint256) public mapLastRewardEpochs;
 
     /// @dev Dispenser constructor.
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _tokenomics) {
-        olas = _olas;
-        tokenomics = _tokenomics;
-        owner = msg.sender;
-    }
-
-    /// @dev Changes the owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
-    }
-
-    /// @dev Changes the tokenomics addess.
-    /// @param _tokenomics Tokenomics address.
-    function changeTokenomics(address _tokenomics) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        tokenomics = _tokenomics;
-        emit TokenomicsUpdated(_tokenomics);
+    constructor(address _olas, address _tokenomics)
+        GenericTokenomics(_olas, _tokenomics, address(0), address(0), address(0))
+    {
     }
 
     /// @dev Withdraws rewards for owners of components / agents.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     /// @return success
-    function withdrawOwnerRewards() external nonReentrant
-        returns (uint256 reward, uint256 topUp, bool success)
-    {
+    function withdrawOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         success = true;
         (reward, topUp) = ITokenomics(tokenomics).accountOwnerRewards(msg.sender);
         if (reward > 0) {
@@ -82,14 +47,20 @@ contract Dispenser is IErrorsTokenomics, ReentrancyGuard {
         if (topUp > 0) {
             IERC20(olas).safeTransfer(msg.sender, topUp);
         }
+
+        _locked = 1;
     }
 
     /// @dev Withdraws rewards for a staker.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    function withdrawStakingRewards() external nonReentrant
-        returns (uint256 reward, uint256 topUp, bool success)
-    {
+    function withdrawStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         success = true;
         // Starting epoch number where the last time reward was not yet given
         uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
@@ -108,6 +79,8 @@ contract Dispenser is IErrorsTokenomics, ReentrancyGuard {
         if (topUp > 0) {
             IERC20(olas).safeTransfer(msg.sender, topUp);
         }
+
+        _locked = 1;
     }
 
     /// @dev Receives ETH.

@@ -74,8 +74,8 @@ describe("Depository LP", async () => {
         attackDeposit = await attackDepositFactory.deploy();
 
         // Change to the correct addresses
-        await treasury.changeManagers(depository.address, AddressZero, AddressZero);
-        await tokenomics.changeManagers(treasury.address, depository.address, AddressZero, AddressZero);
+        await treasury.changeManagers(AddressZero, AddressZero, depository.address, AddressZero);
+        await tokenomics.changeManagers(AddressZero, treasury.address, depository.address, AddressZero);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -166,22 +166,22 @@ describe("Depository LP", async () => {
             const account = alice;
 
             // Trying to change owner from a non-owner account address
-            //await expect(
-            //    depository.connect(account).changeOwner(account.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                depository.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
-            await depository.connect(deployer).changeManagers(account.address, deployer.address);
+            await depository.connect(deployer).changeManagers(deployer.address, account.address, AddressZero, AddressZero);
             expect(await depository.treasury()).to.equal(account.address);
             expect(await depository.tokenomics()).to.equal(deployer.address);
 
             // Changing the owner
-            //await depository.connect(deployer).changeOwner(account.address);
+            await depository.connect(deployer).changeOwner(account.address);
 
             // Trying to change owner from the previous owner address
-            //await expect(
-            //    depository.connect(deployer).changeOwner(owner.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                depository.connect(deployer).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
         });
     });
 
@@ -200,6 +200,11 @@ describe("Depository LP", async () => {
         });
 
         it("Create a product", async () => {
+            // Trying to create a product not by the contract owner
+            await expect(
+                depository.connect(alice).create(pairODAI.address, supplyProductOLA, vesting)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
             // Create a second product, the first one is already created
             await depository.create(pairODAI.address, supplyProductOLA, vesting);
             // Check for the product being active
@@ -215,7 +220,7 @@ describe("Depository LP", async () => {
         });
 
         it("Should return IDs of all products", async () => {
-            // create a second bond
+            // Create a second bond
             await depository.create(pairODAI.address, supplyProductOLA, vesting);
             let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
             expect(Number(first)).to.equal(0);
@@ -337,6 +342,12 @@ describe("Depository LP", async () => {
         it("Close all products", async () => {
             let product = await depository.getProduct(pairODAI.address, bid);
             expect(Number(product.supply)).to.be.greaterThan(0);
+
+            // Trying to close a product not by the contract owner
+            await expect(
+                depository.connect(alice).close(pairODAI.address, bid)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
             await depository.close(pairODAI.address, bid);
             product = await depository.getProduct(pairODAI.address, bid);
             expect(Number(product.supply)).to.equal(0);

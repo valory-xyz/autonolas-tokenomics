@@ -2,23 +2,20 @@
 pragma solidity ^0.8.16;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Depository is IErrorsTokenomics {
+contract Depository is GenericTokenomics {
     // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
-    event OwnerUpdated(address indexed owner);
     event CreateBond(uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event TerminateProduct(address indexed token, uint256 productId);
-    event TreasuryUpdated(address indexed treasury);
-    event TokenomicsUpdated(address indexed tokenomics);
 
     struct Bond {
         // OLAS remaining to be paid out
@@ -52,14 +49,6 @@ contract Depository is IErrorsTokenomics {
         uint256 priceLP;
     }
 
-    // Owner address
-    address public owner;
-    // OLAS token address
-    address public immutable olas;
-    // Treasury address
-    address public treasury;
-    // Tokenomics address
-    address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
@@ -69,47 +58,9 @@ contract Depository is IErrorsTokenomics {
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _treasury, address _tokenomics) {
-        olas = _olas;
-        treasury = _treasury;
-        tokenomics = _tokenomics;
-        owner = msg.sender;
-    }
-
-    /// @dev Changes the owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
-    }
-
-    /// @dev Changes various managing contract addresses.
-    /// @param _treasury Treasury address.
-    /// @param _tokenomics Tokenomics address.
-    function changeManagers(address _treasury, address _tokenomics) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        if (_treasury != address(0)) {
-            treasury = _treasury;
-            emit TreasuryUpdated(_treasury);
-        }
-        if (_tokenomics != address(0)) {
-            tokenomics = _tokenomics;
-            emit TokenomicsUpdated(_tokenomics);
-        }
+    constructor(address _olas, address _treasury, address _tokenomics)
+        GenericTokenomics(_olas, _tokenomics, _treasury, address(0), address(0))
+    {
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
@@ -125,11 +76,6 @@ contract Depository is IErrorsTokenomics {
     {
         // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
-        // Check for the correctly provided token in the product
-        // TODO: Remove, since this scenario is not possible (line above protects against that)
-        if (token != address(product.token)) {
-            revert WrongTokenAddress(token, address(product.token));
-        }
 
         // Check for the product expiry
         uint256 currentTime = uint256(block.timestamp);
@@ -215,7 +161,7 @@ contract Depository is IErrorsTokenomics {
             }
         }
 
-        // Form the pending bonds index array
+        // Form pending bonds index array
         indexes = new uint256[](numPendingBonds);
         uint256 numPos;
         for (uint256 i = 0; i < numBonds; i++) {

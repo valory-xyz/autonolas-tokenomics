@@ -9,6 +9,7 @@ describe("Treasury", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+    const AddressZero = "0x" + "0".repeat(40);
 
     let signers;
     let deployer;
@@ -59,34 +60,44 @@ describe("Treasury", async () => {
             const account = signers[1];
 
             // Trying to change owner from a non-owner account address
-            //await expect(
-            //    treasury.connect(account).changeOwner(account.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                treasury.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
-            // Changing depository, dispenser and tokenomics addresses
-            await treasury.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address);
+            // Changing tokenomics, depository and dispenser addresses
+            await treasury.connect(deployer).changeManagers(signers[2].address, AddressZero, account.address, deployer.address);
+            expect(await treasury.tokenomics()).to.equal(signers[2].address);
             expect(await treasury.depository()).to.equal(account.address);
             expect(await treasury.dispenser()).to.equal(deployer.address);
-            expect(await treasury.tokenomics()).to.equal(signers[2].address);
 
             // Changing the owner
-            //await treasury.connect(deployer).changeOwner(account.address);
+            await treasury.connect(deployer).changeOwner(account.address);
 
             // Trying to change owner from the previous owner address
-            //await expect(
-            //    treasury.connect(deployer).changeOwner(deployer.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                treasury.connect(deployer).changeOwner(deployer.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
         });
 
-        it("Disable LP token", async () => {
+        it("Disable and enable LP token", async () => {
             // Disable token that was never enabled does not break anything
             await treasury.disableToken(olas.address);
+
+            // Try to enable the token not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).enableToken(olas.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Enable the token
             await treasury.enableToken(olas.address);
 
             // Try to enable the same token
             await treasury.enableToken(olas.address);
+
+            // Try to disable the token not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).disableToken(dai.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Disable a token that was enabled
             await treasury.disableToken(dai.address);
@@ -169,8 +180,13 @@ describe("Treasury", async () => {
             expect(await dai.balanceOf(deployer.address)).to.equal(initialMint);
         });
 
-        it("Should fail when trying to withdraw from unauthorized token", async () => {
+        it("Should fail when trying to withdraw from unauthorized token and owner", async () => {
             await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+
+            await expect(
+                treasury.connect(signers[1]).withdraw(deployer.address, defaultDeposit + "0", olas.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
             await expect(
                 treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", olas.address)
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
@@ -194,6 +210,12 @@ describe("Treasury", async () => {
         it("Start new epoch and allocate rewards without any balances", async () => {
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Try to allocate rewards not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).allocateRewards()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
             // Allocate rewards
             await treasury.connect(deployer).allocateRewards();
         });

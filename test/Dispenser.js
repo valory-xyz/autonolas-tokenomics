@@ -57,16 +57,39 @@ describe("Dispenser", async () => {
             ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
 
         // Change the tokenomics address in the dispenser to the correct one
-        await dispenser.changeTokenomics(tokenomics.address);
+        await dispenser.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
 
         // Update tokenomics address in treasury
-        await treasury.changeManagers(AddressZero, AddressZero, tokenomics.address);
+        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
 
         // Give treasury the minter role
         await olas.changeMinter(treasury.address);
+    });
+
+    context("Initialization", async function () {
+        it("Changing managers and owners", async function () {
+            const account = signers[1];
+
+            // Trying to change owner from a non-owner account address
+            await expect(
+                dispenser.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
+
+            // Changing treasury and tokenomics addresses
+            await dispenser.connect(deployer).changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            expect(await dispenser.tokenomics()).to.equal(deployer.address);
+
+            // Changing the owner
+            await dispenser.connect(deployer).changeOwner(account.address);
+
+            // Trying to change owner from the previous owner address
+            await expect(
+                dispenser.connect(deployer).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
+        });
     });
 
     context("Get rewards", async function () {
