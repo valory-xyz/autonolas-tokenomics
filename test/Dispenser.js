@@ -16,6 +16,7 @@ describe("Dispenser", async () => {
     let serviceRegistry;
     let componentRegistry;
     let agentRegistry;
+    let attacker;
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(21);
     const twoRegDepositFromServices = "2" + "0".repeat(21);
@@ -55,6 +56,10 @@ describe("Dispenser", async () => {
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, dispenser.address,
             ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
+
+        const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
+        attacker = await Attacker.deploy(dispenser.address, treasury.address);
+        await attacker.deployed();
 
         // Change the tokenomics address in the dispenser to the correct one
         await dispenser.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
@@ -144,6 +149,71 @@ describe("Dispenser", async () => {
             // Withdraw rewards
             await dispenser.connect(deployer).withdrawOwnerRewards();
             await dispenser.connect(deployer).withdrawStakingRewards();
+        });
+    });
+
+    context("Reentrancy attacks", async function () {
+        it.only("Attakcs on withdraw rewards for unit owners and stakers", async () => {
+            // Skip the number of blocks for 2 epochs
+            await ethers.provider.send("evm_mine");
+            await treasury.connect(deployer).allocateRewards();
+            await ethers.provider.send("evm_mine");
+            await treasury.connect(deployer).allocateRewards();
+
+            // Send ETH to treasury
+            const amount = ethers.utils.parseEther("1000");
+            await deployer.sendTransaction({to: treasury.address, value: amount});
+
+            // Lock OLAS balances with Voting Escrow for the attacker
+            await ve.createLock(attacker.address);
+
+            // Change the first service owner to the attacker (same for components and agents)
+            await serviceRegistry.changeUnitOwner(1, attacker.address);
+            await componentRegistry.changeUnitOwner(1, attacker.address);
+            await agentRegistry.changeUnitOwner(1, attacker.address);
+
+            // Whitelist service Ids
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
+            // Send the revenues to services
+            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
+                {value: twoRegDepositFromServices});
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await treasury.connect(deployer).allocateRewards();
+
+            let result = await tokenomics.getRewardsData();
+            expect(result.accountRewards).to.greaterThan(0);
+            expect(result.accountTopUps).to.greaterThan(0);
+
+            result = await tokenomics.getOwnerRewards(attacker.address);
+            expect(result.reward).to.greaterThan(0);
+            expect(result.topUp).to.greaterThan(0);
+            console.log(result.reward);
+            console.log(result.topUp);
+
+            // Failing on the receive call
+            let tx = await attacker.callStatic.badWithdrawOwnerRewards(false);
+            expect(tx.success).to.equal(false);
+
+            tx = await attacker.callStatic.badWithdrawStakingRewards(false);
+            expect(tx.success).to.equal(false);
+
+            result = await tokenomics.getOwnerRewards(attacker.address);
+            console.log(result.reward);
+            console.log(result.topUp);
+            // Trying reentrancy attack for withdraws
+            await attacker.badWithdrawOwnerRewards(true);
+            result = await tokenomics.getOwnerRewards(attacker.address);
+            console.log(result.reward);
+            console.log(result.topUp);
+
+
+            //await expect(
+                //attacker.badWithdrawOwnerRewards(true)
+            //).to.be.revertedWithCustomError(dispenser, "ReentrancyGuard");
+
+            //await expect(
+                //dispenser.connect(deployer).withdrawStakingRewards(true)
+            //).to.be.revertedWithCustomError(dispenser, "ReentrancyGuard");
         });
     });
 });

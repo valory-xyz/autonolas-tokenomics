@@ -215,7 +215,7 @@ contract Treasury is GenericTokenomics  {
         assembly {
             success := call(
             5000,           // 5k gas
-            token,         // destination address
+            token,          // destination address
             0,              // no ether
             add(data, 32),  // input buffer (starts after the first 32 bytes in the `data` array)
             mload(data),    // input length (loaded from the first 32 bytes in the `data` array)
