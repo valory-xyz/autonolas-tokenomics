@@ -184,8 +184,11 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
-        it("Send service revenues", async () => {
+        it("Send service revenues twice for protocol-owned services and donation", async () => {
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1], [true]);
+            await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
+            await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
         });
     });
 
@@ -198,6 +201,10 @@ describe("Tokenomics", async () => {
             // Set the auto-control of effective bond calculation
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 1, 10, true);
             await ethers.provider.send("evm_mine");
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Try to run checkpoint while the epoch length is not yet reached
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 10, 10, true);
             await tokenomics.connect(deployer).checkpoint();
         });
 
@@ -229,6 +236,37 @@ describe("Tokenomics", async () => {
             // Get the OLAS payout for the LP from the df
             const amountOLAS = await tokenomics.calculatePayoutFromLP(regDepositFromServices, 1);
             expect(amountOLAS).to.greaterThan(regDepositFromServices);
+
+            // Get DF of the zero (arbitrary) epoch
+            const defaultEpsRate = Number(await tokenomics.epsilonRate()) + E18;
+            const zeroDF = Number(await tokenomics.getDF(0));
+            expect(zeroDF).to.equal(defaultEpsRate);
+
+            // Get UCF of the zero (arbitrary) epoch
+            const zeroUCF = Number(await tokenomics.getUCF(0));
+            expect(zeroUCF).to.equal(0);
+        });
+
+        it("Get DF based on the epsilonRate", async () => {
+            // Skip the number of blocks within the epoch
+            await ethers.provider.send("evm_mine");
+            // Whitelist service owners
+            const accounts = await serviceRegistry.getUnitOwners();
+            await tokenomics.connect(deployer).changeProtocolServicesWhiteList(accounts, [true, true]);
+            // Send the revenues to services
+            await tokenomics.connect(deployer).trackServicesETHRevenue(accounts, [regDepositFromServices, regDepositFromServices]);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0, 10, 10, true);
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get DF
+            const lastEpoch = await tokenomics.epochCounter() - 1;
+            const df = Number(await tokenomics.getDF(lastEpoch)) / E18;
+            expect(df).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
+
+            // Change max bond twice such that adjustment of max bond is tested
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 1, 10, 10, true);
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0, 10, 10, true);
         });
     });
 

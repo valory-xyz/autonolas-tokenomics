@@ -85,6 +85,7 @@ contract Tokenomics is GenericTokenomics {
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
     uint256 public epsilonRate = 1e17;
 
+    // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // UCFc / UCFa weights for the UCF contribution
     uint256 public ucfcWeight = 1;
     uint256 public ucfaWeight = 1;
@@ -487,11 +488,9 @@ contract Tokenomics is GenericTokenomics {
 
         PointEcomonics memory lastPoint = mapEpochEconomics[epochCounter - 1];
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
-        if (block.number > lastPoint.blockNumber) {
-            uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
-            if (diffNumBlocks >= epochLen) {
-                _checkpoint();
-            }
+        uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
+        if (diffNumBlocks >= epochLen) {
+            _checkpoint();
         }
     }
 

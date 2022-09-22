@@ -94,12 +94,6 @@ contract Treasury is GenericTokenomics  {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -125,7 +119,6 @@ contract Treasury is GenericTokenomics  {
         ETHOwned += donationETH;
 
         emit DepositETHFromServices(amounts, serviceIds, revenueETH, donationETH);
-        _locked = 1;
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
@@ -253,6 +246,8 @@ contract Treasury is GenericTokenomics  {
             if (ITokenomics(tokenomics).isAllowedMint(amountOLAS)) {
                 IOLAS(olas).mint(dispenser, amountOLAS);
             }
+            // TODO What happens if we are not allowed to mint? Right now nothing is transferred to the dispenser
+            // TODO This has to be correctly synced with rewards, since by this time they are calculated and accounted for
             emit TransferToDispenserOLAS(amountOLAS);
         }
     }
