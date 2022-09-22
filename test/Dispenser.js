@@ -153,7 +153,7 @@ describe("Dispenser", async () => {
     });
 
     context("Reentrancy attacks", async function () {
-        it.only("Attakcs on withdraw rewards for unit owners and stakers", async () => {
+        it("Attakcs on withdraw rewards for unit owners and stakers", async () => {
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
             await treasury.connect(deployer).allocateRewards();
@@ -187,33 +187,28 @@ describe("Dispenser", async () => {
             result = await tokenomics.getOwnerRewards(attacker.address);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
-            console.log(result.reward);
-            console.log(result.topUp);
 
             // Failing on the receive call
-            let tx = await attacker.callStatic.badWithdrawOwnerRewards(false);
-            expect(tx.success).to.equal(false);
+            await expect(
+                attacker.badWithdrawOwnerRewards(false)
+            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
-            tx = await attacker.callStatic.badWithdrawStakingRewards(false);
-            expect(tx.success).to.equal(false);
+            await expect(
+                attacker.badWithdrawStakingRewards(false)
+            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
+            await expect(
+                attacker.badWithdrawOwnerRewards(true)
+            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
+
+            await expect(
+                attacker.badWithdrawStakingRewards(true)
+            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
+
+            // The funds still remain on the protocol side
             result = await tokenomics.getOwnerRewards(attacker.address);
-            console.log(result.reward);
-            console.log(result.topUp);
-            // Trying reentrancy attack for withdraws
-            await attacker.badWithdrawOwnerRewards(true);
-            result = await tokenomics.getOwnerRewards(attacker.address);
-            console.log(result.reward);
-            console.log(result.topUp);
-
-
-            //await expect(
-                //attacker.badWithdrawOwnerRewards(true)
-            //).to.be.revertedWithCustomError(dispenser, "ReentrancyGuard");
-
-            //await expect(
-                //dispenser.connect(deployer).withdrawStakingRewards(true)
-            //).to.be.revertedWithCustomError(dispenser, "ReentrancyGuard");
+            expect(result.reward).to.greaterThan(0);
+            expect(result.topUp).to.greaterThan(0);
         });
     });
 });

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "hardhat/console.sol";
-
 // ServiceRegistry interface
 interface ITokenomics {
     /// @dev Withdraws rewards for owners of components / agents.
@@ -39,18 +37,15 @@ contract ReentrancyAttacker {
     /// @dev wallet
     receive() external payable {
         if (attackOnWithdrawOwnerRewards) {
-            console.log("Hello, going to reenter");
             ITokenomics(dispenser).withdrawOwnerRewards();
-            console.log("After the attack");
         } else if (attackOnWithdrawStakingRewards) {
             ITokenomics(dispenser).withdrawStakingRewards();
         } else if (attackOnDepositETHFromServices) {
             ITokenomics(treasury).depositETHFromServices(new uint256[](0), new uint256[](0));
         } else {
-            // Just reject the payment
+            // Just reject the payment without the attack
             revert();
         }
-        console.log("After attack 2");
         attackOnWithdrawOwnerRewards = false;
         attackOnWithdrawStakingRewards = false;
         attackOnDepositETHFromServices = false;
@@ -72,7 +67,7 @@ contract ReentrancyAttacker {
         if (attack) {
             attackOnWithdrawStakingRewards = true;
         }
-        return ITokenomics(dispenser).withdrawOwnerRewards();
+        return ITokenomics(dispenser).withdrawStakingRewards();
     }
 
     /// @dev Lets the attacker call back its contract to get back to the depositETHFromServices() function.

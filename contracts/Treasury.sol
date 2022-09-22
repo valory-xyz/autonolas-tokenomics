@@ -10,6 +10,7 @@ import "./interfaces/ITokenomics.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Treasury is GenericTokenomics  {
+    // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
     event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
