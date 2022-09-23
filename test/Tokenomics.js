@@ -245,6 +245,10 @@ describe("Tokenomics", async () => {
             // Get UCF of the zero (arbitrary) epoch
             const zeroUCF = Number(await tokenomics.getUCF(0));
             expect(zeroUCF).to.equal(0);
+
+            // Get UCF with zero component / agent weights
+
+
         });
 
         it("Get DF based on the epsilonRate", async () => {
