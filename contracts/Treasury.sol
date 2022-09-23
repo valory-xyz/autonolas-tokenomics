@@ -10,6 +10,7 @@ import "./interfaces/ITokenomics.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Treasury is GenericTokenomics  {
+    // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
     event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
@@ -93,12 +94,6 @@ contract Treasury is GenericTokenomics  {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -124,7 +119,6 @@ contract Treasury is GenericTokenomics  {
         ETHOwned += donationETH;
 
         emit DepositETHFromServices(amounts, serviceIds, revenueETH, donationETH);
-        _locked = 1;
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
@@ -249,10 +243,13 @@ contract Treasury is GenericTokenomics  {
             }
         }
         if (amountOLAS > 0) {
+            // TODO This check is not needed if the calculations in Tokenomics are done correctly.
+            // TODO if amountOLAS os greater than zero at this point of time, we definitely can mint that amount.
+            // TODO Otherwise amountOLAS will be equal to zero.
             if (ITokenomics(tokenomics).isAllowedMint(amountOLAS)) {
                 IOLAS(olas).mint(dispenser, amountOLAS);
+                emit TransferToDispenserOLAS(amountOLAS);
             }
-            emit TransferToDispenserOLAS(amountOLAS);
         }
     }
 

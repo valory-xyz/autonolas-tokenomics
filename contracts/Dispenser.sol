@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./GenericTokenomics.sol";
+import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
-import "hardhat/console.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is GenericTokenomics {
-    using SafeERC20 for IERC20;
-
-    event TransferETHFailed(address account, uint256 amount);
     event ReceivedETH(address sender, uint amount);
 
     // Mapping account => last reward block for staking
@@ -33,26 +29,22 @@ contract Dispenser is GenericTokenomics {
     function withdrawOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
-            console.log("Hello from reentrancy");
             revert ReentrancyGuard();
         }
         _locked = 2;
-        console.log(_locked);
 
         success = true;
         (reward, topUp) = ITokenomics(tokenomics).accountOwnerRewards(msg.sender);
         if (reward > 0) {
             (success, ) = msg.sender.call{value: reward}("");
-            console.log(success);
-            // TODO This needs to be reverted: we send all the funds or nothing, otherwise we break the CEI pattern:
-            // TODO we will be forced to check the transfer and then zero the balances, which is potentially unsafe.
-            // TODO The call() does not revert, and the execution continues.
             if (!success) {
-                emit TransferETHFailed(msg.sender, reward);
+                revert TransferFailed(address(0), address(this), msg.sender, reward);
             }
         }
         if (topUp > 0) {
-            IERC20(olas).safeTransfer(msg.sender, topUp);
+            // OLAS token is safe as it uses the standard ERC20 transfer() function.
+            // The function reverts if something goes wrong, so no additional check is needed.
+            IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;
@@ -64,7 +56,6 @@ contract Dispenser is GenericTokenomics {
     function withdrawStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
-            console.log("Hello from reentrancy");
             revert ReentrancyGuard();
         }
         _locked = 2;
@@ -81,11 +72,13 @@ contract Dispenser is GenericTokenomics {
         if (reward > 0) {
             (success, ) = msg.sender.call{value: reward}("");
             if (!success) {
-                emit TransferETHFailed(msg.sender, reward);
+                revert TransferFailed(address(0), address(this), msg.sender, reward);
             }
         }
         if (topUp > 0) {
-            IERC20(olas).safeTransfer(msg.sender, topUp);
+            // OLAS token is safe as it uses the standard ERC20 transfer() function.
+            // The function reverts if something goes wrong, so no additional check is needed.
+            IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;

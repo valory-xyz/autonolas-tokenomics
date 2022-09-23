@@ -21,6 +21,7 @@ describe("Treasury", async () => {
     let olas;
     let treasury;
     let tokenomics;
+    let attacker;
     const regDepositFromServices = "1" + "0".repeat(25);
 
     /**
@@ -46,6 +47,10 @@ describe("Treasury", async () => {
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Dispenser address is irrelevant in these tests, so we are using a deployer's address
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
+
+        const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
+        attacker = await Attacker.deploy(AddressZero, treasury.address);
+        await attacker.deployed();
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
@@ -102,8 +107,11 @@ describe("Treasury", async () => {
             // Disable a token that was enabled
             await treasury.disableToken(dai.address);
 
+            // Try to disable the same token again
+            await treasury.disableToken(dai.address);
+
             // Re-enable the disabled token
-            await treasury.disableToken(olas.address);
+            await treasury.enableToken(olas.address);
         });
     });
 
@@ -200,6 +208,11 @@ describe("Treasury", async () => {
             // Check the ETH balance of the reasury
             expect(await treasury.ETHOwned()).to.equal(amount);
 
+            // Try to withdraw ETH to the address that cannot accept ETH
+            await expect(
+                treasury.withdraw(attacker.address, amount, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+
             // Withdraw ETH
             const success = await treasury.callStatic.withdraw(deployer.address, amount, ETHAddress);
             expect(success).to.equal(true);
@@ -207,7 +220,7 @@ describe("Treasury", async () => {
     });
 
     context("Allocate rewards", async function () {
-        it("Start new epoch and allocate rewards without any balances", async () => {
+        it("Start new epoch and allocate rewards", async () => {
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
 
@@ -216,8 +229,55 @@ describe("Treasury", async () => {
                 treasury.connect(signers[1]).allocateRewards()
             ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
+            // Try to allocate rewards to the dispenser that can't accept ETH
+            await treasury.changeManagers(AddressZero, AddressZero, AddressZero, attacker.address);
+            await expect(
+                treasury.allocateRewards()
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+
+            // Change the dispenser address back to the correct one
+            await treasury.changeManagers(AddressZero, AddressZero, AddressZero, deployer.address);
             // Allocate rewards
             await treasury.connect(deployer).allocateRewards();
+        });
+
+        it("Limit the mint cap such that we can't mint more by the treasury to the dispenser", async () => {
+            // Set the mint cap to be smaller than the possibility to mint for the year
+            await tokenomics.changeMintCap(0);
+
+            // Allocate empty rewards
+            await treasury.connect(deployer).allocateRewards();
+
+            // Deposit ETH for protocol-owned services
+            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Allocate rewards
+            await treasury.connect(deployer).allocateRewards();
+        });
+
+        it("Allocate rewards with zero top-ups", async () => {
+            // Change acount top-ups values
+            await tokenomics.changeTopUps(0);
+
+            // Allocate empty rewards
+            await treasury.connect(deployer).allocateRewards();
+        });
+    });
+
+    context("Reentrancy attacks", async function () {
+        it("Proof that the attack is not possible via attacker's receive() function", async () => {
+            // Send ETH to the attacker
+            const amount = ethers.utils.parseEther("10");
+            // Set attack mode to false to receive funds
+            await attacker.setAttackMode(false);
+            await deployer.sendTransaction({to: attacker.address, value: amount});
+
+            // Try to attack via the deposit of ETH for protocol-owned services
+            await attacker.setAttackMode(true);
+            await attacker.badDepositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Check that the attack did not succeed
+            expect(await attacker.attackOnDepositETHFromServices()).to.equal(true);
         });
     });
 });
