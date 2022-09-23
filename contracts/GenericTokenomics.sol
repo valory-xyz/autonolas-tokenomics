@@ -96,18 +96,18 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
             tokenomics = _tokenomics;
             emit TokenomicsUpdated(_tokenomics);
         }
-        // Treasury cannot change its own address
-        if (_treasury != address(0) && tokenomicsRole != TokenomicsRole.Treasury) {
+        // Treasury cannot change its own address, also dispenser cannot change treasury address
+        if (_treasury != address(0) && tokenomicsRole != TokenomicsRole.Treasury && tokenomicsRole != TokenomicsRole.Dispenser) {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
         }
-        // Depository cannot change its own address
-        if (_depository != address(0) && tokenomicsRole != TokenomicsRole.Depository) {
+        // Depository cannot change its own address, also dispenser cannot change depository address
+        if (_depository != address(0) && tokenomicsRole != TokenomicsRole.Depository && tokenomicsRole != TokenomicsRole.Dispenser) {
             depository = _depository;
             emit DepositoryUpdated(_depository);
         }
-        // Dispenser cannot change its own address
-        if (_dispenser != address(0) && tokenomicsRole != TokenomicsRole.Dispenser) {
+        // Dispenser cannot change its own address, also depository cannot change dispenser address
+        if (_dispenser != address(0) && tokenomicsRole != TokenomicsRole.Dispenser && tokenomicsRole != TokenomicsRole.Depository) {
             dispenser = _dispenser;
             emit DispenserUpdated(_dispenser);
         }
