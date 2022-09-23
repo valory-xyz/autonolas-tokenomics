@@ -17,10 +17,11 @@ interface ITokenomics {
     /// @dev Deposits ETH from protocol-owned services in batch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external;
+    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable;
 }
 
 contract ReentrancyAttacker {
+    bool public attackMode = true;
     bool public badAction;
     bool public attackOnWithdrawOwnerRewards;
     bool public attackOnWithdrawStakingRewards;
@@ -41,16 +42,23 @@ contract ReentrancyAttacker {
         } else if (attackOnWithdrawStakingRewards) {
             ITokenomics(dispenser).withdrawStakingRewards();
         } else if (attackOnDepositETHFromServices) {
-            ITokenomics(treasury).depositETHFromServices(new uint256[](0), new uint256[](0));
-        } else {
+            // If this condition is entered, the reentrancy is possible
+            attackOnDepositETHFromServices = false;
+        } else if (attackMode) {
             // Just reject the payment without the attack
             revert();
         }
         attackOnWithdrawOwnerRewards = false;
         attackOnWithdrawStakingRewards = false;
-        attackOnDepositETHFromServices = false;
         badAction = true;
     }
+
+    /// @dev Sets the attack mode.
+    /// @notice If false, the receive atcs as a normal one.
+    function setAttackMode(bool _attackMode) external {
+        attackMode = _attackMode;
+    }
+
 
     /// @dev Lets the attacker call back its contract to get back to the withdrawOwnerRewards() function.
     function badWithdrawOwnerRewards(bool attack) external returns (uint256 reward, uint256 topUp, bool success)
@@ -74,6 +82,6 @@ contract ReentrancyAttacker {
     function badDepositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable
     {
         attackOnDepositETHFromServices = true;
-        return ITokenomics(treasury).depositETHFromServices(serviceIds, amounts);
+        ITokenomics(treasury).depositETHFromServices{value: msg.value}(serviceIds, amounts);
     }
 }

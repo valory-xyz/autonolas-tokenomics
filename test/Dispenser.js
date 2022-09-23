@@ -153,7 +153,7 @@ describe("Dispenser", async () => {
     });
 
     context("Reentrancy attacks", async function () {
-        it("Attakcs on withdraw rewards for unit owners and stakers", async () => {
+        it("Attacks on withdraw rewards for unit owners and stakers", async () => {
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
             await treasury.connect(deployer).allocateRewards();

@@ -272,6 +272,47 @@ describe("Depository LP", async () => {
                 depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "ZeroValue");
         });
+
+        it("Should fail when there is no OLAS in the LP token", async () => {
+            // Create one more ERC20 token
+            const ercToken1 = await erc20Token.deploy();
+            ercToken1.mint(deployer.address, initialMint);
+            const ercToken2 = await erc20Token.deploy();
+            ercToken2.mint(deployer.address, initialMint);
+
+            // Create an LP token
+            await factory.createPair(ercToken1.address, ercToken2.address);
+            const pAddress = await factory.allPairs(1);
+            const pairDOLAS = await ethers.getContractAt("UniswapV2Pair", pAddress);
+
+            const amountToken1 = "5"  + "0".repeat(3) + decimals;
+            const amountToken2 = "5" + "0".repeat(3) + decimals;
+            const minAmountToken1 =  "5" + "0".repeat(2) + decimals;
+            const minAmountToken2 = "1" + "0".repeat(3) + decimals;
+            const deadline = Date.now() + 1000;
+            const toAddress = deployer.address;
+            await ercToken1.approve(router.address, LARGE_APPROVAL);
+            await ercToken2.approve(router.address, LARGE_APPROVAL);
+
+            await router.connect(deployer).addLiquidity(
+                ercToken1.address,
+                ercToken2.address,
+                amountToken1,
+                amountToken2,
+                minAmountToken1,
+                minAmountToken2,
+                toAddress,
+                deadline
+            );
+
+            // Enable the new LP token without liquidity
+            await treasury.enableToken(pairDOLAS.address);
+
+            // Try to create a bonding product with it
+            await expect(
+                depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+        });
     });
 
     context("Bond deposits", async function () {

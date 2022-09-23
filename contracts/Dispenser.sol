@@ -42,6 +42,8 @@ contract Dispenser is GenericTokenomics {
             }
         }
         if (topUp > 0) {
+            // OLAS token is safe as it uses the standard ERC20 transfer() function.
+            // The function reverts if something goes wrong, so no additional check is needed.
             IOLAS(olas).transfer(msg.sender, topUp);
         }
 
@@ -74,6 +76,8 @@ contract Dispenser is GenericTokenomics {
             }
         }
         if (topUp > 0) {
+            // OLAS token is safe as it uses the standard ERC20 transfer() function.
+            // The function reverts if something goes wrong, so no additional check is needed.
             IOLAS(olas).transfer(msg.sender, topUp);
         }
 
