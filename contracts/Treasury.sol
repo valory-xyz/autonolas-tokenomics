@@ -14,16 +14,13 @@ contract Treasury is GenericTokenomics  {
     using SafeERC20 for IERC20;
 
     event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
-    event DepositETHFromServices(uint256[] amounts, uint256[] serviceIds, uint256 revenue, uint256 donation);
+    event DepositETHFromServices(address indexed sender, uint256 revenue, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
     event TokenReserves(address indexed token, uint256 reserves);
     event EnableToken(address indexed token);
     event DisableToken(address indexed token);
-    event TransferToDispenserETH(uint256 amount);
     event TransferToDispenserOLAS(uint256 amount);
-    event TransferETHFailed(address account, uint256 amount);
-    event TransferOLASFailed(address account, uint256 amount);
-    event ReceivedETH(address indexed sender, uint amount);
+    event ReceivedETH(address indexed sender, uint256 amount);
 
     enum TokenState {
         NonExistent,
@@ -118,7 +115,7 @@ contract Treasury is GenericTokenomics  {
         ETHFromServices += revenueETH;
         ETHOwned += donationETH;
 
-        emit DepositETHFromServices(amounts, serviceIds, revenueETH, donationETH);
+        emit DepositETHFromServices(msg.sender, revenueETH, donationETH);
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
@@ -236,9 +233,7 @@ contract Treasury is GenericTokenomics  {
         if (amountETH > 0 && ETHFromServices >= amountETH) {
             ETHFromServices -= amountETH;
             (bool success, ) = dispenser.call{value: amountETH}("");
-            if (success) {
-                emit TransferToDispenserETH(amountETH);
-            } else {
+            if (!success) {
                 revert TransferFailed(address(0), address(this), dispenser, amountETH);
             }
         }

@@ -13,7 +13,7 @@ contract Depository is GenericTokenomics {
     // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
-    event CreateBond(uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
+    event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event TerminateProduct(address indexed token, uint256 productId);
 
@@ -101,7 +101,7 @@ contract Depository is GenericTokenomics {
 
         // Create and add a new bond
         mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
-        emit CreateBond(productId, payout, tokenAmount);
+        emit CreateBond(token, productId, payout, tokenAmount);
 
         // Take into account this bond in current epoch
         ITokenomics(tokenomics).usedBond(payout);
