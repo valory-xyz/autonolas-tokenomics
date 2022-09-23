@@ -55,7 +55,7 @@ contract Treasury is GenericTokenomics  {
     /// @param _tokenomics Tokenomics address.
     /// @param _dispenser Dispenser address.
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
-        GenericTokenomics(_olas, _tokenomics, address(0), _depository, _dispenser)
+        GenericTokenomics(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury)
     {
         ETHOwned = msg.value;
     }

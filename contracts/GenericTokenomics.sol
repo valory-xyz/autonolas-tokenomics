@@ -7,13 +7,23 @@ import "./interfaces/IErrorsTokenomics.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract GenericTokenomics is IErrorsTokenomics {
-
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
     event DepositoryUpdated(address indexed depository);
     event DispenserUpdated(address indexed dispenser);
 
+    enum TokenomicsRole {
+        Tokenomics,
+        Treasury,
+        Depository,
+        Dispenser
+    }
+
+    // Tokenomics role
+    TokenomicsRole public immutable tokenomicsRole;
+    // Address of unused tokenomics roles
+    address public constant SENTINEL_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
     // Owner address
     address public owner;
     // OLAS token address
@@ -35,13 +45,21 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
-    constructor(address _olas, address _tokenomics, address _treasury, address _depository, address _dispenser)
+    constructor(
+        address _olas,
+        address _tokenomics,
+        address _treasury,
+        address _depository,
+        address _dispenser,
+        TokenomicsRole _tokenomicsRole
+    )
     {
         olas = _olas;
         tokenomics = _tokenomics;
         treasury = _treasury;
         depository = _depository;
         dispenser = _dispenser;
+        tokenomicsRole = _tokenomicsRole;
         owner = msg.sender;
     }
 
@@ -73,19 +91,23 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        if (_tokenomics != address(0)) {
+        // Tokenomics cannot change its own address
+        if (_tokenomics != address(0) && tokenomicsRole != TokenomicsRole.Tokenomics) {
             tokenomics = _tokenomics;
             emit TokenomicsUpdated(_tokenomics);
         }
-        if (_treasury != address(0)) {
+        // Treasury cannot change its own address
+        if (_treasury != address(0) && tokenomicsRole != TokenomicsRole.Treasury) {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
         }
-        if (_depository != address(0)) {
+        // Depository cannot change its own address
+        if (_depository != address(0) && tokenomicsRole != TokenomicsRole.Depository) {
             depository = _depository;
             emit DepositoryUpdated(_depository);
         }
-        if (_dispenser != address(0)) {
+        // Dispenser cannot change its own address
+        if (_dispenser != address(0) && tokenomicsRole != TokenomicsRole.Dispenser) {
             dispenser = _dispenser;
             emit DispenserUpdated(_dispenser);
         }

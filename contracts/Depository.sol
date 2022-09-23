@@ -59,7 +59,7 @@ contract Depository is GenericTokenomics {
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
     constructor(address _olas, address _treasury, address _tokenomics)
-        GenericTokenomics(_olas, _tokenomics, _treasury, address(0), address(0))
+        GenericTokenomics(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository)
     {
     }
 

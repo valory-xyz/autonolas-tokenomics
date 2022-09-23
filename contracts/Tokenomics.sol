@@ -149,6 +149,7 @@ contract Tokenomics is GenericTokenomics {
     mapping(uint256 => bool) public mapProtocolServices;
 
     /// @dev Tokenomics constructor.
+    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -160,7 +161,7 @@ contract Tokenomics is GenericTokenomics {
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
-        GenericTokenomics(_olas, address(0), _treasury, _depository, _dispenser)
+        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
         ve = _ve;
         epochLen = _epochLen;
