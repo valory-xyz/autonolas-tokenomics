@@ -33,7 +33,7 @@ contract MockTokenomics {
     /// @return treasuryRewards Treasury rewards.
     /// @return accountRewards Cumulative staker, component and agent rewards.
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
-    function getRewardsData() external
+    function getRewardsData() external view
         returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps)
     {
         treasuryRewards = 10 ether;
