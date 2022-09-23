@@ -243,12 +243,13 @@ contract Treasury is GenericTokenomics  {
             }
         }
         if (amountOLAS > 0) {
+            // TODO This check is not needed if the calculations in Tokenomics are done correctly.
+            // TODO if amountOLAS os greater than zero at this point of time, we definitely can mint that amount.
+            // TODO Otherwise amountOLAS will be equal to zero.
             if (ITokenomics(tokenomics).isAllowedMint(amountOLAS)) {
                 IOLAS(olas).mint(dispenser, amountOLAS);
+                emit TransferToDispenserOLAS(amountOLAS);
             }
-            // TODO What happens if we are not allowed to mint? Right now nothing is transferred to the dispenser
-            // TODO This has to be correctly synced with rewards, since by this time they are calculated and accounted for
-            emit TransferToDispenserOLAS(amountOLAS);
         }
     }
 

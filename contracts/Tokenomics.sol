@@ -479,6 +479,8 @@ contract Tokenomics is GenericTokenomics {
         epochServiceRevenueETH = 0;
     }
 
+    // TODO refactor this function to make sure it is called by the treasury only, such that this function is not called by itself
+    // TODO Calling it without reward allocation would break the synchronization of rewards
     /// @dev Record global data to the checkpoint
     function checkpoint() external {
         // Check for the treasury access
