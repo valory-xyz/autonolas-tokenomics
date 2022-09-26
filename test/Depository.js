@@ -30,7 +30,7 @@ describe("Depository LP", async () => {
     let epochLen = 100;
 
     // 2,000
-    let supplyProductOLA =  "2" + "0".repeat(3) + decimals;
+    let supplyProductOLAS =  "2" + "0".repeat(3) + decimals;
     let pseudoFlashLoan = "2"  + "0".repeat(2) + decimals;
 
     let vesting = 60 * 60 * 24;
@@ -74,8 +74,8 @@ describe("Depository LP", async () => {
         attackDeposit = await attackDepositFactory.deploy();
 
         // Change to the correct addresses
-        await treasury.changeManagers(depository.address, AddressZero, AddressZero);
-        await tokenomics.changeManagers(treasury.address, depository.address, AddressZero, AddressZero);
+        await treasury.changeManagers(AddressZero, AddressZero, depository.address, AddressZero);
+        await tokenomics.changeManagers(AddressZero, treasury.address, depository.address, AddressZero);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -141,7 +141,7 @@ describe("Depository LP", async () => {
         );
 
         //console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
-        //console.log("LP total supplyProductOLA:", await pairODAI.totalSupply());
+        //console.log("LP total supplyProductOLAS:", await pairODAI.totalSupply());
         // send half of the balance from deployer
         const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
         await pairODAI.connect(deployer).transfer(bob.address, amountTo);
@@ -151,11 +151,10 @@ describe("Depository LP", async () => {
         await olas.connect(alice).approve(depository.address, LARGE_APPROVAL);
         await dai.connect(bob).approve(depository.address, LARGE_APPROVAL);
         await pairODAI.connect(bob).approve(depository.address, LARGE_APPROVAL);
-        await dai.connect(alice).approve(depository.address, supplyProductOLA);
+        await dai.connect(alice).approve(depository.address, supplyProductOLAS);
 
         await treasury.enableToken(pairODAI.address);
-
-        await depository.create(pairODAI.address, supplyProductOLA, vesting);
+        await depository.create(pairODAI.address, supplyProductOLAS, vesting);
 
         const block = await ethers.provider.getBlock("latest");
         conclusion = block.timestamp + timeToConclusion;
@@ -166,22 +165,22 @@ describe("Depository LP", async () => {
             const account = alice;
 
             // Trying to change owner from a non-owner account address
-            //await expect(
-            //    depository.connect(account).changeOwner(account.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                depository.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
-            await depository.connect(deployer).changeManagers(account.address, deployer.address);
+            await depository.connect(deployer).changeManagers(deployer.address, account.address, AddressZero, AddressZero);
             expect(await depository.treasury()).to.equal(account.address);
             expect(await depository.tokenomics()).to.equal(deployer.address);
 
             // Changing the owner
-            //await depository.connect(deployer).changeOwner(account.address);
+            await depository.connect(deployer).changeOwner(account.address);
 
             // Trying to change owner from the previous owner address
-            //await expect(
-            //    depository.connect(deployer).changeOwner(owner.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                depository.connect(deployer).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
         });
     });
 
@@ -189,19 +188,30 @@ describe("Depository LP", async () => {
         it("Should fail when the LP token is not authorized for the product", async () => {
             // Token address is not enabled
             await expect(
-                depository.create(alice.address, supplyProductOLA, vesting)
+                depository.create(alice.address, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
 
-            // Token is not an LP token
+            // Token address is enabled but is not an LP token
+            await treasury.enableToken(olas.address);
+            await expect(
+                depository.create(olas.address, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
+
+            // Token is not a contract
             await treasury.enableToken(alice.address);
             await expect(
-                depository.create(alice.address, supplyProductOLA, vesting)
+                depository.create(alice.address, supplyProductOLAS, vesting)
             ).to.be.reverted;
         });
 
         it("Create a product", async () => {
+            // Trying to create a product not by the contract owner
+            await expect(
+                depository.connect(alice).create(pairODAI.address, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
             // Create a second product, the first one is already created
-            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
             // Check for the product being active
             expect(await depository.isActive(pairODAI.address, bid)).to.equal(true);
             expect(await depository.isActive(pairODAI.address, bid + 1)).to.equal(true);
@@ -210,13 +220,13 @@ describe("Depository LP", async () => {
 
         it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
             await expect(
-                depository.create(pairODAI.address, supplyProductOLA.repeat(2), vesting)
+                depository.create(pairODAI.address, supplyProductOLAS.repeat(2), vesting)
             ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
         });
 
         it("Should return IDs of all products", async () => {
-            // create a second bond
-            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            // Create a second bond
+            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
             let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
             expect(Number(first)).to.equal(0);
             expect(Number(second)).to.equal(1);
@@ -229,7 +239,7 @@ describe("Depository LP", async () => {
 
         it("Get correct active product Ids when closing others", async () => {
             // Create a second bonding product
-            await depository.create(pairODAI.address, supplyProductOLA, vesting);
+            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
             // Close the first bonding product
             await depository.close(pairODAI.address, 0);
             [first] = await depository.getActiveProductsForToken(pairODAI.address);
@@ -259,7 +269,48 @@ describe("Depository LP", async () => {
 
             // Try to create a bonding product with it
             await expect(
-                depository.create(pairDOLAS.address, supplyProductOLA, vesting)
+                depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+        });
+
+        it("Should fail when there is no OLAS in the LP token", async () => {
+            // Create one more ERC20 token
+            const ercToken1 = await erc20Token.deploy();
+            ercToken1.mint(deployer.address, initialMint);
+            const ercToken2 = await erc20Token.deploy();
+            ercToken2.mint(deployer.address, initialMint);
+
+            // Create an LP token
+            await factory.createPair(ercToken1.address, ercToken2.address);
+            const pAddress = await factory.allPairs(1);
+            const pairDOLAS = await ethers.getContractAt("UniswapV2Pair", pAddress);
+
+            const amountToken1 = "5"  + "0".repeat(3) + decimals;
+            const amountToken2 = "5" + "0".repeat(3) + decimals;
+            const minAmountToken1 =  "5" + "0".repeat(2) + decimals;
+            const minAmountToken2 = "1" + "0".repeat(3) + decimals;
+            const deadline = Date.now() + 1000;
+            const toAddress = deployer.address;
+            await ercToken1.approve(router.address, LARGE_APPROVAL);
+            await ercToken2.approve(router.address, LARGE_APPROVAL);
+
+            await router.connect(deployer).addLiquidity(
+                ercToken1.address,
+                ercToken2.address,
+                amountToken1,
+                amountToken2,
+                minAmountToken1,
+                minAmountToken2,
+                toAddress,
+                deadline
+            );
+
+            // Enable the new LP token without liquidity
+            await treasury.enableToken(pairDOLAS.address);
+
+            // Try to create a bonding product with it
+            await expect(
+                depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "ZeroValue");
         });
     });
@@ -332,11 +383,20 @@ describe("Depository LP", async () => {
             const bobBalance = Number(await olas.balanceOf(bob.address));
             expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
             expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
+            // Check for pending bonds after the redeem
+            const pendingBonds = await depository.getPendingBonds(bob.address);
+            expect(pendingBonds).to.deep.equal([]);
         });
 
         it("Close all products", async () => {
             let product = await depository.getProduct(pairODAI.address, bid);
             expect(Number(product.supply)).to.be.greaterThan(0);
+
+            // Trying to close a product not by the contract owner
+            await expect(
+                depository.connect(alice).close(pairODAI.address, bid)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
             await depository.close(pairODAI.address, bid);
             product = await depository.getProduct(pairODAI.address, bid);
             expect(Number(product.supply)).to.equal(0);

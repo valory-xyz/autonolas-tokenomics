@@ -39,7 +39,7 @@ contract BaseSetup is Test {
         treasury = new Treasury(address(olas), deployer, address(tokenomics), address(0));
 
         // Change to the correct treasury address
-        tokenomics.changeManagers(address(treasury), address(0), address(0), address(0));
+        tokenomics.changeManagers(address(0), address(treasury), address(0), address(0));
 
         dai.mint(deployer, initialMint);
         vm.prank(deployer);

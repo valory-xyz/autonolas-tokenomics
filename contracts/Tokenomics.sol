@@ -4,7 +4,7 @@ pragma solidity ^0.8.16;
 import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -62,28 +62,10 @@ struct PointEcomonics {
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is IErrorsTokenomics {
+contract Tokenomics is GenericTokenomics {
     using FixedPoint for *;
 
-    event OwnerUpdated(address indexed owner);
-    event TreasuryUpdated(address indexed treasury);
-    event DepositoryUpdated(address indexed depository);
-    event DispenserUpdated(address indexed dispenser);
-    event VotingEscrowUpdated(address indexed ve);
     event EpochLengthUpdated(uint256 epochLength);
-
-    // Owner address
-    address public owner;
-    // OLAS token address
-    address public immutable olas;
-    // Treasury contract address
-    address public treasury;
-    // Depository contract address
-    address public depository;
-    // Dispenser contract address
-    address public dispenser;
-    // Voting Escrow address
-    address public ve;
 
     // Epoch length in block numbers
     uint256 public epochLen;
@@ -103,6 +85,7 @@ contract Tokenomics is IErrorsTokenomics {
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
     uint256 public epsilonRate = 1e17;
 
+    // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // UCFc / UCFa weights for the UCF contribution
     uint256 public ucfcWeight = 1;
     uint256 public ucfaWeight = 1;
@@ -133,6 +116,8 @@ contract Tokenomics is IErrorsTokenomics {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
+    // Voting Escrow address
+    address public immutable ve;
     // TODO Probably makes sense to make them mutable, since registry contracts can change
     // TODO Then, write a function for changing registry addresses
     // Component Registry
@@ -164,6 +149,7 @@ contract Tokenomics is IErrorsTokenomics {
     mapping(uint256 => bool) public mapProtocolServices;
 
     /// @dev Tokenomics constructor.
+    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -175,11 +161,8 @@ contract Tokenomics is IErrorsTokenomics {
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
+        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
-        olas = _olas;
-        treasury = _treasury;
-        depository = _depository;
-        dispenser = _dispenser;
         ve = _ve;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
@@ -197,53 +180,6 @@ contract Tokenomics is IErrorsTokenomics {
         inflationCaps[7] = 930_000_000e18;
         inflationCaps[8] = 970_000_000e18;
         inflationCaps[9] = 1_000_000_000e18;
-        owner = msg.sender;
-    }
-
-    /// @dev Changes the owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
-    }
-
-    /// @dev Changes various managing contract addresses.
-    /// @param _treasury Treasury address.
-    /// @param _depository Depository address.
-    /// @param _dispenser Dispenser address.
-    /// @param _ve Voting Escrow address.
-    function changeManagers(address _treasury, address _depository, address _dispenser, address _ve) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        if (_treasury != address(0)) {
-            treasury = _treasury;
-            emit TreasuryUpdated(_treasury);
-        }
-        if (_depository != address(0)) {
-            depository = _depository;
-            emit DepositoryUpdated(_depository);
-        }
-        if (_dispenser != address(0)) {
-            dispenser = _dispenser;
-            emit DispenserUpdated(_dispenser);
-        }
-        if (_ve != address(0)) {
-            ve = _ve;
-            emit VotingEscrowUpdated(_ve);
-        }
     }
 
     /// @dev Changes tokenomics parameters.
@@ -378,8 +314,8 @@ contract Tokenomics is IErrorsTokenomics {
     /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
-    /// @return True if effective bond threshold is not reached.
-    function allowedNewBond(uint256 amount) external returns (bool)  {
+    /// @return success True if effective bond threshold is not reached.
+    function allowedNewBond(uint256 amount) external returns (bool success)  {
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
@@ -388,9 +324,8 @@ contract Tokenomics is IErrorsTokenomics {
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
             effectiveBond -= amount;
-            return true;
+            success = true;
         }
-        return false;
     }
 
     /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
@@ -423,6 +358,7 @@ contract Tokenomics is IErrorsTokenomics {
             if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
+            // TODO whitelist service Ids whose owners stake veOLAS (with a minimum threshold)
             // Check for the whitelisted services
             if (mapProtocolServices[serviceIds[i]]) {
                 // If this is a protocol-owned service, accept funds as revenue
@@ -466,6 +402,7 @@ contract Tokenomics is IErrorsTokenomics {
         // Overall profits of UCFu-s
         uint256 sumProfits = 0;
 
+        // TODO Top-ups go only to the component / agent owners of whitelisted services
         // Loop over profitable service Ids to calculate initial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
@@ -543,6 +480,8 @@ contract Tokenomics is IErrorsTokenomics {
         epochServiceRevenueETH = 0;
     }
 
+    // TODO refactor this function to make sure it is called by the treasury only, such that this function is not called by itself
+    // TODO Calling it without reward allocation would break the synchronization of rewards
     /// @dev Record global data to the checkpoint
     function checkpoint() external {
         // Check for the treasury access
@@ -552,11 +491,9 @@ contract Tokenomics is IErrorsTokenomics {
 
         PointEcomonics memory lastPoint = mapEpochEconomics[epochCounter - 1];
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
-        if (block.number > lastPoint.blockNumber) {
-            uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
-            if (diffNumBlocks >= epochLen) {
-                _checkpoint();
-            }
+        uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
+        if (diffNumBlocks >= epochLen) {
+            _checkpoint();
         }
     }
 
