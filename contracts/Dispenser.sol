@@ -9,7 +9,7 @@ import "./interfaces/ITokenomics.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is GenericTokenomics {
-    event ReceivedETH(address sender, uint amount);
+    event ReceivedETH(address indexed sender, uint256 amount);
 
     // Mapping account => last reward block for staking
     mapping(address => uint256) public mapLastRewardEpochs;
