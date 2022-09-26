@@ -9,6 +9,7 @@ describe("Treasury", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+    const AddressZero = "0x" + "0".repeat(40);
 
     let signers;
     let deployer;
@@ -20,6 +21,7 @@ describe("Treasury", async () => {
     let olas;
     let treasury;
     let tokenomics;
+    let attacker;
     const regDepositFromServices = "1" + "0".repeat(25);
 
     /**
@@ -45,6 +47,10 @@ describe("Treasury", async () => {
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Dispenser address is irrelevant in these tests, so we are using a deployer's address
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
+
+        const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
+        attacker = await Attacker.deploy(AddressZero, treasury.address);
+        await attacker.deployed();
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
@@ -59,28 +65,33 @@ describe("Treasury", async () => {
             const account = signers[1];
 
             // Trying to change owner from a non-owner account address
-            //await expect(
-            //    treasury.connect(account).changeOwner(account.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                treasury.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
-            // Changing depository, dispenser and tokenomics addresses
-            await treasury.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address);
+            // Changing tokenomics, depository and dispenser addresses
+            await treasury.connect(deployer).changeManagers(signers[2].address, AddressZero, account.address, deployer.address);
+            expect(await treasury.tokenomics()).to.equal(signers[2].address);
             expect(await treasury.depository()).to.equal(account.address);
             expect(await treasury.dispenser()).to.equal(deployer.address);
-            expect(await treasury.tokenomics()).to.equal(signers[2].address);
 
             // Changing the owner
-            //await treasury.connect(deployer).changeOwner(account.address);
+            await treasury.connect(deployer).changeOwner(account.address);
 
             // Trying to change owner from the previous owner address
-            //await expect(
-            //    treasury.connect(deployer).changeOwner(deployer.address)
-            //).to.be.revertedWith("OwnerOnly");
+            await expect(
+                treasury.connect(deployer).changeOwner(deployer.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
         });
 
-        it("Disable LP token", async () => {
+        it("Disable and enable LP token", async () => {
             // Disable token that was never enabled does not break anything
             await treasury.disableToken(olas.address);
+
+            // Try to enable the token not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).enableToken(olas.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Enable the token
             await treasury.enableToken(olas.address);
@@ -88,11 +99,19 @@ describe("Treasury", async () => {
             // Try to enable the same token
             await treasury.enableToken(olas.address);
 
+            // Try to disable the token not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).disableToken(dai.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
             // Disable a token that was enabled
             await treasury.disableToken(dai.address);
 
+            // Try to disable the same token again
+            await treasury.disableToken(dai.address);
+
             // Re-enable the disabled token
-            await treasury.disableToken(olas.address);
+            await treasury.enableToken(olas.address);
         });
     });
 
@@ -169,8 +188,13 @@ describe("Treasury", async () => {
             expect(await dai.balanceOf(deployer.address)).to.equal(initialMint);
         });
 
-        it("Should fail when trying to withdraw from unauthorized token", async () => {
+        it("Should fail when trying to withdraw from unauthorized token and owner", async () => {
             await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+
+            await expect(
+                treasury.connect(signers[1]).withdraw(deployer.address, defaultDeposit + "0", olas.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
             await expect(
                 treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", olas.address)
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
@@ -184,6 +208,11 @@ describe("Treasury", async () => {
             // Check the ETH balance of the reasury
             expect(await treasury.ETHOwned()).to.equal(amount);
 
+            // Try to withdraw ETH to the address that cannot accept ETH
+            await expect(
+                treasury.withdraw(attacker.address, amount, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+
             // Withdraw ETH
             const success = await treasury.callStatic.withdraw(deployer.address, amount, ETHAddress);
             expect(success).to.equal(true);
@@ -191,11 +220,64 @@ describe("Treasury", async () => {
     });
 
     context("Allocate rewards", async function () {
-        it("Start new epoch and allocate rewards without any balances", async () => {
+        it("Start new epoch and allocate rewards", async () => {
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Try to allocate rewards not by the contract owner
+            await expect(
+                treasury.connect(signers[1]).allocateRewards()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Try to allocate rewards to the dispenser that can't accept ETH
+            await treasury.changeManagers(AddressZero, AddressZero, AddressZero, attacker.address);
+            await expect(
+                treasury.allocateRewards()
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+
+            // Change the dispenser address back to the correct one
+            await treasury.changeManagers(AddressZero, AddressZero, AddressZero, deployer.address);
             // Allocate rewards
             await treasury.connect(deployer).allocateRewards();
+        });
+
+        it("Limit the mint cap such that we can't mint more by the treasury to the dispenser", async () => {
+            // Set the mint cap to be smaller than the possibility to mint for the year
+            await tokenomics.changeMintCap(0);
+
+            // Allocate empty rewards
+            await treasury.connect(deployer).allocateRewards();
+
+            // Deposit ETH for protocol-owned services
+            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Allocate rewards
+            await treasury.connect(deployer).allocateRewards();
+        });
+
+        it("Allocate rewards with zero top-ups", async () => {
+            // Change acount top-ups values
+            await tokenomics.changeTopUps(0);
+
+            // Allocate empty rewards
+            await treasury.connect(deployer).allocateRewards();
+        });
+    });
+
+    context("Reentrancy attacks", async function () {
+        it("Proof that the attack is not possible via attacker's receive() function", async () => {
+            // Send ETH to the attacker
+            const amount = ethers.utils.parseEther("10");
+            // Set attack mode to false to receive funds
+            await attacker.setAttackMode(false);
+            await deployer.sendTransaction({to: attacker.address, value: amount});
+
+            // Try to attack via the deposit of ETH for protocol-owned services
+            await attacker.setAttackMode(true);
+            await attacker.badDepositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+
+            // Check that the attack did not succeed
+            expect(await attacker.attackOnDepositETHFromServices()).to.equal(true);
         });
     });
 });

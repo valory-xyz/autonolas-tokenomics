@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -63,41 +62,30 @@ struct PointEcomonics {
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is IErrorsTokenomics, Ownable {
+contract Tokenomics is GenericTokenomics {
     using FixedPoint for *;
 
-    event TreasuryUpdated(address treasury);
-    event DepositoryUpdated(address depository);
-    event DispenserUpdated(address dispenser);
-    event VotingEscrowUpdated(address ve);
     event EpochLengthUpdated(uint256 epochLength);
-
-    // OLAS token address
-    address public immutable olas;
-    // Treasury contract address
-    address public treasury;
-    // Depository contract address
-    address public depository;
-    // Dispenser contract address
-    address public dispenser;
-    // Voting Escrow address
-    address public ve;
 
     // Epoch length in block numbers
     uint256 public epochLen;
     // Global epoch counter
     uint256 public epochCounter = 1;
     // ETH average block time
-    uint256 public blockTimeETH = 14;
+    uint256 public blockTimeETH = 12;
     // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
     // 2^(112 - log2(1e18))
     uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
-    // ~120k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
-    uint256 public maxBond = 120_000 * 1e18;
-    // TODO Decide which rate has to be put by default
-    // Default epsilon rate that contributes to the interest rate: 50% or 0.5
-    uint256 public epsilonRate = 5 * 1e17;
+    // 10^(OLAS decimals) that represent a whole unit in OLAS token
+    uint256 public constant DECIMALS = 1e18;
+    // TODO Review max bond per epoch depending on the number of epochs per year, and the updated inflation schedule
+    // ~150k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
+    uint256 public maxBond = 150_000 * 1e18;
+    // TODO Decide which rate has to be put by default, it is now set to the latest requirement
+    // Default epsilon rate that contributes to the interest rate: 10% or 0.1
+    uint256 public epsilonRate = 1e17;
 
+    // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // UCFc / UCFa weights for the UCF contribution
     uint256 public ucfcWeight = 1;
     uint256 public ucfaWeight = 1;
@@ -106,8 +94,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     uint256 public agentWeight = 1;
     // Number of valuable devs can be paid per units of capital per epoch
     uint256 public devsPerCapital = 1;
-    // 10^(OLAS decimals) that represent a whole unit in OLAS token
-    uint256 public immutable decimalsUnit;
 
     // Total service revenue per epoch: sum(r(s))
     uint256 public epochServiceRevenueETH;
@@ -130,6 +116,10 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
+    // Voting Escrow address
+    address public immutable ve;
+    // TODO Probably makes sense to make them mutable, since registry contracts can change
+    // TODO Then, write a function for changing registry addresses
     // Component Registry
     address public immutable componentRegistry;
     // Agent Registry
@@ -158,10 +148,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     // Map of protocol-owned service Ids
     mapping(uint256 => bool) public mapProtocolServices;
 
-    // Max slippage 10000 = 100%
-    uint256 public constant MAXSLIPPAGE = 10_000;
-
     /// @dev Tokenomics constructor.
+    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -173,17 +161,13 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
+        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
-        olas = _olas;
-        treasury = _treasury;
-        depository = _depository;
-        dispenser = _dispenser;
         ve = _ve;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
-        decimalsUnit = 10 ** IOLAS(_olas).decimals();
 
         inflationCaps = new uint256[](10);
         inflationCaps[0] = 520_000_000e18;
@@ -196,54 +180,6 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         inflationCaps[7] = 930_000_000e18;
         inflationCaps[8] = 970_000_000e18;
         inflationCaps[9] = 1_000_000_000e18;
-    }
-
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyTreasury() {
-        if (treasury != msg.sender) {
-            revert ManagerOnly(msg.sender, treasury);
-        }
-        _;
-    }
-
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyDepository() {
-        if (depository != msg.sender) {
-            revert ManagerOnly(msg.sender, depository);
-        }
-        _;
-    }
-
-    // Only the manager has a privilege to manipulate a tokenomics
-    modifier onlyDispenser() {
-        if (dispenser != msg.sender) {
-            revert ManagerOnly(msg.sender, dispenser);
-        }
-        _;
-    }
-
-    /// @dev Changes various managing contract addresses.
-    /// @param _treasury Treasury address.
-    /// @param _depository Depository address.
-    /// @param _dispenser Dispenser address.
-    /// @param _ve Voting Escrow address.
-    function changeManagers(address _treasury, address _depository, address _dispenser, address _ve) external onlyOwner {
-        if (_treasury != address(0)) {
-            treasury = _treasury;
-            emit TreasuryUpdated(_treasury);
-        }
-        if (_depository != address(0)) {
-            depository = _depository;
-            emit DepositoryUpdated(_depository);
-        }
-        if (_dispenser != address(0)) {
-            dispenser = _dispenser;
-            emit DispenserUpdated(_dispenser);
-        }
-        if (_ve != address(0)) {
-            ve = _ve;
-            emit VotingEscrowUpdated(_ve);
-        }
     }
 
     /// @dev Changes tokenomics parameters.
@@ -268,7 +204,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         uint256 _epochLen,
         uint256 _blockTimeETH,
         bool _bondAutoControl
-    ) external onlyOwner {
+    ) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         ucfcWeight = _ucfcWeight;
         ucfaWeight = _ucfaWeight;
         componentWeight = _componentWeight;
@@ -294,7 +235,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         uint256 _agentFraction,
         uint256 _topUpOwnerFraction,
         uint256 _topUpStakerFraction
-    ) external onlyOwner {
+    ) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // Check that the sum of fractions is 100%
         if (_stakerFraction + _componentFraction + _agentFraction > 100) {
             revert WrongAmount(_stakerFraction + _componentFraction + _agentFraction, 100);
@@ -316,7 +262,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @dev (De-)whitelists protocol-owned services.
     /// @param serviceIds Set of service Ids.
     /// @param permissions Set of corresponding permissions for each account address.
-    function changeProtocolServicesWhiteList(uint256[] memory serviceIds, bool[] memory permissions) external onlyOwner {
+    function changeProtocolServicesWhiteList(uint256[] memory serviceIds, bool[] memory permissions) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         uint256 numServices = serviceIds.length;
         // Check the array size
         if (permissions.length != numServices) {
@@ -363,19 +314,28 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
-    /// @return True if effective bond threshold is not reached.
-    function allowedNewBond(uint256 amount) external onlyDepository returns (bool)  {
+    /// @return success True if effective bond threshold is not reached.
+    function allowedNewBond(uint256 amount) external returns (bool success)  {
+        // Check for the depository access
+        if (depository != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
             effectiveBond -= amount;
-            return true;
+            success = true;
         }
-        return false;
     }
 
     /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.
-    function usedBond(uint256 payout) external onlyDepository {
+    function usedBond(uint256 payout) external {
+        // Check for the depository access
+        if (depository != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
         bondPerEpoch += payout;
     }
 
@@ -383,9 +343,14 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external onlyTreasury
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 revenueETH, uint256 donationETH)
     {
+        // Check for the treasury access
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
+        }
+
         // Loop over service Ids and track their amounts
         uint256 numServices = serviceIds.length;
         for (uint256 i = 0; i < numServices; ++i) {
@@ -393,6 +358,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
+            // TODO whitelist service Ids whose owners stake veOLAS (with a minimum threshold)
             // Check for the whitelisted services
             if (mapProtocolServices[serviceIds[i]]) {
                 // If this is a protocol-owned service, accept funds as revenue
@@ -436,6 +402,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         // Overall profits of UCFu-s
         uint256 sumProfits = 0;
 
+        // TODO Top-ups go only to the component / agent owners of whitelisted services
         // Loop over profitable service Ids to calculate initial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
@@ -465,11 +432,11 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             uint256 unitId = i + 1;
             if (ucfuRevs[unitId] > 0) {
                 // Add address of a profitable component owner
-                address owner = IToken(registry).ownerOf(unitId);
+                address unitOwner = IToken(registry).ownerOf(unitId);
                 // Increase a profitable agent number
                 ++ucfu.numProfitableUnits;
                 // Calculate agent rewards in ETH
-                mapOwnerRewards[owner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
+                mapOwnerRewards[unitOwner] += (unitRewards * ucfuRevs[unitId]) / sumProfits;
                 // Calculate OLAS top-ups
                 uint256 amountOLAS = (unitTopUps * ucfuRevs[unitId]) / sumProfits;
                 if (unitType == IServiceTokenomics.UnitType.Component) {
@@ -477,7 +444,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
                 } else {
                     amountOLAS = (amountOLAS * agentWeight)  / (componentWeight + agentWeight);
                 }
-                mapOwnerTopUps[owner] += amountOLAS;
+                mapOwnerTopUps[unitOwner] += amountOLAS;
 
                 // Check if the component / agent is used for the first time
                 if (unitType == IServiceTokenomics.UnitType.Component && !mapComponents[unitId]) {
@@ -488,8 +455,8 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
                     mapAgents[unitId] = true;
                 }
                 // Check if the owner has introduced component / agent for the first time 
-                if (!mapOwners[owner]) {
-                    mapOwners[owner] = true;
+                if (!mapOwners[unitOwner]) {
+                    mapOwners[unitOwner] = true;
                     ucfu.numNewOwners++;
                 }
             }
@@ -513,15 +480,20 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
         epochServiceRevenueETH = 0;
     }
 
+    // TODO refactor this function to make sure it is called by the treasury only, such that this function is not called by itself
+    // TODO Calling it without reward allocation would break the synchronization of rewards
     /// @dev Record global data to the checkpoint
-    function checkpoint() external onlyTreasury {
+    function checkpoint() external {
+        // Check for the treasury access
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
+        }
+
         PointEcomonics memory lastPoint = mapEpochEconomics[epochCounter - 1];
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
-        if (block.number > lastPoint.blockNumber) {
-            uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
-            if (diffNumBlocks >= epochLen) {
-                _checkpoint();
-            }
+        uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
+        if (diffNumBlocks >= epochLen) {
+            _checkpoint();
         }
     }
 
@@ -600,7 +572,7 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
             //  f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
             //  Convert amount of tokens with OLAS decimals (18 by default) to fixed point x.x
-            FixedPoint.uq112x112 memory fp1 = FixedPoint.fraction(rewards[1], decimalsUnit);
+            FixedPoint.uq112x112 memory fp1 = FixedPoint.fraction(rewards[1], DECIMALS);
             // For consistency multiplication with fp1
             FixedPoint.uq112x112 memory fp2 = FixedPoint.fraction(codeUnits * devsPerCapital, 1);
             // fp1 == codeUnits * devsPerCapital * rewards[1]
@@ -807,7 +779,12 @@ contract Tokenomics is IErrorsTokenomics, Ownable {
     /// @param account Account address.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function accountOwnerRewards(address account) external onlyDispenser returns (uint256 reward, uint256 topUp) {
+    function accountOwnerRewards(address account) external returns (uint256 reward, uint256 topUp) {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+
         reward = mapOwnerRewards[account];
         topUp = mapOwnerTopUps[account];
         mapOwnerRewards[account] = 0;

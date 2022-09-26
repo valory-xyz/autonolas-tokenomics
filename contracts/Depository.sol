@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IErrorsTokenomics.sol";
+import "./GenericTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Depository is IErrorsTokenomics, Ownable {
+contract Depository is GenericTokenomics {
     // TODO: Consider the cheaper alternative to SafeERC20
     using SafeERC20 for IERC20;
 
-    event CreateBond(uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
-    event CreateProduct(address token, uint256 productId, uint256 supply);
-    event TerminateProduct(address token, uint256 productId);
-    event TreasuryUpdated(address treasury);
-    event TokenomicsUpdated(address tokenomics);
+    event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
+    event CreateProduct(address indexed token, uint256 productId, uint256 supply);
+    event TerminateProduct(address indexed token, uint256 productId);
 
     struct Bond {
         // OLAS remaining to be paid out
@@ -52,12 +49,6 @@ contract Depository is IErrorsTokenomics, Ownable {
         uint256 priceLP;
     }
 
-    // OLAS token address
-    address public immutable olas;
-    // Treasury address
-    address public treasury;
-    // Tokenomics address
-    address public tokenomics;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
@@ -67,24 +58,9 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _treasury, address _tokenomics) {
-        olas = _olas;
-        treasury = _treasury;
-        tokenomics = _tokenomics;
-    }
-
-    /// @dev Changes various managing contract addresses.
-    /// @param _treasury Treasury address.
-    /// @param _tokenomics Tokenomics address.
-    function changeManagers(address _treasury, address _tokenomics) external onlyOwner {
-        if (_treasury != address(0)) {
-            treasury = _treasury;
-            emit TreasuryUpdated(_treasury);
-        }
-        if (_tokenomics != address(0)) {
-            tokenomics = _tokenomics;
-            emit TokenomicsUpdated(_tokenomics);
-        }
+    constructor(address _olas, address _treasury, address _tokenomics)
+        GenericTokenomics(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository)
+    {
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
@@ -100,11 +76,6 @@ contract Depository is IErrorsTokenomics, Ownable {
     {
         // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
-        // Check for the correctly provided token in the product
-        // TODO: Remove, since this scenario is not possible (line above protects against that)
-        if (token != address(product.token)) {
-            revert WrongTokenAddress(token, address(product.token));
-        }
 
         // Check for the product expiry
         uint256 currentTime = uint256(block.timestamp);
@@ -130,7 +101,7 @@ contract Depository is IErrorsTokenomics, Ownable {
 
         // Create and add a new bond
         mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
-        emit CreateBond(productId, payout, tokenAmount);
+        emit CreateBond(token, productId, payout, tokenAmount);
 
         // Take into account this bond in current epoch
         ITokenomics(tokenomics).usedBond(payout);
@@ -190,7 +161,7 @@ contract Depository is IErrorsTokenomics, Ownable {
             }
         }
 
-        // Form the pending bonds index array
+        // Form pending bonds index array
         indexes = new uint256[](numPendingBonds);
         uint256 numPos;
         for (uint256 i = 0; i < numBonds; i++) {
@@ -217,7 +188,12 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(address token, uint256 supply, uint256 vesting) external onlyOwner returns (uint256 productId) {
+    function create(address token, uint256 supply, uint256 vesting) external returns (uint256 productId) {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // Check if the LP token is enabled and that it is the LP token
         if (!ITreasury(treasury).isEnabled(token) || !ITreasury(treasury).checkPair(token)) {
             revert UnauthorizedToken(token);
@@ -244,7 +220,12 @@ contract Depository is IErrorsTokenomics, Ownable {
     /// @dev Close a bonding product.
     /// @param token Specified token.
     /// @param productId Product Id.
-    function close(address token, uint256 productId) external onlyOwner {
+    function close(address token, uint256 productId) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         mapTokenProducts[token][productId].supply = 0;
         
         emit TerminateProduct(token, productId);
