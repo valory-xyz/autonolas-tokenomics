@@ -13,7 +13,6 @@ describe("Tokenomics", async () => {
     let serviceRegistry;
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(25);
-    const magicDenominator = 5192296858534816;
     const E18 = 10**18;
     const delta = 1.0 / 10**10;
 
@@ -220,9 +219,8 @@ describe("Tokenomics", async () => {
 
             // Get the UCF and check the values with delta rounding error
             const lastEpoch = await tokenomics.epochCounter() - 1;
-            const ucf = Number(await tokenomics.getUCF(lastEpoch) / magicDenominator) * 1.0 / E18;
+            const ucf = Number(await tokenomics.getUCF(lastEpoch)) * 1.0 / E18;
             expect(Math.abs(ucf - 0.5)).to.lessThan(delta);
-
             // Get the epochs data
             // Get the very first point
             await tokenomics.getPoint(1);

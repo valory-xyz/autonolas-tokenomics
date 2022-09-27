@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@uniswap/lib/contracts/libraries/Babylonian.sol";
-import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
+import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
@@ -63,7 +62,7 @@ struct PointEcomonics {
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Tokenomics is GenericTokenomics {
-    using FixedPoint for *;
+    using PRBMathSD59x18 for *;
 
     event EpochLengthUpdated(uint256 epochLength);
 
@@ -73,11 +72,6 @@ contract Tokenomics is GenericTokenomics {
     uint256 public epochCounter = 1;
     // ETH average block time
     uint256 public blockTimeETH = 12;
-    // source: https://github.com/compound-finance/open-oracle/blob/d0a0d0301bff08457d9dfc5861080d3124d079cd/contracts/Uniswap/UniswapLib.sol#L27 
-    // 2^(112 - log2(1e18))
-    uint256 public constant MAGIC_DENOMINATOR =  5192296858534816;
-    // 10^(OLAS decimals) that represent a whole unit in OLAS token
-    uint256 public constant DECIMALS = 1e18;
     // TODO Review max bond per epoch depending on the number of epochs per year, and the updated inflation schedule
     // ~150k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
     uint256 public maxBond = 150_000 * 1e18;
@@ -569,24 +563,23 @@ contract Tokenomics is GenericTokenomics {
             // Calculate DF from epsilon rate and f(K,D)
             uint256 codeUnits = componentWeight * ucfc.numNewUnits + agentWeight * ucfa.numNewUnits;
             uint256 newOwners = ucfc.numNewOwners + ucfa.numNewOwners;
-            //  f(K(e), D(e)) = d * k * K(e) + d * D(e)
-            // fKD = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
-            //  Convert amount of tokens with OLAS decimals (18 by default) to fixed point x.x
-            FixedPoint.uq112x112 memory fp1 = FixedPoint.fraction(rewards[1], DECIMALS);
-            // For consistency multiplication with fp1
-            FixedPoint.uq112x112 memory fp2 = FixedPoint.fraction(codeUnits * devsPerCapital, 1);
-            // fp1 == codeUnits * devsPerCapital * rewards[1]
-            fp1 = fp1.muluq(fp2);
+            // f(K(e), D(e)) = d * k * K(e) + d * D(e)
+            // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
+            // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
+            // Convert treasuryRewards and convert to ETH
+            int256 fp1 = PRBMathSD59x18.fromInt(int256(rewards[1])) / 1e18;
+            // Convert (codeUnits * devsPerCapital)
+            int256 fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * devsPerCapital));
+            // fp1 == codeUnits * devsPerCapital * treasuryRewards
+            fp1 = fp1.mul(fp2);
             // fp2 = codeUnits * newOwners
-            fp2 = FixedPoint.fraction(codeUnits * newOwners, 1);
-            // fp = codeUnits * devsPerCapital * rewards[1] + codeUnits * newOwners;
-            FixedPoint.uq112x112 memory fp = _add(fp1, fp2);
-            // 1/100 rational number
-            FixedPoint.uq112x112 memory fp3 = FixedPoint.fraction(1, 100);
+            fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * newOwners));
+            // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
+            int256 fp = fp1 + fp2;
             // fp = fp/100 - calculate the final value in fixed point
-            fp = fp.muluq(fp3);
+            fp = fp.div(PRBMathSD59x18.fromInt(100));
             // fKD in the state that is comparable with epsilon rate
-            uint256 fKD = fp._x / MAGIC_DENOMINATOR;
+            uint256 fKD = uint256(fp);
 
             // Compare with epsilon rate and choose the smallest one
             if (fKD > epsilonRate) {
@@ -704,9 +697,9 @@ contract Tokenomics is GenericTokenomics {
         accountTopUps = pe.ownerTopUps + pe.stakerTopUps;
     }
 
-    /// @dev Gets discount factor.
+    /// @dev Gets discount factor with the multiple of 1e18.
     /// @param epoch Epoch number.
-    /// @return df Discount factor.
+    /// @return df Discount factor with the multiple of 1e18.
     function getDF(uint256 epoch) external view returns (uint256 df)
     {
         PointEcomonics memory pe = mapEpochEconomics[epoch];
@@ -717,22 +710,10 @@ contract Tokenomics is GenericTokenomics {
         }
     }
 
-    /// @dev Sums two fixed points.
-    /// @param x Point x.
-    /// @param y Point y.
-    /// @return r Result of x + y.
-    function _add(FixedPoint.uq112x112 memory x, FixedPoint.uq112x112 memory y) private pure
-        returns (FixedPoint.uq112x112 memory r)
-    {
-        uint224 z = x._x + y._x;
-        if (x._x > 0 && y._x > 0) assert (z > x._x && z > y._x);
-        r = FixedPoint.uq112x112(uint224(z));
-    }
-
     /// @dev Calculated UCF of a specified epoch.
     /// @param epoch Epoch number.
-    /// @return ucf UCF value.
-    function getUCF(uint256 epoch) external view returns (FixedPoint.uq112x112 memory ucf) {
+    /// @return ucf UCF value with the multiple of 1e18.
+    function getUCF(uint256 epoch) external view returns (uint256 ucf) {
         PointEcomonics memory pe = mapEpochEconomics[epoch];
 
         // Total rewards per epoch
@@ -740,27 +721,30 @@ contract Tokenomics is GenericTokenomics {
 
         // Calculate UCFc
         uint256 denominator = totalRewards * pe.numServices * pe.ucfc.numUnits;
-        FixedPoint.uq112x112 memory ucfc;
+        int256 ucfc;
         // Number of components can be equal to zero for all the services, so the UCFc is just zero by default
         if (denominator > 0) {
-            ucfc = FixedPoint.fraction(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum, denominator);
+            // UCFC = (numProfitableUnits * Sum(UCFc)) / (totalRewards * numServices * numUnits(c))
+            ucfc = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum)),
+                PRBMathSD59x18.fromInt(int256(denominator)));
 
             // Calculate UCFa
             denominator = totalRewards * pe.numServices * pe.ucfa.numUnits;
             // Number of agents must always be greater than zero, since at least one agent is used by a service
             if (denominator > 0) {
-                FixedPoint.uq112x112 memory ucfa = FixedPoint.fraction(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum, denominator);
+                // UCFA = (numProfitableUnits * Sum(UCFa)) / (totalRewards * numServices * numUnits(a))
+                int256 ucfa = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum)),
+                    PRBMathSD59x18.fromInt(int256(denominator)));
 
                 // Calculate UCF
                 denominator = pe.ucfc.ucfWeight + pe.ucfa.ucfWeight;
                 if (denominator > 0) {
-                    FixedPoint.uq112x112 memory weightedUCFc = FixedPoint.fraction(pe.ucfc.ucfWeight, 1);
-                    FixedPoint.uq112x112 memory weightedUCFa = FixedPoint.fraction(pe.ucfa.ucfWeight, 1);
-                    weightedUCFc = ucfc.muluq(weightedUCFc);
-                    weightedUCFa = ucfa.muluq(weightedUCFa);
-                    ucf = _add(weightedUCFc, weightedUCFa);
-                    FixedPoint.uq112x112 memory fraction = FixedPoint.fraction(1, denominator);
-                    ucf = ucf.muluq(fraction);
+                    // UCF = (ucfc * ucfWeight(c) + ucfa * ucfWeight(a)) / (ucfWeight(c) + ucfWeight(a))
+                    int256 weightedUCFc = ucfc.mul(PRBMathSD59x18.fromInt(int256(pe.ucfc.ucfWeight)));
+                    int256 weightedUCFa = ucfa.mul(PRBMathSD59x18.fromInt(int256(pe.ucfa.ucfWeight)));
+                    int256 ucfFP = weightedUCFc + weightedUCFa;
+                    ucfFP = ucfFP.div(PRBMathSD59x18.fromInt(int256(denominator)));
+                    ucf = uint256(ucfFP);
                 }
             }
         }
