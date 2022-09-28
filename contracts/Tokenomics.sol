@@ -77,48 +77,59 @@ struct PointEcomonics {
 contract Tokenomics is GenericTokenomics {
     using PRBMathSD59x18 for *;
 
-    event EpochLengthUpdated(uint256 epochLength);
+    event EpochLengthUpdated(uint32 epochLength);
 
     // Epoch length in block numbers
-    uint256 public epochLen;
+    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
+    uint32 public epochLen;
     // Global epoch counter
-    uint256 public epochCounter = 1;
+    // This number cannot be practically bigger than the number of blocks
+    uint32 public epochCounter = 1;
     // ETH average block time
-    uint256 public blockTimeETH = 12;
+    // We assume that the block time will not be bigger than 255 seconds
+    uint8 public blockTimeETH = 12;
     // TODO Review max bond per epoch depending on the number of epochs per year, and the updated inflation schedule
     // ~150k of OLAS tokens per epoch (less than the max cap of 22 million during 1st year, the bonding fraction is 40%)
-    uint256 public maxBond = 150_000 * 1e18;
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 public maxBond = 150_000 * 1e18;
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
-    uint256 public epsilonRate = 1e17;
+    // By the protocol design for the DF calculation, epsilonRate must be lower than 15 (with 18 decimals)
+    uint64 public epsilonRate = 1e17;
 
     // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // UCFc / UCFa weights for the UCF contribution
-    uint256 public ucfcWeight = 1;
-    uint256 public ucfaWeight = 1;
+    // We assume the coefficients are bound by numbers of 2^16 - 1
+    uint16 public ucfcWeight = 1;
+    uint16 public ucfaWeight = 1;
     // Component / agent weights for new valuable code
-    uint256 public componentWeight = 1;
-    uint256 public agentWeight = 1;
+    uint16 public componentWeight = 1;
+    uint16 public agentWeight = 1;
     // Number of valuable devs can be paid per units of capital per epoch
-    uint256 public devsPerCapital = 1;
+    // This number cannot be practically bigger than the total number of supported units
+    uint32 public devsPerCapital = 1;
 
     // Total service revenue per epoch: sum(r(s))
-    uint256 public epochServiceRevenueETH;
+    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 public epochServiceRevenueETH;
     // Donation balance
-    uint256 public donationBalanceETH;
+    uint96 public donationBalanceETH;
 
     // Staking parameters with multiplying by 100
     // treasuryFraction (implicit, zero by default) + componentFraction + agentFraction + stakerFraction = 100%
-    uint256 public stakerFraction = 50;
-    uint256 public componentFraction = 33;
-    uint256 public agentFraction = 17;
+    // Each of these numbers cannot be practically bigger than 100
+    uint8 public stakerFraction = 50;
+    uint8 public componentFraction = 33;
+    uint8 public agentFraction = 17;
     // Top-up of OLAS and bonding parameters with multiplying by 100
-    uint256 public topUpOwnerFraction = 40;
-    uint256 public topUpStakerFraction = 20;
+    uint8 public topUpOwnerFraction = 40;
+    uint8 public topUpStakerFraction = 20;
 
     // Bond per epoch
-    uint256 public bondPerEpoch;
+    // This number cannot be practically bigger than the maxBond
+    uint96 public bondPerEpoch;
     // MaxBond(e) - sum(BondingProgram) over all epochs: accumulates leftovers from previous epochs
-    uint256 public effectiveBond = maxBond;
+    // This number cannot be practically bigger than the maxBond
+    uint96 public effectiveBond = maxBond;
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
@@ -145,6 +156,7 @@ contract Tokenomics is GenericTokenomics {
     mapping(uint256 => bool) public mapAgents;
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
+    // TODO uint256 is needed to protect from the overflow, see if it can be optimized
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
@@ -166,9 +178,9 @@ contract Tokenomics is GenericTokenomics {
     /// @param _componentRegistry Component registry address.
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
-    constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint256 _epochLen,
+    constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint32 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
-        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
+    GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
         ve = _ve;
         epochLen = _epochLen;
@@ -202,15 +214,15 @@ contract Tokenomics is GenericTokenomics {
     /// @param _blockTimeETH Time between blocks for ETH.
     /// @param _bondAutoControl True to enable auto-tuning of max bonding value depending on the OLAS remainder
     function changeTokenomicsParameters(
-        uint256 _ucfcWeight,
-        uint256 _ucfaWeight,
-        uint256 _componentWeight,
-        uint256 _agentWeight,
-        uint256 _devsPerCapital,
-        uint256 _epsilonRate,
-        uint256 _maxBond,
-        uint256 _epochLen,
-        uint256 _blockTimeETH,
+        uint16 _ucfcWeight,
+        uint16 _ucfaWeight,
+        uint16 _componentWeight,
+        uint16 _agentWeight,
+        uint32 _devsPerCapital,
+        uint64 _epsilonRate,
+        uint96 _maxBond,
+        uint32 _epochLen,
+        uint8 _blockTimeETH,
         bool _bondAutoControl
     ) external {
         // Check for the contract ownership
@@ -223,7 +235,6 @@ contract Tokenomics is GenericTokenomics {
         componentWeight = _componentWeight;
         agentWeight = _agentWeight;
         devsPerCapital = _devsPerCapital;
-        // TODO in order to avoid overflow of df, epsilonRate must be lower than 15
         epsilonRate = _epsilonRate;
         // take into account the change during the epoch
         _adjustMaxBond(_maxBond);
@@ -239,11 +250,11 @@ contract Tokenomics is GenericTokenomics {
     /// @param _topUpOwnerFraction Fraction for OLAS top-up for component / agent owners.
     /// @param _topUpStakerFraction Fraction for OLAS top-up for stakers.
     function changeRewardFraction(
-        uint256 _stakerFraction,
-        uint256 _componentFraction,
-        uint256 _agentFraction,
-        uint256 _topUpOwnerFraction,
-        uint256 _topUpStakerFraction
+        uint8 _stakerFraction,
+        uint8 _componentFraction,
+        uint8 _agentFraction,
+        uint8 _topUpOwnerFraction,
+        uint8 _topUpStakerFraction
     ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -332,7 +343,7 @@ contract Tokenomics is GenericTokenomics {
 
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
-            effectiveBond -= amount;
+            effectiveBond -= uint96(amount);
             success = true;
         }
     }
@@ -345,7 +356,7 @@ contract Tokenomics is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
-        bondPerEpoch += payout;
+        bondPerEpoch += uint96(payout);
     }
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
@@ -383,8 +394,8 @@ contract Tokenomics is GenericTokenomics {
             }
         }
         // Increase the total service revenue per epoch and donation balance
-        epochServiceRevenueETH += revenueETH;
-        donationBalanceETH += donationETH;
+        epochServiceRevenueETH += uint96(revenueETH);
+        donationBalanceETH += uint96(donationETH);
     }
 
     /// @dev Calculates tokenomics for components / agents of protocol-owned services.
@@ -508,14 +519,15 @@ contract Tokenomics is GenericTokenomics {
     }
 
     /// @dev Adjusts max bond every epoch if max bond is contract-controlled.
-    function _adjustMaxBond(uint256 _maxBond) internal {
+    function _adjustMaxBond(uint96 _maxBond) internal {
         // take into account the change during the epoch
+        uint96 delta;
         if(_maxBond > maxBond) {
-            uint256 delta = _maxBond - maxBond;
+            delta = _maxBond - maxBond;
             effectiveBond += delta;
         }
         if(_maxBond < maxBond) {
-            uint256 delta = maxBond - _maxBond;
+            delta = maxBond - _maxBond;
             if(delta < effectiveBond) {
                 effectiveBond -= delta;
             } else {
@@ -557,7 +569,7 @@ contract Tokenomics is GenericTokenomics {
         bondPerEpoch = 0;
         // Adjust max bond and effective bond if contract-controlled max bond is enabled
         if (bondAutoControl) {
-            _adjustMaxBond(rewards[7]);
+            _adjustMaxBond(uint96(rewards[7]));
         }
 
         // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
