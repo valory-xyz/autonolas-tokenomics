@@ -73,9 +73,8 @@ contract Tokenomics is GenericTokenomics {
     // ETH average block time
     uint256 public blockTimeETH = 12;
     // TODO Review max bond per epoch depending on the number of epochs per year, and the updated inflation schedule
-    // ~150k of OLAS tokens per epoch (the max cap is 20 million during 1st year, and the bonding fraction is 40%)
+    // ~150k of OLAS tokens per epoch (less than the max cap of 22 million during 1st year, the bonding fraction is 40%)
     uint256 public maxBond = 150_000 * 1e18;
-    // TODO Decide which rate has to be put by default, it is now set to the latest requirement
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
     uint256 public epsilonRate = 1e17;
 
@@ -163,16 +162,17 @@ contract Tokenomics is GenericTokenomics {
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
 
+        // Initial allocation is 526_500_000_0e17
         inflationCaps = new uint256[](10);
-        inflationCaps[0] = 520_000_000e18;
-        inflationCaps[1] = 590_000_000e18;
-        inflationCaps[2] = 660_000_000e18;
-        inflationCaps[3] = 730_000_000e18;
-        inflationCaps[4] = 790_000_000e18;
-        inflationCaps[5] = 840_000_000e18;
-        inflationCaps[6] = 890_000_000e18;
-        inflationCaps[7] = 930_000_000e18;
-        inflationCaps[8] = 970_000_000e18;
+        inflationCaps[0] = 548_613_000_0e17;
+        inflationCaps[1] = 628_161_885_0e17;
+        inflationCaps[2] = 701_028_663_7e17;
+        inflationCaps[3] = 766_084_123_6e17;
+        inflationCaps[4] = 822_958_209_0e17;
+        inflationCaps[5] = 871_835_342_9e17;
+        inflationCaps[6] = 913_259_378_7e17;
+        inflationCaps[7] = 947_973_171_3e17;
+        inflationCaps[8] = 976_799_806_9e17;
         inflationCaps[9] = 1_000_000_000e18;
     }
 
