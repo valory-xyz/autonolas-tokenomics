@@ -66,5 +66,7 @@ several steps in order to be verified. Those include:
 - running tests
 
 ## Acknowledgements
-The registries contracts were inspired and based on the following sources:
-- [OpenZeppelin](https://github.com/OpenZeppelin/openzeppelin-contracts).
+The tokenomics contracts were inspired and based on the following sources:
+- [Uniswap Labs](https://github.com/Uniswap/v2-core);
+- [OpenZeppelin](https://github.com/OpenZeppelin/openzeppelin-contracts);
+- [DeltaDex-Protocol](https://github.com/DeltaDex-Protocol/statistics_solidity).
