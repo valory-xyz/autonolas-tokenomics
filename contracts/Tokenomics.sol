@@ -9,53 +9,66 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
 
-// TODO: Optimize structs together with its variable sizes
 // Structure for component / agent tokenomics-related statistics
+// The size of the struct is 32 * 2 + 96 * 2 + 32 * 2 + 16 * 2 = 256 + 96 bits (2 full slots)
 struct PointUnits {
     // Total absolute number of components / agents
-    uint256 numUnits;
+    // We assume that the system is expected to support no more than 2^32-1 units
+    uint32 numUnits;
     // Number of components / agents that were part of profitable services
-    uint256 numProfitableUnits;
+    // This number cannot be bigger than the absolute number of units
+    uint32 numProfitableUnits;
     // Allocated rewards for components / agents
-    uint256 unitRewards;
+    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 unitRewards;
     // Cumulative UCFc-s / UCFa-s
-    uint256 ucfuSum;
-    // Coefficient weight of units for the final UCF formula, set by the government
-    uint256 ucfWeight;
+    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 ucfuSum;
     // Number of new units
-    uint256 numNewUnits;
+    // This number cannot be practically bigger than the total number of supported units
+    uint32 numNewUnits;
     // Number of new owners
-    uint256 numNewOwners;
+    // This number cannot be practically bigger than the total number of supported units
+    uint32 numNewOwners;
+    // We assume the coefficients are bound by numbers of 2^16 - 1
+    // Coefficient weight of units for the final UCF formula, set by the government
+    uint16 ucfWeight;
     // Component / agent weight for new valuable code
-    uint256 unitWeight;
+    uint16 unitWeight;
 }
 
 // Structure for tokenomics
+// The size of the struct is 512 * 2 + 64 + 32 + 96 * 6 + 32 * 2 = 256 * 4 + 128 (5 full slots)
 struct PointEcomonics {
     // UCFc
     PointUnits ucfc;
     // UCFa
     PointUnits ucfa;
     // Discount factor
-    uint256 df;
+    // DF is bound by the factor of 2^4 = 16 (after elimination of 18 zeros as decimals, or 2^60 bits)
+    // By the protocol design, the DF is ranged between 1 (0%) and 2 (100%), df = 1 + epsilonRate
+    uint64 df;
     // Profitable number of services
-    uint256 numServices;
+    // We assume that the system is expected to support no more than 2^32-1 services
+    uint32 numServices;
     // Treasury rewards
-    uint256 treasuryRewards;
+    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 treasuryRewards;
     // Staking rewards
-    uint256 stakerRewards;
+    uint96 stakerRewards;
     // Donation in ETH
-    uint256 totalDonationETH;
+    uint96 totalDonationETH;
     // Top-ups for component / agent owners
-    uint256 ownerTopUps;
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 ownerTopUps;
     // Top-ups for stakers
-    uint256 stakerTopUps;
+    uint96 stakerTopUps;
     // Number of valuable devs can be paid per units of capital per epoch
-    uint256 devsPerCapital;
-    // Timestamp
-    uint256 ts;
-    // Block number
-    uint256 blockNumber;
+    // This number cannot be practically bigger than the total number of supported units
+    uint32 devsPerCapital;
+    // Block number.
+    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
+    uint32 blockNumber;
 }
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
@@ -138,6 +151,7 @@ contract Tokenomics is GenericTokenomics {
     mapping(address => uint256) public mapOwnerRewards;
     // Mapping of owner of component / agent address => top-up amount (in OLAS)
     mapping(address => uint256) public mapOwnerTopUps;
+    // TODO Consider creating a black list for malicious service Ids rather than managing the white list
     // Map of protocol-owned service Ids
     mapping(uint256 => bool) public mapProtocolServices;
 
@@ -209,6 +223,7 @@ contract Tokenomics is GenericTokenomics {
         componentWeight = _componentWeight;
         agentWeight = _agentWeight;
         devsPerCapital = _devsPerCapital;
+        // TODO in order to avoid overflow of df, epsilonRate must be lower than 15
         epsilonRate = _epsilonRate;
         // take into account the change during the epoch
         _adjustMaxBond(_maxBond);
@@ -388,7 +403,7 @@ contract Tokenomics is GenericTokenomics {
 
         // TODO Possible optimization is to store a set of componets / agents and the map of those used in protocol-owned services
         address registry = unitType == IServiceTokenomics.UnitType.Component ? componentRegistry: agentRegistry;
-        ucfu.numUnits = IToken(registry).totalSupply();
+        ucfu.numUnits = uint32(IToken(registry).totalSupply());
         // Set of agent revenues UCFu-s. Agent / component Ids start from "1", so the index can be equal to the set size
         uint256[] memory ucfuRevs = new uint256[](ucfu.numUnits + 1);
         // Set of agent revenues UCFu-s divided by the cardinality of agent Ids in each service
@@ -396,7 +411,6 @@ contract Tokenomics is GenericTokenomics {
         // Overall profits of UCFu-s
         uint256 sumProfits = 0;
 
-        // TODO Top-ups go only to the component / agent owners of whitelisted services
         // Loop over profitable service Ids to calculate initial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
             uint256 serviceId = protocolServiceIds[i];
@@ -457,11 +471,13 @@ contract Tokenomics is GenericTokenomics {
         }
 
         // Calculate total UCFu
+        sumProfits = 0;
         for (uint256 i = 0; i < numServices; ++i) {
-            ucfu.ucfuSum += ucfus[i];
+            sumProfits += ucfus[i];
         }
-        // Record unit rewards
-        ucfu.unitRewards = unitRewards;
+        ucfu.ucfuSum = uint96(sumProfits);
+        // Record unit rewards and number of units
+        ucfu.unitRewards = uint96(unitRewards);
     }
 
     /// @dev Clears necessary data structures for the next epoch.
@@ -552,13 +568,13 @@ contract Tokenomics is GenericTokenomics {
         if (rewards[0] > 0) {
             // Calculate total UCFc
             ucfc = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5]);
-            ucfc.ucfWeight = ucfcWeight;
-            ucfc.unitWeight = componentWeight;
+            ucfc.ucfWeight = uint8(ucfcWeight);
+            ucfc.unitWeight = uint8(componentWeight);
 
             // Calculate total UCFa
             ucfa = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5]);
-            ucfa.ucfWeight = ucfaWeight;
-            ucfa.unitWeight = agentWeight;
+            ucfa.ucfWeight = uint8(ucfaWeight);
+            ucfa.unitWeight = uint8(agentWeight);
 
             // Calculate DF from epsilon rate and f(K,D)
             uint256 codeUnits = componentWeight * ucfc.numNewUnits + agentWeight * ucfa.numNewUnits;
@@ -590,8 +606,9 @@ contract Tokenomics is GenericTokenomics {
         }
 
         uint256 numServices = protocolServiceIds.length;
-        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, df, numServices, rewards[1], rewards[2],
-            donationBalanceETH, rewards[5], rewards[6], devsPerCapital, block.timestamp, block.number);
+        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, uint64(df), uint32(numServices), uint96(rewards[1]),
+            uint96(rewards[2]), uint96(donationBalanceETH), uint96(rewards[5]), uint96(rewards[6]),
+            uint32(devsPerCapital), uint32(block.number));
         mapEpochEconomics[epochCounter] = newPoint;
         epochCounter++;
 
@@ -725,7 +742,7 @@ contract Tokenomics is GenericTokenomics {
         // Number of components can be equal to zero for all the services, so the UCFc is just zero by default
         if (denominator > 0) {
             // UCFC = (numProfitableUnits * Sum(UCFc)) / (totalRewards * numServices * numUnits(c))
-            ucfc = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum)),
+            ucfc = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(uint256(pe.ucfc.numProfitableUnits * pe.ucfc.ucfuSum))),
                 PRBMathSD59x18.fromInt(int256(denominator)));
 
             // Calculate UCFa
@@ -733,15 +750,15 @@ contract Tokenomics is GenericTokenomics {
             // Number of agents must always be greater than zero, since at least one agent is used by a service
             if (denominator > 0) {
                 // UCFA = (numProfitableUnits * Sum(UCFa)) / (totalRewards * numServices * numUnits(a))
-                int256 ucfa = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum)),
+                int256 ucfa = PRBMathSD59x18.div(PRBMathSD59x18.fromInt(int256(uint256(pe.ucfa.numProfitableUnits * pe.ucfa.ucfuSum))),
                     PRBMathSD59x18.fromInt(int256(denominator)));
 
                 // Calculate UCF
                 denominator = pe.ucfc.ucfWeight + pe.ucfa.ucfWeight;
                 if (denominator > 0) {
                     // UCF = (ucfc * ucfWeight(c) + ucfa * ucfWeight(a)) / (ucfWeight(c) + ucfWeight(a))
-                    int256 weightedUCFc = ucfc.mul(PRBMathSD59x18.fromInt(int256(pe.ucfc.ucfWeight)));
-                    int256 weightedUCFa = ucfa.mul(PRBMathSD59x18.fromInt(int256(pe.ucfa.ucfWeight)));
+                    int256 weightedUCFc = ucfc.mul(PRBMathSD59x18.fromInt(int256(uint256(pe.ucfc.ucfWeight))));
+                    int256 weightedUCFa = ucfa.mul(PRBMathSD59x18.fromInt(int256(uint256(pe.ucfa.ucfWeight))));
                     int256 ucfFP = weightedUCFc + weightedUCFa;
                     ucfFP = ucfFP.div(PRBMathSD59x18.fromInt(int256(denominator)));
                     ucf = uint256(ucfFP);
