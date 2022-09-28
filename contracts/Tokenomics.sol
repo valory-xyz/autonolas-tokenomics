@@ -573,7 +573,7 @@ contract Tokenomics is GenericTokenomics {
         }
 
         // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
-        uint256 df;
+        uint64 df;
         // Calculate UCFc, UCFa, rewards allocated from them and DF
         PointUnits memory ucfc;
         PointUnits memory ucfa;
@@ -614,13 +614,12 @@ contract Tokenomics is GenericTokenomics {
                 fKD = epsilonRate;
             }
             // 1 + fKD in the system where 1e18 is equal to a whole unit (18 decimals)
-            df = 1e18 + fKD;
+            df = uint64(1e18 + fKD);
         }
 
-        uint256 numServices = protocolServiceIds.length;
-        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, uint64(df), uint32(numServices), uint96(rewards[1]),
-            uint96(rewards[2]), uint96(donationBalanceETH), uint96(rewards[5]), uint96(rewards[6]),
-            uint32(devsPerCapital), uint32(block.number));
+        uint32 numServices = uint32(protocolServiceIds.length);
+        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, df, numServices, uint96(rewards[1]), uint96(rewards[2]),
+            donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital, uint32(block.number));
         mapEpochEconomics[epochCounter] = newPoint;
         epochCounter++;
 
