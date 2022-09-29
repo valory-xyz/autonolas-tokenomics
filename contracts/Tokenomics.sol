@@ -83,6 +83,9 @@ contract Tokenomics is GenericTokenomics {
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
 
+    // Voting Escrow address
+    address public immutable ve;
+
     // TODO Review max bond per epoch depending on the number of epochs per year, and the updated inflation schedule
     // ~150k of OLAS tokens per epoch (less than the max cap of 22 million during 1st year, the bonding fraction is 40%)
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
@@ -143,9 +146,8 @@ contract Tokenomics is GenericTokenomics {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
-    // Voting Escrow address
-    address public immutable ve;
-
+    // Map of service Ids and their amounts in current epoch
+    mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
     mapping(address => uint256) public mapOwnerRewards;
     // Mapping of owner of component / agent address => top-up amount (in OLAS)
@@ -161,13 +163,10 @@ contract Tokenomics is GenericTokenomics {
     // TODO Consider creating a black list for malicious service Ids rather than managing the white list
     // Map of protocol-owned service Ids
     mapping(uint256 => bool) public mapProtocolServices;
-    // TODO Optimize this map to uint96
-    // Map of service Ids and their amounts in current epoch
-    mapping(uint256 => uint256) public mapServiceAmounts;
     // Inflation caps for the first ten years
     uint96[] public inflationCaps;
     // Set of protocol-owned services in current epoch
-    uint256[] public protocolServiceIds;
+    uint32[] public protocolServiceIds;
 
     /// @dev Tokenomics constructor.
     /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
@@ -390,8 +389,8 @@ contract Tokenomics is GenericTokenomics {
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
-        returns (uint256 revenueETH, uint256 donationETH)
+    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
+        returns (uint96 revenueETH, uint96 donationETH)
     {
         // Check for the treasury access
         if (treasury != msg.sender) {
@@ -421,8 +420,8 @@ contract Tokenomics is GenericTokenomics {
             }
         }
         // Increase the total service revenue per epoch and donation balance
-        epochServiceRevenueETH += uint96(revenueETH);
-        donationBalanceETH += uint96(donationETH);
+        epochServiceRevenueETH += revenueETH;
+        donationBalanceETH += donationETH;
     }
 
     /// @dev Calculates tokenomics for components / agents of protocol-owned services.

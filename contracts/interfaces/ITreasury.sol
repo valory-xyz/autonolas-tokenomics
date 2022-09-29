@@ -12,7 +12,7 @@ interface ITreasury {
     /// @dev Deposits ETH from protocol-owned service.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of amounts.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable;
+    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable;
 
     /// @dev Gets information about token being enabled.
     /// @param token Token address.

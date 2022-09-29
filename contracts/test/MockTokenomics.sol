@@ -3,27 +3,27 @@ pragma solidity ^0.8.17;
 
 /// @dev Contract for mocking several tokenomics functions.
 contract MockTokenomics {
-    uint256 public epochCounter = 1;
-    uint256 public mintCap = 1_000_000_000_000e18;
-    uint256 public topUps = 40 ether;
+    uint32 public epochCounter = 1;
+    uint96 public mintCap = 1_000_000_000e18;
+    uint96 public topUps = 40 ether;
 
     /// @dev Changes the mint cap.
     /// @param _mintCap New mint cap.
-    function changeMintCap(uint256 _mintCap) external {
+    function changeMintCap(uint96 _mintCap) external {
         mintCap = _mintCap;
     }
 
     /// @dev Changes the top-ups value.
     /// @param _topUps New top-up value.
-    function changeTopUps(uint256 _topUps) external {
+    function changeTopUps(uint96 _topUps) external {
         topUps = _topUps;
     }
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @return revenueETH Revenue of protocol-owned services.
     /// @return donationETH Donations to services.
-    function trackServicesETHRevenue(uint256[] memory, uint256[] memory) external pure
-        returns (uint256 revenueETH, uint256 donationETH)
+    function trackServicesETHRevenue(uint32[] memory, uint96[] memory) external pure
+        returns (uint96 revenueETH, uint96 donationETH)
     {
         revenueETH = 1000 ether;
         donationETH = 1 ether;
@@ -34,7 +34,7 @@ contract MockTokenomics {
     /// @return accountRewards Cumulative staker, component and agent rewards.
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
     function getRewardsData() external view
-        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps)
+        returns (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps)
     {
         treasuryRewards = 10 ether;
         accountRewards = 50 ether;

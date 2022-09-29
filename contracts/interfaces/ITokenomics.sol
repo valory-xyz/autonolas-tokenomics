@@ -20,8 +20,8 @@ interface ITokenomics {
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
-        returns (uint256 revenueETH, uint256 donationETH);
+    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
+        returns (uint96 revenueETH, uint96 donationETH);
 
     /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.
@@ -58,7 +58,7 @@ interface ITokenomics {
     /// @return accountRewards Cumulative staker, component and agent rewards.
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
     function getRewardsData() external view
-        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+        returns (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps);
 
     /// @dev Get reserveX/reserveY at the time of product creation.
     /// @param token Token address.

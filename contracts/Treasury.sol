@@ -33,9 +33,9 @@ contract Treasury is GenericTokenomics {
         uint256 reserves;
     }
 
-    uint256 public ETHFromServices;
+    uint96 public ETHFromServices;
     // ETH owned by treasury
-    uint256 public ETHOwned;
+    uint96 public ETHOwned;
     // Set of registered tokens
     address[] public tokenRegistry;
     // Token address => token info related to bonding
@@ -52,7 +52,7 @@ contract Treasury is GenericTokenomics {
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
         GenericTokenomics(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury)
     {
-        ETHOwned = msg.value;
+        ETHOwned = uint96(msg.value);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -90,7 +90,7 @@ contract Treasury is GenericTokenomics {
     /// @dev Deposits ETH from protocol-owned services in batch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -111,7 +111,7 @@ contract Treasury is GenericTokenomics {
             revert WrongAmount(msg.value, totalAmount);
         }
 
-        (uint256 revenueETH, uint256 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        (uint96 revenueETH, uint96 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
         ETHFromServices += revenueETH;
         ETHOwned += donationETH;
 
@@ -132,7 +132,7 @@ contract Treasury is GenericTokenomics {
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
             // This branch is used to transfer ETH to a specified address
-            ETHOwned -= tokenAmount;
+            ETHOwned -= uint96(tokenAmount);
             emit Withdraw(address(0), tokenAmount);
             // Send ETH to the specified address
             (success, ) = to.call{value: tokenAmount}("");
@@ -221,7 +221,7 @@ contract Treasury is GenericTokenomics {
 
     /// @dev Rebalances ETH funds.
     /// @param amount ETH token amount.
-    function _rebalanceETH(uint256 amount) internal {
+    function _rebalanceETH(uint96 amount) internal {
         if (ETHFromServices >= amount) {
             ETHFromServices -= amount;
             ETHOwned += amount;
@@ -231,7 +231,7 @@ contract Treasury is GenericTokenomics {
     /// @dev Sends funds to the dispenser contract.
     /// @param amountETH Amount in ETH.
     /// @param amountOLAS Amount in OLAS.
-    function _sendFundsToDispenser(uint256 amountETH, uint256 amountOLAS) internal {
+    function _sendFundsToDispenser(uint96 amountETH, uint96 amountOLAS) internal {
         if (amountETH > 0 && ETHFromServices >= amountETH) {
             ETHFromServices -= amountETH;
             (bool success, ) = dispenser.call{value: amountETH}("");
@@ -261,7 +261,7 @@ contract Treasury is GenericTokenomics {
         ITokenomics(tokenomics).checkpoint();
         // TODO Only if the new epoch started we need to get the rewards calculation
         // Get the rewards data
-        (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
+        (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
 
         // Collect treasury's own reward share
         _rebalanceETH(treasuryRewards);
@@ -272,7 +272,7 @@ contract Treasury is GenericTokenomics {
 
     /// @dev Receives ETH.
     receive() external payable {
-        ETHOwned += msg.value;
+        ETHOwned += uint96(msg.value);
         emit ReceivedETH(msg.sender, msg.value);
     }
 }
