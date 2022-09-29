@@ -104,6 +104,21 @@ describe("Tokenomics", async () => {
             await tokenomics.connect(deployer).changeRewardFraction(30, 40, 10, 40, 50);
         });
 
+        it("Changing registries addresses", async function () {
+            // Trying to change tokenomics parameters from a non-owner account address
+            await expect(
+                tokenomics.connect(signers[1]).changeRegistries(AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+
+            // Leaving everything unchanged
+            await tokenomics.changeRegistries(AddressZero, AddressZero, AddressZero);
+            // Change registries addresses
+            await tokenomics.changeRegistries(signers[1].address, signers[2].address, signers[3].address);
+            expect(await tokenomics.componentRegistry()).to.equal(signers[1].address);
+            expect(await tokenomics.agentRegistry()).to.equal(signers[2].address);
+            expect(await tokenomics.serviceRegistry()).to.equal(signers[3].address);
+        });
+
         it("Whitelisting and de-whitelisting service owners", async function () {
             // Trying to whitelist from a non-owner account address
             await expect(

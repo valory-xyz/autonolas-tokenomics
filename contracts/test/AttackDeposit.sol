@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 interface IDepository {
-    function deposit(address token, uint256 productId, uint256 tokenAmount, address user) external
-        returns (uint256 payout, uint256 expiry, uint256 numBonds);
+    function deposit(address token, uint32 productId, uint96 tokenAmount, address user) external
+        returns (uint96 payout, uint32 expiry, uint256 numBonds);
 }
 
 interface IRouter {
@@ -32,7 +32,7 @@ contract AttackDeposit {
     // @param bid number of bid
     // @param amountTo amount LP for deposit.
     // @param swapRouter uniswapV2 router address 
-    function flashAttackDepositImmune(address depository, address token, address olas, uint256 bid, uint256 amountTo, address swapRouter) external
+    function flashAttackDepositImmune(address depository, address token, address olas, uint32 bid, uint96 amountTo, address swapRouter) external
         returns (uint256 payout)
     {
         // Trying to deposit the amount that would result in an overflow payout for the LP supply

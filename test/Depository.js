@@ -32,6 +32,8 @@ describe("Depository LP", async () => {
     // 2,000
     let supplyProductOLAS =  "2" + "0".repeat(3) + decimals;
     let pseudoFlashLoan = "2"  + "0".repeat(2) + decimals;
+    const maxUint96 = "79228162514264337593543950335";
+    const maxUint32 = "4294967295";
 
     let vesting = 60 * 60 * 24;
     let timeToConclusion = 60 * 60 * 24;
@@ -210,6 +212,11 @@ describe("Depository LP", async () => {
                 depository.connect(alice).create(pairODAI.address, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
+            // Try to give the overflow vesting value
+            await expect(
+                depository.create(pairODAI.address, supplyProductOLAS, maxUint32)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+
             // Create a second product, the first one is already created
             await depository.create(pairODAI.address, supplyProductOLAS, vesting);
             // Check for the product being active
@@ -220,7 +227,7 @@ describe("Depository LP", async () => {
 
         it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
             await expect(
-                depository.create(pairODAI.address, supplyProductOLAS.repeat(2), vesting)
+                depository.create(pairODAI.address, maxUint96, vesting)
             ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
         });
 

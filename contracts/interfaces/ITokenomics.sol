@@ -14,8 +14,8 @@ interface ITokenomics {
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(uint256 tokenAmount, uint256 priceLP) external
-        returns (uint256 amountOLAS);
+    function calculatePayoutFromLP(uint96 tokenAmount, uint256 priceLP) external
+        returns (uint96 amountOLAS);
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
@@ -10,43 +10,38 @@ import "./interfaces/ITokenomics.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Depository is GenericTokenomics {
-    // TODO: Consider the cheaper alternative to SafeERC20
-    using SafeERC20 for IERC20;
-
     event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event TerminateProduct(address indexed token, uint256 productId);
 
+    // The size of the struct is 96 + 32 * 2 + 8 = 168 bits (1 full slot)
     struct Bond {
         // OLAS remaining to be paid out
-        uint256 payout;
-        // Bond creation time
-        uint256 creation;
+        uint96 payout;
         // Bond maturity time
-        uint256 maturity;
+        uint32 maturity;
         // Product Id of a bond
-        uint256 productId;
+        // Number of products cannot practically bigger than the number of blocks
+        uint32 productId;
         // time product was redeemed
         bool redeemed;
     }
 
-    // TODO: Unify vesting and expiry
+    // The size of the struct is 160 + 96 * 3 + 32 + 256 = 736 bits (3 full slots)
     struct Product {
+        // priceLP (reserve0/totalSupply or reserve1/totalSupply)
+        // for optimization - this number does not exceed type(uint224).max
+        uint256 priceLP;
         // Token to accept as a payment
         address token;
         // Supply remaining in OLAS tokens
-        uint256 supply;
-        // Vesting time in sec
-        uint256 vesting;
+        uint96 supply;
         // Product expiry time (initialization time + vesting time)
-        uint256 expiry;
+        uint32 expiry;
         // Number of specified tokens purchased
-        uint256 purchased;
+        uint96 purchased;
         // Number of OLAS tokens sold
-        uint256 sold;
-        // priceLP (reserve0/totalSupply or reserve1/totalSupply)
-        // for optimization - this number does not exceed type(uint224).max 
-        uint256 priceLP;
+        uint96 sold;
     }
 
     // Mapping of user address => list of bonds
@@ -71,8 +66,8 @@ contract Depository is GenericTokenomics {
     /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return numBonds Number of user bonds.
-    function deposit(address token, uint256 productId, uint256 tokenAmount, address user) external
-        returns (uint256 payout, uint256 expiry, uint256 numBonds)
+    function deposit(address token, uint32 productId, uint96 tokenAmount, address user) external
+        returns (uint96 payout, uint32 expiry, uint256 numBonds)
     {
         // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
@@ -100,7 +95,7 @@ contract Depository is GenericTokenomics {
         expiry = product.expiry;
 
         // Create and add a new bond
-        mapUserBonds[user].push(Bond(payout, uint256(block.timestamp), expiry, productId, false));
+        mapUserBonds[user].push(Bond(payout, expiry, productId, false));
         emit CreateBond(token, productId, payout, tokenAmount);
 
         // Take into account this bond in current epoch
@@ -111,7 +106,9 @@ contract Depository is GenericTokenomics {
             revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
         }
         // Transfer tokens to the depository
-        IERC20(product.token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        // We assume that LP tokens enabled in the protocol are safe by default
+        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
+        IERC20(product.token).transferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
         IERC20(product.token).approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLAS tokens in exchange
@@ -188,7 +185,7 @@ contract Depository is GenericTokenomics {
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(address token, uint256 supply, uint256 vesting) external returns (uint256 productId) {
+    function create(address token, uint96 supply, uint32 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -212,7 +209,12 @@ contract Depository is GenericTokenomics {
             revert ZeroValue();
         }
 
-        Product memory product = Product(token, supply, vesting, uint256(block.timestamp + vesting), 0, 0, priceLP);
+        // Check for the expiration time overflow
+        uint256 expiry = block.timestamp + vesting;
+        if (expiry > type(uint32).max) {
+            revert Overflow(expiry, type(uint32).max);
+        }
+        Product memory product = Product(priceLP, token, supply, uint32(expiry), 0, 0);
         mapTokenProducts[token].push(product);
         emit CreateProduct(token, productId, supply);
     }

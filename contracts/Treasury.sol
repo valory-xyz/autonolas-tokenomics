@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
@@ -9,9 +9,7 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Treasury is GenericTokenomics  {
-    // TODO: Consider the cheaper alternative to SafeERC20
-    using SafeERC20 for IERC20;
+contract Treasury is GenericTokenomics {
 
     event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
     event DepositETHFromServices(address indexed sender, uint256 revenue, uint256 donation);
@@ -82,7 +80,9 @@ contract Treasury is GenericTokenomics  {
         }
 
         // Transfer tokens from depository to treasury and add to the token treasury reserves
-        IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        // We assume that LP tokens enabled in the protocol are safe by default
+        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
+        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
 
         emit DepositLPFromDepository(token, tokenAmount, olasMintAmount);
     }
@@ -149,7 +149,9 @@ contract Treasury is GenericTokenomics  {
             success = true;
             emit Withdraw(token, tokenAmount);
             // Transfer LP token
-            IERC20(token).safeTransfer(to, tokenAmount);
+            // We assume that LP tokens enabled in the protocol are safe by default
+            // UniswapV2ERC20 realization has a standard transfer() function
+            IERC20(token).transfer(to, tokenAmount);
         }
     }
 
