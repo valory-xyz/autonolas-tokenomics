@@ -23,15 +23,15 @@ interface ITokenomics {
     function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
         returns (uint96 revenueETH, uint96 donationETH);
 
-    /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
+    /// @dev Increases the epoch bond with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.
-    function usedBond(uint256 payout) external;
+    function updateEpochBond(uint96 payout) external;
 
     /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return True if effective bond threshold is not reached.
-    function allowedNewBond(uint256 amount) external returns(bool);
+    function allowedNewBond(uint96 amount) external returns(bool);
 
     /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
     /// @param account Account address.

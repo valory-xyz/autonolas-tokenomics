@@ -5,6 +5,7 @@ const { expect } = require("chai");
 describe("Tokenomics", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
+    const maxUint96 = "79228162514264337593543950335";
 
     let signers;
     let deployer;
@@ -144,7 +145,7 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
 
             await expect(
-                tokenomics.connect(signers[1]).usedBond(0)
+                tokenomics.connect(signers[1]).updateEpochBond(0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -177,7 +178,7 @@ describe("Tokenomics", async () => {
 
         it("Check if the new bond is allowed", async () => {
             // Trying to get a new bond amount more than the inflation remainder for the year
-            let allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(initialMint.repeat(2));
+            let allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(maxUint96);
             expect(allowed).to.equal(false);
 
             allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(1000);
@@ -243,7 +244,7 @@ describe("Tokenomics", async () => {
             await tokenomics.getLastPoint();
 
             // Get DF of the last epoch
-            const df = Number(await tokenomics.getDF(lastEpoch)) / E18;
+            const df = Number(await tokenomics.getIDF(lastEpoch)) / E18;
             expect(df).to.greaterThan(1);
 
             // Get the OLAS payout for the LP from the df
@@ -252,7 +253,7 @@ describe("Tokenomics", async () => {
 
             // Get DF of the zero (arbitrary) epoch
             const defaultEpsRate = Number(await tokenomics.epsilonRate()) + E18;
-            const zeroDF = Number(await tokenomics.getDF(0));
+            const zeroDF = Number(await tokenomics.getIDF(0));
             expect(zeroDF).to.equal(defaultEpsRate);
 
             // Get UCF of the zero (arbitrary) epoch
@@ -278,7 +279,7 @@ describe("Tokenomics", async () => {
 
             // Get DF
             const lastEpoch = await tokenomics.epochCounter() - 1;
-            const df = Number(await tokenomics.getDF(lastEpoch)) / E18;
+            const df = Number(await tokenomics.getIDF(lastEpoch)) / E18;
             expect(df).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
 
             // Change max bond twice such that adjustment of max bond is tested

@@ -6,6 +6,25 @@ import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
 
+/*
+* In this contract we consider both ETH and OLAS tokens.
+* For ETH tokens, there are currently about 121 million tokens.
+* Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply.
+* Lately the inflation rate was lower and could actually be deflationary.
+*
+* For OLAS tokens, the initial numbers will be as follows:
+*  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
+*  - After 10 years, the inflation rate is 2% per year.
+* The maximum number of tokens for each year then can be calculated from the formula: 2^n = 1e27 * (1.02)^x,
+* where n is the specified number of bits that is sufficient to store and not overflow the total supply,
+* and x is the number of years. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*
+* We then limit the time in seconds to last until the value of 2^32 - 1.
+* It is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106.
+* The number of blocks is essentially cannot be bigger than the number of seconds, and thus it is safe to assume
+* that uint32 for the number of blocks is also sufficient.
+*/
+
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -257,12 +276,14 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // TODO Get rewards inside the checkpoint function
         // Process the epoch data
         ITokenomics(tokenomics).checkpoint();
         // TODO Only if the new epoch started we need to get the rewards calculation
         // Get the rewards data
         (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
 
+        // TODO Unroll those two functions here
         // Collect treasury's own reward share
         _rebalanceETH(treasuryRewards);
 

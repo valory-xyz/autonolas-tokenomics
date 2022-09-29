@@ -6,6 +6,20 @@ import "./GenericTokenomics.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/ITokenomics.sol";
 
+/*
+* In this contract we consider OLAS tokens. The initial numbers will be as follows:
+*  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
+*  - After 10 years, the inflation rate is 2% per year.
+* The maximum number of tokens for each year then can be calculated from the formula: 2^n = 1e27 * (1.02)^x,
+* where n is the specified number of bits that is sufficient to store and not overflow the total supply,
+* and x is the number of years. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*
+* We then limit the time in seconds to last until the value of 2^32 - 1.
+* It is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106.
+* The number of blocks is essentially cannot be bigger than the number of seconds, and thus it is safe to assume
+* that uint32 for the number of blocks is also sufficient.
+*/
+
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -29,8 +43,8 @@ contract Depository is GenericTokenomics {
 
     // The size of the struct is 160 + 96 * 3 + 32 + 256 = 736 bits (3 full slots)
     struct Product {
-        // priceLP (reserve0/totalSupply or reserve1/totalSupply)
-        // for optimization - this number does not exceed type(uint224).max
+        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
+        // For gas optimization this number is kept squared and does not exceed type(uint224).max
         uint256 priceLP;
         // Token to accept as a payment
         address token;
@@ -99,7 +113,7 @@ contract Depository is GenericTokenomics {
         emit CreateBond(token, productId, payout, tokenAmount);
 
         // Take into account this bond in current epoch
-        ITokenomics(tokenomics).usedBond(payout);
+        ITokenomics(tokenomics).updateEpochBond(payout);
 
         // Uniswap allowance implementation does not revert with the accurate message, check before SafeMath is engaged
         if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
@@ -191,6 +205,7 @@ contract Depository is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // TODO checkPair will be moved to its own contract along with LP-related routines
         // Check if the LP token is enabled and that it is the LP token
         if (!ITreasury(treasury).isEnabled(token) || !ITreasury(treasury).checkPair(token)) {
             revert UnauthorizedToken(token);

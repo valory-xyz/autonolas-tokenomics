@@ -9,6 +9,30 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/IVotingEscrow.sol";
 
+/*
+* In this contract we consider both ETH and OLAS tokens.
+* For ETH tokens, there are currently about 121 million tokens.
+* Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply.
+* Lately the inflation rate was lower and could actually be deflationary.
+*
+* For OLAS tokens, the initial numbers will be as follows:
+*  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
+*  - After 10 years, the inflation rate is 2% per year.
+* The maximum number of tokens for each year then can be calculated from the formula: 2^n = 1e27 * (1.02)^x,
+* where n is the specified number of bits that is sufficient to store and not overflow the total supply,
+* and x is the number of years. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*
+* We then limit the time in seconds to last until the value of 2^32 - 1.
+* It is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106.
+* The number of blocks is essentially cannot be bigger than the number of seconds, and thus it is safe to assume
+* that uint32 for the number of blocks is also sufficient.
+*
+* We also limit the number of registry units by the value of 2^32 - 1.
+* We assume that the system is expected to support no more than 2^32-1 units.
+*
+* Lastly, we assume that the coefficients from the tokenomics factors calculation are bound by 2^16 - 1.
+*/
+
 // Structure for component / agent tokenomics-related statistics
 // The size of the struct is 32 * 2 + 96 * 2 + 32 * 2 + 16 * 2 = 256 + 96 bits (2 full slots)
 struct PointUnits {
@@ -17,19 +41,19 @@ struct PointUnits {
     // This assumption is compatible with Autonolas registries that have same bounds for units
     uint32 numUnits;
     // Number of components / agents that were part of profitable services
-    // This number cannot be bigger than the absolute number of units
+    // Profitable units are a subset of the units, so this number cannot be bigger than the absolute number of units
     uint32 numProfitableUnits;
     // Allocated rewards for components / agents
-    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 unitRewards;
-    // Cumulative UCFc-s / UCFa-s
-    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    // Cumulative UCFc-s / UCFa-s: sum of all UCFc-s or all UCFa-s
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 ucfuSum;
     // Number of new units
     // This number cannot be practically bigger than the total number of supported units
     uint32 numNewUnits;
     // Number of new owners
-    // This number cannot be practically bigger than the total number of supported units
+    // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
     uint32 numNewOwners;
     // We assume the coefficients are bound by numbers of 2^16 - 1
     // Coefficient weight of units for the final UCF formula, set by the governance
@@ -45,15 +69,15 @@ struct PointEcomonics {
     PointUnits ucfc;
     // UCFa
     PointUnits ucfa;
-    // Discount factor
+    // Inverse of the discount factor
     // DF is bound by the factor of 2^4 = 16 (after elimination of 18 zeros as decimals, or 2^60 bits)
-    // By the protocol design, the DF is ranged between 1 (0%) and 2 (100%), df = 1 + epsilonRate
-    uint64 df;
+    // By the protocol design, the DF is ranged between 1 (0%) and 2 (100%), idf = 1 + epsilonRate
+    uint64 idf;
     // Profitable number of services
     // We assume that the system is expected to support no more than 2^32-1 services
     uint32 numServices;
     // Treasury rewards
-    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 treasuryRewards;
     // Staking rewards
     uint96 stakerRewards;
@@ -103,14 +127,15 @@ contract Tokenomics is GenericTokenomics {
     // This number cannot be practically bigger than the total number of supported units
     uint32 public devsPerCapital = 1;
 
-    // The ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     // Total service revenue per epoch: sum(r(s))
     uint96 public epochServiceRevenueETH;
     // Donation balance
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public donationBalanceETH;
     // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // UCFc / UCFa weights for the UCF contribution
-    // We assume the coefficients are bound by numbers of 2^16 - 1
+    // We assume the coefficients are bound by 2^16 - 1
     uint16 public ucfcWeight = 1;
     uint16 public ucfaWeight = 1;
     // Component / agent weights for new valuable code
@@ -131,16 +156,17 @@ contract Tokenomics is GenericTokenomics {
 
     // Service Registry
     address public serviceRegistry;
-    // ETH average block time
+    // ETH average block time in seconds
     // We assume that the block time will not be bigger than 255 seconds
     uint8 public blockTimeETH = 12;
-    // Staking parameters with multiplying by 100
-    // treasuryFraction (implicit, zero by default) + componentFraction + agentFraction + stakerFraction = 100%
-    // Each of these numbers cannot be practically bigger than 100
+    // Staking parameters (in percentage)
+    // treasuryFraction (implicitly set to zero by default) + componentFraction + agentFraction + stakerFraction = 100%
+    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 public stakerFraction = 50;
     uint8 public componentFraction = 33;
     uint8 public agentFraction = 17;
-    // Top-up of OLAS and bonding parameters with multiplying by 100
+    // Top-up of OLAS and bonding parameters (in percentage)
+    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 public topUpOwnerFraction = 40;
     uint8 public topUpStakerFraction = 20;
     // Manual or auto control of max bond
@@ -361,7 +387,7 @@ contract Tokenomics is GenericTokenomics {
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return success True if effective bond threshold is not reached.
-    function allowedNewBond(uint256 amount) external returns (bool success)  {
+    function allowedNewBond(uint96 amount) external returns (bool success)  {
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
@@ -369,20 +395,20 @@ contract Tokenomics is GenericTokenomics {
 
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
-            effectiveBond -= uint96(amount);
+            effectiveBond -= amount;
             success = true;
         }
     }
 
-    /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
+    /// @dev Increases the epoch bond with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.
-    function usedBond(uint256 payout) external {
+    function updateEpochBond(uint96 payout) external {
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
         }
 
-        bondPerEpoch += uint96(payout);
+        bondPerEpoch += payout;
     }
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
@@ -598,8 +624,8 @@ contract Tokenomics is GenericTokenomics {
             _adjustMaxBond(uint96(rewards[7]));
         }
 
-        // df = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
-        uint64 df;
+        // idf = 1/(1 + iterest_rate) by documantation, reverse_df = 1/idf >= 1.0.
+        uint64 idf;
         // Calculate UCFc, UCFa, rewards allocated from them and DF
         PointUnits memory ucfc;
         PointUnits memory ucfa;
@@ -640,11 +666,11 @@ contract Tokenomics is GenericTokenomics {
                 fKD = epsilonRate;
             }
             // 1 + fKD in the system where 1e18 is equal to a whole unit (18 decimals)
-            df = uint64(1e18 + fKD);
+            idf = uint64(1e18 + fKD);
         }
 
         uint32 numServices = uint32(protocolServiceIds.length);
-        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, df, numServices, uint96(rewards[1]), uint96(rewards[2]),
+        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, numServices, uint96(rewards[1]), uint96(rewards[2]),
             donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital, uint32(block.number));
         mapEpochEconomics[epochCounter] = newPoint;
         epochCounter++;
@@ -652,6 +678,7 @@ contract Tokenomics is GenericTokenomics {
         _clearEpochData();
     }
 
+    // TODO: Move to Depository
     // TODO: Specify the doc mentioned below
     /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
     /// @param tokenAmount LP token amount.
@@ -662,10 +689,10 @@ contract Tokenomics is GenericTokenomics {
     {
         uint256 amountDF;
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
-        if(pe.df > 0) {
-            amountDF = (priceLP * tokenAmount * pe.df) / 1e18;
+        if(pe.idf > 0) {
+            amountDF = (priceLP * tokenAmount * pe.idf) / 1e18;
         } else {
-            // if df is undefined
+            // if idf is undefined
             amountDF = (priceLP * tokenAmount * (1e18 + epsilonRate)) / 1e18;
         }
         amountOLAS = uint96(amountDF);
@@ -753,16 +780,16 @@ contract Tokenomics is GenericTokenomics {
         accountTopUps = pe.ownerTopUps + pe.stakerTopUps;
     }
 
-    /// @dev Gets discount factor with the multiple of 1e18.
+    /// @dev Gets inverse discount factor with the multiple of 1e18.
     /// @param epoch Epoch number.
-    /// @return df Discount factor with the multiple of 1e18.
-    function getDF(uint256 epoch) external view returns (uint256 df)
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getIDF(uint256 epoch) external view returns (uint256 idf)
     {
         PointEcomonics memory pe = mapEpochEconomics[epoch];
-        if (pe.df > 0) {
-            df = pe.df;
+        if (pe.idf > 0) {
+            idf = pe.idf;
         } else {
-            df = 1e18 + epsilonRate;
+            idf = 1e18 + epsilonRate;
         }
     }
 
