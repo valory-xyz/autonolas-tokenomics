@@ -624,7 +624,7 @@ contract Tokenomics is GenericTokenomics {
             _adjustMaxBond(uint96(rewards[7]));
         }
 
-        // idf = 1/(1 + iterest_rate) by documantation, reverse_df = 1/idf >= 1.0.
+        // idf = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
         uint64 idf;
         // Calculate UCFc, UCFa, rewards allocated from them and DF
         PointUnits memory ucfc;

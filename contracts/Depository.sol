@@ -41,7 +41,7 @@ contract Depository is GenericTokenomics {
         bool redeemed;
     }
 
-    // The size of the struct is 160 + 96 * 3 + 32 + 256 = 736 bits (3 full slots)
+    // The size of the struct is 256 + 160 + 96 * 3 + 32 = 736 bits (3 full slots)
     struct Product {
         // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
         // For gas optimization this number is kept squared and does not exceed type(uint224).max
