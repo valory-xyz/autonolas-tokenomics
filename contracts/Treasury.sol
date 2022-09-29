@@ -30,16 +30,16 @@ contract Treasury is GenericTokenomics {
         // State of a token in this treasury
         TokenState state;
         // Reserves of a token
-        uint256 reserves;
+        uint96 reserves;
     }
 
     uint96 public ETHFromServices;
     // ETH owned by treasury
     uint96 public ETHOwned;
-    // Set of registered tokens
-    address[] public tokenRegistry;
     // Token address => token info related to bonding
     mapping(address => TokenInfo) public mapTokens;
+    // Set of registered tokens
+    address[] public tokenRegistry;
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -59,7 +59,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
-    function depositTokenForOLAS(uint256 tokenAmount, address token, uint256 olasMintAmount) external
+    function depositTokenForOLAS(uint96 tokenAmount, address token, uint96 olasMintAmount) external
     {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -123,7 +123,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
+    function withdraw(address to, uint96 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -132,7 +132,7 @@ contract Treasury is GenericTokenomics {
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
             // This branch is used to transfer ETH to a specified address
-            ETHOwned -= uint96(tokenAmount);
+            ETHOwned -= tokenAmount;
             emit Withdraw(address(0), tokenAmount);
             // Send ETH to the specified address
             (success, ) = to.call{value: tokenAmount}("");

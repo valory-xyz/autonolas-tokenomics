@@ -660,13 +660,15 @@ contract Tokenomics is GenericTokenomics {
     function calculatePayoutFromLP(uint96 tokenAmount, uint256 priceLP) external view
         returns (uint96 amountOLAS)
     {
+        uint256 amountDF;
         PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         if(pe.df > 0) {
-            amountOLAS = uint96((tokenAmount * priceLP * pe.df) / 1e18);
+            amountDF = (priceLP * tokenAmount * pe.df) / 1e18;
         } else {
             // if df is undefined
-            amountOLAS = uint96((tokenAmount * priceLP * (1e18 + epsilonRate)) / 1e18);
+            amountDF = (priceLP * tokenAmount * (1e18 + epsilonRate)) / 1e18;
         }
+        amountOLAS = uint96(amountDF);
     }
 
     /// @dev Get reserve OLAS / totalSupply.
@@ -719,8 +721,8 @@ contract Tokenomics is GenericTokenomics {
 
                 // Add to the reward depending on the staker reward
                 if (supply > 0) {
-                    reward += balance * pe.stakerRewards / supply;
-                    topUp += balance * pe.stakerTopUps / supply;
+                    reward += (balance * pe.stakerRewards) / supply;
+                    topUp += (balance * pe.stakerTopUps) / supply;
                 }
             }
         }
