@@ -10,13 +10,6 @@ interface ITokenomics {
     /// @dev Record global data to the checkpoint
     function checkpoint() external;
 
-    /// @dev Calculates the amount of OLAS tokens based on LP.
-    /// @param tokenAmount LP token amount.
-    /// @param priceLP LP token price.
-    /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(uint96 tokenAmount, uint256 priceLP) external
-        returns (uint96 amountOLAS);
-
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
@@ -60,8 +53,7 @@ interface ITokenomics {
     function getRewardsData() external view
         returns (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps);
 
-    /// @dev Get reserveX/reserveY at the time of product creation.
-    /// @param token Token address.
-    /// @return priceLP Resulting reserve ratio.
-    function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
+    /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256 idf);
 }

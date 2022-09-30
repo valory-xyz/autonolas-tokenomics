@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
@@ -17,20 +16,22 @@ import "./interfaces/IVotingEscrow.sol";
 *
 * For OLAS tokens, the initial numbers will be as follows:
 *  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
-*  - After 10 years, the inflation rate is 2% per year.
-* The maximum number of tokens for each year then can be calculated from the formula: 2^n = 1e27 * (1.02)^x,
-* where n is the specified number of bits that is sufficient to store and not overflow the total supply,
-* and x is the number of years. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*  - After 10 years, the inflation rate is capped at 2% per year.
+* Starting from a year 11, the maximum number of tokens that can be reached per the year x is 1e27 * (1.02)^x.
+* To make sure that a unit(n) does not overflow the total supply during the year x, we have to check that
+* 2^n - 1 >= 1e27 * (1.02)^x. We limit n by 96, thus it would take 220+ years to reach that total supply.
 *
-* We then limit the time in seconds to last until the value of 2^32 - 1.
-* It is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106.
-* The number of blocks is essentially cannot be bigger than the number of seconds, and thus it is safe to assume
-* that uint32 for the number of blocks is also sufficient.
+* We then limit each time variable to last until the value of 2^32 - 1 in seconds.
+* 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970.
+* Thus, this counter is safe until the year 2106.
+*
+* The number of blocks cannot be practically bigger than the number of seconds, since there is more than one second
+* in a block. Thus, it is safe to assume that uint32 for the number of blocks is also sufficient.
 *
 * We also limit the number of registry units by the value of 2^32 - 1.
 * We assume that the system is expected to support no more than 2^32-1 units.
 *
-* Lastly, we assume that the coefficients from the tokenomics factors calculation are bound by 2^16 - 1.
+* Lastly, we assume that the coefficients from tokenomics factors calculation are bound by 2^16 - 1.
 */
 
 // Structure for component / agent tokenomics-related statistics
@@ -70,8 +71,8 @@ struct PointEcomonics {
     // UCFa
     PointUnits ucfa;
     // Inverse of the discount factor
-    // DF is bound by the factor of 2^4 = 16 (after elimination of 18 zeros as decimals, or 2^60 bits)
-    // By the protocol design, the DF is ranged between 1 (0%) and 2 (100%), idf = 1 + epsilonRate
+    // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
+    // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
     uint64 idf;
     // Profitable number of services
     // We assume that the system is expected to support no more than 2^32-1 services
@@ -115,10 +116,11 @@ contract Tokenomics is GenericTokenomics {
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 public maxBond = 150_000 * 1e18;
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
-    // By the protocol design for the DF calculation, epsilonRate must be lower than 15 (with 18 decimals)
+    // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
+    // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
     uint64 public epsilonRate = 1e17;
     // Epoch length in block numbers
-    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
+    // With the current number of seconds per block, 2^32 - 1 is enough for the length of epoch to be 1600+ years
     uint32 public epochLen;
     // Global epoch counter
     // This number cannot be practically bigger than the number of blocks
@@ -145,7 +147,7 @@ contract Tokenomics is GenericTokenomics {
     // Component Registry
     address public componentRegistry;
     // Bond per epoch
-    // This number cannot be practically bigger than the maxBond
+    // This number cannot be practically bigger than the inflation remainder of OLAS
     uint96 public bondPerEpoch;
 
     // Agent Registry
@@ -262,7 +264,12 @@ contract Tokenomics is GenericTokenomics {
         componentWeight = _componentWeight;
         agentWeight = _agentWeight;
         devsPerCapital = _devsPerCapital;
-        epsilonRate = _epsilonRate;
+
+        // Check the epsilonRate value for idf to fit in its size
+        // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
+        if (_epsilonRate < 17e18) {
+            epsilonRate = _epsilonRate;
+        }
         // take into account the change during the epoch
         _adjustMaxBond(_maxBond);
         epochLen = _epochLen;
@@ -624,9 +631,9 @@ contract Tokenomics is GenericTokenomics {
             _adjustMaxBond(uint96(rewards[7]));
         }
 
-        // idf = 1/(1 + iterest_rate) by documantation, reverse_df = 1/df >= 1.0.
+        // idf = 1/(1 + iterest_rate) by documentation, reverse_df = 1/df >= 1.0.
         uint64 idf;
-        // Calculate UCFc, UCFa, rewards allocated from them and DF
+        // Calculate UCFc, UCFa, rewards allocated from them and IDF
         PointUnits memory ucfc;
         PointUnits memory ucfa;
         if (rewards[0] > 0) {
@@ -640,7 +647,7 @@ contract Tokenomics is GenericTokenomics {
             ucfa.ucfWeight = uint8(ucfaWeight);
             ucfa.unitWeight = uint8(agentWeight);
 
-            // Calculate DF from epsilon rate and f(K,D)
+            // Calculate IDF from epsilon rate and f(K,D)
             uint256 codeUnits = componentWeight * ucfc.numNewUnits + agentWeight * ucfa.numNewUnits;
             uint256 newOwners = ucfc.numNewOwners + ucfa.numNewOwners;
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
@@ -676,47 +683,6 @@ contract Tokenomics is GenericTokenomics {
         epochCounter++;
 
         _clearEpochData();
-    }
-
-    // TODO: Move to Depository
-    // TODO: Specify the doc mentioned below
-    /// @dev Calculates the amount of OLAS tokens based on LP (see the doc for explanation of price computation).
-    /// @param tokenAmount LP token amount.
-    /// @param priceLP LP token price.
-    /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(uint96 tokenAmount, uint256 priceLP) external view
-        returns (uint96 amountOLAS)
-    {
-        uint256 amountDF;
-        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
-        if(pe.idf > 0) {
-            amountDF = (priceLP * tokenAmount * pe.idf) / 1e18;
-        } else {
-            // if idf is undefined
-            amountDF = (priceLP * tokenAmount * (1e18 + epsilonRate)) / 1e18;
-        }
-        amountOLAS = uint96(amountDF);
-    }
-
-    /// @dev Get reserve OLAS / totalSupply.
-    /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
-    function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
-    {
-        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
-        uint256 totalSupply = pair.totalSupply();
-        if (totalSupply > 0) {
-            address token0 = pair.token0();
-            address token1 = pair.token1();
-            uint112 reserve0;
-            uint112 reserve1;
-            // requires low gas
-            (reserve0, reserve1, ) = pair.getReserves();
-            // token0 != olas && token1 != olas, this should never happen
-            if (token0 == olas || token1 == olas) {
-                priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
-            }
-        }
     }
 
     /// @dev Calculates staking rewards.
@@ -786,6 +752,18 @@ contract Tokenomics is GenericTokenomics {
     function getIDF(uint256 epoch) external view returns (uint256 idf)
     {
         PointEcomonics memory pe = mapEpochEconomics[epoch];
+        if (pe.idf > 0) {
+            idf = pe.idf;
+        } else {
+            idf = 1e18 + epsilonRate;
+        }
+    }
+
+    /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256 idf)
+    {
+        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
         if (pe.idf > 0) {
             idf = pe.idf;
         } else {
