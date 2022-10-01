@@ -10,6 +10,7 @@ describe("Treasury", async () => {
     const defaultDeposit = "1" + "0".repeat(22);
     const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
     const AddressZero = "0x" + "0".repeat(40);
+    const maxUint96 = "79228162514264337593543950335";
 
     let signers;
     let deployer;
@@ -135,7 +136,7 @@ describe("Treasury", async () => {
 
         it("Should fail when trying to deposit for the amount bigger than the inflation policy allows", async () => {
             await expect(
-                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit.repeat(2))
+                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, maxUint96)
             ).to.be.revertedWithCustomError(treasury, "MintRejectedByInflationPolicy");
         });
 

@@ -10,28 +10,21 @@ interface ITokenomics {
     /// @dev Record global data to the checkpoint
     function checkpoint() external;
 
-    /// @dev Calculates the amount of OLAS tokens based on LP.
-    /// @param tokenAmount LP token amount.
-    /// @param priceLP LP token price.
-    /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutFromLP(uint256 tokenAmount, uint256 priceLP) external
-        returns (uint256 amountOLAS);
-
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
-        returns (uint256 revenueETH, uint256 donationETH);
+    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
+        returns (uint96 revenueETH, uint96 donationETH);
 
-    /// @dev Increases the bond per epoch with the OLAS payout for a Depository program
+    /// @dev Increases the epoch bond with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.
-    function usedBond(uint256 payout) external;
+    function updateEpochBond(uint96 payout) external;
 
     /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return True if effective bond threshold is not reached.
-    function allowedNewBond(uint256 amount) external returns(bool);
+    function allowedNewBond(uint96 amount) external returns(bool);
 
     /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
     /// @param account Account address.
@@ -58,10 +51,9 @@ interface ITokenomics {
     /// @return accountRewards Cumulative staker, component and agent rewards.
     /// @return accountTopUps Cumulative staker, component and agent top-ups.
     function getRewardsData() external view
-        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+        returns (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps);
 
-    /// @dev Get reserveX/reserveY at the time of product creation.
-    /// @param token Token address.
-    /// @return priceLP Resulting reserve ratio.
-    function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
+    /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256 idf);
 }
