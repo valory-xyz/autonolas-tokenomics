@@ -17,6 +17,7 @@ describe("Depository LP", async () => {
     let olasFactory;
     let depositoryFactory;
     let tokenomicsFactory;
+    let genericBondCalculator;
     let router;
     let factory;
 
@@ -70,8 +71,14 @@ describe("Depository LP", async () => {
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeRewardFraction(50, 33, 17, 0, 0);
-        // Change to the correct depository address
-        depository = await depositoryFactory.deploy(olas.address, treasury.address, tokenomics.address);
+
+        // Deploy generic bond calculator contract
+        const GenericBondCalculator = await ethers.getContractFactory("GenericBondCalculator");
+        genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
+        await genericBondCalculator.deployed();
+        // Deploy depository contract
+        depository = await depositoryFactory.deploy(olas.address, treasury.address, tokenomics.address,
+            genericBondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 

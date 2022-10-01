@@ -84,6 +84,10 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 10, 10, true);
+
+            // Trying to set epsilonRate bigger than 17e18
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, "171"+"0".repeat(17), 10, 10, 10, true);
+            expect(await tokenomics.epsilonRate()).to.equal(10);
         });
 
         it("Changing reward fractions", async function () {
@@ -246,10 +250,6 @@ describe("Tokenomics", async () => {
             // Get DF of the last epoch
             const df = Number(await tokenomics.getIDF(lastEpoch)) / E18;
             expect(df).to.greaterThan(1);
-
-            // Get the OLAS payout for the LP from the df
-            const amountOLAS = await tokenomics.calculatePayoutFromLP(regDepositFromServices, 1);
-            expect(amountOLAS).to.greaterThan(regDepositFromServices);
 
             // Get DF of the zero (arbitrary) epoch
             const defaultEpsRate = Number(await tokenomics.epsilonRate()) + E18;

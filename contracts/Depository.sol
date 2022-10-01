@@ -3,21 +3,24 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./GenericTokenomics.sol";
-import "./interfaces/ITreasury.sol";
+import "./interfaces/IGenericBondCalculator.sol";
 import "./interfaces/ITokenomics.sol";
+import "./interfaces/ITreasury.sol";
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
 *  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
-*  - After 10 years, the inflation rate is 2% per year.
-* The maximum number of tokens for each year then can be calculated from the formula: 2^n = 1e27 * (1.02)^x,
-* where n is the specified number of bits that is sufficient to store and not overflow the total supply,
-* and x is the number of years. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*  - After 10 years, the inflation rate is capped at 2% per year.
+* Starting from a year 11, the maximum number of tokens that can be reached per the year x is 1e27 * (1.02)^x.
+* To make sure that a unit(n) does not overflow the total supply during the year x, we have to check that
+* 2^n - 1 >= 1e27 * (1.02)^x. We limit n by 96, thus it would take 220+ years to reach that total supply.
 *
-* We then limit the time in seconds to last until the value of 2^32 - 1.
-* It is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106.
-* The number of blocks is essentially cannot be bigger than the number of seconds, and thus it is safe to assume
-* that uint32 for the number of blocks is also sufficient.
+* We then limit each time variable to last until the value of 2^32 - 1 in seconds.
+* 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970.
+* Thus, this counter is safe until the year 2106.
+*
+* The number of blocks cannot be practically bigger than the number of seconds, since there is more than one second
+* in a block. Thus, it is safe to assume that uint32 for the number of blocks is also sufficient.
 */
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -31,33 +34,38 @@ contract Depository is GenericTokenomics {
     // The size of the struct is 96 + 32 * 2 + 8 = 168 bits (1 full slot)
     struct Bond {
         // OLAS remaining to be paid out
+        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 payout;
         // Bond maturity time
+        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
         uint32 maturity;
         // Product Id of a bond
-        // Number of products cannot practically bigger than the number of blocks
+        // Number of products cannot be practically bigger than the number of blocks
         uint32 productId;
-        // time product was redeemed
+        // Flag stating whether the bond was redeemed
         bool redeemed;
     }
 
-    // The size of the struct is 256 + 160 + 96 * 3 + 32 = 736 bits (3 full slots)
+    // The size of the struct is 256 + 160 + 96 + 32 + 224 = 768 bits (3 full slots)
     struct Product {
         // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
         // For gas optimization this number is kept squared and does not exceed type(uint224).max
         uint256 priceLP;
         // Token to accept as a payment
         address token;
-        // Supply remaining in OLAS tokens
+        // Supply of remaining OLAS tokens
+        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 supply;
         // Product expiry time (initialization time + vesting time)
+        // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
         uint32 expiry;
-        // Number of specified tokens purchased
-        uint96 purchased;
-        // Number of OLAS tokens sold
-        uint96 sold;
+        // LP tokens purchased
+        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
+        uint224 purchased;
     }
 
+    // Bond Calculator contract address
+    address public bondCalculator;
     // Mapping of user address => list of bonds
     mapping(address => Bond[]) public mapUserBonds;
     // Map of token address => bond products they are present
@@ -67,9 +75,22 @@ contract Depository is GenericTokenomics {
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _treasury, address _tokenomics)
+    constructor(address _olas, address _treasury, address _tokenomics, address _bondCalculator)
         GenericTokenomics(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository)
     {
+        bondCalculator = _bondCalculator;
+    }
+
+    /// @dev Changes Bond Calculator contract address
+    function changeBondCalculator(address _bondCalculator) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_bondCalculator != address(0)) {
+            bondCalculator = _bondCalculator;
+        }
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
@@ -80,10 +101,9 @@ contract Depository is GenericTokenomics {
     /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return numBonds Number of user bonds.
-    function deposit(address token, uint32 productId, uint96 tokenAmount, address user) external
+    function deposit(address token, uint32 productId, uint224 tokenAmount, address user) external
         returns (uint96 payout, uint32 expiry, uint256 numBonds)
     {
-        // TODO: storage vs memory optimization
         Product storage product = mapTokenProducts[token][productId];
 
         // Check for the product expiry
@@ -93,7 +113,7 @@ contract Depository is GenericTokenomics {
         }
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
-        payout = ITokenomics(tokenomics).calculatePayoutFromLP(tokenAmount, product.priceLP);
+        payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
@@ -103,7 +123,6 @@ contract Depository is GenericTokenomics {
         // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
         product.supply -= payout;
         product.purchased += tokenAmount;
-        product.sold += payout;
 
         numBonds = mapUserBonds[user].length;
         expiry = product.expiry;
@@ -121,7 +140,7 @@ contract Depository is GenericTokenomics {
         }
         // Transfer tokens to the depository
         // We assume that LP tokens enabled in the protocol are safe by default
-        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
+        // UniswapV2ERC20 implementation has a standard transferFrom() function that returns a boolean value
         IERC20(product.token).transferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
         IERC20(product.token).approve(treasury, tokenAmount);
@@ -129,7 +148,7 @@ contract Depository is GenericTokenomics {
         ITreasury(treasury).depositTokenForOLAS(tokenAmount, product.token, payout);
     }
 
-    /// @dev Redeem bonds for the user.
+    /// @dev Redeem user bonds.
     /// @param user Address of a payout recipient.
     /// @param indexes Bond indexes to redeem.
     /// @return payout Total payout sent in OLAS tokens.
@@ -205,9 +224,8 @@ contract Depository is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // TODO checkPair will be moved to its own contract along with LP-related routines
         // Check if the LP token is enabled and that it is the LP token
-        if (!ITreasury(treasury).isEnabled(token) || !ITreasury(treasury).checkPair(token)) {
+        if (!ITreasury(treasury).isEnabled(token) || !IGenericBondCalculator(bondCalculator).checkLP(token)) {
             revert UnauthorizedToken(token);
         }
 
@@ -218,7 +236,7 @@ contract Depository is GenericTokenomics {
 
         // Create a new product
         productId = mapTokenProducts[token].length;
-        uint256 priceLP = ITokenomics(tokenomics).getCurrentPriceLP(token);
+        uint256 priceLP = IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
         // Check for the pool liquidity as the LP price being greater than zero
         if (priceLP == 0) {
             revert ZeroValue();
@@ -229,7 +247,7 @@ contract Depository is GenericTokenomics {
         if (expiry > type(uint32).max) {
             revert Overflow(expiry, type(uint32).max);
         }
-        Product memory product = Product(priceLP, token, supply, uint32(expiry), 0, 0);
+        Product memory product = Product(priceLP, token, supply, uint32(expiry), 0);
         mapTokenProducts[token].push(product);
         emit CreateProduct(token, productId, supply);
     }
