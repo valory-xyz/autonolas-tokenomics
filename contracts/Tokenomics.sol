@@ -32,6 +32,8 @@ import "./interfaces/IVotingEscrow.sol";
 * We assume that the system is expected to support no more than 2^32-1 units.
 *
 * Lastly, we assume that the coefficients from tokenomics factors calculation are bound by 2^16 - 1.
+*
+* In conclusion, this contract is only safe to use until 2106.
 */
 
 // Structure for component / agent tokenomics-related statistics

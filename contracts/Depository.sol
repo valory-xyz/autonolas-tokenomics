@@ -21,6 +21,8 @@ import "./interfaces/ITreasury.sol";
 *
 * The number of blocks cannot be practically bigger than the number of seconds, since there is more than one second
 * in a block. Thus, it is safe to assume that uint32 for the number of blocks is also sufficient.
+*
+* In conclusion, this contract is only safe to use until 2106.
 */
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -40,7 +42,7 @@ contract Depository is GenericTokenomics {
         // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
         uint32 maturity;
         // Product Id of a bond
-        // Number of products cannot be practically bigger than the number of blocks
+        // We assume that the number of products will not be bigger than the number of blocks
         uint32 productId;
         // Flag stating whether the bond was redeemed
         bool redeemed;
@@ -139,7 +141,7 @@ contract Depository is GenericTokenomics {
             revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
         }
         // Transfer tokens to the depository
-        // We assume that LP tokens enabled in the protocol are safe by default
+        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
         // UniswapV2ERC20 implementation has a standard transferFrom() function that returns a boolean value
         IERC20(product.token).transferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount

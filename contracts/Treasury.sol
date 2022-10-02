@@ -25,6 +25,8 @@ import "./interfaces/ITokenomics.sol";
 *
 * The number of blocks cannot be practically bigger than the number of seconds, since there is more than one second
 * in a block. Thus, it is safe to assume that uint32 for the number of blocks is also sufficient.
+*
+* In conclusion, this contract is only safe to use until 2106.
 */
 
 /// @title Treasury - Smart contract for managing OLAS Treasury
@@ -107,7 +109,7 @@ contract Treasury is GenericTokenomics {
         }
 
         // Transfer tokens from depository to treasury and add to the token treasury reserves
-        // We assume that LP tokens enabled in the protocol are safe by default
+        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
         // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
         IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
 
