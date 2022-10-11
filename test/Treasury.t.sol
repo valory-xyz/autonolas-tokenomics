@@ -17,8 +17,8 @@ contract BaseSetup is Test {
     address internal deployer;
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
-    uint256 internal largeApproval = 100_000_000_000_000e18;
-    uint256 epochLen = 100;
+    uint256 internal largeApproval = 1_000_000_000_000e18;
+    uint32 epochLen = 100;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -58,8 +58,8 @@ contract TreasuryTest is BaseSetup {
         treasury.enableToken(address(dai));
 
         // Deposit 10,000 DAI to treasury, 1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
-        uint256 daiAmount = 10_000e18;
-        uint256 olasAmount = 1000e18;
+        uint96 daiAmount = 10_000e18;
+        uint96 olasAmount = 1000e18;
         vm.prank(deployer);
         treasury.depositTokenForOLAS(daiAmount, address(dai), olasAmount);
 

@@ -1,19 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
 
+/*
+* In this contract we consider both ETH and OLAS tokens.
+* For ETH tokens, there are currently about 121 million tokens.
+* Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply.
+* Lately the inflation rate was lower and could actually be deflationary.
+*
+* For OLAS tokens, the initial numbers will be as follows:
+*  - For the first 10 years there will be the cap of 1 billion (1e27) tokens;
+*  - After 10 years, the inflation rate is capped at 2% per year.
+* Starting from a year 11, the maximum number of tokens that can be reached per the year x is 1e27 * (1.02)^x.
+* To make sure that a unit(n) does not overflow the total supply during the year x, we have to check that
+* 2^n - 1 >= 1e27 * (1.02)^x. We limit n by 96, thus it would take 220+ years to reach that total supply.
+*
+* We then limit each time variable to last until the value of 2^32 - 1 in seconds.
+* 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970.
+* Thus, this counter is safe until the year 2106.
+*
+* The number of blocks cannot be practically bigger than the number of seconds, since there is more than one second
+* in a block. Thus, it is safe to assume that uint32 for the number of blocks is also sufficient.
+*
+* In conclusion, this contract is only safe to use until 2106.
+*/
+
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Treasury is GenericTokenomics  {
-    // TODO: Consider the cheaper alternative to SafeERC20
-    using SafeERC20 for IERC20;
+contract Treasury is GenericTokenomics {
 
-    event DepositLPFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
+    event DepositTokenFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
     event DepositETHFromServices(address indexed sender, uint256 revenue, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
     event TokenReserves(address indexed token, uint256 reserves);
@@ -32,16 +53,20 @@ contract Treasury is GenericTokenomics  {
         // State of a token in this treasury
         TokenState state;
         // Reserves of a token
-        uint256 reserves;
+        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
+        uint224 reserves;
     }
 
-    uint256 public ETHFromServices;
+    // ETH received from services
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 public ETHFromServices;
     // ETH owned by treasury
-    uint256 public ETHOwned;
-    // Set of registered tokens
-    address[] public tokenRegistry;
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 public ETHOwned;
     // Token address => token info related to bonding
     mapping(address => TokenInfo) public mapTokens;
+    // Set of registered tokens
+    address[] public tokenRegistry;
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -54,14 +79,14 @@ contract Treasury is GenericTokenomics  {
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
         GenericTokenomics(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury)
     {
-        ETHOwned = msg.value;
+        ETHOwned = uint96(msg.value);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
-    function depositTokenForOLAS(uint256 tokenAmount, address token, uint256 olasMintAmount) external
+    function depositTokenForOLAS(uint224 tokenAmount, address token, uint96 olasMintAmount) external
     {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -73,7 +98,9 @@ contract Treasury is GenericTokenomics  {
             revert UnauthorizedToken(token);
         }
 
-        mapTokens[token].reserves += tokenAmount;
+        uint224 reserves = mapTokens[token].reserves;
+        reserves += tokenAmount;
+        mapTokens[token].reserves = reserves;
         // Mint specified number of OLAS tokens corresponding to tokens bonding deposit if the amount is possible to mint
         if (ITokenomics(tokenomics).isAllowedMint(olasMintAmount)) {
             IOLAS(olas).mint(msg.sender, olasMintAmount);
@@ -82,15 +109,17 @@ contract Treasury is GenericTokenomics  {
         }
 
         // Transfer tokens from depository to treasury and add to the token treasury reserves
-        IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
+        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
+        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
 
-        emit DepositLPFromDepository(token, tokenAmount, olasMintAmount);
+        emit DepositTokenFromDepository(token, tokenAmount, olasMintAmount);
     }
 
     /// @dev Deposits ETH from protocol-owned services in batch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -111,7 +140,7 @@ contract Treasury is GenericTokenomics  {
             revert WrongAmount(msg.value, totalAmount);
         }
 
-        (uint256 revenueETH, uint256 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        (uint96 revenueETH, uint96 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
         ETHFromServices += revenueETH;
         ETHOwned += donationETH;
 
@@ -123,7 +152,7 @@ contract Treasury is GenericTokenomics  {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
+    function withdraw(address to, uint224 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -132,7 +161,7 @@ contract Treasury is GenericTokenomics  {
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
             // This branch is used to transfer ETH to a specified address
-            ETHOwned -= tokenAmount;
+            ETHOwned -= uint96(tokenAmount);
             emit Withdraw(address(0), tokenAmount);
             // Send ETH to the specified address
             (success, ) = to.call{value: tokenAmount}("");
@@ -149,7 +178,9 @@ contract Treasury is GenericTokenomics  {
             success = true;
             emit Withdraw(token, tokenAmount);
             // Transfer LP token
-            IERC20(token).safeTransfer(to, tokenAmount);
+            // We assume that LP tokens enabled in the protocol are safe by default
+            // UniswapV2ERC20 realization has a standard transfer() function
+            IERC20(token).transfer(to, tokenAmount);
         }
     }
 
@@ -179,10 +210,10 @@ contract Treasury is GenericTokenomics  {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenState state = mapTokens[token].state;
-        if (state != TokenState.Disabled) {
+        TokenInfo memory tokenInfo = mapTokens[token];
+        if (tokenInfo.state != TokenState.Disabled) {
             // The reserves of a token must be zero in order to disable it
-            if (mapTokens[token].reserves > 0) {
+            if (tokenInfo.reserves > 0) {
                 revert NonZeroValue();
             }
             mapTokens[token].state = TokenState.Disabled;
@@ -197,29 +228,9 @@ contract Treasury is GenericTokenomics  {
         enabled = (mapTokens[token].state == TokenState.Enabled);
     }
 
-    /// @dev Check if the token is UniswapV2Pair.
-    /// @param token Address of a token.
-    /// @return True if successful.
-    function checkPair(address token) external returns (bool) {
-        bool success;
-        bytes memory data = abi.encodeWithSelector(bytes4(keccak256("kLast()")));
-        assembly {
-            success := call(
-            5000,           // 5k gas
-            token,          // destination address
-            0,              // no ether
-            add(data, 32),  // input buffer (starts after the first 32 bytes in the `data` array)
-            mload(data),    // input length (loaded from the first 32 bytes in the `data` array)
-            0,              // output buffer
-            0               // output length
-            )
-        }
-        return success;
-    }
-
     /// @dev Rebalances ETH funds.
     /// @param amount ETH token amount.
-    function _rebalanceETH(uint256 amount) internal {
+    function _rebalanceETH(uint96 amount) internal {
         if (ETHFromServices >= amount) {
             ETHFromServices -= amount;
             ETHOwned += amount;
@@ -229,7 +240,7 @@ contract Treasury is GenericTokenomics  {
     /// @dev Sends funds to the dispenser contract.
     /// @param amountETH Amount in ETH.
     /// @param amountOLAS Amount in OLAS.
-    function _sendFundsToDispenser(uint256 amountETH, uint256 amountOLAS) internal {
+    function _sendFundsToDispenser(uint96 amountETH, uint96 amountOLAS) internal {
         if (amountETH > 0 && ETHFromServices >= amountETH) {
             ETHFromServices -= amountETH;
             (bool success, ) = dispenser.call{value: amountETH}("");
@@ -255,12 +266,14 @@ contract Treasury is GenericTokenomics  {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // TODO Get rewards inside the checkpoint function
         // Process the epoch data
         ITokenomics(tokenomics).checkpoint();
         // TODO Only if the new epoch started we need to get the rewards calculation
         // Get the rewards data
-        (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
+        (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
 
+        // TODO Unroll those two functions here
         // Collect treasury's own reward share
         _rebalanceETH(treasuryRewards);
 
@@ -270,7 +283,7 @@ contract Treasury is GenericTokenomics  {
 
     /// @dev Receives ETH.
     receive() external payable {
-        ETHOwned += msg.value;
+        ETHOwned += uint96(msg.value);
         emit ReceivedETH(msg.sender, msg.value);
     }
 }
