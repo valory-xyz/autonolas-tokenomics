@@ -8,7 +8,7 @@ interface ITokenomics {
     function effectiveBond() external pure returns (uint256);
 
     /// @dev Record global data to the checkpoint
-    function checkpoint() external;
+    function checkpoint() external returns (bool);
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.

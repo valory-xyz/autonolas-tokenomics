@@ -6,6 +6,7 @@ import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
+import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
 /*
@@ -106,6 +107,10 @@ contract Tokenomics is GenericTokenomics {
     using PRBMathSD59x18 for *;
 
     event EpochLengthUpdated(uint32 epochLength);
+    event TokenomicsParametersUpdates(uint16 ucfcWeight, uint16 ucfaWeight, uint16 componentWeight, uint16 agentWeight,
+        uint32 devsPerCapital, uint64 epsilonRate, uint96 maxBond, uint32 epochLen, uint8 blockTimeETH, bool bondAutoControl);
+    event RewardFractionsUpdated(uint8 stakerFraction, uint8 componentFraction, uint8 agentFraction,
+        uint8 topUpOwnerFraction, uint8 topUpStakerFraction);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
@@ -138,6 +143,7 @@ contract Tokenomics is GenericTokenomics {
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public donationBalanceETH;
     // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
+    // TODO component weight is 2 by default, agent weight is 1
     // UCFc / UCFa weights for the UCF contribution
     // We assume the coefficients are bound by 2^16 - 1
     uint16 public ucfcWeight = 1;
@@ -190,7 +196,6 @@ contract Tokenomics is GenericTokenomics {
     mapping(uint256 => bool) public mapAgents;
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
-    // TODO Consider creating a black list for malicious service Ids rather than managing the white list
     // Map of protocol-owned service Ids
     mapping(uint256 => bool) public mapProtocolServices;
     // Inflation caps for the first ten years
@@ -277,6 +282,9 @@ contract Tokenomics is GenericTokenomics {
         epochLen = _epochLen;
         blockTimeETH = _blockTimeETH;
         bondAutoControl = _bondAutoControl;
+
+        emit TokenomicsParametersUpdates(_ucfcWeight, _ucfaWeight, _componentWeight, _agentWeight, _devsPerCapital,
+            _epsilonRate, _maxBond, _epochLen, _blockTimeETH, _bondAutoControl);
     }
 
     /// @dev Sets staking parameters in fractions of distributed rewards.
@@ -313,6 +321,8 @@ contract Tokenomics is GenericTokenomics {
 
         topUpOwnerFraction = _topUpOwnerFraction;
         topUpStakerFraction = _topUpStakerFraction;
+
+        emit RewardFractionsUpdated(_stakerFraction, _componentFraction, _agentFraction, _topUpOwnerFraction, _topUpStakerFraction);
     }
 
     /// @dev Changes registries contract addresses.
@@ -459,15 +469,15 @@ contract Tokenomics is GenericTokenomics {
         donationBalanceETH += donationETH;
     }
 
-    /// @dev Calculates tokenomics for components / agents of protocol-owned services.
+    /// @dev Calculates tokenomics for components / agents based on service donations.
     /// @param unitType Unit type as component or agent.
     /// @param unitRewards Component / agent allocated rewards.
     /// @param unitTopUps Component / agent allocated top-ups.
+    /// @param numServices Number of services with provided donations.
     /// @return ucfu Calculated UCFc / UCFa.
-    function _calculateUnitTokenomics(IServiceTokenomics.UnitType unitType, uint256 unitRewards, uint256 unitTopUps) private
-        returns (PointUnits memory ucfu)
+    function _calculateUnitTokenomics(IServiceTokenomics.UnitType unitType, uint256 unitRewards, uint256 unitTopUps, uint256 numServices)
+        internal returns (PointUnits memory ucfu)
     {
-        uint256 numServices = protocolServiceIds.length;
         // Array of numbers of units per each service Id
         uint256[] memory numServiceUnits = new uint256[](numServices);
         // 2D array of all the sets of units per each service Id
@@ -489,6 +499,12 @@ contract Tokenomics is GenericTokenomics {
             (numServiceUnits[i], serviceUnitIds[i]) = IServiceTokenomics(serviceRegistry).getUnitIdsOfService(unitType, serviceId);
             // Add to UCFa part for each agent Id
             uint256 amount = mapServiceAmounts[serviceId];
+            // Release gas allocated for the service amount when passing through agents for the calculation of UCFa
+            // Since UCFa is calculated after UCFc, this is safe to do. If they were to change, deletion must be done
+            // during the UCFc calculation
+            if (registry == agentRegistry) {
+                delete mapServiceAmounts[serviceId];
+            }
             for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
                 // Sum the amounts for the corresponding components / agents
                 ucfuRevs[serviceUnitIds[i][j]] += amount;
@@ -552,33 +568,6 @@ contract Tokenomics is GenericTokenomics {
         ucfu.unitRewards = uint96(unitRewards);
     }
 
-    /// @dev Clears necessary data structures for the next epoch.
-    function _clearEpochData() internal {
-        uint256 numServices = protocolServiceIds.length;
-        for (uint256 i = 0; i < numServices; ++i) {
-            delete mapServiceAmounts[protocolServiceIds[i]];
-        }
-        delete protocolServiceIds;
-        epochServiceRevenueETH = 0;
-    }
-
-    // TODO refactor this function to make sure it is called by the treasury only, such that this function is not called by itself
-    // TODO Calling it without reward allocation would break the synchronization of rewards
-    /// @dev Record global data to the checkpoint
-    function checkpoint() external {
-        // Check for the treasury access
-        if (treasury != msg.sender) {
-            revert ManagerOnly(msg.sender, treasury);
-        }
-
-        PointEcomonics memory lastPoint = mapEpochEconomics[epochCounter - 1];
-        // New point can be calculated only if we passed the number of blocks equal to the epoch length
-        uint256 diffNumBlocks = block.number - lastPoint.blockNumber;
-        if (diffNumBlocks >= epochLen) {
-            _checkpoint();
-        }
-    }
-
     /// @dev Adjusts max bond every epoch if max bond is contract-controlled.
     function _adjustMaxBond(uint96 _maxBond) internal {
         // take into account the change during the epoch
@@ -604,22 +593,31 @@ contract Tokenomics is GenericTokenomics {
         topUp = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
     }
 
+    // TODO Make sure it is impossible to call it without reward allocation, since it would break the synchronization of rewards
     /// @dev Record global data to new checkpoint
-    function _checkpoint() internal {
+    /// @return True if the function execution is successful.
+    function checkpoint() external returns (bool) {
+        // New point can be calculated only if we passed the number of blocks equal to the epoch length
+        uint256 diffNumBlocks = block.number - mapEpochEconomics[epochCounter - 1].blockNumber;
+        if (diffNumBlocks < epochLen) {
+            return false;
+        }
+
         // Get total amount of OLAS as profits for rewards, and all the rewards categories
         // 0: total rewards, 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         // 5: topUpOwnerFraction, 6: topUpStakerFraction, 7: bondFraction
         uint256[] memory rewards = new uint256[](8);
         rewards[0] = epochServiceRevenueETH;
-        rewards[2] = rewards[0] * stakerFraction / 100;
-        rewards[3] = rewards[0] * componentFraction / 100;
-        rewards[4] = rewards[0] * agentFraction / 100;
+        rewards[2] = (rewards[0] * stakerFraction) / 100;
+        rewards[3] = (rewards[0] * componentFraction) / 100;
+        rewards[4] = (rewards[0] * agentFraction) / 100;
         rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // Top-ups and bonding possibility in OLAS are recalculated based on the inflation schedule per epoch
         uint256 totalTopUps = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
-        rewards[5] = totalTopUps * topUpOwnerFraction / 100;
-        rewards[6] = totalTopUps * topUpStakerFraction / 100;
+        // TODO must be based on bondPerEpoch or ibased on inflation, if the flag is set
+        rewards[5] = (totalTopUps * topUpOwnerFraction) / 100;
+        rewards[6] = (totalTopUps * topUpStakerFraction) / 100;
         rewards[7] = totalTopUps - rewards[5] - rewards[6];
 
         // Effective bond accumulates leftovers from previous epochs (with last max bond value set)
@@ -638,14 +636,15 @@ contract Tokenomics is GenericTokenomics {
         // Calculate UCFc, UCFa, rewards allocated from them and IDF
         PointUnits memory ucfc;
         PointUnits memory ucfa;
+        uint256 numServices = protocolServiceIds.length;
         if (rewards[0] > 0) {
             // Calculate total UCFc
-            ucfc = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5]);
+            ucfc = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Component, rewards[3], rewards[5], numServices);
             ucfc.ucfWeight = uint8(ucfcWeight);
             ucfc.unitWeight = uint8(componentWeight);
 
             // Calculate total UCFa
-            ucfa = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5]);
+            ucfa = _calculateUnitTokenomics(IServiceTokenomics.UnitType.Agent, rewards[4], rewards[5], numServices);
             ucfa.ucfWeight = uint8(ucfaWeight);
             ucfa.unitWeight = uint8(agentWeight);
 
@@ -678,13 +677,21 @@ contract Tokenomics is GenericTokenomics {
             idf = uint64(1e18 + fKD);
         }
 
-        uint32 numServices = uint32(protocolServiceIds.length);
-        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, numServices, uint96(rewards[1]), uint96(rewards[2]),
-            donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital, uint32(block.number));
+        // Record a new point epoch
+        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
+            uint96(rewards[2]), donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
+            uint32(block.number));
         mapEpochEconomics[epochCounter] = newPoint;
         epochCounter++;
 
-        _clearEpochData();
+        // Clears necessary data structures for the next epoch.
+        delete protocolServiceIds;
+        epochServiceRevenueETH = 0;
+
+        // Allocate rewards via Treasury
+        uint96 accountRewards = uint96(rewards[2]) + ucfc.unitRewards + ucfa.unitRewards;
+        uint96 accountTopUps = uint96(rewards[5] + rewards[6]);
+        return ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps);
     }
 
     /// @dev Calculates staking rewards.
@@ -733,19 +740,6 @@ contract Tokenomics is GenericTokenomics {
     /// @dev Gets last epoch Point.
     function getLastPoint() external view returns (PointEcomonics memory pe) {
         pe = mapEpochEconomics[epochCounter - 1];
-    }
-
-    /// @dev Gets rewards data of the last epoch.
-    /// @return treasuryRewards Treasury rewards.
-    /// @return accountRewards Cumulative staker, component and agent rewards.
-    /// @return accountTopUps Cumulative staker, component and agent top-ups.
-    function getRewardsData() external view
-        returns (uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps)
-    {
-        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
-        treasuryRewards = pe.treasuryRewards;
-        accountRewards = pe.stakerRewards + pe.ucfc.unitRewards + pe.ucfa.unitRewards;
-        accountTopUps = pe.ownerTopUps + pe.stakerTopUps;
     }
 
     /// @dev Gets inverse discount factor with the multiple of 1e18.

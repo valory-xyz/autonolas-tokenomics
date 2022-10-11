@@ -22,4 +22,12 @@ interface ITreasury {
     /// @dev Check if the token is UniswapV2Pair.
     /// @param token Address of a token.
     function checkPair(address token) external returns (bool);
+
+    /// @dev Allocates rewards and top-ups based on the input reward values from tokenomics.
+    /// @param treasuryRewards Treasury rewards.
+    /// @param accountRewards Cumulative staker, component and agent rewards.
+    /// @param accountTopUps Cumulative staker, component and agent top-ups.
+    /// @return success True, if the function execution is successful.
+    function allocateRewards(uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) external
+        returns (bool success);
 }

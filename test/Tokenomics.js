@@ -11,9 +11,11 @@ describe("Tokenomics", async () => {
     let deployer;
     let olas;
     let tokenomics;
+    let treasury;
     let serviceRegistry;
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(25);
+    const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
     const delta = 1.0 / 10**10;
 
@@ -35,12 +37,22 @@ describe("Tokenomics", async () => {
         const componentRegistry = await ServiceRegistry.deploy();
         const agentRegistry = await ServiceRegistry.deploy();
 
+        const Treasury = await ethers.getContractFactory("Treasury");
+        treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
+        await treasury.deployed();
+
         // Treasury address is deployer since there are functions that require treasury only
-        tokenomics = await tokenomicsFactory.deploy(olas.address, deployer.address, deployer.address, deployer.address,
+        tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, deployer.address,
             deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
+
+        // Update tokenomics address for treasury
+        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
+
+        // Give treasury the minter role
+        await olas.changeMinter(treasury.address);
     });
 
     context("Initialization", async function () {
@@ -157,10 +169,6 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(signers[1]).trackServicesETHRevenue([], [])
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
-
-            await expect(
-                tokenomics.connect(signers[1]).checkpoint()
-            ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
         it("Should fail when calling dispenser-owned functions by other addresses", async function () {
@@ -198,12 +206,18 @@ describe("Tokenomics", async () => {
 
     context("Track revenue of services", async function () {
         it("Should fail when the service does not exist", async () => {
+            // Only treasury can access the function, so let's change it for deployer here
+            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+
             await expect(
                 tokenomics.connect(deployer).trackServicesETHRevenue([3], [regDepositFromServices])
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
         it("Send service revenues twice for protocol-owned services and donation", async () => {
+            // Only treasury can access the function, so let's change it for deployer here
+            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
             await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1], [true]);
             await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
@@ -233,7 +247,8 @@ describe("Tokenomics", async () => {
             // Whitelist service Ids
             await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
-            await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
+            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices,
+                regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -247,11 +262,15 @@ describe("Tokenomics", async () => {
             // Get the last point
             await tokenomics.getLastPoint();
 
-            // Get DF of the last epoch
-            const df = Number(await tokenomics.getIDF(lastEpoch)) / E18;
-            expect(df).to.greaterThan(1);
+            // Get IDF of the last epoch
+            const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
+            expect(idf).to.greaterThan(1);
+            
+            // Get last IDF that must match the idf of the last epoch
+            const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
+            expect(idf).to.equal(lastIDF);
 
-            // Get DF of the zero (arbitrary) epoch
+            // Get IDF of the zero (arbitrary) epoch
             const defaultEpsRate = Number(await tokenomics.epsilonRate()) + E18;
             const zeroDF = Number(await tokenomics.getIDF(0));
             expect(zeroDF).to.equal(defaultEpsRate);
@@ -260,27 +279,25 @@ describe("Tokenomics", async () => {
             const zeroUCF = Number(await tokenomics.getUCF(0));
             expect(zeroUCF).to.equal(0);
 
-            // Get UCF with zero component / agent weights
-
-
         });
 
-        it("Get DF based on the epsilonRate", async () => {
+        it("Get IDF based on the epsilonRate", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             // Whitelist service owners
             const accounts = await serviceRegistry.getUnitOwners();
             await tokenomics.connect(deployer).changeProtocolServicesWhiteList(accounts, [true, true]);
             // Send the revenues to services
-            await tokenomics.connect(deployer).trackServicesETHRevenue(accounts, [regDepositFromServices, regDepositFromServices]);
+            await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
+                regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0, 10, 10, true);
             await tokenomics.connect(deployer).checkpoint();
 
-            // Get DF
+            // Get IDF
             const lastEpoch = await tokenomics.epochCounter() - 1;
-            const df = Number(await tokenomics.getIDF(lastEpoch)) / E18;
-            expect(df).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
+            const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
+            expect(idf).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
 
             // Change max bond twice such that adjustment of max bond is tested
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 1, 10, 10, true);
@@ -296,13 +313,16 @@ describe("Tokenomics", async () => {
             const accounts = await serviceRegistry.getUnitOwners();
             await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
-            await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
+            await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
+                regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
             // Get the rewards data
-            const rewardsData = await tokenomics.getRewardsData();
-            expect(rewardsData.accountRewards).to.greaterThan(0);
-            expect(rewardsData.accountTopUps).to.greaterThan(0);
+            const pe = await tokenomics.getLastPoint();
+            const accountRewards = Number(pe.stakerRewards) + Number(pe.ucfc.unitRewards) + Number(pe.ucfa.unitRewards);
+            const accountTopUps = Number(pe.ownerTopUps) + Number(pe.stakerTopUps);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
 
             // Calculate staking rewards
             const result = await tokenomics.calculateStakingRewards(accounts[0], 1);
