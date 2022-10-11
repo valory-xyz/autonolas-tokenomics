@@ -46,13 +46,6 @@ interface ITokenomics {
     /// @return True if the mint is allowed.
     function isAllowedMint(uint256 amount) external returns (bool);
 
-    /// @dev Gets rewards data of the last epoch.
-    /// @return treasuryRewards Treasury rewards.
-    /// @return accountRewards Cumulative staker, component and agent rewards.
-    /// @return accountTopUps Cumulative staker, component and agent top-ups.
-    function getRewardsData() external view
-        returns (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps);
-
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
     /// @return idf Discount factor with the multiple of 1e18.
     function getLastIDF() external view returns (uint256 idf);

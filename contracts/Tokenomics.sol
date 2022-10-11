@@ -594,6 +594,7 @@ contract Tokenomics is GenericTokenomics {
     }
 
     // TODO Make sure it is impossible to call it without reward allocation, since it would break the synchronization of rewards
+    // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     function checkpoint() external returns (bool) {
