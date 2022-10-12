@@ -13,6 +13,7 @@ describe("Tokenomics", async () => {
     let tokenomics;
     let treasury;
     let serviceRegistry;
+    let attacker;
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
@@ -40,6 +41,10 @@ describe("Tokenomics", async () => {
         const Treasury = await ethers.getContractFactory("Treasury");
         treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
         await treasury.deployed();
+
+        const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
+        attacker = await Attacker.deploy(AddressZero, AddressZero);
+        await attacker.deployed();
 
         // deployer.address is given to the contracts that are irrelevant in these tests
         tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, deployer.address,
@@ -315,7 +320,15 @@ describe("Tokenomics", async () => {
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+
+            // Try to fail the reward allocation
+            await tokenomics.changeManagers(AddressZero, attacker.address, AddressZero, AddressZero);
+            await expect(
+                tokenomics.connect(deployer).checkpoint()
+            ).to.be.revertedWithCustomError(tokenomics, "RewardsAllocationFailed");
+
             // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
             await tokenomics.connect(deployer).checkpoint();
             // Get the rewards data
             const pe = await tokenomics.getLastPoint();
