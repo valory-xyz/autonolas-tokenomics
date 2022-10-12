@@ -209,7 +209,7 @@ describe("Treasury", async () => {
             const amount = ethers.utils.parseEther("10");
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
-            // Check the ETH balance of the reasury
+            // Check the ETH balance of the treasury
             expect(await treasury.ETHOwned()).to.equal(amount);
 
             // Try to withdraw ETH to the address that cannot accept ETH
@@ -228,7 +228,7 @@ describe("Treasury", async () => {
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
 
-            // Try to allocate rewards not by the contract owner
+            // Try to allocate rewards not by the contract manager (tokenomics)
             await expect(
                 treasury.connect(signers[1]).allocateRewards(treasuryRewards, accountRewards, accountTopUps)
             ).to.be.revertedWithCustomError(treasury, "ManagerOnly");

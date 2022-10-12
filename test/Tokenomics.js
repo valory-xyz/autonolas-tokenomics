@@ -41,7 +41,7 @@ describe("Tokenomics", async () => {
         treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
         await treasury.deployed();
 
-        // Treasury address is deployer since there are functions that require treasury only
+        // deployer.address is given to the contracts that are irrelevant in these tests
         tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, deployer.address,
             deployer.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
 

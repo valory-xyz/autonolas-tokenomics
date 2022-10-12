@@ -114,6 +114,7 @@ contract Tokenomics is GenericTokenomics {
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
+    event EpochSettled(uint256 epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     // Voting Escrow address
     address public immutable ve;
@@ -277,7 +278,7 @@ contract Tokenomics is GenericTokenomics {
         if (_epsilonRate < 17e18) {
             epsilonRate = _epsilonRate;
         }
-        // take into account the change during the epoch
+        // Take into account the change during the epoch
         _adjustMaxBond(_maxBond);
         epochLen = _epochLen;
         blockTimeETH = _blockTimeETH;
@@ -375,7 +376,7 @@ contract Tokenomics is GenericTokenomics {
     /// @dev Checks for the OLAS minting ability WRT the inflation schedule.
     /// @param amount Amount of requested OLAS tokens to mint.
     /// @return allowed True if the mint is allowed.
-    function isAllowedMint(uint256 amount) external returns (bool allowed) {
+    function isAllowedMint(uint256 amount) external view returns (bool allowed) {
         uint256 remainder = _getInflationRemainderForYear();
         // For the first 10 years we check the inflation cap that is pre-defined
         if (amount < (remainder + 1)) {
@@ -385,10 +386,12 @@ contract Tokenomics is GenericTokenomics {
 
     /// @dev Gets remainder of possible OLAS allocation for the current year.
     /// @return remainder OLAS amount possible to mint.
-    function _getInflationRemainderForYear() internal returns (uint256 remainder) {
+    function _getInflationRemainderForYear() internal view returns (uint256 remainder) {
         // OLAS token time launch
+        // TODO Make it a constant, since it's not going to change
         uint256 timeLaunch = IOLAS(olas).timeLaunch();
         // One year of time
+        // TODO Make it a constant as well
         uint256 oneYear = 1 days * 365;
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
@@ -412,6 +415,7 @@ contract Tokenomics is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
+        // Check the effective bond and remainder for the year
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
             effectiveBond -= amount;
@@ -568,15 +572,17 @@ contract Tokenomics is GenericTokenomics {
         ucfu.unitRewards = uint96(unitRewards);
     }
 
-    /// @dev Adjusts max bond every epoch if max bond is contract-controlled.
+    /// @dev Adjusts max bond according to a new value
+    /// @notice This value is adjusted every epoch if max bond is auto-controlled.
     function _adjustMaxBond(uint96 _maxBond) internal {
-        // take into account the change during the epoch
+        // Take into account the change during the epoch
         uint96 delta;
         if(_maxBond > maxBond) {
+            // If the new maxBond is greater than the previous one, add the difference to effectiveBond
             delta = _maxBond - maxBond;
             effectiveBond += delta;
-        }
-        if(_maxBond < maxBond) {
+        } else {
+            // If the new maxBond is less than the previous one, subtract the difference from the effectiveBond
             delta = maxBond - _maxBond;
             if(delta < effectiveBond) {
                 effectiveBond -= delta;
@@ -587,13 +593,7 @@ contract Tokenomics is GenericTokenomics {
         maxBond = _maxBond;
     }
 
-    /// @dev Gets top-up value for epoch.
-    /// @return topUp Top-up value.
-    function getTopUpPerEpoch() external view returns (uint256 topUp) {
-        topUp = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
-    }
-
-    // TODO Make sure it is impossible to call it without reward allocation, since it would break the synchronization of rewards
+    // TODO Double check we are always in sync with correct rewards allocation, i.e., such that we calculate rewards and don't allocate them
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
@@ -615,19 +615,26 @@ contract Tokenomics is GenericTokenomics {
         rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // Top-ups and bonding possibility in OLAS are recalculated based on the inflation schedule per epoch
-        uint256 totalTopUps = (IOLAS(olas).inflationRemainder() * epochLen * blockTimeETH) / (1 days * 365);
-        // TODO must be based on bondPerEpoch or ibased on inflation, if the flag is set
+        // TODO Study if diffNumBlocks must be instead of epochLen here, since we could start new epoch later than epochLen
+        uint256 totalTopUps = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
+        // TODO must be based on bondPerEpoch or based on inflation, if the flag is set
+        // TODO Check the connection to the maxBond such that we don't overflow the specified maxBond amount
+        // TODO Make sure we don't go beyond the inflation schedule limit
         rewards[5] = (totalTopUps * topUpOwnerFraction) / 100;
         rewards[6] = (totalTopUps * topUpStakerFraction) / 100;
+        // All the leftovers from the inflation schedule allocation is given in favor of bonding programs
+        // If that value is bigger than the current maxBond, it will be adjusted (in case of contract-controlled maxBond)
         rewards[7] = totalTopUps - rewards[5] - rewards[6];
 
-        // Effective bond accumulates leftovers from previous epochs (with last max bond value set)
-        if (maxBond > bondPerEpoch) {
+        // Effective bond accumulates leftovers from previous epochs (with the last max bond value set)
+        // TODO maxBond must be also recalculated based on when new epoch has started, as per additional (diffNumBlocks - epochLen)
+        if (bondPerEpoch < maxBond) {
             effectiveBond += maxBond - bondPerEpoch;
         }
         // Bond per epoch starts from zero every epoch
         bondPerEpoch = 0;
-        // Adjust max bond and effective bond if contract-controlled max bond is enabled
+        // Adjust max bond and effective bond if the contract-controlled max bond is enabled
+        // Note that effectiveBond is also adjusted, if needed, however the bondPerEpoch is already accounted for earlier
         if (bondAutoControl) {
             _adjustMaxBond(uint96(rewards[7]));
         }
@@ -678,21 +685,30 @@ contract Tokenomics is GenericTokenomics {
             idf = uint64(1e18 + fKD);
         }
 
-        // Record a new point epoch
-        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
-            uint96(rewards[2]), donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
-            uint32(block.number));
-        mapEpochEconomics[epochCounter] = newPoint;
-        epochCounter++;
-
         // Clears necessary data structures for the next epoch.
         delete protocolServiceIds;
         epochServiceRevenueETH = 0;
 
-        // Allocate rewards via Treasury
+        // Record settled epoch point
+        PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
+            uint96(rewards[2]), donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
+            uint32(block.number));
+        mapEpochEconomics[epochCounter] = newPoint;
+
+        // Allocate rewards via Treasury and start new epoch
         uint96 accountRewards = uint96(rewards[2]) + ucfc.unitRewards + ucfa.unitRewards;
         uint96 accountTopUps = uint96(rewards[5] + rewards[6]);
-        return ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps);
+
+        // Treasury contract allocates rewards
+        // If rewards were not correctly allocated, the new epoch does not start
+        if (!ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
+            revert RewardsAllocationFailed(epochCounter);
+        } else {
+            emit EpochSettled(epochCounter, rewards[1], accountRewards, accountTopUps);
+            epochCounter++;
+        }
+
+        return true;
     }
 
     /// @dev Calculates staking rewards.
@@ -729,6 +745,12 @@ contract Tokenomics is GenericTokenomics {
                 }
             }
         }
+    }
+
+    /// @dev Gets top-up value for epoch.
+    /// @return topUp Top-up value.
+    function getTopUpPerEpoch() external view returns (uint256 topUp) {
+        topUp = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
     }
 
     /// @dev get Point by epoch

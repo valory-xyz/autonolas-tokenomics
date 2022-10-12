@@ -93,4 +93,8 @@ interface IErrorsTokenomics {
 
     /// @dev Caught reentrancy violation.
     error ReentrancyGuard();
+
+    /// @dev Failure of reward allocation.
+    /// @param epochNumber Epoch number.
+    error RewardsAllocationFailed(uint256 epochNumber);
 }

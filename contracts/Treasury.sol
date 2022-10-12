@@ -237,7 +237,7 @@ contract Treasury is GenericTokenomics {
     function allocateRewards(uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) external
         returns (bool success)
     {
-        // Check for the contract ownership
+        // Check for the tokenomics contract access
         if (msg.sender != tokenomics) {
             revert ManagerOnly(msg.sender, tokenomics);
         }
