@@ -13,8 +13,9 @@ interface ITokenomics {
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
+    /// @return donationETH Overall service donation amount in ETH.
     function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
-        returns (uint96 revenueETH, uint96 donationETH);
+        returns (uint96 donationETH);
 
     /// @dev Increases the epoch bond with the OLAS payout for a Depository program
     /// @param payout Payout amount for the LP pair.

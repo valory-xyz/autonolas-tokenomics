@@ -35,7 +35,7 @@ import "./interfaces/ITokenomics.sol";
 contract Treasury is GenericTokenomics {
 
     event DepositTokenFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
-    event DepositETHFromServices(address indexed sender, uint256 revenue, uint256 donation);
+    event DepositETHFromServices(address indexed sender, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
     event TokenReserves(address indexed token, uint256 reserves);
     event EnableToken(address indexed token);
@@ -140,11 +140,10 @@ contract Treasury is GenericTokenomics {
             revert WrongAmount(msg.value, totalAmount);
         }
 
-        (uint96 revenueETH, uint96 donationETH) = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
-        ETHFromServices += revenueETH;
-        ETHOwned += donationETH;
+        uint96 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        ETHFromServices += donationETH;
 
-        emit DepositETHFromServices(msg.sender, revenueETH, donationETH);
+        emit DepositETHFromServices(msg.sender, donationETH);
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
