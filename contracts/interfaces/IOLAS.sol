@@ -9,7 +9,7 @@ interface IOLAS {
 
     /// @dev Provides OLA token time launch.
     /// @return Time launch.
-    function timeLaunch() external returns (uint256);
+    function timeLaunch() external view     returns (uint256);
 
     /// @dev Gets the reminder of OLA possible for the mint.
     /// @return remainder OLA token remainder.

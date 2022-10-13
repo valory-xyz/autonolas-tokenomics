@@ -228,57 +228,46 @@ contract Treasury is GenericTokenomics {
         enabled = (mapTokens[token].state == TokenState.Enabled);
     }
 
-    /// @dev Rebalances ETH funds.
-    /// @param amount ETH token amount.
-    function _rebalanceETH(uint96 amount) internal {
-        if (ETHFromServices >= amount) {
-            ETHFromServices -= amount;
-            ETHOwned += amount;
+    // TODO Understand how run this function independently (i.e. keeper)
+    /// @dev Allocates rewards and top-ups based on the input reward values from tokenomics.
+    /// @param treasuryRewards Treasury rewards.
+    /// @param accountRewards Cumulative staker, component and agent rewards.
+    /// @param accountTopUps Cumulative staker, component and agent top-ups.
+    /// @return success True, if the function execution is successful.
+    function allocateRewards(uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) external
+        returns (bool success)
+    {
+        // Check for the tokenomics contract access
+        if (msg.sender != tokenomics) {
+            revert ManagerOnly(msg.sender, tokenomics);
         }
-    }
 
-    /// @dev Sends funds to the dispenser contract.
-    /// @param amountETH Amount in ETH.
-    /// @param amountOLAS Amount in OLAS.
-    function _sendFundsToDispenser(uint96 amountETH, uint96 amountOLAS) internal {
-        if (amountETH > 0 && ETHFromServices >= amountETH) {
-            ETHFromServices -= amountETH;
-            (bool success, ) = dispenser.call{value: amountETH}("");
+        // Collect treasury's own reward share
+        if (ETHFromServices >= treasuryRewards) {
+            ETHFromServices -= treasuryRewards;
+            ETHOwned += treasuryRewards;
+        }
+
+        // Send cumulative funds of staker, component, agent rewards and top-ups to dispenser
+        // Send ETH rewards
+        if (accountRewards > 0 && ETHFromServices >= accountRewards) {
+            ETHFromServices -= accountRewards;
+            (success, ) = dispenser.call{value: accountRewards}("");
             if (!success) {
-                revert TransferFailed(address(0), address(this), dispenser, amountETH);
+                revert TransferFailed(address(0), address(this), dispenser, accountRewards);
             }
         }
-        if (amountOLAS > 0) {
+        // Send OLAS top-ups
+        if (accountTopUps > 0) {
             // TODO This check is not needed if the calculations in Tokenomics are done correctly.
             // TODO if amountOLAS os greater than zero at this point of time, we definitely can mint that amount.
             // TODO Otherwise amountOLAS will be equal to zero.
-            if (ITokenomics(tokenomics).isAllowedMint(amountOLAS)) {
-                IOLAS(olas).mint(dispenser, amountOLAS);
-                emit TransferToDispenserOLAS(amountOLAS);
-            }
-        }
-    }
-
-    /// @dev Starts new epoch and allocates rewards.
-    function allocateRewards() external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
+            //if (ITokenomics(tokenomics).isAllowedMint(accountTopUps)) {
+            IOLAS(olas).mint(dispenser, accountTopUps);
+            emit TransferToDispenserOLAS(accountTopUps);
         }
 
-        // TODO Get rewards inside the checkpoint function
-        // Process the epoch data
-        ITokenomics(tokenomics).checkpoint();
-        // TODO Only if the new epoch started we need to get the rewards calculation
-        // Get the rewards data
-        (uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) = ITokenomics(tokenomics).getRewardsData();
-
-        // TODO Unroll those two functions here
-        // Collect treasury's own reward share
-        _rebalanceETH(treasuryRewards);
-
-        // Send cumulative funds of staker, component, agent rewards and top-ups to dispenser
-        _sendFundsToDispenser(accountRewards, accountTopUps);
+        success = true;
     }
 
     /// @dev Receives ETH.

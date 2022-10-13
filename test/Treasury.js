@@ -24,6 +24,9 @@ describe("Treasury", async () => {
     let tokenomics;
     let attacker;
     const regDepositFromServices = "1" + "0".repeat(25);
+    const treasuryRewards = "1" + "0".repeat(19);
+    const accountRewards = "5" + "0".repeat(19);
+    const accountTopUps = "4" + "0".repeat(19);
 
     /**
      * Everything in this block is only run once before all tests.
@@ -206,7 +209,7 @@ describe("Treasury", async () => {
             const amount = ethers.utils.parseEther("10");
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
-            // Check the ETH balance of the reasury
+            // Check the ETH balance of the treasury
             expect(await treasury.ETHOwned()).to.equal(amount);
 
             // Try to withdraw ETH to the address that cannot accept ETH
@@ -225,43 +228,26 @@ describe("Treasury", async () => {
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
 
-            // Try to allocate rewards not by the contract owner
+            // Try to allocate rewards not by the contract manager (tokenomics)
             await expect(
-                treasury.connect(signers[1]).allocateRewards()
-            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+                treasury.connect(signers[1]).allocateRewards(treasuryRewards, accountRewards, accountTopUps)
+            ).to.be.revertedWithCustomError(treasury, "ManagerOnly");
 
             // Try to allocate rewards to the dispenser that can't accept ETH
-            await treasury.changeManagers(AddressZero, AddressZero, AddressZero, attacker.address);
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, attacker.address);
             await expect(
-                treasury.allocateRewards()
+                treasury.allocateRewards(treasuryRewards, accountRewards, accountTopUps)
             ).to.be.revertedWithCustomError(treasury, "TransferFailed");
 
             // Change the dispenser address back to the correct one
             await treasury.changeManagers(AddressZero, AddressZero, AddressZero, deployer.address);
             // Allocate rewards
-            await treasury.connect(deployer).allocateRewards();
-        });
-
-        it("Limit the mint cap such that we can't mint more by the treasury to the dispenser", async () => {
-            // Set the mint cap to be smaller than the possibility to mint for the year
-            await tokenomics.changeMintCap(0);
-
-            // Allocate empty rewards
-            await treasury.connect(deployer).allocateRewards();
-
-            // Deposit ETH for protocol-owned services
-            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
-
-            // Allocate rewards
-            await treasury.connect(deployer).allocateRewards();
+            await treasury.connect(deployer).allocateRewards(treasuryRewards, accountRewards, accountTopUps);
         });
 
         it("Allocate rewards with zero top-ups", async () => {
-            // Change acount top-ups values
-            await tokenomics.changeTopUps(0);
-
-            // Allocate empty rewards
-            await treasury.connect(deployer).allocateRewards();
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await treasury.connect(deployer).allocateRewards(treasuryRewards, accountRewards, 0);
         });
     });
 

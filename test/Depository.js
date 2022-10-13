@@ -191,6 +191,23 @@ describe("Depository LP", async () => {
                 depository.connect(deployer).changeOwner(account.address)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
         });
+
+        it("Changing Bond Calculator contract", async function () {
+            const account = alice;
+
+            // Trying to change bond calculator from a non-owner account address
+            await expect(
+                depository.connect(account).changeBondCalculator(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
+            // Trying to change bond calculator to a zero address that results in no change
+            await depository.connect(deployer).changeBondCalculator(AddressZero);
+            expect(await depository.bondCalculator()).to.equal(genericBondCalculator.address);
+
+            // Change bond calculator address
+            await depository.connect(deployer).changeBondCalculator(account.address);
+            expect(await depository.bondCalculator()).to.equal(account.address);
+        });
     });
 
     context("Bond products", async function () {

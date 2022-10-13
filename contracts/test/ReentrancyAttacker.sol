@@ -84,4 +84,9 @@ contract ReentrancyAttacker {
         attackOnDepositETHFromServices = true;
         ITokenomics(treasury).depositETHFromServices{value: msg.value}(serviceIds, amounts);
     }
+
+    /// @dev Simulates a failure for the treasury function.
+    function allocateRewards(uint96, uint96, uint96) external pure returns (bool success) {
+        success = false;
+    }
 }

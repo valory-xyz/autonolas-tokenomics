@@ -105,9 +105,9 @@ describe("Dispenser", async () => {
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
             await ethers.provider.send("evm_mine");
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
 
             // Calculate staking rewards with zero balances and total supply
             await ve.setBalance(0);
@@ -136,13 +136,15 @@ describe("Dispenser", async () => {
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
 
-            let result = await tokenomics.getRewardsData();
-            expect(result.accountRewards).to.greaterThan(0);
-            expect(result.accountTopUps).to.greaterThan(0);
+            const pe = await tokenomics.getLastPoint();
+            const accountRewards = Number(pe.stakerRewards) + Number(pe.ucfc.unitRewards) + Number(pe.ucfa.unitRewards);
+            const accountTopUps = Number(pe.ownerTopUps) + Number(pe.stakerTopUps);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
 
-            result = await tokenomics.getOwnerRewards(deployer.address);
+            const result = await tokenomics.getOwnerRewards(deployer.address);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
 
@@ -156,9 +158,9 @@ describe("Dispenser", async () => {
         it("Attacks on withdraw rewards for unit owners and stakers", async () => {
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
             await ethers.provider.send("evm_mine");
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
 
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
@@ -178,13 +180,15 @@ describe("Dispenser", async () => {
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
-            await treasury.connect(deployer).allocateRewards();
+            await tokenomics.connect(deployer).checkpoint();
 
-            let result = await tokenomics.getRewardsData();
-            expect(result.accountRewards).to.greaterThan(0);
-            expect(result.accountTopUps).to.greaterThan(0);
+            const pe = await tokenomics.getLastPoint();
+            const accountRewards = Number(pe.stakerRewards) + Number(pe.ucfc.unitRewards) + Number(pe.ucfa.unitRewards);
+            const accountTopUps = Number(pe.ownerTopUps) + Number(pe.stakerTopUps);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
 
-            result = await tokenomics.getOwnerRewards(attacker.address);
+            let result = await tokenomics.getOwnerRewards(attacker.address);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
 
