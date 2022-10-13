@@ -140,9 +140,9 @@ contract Tokenomics is GenericTokenomics {
     // Bond per epoch
     // This number cannot be practically bigger than the inflation remainder of OLAS
     uint96 public bondPerEpoch;
-    // Donation balance
+    // // Total service donation per epoch: sum(r(s))
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    uint96 public donationBalanceETH;
+    uint96 public epochServiceDonationETH;
     // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // TODO component weight is 2 by default, agent weight is 1
     // UCFc / UCFa weights for the UCF contribution
@@ -436,7 +436,7 @@ contract Tokenomics is GenericTokenomics {
             donationETH += amounts[i];
         }
         // Increase the total service donation balance per epoch
-        donationBalanceETH += donationETH;
+        epochServiceDonationETH += donationETH;
     }
 
     /// @dev Calculates tokenomics for components / agents based on service donations.
@@ -573,7 +573,7 @@ contract Tokenomics is GenericTokenomics {
         // 0: total rewards funded with donations in ETH, that are split between:
         // 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         uint256[] memory rewards = new uint256[](8);
-        rewards[0] = donationBalanceETH;
+        rewards[0] = epochServiceDonationETH;
         rewards[2] = (rewards[0] * stakerFraction) / 100;
         rewards[3] = (rewards[0] * componentFraction) / 100;
         rewards[4] = (rewards[0] * agentFraction) / 100;
@@ -656,14 +656,14 @@ contract Tokenomics is GenericTokenomics {
 
         // Record settled epoch point
         PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
-            uint96(rewards[2]), donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
+            uint96(rewards[2]), epochServiceDonationETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
             uint32(block.number));
         uint32 eCounter = epochCounter;
         mapEpochEconomics[eCounter] = newPoint;
 
         // Clears necessary data structures for the next epoch.
         delete protocolServiceIds;
-        donationBalanceETH = 0;
+        epochServiceDonationETH = 0;
 
         // Allocate rewards via Treasury and start new epoch
         uint96 accountRewards = uint96(rewards[2]) + ucfc.unitRewards + ucfa.unitRewards;
