@@ -570,9 +570,8 @@ contract Tokenomics is GenericTokenomics {
             return false;
         }
 
-        // Get total amount of OLAS as profits for rewards, and all the rewards categories
-        // 0: total rewards, 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
-        // 5: topUpOwnerFraction, 6: topUpStakerFraction, 7: bondFraction
+        // 0: total rewards funded with donations in ETH, that are split between:
+        // 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         uint256[] memory rewards = new uint256[](8);
         rewards[0] = donationBalanceETH;
         rewards[2] = (rewards[0] * stakerFraction) / 100;
@@ -584,6 +583,8 @@ contract Tokenomics is GenericTokenomics {
         // TODO Study if diffNumBlocks must be instead of epochLen here, since we could start new epoch later than epochLen
         // TODO This calculation is wrong - we should allocate more or less equal amount per each epoch, however from this
         // TODO formula we will get fewer and fewer top-ups until the end of the year
+        // OLAS top-ups are split between:
+        // 5: ownerTopUps, 6: stakerTopUps, 7: possibleBondAllocation
         uint256 totalTopUps = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
         // TODO must be based on bondPerEpoch or based on inflation, if the flag is set
         // TODO Check the connection to the maxBond such that we don't overflow the specified maxBond amount
