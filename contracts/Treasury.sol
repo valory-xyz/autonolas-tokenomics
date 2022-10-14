@@ -252,16 +252,22 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, tokenomics);
         }
 
+        uint96 amountETHFromServices = ETHFromServices;
         // Collect treasury's own reward share
-        if (ETHFromServices >= treasuryRewards) {
-            ETHFromServices -= treasuryRewards;
-            ETHOwned += treasuryRewards;
+        if (amountETHFromServices >= treasuryRewards) {
+            amountETHFromServices -= treasuryRewards;
+            ETHFromServices = amountETHFromServices;
+
+            uint96 amountETHOwned = ETHOwned;
+            amountETHOwned += treasuryRewards;
+            ETHOwned = amountETHOwned;
         }
 
         // Send cumulative funds of staker, component, agent rewards and top-ups to dispenser
         // Send ETH rewards
-        if (accountRewards > 0 && ETHFromServices >= accountRewards) {
-            ETHFromServices -= accountRewards;
+        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
+            amountETHFromServices -= accountRewards;
+            ETHFromServices = amountETHFromServices;
             (success, ) = dispenser.call{value: accountRewards}("");
             if (!success) {
                 revert TransferFailed(address(0), address(this), dispenser, accountRewards);
