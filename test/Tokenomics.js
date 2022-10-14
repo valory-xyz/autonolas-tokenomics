@@ -141,25 +141,6 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.serviceRegistry()).to.equal(signers[3].address);
         });
 
-        it("Whitelisting and de-whitelisting service owners", async function () {
-            // Trying to whitelist from a non-owner account address
-            await expect(
-                tokenomics.connect(signers[1]).changeProtocolServicesWhiteList([1], [true])
-            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
-
-            // Trying to mismatch the number of accounts and permissions
-            await expect(
-                tokenomics.connect(deployer).changeProtocolServicesWhiteList([0], [])
-            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
-
-            // Trying to whitelist zero addresses
-            await expect(
-                tokenomics.connect(deployer).changeProtocolServicesWhiteList([0], [true])
-            ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
-
-            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1], [true]);
-        });
-
         it("Should fail when calling depository-owned functions by other addresses", async function () {
             await expect(
                 tokenomics.connect(signers[1]).allowedNewBond(0)
@@ -224,8 +205,6 @@ describe("Tokenomics", async () => {
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
 
             await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
-            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1], [true]);
-            await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
             await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
         });
     });
@@ -249,8 +228,6 @@ describe("Tokenomics", async () => {
         it("Checkpoint with revenues", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
-            // Whitelist service Ids
-            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -289,9 +266,7 @@ describe("Tokenomics", async () => {
         it("Get IDF based on the epsilonRate", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
-            // Whitelist service owners
             const accounts = await serviceRegistry.getUnitOwners();
-            await tokenomics.connect(deployer).changeProtocolServicesWhiteList(accounts, [true, true]);
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -314,9 +289,7 @@ describe("Tokenomics", async () => {
         it("Calculate rewards", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
-            // Whitelist service owners
             const accounts = await serviceRegistry.getUnitOwners();
-            await tokenomics.connect(deployer).changeProtocolServicesWhiteList([1, 2], [true, true]);
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});

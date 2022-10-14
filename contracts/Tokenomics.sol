@@ -137,12 +137,12 @@ contract Tokenomics is GenericTokenomics {
     // This number cannot be practically bigger than the total number of supported units
     uint32 public devsPerCapital = 1;
 
+    // Bond per epoch
+    // This number cannot be practically bigger than the inflation remainder of OLAS
+    uint96 public bondPerEpoch;
+    // // Total service donation per epoch: sum(r(s))
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    // Total service revenue per epoch: sum(r(s))
-    uint96 public epochServiceRevenueETH;
-    // Donation balance
-    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    uint96 public donationBalanceETH;
+    uint96 public epochServiceDonationETH;
     // TODO Check if ucfc(a)Weight and componentWeight / agentWeight are the same
     // TODO component weight is 2 by default, agent weight is 1
     // UCFc / UCFa weights for the UCF contribution
@@ -155,18 +155,12 @@ contract Tokenomics is GenericTokenomics {
 
     // Component Registry
     address public componentRegistry;
-    // Bond per epoch
-    // This number cannot be practically bigger than the inflation remainder of OLAS
-    uint96 public bondPerEpoch;
-
-    // Agent Registry
-    address public agentRegistry;
     // MaxBond(e) - sum(BondingProgram) over all epochs: accumulates leftovers from previous epochs
     // This number cannot be practically bigger than the maxBond
     uint96 public effectiveBond = maxBond;
 
-    // Service Registry
-    address public serviceRegistry;
+    // Agent Registry
+    address public agentRegistry;
     // ETH average block time in seconds
     // We assume that the block time will not be bigger than 255 seconds
     uint8 public blockTimeETH = 12;
@@ -183,6 +177,9 @@ contract Tokenomics is GenericTokenomics {
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
+    // Service Registry
+    address public serviceRegistry;
+
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
@@ -197,8 +194,6 @@ contract Tokenomics is GenericTokenomics {
     mapping(uint256 => bool) public mapAgents;
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
-    // Map of protocol-owned service Ids
-    mapping(uint256 => bool) public mapProtocolServices;
     // Inflation caps for the first ten years
     uint96[] public inflationCaps;
     // Set of protocol-owned services in current epoch
@@ -351,28 +346,6 @@ contract Tokenomics is GenericTokenomics {
         }
     }
 
-    /// @dev (De-)whitelists protocol-owned services.
-    /// @param serviceIds Set of service Ids.
-    /// @param permissions Set of corresponding permissions for each account address.
-    function changeProtocolServicesWhiteList(uint256[] memory serviceIds, bool[] memory permissions) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        uint256 numServices = serviceIds.length;
-        // Check the array size
-        if (permissions.length != numServices) {
-            revert WrongArrayLength(numServices, permissions.length);
-        }
-        for (uint256 i = 0; i < numServices; ++i) {
-            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
-                revert ServiceDoesNotExist(serviceIds[i]);
-            }
-            mapProtocolServices[serviceIds[i]] = permissions[i];
-        }
-    }
-
     /// @dev Checks for the OLAS minting ability WRT the inflation schedule.
     /// @param amount Amount of requested OLAS tokens to mint.
     /// @return allowed True if the mint is allowed.
@@ -438,8 +411,9 @@ contract Tokenomics is GenericTokenomics {
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
+    /// @return donationETH Overall service donation amount in ETH.
     function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
-        returns (uint96 revenueETH, uint96 donationETH)
+        returns (uint96 donationETH)
     {
         // Check for the treasury access
         if (treasury != msg.sender) {
@@ -454,23 +428,15 @@ contract Tokenomics is GenericTokenomics {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
             // TODO whitelist service Ids whose owners stake veOLAS (with a minimum threshold)
-            // Check for the whitelisted services
-            if (mapProtocolServices[serviceIds[i]]) {
-                // If this is a protocol-owned service, accept funds as revenue
-                // Add a new service Id to the set of Ids if one was not currently in it
-                if (mapServiceAmounts[serviceIds[i]] == 0) {
-                    protocolServiceIds.push(serviceIds[i]);
-                }
-                mapServiceAmounts[serviceIds[i]] += amounts[i];
-                revenueETH += amounts[i];
-            } else {
-                // If the service is not a protocol-owned one, accept funds as donation
-                donationETH += amounts[i];
+            // Add a new service Id to the set of Ids if one was not currently in it
+            if (mapServiceAmounts[serviceIds[i]] == 0) {
+                protocolServiceIds.push(serviceIds[i]);
             }
+            mapServiceAmounts[serviceIds[i]] += amounts[i];
+            donationETH += amounts[i];
         }
-        // Increase the total service revenue per epoch and donation balance
-        epochServiceRevenueETH += revenueETH;
-        donationBalanceETH += donationETH;
+        // Increase the total service donation balance per epoch
+        epochServiceDonationETH += donationETH;
     }
 
     /// @dev Calculates tokenomics for components / agents based on service donations.
@@ -506,7 +472,7 @@ contract Tokenomics is GenericTokenomics {
             // Release gas allocated for the service amount when passing through agents for the calculation of UCFa
             // Since UCFa is calculated after UCFc, this is safe to do. If they were to change, deletion must be done
             // during the UCFc calculation
-            if (registry == agentRegistry) {
+            if (unitType == IServiceTokenomics.UnitType.Agent) {
                 delete mapServiceAmounts[serviceId];
             }
             for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
@@ -604,11 +570,10 @@ contract Tokenomics is GenericTokenomics {
             return false;
         }
 
-        // Get total amount of OLAS as profits for rewards, and all the rewards categories
-        // 0: total rewards, 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
-        // 5: topUpOwnerFraction, 6: topUpStakerFraction, 7: bondFraction
+        // 0: total rewards funded with donations in ETH, that are split between:
+        // 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         uint256[] memory rewards = new uint256[](8);
-        rewards[0] = epochServiceRevenueETH;
+        rewards[0] = epochServiceDonationETH;
         rewards[2] = (rewards[0] * stakerFraction) / 100;
         rewards[3] = (rewards[0] * componentFraction) / 100;
         rewards[4] = (rewards[0] * agentFraction) / 100;
@@ -616,6 +581,10 @@ contract Tokenomics is GenericTokenomics {
 
         // Top-ups and bonding possibility in OLAS are recalculated based on the inflation schedule per epoch
         // TODO Study if diffNumBlocks must be instead of epochLen here, since we could start new epoch later than epochLen
+        // TODO This calculation is wrong - we should allocate more or less equal amount per each epoch, however from this
+        // TODO formula we will get fewer and fewer top-ups until the end of the year
+        // OLAS top-ups are split between:
+        // 5: ownerTopUps, 6: stakerTopUps, 7: possibleBondAllocation
         uint256 totalTopUps = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
         // TODO must be based on bondPerEpoch or based on inflation, if the flag is set
         // TODO Check the connection to the maxBond such that we don't overflow the specified maxBond amount
@@ -685,27 +654,31 @@ contract Tokenomics is GenericTokenomics {
             idf = uint64(1e18 + fKD);
         }
 
-        // Clears necessary data structures for the next epoch.
-        delete protocolServiceIds;
-        epochServiceRevenueETH = 0;
-
         // Record settled epoch point
         PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
-            uint96(rewards[2]), donationBalanceETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
+            uint96(rewards[2]), epochServiceDonationETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
             uint32(block.number));
-        mapEpochEconomics[epochCounter] = newPoint;
+        uint32 eCounter = epochCounter;
+        mapEpochEconomics[eCounter] = newPoint;
+
+        // Clears necessary data structures for the next epoch.
+        delete protocolServiceIds;
+        epochServiceDonationETH = 0;
 
         // Allocate rewards via Treasury and start new epoch
         uint96 accountRewards = uint96(rewards[2]) + ucfc.unitRewards + ucfa.unitRewards;
         uint96 accountTopUps = uint96(rewards[5] + rewards[6]);
 
         // Treasury contract allocates rewards
-        // If rewards were not correctly allocated, the new epoch does not start
-        if (!ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
-            revert RewardsAllocationFailed(epochCounter);
+        if (ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
+            // Emit settled epoch written to the last economics point
+            emit EpochSettled(eCounter, rewards[1], accountRewards, accountTopUps);
+            // Start new epoch
+            eCounter++;
+            epochCounter = eCounter;
         } else {
-            emit EpochSettled(epochCounter, rewards[1], accountRewards, accountTopUps);
-            epochCounter++;
+            // If rewards were not correctly allocated, the new epoch does not start
+            revert RewardsAllocationFailed(eCounter);
         }
 
         return true;
