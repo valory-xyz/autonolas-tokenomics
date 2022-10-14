@@ -249,8 +249,8 @@ contract Depository is GenericTokenomics {
         if (expiry > type(uint32).max) {
             revert Overflow(expiry, type(uint32).max);
         }
-        Product memory product = Product(priceLP, token, supply, uint32(expiry), 0);
-        mapTokenProducts[token].push(product);
+        // Push newly created bond product into the list of products
+        mapTokenProducts[token].push(Product(priceLP, token, supply, uint32(expiry), 0));
         emit CreateProduct(token, productId, supply);
     }
 

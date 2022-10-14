@@ -195,7 +195,7 @@ contract Tokenomics is GenericTokenomics {
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
     // Inflation caps for the first ten years
-    uint96[] public inflationCaps;
+    uint96[] public supplyCaps;
     // Set of protocol-owned services in current epoch
     uint32[] public protocolServiceIds;
 
@@ -221,17 +221,17 @@ contract Tokenomics is GenericTokenomics {
         serviceRegistry = _serviceRegistry;
 
         // Initial allocation is 526_500_000_0e17
-        inflationCaps = new uint96[](10);
-        inflationCaps[0] = 548_613_000_0e17;
-        inflationCaps[1] = 628_161_885_0e17;
-        inflationCaps[2] = 701_028_663_7e17;
-        inflationCaps[3] = 766_084_123_6e17;
-        inflationCaps[4] = 822_958_209_0e17;
-        inflationCaps[5] = 871_835_342_9e17;
-        inflationCaps[6] = 913_259_378_7e17;
-        inflationCaps[7] = 947_973_171_3e17;
-        inflationCaps[8] = 976_799_806_9e17;
-        inflationCaps[9] = 1_000_000_000e18;
+        supplyCaps = new uint96[](10);
+        supplyCaps[0] = 548_613_000_0e17;
+        supplyCaps[1] = 628_161_885_0e17;
+        supplyCaps[2] = 701_028_663_7e17;
+        supplyCaps[3] = 766_084_123_6e17;
+        supplyCaps[4] = 822_958_209_0e17;
+        supplyCaps[5] = 871_835_342_9e17;
+        supplyCaps[6] = 913_259_378_7e17;
+        supplyCaps[7] = 947_973_171_3e17;
+        supplyCaps[8] = 976_799_806_9e17;
+        supplyCaps[9] = 1_000_000_000e18;
     }
 
     /// @dev Changes tokenomics parameters.
@@ -372,10 +372,31 @@ contract Tokenomics is GenericTokenomics {
         if (numYears < 10) {
             // OLAS token supply to-date
             uint256 supply = IToken(olas).totalSupply();
-            remainder = inflationCaps[numYears] - supply;
+            remainder = supplyCaps[numYears] - supply;
         } else {
             remainder = IOLAS(olas).inflationRemainder();
         }
+    }
+
+    /// @dev Adjusts max bond according to a new value
+    /// @notice This value is adjusted every epoch if max bond is auto-controlled.
+    function _adjustMaxBond(uint96 _maxBond) internal {
+        // Take into account the change during the epoch
+        uint96 delta;
+        if (_maxBond > maxBond) {
+            // If the new maxBond is greater than the previous one, add the difference to effectiveBond
+            delta = _maxBond - maxBond;
+            effectiveBond += delta;
+        } else {
+            // If the new maxBond is less than the previous one, subtract the difference from the effectiveBond
+            delta = maxBond - _maxBond;
+            if (delta < effectiveBond) {
+                effectiveBond -= delta;
+            } else {
+                effectiveBond = 0;
+            }
+        }
+        maxBond = _maxBond;
     }
 
     /// @dev Checks if the the effective bond value per current epoch is enough to allocate the specific amount.
@@ -538,27 +559,6 @@ contract Tokenomics is GenericTokenomics {
         ucfu.unitRewards = uint96(unitRewards);
     }
 
-    /// @dev Adjusts max bond according to a new value
-    /// @notice This value is adjusted every epoch if max bond is auto-controlled.
-    function _adjustMaxBond(uint96 _maxBond) internal {
-        // Take into account the change during the epoch
-        uint96 delta;
-        if(_maxBond > maxBond) {
-            // If the new maxBond is greater than the previous one, add the difference to effectiveBond
-            delta = _maxBond - maxBond;
-            effectiveBond += delta;
-        } else {
-            // If the new maxBond is less than the previous one, subtract the difference from the effectiveBond
-            delta = maxBond - _maxBond;
-            if(delta < effectiveBond) {
-                effectiveBond -= delta;
-            } else {
-                effectiveBond = 0;
-            }
-        }
-        maxBond = _maxBond;
-    }
-
     // TODO Double check we are always in sync with correct rewards allocation, i.e., such that we calculate rewards and don't allocate them
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
@@ -608,7 +608,7 @@ contract Tokenomics is GenericTokenomics {
             _adjustMaxBond(uint96(rewards[7]));
         }
 
-        // idf = 1/(1 + iterest_rate) by documentation, reverse_df = 1/df >= 1.0.
+        // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
         // Calculate UCFc, UCFa, rewards allocated from them and IDF
         PointUnits memory ucfc;
@@ -626,7 +626,7 @@ contract Tokenomics is GenericTokenomics {
             ucfa.unitWeight = uint8(agentWeight);
 
             // Calculate IDF from epsilon rate and f(K,D)
-            uint256 codeUnits = componentWeight * ucfc.numNewUnits + agentWeight * ucfa.numNewUnits;
+            uint256 codeUnits = ucfc.unitWeight * ucfc.numNewUnits + ucfa.unitWeight * ucfa.numNewUnits;
             uint256 newOwners = ucfc.numNewOwners + ucfa.numNewOwners;
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
