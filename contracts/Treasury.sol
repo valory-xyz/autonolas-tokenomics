@@ -255,9 +255,10 @@ contract Treasury is GenericTokenomics {
         uint96 amountETHFromServices = ETHFromServices;
         // Collect treasury's own reward share
         if (amountETHFromServices >= treasuryRewards) {
+            // Update ETH from services value
             amountETHFromServices -= treasuryRewards;
-            ETHFromServices = amountETHFromServices;
 
+            // Updated treasury ETH value
             uint96 amountETHOwned = ETHOwned;
             amountETHOwned += treasuryRewards;
             ETHOwned = amountETHOwned;
@@ -267,12 +268,13 @@ contract Treasury is GenericTokenomics {
         // Send ETH rewards
         if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
             amountETHFromServices -= accountRewards;
-            ETHFromServices = amountETHFromServices;
             (success, ) = dispenser.call{value: accountRewards}("");
             if (!success) {
                 revert TransferFailed(address(0), address(this), dispenser, accountRewards);
             }
         }
+        // If ETHFromServices is not updated earlier due to if conditions, it is synced here
+        ETHFromServices = amountETHFromServices;
         // Send OLAS top-ups
         if (accountTopUps > 0) {
             // TODO This check is not needed if the calculations in Tokenomics are done correctly.
