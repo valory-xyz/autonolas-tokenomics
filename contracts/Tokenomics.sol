@@ -503,7 +503,7 @@ contract Tokenomics is GenericTokenomics {
             }
         }
 
-        // Calculate all complete UCFu-s divided by the cardinality of agent Ids in each service
+        // Calculate all complete UCFu-s divided by the cardinality of unit Ids in each service
         for (uint256 i = 0; i < numServices; ++i) {
             for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
                 // Sum(UCFa[i]) / |As(epoch)|

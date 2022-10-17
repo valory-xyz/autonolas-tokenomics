@@ -254,7 +254,7 @@ contract Treasury is GenericTokenomics {
 
         uint96 amountETHFromServices = ETHFromServices;
         // Collect treasury's own reward share
-        if (amountETHFromServices >= treasuryRewards) {
+        if (treasuryRewards > 0 && amountETHFromServices >= treasuryRewards) {
             // Update ETH from services value
             amountETHFromServices -= treasuryRewards;
 
