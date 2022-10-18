@@ -93,14 +93,15 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
+        TokenInfo storage tokenInfo = mapTokens[token];
         // Check if the token is authorized by the registry
-        if (mapTokens[token].state != TokenState.Enabled) {
+        if (tokenInfo.state != TokenState.Enabled) {
             revert UnauthorizedToken(token);
         }
 
-        uint224 reserves = mapTokens[token].reserves;
+        uint224 reserves = tokenInfo.reserves;
         reserves += tokenAmount;
-        mapTokens[token].reserves = reserves;
+        tokenInfo.reserves = reserves;
         // Mint specified number of OLAS tokens corresponding to tokens bonding deposit if the amount is possible to mint
         if (ITokenomics(tokenomics).isAllowedMint(olasMintAmount)) {
             IOLAS(olas).mint(msg.sender, olasMintAmount);
@@ -140,8 +141,10 @@ contract Treasury is GenericTokenomics {
             revert WrongAmount(msg.value, totalAmount);
         }
 
+        // Accumulate received donation from services
         uint96 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
-        ETHFromServices += donationETH;
+        donationETH += ETHFromServices;
+        ETHFromServices = donationETH;
 
         emit DepositETHFromServices(msg.sender, donationETH);
     }
@@ -158,22 +161,30 @@ contract Treasury is GenericTokenomics {
         }
 
         // All the LP tokens must go under the bonding condition
-        if (token == ETH_TOKEN_ADDRESS && (ETHOwned + 1) > tokenAmount) {
-            // This branch is used to transfer ETH to a specified address
-            ETHOwned -= uint96(tokenAmount);
-            emit Withdraw(address(0), tokenAmount);
-            // Send ETH to the specified address
-            (success, ) = to.call{value: tokenAmount}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), to, tokenAmount);
+        if (token == ETH_TOKEN_ADDRESS) {
+            uint96 amountOwned = ETHOwned;
+            if ((amountOwned + 1) > tokenAmount) {
+                // This branch is used to transfer ETH to a specified address
+                amountOwned -= uint96(tokenAmount);
+                ETHOwned = amountOwned;
+                emit Withdraw(address(0), tokenAmount);
+                // Send ETH to the specified address
+                (success, ) = to.call{value: tokenAmount}("");
+                if (!success) {
+                    revert TransferFailed(address(0), address(this), to, tokenAmount);
+                }
             }
         } else {
+            TokenInfo storage tokenInfo = mapTokens[token];
             // Only approved token reserves can be used for redemptions
-            if (mapTokens[token].state != TokenState.Enabled) {
+            if (tokenInfo.state != TokenState.Enabled) {
                 revert UnauthorizedToken(token);
             }
             // Decrease the global LP token record
-            mapTokens[token].reserves -= tokenAmount;
+            uint224 reserves = tokenInfo.reserves;
+            reserves -= tokenAmount;
+            tokenInfo.reserves = reserves;
+
             success = true;
             emit Withdraw(token, tokenAmount);
             // Transfer LP token
@@ -209,13 +220,13 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenInfo memory tokenInfo = mapTokens[token];
+        TokenInfo storage tokenInfo = mapTokens[token];
         if (tokenInfo.state != TokenState.Disabled) {
             // The reserves of a token must be zero in order to disable it
             if (tokenInfo.reserves > 0) {
                 revert NonZeroValue();
             }
-            mapTokens[token].state = TokenState.Disabled;
+            tokenInfo.state = TokenState.Disabled;
             emit DisableToken(token);
         }
     }
@@ -241,21 +252,29 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, tokenomics);
         }
 
+        uint96 amountETHFromServices = ETHFromServices;
         // Collect treasury's own reward share
-        if (ETHFromServices >= treasuryRewards) {
-            ETHFromServices -= treasuryRewards;
-            ETHOwned += treasuryRewards;
+        if (treasuryRewards > 0 && amountETHFromServices >= treasuryRewards) {
+            // Update ETH from services value
+            amountETHFromServices -= treasuryRewards;
+
+            // Updated treasury ETH value
+            uint96 amountETHOwned = ETHOwned;
+            amountETHOwned += treasuryRewards;
+            ETHOwned = amountETHOwned;
         }
 
         // Send cumulative funds of staker, component, agent rewards and top-ups to dispenser
         // Send ETH rewards
-        if (accountRewards > 0 && ETHFromServices >= accountRewards) {
-            ETHFromServices -= accountRewards;
+        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
+            amountETHFromServices -= accountRewards;
             (success, ) = dispenser.call{value: accountRewards}("");
             if (!success) {
                 revert TransferFailed(address(0), address(this), dispenser, accountRewards);
             }
         }
+        // If ETHFromServices is not updated earlier due to if conditions, it is synced here
+        ETHFromServices = amountETHFromServices;
         // Send OLAS top-ups
         if (accountTopUps > 0) {
             // TODO This check is not needed if the calculations in Tokenomics are done correctly.
@@ -271,7 +290,9 @@ contract Treasury is GenericTokenomics {
 
     /// @dev Receives ETH.
     receive() external payable {
-        ETHOwned += uint96(msg.value);
+        uint96 amount = ETHOwned;
+        amount += uint96(msg.value);
+        ETHOwned = amount;
         emit ReceivedETH(msg.sender, msg.value);
     }
 }
