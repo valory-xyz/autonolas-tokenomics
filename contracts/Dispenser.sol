@@ -22,11 +22,11 @@ contract Dispenser is GenericTokenomics {
     {
     }
 
-    /// @dev Withdraws rewards for owners of components / agents.
+    /// @dev Claims rewards for the owner of components / agents.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     /// @return success
-    function withdrawOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+    function claimOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -50,10 +50,10 @@ contract Dispenser is GenericTokenomics {
         _locked = 1;
     }
 
-    /// @dev Withdraws rewards for a staker.
+    /// @dev Claims rewards for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    function withdrawStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+    function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();

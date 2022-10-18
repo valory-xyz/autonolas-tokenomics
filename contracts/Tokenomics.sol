@@ -195,7 +195,7 @@ contract Tokenomics is GenericTokenomics {
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
     // Inflation caps for the first ten years
-    uint96[] public supplyCaps;
+    uint96[10] public supplyCaps;
     // Set of protocol-owned services in current epoch
     uint32[] public protocolServiceIds;
 
@@ -220,8 +220,7 @@ contract Tokenomics is GenericTokenomics {
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
 
-        // Initial allocation is 526_500_000_0e17
-        supplyCaps = new uint96[](10);
+        // Initial OLAS allocation is 526_500_000_0e17
         supplyCaps[0] = 548_613_000_0e17;
         supplyCaps[1] = 628_161_885_0e17;
         supplyCaps[2] = 701_028_663_7e17;

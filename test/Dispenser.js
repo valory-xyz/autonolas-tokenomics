@@ -100,8 +100,8 @@ describe("Dispenser", async () => {
     context("Get rewards", async function () {
         it("Withdraw rewards for unit owners and stakers", async () => {
             // Try to withdraw rewards
-            await dispenser.connect(deployer).withdrawOwnerRewards();
-            await dispenser.connect(deployer).withdrawStakingRewards();
+            await dispenser.connect(deployer).claimOwnerRewards();
+            await dispenser.connect(deployer).claimStakingRewards();
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
@@ -147,8 +147,8 @@ describe("Dispenser", async () => {
             expect(result.topUp).to.greaterThan(0);
 
             // Withdraw rewards
-            await dispenser.connect(deployer).withdrawOwnerRewards();
-            await dispenser.connect(deployer).withdrawStakingRewards();
+            await dispenser.connect(deployer).claimOwnerRewards();
+            await dispenser.connect(deployer).claimStakingRewards();
         });
     });
 
@@ -190,19 +190,19 @@ describe("Dispenser", async () => {
 
             // Failing on the receive call
             await expect(
-                attacker.badWithdrawOwnerRewards(false)
+                attacker.badClaimOwnerRewards(false)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badWithdrawStakingRewards(false)
+                attacker.badClaimStakingRewards(false)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badWithdrawOwnerRewards(true)
+                attacker.badClaimOwnerRewards(true)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badWithdrawStakingRewards(true)
+                attacker.badClaimStakingRewards(true)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             // The funds still remain on the protocol side
