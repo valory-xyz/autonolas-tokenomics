@@ -40,7 +40,7 @@ abstract contract TokenomicsConstants {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
             // Max cap for the first 10 years
-            uint256 supplyCap = 1_000_000_000e18;
+            supplyCap = 1_000_000_000e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
@@ -56,7 +56,7 @@ abstract contract TokenomicsConstants {
 
     /// @dev Gets an inflation amount for a specific year.
     /// @param numYears Number of years passed from the launch date.
-    /// @return Inflation limit amount.
+    /// @return inflationAmount Inflation limit amount.
     function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount) {
         // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
         if (numYears < 10) {

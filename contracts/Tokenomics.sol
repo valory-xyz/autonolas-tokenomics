@@ -185,8 +185,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     // Service Registry
     address public serviceRegistry;
-    // Top-up amount per second
-    uint96 public topUpsPerSecond;
+    // Inflation amount per second
+    uint96 public inflationPerSecond;
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -227,8 +227,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
 
-        // Calculating initial top-up per second derived from the zero year inflation amount
-        topUpsPerSecond = uint96(22_113_000_0e17 / zeroYearSecondsLeft);
+        // Calculating initial inflation per second derived from the zero year inflation amount
+        inflationPerSecond = uint96(22_113_000_0e17 / zeroYearSecondsLeft);
     }
 
     /// @dev Changes tokenomics parameters.
@@ -575,36 +575,37 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // TODO Study if diffNumSeconds must be instead of epochLen here, since we could start new epoch later than epochLen
         // TODO This calculation is wrong - we should allocate more or less equal amount per each epoch, however from this
         // TODO formula we will get fewer and fewer top-ups until the end of the year
-        // OLAS top-ups are split between:
+        // OLAS inflation is split between:
         // 5: ownerTopUps, 6: stakerTopUps, 7: possibleBondAllocation
-        uint256 topUpsPerEpoch;
+        uint256 inflationPerEpoch;
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
         // Account for the year change to adjust inflation numbers
         if (numYears > currentYear) {
-            // Calculate remainder of top-ups for the passing year
-            uint256 curTopUpsPerSecond = topUpsPerSecond;
+            // Calculate remainder of inflation for the passing year
+            uint256 curInflationPerSecond = inflationPerSecond;
             // End of the year minus previous epoch timestamp
             uint256 yearEndTime = timeLaunch + numYears * oneYear;
-            topUpsPerEpoch = (yearEndTime - prevEpochTime) * curTopUpsPerSecond;
-            // Recalculate top-ups per second based on a new year inflation
-            curTopUpsPerSecond = getInflationForYear(numYears) / oneYear;
-            // Add the remainder of top-ups for this epoch based on a new top-ups per second ratio
-            topUpsPerEpoch += (block.timestamp - yearEndTime) * curTopUpsPerSecond;
+            inflationPerEpoch = (yearEndTime - prevEpochTime) * curInflationPerSecond;
+            // Recalculate inflation per second based on a new year inflation
+            curInflationPerSecond = getInflationForYear(numYears) / oneYear;
+            // Add the remainder of inflation amount for this epoch based on a new inflation per second ratio
+            inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond;
+            // TODO Check if anythings re bonding needs to be updated
             // Updating state variables
-            topUpsPerSecond = uint96(curTopUpsPerSecond);
+            inflationPerSecond = uint96(curInflationPerSecond);
             currentYear = uint8(numYears);
         } else {
-            topUpsPerEpoch = topUpsPerSecond * diffNumSeconds;
+            inflationPerEpoch = inflationPerSecond * diffNumSeconds;
         }
         // TODO must be based on bondPerEpoch or based on inflation, if the flag is set
         // TODO Check the connection to the maxBond such that we don't overflow the specified maxBond amount
         // TODO Make sure we don't go beyond the inflation schedule limit
-        rewards[5] = (topUpsPerEpoch * topUpOwnerFraction) / 100;
-        rewards[6] = (topUpsPerEpoch * topUpStakerFraction) / 100;
+        rewards[5] = (inflationPerEpoch * topUpOwnerFraction) / 100;
+        rewards[6] = (inflationPerEpoch * topUpStakerFraction) / 100;
         // All the leftovers from the inflation schedule allocation is given in favor of bonding programs
         // If that value is bigger than the current maxBond, it will be adjusted (in case of contract-controlled maxBond)
-        rewards[7] = topUpsPerEpoch - rewards[5] - rewards[6];
+        rewards[7] = inflationPerEpoch - rewards[5] - rewards[6];
 
         // Effective bond accumulates leftovers from previous epochs (with the last max bond value set)
         // TODO maxBond must be also recalculated based on when new epoch has started, as per additional (diffNumSeconds - epochLen)
@@ -735,7 +736,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Gets top-up value for epoch.
     /// @return topUp Top-up value.
     function getTopUpPerEpoch() external view returns (uint256 topUp) {
-        topUp = topUpsPerSecond * epochLen;
+        topUp = inflationPerSecond * epochLen;
     }
 
     /// @dev get Point by epoch
