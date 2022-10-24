@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
 import "./GenericTokenomics.sol";
+import "./TokenomicsConstants.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -95,20 +96,24 @@ struct PointEcomonics {
     // Number of valuable devs can be paid per units of capital per epoch
     // This number cannot be practically bigger than the total number of supported units
     uint32 devsPerCapital;
-    // Block number.
+    // Block number
     // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
     uint32 blockNumber;
+    // Timestamp
+    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+    uint32 epochTime;
 }
 
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is GenericTokenomics {
+contract Tokenomics is TokenomicsConstants, GenericTokenomics {
+    // TODO Just substitute with 10**18?
     using PRBMathSD59x18 for *;
 
     event EpochLengthUpdated(uint32 epochLength);
     event TokenomicsParametersUpdates(uint16 ucfcWeight, uint16 ucfaWeight, uint16 componentWeight, uint16 agentWeight,
-        uint32 devsPerCapital, uint64 epsilonRate, uint96 maxBond, uint32 epochLen, uint8 blockTimeETH, bool bondAutoControl);
+        uint32 devsPerCapital, uint64 epsilonRate, uint96 maxBond, uint32 epochLen, bool bondAutoControl);
     event RewardFractionsUpdated(uint8 stakerFraction, uint8 componentFraction, uint8 agentFraction,
         uint8 topUpOwnerFraction, uint8 topUpStakerFraction);
     event ComponentRegistryUpdated(address indexed componentRegistry);
@@ -127,8 +132,9 @@ contract Tokenomics is GenericTokenomics {
     // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
     // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
     uint64 public epsilonRate = 1e17;
-    // Epoch length in block numbers
-    // With the current number of seconds per block, 2^32 - 1 is enough for the length of epoch to be 1600+ years
+    // TODO Change to seconds
+    // Epoch length in seconds
+    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
     uint32 public epochLen;
     // Global epoch counter
     // This number cannot be practically bigger than the number of blocks
@@ -161,9 +167,6 @@ contract Tokenomics is GenericTokenomics {
 
     // Agent Registry
     address public agentRegistry;
-    // ETH average block time in seconds
-    // We assume that the block time will not be bigger than 255 seconds
-    uint8 public blockTimeETH = 12;
     // Staking parameters (in percentage)
     // treasuryFraction (implicitly set to zero by default) + componentFraction + agentFraction + stakerFraction = 100%
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
@@ -174,11 +177,16 @@ contract Tokenomics is GenericTokenomics {
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 public topUpOwnerFraction = 40;
     uint8 public topUpStakerFraction = 20;
+    // Current year number
+    // This number is enough for the next 255 years
+    uint8 currentYear;
     // Manual or auto control of max bond
     bool public bondAutoControl;
 
     // Service Registry
     address public serviceRegistry;
+    // Top-up amount per second
+    uint96 public topUpsPerSecond;
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -194,8 +202,6 @@ contract Tokenomics is GenericTokenomics {
     mapping(uint256 => bool) public mapAgents;
     // Mapping of owner of component / agent addresses that create them
     mapping(address => bool) public mapOwners;
-    // Inflation caps for the first ten years
-    uint96[10] public supplyCaps;
     // Set of protocol-owned services in current epoch
     uint32[] public protocolServiceIds;
 
@@ -212,6 +218,7 @@ contract Tokenomics is GenericTokenomics {
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint32 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
+    TokenomicsConstants()
     GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
         ve = _ve;
@@ -220,17 +227,8 @@ contract Tokenomics is GenericTokenomics {
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
 
-        // Initial OLAS allocation is 526_500_000_0e17
-        supplyCaps[0] = 548_613_000_0e17;
-        supplyCaps[1] = 628_161_885_0e17;
-        supplyCaps[2] = 701_028_663_7e17;
-        supplyCaps[3] = 766_084_123_6e17;
-        supplyCaps[4] = 822_958_209_0e17;
-        supplyCaps[5] = 871_835_342_9e17;
-        supplyCaps[6] = 913_259_378_7e17;
-        supplyCaps[7] = 947_973_171_3e17;
-        supplyCaps[8] = 976_799_806_9e17;
-        supplyCaps[9] = 1_000_000_000e18;
+        // Calculating initial top-up per second derived from the zero year inflation amount
+        topUpsPerSecond = uint96(22_113_000_0e17 / zeroYearSecondsLeft);
     }
 
     /// @dev Changes tokenomics parameters.
@@ -242,7 +240,6 @@ contract Tokenomics is GenericTokenomics {
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _maxBond MaxBond OLAS, 18 decimals.
     /// @param _epochLen New epoch length.
-    /// @param _blockTimeETH Time between blocks for ETH.
     /// @param _bondAutoControl True to enable auto-tuning of max bonding value depending on the OLAS remainder
     function changeTokenomicsParameters(
         uint16 _ucfcWeight,
@@ -253,7 +250,6 @@ contract Tokenomics is GenericTokenomics {
         uint64 _epsilonRate,
         uint96 _maxBond,
         uint32 _epochLen,
-        uint8 _blockTimeETH,
         bool _bondAutoControl
     ) external {
         // Check for the contract ownership
@@ -275,11 +271,10 @@ contract Tokenomics is GenericTokenomics {
         // Take into account the change during the epoch
         _adjustMaxBond(_maxBond);
         epochLen = _epochLen;
-        blockTimeETH = _blockTimeETH;
         bondAutoControl = _bondAutoControl;
 
         emit TokenomicsParametersUpdates(_ucfcWeight, _ucfaWeight, _componentWeight, _agentWeight, _devsPerCapital,
-            _epsilonRate, _maxBond, _epochLen, _blockTimeETH, _bondAutoControl);
+            _epsilonRate, _maxBond, _epochLen, _bondAutoControl);
     }
 
     /// @dev Sets staking parameters in fractions of distributed rewards.
@@ -345,6 +340,7 @@ contract Tokenomics is GenericTokenomics {
         }
     }
 
+    // TODO This has to be adjusted according to the forecast of the inflation schedule and
     /// @dev Checks for the OLAS minting ability WRT the inflation schedule.
     /// @param amount Amount of requested OLAS tokens to mint.
     /// @return allowed True if the mint is allowed.
@@ -356,22 +352,17 @@ contract Tokenomics is GenericTokenomics {
         }
     }
 
+    // TODO This function will be deleted or merged with the one above, since we use inflation caps for other calculations
     /// @dev Gets remainder of possible OLAS allocation for the current year.
     /// @return remainder OLAS amount possible to mint.
     function _getInflationRemainderForYear() internal view returns (uint256 remainder) {
-        // OLAS token time launch
-        // TODO Make it a constant, since it's not going to change
-        uint256 timeLaunch = IOLAS(olas).timeLaunch();
-        // One year of time
-        // TODO Make it a constant as well
-        uint256 oneYear = 1 days * 365;
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
         // For the first 10 years we check the inflation cap that is pre-defined
         if (numYears < 10) {
             // OLAS token supply to-date
             uint256 supply = IToken(olas).totalSupply();
-            remainder = supplyCaps[numYears] - supply;
+            remainder = getSupplyCapForYear(numYears) - supply;
         } else {
             remainder = IOLAS(olas).inflationRemainder();
         }
@@ -408,6 +399,7 @@ contract Tokenomics is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
+        // TODO The remainder is not needed anymore since the bond fraction insures there's enough tokens to mint up to effectiveBond value
         // Check the effective bond and remainder for the year
         uint256 remainder = _getInflationRemainderForYear();
         if (effectiveBond >= amount && amount < (remainder + 1)) {
@@ -505,7 +497,7 @@ contract Tokenomics is GenericTokenomics {
         // Calculate all complete UCFu-s divided by the cardinality of unit Ids in each service
         for (uint256 i = 0; i < numServices; ++i) {
             for (uint256 j = 0; j < numServiceUnits[i]; ++j) {
-                // Sum(UCFa[i]) / |As(epoch)|
+                // Sum(UCFu[i]) / |Us(epoch)|
                 ucfus[i] += ucfuRevs[serviceUnitIds[i][j]];
             }
             ucfus[i] /= numServiceUnits[i];
@@ -564,8 +556,9 @@ contract Tokenomics is GenericTokenomics {
     /// @return True if the function execution is successful.
     function checkpoint() external returns (bool) {
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
-        uint256 diffNumBlocks = block.number - mapEpochEconomics[epochCounter - 1].blockNumber;
-        if (diffNumBlocks < epochLen) {
+        uint256 prevEpochTime = mapEpochEconomics[epochCounter - 1].epochTime;
+        uint256 diffNumSeconds = block.timestamp - prevEpochTime;
+        if (diffNumSeconds < epochLen) {
             return false;
         }
 
@@ -579,23 +572,42 @@ contract Tokenomics is GenericTokenomics {
         rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // Top-ups and bonding possibility in OLAS are recalculated based on the inflation schedule per epoch
-        // TODO Study if diffNumBlocks must be instead of epochLen here, since we could start new epoch later than epochLen
+        // TODO Study if diffNumSeconds must be instead of epochLen here, since we could start new epoch later than epochLen
         // TODO This calculation is wrong - we should allocate more or less equal amount per each epoch, however from this
         // TODO formula we will get fewer and fewer top-ups until the end of the year
         // OLAS top-ups are split between:
         // 5: ownerTopUps, 6: stakerTopUps, 7: possibleBondAllocation
-        uint256 totalTopUps = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
+        uint256 topUpsPerEpoch;
+        // Current year
+        uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
+        // Account for the year change to adjust inflation numbers
+        if (numYears > currentYear) {
+            // Calculate remainder of top-ups for the passing year
+            uint256 curTopUpsPerSecond = topUpsPerSecond;
+            // End of the year minus previous epoch timestamp
+            uint256 yearEndTime = timeLaunch + numYears * oneYear;
+            topUpsPerEpoch = (yearEndTime - prevEpochTime) * curTopUpsPerSecond;
+            // Recalculate top-ups per second based on a new year inflation
+            curTopUpsPerSecond = getInflationForYear(numYears) / oneYear;
+            // Add the remainder of top-ups for this epoch based on a new top-ups per second ratio
+            topUpsPerEpoch += (block.timestamp - yearEndTime) * curTopUpsPerSecond;
+            // Updating state variables
+            topUpsPerSecond = uint96(curTopUpsPerSecond);
+            currentYear = uint8(numYears);
+        } else {
+            topUpsPerEpoch = topUpsPerSecond * diffNumSeconds;
+        }
         // TODO must be based on bondPerEpoch or based on inflation, if the flag is set
         // TODO Check the connection to the maxBond such that we don't overflow the specified maxBond amount
         // TODO Make sure we don't go beyond the inflation schedule limit
-        rewards[5] = (totalTopUps * topUpOwnerFraction) / 100;
-        rewards[6] = (totalTopUps * topUpStakerFraction) / 100;
+        rewards[5] = (topUpsPerEpoch * topUpOwnerFraction) / 100;
+        rewards[6] = (topUpsPerEpoch * topUpStakerFraction) / 100;
         // All the leftovers from the inflation schedule allocation is given in favor of bonding programs
         // If that value is bigger than the current maxBond, it will be adjusted (in case of contract-controlled maxBond)
-        rewards[7] = totalTopUps - rewards[5] - rewards[6];
+        rewards[7] = topUpsPerEpoch - rewards[5] - rewards[6];
 
         // Effective bond accumulates leftovers from previous epochs (with the last max bond value set)
-        // TODO maxBond must be also recalculated based on when new epoch has started, as per additional (diffNumBlocks - epochLen)
+        // TODO maxBond must be also recalculated based on when new epoch has started, as per additional (diffNumSeconds - epochLen)
         if (bondPerEpoch < maxBond) {
             effectiveBond += maxBond - bondPerEpoch;
         }
@@ -656,7 +668,7 @@ contract Tokenomics is GenericTokenomics {
         // Record settled epoch point
         PointEcomonics memory newPoint = PointEcomonics(ucfc, ucfa, idf, uint32(numServices), uint96(rewards[1]),
             uint96(rewards[2]), epochServiceDonationETH, uint96(rewards[5]), uint96(rewards[6]), devsPerCapital,
-            uint32(block.number));
+            uint32(block.number), uint32(block.timestamp));
         uint32 eCounter = epochCounter;
         mapEpochEconomics[eCounter] = newPoint;
 
@@ -699,7 +711,8 @@ contract Tokenomics is GenericTokenomics {
 
         for (endEpochNumber = startEpochNumber; endEpochNumber < epochCounter; ++endEpochNumber) {
             // Epoch point where the current epoch info is recorded
-            PointEcomonics memory pe = mapEpochEconomics[endEpochNumber];
+            uint96 stakerRewards = mapEpochEconomics[endEpochNumber].stakerRewards;
+            uint96 stakerTopUps = mapEpochEconomics[endEpochNumber].stakerTopUps;
             // Last block number of a previous epoch
             uint256 iBlock = mapEpochEconomics[endEpochNumber - 1].blockNumber - 1;
             // Get account's balance at the end of epoch
@@ -712,8 +725,8 @@ contract Tokenomics is GenericTokenomics {
 
                 // Add to the reward depending on the staker reward
                 if (supply > 0) {
-                    reward += (balance * pe.stakerRewards) / supply;
-                    topUp += (balance * pe.stakerTopUps) / supply;
+                    reward += (balance * stakerRewards) / supply;
+                    topUp += (balance * stakerTopUps) / supply;
                 }
             }
         }
@@ -722,7 +735,7 @@ contract Tokenomics is GenericTokenomics {
     /// @dev Gets top-up value for epoch.
     /// @return topUp Top-up value.
     function getTopUpPerEpoch() external view returns (uint256 topUp) {
-        topUp = (_getInflationRemainderForYear() * epochLen * blockTimeETH) / (1 days * 365);
+        topUp = topUpsPerSecond * epochLen;
     }
 
     /// @dev get Point by epoch
@@ -742,10 +755,9 @@ contract Tokenomics is GenericTokenomics {
     /// @return idf Discount factor with the multiple of 1e18.
     function getIDF(uint256 epoch) external view returns (uint256 idf)
     {
-        PointEcomonics memory pe = mapEpochEconomics[epoch];
-        if (pe.idf > 0) {
-            idf = pe.idf;
-        } else {
+        // TODO if IDF si undefined somewhere, we must return 1 but not the maximum possible
+        idf = mapEpochEconomics[epoch].idf;
+        if (idf == 0) {
             idf = 1e18 + epsilonRate;
         }
     }
@@ -754,10 +766,8 @@ contract Tokenomics is GenericTokenomics {
     /// @return idf Discount factor with the multiple of 1e18.
     function getLastIDF() external view returns (uint256 idf)
     {
-        PointEcomonics memory pe = mapEpochEconomics[epochCounter - 1];
-        if (pe.idf > 0) {
-            idf = pe.idf;
-        } else {
+        idf = mapEpochEconomics[epochCounter - 1].idf;
+        if (idf == 0) {
             idf = 1e18 + epsilonRate;
         }
     }

@@ -109,9 +109,9 @@ contract Depository is GenericTokenomics {
         Product storage product = mapTokenProducts[token][productId];
 
         // Check for the product expiry
-        uint256 currentTime = uint256(block.timestamp);
-        if (currentTime > product.expiry) {
-            revert ProductExpired(token, productId, product.expiry, currentTime);
+        expiry = product.expiry;
+        if (expiry < block.timestamp) {
+            revert ProductExpired(token, productId, product.expiry, block.timestamp);
         }
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
@@ -127,7 +127,6 @@ contract Depository is GenericTokenomics {
         product.purchased += tokenAmount;
 
         numBonds = mapUserBonds[user].length;
-        expiry = product.expiry;
 
         // Create and add a new bond
         mapUserBonds[user].push(Bond(payout, expiry, productId, false));
@@ -215,6 +214,7 @@ contract Depository is GenericTokenomics {
         matured = !bond.redeemed && bond.maturity <= block.timestamp && bond.payout != 0;
     }
 
+    // TODO Make sure deposit and create are not run in the same block number
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
     /// @param supply Supply in OLAS tokens.
