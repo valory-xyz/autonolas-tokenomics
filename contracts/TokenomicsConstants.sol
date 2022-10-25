@@ -61,6 +61,7 @@ abstract contract TokenomicsConstants {
         // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
+            // TODO study if it's cheaper to allocate new uint256[](10)
             uint88[10] memory inflationAmounts = [
                 22_113_000_0e17,
                 79_548_885_0e17,
@@ -83,7 +84,7 @@ abstract contract TokenomicsConstants {
             uint256 maxMintCapFraction = 2;
 
             // Get the supply cap until the year before the current year
-            for (uint256 i = 0; i < numYears - 1; ++i) {
+            for (uint256 i = 1; i < numYears; ++i) {
                 supplyCap += (supplyCap * maxMintCapFraction) / 100;
             }
 

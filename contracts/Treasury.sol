@@ -102,12 +102,9 @@ contract Treasury is GenericTokenomics {
         uint224 reserves = tokenInfo.reserves;
         reserves += tokenAmount;
         tokenInfo.reserves = reserves;
-        // Mint specified number of OLAS tokens corresponding to tokens bonding deposit if the amount is possible to mint
-        if (ITokenomics(tokenomics).isAllowedMint(olasMintAmount)) {
-            IOLAS(olas).mint(msg.sender, olasMintAmount);
-        } else {
-            revert MintRejectedByInflationPolicy(olasMintAmount);
-        }
+        // Mint specified number of OLAS tokens corresponding to tokens bonding deposit
+        // The olasMintAmount is guaranteed by the product supply limit, which is limited by the effectiveBond
+        IOLAS(olas).mint(msg.sender, olasMintAmount);
 
         // Transfer tokens from depository to treasury and add to the token treasury reserves
         // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance

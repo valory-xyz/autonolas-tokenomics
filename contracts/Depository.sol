@@ -109,6 +109,7 @@ contract Depository is GenericTokenomics {
         Product storage product = mapTokenProducts[token][productId];
 
         // Check for the product expiry
+        // Note that if the token or productId are invalid, the expiry will be zero by default and revert the function
         expiry = product.expiry;
         if (expiry < block.timestamp) {
             revert ProductExpired(token, productId, product.expiry, block.timestamp);
@@ -132,10 +133,8 @@ contract Depository is GenericTokenomics {
         mapUserBonds[user].push(Bond(payout, expiry, productId, false));
         emit CreateBond(token, productId, payout, tokenAmount);
 
-        // Take into account this bond in current epoch
-        ITokenomics(tokenomics).updateEpochBond(payout);
-
-        // Uniswap allowance implementation does not revert with the accurate message, check before SafeMath is engaged
+        // TODO All the transfer-related routines below can be moved to the treasury side without the need to receive funds by depository first?
+        // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
         if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
             revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
         }
@@ -232,7 +231,7 @@ contract Depository is GenericTokenomics {
         }
 
         // Check if the bond amount is beyond the limits
-        if (!ITokenomics(tokenomics).allowedNewBond(supply)) {
+        if (!ITokenomics(tokenomics).reserveAmountForBondProgram(supply)) {
             revert AmountLowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
         }
 
@@ -254,6 +253,7 @@ contract Depository is GenericTokenomics {
         emit CreateProduct(token, productId, supply);
     }
 
+    // TODO Make this function callable by everybody, also from the redeem function
     /// @dev Close a bonding product.
     /// @param token Specified token.
     /// @param productId Product Id.
@@ -263,11 +263,18 @@ contract Depository is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        uint96 supply = mapTokenProducts[token][productId].supply;
+        // Refund unused OLAS supply from the program if not used completely
+        if (supply > 0) {
+            ITokenomics(tokenomics).refundFromBondProgram(supply);
+        }
+        // TODO Check if it's better to just delete
         mapTokenProducts[token][productId].supply = 0;
         
         emit TerminateProduct(token, productId);
     }
 
+    // TODO Optimize for gas usage
     /// @dev Gets activity information about a given product.
     /// @param productId Product Id.
     /// @return status True if the product is active.
