@@ -312,7 +312,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
             // Calculate next maxBond based on the proposed epochLen
             uint256 nextMaxBond = inflationPerSecond * maxBondFraction * _epochLen;
-            // Adjust maxBond and effectiveBond, if they are withing allowed limits
+            // Adjust maxBond and effectiveBond, if they are within the allowed limits
             adjustMaxBond(nextMaxBond);
 
             // Update the epochLen
@@ -357,7 +357,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         componentFraction = _componentFraction;
         agentFraction = _agentFraction;
 
-        // TODO Adjust the max bond. Immediately try to adjust the effectiveBond, and if < 0, revert
+        // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = maxBondFraction;
         if (oldMaxBondFraction != _maxBondFraction) {
             // Actual current year
@@ -369,9 +369,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                 revert Overflow(numYears, curYear);
             }
 
-            // Calculate next maxBond based on the proposed epochLen
-            uint256 nextMaxBond = inflationPerSecond * maxBondFraction * epochLen;
-            // Adjust maxBond and effectiveBond, if they are withing allowed limits
+            // Calculate next maxBond based on the proposed maxBondFraction
+            uint256 nextMaxBond = inflationPerSecond * _maxBondFraction * epochLen;
+            // Adjust maxBond and effectiveBond, if they are within the allowed limits
             adjustMaxBond(nextMaxBond);
 
             // Update the maxBondFraction
