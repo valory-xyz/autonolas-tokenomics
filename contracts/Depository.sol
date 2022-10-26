@@ -31,7 +31,7 @@ import "./interfaces/ITreasury.sol";
 contract Depository is GenericTokenomics {
     event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
-    event TerminateProduct(address indexed token, uint256 productId);
+    event CloseProduct(address indexed token, uint256 productId);
 
     // The size of the struct is 96 + 32 * 2 + 8 = 168 bits (1 full slot)
     struct Bond {
@@ -268,10 +268,10 @@ contract Depository is GenericTokenomics {
         if (supply > 0) {
             ITokenomics(tokenomics).refundFromBondProgram(supply);
         }
-        // TODO Check if it's better to just delete
+        // TODO Check if delete of the mapTokenProducts[token][productId] is better
         mapTokenProducts[token][productId].supply = 0;
         
-        emit TerminateProduct(token, productId);
+        emit CloseProduct(token, productId);
     }
 
     // TODO Optimize for gas usage

@@ -178,7 +178,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     uint8 public topUpOwnerFraction = 40;
     // Current year number
     // This number is enough for the next 255 years
-    uint8 currentYear;
+    uint8 public currentYear;
+    // maxBond-rerlated parameter change locker
+    uint8 public lockMaxBond = 1;
 
     // Service Registry
     address public serviceRegistry;
@@ -227,26 +229,26 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         inflationPerSecond = uint96(_inflationPerSecond);
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
-        uint256 _maxBond = _inflationPerSecond * _epochLen * maxBondFraction;
+        uint256 _maxBond = _inflationPerSecond * _epochLen * maxBondFraction / 100;
         maxBond = uint96(_maxBond);
         effectiveBond = uint96(_maxBond);
     }
 
     /// @dev Checks if the maxBond update is within allowed limits for effectiveBond, adjusts maxBond and effectiveBond.
     /// @param nextMaxBond Proposed next epoch maxBond.
-    function adjustMaxBond(uint256 nextMaxBond) internal {
+    function _adjustMaxBond(uint256 nextMaxBond) internal {
         uint256 curMaxBond = maxBond;
         uint256 curEffectiveBond = effectiveBond;
         // The new epochLen is shorter than the current one
         if (curMaxBond > nextMaxBond) {
             // Get the difference of the maxBond
-            curMaxBond -= nextMaxBond;
+            uint256 delta = curMaxBond - nextMaxBond;
             // Update the value for the effectiveBond if there is room for it
-            if (curEffectiveBond > curMaxBond) {
-                curEffectiveBond -= curMaxBond;
+            if (curEffectiveBond > delta) {
+                curEffectiveBond -= delta;
             } else {
                 // Otherwise effectiveBond cannot be reduced further, and the current epochLen cannot be shortened
-                revert AmountLowerThan(curEffectiveBond, curMaxBond);
+                revert RejectMaxBondAdjustment(curEffectiveBond, delta);
             }
         } else {
             // The new epochLen is longer than the current one, and thus we must add the difference to the effectiveBond
@@ -295,25 +297,25 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Check for the epochLen value to change
         uint256 oldEpochLen = epochLen;
         if (oldEpochLen != _epochLen) {
-            // Actual current year
-            uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
-            uint256 curYear = currentYear;
-            // Check if the year changes in the current epoch and revert if it is the case
-            if (numYears > curYear) {
-                revert Overflow(numYears, curYear);
+            // Check if the year change is ongoing in the current epoch, and thus maxBond cannot be changed
+            if (lockMaxBond == 2) {
+                revert MaxBondUpdateLocked();
             }
 
-            // Actual year plus two proposed epochLens
-            numYears = (block.timestamp + 2 * _epochLen - timeLaunch) / oneYear;
-            // Check if the year is going to change in two epochs and revert if it is the case
-            if (numYears > currentYear) {
-                revert Overflow(numYears, curYear);
+            // Check if the bigger proposed length of the epoch end time results in a scenario when the year changes
+            if (_epochLen > oldEpochLen) {
+                // Actual year of the time when the epoch is going to finish with the proposed epoch length
+                uint256 numYears = (mapEpochEconomics[epochCounter - 1].epochTime + _epochLen - timeLaunch) / oneYear;
+                // Check if the year is going to change
+                if (numYears > currentYear) {
+                    revert MaxBondUpdateLocked();
+                }
             }
 
             // Calculate next maxBond based on the proposed epochLen
-            uint256 nextMaxBond = inflationPerSecond * maxBondFraction * _epochLen;
+            uint256 nextMaxBond = inflationPerSecond * maxBondFraction * _epochLen / 100;
             // Adjust maxBond and effectiveBond, if they are within the allowed limits
-            adjustMaxBond(nextMaxBond);
+            _adjustMaxBond(nextMaxBond);
 
             // Update the epochLen
             epochLen = _epochLen;
@@ -360,19 +362,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = maxBondFraction;
         if (oldMaxBondFraction != _maxBondFraction) {
-            // Actual current year
-            uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
-            uint256 curYear = currentYear;
-            // Check if the year changes in the current epoch and revert if it is the case
-            // This is done to prevent the change of the maxBond that was calculated from two parts accounting for the year change
-            if (numYears > curYear) {
-                revert Overflow(numYears, curYear);
+            // Epoch with the year change is ongoing, and maxBond cannot be changed
+            if (lockMaxBond == 2) {
+                revert MaxBondUpdateLocked();
             }
 
             // Calculate next maxBond based on the proposed maxBondFraction
             uint256 nextMaxBond = inflationPerSecond * _maxBondFraction * epochLen;
             // Adjust maxBond and effectiveBond, if they are within the allowed limits
-            adjustMaxBond(nextMaxBond);
+            _adjustMaxBond(nextMaxBond);
 
             // Update the maxBondFraction
             maxBondFraction = _maxBondFraction;
@@ -591,6 +589,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Treasury reward calculation
         rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
+        // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
         // Get the maxBond that was credited to effectiveBond during this settled epoch
         // If the year changes, the maxBond for the next epoch is updated in the condition below and will be used
@@ -611,10 +610,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Add the remainder of inflation amount for this epoch based on a new inflation per nex year ratio
             inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond;
             // Update the maxBond value for the next epoch after the year changes
-            maxBond = uint96(curInflationPerSecond * curEpochLen);
+            maxBond = uint96(curInflationPerSecond * curEpochLen * maxBondFraction) / 100;
             // Updating state variables
             inflationPerSecond = uint96(curInflationPerSecond);
             currentYear = uint8(numYears);
+            // maxBond lock is released and can be changed starting from the new epoch
+            lockMaxBond = 1;
         } else {
             inflationPerEpoch = inflationPerSecond * diffNumSeconds;
         }
@@ -633,8 +634,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // since the epoch checkpoint delay was not accounted for initially
         // TODO optimize for gas usage below
         // TODO Prove that the adjusted maxBond (rewards[5]) will never be lower than the epoch maxBond
-        rewards[5] = effectiveBond + rewards[5] - curMaxBond;
-        effectiveBond = uint96(rewards[5]);
+        // This has to always be true, or rewards[5] == curMaxBond if the epoch is settled exactly at the epochLen time
+        if (rewards[5] > curMaxBond) {
+            // Adjust the effectiveBond
+            rewards[5] = effectiveBond + rewards[5] - curMaxBond;
+            effectiveBond = uint96(rewards[5]);
+        }
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
@@ -647,12 +652,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // End of the year timestamp
             uint256 yearEndTime = timeLaunch + numYears * oneYear;
             // Calculate the  max bond value until the end of the year
-            curMaxBond = (yearEndTime - block.timestamp) * curInflationPerSecond * maxBondFraction;
+            curMaxBond = (yearEndTime - block.timestamp) * curInflationPerSecond * maxBondFraction / 100;
             // Recalculate inflation per second based on a new year inflation
             curInflationPerSecond = getInflationForYear(numYears) / oneYear;
             // Add the remainder of max bond amount for the next epoch based on a new inflation per the next year ratio
-            curMaxBond += (block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * maxBondFraction;
+            curMaxBond += (block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * maxBondFraction / 100;
             maxBond = uint96(curMaxBond);
+            // maxBond lock is set and cannot be changed until the next epoch with the year change passes
+            lockMaxBond = 2;
         } else {
             // This assignment is done again to account for the maxBond value that could change if we are currently
             // in the epoch with a changing year
