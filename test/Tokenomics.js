@@ -1,11 +1,13 @@
 /*global describe, beforeEach, it, context*/
-const { ethers, network } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
+const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Tokenomics", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
+    const oneYear = 86400 * 365;
 
     let signers;
     let deployer;
@@ -94,36 +96,62 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
         });
 
+        it("Get inflation numbers", async function () {
+            const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
+            expect(fiveYearSupplyCap).to.equal("8718353429" + "0".repeat(17));
+
+            const elevenYearSupplyCap = await tokenomics.getSupplyCapForYear(11);
+            expect(elevenYearSupplyCap).to.equal("10404" + "0".repeat(23));
+
+            const fiveYearInflationAmount = await tokenomics.getInflationForYear(5);
+            expect(fiveYearInflationAmount).to.equal("488771339" + "0".repeat(17));
+
+            const elevenYearInflationAmount = await tokenomics.getInflationForYear(11);
+            expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
+        });
+
         it("Changing tokenomics parameters", async function () {
             // Trying to change tokenomics parameters from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 10, 10, true)
+                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 10, 10, true);
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10);
+            // Change epoch len to a smaller value
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 1);
+            // Leave the epoch length untouched
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 1);
+            // And then change back to the bigger one
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 8);
+            // Try to set the epochLen to zero that must fail due to effectiveBond going to zero
+            await expect(
+                tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
 
             // Trying to set epsilonRate bigger than 17e18
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, "171"+"0".repeat(17), 10, 10, 10, true);
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, "171"+"0".repeat(17), 10);
             expect(await tokenomics.epsilonRate()).to.equal(10);
         });
 
         it("Changing reward fractions", async function () {
             // Trying to change tokenomics reward fractions from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeRewardFraction(50, 50, 50, 0, 0)
+                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 50, 100, 0)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // The sum of first 3 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeRewardFraction(50, 50, 50, 0, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 50, 50, 100, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
             // The sum of last 2 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeRewardFraction(50, 40, 10, 50, 51)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 10, 50, 51)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
-            await tokenomics.connect(deployer).changeRewardFraction(30, 40, 10, 40, 50);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50);
+            // Try to set exactly same values again
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50);
         });
 
         it("Changing registries addresses", async function () {
@@ -143,11 +171,11 @@ describe("Tokenomics", async () => {
 
         it("Should fail when calling depository-owned functions by other addresses", async function () {
             await expect(
-                tokenomics.connect(signers[1]).allowedNewBond(0)
+                tokenomics.connect(signers[1]).reserveAmountForBondProgram(0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
 
             await expect(
-                tokenomics.connect(signers[1]).updateEpochBond(0)
+                tokenomics.connect(signers[1]).refundFromBondProgram(0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -161,32 +189,6 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(signers[1]).accountOwnerRewards(deployer.address)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
-        });
-    });
-
-    context("Inflation schedule", async function () {
-        it("Check if the mint is allowed", async () => {
-            // Trying to mint more than the inflation remainder for the year
-            let allowed = await tokenomics.connect(deployer).callStatic.isAllowedMint(initialMint.repeat(2));
-            expect(allowed).to.equal(false);
-
-            allowed = await tokenomics.connect(deployer).callStatic.isAllowedMint(1000);
-            expect(allowed).to.equal(true);
-        });
-
-        it("Check if the new bond is allowed", async () => {
-            // Trying to get a new bond amount more than the inflation remainder for the year
-            let allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(maxUint96);
-            expect(allowed).to.equal(false);
-
-            allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(1000);
-            expect(allowed).to.equal(true);
-
-            // Check the same condition after 10 years
-            await network.provider.send("evm_increaseTime", [3153600000]);
-            await ethers.provider.send("evm_mine");
-            allowed = await tokenomics.connect(deployer).callStatic.allowedNewBond(1000);
-            expect(allowed).to.equal(true);
         });
     });
 
@@ -215,13 +217,8 @@ describe("Tokenomics", async () => {
             await ethers.provider.send("evm_mine");
             await tokenomics.connect(deployer).checkpoint();
 
-            // Set the auto-control of effective bond calculation
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 1, 10, true);
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Try to run checkpoint while the epoch length is not yet reached
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10, 10, 10, true);
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10);
             await tokenomics.connect(deployer).checkpoint();
         });
 
@@ -271,17 +268,13 @@ describe("Tokenomics", async () => {
             await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0, 10, 10, true);
+            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10);
             await tokenomics.connect(deployer).checkpoint();
 
             // Get IDF
             const lastEpoch = await tokenomics.epochCounter() - 1;
             const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
             expect(idf).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
-
-            // Change max bond twice such that adjustment of max bond is tested
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 1, 10, 10, true);
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 0, 10, 10, true);
         });
     });
 
@@ -320,5 +313,116 @@ describe("Tokenomics", async () => {
             const topUp = await tokenomics.getTopUpPerEpoch();
             expect(topUp).to.greaterThan(0);
         });
+    });
+
+    context("Time sensitive tests", async function () {
+        it("Check if the OLAS amount bond is available for the bond program", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Trying to get a new bond amount more than the inflation remainder for the year
+            let allowed = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(maxUint96);
+            expect(allowed).to.equal(false);
+
+            allowed = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(1000);
+            expect(allowed).to.equal(true);
+
+            // Check the same condition after 10 years
+            await helpers.time.increase(3153600000);
+            allowed = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(1000);
+            expect(allowed).to.equal(true);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Get to the epoch before the end of the OLAS year and try to change maxBond or epochLen", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set epochLen to 10 seconds
+            const currentEpochLen = 10;
+            await tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, currentEpochLen);
+
+            // OLAS starting time
+            const timeLaunch = Number(await tokenomics.timeLaunch());
+            // One year time from the launch
+            const yearChangeTime = timeLaunch + Number(oneYear);
+
+            // Get to the time of more than one epoch length before the year change (1.5 epoch length)
+            let timeEpochBeforeYearChange = yearChangeTime - currentEpochLen - 5;
+            await helpers.time.increaseTo(timeEpochBeforeYearChange);
+            await tokenomics.checkpoint();
+            // Try to change the epoch length now such that the next epoch will immediately have the year change
+            await expect(
+                tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, 20)
+            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+
+            // Get to the time of the half epoch length before the year change
+            // Meaning that the year does not change yet during the current epoch, but it will during the next one
+            timeEpochBeforeYearChange += currentEpochLen;
+            await helpers.time.increaseTo(timeEpochBeforeYearChange);
+            await tokenomics.checkpoint();
+
+            // The maxBond lock flag must be set to true, now try to change the epochLen
+            await expect(
+                tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, 1)
+            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+            // Try to change the maxBondFraction as well
+            await expect(
+                tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50)
+            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+
+            // Now skip one epoch
+            await helpers.time.increaseTo(timeEpochBeforeYearChange + currentEpochLen);
+            await tokenomics.checkpoint();
+
+            // Change parameters now
+            await tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, 1);
+            await tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        //        it("Get to the end of the OLAS year and try to change next epochLen to a bigger one", async () => {
+        //            // Take a snapshot of the current state of the blockchain
+        //            const snapshot = await helpers.takeSnapshot();
+        //
+        //            // Set epochLen to 10 seconds
+        //            const currentEpochLen = 10;
+        //            await tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, currentEpochLen);
+        //
+        //            // OLAS starting time
+        //            const timeLaunch = Number(await tokenomics.timeLaunch());
+        //            // One year time from the launch
+        //            const yearChangeTime = timeLaunch + Number(oneYear);
+        //
+        //            // Get to the time less than 1.5 of the epochLen before the year change
+        //            // Meaning that the year does not change yet during the current epoch, but it will during the next one
+        //            const timeEpochBeforeYearChange = yearChangeTime - currentEpochLen;
+        //            await helpers.time.increaseTo(timeEpochBeforeYearChange);
+        //            await tokenomics.checkpoint();
+        //
+        //            // The maxBond lock flag must be set to true, now try to change the epochLen
+        //            await expect(
+        //                tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, 1)
+        //            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+        //            // Try to change the maxBondFraction as well
+        //            await expect(
+        //                tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50)
+        //            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+        //
+        //            // Restore to the state of the snapshot
+        //            await snapshot.restore();
+        //        });
+        //
+        //        it("Check if the new bond is allowed", async () => {
+        //            // Take a snapshot of the current state of the blockchain
+        //            const snapshot = await helpers.takeSnapshot();
+        //
+        //            // Restore to the state of the snapshot
+        //            await snapshot.restore();
+        //        });
     });
 });
