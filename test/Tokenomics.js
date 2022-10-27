@@ -384,45 +384,5 @@ describe("Tokenomics", async () => {
             // Restore to the state of the snapshot
             await snapshot.restore();
         });
-
-        //        it("Get to the end of the OLAS year and try to change next epochLen to a bigger one", async () => {
-        //            // Take a snapshot of the current state of the blockchain
-        //            const snapshot = await helpers.takeSnapshot();
-        //
-        //            // Set epochLen to 10 seconds
-        //            const currentEpochLen = 10;
-        //            await tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, currentEpochLen);
-        //
-        //            // OLAS starting time
-        //            const timeLaunch = Number(await tokenomics.timeLaunch());
-        //            // One year time from the launch
-        //            const yearChangeTime = timeLaunch + Number(oneYear);
-        //
-        //            // Get to the time less than 1.5 of the epochLen before the year change
-        //            // Meaning that the year does not change yet during the current epoch, but it will during the next one
-        //            const timeEpochBeforeYearChange = yearChangeTime - currentEpochLen;
-        //            await helpers.time.increaseTo(timeEpochBeforeYearChange);
-        //            await tokenomics.checkpoint();
-        //
-        //            // The maxBond lock flag must be set to true, now try to change the epochLen
-        //            await expect(
-        //                tokenomics.changeTokenomicsParameters(1, 1, 1, 1, 1, 1, 1)
-        //            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
-        //            // Try to change the maxBondFraction as well
-        //            await expect(
-        //                tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50)
-        //            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
-        //
-        //            // Restore to the state of the snapshot
-        //            await snapshot.restore();
-        //        });
-        //
-        //        it("Check if the new bond is allowed", async () => {
-        //            // Take a snapshot of the current state of the blockchain
-        //            const snapshot = await helpers.takeSnapshot();
-        //
-        //            // Restore to the state of the snapshot
-        //            await snapshot.restore();
-        //        });
     });
 });
