@@ -213,6 +213,13 @@ describe("Treasury", async () => {
             // Withdraw ETH
             const success = await treasury.callStatic.withdraw(deployer.address, amount, ETHAddress);
             expect(success).to.equal(true);
+            // Call the non-static withdraw
+            await treasury.withdraw(deployer.address, amount, ETHAddress);
+
+            // Try to withdraw more ETH amount than treasury owns
+            await expect(
+                treasury.withdraw(deployer.address, amount, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
         });
     });
 

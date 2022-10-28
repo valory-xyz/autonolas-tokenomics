@@ -269,6 +269,7 @@ describe("Tokenomics", async () => {
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10, 10, 10, 10);
+            await helpers.time.increase(10);
             await tokenomics.connect(deployer).checkpoint();
 
             // Get IDF

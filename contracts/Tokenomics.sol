@@ -10,6 +10,7 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
+
 /*
 * In this contract we consider both ETH and OLAS tokens.
 * For ETH tokens, there are currently about 121 million tokens.
