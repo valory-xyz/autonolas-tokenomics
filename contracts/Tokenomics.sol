@@ -69,7 +69,7 @@ struct PointUnits {
 }
 
 // Structure for tokenomics
-// The size of the struct is 512 * 2 + 64 + 32 + 96 * 6 + 32 * 3 = 256 * 4 + 128 + 32 (5 full slots)
+// The size of the struct is 512 * 2 + 96 * 5 + 64 + 32 * 4 = 256 * 6 + 128 + 32 (7 full slots)
 struct PointEcomonics {
     // UCFc
     PointUnits ucfc;
@@ -179,7 +179,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // Current year number
     // This number is enough for the next 255 years
     uint8 public currentYear;
-    // maxBond-rerlated parameter change locker
+    // maxBond-related parameter change locker
     uint8 public lockMaxBond = 1;
 
     // Service Registry
@@ -237,12 +237,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         mapEpochEconomics[0].endTime = uint32(block.timestamp);
     }
 
-    /// @dev Checks if the maxBond update is within allowed limits for effectiveBond, adjusts maxBond and effectiveBond.
+    /// @dev Checks if the maxBond update is within allowed limits of the effectiveBond, and adjusts maxBond and effectiveBond.
     /// @param nextMaxBond Proposed next epoch maxBond.
     function _adjustMaxBond(uint256 nextMaxBond) internal {
         uint256 curMaxBond = maxBond;
         uint256 curEffectiveBond = effectiveBond;
-        // The new epochLen is shorter than the current one
+        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed one
         if (curMaxBond > nextMaxBond) {
             // Get the difference of the maxBond
             uint256 delta = curMaxBond - nextMaxBond;
@@ -428,8 +428,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Refunds unused bond program amount.
-    /// @param amount Amount to be refunded from the bond program.
+    /// @dev Refunds unused bond program amount when the program is closed.
+    /// @param amount Amount to be refunded from the closed bond program.
     function refundFromBondProgram(uint96 amount) external {
         // Check for the depository access
         if (depository != msg.sender) {
