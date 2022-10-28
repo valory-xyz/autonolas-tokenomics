@@ -30,8 +30,8 @@ describe("Depository LP", async () => {
     let tokenomics;
     let epochLen = 100;
 
-    // 2,000
-    let supplyProductOLAS =  "2" + "0".repeat(3) + decimals;
+    // 2,200
+    let supplyProductOLAS =  "22" + "0".repeat(2) + decimals;
     let pseudoFlashLoan = "2"  + "0".repeat(2) + decimals;
     const maxUint96 = "79228162514264337593543950335";
     const maxUint32 = "4294967295";
@@ -431,6 +431,16 @@ describe("Depository LP", async () => {
             await depository.close(pairODAI.address, bid);
             product = await depository.getProduct(pairODAI.address, bid);
             expect(Number(product.supply)).to.equal(0);
+        });
+
+        it("Create a bond product, deposit, then close it", async () => {
+            // Transfer more LP tokens to Bob
+            const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
+            await pairODAI.connect(deployer).transfer(bob.address, amountTo);
+            // Deposit for the full amount of OLAS
+            const bamount = "2" + "0".repeat(3) + decimals;
+            await depository.connect(bob).deposit(pairODAI.address, bid, bamount, bob.address);
+            await depository.close(pairODAI.address, bid);
         });
     });
 
