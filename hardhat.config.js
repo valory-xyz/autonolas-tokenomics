@@ -2,6 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
 require("hardhat-gas-reporter");
+require("hardhat-tracer");
 
 /**
  * @type import('hardhat/config').HardhatUserConfig

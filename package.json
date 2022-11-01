@@ -26,6 +26,7 @@
     "@nomiclabs/hardhat-ethers": "^2.1.1",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@openzeppelin/contracts": "^4.7.3",
+    "@partylikeits1983/statistics_solidity": "^1.0.1",
     "@typechain/ethers-v5": "^10.1.0",
     "@typechain/hardhat": "^6.1.3",
     "@types/mocha": "^9.1.1",
@@ -39,21 +40,21 @@
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.0",
-    "typescript": "^4.8.3",
-    "@partylikeits1983/statistics_solidity": "^1.0.1"
+    "typescript": "^4.8.3"
   },
   "dependencies": {
-    "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/v2-core": "^1.0.1",
-    "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "canonical-weth": "^1.4.0",
     "@anders-t/ethers-ledger": "^1.0.4",
     "@ethersproject/contracts": "^5.7.0",
     "@ethersproject/providers": "^5.7.1",
     "@ethersproject/solidity": "^5.7.0",
     "@ethersproject/wallet": "^5.7.0",
+    "@uniswap/lib": "^4.0.1-alpha",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "canonical-weth": "^1.4.0",
     "eth-permit": "^0.2.1",
     "hardhat-deploy-ethers": "^0.3.0-beta.13",
+    "hardhat-tracer": "^1.1.1",
     "solhint": "^3.3.7"
   }
 }
