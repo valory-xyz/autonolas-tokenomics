@@ -127,7 +127,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     using PRBMathSD59x18 for *;
 
     event EpochLengthUpdated(uint256 epochLength);
-    event TokenomicsParametersUpdates(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
+    event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event IncentiveFractionsUpdated(uint256 rewardStakerFraction, uint256 rewardComponentFraction, uint256 rewardAgentFraction,
         uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
     event ComponentRegistryUpdated(address indexed componentRegistry);
@@ -215,8 +215,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _serviceRegistry Service registry address.
     constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint32 _epochLen,
         address _componentRegistry, address _agentRegistry, address _serviceRegistry)
-    TokenomicsConstants()
-    GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
+        TokenomicsConstants()
+        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
         ve = _ve;
         epochLen = _epochLen;
@@ -237,18 +237,20 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Setting initial parameters and ratios
         tp.epochPoint.devsPerCapital = 1;
+        tp.epochPoint.idf = 1e18 + epsilonRate;
 
         tp.epochPoint.rewardStakerFraction = 50;
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = 33;
         tp.unitPoints[1].rewardUnitFraction = 17;
 
-        tp.epochPoint.maxBondFraction = 50;
+        uint256 _maxBondFraction = 50;
+        tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
         tp.unitPoints[0].topUpUnitFraction = 33;
         tp.unitPoints[1].topUpUnitFraction = 17;
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
-        uint256 _maxBond = _inflationPerSecond * _epochLen * 50 / 100;
+        uint256 _maxBond = _inflationPerSecond * _epochLen * _maxBondFraction / 100;
         maxBond = uint96(_maxBond);
         effectiveBond = uint96(_maxBond);
     }
@@ -333,7 +335,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         veOLASThreshold = _veOLASThreshold;
 
-        emit TokenomicsParametersUpdates(_devsPerCapital, _epsilonRate, _epochLen, _veOLASThreshold);
+        emit TokenomicsParametersUpdated(_devsPerCapital, _epsilonRate, _epochLen, _veOLASThreshold);
     }
 
     /// @dev Sets incentive parameter fractions.
@@ -670,6 +672,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Update effectiveBond with the current or updated maxBond value
         effectiveBond += uint96(curMaxBond);
 
+        // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
         if (rewards[0] > 0) {
@@ -706,7 +709,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Record settled epoch point values
-        tp.epochPoint.idf = idf;
         tp.epochPoint.endBlockNumber = uint32(block.number);
         tp.epochPoint.endTime = uint32(block.timestamp);
 
@@ -748,6 +750,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         nextPoint.epochPoint.rewardStakerFraction = tp.epochPoint.rewardStakerFraction;
         nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
+        nextPoint.epochPoint.idf = idf;
 
         return true;
     }
