@@ -18,11 +18,6 @@ contract MockVE {
         return balance;
     }
 
-    /// @dev Sets the new balance.
-    function setBalance(uint256 newBalance) external {
-        balance = newBalance;
-    }
-
     /// @dev Gets total token supply at a specific block number.
     function totalSupplyAt(uint256) external view returns (uint256) {
         return supply;
@@ -33,8 +28,18 @@ contract MockVE {
         return weightedBalance;
     }
 
+    /// @dev Sets the new balance.
+    function setBalance(uint256 newBalance) external {
+        balance = newBalance;
+    }
+
     /// @dev Sets the new total supply.
     function setSupply(uint256 newSupply) external {
         supply = newSupply;
+    }
+
+    /// @dev Sets the new weighted balance.
+    function setWeightedBalance(uint256 newWeightedBalance) external {
+        weightedBalance = newWeightedBalance;
     }
 }

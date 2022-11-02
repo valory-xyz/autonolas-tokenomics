@@ -97,9 +97,9 @@ describe("Dispenser", async () => {
         });
     });
 
-    context("Get rewards", async function () {
-        it("Withdraw rewards for unit owners and stakers", async () => {
-            // Try to withdraw rewards
+    context("Get incentives", async function () {
+        it("Withdraw incentives for unit owners and stakers", async () => {
+            // Try to claim rewards
             await dispenser.connect(deployer).claimOwnerRewards([], []);
             await dispenser.connect(deployer).claimStakingRewards();
 
@@ -129,6 +129,9 @@ describe("Dispenser", async () => {
             await serviceRegistry.changeUnitOwner(1, deployer.address);
             await componentRegistry.changeUnitOwner(1, deployer.address);
             await agentRegistry.changeUnitOwner(1, deployer.address);
+
+            // Change the fractions such that top-ups for stakers are not zero
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
 
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -163,6 +166,134 @@ describe("Dispenser", async () => {
 
             // Get deployer incentives information
             const result = await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
+            expect(result.reward).to.greaterThan(0);
+            expect(result.topUp).to.greaterThan(0);
+
+            // Claim rewards and top-ups
+            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingRewards();
+        });
+
+        it("Should fail when trying to get incentives with incorrect inputs", async () => {
+            // Try to get and claim owner rewards with the wrong array length
+            await expect(
+                tokenomics.getOwnerRewards(deployer.address, [0], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
+            await expect(
+                dispenser.claimOwnerRewards([0], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
+
+            // Try to get and claim owner rewards while not being the owner of components / agents
+            await expect(
+                tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+            await expect(
+                dispenser.claimOwnerRewards([0, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+
+            // Assign component and agent ownership to a deployer
+            await componentRegistry.changeUnitOwner(1, deployer.address);
+            await agentRegistry.changeUnitOwner(1, deployer.address);
+
+            // Try to get and claim owner rewards with incorrect unit type
+            await expect(
+                tokenomics.getOwnerRewards(deployer.address, [2, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+            await expect(
+                dispenser.claimOwnerRewards([2, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+        });
+
+        it("Withdraw incentives for unit owners and stakers for more than one epoch", async () => {
+            // Change the first service owner to the deployer (same for components and agents)
+            await serviceRegistry.changeUnitOwner(1, deployer.address);
+            await componentRegistry.changeUnitOwner(1, deployer.address);
+            await agentRegistry.changeUnitOwner(1, deployer.address);
+
+            // Try to get and claim rewards
+            await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingRewards();
+
+            // Skip the number of blocks for 2 epochs
+            await ethers.provider.send("evm_mine");
+            await tokenomics.connect(deployer).checkpoint();
+            await ethers.provider.send("evm_mine");
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Calculate staking rewards with zero balances and total supply
+            await ve.setBalance(0);
+            await ve.setSupply(0);
+            await tokenomics.calculateStakingRewards(deployer.address, 1);
+            // Set the voting escrow value back
+            await ve.setBalance(ethers.utils.parseEther("50"));
+            await tokenomics.calculateStakingRewards(deployer.address, 1);
+            await ve.setSupply(ethers.utils.parseEther("100"));
+
+            // Send ETH to treasury
+            const amount = ethers.utils.parseEther("1000");
+            await deployer.sendTransaction({to: treasury.address, value: amount});
+
+            // Lock OLAS balances with Voting Escrow
+            await ve.createLock(deployer.address);
+
+            // Change the fractions such that top-ups for stakers are not zero
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+
+            // EPOCH 1 with donations
+            // Consider the scenario when no service owners locks enough OLAS for component / agent owners to claim top-ups
+            await ve.setWeightedBalance(0);
+
+            // Send the revenues to services
+            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
+                {value: twoRegDepositFromServices});
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get deployer incentives information
+            let result = await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
+            expect(result.reward).to.greaterThan(0);
+            // Since no service owners locked enough OLAS in veOLAS, there must be a zero top-up for owners
+            expect(result.topUp).to.equal(0);
+
+            // EPOCH 2 with donations
+            // Return the ability for the service owner to have enough veOLAS for the owner top-ups
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString() + "1");
+
+            // Send the revenues to services
+            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
+                {value: twoRegDepositFromServices});
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get the last settled epoch counter
+            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            const ep = await tokenomics.getEpochPoint(lastPoint);
+            // Get the unit points of the last epoch
+            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const rewards = [
+                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+            ];
+            const accountRewards = rewards[0] + rewards[1] + rewards[2];
+            // Calculate top-ups based on the points information
+            let topUps = [
+                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
+                Number(ep.totalTopUpsOLAS)
+            ];
+            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
+            const accountTopUps = topUps[1] + topUps[2] + topUps[3];
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
+
+            // Get deployer incentives information
+            result = await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
 

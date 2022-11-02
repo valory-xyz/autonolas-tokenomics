@@ -159,15 +159,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // veOLAS threshold for top-ups
     // This number cannot be practically bigger than the number of OLAS tokens
     uint96 public veOLASThreshold = 5_000e18;
-    // TODO Check if unitPoints(a)Weight and componentWeight / agentWeight are the same
-    // TODO component weight is 2 by default, agent weight is 1
-    // UCFc / UCFa weights for the UCF contribution
-    // We assume the coefficients are bound by 2^16 - 1
-    uint16 public ucfcWeight = 1;
-    uint16 public ucfaWeight = 1;
-    // Component / agent weights for new valuable code
-    uint16 public componentWeight = 1;
-    uint16 public agentWeight = 1;
 
     // Component Registry
     address public componentRegistry;
@@ -239,14 +230,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.devsPerCapital = 1;
         tp.epochPoint.idf = 1e18 + epsilonRate;
 
-        tp.epochPoint.rewardStakerFraction = 50;
+        tp.epochPoint.rewardStakerFraction = 49;
         // 0 stands for components and 1 for agents
-        tp.unitPoints[0].rewardUnitFraction = 33;
+        tp.unitPoints[0].rewardUnitFraction = 34;
         tp.unitPoints[1].rewardUnitFraction = 17;
 
-        uint256 _maxBondFraction = 50;
+        uint256 _maxBondFraction = 49;
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
-        tp.unitPoints[0].topUpUnitFraction = 33;
+        tp.unitPoints[0].topUpUnitFraction = 34;
         tp.unitPoints[1].topUpUnitFraction = 17;
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
@@ -260,7 +251,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     function _adjustMaxBond(uint256 nextMaxBond) internal {
         uint256 curMaxBond = maxBond;
         uint256 curEffectiveBond = effectiveBond;
-        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed one
+        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed nextMaxBond
         if (curMaxBond > nextMaxBond) {
             // Get the difference of the maxBond
             uint256 delta = curMaxBond - nextMaxBond;

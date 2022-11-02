@@ -47,8 +47,7 @@ describe("Treasury", async () => {
         dai = await erc20Token.deploy();
         olas = await olasFactory.deploy();
         tokenomics = await tokenomicsFactory.deploy();
-        // Depository contract is irrelevant here, so we are using a deployer's address
-        // Dispenser address is irrelevant in these tests, so we are using a deployer's address
+        // Depository and dispenser addresses are irrelevant in these tests, so we are using a deployer's address
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");

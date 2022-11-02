@@ -45,10 +45,9 @@ contract Dispenser is GenericTokenomics {
             }
         }
         if (topUp > 0) {
-            success = true;
             // OLAS token is safe as it uses the standard ERC20 transfer() function.
             // The function reverts if something goes wrong, so no additional check is needed.
-            IOLAS(olas).transfer(msg.sender, topUp);
+            success = IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;
@@ -57,6 +56,7 @@ contract Dispenser is GenericTokenomics {
     /// @dev Claims rewards for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
+    /// @return success True if the claim is successful and not zero.
     function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -64,7 +64,6 @@ contract Dispenser is GenericTokenomics {
         }
         _locked = 2;
 
-        success = true;
         // Starting epoch number where the last time reward was not yet given
         uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
         uint256 endEpochNumber;
@@ -82,7 +81,7 @@ contract Dispenser is GenericTokenomics {
         if (topUp > 0) {
             // OLAS token is safe as it uses the standard ERC20 transfer() function.
             // The function reverts if something goes wrong, so no additional check is needed.
-            IOLAS(olas).transfer(msg.sender, topUp);
+            success = IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;
