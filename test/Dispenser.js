@@ -114,8 +114,10 @@ describe("Dispenser", async () => {
             await ve.setSupply(0);
             await tokenomics.calculateStakingRewards(deployer.address, 1);
             // Set the voting escrow value back
-            await ve.setBalance(ethers.utils.parseEther("50"));
+            await ve.setBalance(ethers.utils.parseEther("100"));
+            // Calculate with a balance and no total supply (although not realistic)
             await tokenomics.calculateStakingRewards(deployer.address, 1);
+            // Set the total supply the same as the balance, such that the full amount of incentives is given to one locker
             await ve.setSupply(ethers.utils.parseEther("100"));
 
             // Send ETH to treasury
@@ -164,14 +166,48 @@ describe("Dispenser", async () => {
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
+            // Get the overall incentive amounts for owners
+            const unitRewards = rewards[1] + rewards[2];
+            const unitTopUps = topUps[1] + topUps[2];
+
             // Get deployer incentives information
             const result = await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
-            expect(result.reward).to.greaterThan(0);
-            expect(result.topUp).to.greaterThan(0);
+            // Get accumulated rewards and top-ups
+            const checkedReward = Number(result.reward);
+            const checkedTopUp = Number(result.topUp);
+            // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
+            //console.log("checkedReward", checkedReward);
+            //console.log("checkedTopUp", checkedTopUp);
+            //expect(checkedReward).to.equal(unitRewards);
+            //expect(checkedTopUp).to.equal(unitTopUps);
+
+            // Simulate claiming rewards and top-ups for owners and check their correctness
+            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerRewards([0, 1], [1, 1]);
+            // Get accumulated rewards and top-ups
+            let claimedReward = Number(claimedOwnerIncentives.reward);
+            let claimedTopUp = Number(claimedOwnerIncentives.topUp);
+            // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
+            //expect(claimedReward).to.equal(unitRewards);
+            //expect(claimedTopUp).to.equal(unitTopUps);
+
+            // Simulate claiming of incentives for stakers
+            const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingRewards();
+            // Get accumulated rewards and top-ups
+            claimedReward = Number(claimedStakerIncentives.reward);
+            claimedTopUp = Number(claimedStakerIncentives.topUp);
+            // Check if they match with what was written to the tokenomics point with staker reward and top-up fractions
+            //expect(claimedReward).to.equal(rewards[0]);
+            //expect(claimedTopUp).to.equal(topUps[3]);
 
             // Claim rewards and top-ups
+            const balanceBeforeTopUps = Number(await olas.balanceOf(deployer.address));
             await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingRewards();
+            const balanceAfterTopUps = Number(await olas.balanceOf(deployer.address));
+
+            // Check the OLAS balance after receiving incentives
+            const balance = balanceAfterTopUps - balanceBeforeTopUps;
+            //expect(balance).to.equal(unitTopUps + topUps[3]);
         });
 
         it("Should fail when trying to get incentives with incorrect inputs", async () => {

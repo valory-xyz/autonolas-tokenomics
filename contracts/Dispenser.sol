@@ -27,7 +27,7 @@ contract Dispenser is GenericTokenomics {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    /// @return success True if the claim is successful and not zero.
+    /// @return success True if the claim is successful and has at least one non-zero incentive.
     function claimOwnerRewards(uint256[] memory unitTypes, uint256[] memory unitIds) external
         returns (uint256 reward, uint256 topUp, bool success)
     {
@@ -56,7 +56,7 @@ contract Dispenser is GenericTokenomics {
     /// @dev Claims rewards for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    /// @return success True if the claim is successful and not zero.
+    /// @return success True if the claim is successful and has at least one non-zero incentive.
     function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {

@@ -272,8 +272,8 @@ describe("Tokenomics", async () => {
         });
     });
 
-    context("Rewards", async function () {
-        it("Calculate rewards", async () => {
+    context("Incentives", async function () {
+        it("Calculate incentives", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             const accounts = await serviceRegistry.getUnitOwners();
