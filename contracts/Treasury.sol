@@ -102,12 +102,9 @@ contract Treasury is GenericTokenomics {
         uint224 reserves = tokenInfo.reserves;
         reserves += tokenAmount;
         tokenInfo.reserves = reserves;
-        // Mint specified number of OLAS tokens corresponding to tokens bonding deposit if the amount is possible to mint
-        if (ITokenomics(tokenomics).isAllowedMint(olasMintAmount)) {
-            IOLAS(olas).mint(msg.sender, olasMintAmount);
-        } else {
-            revert MintRejectedByInflationPolicy(olasMintAmount);
-        }
+        // Mint specified number of OLAS tokens corresponding to tokens bonding deposit
+        // The olasMintAmount is guaranteed by the product supply limit, which is limited by the effectiveBond
+        IOLAS(olas).mint(msg.sender, olasMintAmount);
 
         // Transfer tokens from depository to treasury and add to the token treasury reserves
         // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
@@ -163,6 +160,7 @@ contract Treasury is GenericTokenomics {
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS) {
             uint96 amountOwned = ETHOwned;
+            // Check if treasury has enough amount of owned ETH
             if ((amountOwned + 1) > tokenAmount) {
                 // This branch is used to transfer ETH to a specified address
                 amountOwned -= uint96(tokenAmount);
@@ -173,6 +171,9 @@ contract Treasury is GenericTokenomics {
                 if (!success) {
                     revert TransferFailed(address(0), address(this), to, tokenAmount);
                 }
+            } else {
+                // Insufficient amount of treasury owned ETH
+                revert AmountLowerThan(tokenAmount, amountOwned);
             }
         } else {
             TokenInfo storage tokenInfo = mapTokens[token];
