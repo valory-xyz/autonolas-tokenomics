@@ -7,7 +7,7 @@ pragma solidity ^0.8.17;
 abstract contract TokenomicsConstants {
     // Timestamp of the OLAS token deployment
     uint256 public constant timeLaunch = 1656584807;
-    // One year interval
+    // One year in seconds
     uint256 public constant oneYear = 1 days * 365;
     // Number of seconds left in a year of deployment
     // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier

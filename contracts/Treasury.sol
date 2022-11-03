@@ -160,6 +160,7 @@ contract Treasury is GenericTokenomics {
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS) {
             uint96 amountOwned = ETHOwned;
+            // Check if treasury has enough amount of owned ETH
             if ((amountOwned + 1) > tokenAmount) {
                 // This branch is used to transfer ETH to a specified address
                 amountOwned -= uint96(tokenAmount);
@@ -170,6 +171,9 @@ contract Treasury is GenericTokenomics {
                 if (!success) {
                     revert TransferFailed(address(0), address(this), to, tokenAmount);
                 }
+            } else {
+                // Insufficient amount of treasury owned ETH
+                revert AmountLowerThan(tokenAmount, amountOwned);
             }
         } else {
             TokenInfo storage tokenInfo = mapTokens[token];
