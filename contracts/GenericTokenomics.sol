@@ -37,7 +37,7 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     // Dispenser contract address
     address public dispenser;
     // Reentrancy lock
-    uint256 internal _locked = 1;
+    uint8 internal _locked = 1;
 
     /// @dev Generic Tokenomics constructor.
     /// @param _olas OLAS token address.

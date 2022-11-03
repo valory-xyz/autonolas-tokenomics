@@ -10,7 +10,6 @@ describe("Treasury", async () => {
     const defaultDeposit = "1" + "0".repeat(22);
     const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
     const AddressZero = "0x" + "0".repeat(40);
-    const maxUint96 = "79228162514264337593543950335";
 
     let signers;
     let deployer;
@@ -137,12 +136,6 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
         });
 
-        it("Should fail when trying to deposit for the amount bigger than the inflation policy allows", async () => {
-            await expect(
-                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, maxUint96)
-            ).to.be.revertedWithCustomError(treasury, "MintRejectedByInflationPolicy");
-        });
-
         it("Should fail when trying to disable an LP token that has reserves", async () => {
             // Try to disable token that has reserves
             await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit);
@@ -220,6 +213,13 @@ describe("Treasury", async () => {
             // Withdraw ETH
             const success = await treasury.callStatic.withdraw(deployer.address, amount, ETHAddress);
             expect(success).to.equal(true);
+            // Call the non-static withdraw
+            await treasury.withdraw(deployer.address, amount, ETHAddress);
+
+            // Try to withdraw more ETH amount than treasury owns
+            await expect(
+                treasury.withdraw(deployer.address, amount, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
         });
     });
 

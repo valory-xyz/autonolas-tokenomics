@@ -65,10 +65,6 @@ interface IErrorsTokenomics {
     /// @param actual Actual supply left.
     error ProductSupplyLow(address tokenAddress, uint256 productId, uint256 requested, uint256 actual);
 
-    /// @dev Minting is rejected due to the requested amount bigger than the current inflation policy cap.
-    /// @param amount Amount of tokens to mint.
-    error MintRejectedByInflationPolicy(uint256 amount);
-
     /// @dev Incorrect amount received / provided.
     /// @param provided Provided amount is lower.
     /// @param expected Expected amount.
@@ -97,4 +93,12 @@ interface IErrorsTokenomics {
     /// @dev Failure of reward allocation.
     /// @param epochNumber Epoch number.
     error RewardsAllocationFailed(uint256 epochNumber);
+
+    /// @dev maxBond parameter is locked and cannot be updated.
+    error MaxBondUpdateLocked();
+
+    /// @dev Rejects the max bond adjustment.
+    /// @param maxBondAmount Max bond amount available at the moment.
+    /// @param delta Delta bond amount to be subtracted from the maxBondAmount.
+    error RejectMaxBondAdjustment(uint256 maxBondAmount, uint256 delta);
 }

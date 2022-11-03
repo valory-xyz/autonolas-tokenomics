@@ -7,7 +7,7 @@ pragma solidity ^0.8.17;
 abstract contract TokenomicsConstants {
     // Timestamp of the OLAS token deployment
     uint256 public constant timeLaunch = 1656584807;
-    // One year interval
+    // One year in seconds
     uint256 public constant oneYear = 1 days * 365;
     // Number of seconds left in a year of deployment
     // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
@@ -61,6 +61,7 @@ abstract contract TokenomicsConstants {
         // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
+            // TODO study if it's cheaper to allocate new uint256[](10)
             uint88[10] memory inflationAmounts = [
                 22_113_000_0e17,
                 79_548_885_0e17,
@@ -83,7 +84,7 @@ abstract contract TokenomicsConstants {
             uint256 maxMintCapFraction = 2;
 
             // Get the supply cap until the year before the current year
-            for (uint256 i = 0; i < numYears - 1; ++i) {
+            for (uint256 i = 1; i < numYears; ++i) {
                 supplyCap += (supplyCap * maxMintCapFraction) / 100;
             }
 
