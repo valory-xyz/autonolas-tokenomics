@@ -40,7 +40,7 @@ import "./interfaces/IVotingEscrow.sol";
 */
 
 // Structure for component / agent point with tokenomics-related statistics
-// The size of the struct is 96 * 2 + 32 + 8 * 2 = 240 bits (1 full slot)
+// The size of the struct is 96 * 2 + 32 + 8 * 3 = 248 bits (1 full slot)
 struct UnitPoint {
     // Summation of all the relative ETH donations accumulated by each component / agent in a service
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -57,6 +57,10 @@ struct UnitPoint {
     // Top-up component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 topUpUnitFraction;
+    // Unit weight for code unit calculations
+    // This number is related to the component / agent reward fraction
+    // We assume this number will not be practically bigger than 255
+    uint8 unitWeight;
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
@@ -84,14 +88,16 @@ struct EpochPoint {
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
-    // Staking parameters (in percentage)
+    // Staking parameters for rewards (in percentage)
     // treasuryFraction (implicitly set to zero by default) + rewardComponentFraction + rewardAgentFraction + rewardStakerFraction = 100%
+    // Staker reward fraction
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 rewardStakerFraction;
+    // Staking parameters for top-ups (in percentage)
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + topUpStakerFraction = 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
-    // TODO Decide whether to add topUpstakerFraction as well or have it subtracted from 100 in-place
 }
 
 // Structure for tokenomics point
@@ -235,6 +241,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = 34;
         tp.unitPoints[1].rewardUnitFraction = 17;
+        tp.unitPoints[0].unitWeight = 1;
+        tp.unitPoints[1].unitWeight = 2;
 
         uint256 _maxBondFraction = 49;
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
@@ -676,10 +684,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         if (rewards[0] > 0) {
             // TODO: Recalculate component and agent weights correctly based on the corresponding fractions
             // 0 for components and 1 for agents
-            uint256 sumWeights = tp.unitPoints[0].topUpUnitFraction + tp.unitPoints[1].topUpUnitFraction;
+            uint256 sumWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
-            uint256 codeUnits = (tp.unitPoints[0].topUpUnitFraction * tp.unitPoints[0].numNewUnits +
-                tp.unitPoints[1].topUpUnitFraction * tp.unitPoints[1].numNewUnits) / sumWeights;
+            // (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
+            uint256 codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits +
+                tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights;
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
@@ -719,7 +728,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         rewards[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
         rewards[8] = inflationPerEpoch - rewards[5] - rewards[6] - rewards[7];
-        uint96 accountTopUps = uint96(rewards[6] + rewards[7] + rewards[8]);
+        uint96 accountTopUps = uint96(rewards[8]);
+        // TODO Verify that this is the default tokenomics behavior
+        // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
+        if (tp.epochPoint.totalTopUpsOLAS > 0) {
+            accountTopUps += uint96(rewards[6] + rewards[7]);
+        }
 
         // Treasury contract allocates rewards
         if (ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
@@ -737,8 +751,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter];
         nextPoint.unitPoints[0].topUpUnitFraction = tp.unitPoints[0].topUpUnitFraction;
         nextPoint.unitPoints[0].rewardUnitFraction = tp.unitPoints[0].rewardUnitFraction;
+        nextPoint.unitPoints[0].unitWeight = tp.unitPoints[0].unitWeight;
         nextPoint.unitPoints[1].topUpUnitFraction = tp.unitPoints[1].topUpUnitFraction;
         nextPoint.unitPoints[1].rewardUnitFraction = tp.unitPoints[1].rewardUnitFraction;
+        nextPoint.unitPoints[1].unitWeight = tp.unitPoints[1].unitWeight;
         nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         nextPoint.epochPoint.rewardStakerFraction = tp.epochPoint.rewardStakerFraction;
         nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
@@ -761,19 +777,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             startEpochNumber = 2;
         }
 
+        // Loop over epoch points to calculate incentives according to the staking fraction
         for (endEpochNumber = startEpochNumber; endEpochNumber < epochCounter; ++endEpochNumber) {
-            // Epoch point where the current epoch info is recorded
-            // stakerRewards = rewardStakerFraction * totalDonationsETH / 100
-            uint256 stakerRewards = mapEpochTokenomics[endEpochNumber].epochPoint.rewardStakerFraction *
-                mapEpochTokenomics[endEpochNumber].epochPoint.totalDonationsETH;
-            stakerRewards /= 100;
-            // TODO Estimate the gas cost of storing stakerTopUpsFraction instead of calculating it via subtraction, as mentioned above
-            // stakerTopUps = (100 - maxBondFraction - componentTopUpsFraction - agentTopUpsFraction) * totalTopUpsOLAS / 100
-            // 0 stands for components and 1 for agents
-            uint256 stakerTopUps = (100 - mapEpochTokenomics[endEpochNumber].epochPoint.maxBondFraction - mapEpochTokenomics[endEpochNumber].unitPoints[0].topUpUnitFraction -
-                mapEpochTokenomics[endEpochNumber].unitPoints[1].topUpUnitFraction);
-            stakerTopUps *= mapEpochTokenomics[endEpochNumber].epochPoint.totalTopUpsOLAS;
-            stakerTopUps /= 100;
             // Last block number of a previous epoch
             uint256 iBlock = mapEpochTokenomics[endEpochNumber - 1].epochPoint.endBlockNumber - 1;
             // Get account's balance at the end of epoch
@@ -786,8 +791,23 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
                 // Add to the reward depending on the staker reward
                 if (supply > 0) {
-                    reward += (balance * stakerRewards) / supply;
-                    topUp += (balance * stakerTopUps) / supply;
+                    // TODO Estimate the gas cost of storing stakerTopUpsFraction instead of calculating it via subtraction, as mentioned above
+                    // 0 stands for components and 1 for agents
+                    uint256 stakerTopUpFraction = (100 - mapEpochTokenomics[endEpochNumber].epochPoint.maxBondFraction -
+                        mapEpochTokenomics[endEpochNumber].unitPoints[0].topUpUnitFraction -
+                        mapEpochTokenomics[endEpochNumber].unitPoints[1].topUpUnitFraction);
+
+                    // balance is bounded by 96 bits, same as totalDonationsETH, so their multiplication together with
+                    // rewardStakerFraction (8 bits) is at most 96 + 96 + 8 < 256 bits, thus their multiplication is safe
+                    // reward = balance * rewardStakerFraction * totalDonationsETH / (100 * supply)
+                    reward += (balance * mapEpochTokenomics[endEpochNumber].epochPoint.rewardStakerFraction *
+                        mapEpochTokenomics[endEpochNumber].epochPoint.totalDonationsETH) / (100 * supply);
+
+                    // balance is bounded by 96 bits, same as totalTopUpsOLAS, so their multiplication together with
+                    // stakerTopUpFraction (8 bits) is at most 96 + 96 + 8 < 256 bits, thus their multiplication is safe
+                    // topUp = balance * (100 - maxBondFraction - componentTopUpsFraction - agentTopUpsFraction) * totalTopUpsOLAS / (100 * supply)
+                    topUp += (balance * stakerTopUpFraction * mapEpochTokenomics[endEpochNumber].epochPoint.totalTopUpsOLAS) /
+                        (100 * supply);
                 }
             }
         }

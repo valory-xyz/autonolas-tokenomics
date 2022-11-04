@@ -20,6 +20,7 @@ describe("Dispenser", async () => {
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(21);
     const twoRegDepositFromServices = "2" + "0".repeat(21);
+    const delta = 10**5;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -176,10 +177,9 @@ describe("Dispenser", async () => {
             const checkedReward = Number(result.reward);
             const checkedTopUp = Number(result.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
-            //console.log("checkedReward", checkedReward);
-            //console.log("checkedTopUp", checkedTopUp);
-            //expect(checkedReward).to.equal(unitRewards);
-            //expect(checkedTopUp).to.equal(unitTopUps);
+            // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
+            expect(unitRewards - checkedReward).to.lessThan(delta);
+            expect(unitTopUps - checkedTopUp).to.lessThan(delta);
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
             const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerRewards([0, 1], [1, 1]);
@@ -187,8 +187,8 @@ describe("Dispenser", async () => {
             let claimedReward = Number(claimedOwnerIncentives.reward);
             let claimedTopUp = Number(claimedOwnerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
-            //expect(claimedReward).to.equal(unitRewards);
-            //expect(claimedTopUp).to.equal(unitTopUps);
+            expect(unitRewards - claimedReward).to.lessThan(delta);
+            expect(unitTopUps - claimedTopUp).to.lessThan(delta);
 
             // Simulate claiming of incentives for stakers
             const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingRewards();
@@ -196,18 +196,18 @@ describe("Dispenser", async () => {
             claimedReward = Number(claimedStakerIncentives.reward);
             claimedTopUp = Number(claimedStakerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with staker reward and top-up fractions
-            //expect(claimedReward).to.equal(rewards[0]);
-            //expect(claimedTopUp).to.equal(topUps[3]);
+            expect(rewards[0] - claimedReward).to.lessThan(delta);
+            expect(topUps[3] - claimedTopUp).to.lessThan(delta);
 
             // Claim rewards and top-ups
-            const balanceBeforeTopUps = Number(await olas.balanceOf(deployer.address));
+            const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
             await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingRewards();
-            const balanceAfterTopUps = Number(await olas.balanceOf(deployer.address));
+            const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
-            const balance = balanceAfterTopUps - balanceBeforeTopUps;
-            //expect(balance).to.equal(unitTopUps + topUps[3]);
+            const balance = Number(balanceAfterTopUps - balanceBeforeTopUps);
+            expect(accountTopUps - balance).to.lessThan(delta);
         });
 
         it("Should fail when trying to get incentives with incorrect inputs", async () => {
