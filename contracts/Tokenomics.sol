@@ -9,7 +9,6 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "hardhat/console.sol";
 
 
 /*
@@ -61,12 +60,12 @@ struct UnitPoint {
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + 128 + 16 (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + (128 + 16) (2 full slots)
 struct EpochPoint {
-    // Donation in ETH
+    // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 totalDonationsETH;
-    // Top-ups in OLAS
+    // Amount of OLAS intended to fund top-ups for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 totalTopUpsOLAS;
     // Inverse of the discount factor
@@ -89,7 +88,7 @@ struct EpochPoint {
     // treasuryFraction (implicitly set to zero by default) + rewardComponentFraction + rewardAgentFraction + rewardStakerFraction = 100%
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 rewardStakerFraction;
-    // maxBond and top-ups of OLAS parameters (in percentage)
+    // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
     // TODO Decide whether to add topUpstakerFraction as well or have it subtracted from 100 in-place
@@ -332,10 +331,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Sets incentive parameter fractions.
-    /// @param _rewardStakerFraction Fraction for stakers.
-    /// @param _rewardComponentFraction Fraction for component owners.
-    /// @param _rewardAgentFraction Fraction for agent owners.
-    /// @param _maxBondFraction Fraction for the maxBond.
+    /// @param _rewardStakerFraction Fraction for staker rewards funded by ETH donations.
+    /// @param _rewardComponentFraction Fraction for component owner rewards funded by ETH donations.
+    /// @param _rewardAgentFraction Fraction for agent owner rewards funded by ETH donations.
+    /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for OLAS top-up for component owners.
     /// @param _topUpAgentFraction Fraction for OLAS top-up for agent owners.
     function changeIncentiveFractions(
@@ -534,7 +533,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                     // Sum the amounts for the corresponding components / agents
                     mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amounts[i];
                     mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amounts[i];
-                    // Same for the tup-ups, if eligible
+                    // Same for the top-ups, if eligible
                     if (topUpEligible) {
                         mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += amounts[i];
                         mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amounts[i];
@@ -586,6 +585,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // 5: maxBond, 6: component ownerTopUps, 7: agent ownerTopUps, 8: stakerTopUps
         uint256[] memory rewards = new uint256[](9);
         rewards[0] = tp.epochPoint.totalDonationsETH;
+        // 0 stands for components and 1 for agents
+        rewards[2] = (rewards[0] * tp.epochPoint.rewardStakerFraction) / 100;
+        rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
+        rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
+        // Treasury reward calculation
+        rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
@@ -706,12 +711,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.endTime = uint32(block.timestamp);
 
         // Allocate rewards via Treasury and start new epoch
-        // 0 stands for components and 1 for agents
-        rewards[2] = (rewards[0] * tp.epochPoint.rewardStakerFraction) / 100;
-        rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
-        rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
-        // Treasury reward calculation
-        rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
         uint96 accountRewards = uint96(rewards[2] + rewards[3] + rewards[4]);
         // TODO do not mint the accumulated amount of OLAS, but mint directly to the claimer. The array values can be then deleted
         // Owner top-ups: epoch incentives for component owners funded with the inflation
@@ -838,6 +837,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
+    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
@@ -897,6 +898,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets the component / agent owner reward.
+    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.

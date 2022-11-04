@@ -292,7 +292,7 @@ describe("Dispenser", async () => {
             // Since no service owners locked enough OLAS in veOLAS, there must be a zero top-up for owners
             expect(result.topUp).to.equal(0);
 
-            // EPOCH 2 with donations
+            // EPOCH 2 with donations and top-ups
             // Return the ability for the service owner to have enough veOLAS for the owner top-ups
             const minWeightedBalance = await tokenomics.veOLASThreshold();
             await ve.setWeightedBalance(minWeightedBalance.toString() + "1");

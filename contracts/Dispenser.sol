@@ -23,6 +23,8 @@ contract Dispenser is GenericTokenomics {
     }
 
     /// @dev Claims rewards for the owner of components / agents.
+    /// @notice `msg.sender` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice If not all `unitIds` belonging to `msg.sender` were provided, they will be untouched and keep accumulating.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
