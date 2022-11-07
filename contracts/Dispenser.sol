@@ -70,7 +70,7 @@ contract Dispenser is GenericTokenomics {
         uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
         uint256 endEpochNumber;
         // Get the reward and epoch number up to which the reward was calculated
-        (reward, topUp, endEpochNumber) = ITokenomics(tokenomics).calculateStakingRewards(msg.sender, startEpochNumber);
+        (reward, topUp, endEpochNumber) = ITokenomics(tokenomics).getStakingIncentives(msg.sender, startEpochNumber);
         // Update the latest epoch number from which reward will be calculated the next time
         mapLastRewardEpochs[msg.sender] = endEpochNumber;
 

@@ -317,9 +317,9 @@ describe("Tokenomics", async () => {
             expect(accountTopUps).to.greaterThan(0);
 
             // Calculate staking rewards
-            const result = await tokenomics.calculateStakingRewards(accounts[0], 1);
+            const result = await tokenomics.getStakingIncentives(accounts[0], 1);
             // Get owner rewards (mock registry has agent and component with Id 1)
-            await tokenomics.getOwnerRewards(accounts[0], [0, 1], [1, 1]);
+            await tokenomics.getOwnerIncentives(accounts[0], [0, 1], [1, 1]);
             expect(result.endEpochNumber).to.equal(2);
 
             // Get the top-up number per epoch

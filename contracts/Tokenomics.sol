@@ -763,13 +763,13 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         return true;
     }
 
-    /// @dev Calculates staking rewards.
+    /// @dev Gets staking incentives.
     /// @param account Account address.
     /// @param startEpochNumber Epoch number at which the reward starts being calculated.
     /// @return reward Reward amount up to the last possible epoch.
     /// @return topUp Top-up amount up to the last possible epoch.
     /// @return endEpochNumber Epoch number where the reward calculation will start the next time.
-    function calculateStakingRewards(address account, uint256 startEpochNumber) external view
+    function getStakingIncentives(address account, uint256 startEpochNumber) external view
         returns (uint256 reward, uint256 topUp, uint256 endEpochNumber)
     {
         // There is no reward in the first epoch yet
@@ -917,14 +917,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Gets the component / agent owner reward.
+    /// @dev Gets the component / agent owner incentivesß.
     /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function getOwnerRewards(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
+    function getOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
         returns (uint256 reward, uint256 topUp)
     {
         // Check array lengths
