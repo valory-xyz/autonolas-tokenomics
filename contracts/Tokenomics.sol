@@ -239,8 +239,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         tp.epochPoint.rewardStakerFraction = 49;
         // 0 stands for components and 1 for agents
+        // The initial target is to distribute around 2/3 of incentives reserved to fund owners of the code
+        // for components royalties and 1/3 for agents royalties
         tp.unitPoints[0].rewardUnitFraction = 34;
         tp.unitPoints[1].rewardUnitFraction = 17;
+
+        // We want to measure a unit of code as n agents or m components.
+        // Initially we consider 1 unit of code as either 2 agents or 1 component.
+        // E.g. if we have 2 profitable components and 2 profitable agents, this means there are (2x2 + 2x1) / 3 = 2
+        // units of code. Note that usually these weights are related to unit fractions.
         tp.unitPoints[0].unitWeight = 1;
         tp.unitPoints[1].unitWeight = 2;
 
