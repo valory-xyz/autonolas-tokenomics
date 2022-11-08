@@ -137,7 +137,7 @@ describe("Dispenser", async () => {
             // Change the fractions such that top-ups for stakers are not zero
             await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
 
-            // Send the revenues to services
+            // Send donations to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
@@ -285,7 +285,7 @@ describe("Dispenser", async () => {
             await tokenomics.changeTokenomicsParameters(1, "1" + "0".repeat(17), curEpochLen, "5" + "0".repeat(21));
             // Increase the time to the length of the epoch
             await helpers.time.increase(curEpochLen + 1);
-            // Send the revenues to services
+            // Send donations to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
@@ -355,10 +355,10 @@ describe("Dispenser", async () => {
 
             // Increase the time to more than the length of the epoch
             await helpers.time.increase(curEpochLen + 3);
-            // Send the revenues to services
+            // Send donations to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
-            // Start new epoch and calculate tokenomics parameters and rewards
+            // Start new epoch and calculate tokenomics parameters and incentives
             await tokenomics.connect(deployer).checkpoint();
 
             // Get the last settled epoch counter
@@ -494,7 +494,7 @@ describe("Dispenser", async () => {
                 // Increase the time to the length of the epoch plus a little more every time such that
                 // OALS top-up numbers are not the same every epoch
                 await helpers.time.increase(curEpochLen + i);
-                // Send the revenues to services
+                // Send donations to services
                 await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                     {value: twoRegDepositFromServices});
                 // Start new epoch and calculate tokenomics parameters and rewards
@@ -605,7 +605,7 @@ describe("Dispenser", async () => {
                 // Increase the time to the length of the epoch plus a little more every time such that
                 // OALS top-up numbers are not the same every epoch
                 await helpers.time.increase(curEpochLen + i);
-                // Send the revenues to services
+                // Send donations to services
                 await treasury.connect(deployer).depositETHFromServices([1], [smallDeposit],
                     {value: smallDeposit});
                 // Start new epoch and calculate tokenomics parameters and rewards
@@ -686,7 +686,7 @@ describe("Dispenser", async () => {
             await componentRegistry.changeUnitOwner(1, attacker.address);
             await agentRegistry.changeUnitOwner(1, attacker.address);
 
-            // Send the revenues to services
+            // Send donations to services
             await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards

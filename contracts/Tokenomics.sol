@@ -10,7 +10,6 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
-
 /*
 * In this contract we consider both ETH and OLAS tokens.
 * For ETH tokens, there are currently about 121 million tokens.
@@ -465,28 +464,25 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param unitType Unit type (component / agent).
     /// @param unitId Unit Id.
     function _finalizeIncentivesForUnitId(uint256 epochNum, uint256 unitType, uint256 unitId) internal {
-        // Summation of all the unit rewards
-        uint256 sumUnitIncentives;
-        // Total amount of rewards per epoch
-        uint256 totalIncentives;
         // Get the overall amount of component rewards for the component's last epoch
-        sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH;
-        totalIncentives = (mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH *
-            mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction) / 100;
+        // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
+        uint256 totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeReward;
+        totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH;
+        totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction;
+        uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
         // Add to the final reward for the last epoch
-        mapUnitIncentives[unitType][unitId].reward +=
-            uint96((mapUnitIncentives[unitType][unitId].pendingRelativeReward * totalIncentives) / sumUnitIncentives);
+        mapUnitIncentives[unitType][unitId].reward += uint96(totalIncentives / sumUnitIncentives);
         // Setting pending reward to zero
         mapUnitIncentives[unitType][unitId].pendingRelativeReward = 0;
         // Add to the final top-up for the last epoch
         if (mapUnitIncentives[unitType][unitId].pendingRelativeTopUp > 0) {
             // Summation of all the unit top-ups and total amount of top-ups per epoch
-            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS;
-            totalIncentives = (mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS *
-                mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction) / 100;
-            mapUnitIncentives[unitType][unitId].topUp +=
-                uint96((mapUnitIncentives[unitType][unitId].pendingRelativeTopUp * totalIncentives) /
-                    sumUnitIncentives);
+            // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
+            totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeTopUp;
+            totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
+            totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
+            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
+            mapUnitIncentives[unitType][unitId].topUp += uint96(totalIncentives / sumUnitIncentives);
             // Setting pending top-up to zero
             mapUnitIncentives[unitType][unitId].pendingRelativeTopUp = 0;
         }
@@ -965,26 +961,24 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Calculate rewards and top-ups if there were pending ones from the previous epoch
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
-                // Summation of all the unit rewards
-                uint256 sumUnitIncentives;
-                // Total amount of rewards per epoch
-                uint256 totalIncentives;
                 // Get the overall amount of component rewards for the component's last epoch
-                sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH;
-                totalIncentives = (mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH *
-                    mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction) / 100;
+                // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
+                uint256 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeReward;
+                totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH;
+                totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction;
+                uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH * 100;
                 // Accumulate to the final reward for the last epoch
-                reward += (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeReward * totalIncentives) /
-                    sumUnitIncentives;
+                reward += totalIncentives / sumUnitIncentives;
                 // Add the final top-up for the last epoch
                 if (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp > 0) {
                     // Summation of all the unit top-ups and total amount of top-ups per epoch
-                    sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS;
-                    totalIncentives = (mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS *
-                        mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction) / 100;
+                    // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
+                    totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
+                    sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
                     // Accumulate to the final top-up for the last epoch
-                    topUp += (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp * totalIncentives) /
-                        sumUnitIncentives;
+                    topUp += totalIncentives / sumUnitIncentives;
                 }
             }
 
