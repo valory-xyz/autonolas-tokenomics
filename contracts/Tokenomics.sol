@@ -50,6 +50,8 @@ struct UnitPoint {
     // Number of new units
     // This number cannot be practically bigger than the total number of supported units
     uint32 numNewUnits;
+    // TODO Investigate the impact of storing values with multiplied fractions already
+    // TODO It will require more gas to write a point, but less gas to process incentive calculations
     // Reward component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 rewardUnitFraction;
@@ -97,6 +99,7 @@ struct EpochPoint {
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
+    // TODO Decide whether to add topUpstakerFraction as well or have it subtracted from 100 in-place
 }
 
 // Structure for tokenomics point
@@ -302,17 +305,24 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = _devsPerCapital;
+        if (_devsPerCapital > 0) {
+            mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = _devsPerCapital;
+        } else {
+            // This is done in order not to pass incorrect parameters into the event
+            _devsPerCapital = mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital;
+        }
 
         // Check the epsilonRate value for idf to fit in its size
         // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
-        if (_epsilonRate < 17e18) {
+        if (_epsilonRate > 0 && _epsilonRate < 17e18) {
             epsilonRate = _epsilonRate;
+        } else {
+            _epsilonRate = epsilonRate;
         }
 
         // Check for the epochLen value to change
         uint256 oldEpochLen = epochLen;
-        if (oldEpochLen != _epochLen) {
+        if (_epochLen > 0 && oldEpochLen != _epochLen) {
             // Check if the year change is ongoing in the current epoch, and thus maxBond cannot be changed
             if (lockMaxBond == 2) {
                 revert MaxBondUpdateLocked();
@@ -337,9 +347,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
             // Update the epochLen
             epochLen = _epochLen;
+        } else {
+            _epochLen = epochLen;
         }
 
-        veOLASThreshold = _veOLASThreshold;
+        if (_veOLASThreshold > 0) {
+            veOLASThreshold = _veOLASThreshold;
+        } else {
+            _veOLASThreshold = veOLASThreshold;
+        }
 
         emit TokenomicsParametersUpdated(_devsPerCapital, _epsilonRate, _epochLen, _veOLASThreshold);
     }
@@ -470,6 +486,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH;
         totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction;
         uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
+        // TODO Optimize gas usage
         // Add to the final reward for the last epoch
         mapUnitIncentives[unitType][unitId].reward += uint96(totalIncentives / sumUnitIncentives);
         // Setting pending reward to zero
@@ -767,6 +784,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets staking incentives.
+    /// @notice To be eligible for the n-th epoch incentives, have a non-zero veOLAS balance in the (n-1)-th epoch.
+    /// @notice This distribution criteria is used in order to eliminate front-runners that observe incoming donations.
     /// @param account Account address.
     /// @param startEpochNumber Epoch number at which the reward starts being calculated.
     /// @return reward Reward amount up to the last possible epoch.
@@ -780,14 +799,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             startEpochNumber = 2;
         }
 
+        uint256 eCounter = epochCounter;
         // Loop over epoch points to calculate incentives according to the staking fraction
-        for (endEpochNumber = startEpochNumber; endEpochNumber < epochCounter; ++endEpochNumber) {
+        for (endEpochNumber = startEpochNumber; endEpochNumber < eCounter; ++endEpochNumber) {
             // Last block number of a previous epoch
             uint256 iBlock = mapEpochTokenomics[endEpochNumber - 1].epochPoint.endBlockNumber - 1;
-            // Get account's balance at the end of epoch
+            // Get account's balance at the end of a previous epoch
             uint256 balance = IVotingEscrow(ve).balanceOfAt(account, iBlock);
 
-            // If there was no locking / staking, we skip the reward computation
+            // If there was no locking / staking, skip the reward computation
             if (balance > 0) {
                 // Get the total supply at the last block of the epoch
                 uint256 supply = IVotingEscrow(ve).totalSupplyAt(iBlock);
@@ -920,7 +940,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Gets the component / agent owner incentivesß.
+    /// @dev Gets the component / agent owner incentives.
     /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).

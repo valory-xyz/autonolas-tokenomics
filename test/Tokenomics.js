@@ -128,14 +128,29 @@ describe("Tokenomics", async () => {
             await tokenomics.changeTokenomicsParameters(10, 10, 1, 10);
             // And then change back to the bigger one
             await tokenomics.changeTokenomicsParameters(10, 10, 8, 10);
-            // Try to set the epochLen to zero that must fail due to effectiveBond going to zero
+            // Try to set the epochLen to a time where it fails due to effectiveBond going below zero
+            // since part of the effectiveBond is already reserved
+            await tokenomics.reserveAmountForBondProgram("1" + "0".repeat(18));
             await expect(
-                tokenomics.changeTokenomicsParameters(10, 10, 0, 10)
+                tokenomics.changeTokenomicsParameters(10, 10, 1, 10)
             ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
 
             // Trying to set epsilonRate bigger than 17e18
             await tokenomics.changeTokenomicsParameters(10, "171"+"0".repeat(17), 10, 10);
             expect(await tokenomics.epsilonRate()).to.equal(10);
+
+            // Trying to set all zeros
+            await tokenomics.changeTokenomicsParameters(0, 0, 0, 0);
+            // Check that parameters were not changed
+            expect(await tokenomics.epsilonRate()).to.equal(10);
+            expect(await tokenomics.epochLen()).to.equal(10);
+            expect(await tokenomics.veOLASThreshold()).to.equal(10);
+
+            // Get the current epoch counter
+            const curPoint = Number(await tokenomics.epochCounter());
+            // Get the epoch point of the current epoch
+            const ep = await tokenomics.getEpochPoint(curPoint);
+            expect(await ep.devsPerCapital).to.equal(10);
         });
 
         it("Changing reward fractions", async function () {
