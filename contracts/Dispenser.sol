@@ -23,18 +23,21 @@ contract Dispenser is GenericTokenomics {
     }
 
     /// @dev Claims rewards for the owner of components / agents.
+    /// @param unitTypes Set of unit types (component / agent).
+    /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    /// @return success
-    function claimOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+    /// @return success True if the claim is successful and not zero.
+    function claimOwnerRewards(uint256[] memory unitTypes, uint256[] memory unitIds) external
+        returns (uint256 reward, uint256 topUp, bool success)
+    {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        success = true;
-        (reward, topUp) = ITokenomics(tokenomics).accountOwnerRewards(msg.sender);
+        (reward, topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender, unitTypes, unitIds);
         if (reward > 0) {
             (success, ) = msg.sender.call{value: reward}("");
             if (!success) {
@@ -42,6 +45,7 @@ contract Dispenser is GenericTokenomics {
             }
         }
         if (topUp > 0) {
+            success = true;
             // OLAS token is safe as it uses the standard ERC20 transfer() function.
             // The function reverts if something goes wrong, so no additional check is needed.
             IOLAS(olas).transfer(msg.sender, topUp);

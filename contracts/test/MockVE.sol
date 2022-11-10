@@ -6,6 +6,7 @@ contract MockVE {
     address[] public accounts;
     uint256 balance = 50 ether;
     uint256 supply = 100 ether;
+    uint256 weightedBalance = 10_000 ether;
 
     /// @dev Simulates a lock for the specified account.
     function createLock(address account) external {
@@ -25,6 +26,11 @@ contract MockVE {
     /// @dev Gets total token supply at a specific block number.
     function totalSupplyAt(uint256) external view returns (uint256) {
         return supply;
+    }
+
+    /// @dev Gets weighted account balance.
+    function getVotes(address) external view returns (uint256) {
+        return weightedBalance;
     }
 
     /// @dev Sets the new total supply.

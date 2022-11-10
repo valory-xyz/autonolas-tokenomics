@@ -27,11 +27,14 @@ interface ITokenomics {
     /// @param amount Amount to be refunded from the bond program.
     function refundFromBondProgram(uint96 amount) external;
 
-    /// @dev Gets the component / agent owner reward and zeros the record of it being written off.
+    /// @dev Gets component / agent owner incentives and clears the balances.
     /// @param account Account address.
+    /// @param unitTypes Set of unit types (component / agent).
+    /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function accountOwnerRewards(address account) external returns (uint256 reward, uint256 topUp);
+    function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
+        returns (uint256 reward, uint256 topUp);
 
     /// @dev Calculates staking rewards.
     /// @param account Account address.

@@ -100,7 +100,7 @@ describe("Dispenser", async () => {
     context("Get rewards", async function () {
         it("Withdraw rewards for unit owners and stakers", async () => {
             // Try to withdraw rewards
-            await dispenser.connect(deployer).claimOwnerRewards();
+            await dispenser.connect(deployer).claimOwnerRewards([], []);
             await dispenser.connect(deployer).claimStakingRewards();
 
             // Skip the number of blocks for 2 epochs
@@ -136,18 +136,38 @@ describe("Dispenser", async () => {
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
-            const pe = await tokenomics.getLastPoint();
-            const accountRewards = Number(pe.stakerRewards) + Number(pe.ucfc.unitRewards) + Number(pe.ucfa.unitRewards);
-            const accountTopUps = Number(pe.ownerTopUps) + Number(pe.stakerTopUps);
+            // Get the last settled epoch counter
+            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            const ep = await tokenomics.getEpochPoint(lastPoint);
+            // Get the unit points of the last epoch
+            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const rewards = [
+                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+            ];
+            const accountRewards = rewards[0] + rewards[1] + rewards[2];
+            // Calculate top-ups based on the points information
+            let topUps = [
+                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
+                Number(ep.totalTopUpsOLAS)
+            ];
+            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
+            const accountTopUps = topUps[1] + topUps[2] + topUps[3];
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
-            const result = await tokenomics.getOwnerRewards(deployer.address);
+            // Get deployer incentives information
+            const result = await tokenomics.getOwnerRewards(deployer.address, [0, 1], [1, 1]);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
 
-            // Withdraw rewards
-            await dispenser.connect(deployer).claimOwnerRewards();
+            // Claim rewards and top-ups
+            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingRewards();
         });
     });
@@ -178,19 +198,38 @@ describe("Dispenser", async () => {
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
-            const pe = await tokenomics.getLastPoint();
-            const accountRewards = Number(pe.stakerRewards) + Number(pe.ucfc.unitRewards) + Number(pe.ucfa.unitRewards);
-            const accountTopUps = Number(pe.ownerTopUps) + Number(pe.stakerTopUps);
+            // Get the last settled epoch counter
+            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            const ep = await tokenomics.getEpochPoint(lastPoint);
+            // Get the unit points of the last epoch
+            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const rewards = [
+                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+            ];
+            const accountRewards = rewards[0] + rewards[1] + rewards[2];
+            // Calculate top-ups based on the points information
+            let topUps = [
+                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
+                Number(ep.totalTopUpsOLAS)
+            ];
+            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
+            const accountTopUps = topUps[1] + topUps[2] + topUps[3];
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
-            let result = await tokenomics.getOwnerRewards(attacker.address);
+            let result = await tokenomics.getOwnerRewards(attacker.address, [0, 1], [1, 1]);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
 
             // Failing on the receive call
             await expect(
-                attacker.badClaimOwnerRewards(false)
+                attacker.badClaimOwnerRewards(false, [0, 1], [1, 1])
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
@@ -198,7 +237,7 @@ describe("Dispenser", async () => {
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badClaimOwnerRewards(true)
+                attacker.badClaimOwnerRewards(true, [0, 1], [1, 1])
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
@@ -206,7 +245,7 @@ describe("Dispenser", async () => {
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             // The funds still remain on the protocol side
-            result = await tokenomics.getOwnerRewards(attacker.address);
+            result = await tokenomics.getOwnerRewards(attacker.address, [0, 1], [1, 1]);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
         });

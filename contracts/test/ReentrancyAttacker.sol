@@ -3,13 +3,16 @@ pragma solidity ^0.8.17;
 
 // ServiceRegistry interface
 interface ITokenomics {
-    /// @dev Withdraws rewards for owners of components / agents.
+    /// @dev Claims rewards for the owner of components / agents.
+    /// @param unitTypes Set of unit types (component / agent).
+    /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     /// @return success
-    function claimOwnerRewards() external returns (uint256 reward, uint256 topUp, bool success);
+    function claimOwnerRewards(uint256[] memory unitTypes, uint256[] memory unitIds) external
+        returns (uint256 reward, uint256 topUp, bool success);
 
-    /// @dev Withdraws rewards for a staker.
+    /// @dev Claims rewards for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success);
@@ -38,7 +41,11 @@ contract ReentrancyAttacker {
     /// @dev wallet
     receive() external payable {
         if (attackOnClaimOwnerRewards) {
-            ITokenomics(dispenser).claimOwnerRewards();
+            uint256[] memory unitTypes = new uint256[](2);
+            (unitTypes[0], unitTypes[1]) = (0, 1);
+            uint256[] memory unitIds = new uint256[](2);
+            (unitIds[0], unitIds[1]) = (1, 1);
+            ITokenomics(dispenser).claimOwnerRewards(unitTypes, unitIds);
         } else if (attackOnClaimStakingRewards) {
             ITokenomics(dispenser).claimStakingRewards();
         } else if (attackOnDepositETHFromServices) {
@@ -61,12 +68,13 @@ contract ReentrancyAttacker {
 
 
     /// @dev Lets the attacker call back its contract to get back to the claimOwnerRewards() function.
-    function badClaimOwnerRewards(bool attack) external returns (uint256 reward, uint256 topUp, bool success)
+    function badClaimOwnerRewards(bool attack, uint256[] memory unitTypes, uint256[] memory unitIds) external
+        returns (uint256 reward, uint256 topUp, bool success)
     {
         if (attack) {
             attackOnClaimOwnerRewards = true;
         }
-        return ITokenomics(dispenser).claimOwnerRewards();
+        return ITokenomics(dispenser).claimOwnerRewards(unitTypes, unitIds);
     }
 
     /// @dev Lets the attacker call back its contract to get back to the claimStakingRewards() function.
