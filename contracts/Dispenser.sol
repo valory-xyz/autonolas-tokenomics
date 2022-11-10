@@ -22,7 +22,7 @@ contract Dispenser is GenericTokenomics {
     {
     }
 
-    /// @dev Claims rewards for the owner of components / agents.
+    /// @dev Claims incentives for the owner of components / agents.
     /// @notice `msg.sender` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `msg.sender` were provided, they will be untouched and keep accumulating.
     /// @param unitTypes Set of unit types (component / agent).
@@ -30,7 +30,7 @@ contract Dispenser is GenericTokenomics {
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     /// @return success True if the claim is successful and has at least one non-zero incentive.
-    function claimOwnerRewards(uint256[] memory unitTypes, uint256[] memory unitIds) external
+    function claimOwnerIncentives(uint256[] memory unitTypes, uint256[] memory unitIds) external
         returns (uint256 reward, uint256 topUp, bool success)
     {
         // Reentrancy guard
@@ -55,11 +55,11 @@ contract Dispenser is GenericTokenomics {
         _locked = 1;
     }
 
-    /// @dev Claims rewards for a staker address.
+    /// @dev Claims incentives for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     /// @return success True if the claim is successful and has at least one non-zero incentive.
-    function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+    function claimStakingIncentives() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();

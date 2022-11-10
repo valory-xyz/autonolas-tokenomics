@@ -102,8 +102,8 @@ describe("Dispenser", async () => {
     context("Get incentives", async function () {
         it("Withdraw incentives for unit owners and stakers", async () => {
             // Try to claim rewards
-            await dispenser.connect(deployer).claimOwnerRewards([], []);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([], []);
+            await dispenser.connect(deployer).claimStakingIncentives();
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
@@ -183,7 +183,7 @@ describe("Dispenser", async () => {
             expect(unitTopUps - checkedTopUp).to.lessThan(delta);
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
-            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerRewards([0, 1], [1, 1]);
+            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
             let claimedReward = Number(claimedOwnerIncentives.reward);
             let claimedTopUp = Number(claimedOwnerIncentives.topUp);
@@ -192,7 +192,7 @@ describe("Dispenser", async () => {
             expect(unitTopUps - claimedTopUp).to.lessThan(delta);
 
             // Simulate claiming of incentives for stakers
-            const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingRewards();
+            const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingIncentives();
             // Get accumulated rewards and top-ups
             claimedReward = Number(claimedStakerIncentives.reward);
             claimedTopUp = Number(claimedStakerIncentives.topUp);
@@ -202,8 +202,8 @@ describe("Dispenser", async () => {
 
             // Claim rewards and top-ups
             const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
             const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
@@ -217,7 +217,7 @@ describe("Dispenser", async () => {
                 tokenomics.getOwnerIncentives(deployer.address, [0], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
             await expect(
-                dispenser.claimOwnerRewards([0], [1, 1])
+                dispenser.claimOwnerIncentives([0], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
 
             // Try to get and claim owner rewards while not being the owner of components / agents
@@ -225,7 +225,7 @@ describe("Dispenser", async () => {
                 tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
             await expect(
-                dispenser.claimOwnerRewards([0, 1], [1, 1])
+                dispenser.claimOwnerIncentives([0, 1], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // Assign component and agent ownership to a deployer
@@ -237,7 +237,7 @@ describe("Dispenser", async () => {
                 tokenomics.getOwnerIncentives(deployer.address, [2, 1], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "Overflow");
             await expect(
-                dispenser.claimOwnerRewards([2, 1], [1, 1])
+                dispenser.claimOwnerIncentives([2, 1], [1, 1])
             ).to.be.revertedWithCustomError(tokenomics, "Overflow");
         });
 
@@ -252,8 +252,8 @@ describe("Dispenser", async () => {
 
             // Try to get and claim rewards
             await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
@@ -416,7 +416,7 @@ describe("Dispenser", async () => {
             expect(Math.abs(lastUnitTopUp + topUps[3] / 2 - checkedTopUp)).to.lessThan(delta);
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
-            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerRewards([0, 1], [1, 1]);
+            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
             let claimedReward = Number(claimedOwnerIncentives.reward);
             let claimedTopUp = Number(claimedOwnerIncentives.topUp);
@@ -425,7 +425,7 @@ describe("Dispenser", async () => {
             expect(Math.abs(unitTopUps - claimedTopUp)).to.lessThan(delta);
 
             // Simulate claiming of incentives for stakers
-            const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingRewards();
+            const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingIncentives();
             // Get accumulated rewards and top-ups
             claimedReward = Number(claimedStakerIncentives.reward);
             claimedTopUp = Number(claimedStakerIncentives.topUp);
@@ -435,8 +435,8 @@ describe("Dispenser", async () => {
 
             // Claim rewards and top-ups
             const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
             const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
@@ -458,8 +458,8 @@ describe("Dispenser", async () => {
 
             // Try to get and claim rewards
             await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
@@ -535,11 +535,11 @@ describe("Dispenser", async () => {
             // Claim rewards and top-ups
             const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
             // Static calls for incentive value returns
-            const ownerReward = await dispenser.callStatic.claimOwnerRewards([0, 1], [1, 1]);
-            const ownerTopUp = await dispenser.callStatic.claimStakingRewards();
+            const ownerReward = await dispenser.callStatic.claimOwnerIncentives([0, 1], [1, 1]);
+            const ownerTopUp = await dispenser.callStatic.claimStakingIncentives();
             // Real contract calls
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
             const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
 
             // Check the overall ETH reward
@@ -569,8 +569,8 @@ describe("Dispenser", async () => {
 
             // Try to get and claim rewards
             await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
 
             // Skip the number of blocks for 2 epochs
             await ethers.provider.send("evm_mine");
@@ -646,11 +646,11 @@ describe("Dispenser", async () => {
             // Claim rewards and top-ups
             const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
             // Static calls for incentive value returns
-            const ownerReward = await dispenser.callStatic.claimOwnerRewards([0, 1], [1, 1]);
-            const ownerTopUp = await dispenser.callStatic.claimStakingRewards();
+            const ownerReward = await dispenser.callStatic.claimOwnerIncentives([0, 1], [1, 1]);
+            const ownerTopUp = await dispenser.callStatic.claimStakingIncentives();
             // Real contract calls
-            await dispenser.connect(deployer).claimOwnerRewards([0, 1], [1, 1]);
-            await dispenser.connect(deployer).claimStakingRewards();
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            await dispenser.connect(deployer).claimStakingIncentives();
             const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
 
             // Check the overall ETH reward
@@ -723,19 +723,19 @@ describe("Dispenser", async () => {
 
             // Failing on the receive call
             await expect(
-                attacker.badClaimOwnerRewards(false, [0, 1], [1, 1])
+                attacker.badClaimOwnerIncentives(false, [0, 1], [1, 1])
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badClaimStakingRewards(false)
+                attacker.badClaimStakingIncentives(false)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badClaimOwnerRewards(true, [0, 1], [1, 1])
+                attacker.badClaimOwnerIncentives(true, [0, 1], [1, 1])
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             await expect(
-                attacker.badClaimStakingRewards(true)
+                attacker.badClaimStakingIncentives(true)
             ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
 
             // The funds still remain on the protocol side
