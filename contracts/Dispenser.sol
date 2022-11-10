@@ -22,13 +22,15 @@ contract Dispenser is GenericTokenomics {
     {
     }
 
-    /// @dev Claims rewards for the owner of components / agents.
+    /// @dev Claims incentives for the owner of components / agents.
+    /// @notice `msg.sender` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice If not all `unitIds` belonging to `msg.sender` were provided, they will be untouched and keep accumulating.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    /// @return success True if the claim is successful and not zero.
-    function claimOwnerRewards(uint256[] memory unitTypes, uint256[] memory unitIds) external
+    /// @return success True if the claim is successful and has at least one non-zero incentive.
+    function claimOwnerIncentives(uint256[] memory unitTypes, uint256[] memory unitIds) external
         returns (uint256 reward, uint256 topUp, bool success)
     {
         // Reentrancy guard
@@ -45,31 +47,30 @@ contract Dispenser is GenericTokenomics {
             }
         }
         if (topUp > 0) {
-            success = true;
             // OLAS token is safe as it uses the standard ERC20 transfer() function.
             // The function reverts if something goes wrong, so no additional check is needed.
-            IOLAS(olas).transfer(msg.sender, topUp);
+            success = IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;
     }
 
-    /// @dev Claims rewards for a staker address.
+    /// @dev Claims incentives for a staker address.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    function claimStakingRewards() external returns (uint256 reward, uint256 topUp, bool success) {
+    /// @return success True if the claim is successful and has at least one non-zero incentive.
+    function claimStakingIncentives() external returns (uint256 reward, uint256 topUp, bool success) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        success = true;
         // Starting epoch number where the last time reward was not yet given
         uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
         uint256 endEpochNumber;
         // Get the reward and epoch number up to which the reward was calculated
-        (reward, topUp, endEpochNumber) = ITokenomics(tokenomics).calculateStakingRewards(msg.sender, startEpochNumber);
+        (reward, topUp, endEpochNumber) = ITokenomics(tokenomics).getStakingIncentives(msg.sender, startEpochNumber);
         // Update the latest epoch number from which reward will be calculated the next time
         mapLastRewardEpochs[msg.sender] = endEpochNumber;
 
@@ -82,7 +83,7 @@ contract Dispenser is GenericTokenomics {
         if (topUp > 0) {
             // OLAS token is safe as it uses the standard ERC20 transfer() function.
             // The function reverts if something goes wrong, so no additional check is needed.
-            IOLAS(olas).transfer(msg.sender, topUp);
+            success = IOLAS(olas).transfer(msg.sender, topUp);
         }
 
         _locked = 1;

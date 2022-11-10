@@ -36,13 +36,13 @@ interface ITokenomics {
     function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
         returns (uint256 reward, uint256 topUp);
 
-    /// @dev Calculates staking rewards.
+    /// @dev Gets staking incentives.
     /// @param account Account address.
     /// @param startEpochNumber Epoch number at which the reward starts being calculated.
     /// @return reward Reward amount up to the last possible epoch.
     /// @return topUp Top-up amount up to the last possible epoch.
     /// @return endEpochNumber Epoch number where the reward calculation will start the next time.
-    function calculateStakingRewards(address account, uint256 startEpochNumber) external view
+    function getStakingIncentives(address account, uint256 startEpochNumber) external view
         returns (uint256 reward, uint256 topUp, uint256 endEpochNumber);
 
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.

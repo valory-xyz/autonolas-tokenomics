@@ -10,7 +10,6 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
-
 /*
 * In this contract we consider both ETH and OLAS tokens.
 * For ETH tokens, there are currently about 121 million tokens.
@@ -40,32 +39,38 @@ import "./interfaces/IVotingEscrow.sol";
 */
 
 // Structure for component / agent point with tokenomics-related statistics
-// The size of the struct is 96 * 2 + 32 + 8 * 2 = 240 bits (1 full slot)
+// The size of the struct is 96 * 2 + 32 + 8 * 3 = 248 bits (1 full slot)
 struct UnitPoint {
-    // Summation of all the ETH donations accounting for each component / agent in a service
+    // Summation of all the relative ETH donations accumulated by each component / agent in a service
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 sumUnitDonationsETH;
-    // Summation of all the OLAS top-ups accounting for each component in a service
+    // Summation of all the relative OLAS top-ups accumulated by each component / agent in a service
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 sumUnitTopUpsOLAS;
     // Number of new units
     // This number cannot be practically bigger than the total number of supported units
     uint32 numNewUnits;
+    // TODO Investigate the impact of storing values with multiplied fractions already
+    // TODO It will require more gas to write a point, but less gas to process incentive calculations
     // Reward component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 rewardUnitFraction;
     // Top-up component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 topUpUnitFraction;
+    // Unit weight for code unit calculations
+    // This number is related to the component / agent reward fraction
+    // We assume this number will not be practically bigger than 255
+    uint8 unitWeight;
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + 128 + 16 (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + (128 + 16) (2 full slots)
 struct EpochPoint {
-    // Donation in ETH
+    // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 totalDonationsETH;
-    // Top-ups in OLAS
+    // Amount of OLAS intended to fund top-ups for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 totalTopUpsOLAS;
     // Inverse of the discount factor
@@ -84,11 +89,14 @@ struct EpochPoint {
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
-    // Staking parameters (in percentage)
+    // Staking parameters for rewards (in percentage)
     // treasuryFraction (implicitly set to zero by default) + rewardComponentFraction + rewardAgentFraction + rewardStakerFraction = 100%
+    // Staker reward fraction
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 rewardStakerFraction;
-    // maxBond and top-ups of OLAS parameters (in percentage)
+    // Staking parameters for top-ups (in percentage)
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + topUpStakerFraction = 100%
+    // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
     // TODO Decide whether to add topUpstakerFraction as well or have it subtracted from 100 in-place
@@ -97,24 +105,25 @@ struct EpochPoint {
 // Structure for tokenomics point
 // The size of the struct is 256 * 2 + 256 * 2 = 256 * 4 (4 full slots)
 struct TokenomicsPoint {
-    // Component / agent points
+    // Two unit points in a representation of mapping and not on array to save on gas
+    // One unit point is for component (key = 0) and one is for agent (key = 1)
     mapping(uint256 => UnitPoint) unitPoints;
     // Epoch point
     EpochPoint epochPoint;
 }
 
-// Struct for component / agent owner incentive balances
+// Struct for component / agent incentive balances
 struct IncentiveBalances {
     // Reward in ETH
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 reward;
-    // Pending reward in ETH
-    uint96 pendingReward;
+    // Pending relative reward in ETH
+    uint96 pendingRelativeReward;
     // Top-up in OLAS
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 topUp;
-    // Pending top-up
-    uint96 pendingTopUp;
+    // Pending relative top-up
+    uint96 pendingRelativeTopUp;
     // Last epoch number the information was updated
     // This number cannot be practically bigger than the number of blocks
     uint32 lastEpoch;
@@ -159,15 +168,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // veOLAS threshold for top-ups
     // This number cannot be practically bigger than the number of OLAS tokens
     uint96 public veOLASThreshold = 5_000e18;
-    // TODO Check if unitPoints(a)Weight and componentWeight / agentWeight are the same
-    // TODO component weight is 2 by default, agent weight is 1
-    // UCFc / UCFa weights for the UCF contribution
-    // We assume the coefficients are bound by 2^16 - 1
-    uint16 public ucfcWeight = 1;
-    uint16 public ucfaWeight = 1;
-    // Component / agent weights for new valuable code
-    uint16 public componentWeight = 1;
-    uint16 public agentWeight = 1;
 
     // Component Registry
     address public componentRegistry;
@@ -239,14 +239,23 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.devsPerCapital = 1;
         tp.epochPoint.idf = 1e18 + epsilonRate;
 
-        tp.epochPoint.rewardStakerFraction = 50;
+        tp.epochPoint.rewardStakerFraction = 49;
         // 0 stands for components and 1 for agents
-        tp.unitPoints[0].rewardUnitFraction = 33;
+        // The initial target is to distribute around 2/3 of incentives reserved to fund owners of the code
+        // for components royalties and 1/3 for agents royalties
+        tp.unitPoints[0].rewardUnitFraction = 34;
         tp.unitPoints[1].rewardUnitFraction = 17;
 
-        uint256 _maxBondFraction = 50;
+        // We want to measure a unit of code as n agents or m components.
+        // Initially we consider 1 unit of code as either 2 agents or 1 component.
+        // E.g. if we have 2 profitable components and 2 profitable agents, this means there are (2x2 + 2x1) / 3 = 2
+        // units of code. Note that usually these weights are related to unit fractions.
+        tp.unitPoints[0].unitWeight = 1;
+        tp.unitPoints[1].unitWeight = 2;
+
+        uint256 _maxBondFraction = 49;
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
-        tp.unitPoints[0].topUpUnitFraction = 33;
+        tp.unitPoints[0].topUpUnitFraction = 34;
         tp.unitPoints[1].topUpUnitFraction = 17;
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
@@ -260,7 +269,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     function _adjustMaxBond(uint256 nextMaxBond) internal {
         uint256 curMaxBond = maxBond;
         uint256 curEffectiveBond = effectiveBond;
-        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed one
+        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed nextMaxBond
         if (curMaxBond > nextMaxBond) {
             // Get the difference of the maxBond
             uint256 delta = curMaxBond - nextMaxBond;
@@ -296,17 +305,24 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = _devsPerCapital;
+        if (_devsPerCapital > 0) {
+            mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = _devsPerCapital;
+        } else {
+            // This is done in order not to pass incorrect parameters into the event
+            _devsPerCapital = mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital;
+        }
 
         // Check the epsilonRate value for idf to fit in its size
         // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
-        if (_epsilonRate < 17e18) {
+        if (_epsilonRate > 0 && _epsilonRate < 17e18) {
             epsilonRate = _epsilonRate;
+        } else {
+            _epsilonRate = epsilonRate;
         }
 
         // Check for the epochLen value to change
         uint256 oldEpochLen = epochLen;
-        if (oldEpochLen != _epochLen) {
+        if (_epochLen > 0 && oldEpochLen != _epochLen) {
             // Check if the year change is ongoing in the current epoch, and thus maxBond cannot be changed
             if (lockMaxBond == 2) {
                 revert MaxBondUpdateLocked();
@@ -331,18 +347,24 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
             // Update the epochLen
             epochLen = _epochLen;
+        } else {
+            _epochLen = epochLen;
         }
 
-        veOLASThreshold = _veOLASThreshold;
+        if (_veOLASThreshold > 0) {
+            veOLASThreshold = _veOLASThreshold;
+        } else {
+            _veOLASThreshold = veOLASThreshold;
+        }
 
         emit TokenomicsParametersUpdated(_devsPerCapital, _epsilonRate, _epochLen, _veOLASThreshold);
     }
 
     /// @dev Sets incentive parameter fractions.
-    /// @param _rewardStakerFraction Fraction for stakers.
-    /// @param _rewardComponentFraction Fraction for component owners.
-    /// @param _rewardAgentFraction Fraction for agent owners.
-    /// @param _maxBondFraction Fraction for the maxBond.
+    /// @param _rewardStakerFraction Fraction for staker rewards funded by ETH donations.
+    /// @param _rewardComponentFraction Fraction for component owner rewards funded by ETH donations.
+    /// @param _rewardAgentFraction Fraction for agent owner rewards funded by ETH donations.
+    /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for OLAS top-up for component owners.
     /// @param _topUpAgentFraction Fraction for OLAS top-up for agent owners.
     function changeIncentiveFractions(
@@ -365,7 +387,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Same check for OLAS-related fractions
-        if (_maxBondFraction + _topUpComponentFraction > 100) {
+        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction > 100) {
             revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
         }
 
@@ -458,30 +480,28 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param unitType Unit type (component / agent).
     /// @param unitId Unit Id.
     function _finalizeIncentivesForUnitId(uint256 epochNum, uint256 unitType, uint256 unitId) internal {
-        // Summation of all the unit rewards
-        uint256 sumUnitIncentives;
-        // Total amount of rewards per epoch
-        uint256 totalIncentives;
         // Get the overall amount of component rewards for the component's last epoch
-        sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH;
-        totalIncentives = mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH *
-            mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction / 100;
-        // Add the final reward for the last epoch
-        mapUnitIncentives[unitType][unitId].reward +=
-            uint96(mapUnitIncentives[unitType][unitId].pendingReward * totalIncentives / sumUnitIncentives);
+        // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
+        uint256 totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeReward;
+        totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH;
+        totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction;
+        uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
+        // TODO Optimize gas usage
+        // Add to the final reward for the last epoch
+        mapUnitIncentives[unitType][unitId].reward += uint96(totalIncentives / sumUnitIncentives);
         // Setting pending reward to zero
-        mapUnitIncentives[unitType][unitId].pendingReward = 0;
-        // Add the final top-up for the last epoch
-        if (mapUnitIncentives[unitType][unitId].pendingTopUp > 0) {
+        mapUnitIncentives[unitType][unitId].pendingRelativeReward = 0;
+        // Add to the final top-up for the last epoch
+        if (mapUnitIncentives[unitType][unitId].pendingRelativeTopUp > 0) {
             // Summation of all the unit top-ups and total amount of top-ups per epoch
-            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS;
-            totalIncentives = mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS *
-                mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction / 100;
-            mapUnitIncentives[unitType][unitId].topUp +=
-                uint96(mapUnitIncentives[unitType][unitId].pendingTopUp * totalIncentives /
-                sumUnitIncentives);
+            // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
+            totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeTopUp;
+            totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
+            totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
+            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
+            mapUnitIncentives[unitType][unitId].topUp += uint96(totalIncentives / sumUnitIncentives);
             // Setting pending top-up to zero
-            mapUnitIncentives[unitType][unitId].pendingTopUp = 0;
+            mapUnitIncentives[unitType][unitId].pendingRelativeTopUp = 0;
         }
     }
 
@@ -539,11 +559,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                         mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                     }
                     // Sum the amounts for the corresponding components / agents
-                    mapUnitIncentives[unitType][serviceUnitIds[j]].pendingReward += amounts[i];
+                    mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amounts[i];
                     mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amounts[i];
-                    // Same for the tup-ups, if eligible
+                    // Same for the top-ups, if eligible
                     if (topUpEligible) {
-                        mapUnitIncentives[unitType][serviceUnitIds[j]].pendingTopUp += amounts[i];
+                        mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += amounts[i];
                         mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amounts[i];
                     }
     
@@ -593,6 +613,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // 5: maxBond, 6: component ownerTopUps, 7: agent ownerTopUps, 8: stakerTopUps
         uint256[] memory rewards = new uint256[](9);
         rewards[0] = tp.epochPoint.totalDonationsETH;
+        // 0 stands for components and 1 for agents
+        rewards[2] = (rewards[0] * tp.epochPoint.rewardStakerFraction) / 100;
+        rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
+        rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
+        // Treasury reward calculation
+        rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
@@ -678,10 +704,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         if (rewards[0] > 0) {
             // TODO: Recalculate component and agent weights correctly based on the corresponding fractions
             // 0 for components and 1 for agents
-            uint256 sumWeights = tp.unitPoints[0].topUpUnitFraction + tp.unitPoints[1].topUpUnitFraction;
+            uint256 sumWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
-            uint256 codeUnits = (tp.unitPoints[0].topUpUnitFraction * tp.unitPoints[0].numNewUnits +
-                tp.unitPoints[1].topUpUnitFraction * tp.unitPoints[1].numNewUnits) / sumWeights;
+            // (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
+            uint256 codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits +
+                tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights;
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
@@ -713,12 +740,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.endTime = uint32(block.timestamp);
 
         // Allocate rewards via Treasury and start new epoch
-        // 0 stands for components and 1 for agents
-        rewards[2] = (rewards[0] * tp.epochPoint.rewardStakerFraction) / 100;
-        rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
-        rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
-        // Treasury reward calculation
-        rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
         uint96 accountRewards = uint96(rewards[2] + rewards[3] + rewards[4]);
         // TODO do not mint the accumulated amount of OLAS, but mint directly to the claimer. The array values can be then deleted
         // Owner top-ups: epoch incentives for component owners funded with the inflation
@@ -727,7 +748,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         rewards[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
         rewards[8] = inflationPerEpoch - rewards[5] - rewards[6] - rewards[7];
-        uint96 accountTopUps = uint96(rewards[6] + rewards[7] + rewards[8]);
+        uint96 accountTopUps = uint96(rewards[8]);
+        // TODO Verify that this is the default tokenomics behavior
+        // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
+        if (tp.epochPoint.totalTopUpsOLAS > 0) {
+            accountTopUps += uint96(rewards[6] + rewards[7]);
+        }
 
         // Treasury contract allocates rewards
         if (ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
@@ -745,8 +771,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter];
         nextPoint.unitPoints[0].topUpUnitFraction = tp.unitPoints[0].topUpUnitFraction;
         nextPoint.unitPoints[0].rewardUnitFraction = tp.unitPoints[0].rewardUnitFraction;
+        nextPoint.unitPoints[0].unitWeight = tp.unitPoints[0].unitWeight;
         nextPoint.unitPoints[1].topUpUnitFraction = tp.unitPoints[1].topUpUnitFraction;
         nextPoint.unitPoints[1].rewardUnitFraction = tp.unitPoints[1].rewardUnitFraction;
+        nextPoint.unitPoints[1].unitWeight = tp.unitPoints[1].unitWeight;
         nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         nextPoint.epochPoint.rewardStakerFraction = tp.epochPoint.rewardStakerFraction;
         nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
@@ -755,13 +783,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         return true;
     }
 
-    /// @dev Calculates staking rewards.
+    /// @dev Gets staking incentives.
+    /// @notice To be eligible for the n-th epoch incentives, have a non-zero veOLAS balance in the (n-1)-th epoch.
+    /// @notice This distribution criteria is used in order to eliminate front-runners that observe incoming donations.
     /// @param account Account address.
     /// @param startEpochNumber Epoch number at which the reward starts being calculated.
     /// @return reward Reward amount up to the last possible epoch.
     /// @return topUp Top-up amount up to the last possible epoch.
     /// @return endEpochNumber Epoch number where the reward calculation will start the next time.
-    function calculateStakingRewards(address account, uint256 startEpochNumber) external view
+    function getStakingIncentives(address account, uint256 startEpochNumber) external view
         returns (uint256 reward, uint256 topUp, uint256 endEpochNumber)
     {
         // There is no reward in the first epoch yet
@@ -769,30 +799,38 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             startEpochNumber = 2;
         }
 
-        for (endEpochNumber = startEpochNumber; endEpochNumber < epochCounter; ++endEpochNumber) {
-            // Epoch point where the current epoch info is recorded
-            // stakerRewards = rewardStakerFraction * totalDonationsETH / 100
-            uint96 stakerRewards = mapEpochTokenomics[endEpochNumber].epochPoint.rewardStakerFraction *
-                mapEpochTokenomics[endEpochNumber].epochPoint.totalDonationsETH / 100;
-            // TODO Estimate the gas cost of storing stakerTopUpsFraction instead of calculating it via subtraction, as mentioned above
-            // stakerTopUps = (100 - maxBondFraction - componentTopUpsFraction - agentTopUpsFraction) * totalTopUpsOLAS / 100
-            // 0 stands for components and 1 for agents
-            uint96 stakerTopUps = (100 - mapEpochTokenomics[endEpochNumber].epochPoint.maxBondFraction - mapEpochTokenomics[endEpochNumber].unitPoints[0].topUpUnitFraction -
-                mapEpochTokenomics[endEpochNumber].unitPoints[1].topUpUnitFraction) * mapEpochTokenomics[endEpochNumber].epochPoint.totalTopUpsOLAS / 100;
+        uint256 eCounter = epochCounter;
+        // Loop over epoch points to calculate incentives according to the staking fraction
+        for (endEpochNumber = startEpochNumber; endEpochNumber < eCounter; ++endEpochNumber) {
             // Last block number of a previous epoch
             uint256 iBlock = mapEpochTokenomics[endEpochNumber - 1].epochPoint.endBlockNumber - 1;
-            // Get account's balance at the end of epoch
+            // Get account's balance at the end of a previous epoch
             uint256 balance = IVotingEscrow(ve).balanceOfAt(account, iBlock);
 
-            // If there was no locking / staking, we skip the reward computation
+            // If there was no locking / staking, skip the reward computation
             if (balance > 0) {
                 // Get the total supply at the last block of the epoch
                 uint256 supply = IVotingEscrow(ve).totalSupplyAt(iBlock);
 
                 // Add to the reward depending on the staker reward
                 if (supply > 0) {
-                    reward += (balance * stakerRewards) / supply;
-                    topUp += (balance * stakerTopUps) / supply;
+                    // TODO Estimate the gas cost of storing stakerTopUpsFraction instead of calculating it via subtraction, as mentioned above
+                    // 0 stands for components and 1 for agents
+                    uint256 stakerTopUpFraction = (100 - mapEpochTokenomics[endEpochNumber].epochPoint.maxBondFraction -
+                        mapEpochTokenomics[endEpochNumber].unitPoints[0].topUpUnitFraction -
+                        mapEpochTokenomics[endEpochNumber].unitPoints[1].topUpUnitFraction);
+
+                    // balance is bounded by 96 bits, same as totalDonationsETH, so their multiplication together with
+                    // rewardStakerFraction (8 bits) is at most 96 + 96 + 8 < 256 bits, thus their multiplication is safe
+                    // reward = balance * rewardStakerFraction * totalDonationsETH / (100 * supply)
+                    reward += (balance * mapEpochTokenomics[endEpochNumber].epochPoint.rewardStakerFraction *
+                        mapEpochTokenomics[endEpochNumber].epochPoint.totalDonationsETH) / (100 * supply);
+
+                    // balance is bounded by 96 bits, same as totalTopUpsOLAS, so their multiplication together with
+                    // stakerTopUpFraction (8 bits) is at most 96 + 96 + 8 < 256 bits, thus their multiplication is safe
+                    // topUp = balance * (100 - maxBondFraction - componentTopUpsFraction - agentTopUpsFraction) * totalTopUpsOLAS / (100 * supply)
+                    topUp += (balance * stakerTopUpFraction * mapEpochTokenomics[endEpochNumber].epochPoint.totalTopUpsOLAS) /
+                        (100 * supply);
                 }
             }
         }
@@ -842,6 +880,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
+    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
@@ -900,13 +940,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Gets the component / agent owner reward.
+    /// @dev Gets the component / agent owner incentives.
+    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
     /// @param unitTypes Set of unit types (component / agent).
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function getOwnerRewards(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
+    function getOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
         returns (uint256 reward, uint256 topUp)
     {
         // Check array lengths
@@ -940,32 +981,39 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Calculate rewards and top-ups if there were pending ones from the previous epoch
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
-                // Summation of all the unit rewards
-                uint256 sumUnitIncentives;
-                // Total amount of rewards per epoch
-                uint256 totalIncentives;
                 // Get the overall amount of component rewards for the component's last epoch
-                sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH;
-                totalIncentives = mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH *
-                    mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction / 100;
-                // Add the final reward for the last epoch
-                reward = uint96(mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingReward * totalIncentives /
-                    sumUnitIncentives);
+                // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
+                uint256 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeReward;
+                totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH;
+                totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction;
+                uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH * 100;
+                // Accumulate to the final reward for the last epoch
+                reward += totalIncentives / sumUnitIncentives;
                 // Add the final top-up for the last epoch
-                if (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingTopUp > 0) {
+                if (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp > 0) {
                     // Summation of all the unit top-ups and total amount of top-ups per epoch
-                    sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS;
-                    totalIncentives = mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS *
-                        mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction / 100;
-                    topUp = uint96(mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingTopUp * totalIncentives /
-                        sumUnitIncentives);
+                    // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
+                    totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
+                    sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
+                    // Accumulate to the final top-up for the last epoch
+                    topUp += totalIncentives / sumUnitIncentives;
                 }
             }
 
-            // Accumulate total rewards
+            // Accumulate total rewards to finalized ones
             reward += mapUnitIncentives[unitTypes[i]][unitIds[i]].reward;
-            // Accumulate total top-ups
+            // Accumulate total top-ups to finalized ones
             topUp += mapUnitIncentives[unitTypes[i]][unitIds[i]].topUp;
         }
+    }
+
+    /// @dev Gets incentive balances of a component / agent.
+    /// @param unitType Unit type (component or agent).
+    /// @param unitId Unit Id.
+    /// @return Component / agent incentive balances.
+    function getIncentiveBalances(uint256 unitType, uint256 unitId) external view returns (IncentiveBalances memory) {
+        return mapUnitIncentives[unitType][unitId];
     }
 }    
