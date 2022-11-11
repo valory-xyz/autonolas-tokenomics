@@ -173,6 +173,14 @@ describe("Dispenser", async () => {
             const unitRewards = rewards[1].add(rewards[2]);
             const unitTopUps = topUps[1].add(topUps[2]);
 
+            // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
+            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
+            expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
+            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
+            expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
+
             // Get deployer incentives information
             const result = await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
             // Get accumulated rewards and top-ups

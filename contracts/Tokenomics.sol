@@ -558,10 +558,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                         // Change the last epoch number
                         mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                     }
-                    // Sum the amounts for the corresponding components / agents
+                    // Sum the relative amounts for the corresponding components / agents
                     mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amounts[i];
                     mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amounts[i];
-                    // Same for the top-ups, if eligible
+                    // If eligible, add relative top-up weights in the form of donation amounts.
+                    // These weights will represent the fraction of top-ups for each component / agent relative
+                    // to the overall amount of top-ups that must be allocated
                     if (topUpEligible) {
                         mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += amounts[i];
                         mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amounts[i];
@@ -751,7 +753,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         uint96 accountTopUps = uint96(rewards[8]);
         // TODO Verify that this is the default tokenomics behavior
         // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
-        if (tp.epochPoint.totalTopUpsOLAS > 0) {
+        // This means that it is safe to check for the sum related to OLAS top-ups in agents,
+        // since a service has at least one agent, and each agent has at least one component
+        if (tp.unitPoints[1].sumUnitTopUpsOLAS > 0) {
             accountTopUps += uint96(rewards[6] + rewards[7]);
         }
 
