@@ -41,7 +41,7 @@ contract Depository is GenericTokenomics {
         // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 payout;
         // Bond maturity time
-        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
+        // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
         uint32 maturity;
         // Product Id of a bond
         // We assume that the number of products will not be bigger than the number of blocks
@@ -100,24 +100,19 @@ contract Depository is GenericTokenomics {
         }
     }
 
-    // TODO Do we need an explicit address here or can just use an msg.sender?
     /// @dev Deposits tokens in exchange for a bond from a specified product.
-    /// @param token Token address.
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
-    /// @param account Address of a payout recipient.
     /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
-    function deposit(address token, uint256 productId, uint256 tokenAmount, address account) external
+    function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint96 payout, uint32 expiry, uint256 bondId)
     {
         Product storage product = mapTokenProducts[productId];
 
-        // Check if the token corresponds to the product Id
-        if (token != product.token) {
-            revert WrongTokenAddress(token, product.token);
-        }
+        // Get the LP token address
+        address token = product.token;
 
         // Check for the product expiry
         // Note that if the token or productId are invalid, the expiry will be zero by default and revert the function
@@ -142,48 +137,61 @@ contract Depository is GenericTokenomics {
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
-        mapUserBonds[bondId] = Bond(account, payout, expiry, uint32(productId));
+        mapUserBonds[bondId] = Bond(msg.sender, payout, expiry, uint32(productId));
         bondCounter = bondId + 1;
         emit CreateBond(token, productId, payout, tokenAmount);
 
         // TODO All the transfer-related routines below can be moved to the treasury side without the need to receive funds by depository first?
         // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
-        if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
-            revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
+        if (IERC20(token).allowance(msg.sender, address(this)) < tokenAmount) {
+            revert InsufficientAllowance(IERC20(token).allowance((msg.sender), address(this)), tokenAmount);
         }
         // Transfer tokens to the depository
         // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
         // UniswapV2ERC20 implementation has a standard transferFrom() function that returns a boolean value
-        IERC20(product.token).transferFrom(msg.sender, address(this), tokenAmount);
+        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
         // Approve treasury for the specified token amount
-        IERC20(product.token).approve(treasury, tokenAmount);
+        IERC20(token).approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLAS tokens in exchange
-        ITreasury(treasury).depositTokenForOLAS(uint224(tokenAmount), product.token, payout);
+        ITreasury(treasury).depositTokenForOLAS(uint224(tokenAmount), token, payout);
     }
 
-    // TODO Do we need an explicit address here or could just use msg.sender?
     /// @dev Redeem account bonds.
-    /// @param account Address of a payout recipient.
     /// @param bondIds Bond Ids to redeem.
     /// @return payout Total payout sent in OLAS tokens.
-    function redeem(address account, uint256[] memory bondIds) public returns (uint256 payout) {
+    function redeem(uint256[] memory bondIds) public returns (uint256 payout) {
         for (uint256 i = 0; i < bondIds.length; i++) {
-            // Get the amount to pay and the maturity status
-            (uint256 pay, bool maturity) = getBondStatus(bondIds[i]);
-
-            // Check that the account is the owner of the bond
-            if (mapUserBonds[bondIds[i]].account != account) {
-                revert OwnerOnly(account, mapUserBonds[bondIds[i]].account);
+            // Check that the msg.sender is the owner of the bond
+            if (mapUserBonds[bondIds[i]].account != msg.sender) {
+                revert OwnerOnly(msg.sender, mapUserBonds[bondIds[i]].account);
             }
 
+            // Get the amount to pay and the maturity status
+            uint256 pay = mapUserBonds[bondIds[i]].payout;
+            bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && pay != 0;
+
             // If matured, delete the Bond struct and release the gas
-            if (maturity) {
+            if (matured) {
+                uint256 productId = mapUserBonds[bondIds[i]].productId;
                 delete mapUserBonds[bondIds[i]];
                 payout += pay;
+
+                // Close the program if it was not yet closed
+                if (mapTokenProducts[productId].expiry > 0) {
+                    uint96 supply = mapTokenProducts[productId].supply;
+                    // Refund unused OLAS supply from the program if not used completely
+                    if (supply > 0) {
+                        ITokenomics(tokenomics).refundFromBondProgram(supply);
+                    }
+                    address token = mapTokenProducts[productId].token;
+                    delete mapTokenProducts[productId];
+
+                    emit CloseProduct(token, productId);
+                }
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
-        IERC20(olas).transfer(account, payout);
+        IERC20(olas).transfer(msg.sender, payout);
     }
 
     /// @dev Gets bond Ids of all pending bonds for the account address.
@@ -217,13 +225,11 @@ contract Depository is GenericTokenomics {
     /// @param bondId The account bond Id.
     /// @return payout The payout amount in OLAS.
     /// @return matured True if the payout can be redeemed.
-    function getBondStatus(uint256 bondId) public view returns (uint256 payout, bool matured) {
-        Bond memory bond = mapUserBonds[bondId];
-        payout = bond.payout;
-        matured = bond.maturity <= block.timestamp && bond.payout != 0;
+    function getBondStatus(uint256 bondId) external view returns (uint256 payout, bool matured) {
+        payout = mapUserBonds[bondId].payout;
+        matured = (block.timestamp >= mapUserBonds[bondId].maturity) && payout != 0;
     }
 
-    // TODO Make sure deposit and create are not run in the same block number
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
     /// @param priceLP LP token price.
@@ -264,7 +270,6 @@ contract Depository is GenericTokenomics {
         emit CreateProduct(token, productId, supply);
     }
 
-    // TODO Make this function callable by everybody, also from the redeem function
     /// @dev Close a bonding product.
     /// @param productId Product Id.
     function close(uint256 productId) external {
@@ -287,7 +292,7 @@ contract Depository is GenericTokenomics {
     /// @dev Gets activity information about a given product.
     /// @param productId Product Id.
     /// @return status True if the product is active.
-    function isActiveProduct(uint256 productId) public view returns (bool status) {
+    function isActiveProduct(uint256 productId) external view returns (bool status) {
         status = (mapTokenProducts[productId].supply > 0 && mapTokenProducts[productId].expiry > block.timestamp);
     }
 
@@ -299,7 +304,7 @@ contract Depository is GenericTokenomics {
         bool[] memory positions = new bool[](numProducts);
         uint256 numActive;
         for (uint256 i = 0; i < numProducts; i++) {
-            if (isActiveProduct(i)) {
+            if (mapTokenProducts[i].supply > 0 && mapTokenProducts[i].expiry > block.timestamp) {
                 positions[i] = true;
                 ++numActive;
             }
