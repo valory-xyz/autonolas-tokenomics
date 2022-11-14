@@ -51,11 +51,13 @@ contract GenericBondCalculator {
             (reserve0, reserve1, ) = pair.getReserves();
             // token0 != olas && token1 != olas, this should never happen
             if (token0 == olas || token1 == olas) {
-                // Calculate the LP price based on reserves and totalSupply ratio
-                priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
-                // Precision factor
+                // If OLAS is in token0, assign its reserves to reserve1, otherwise the reserve1 is already correct
+                if (token0 == olas) {
+                    reserve1 = reserve0;
+                }
+                // Calculate the LP price based on reserves and totalSupply ratio multiplied by 1e18
                 // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
-                priceLP *= 1e18;
+                priceLP = (uint256(reserve1) * 1e18) / totalSupply;
             }
         }
     }
