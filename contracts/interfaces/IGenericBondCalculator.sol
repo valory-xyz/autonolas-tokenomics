@@ -7,8 +7,8 @@ interface IGenericBondCalculator {
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutOLAS(uint224 tokenAmount, uint256 priceLP) external view
-        returns (uint96 amountOLAS);
+    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS);
 
     /// @dev Get reserveX/reserveY at the time of product creation.
     /// @param token Token address.

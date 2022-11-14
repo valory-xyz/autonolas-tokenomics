@@ -27,12 +27,12 @@ contract GenericBondCalculator {
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutOLAS(uint224 tokenAmount, uint256 priceLP) external view
-        returns (uint96 amountOLAS)
+    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS)
     {
         // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
         uint256 amountDF = (ITokenomics(tokenomics).getLastIDF() * priceLP * tokenAmount) / 1e36;
-        amountOLAS = uint96(amountDF);
+        amountOLAS = amountDF;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
