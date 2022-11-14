@@ -3,7 +3,7 @@ const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 //const { helpers } = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("Depository LP", async () => {
+describe.only("Depository LP", async () => {
     const decimals = "0".repeat(18);
     // 1 million token
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
@@ -29,6 +29,7 @@ describe("Depository LP", async () => {
     let treasuryFactory;
     let tokenomics;
     let epochLen = 100;
+    let defaultPriceLP = "2" + decimals;
 
     // 2,200
     let supplyProductOLAS =  "22" + "0".repeat(2) + decimals;
@@ -163,7 +164,8 @@ describe("Depository LP", async () => {
         await dai.connect(alice).approve(depository.address, supplyProductOLAS);
 
         await treasury.enableToken(pairODAI.address);
-        await depository.create(pairODAI.address, supplyProductOLAS, vesting);
+        const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+        await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
 
         const block = await ethers.provider.getBlock("latest");
         conclusion = block.timestamp + timeToConclusion;
@@ -214,35 +216,35 @@ describe("Depository LP", async () => {
         it("Should fail when the LP token is not authorized for the product", async () => {
             // Token address is not enabled
             await expect(
-                depository.create(alice.address, supplyProductOLAS, vesting)
+                depository.create(alice.address, defaultPriceLP, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
 
             // Token address is enabled but is not an LP token
             await treasury.enableToken(olas.address);
             await expect(
-                depository.create(olas.address, supplyProductOLAS, vesting)
+                depository.create(olas.address, defaultPriceLP, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
 
-            // Token is not a contract
-            await treasury.enableToken(alice.address);
+            // Token is not a contract, so the LP price will not be calculated as the Uniswap pair will fail
             await expect(
-                depository.create(alice.address, supplyProductOLAS, vesting)
+                depository.getCurrentPriceLP(alice.address)
             ).to.be.reverted;
         });
 
         it("Create a product", async () => {
             // Trying to create a product not by the contract owner
             await expect(
-                depository.connect(alice).create(pairODAI.address, supplyProductOLAS, vesting)
+                depository.connect(alice).create(pairODAI.address, defaultPriceLP, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Try to give the overflow vesting value
             await expect(
-                depository.create(pairODAI.address, supplyProductOLAS, maxUint32)
+                depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, maxUint32)
             ).to.be.revertedWithCustomError(depository, "Overflow");
 
             // Create a second product, the first one is already created
-            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+            await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
             // Check for the product being active
             expect(await depository.isActive(pairODAI.address, bid)).to.equal(true);
             expect(await depository.isActive(pairODAI.address, bid + 1)).to.equal(true);
@@ -251,13 +253,14 @@ describe("Depository LP", async () => {
 
         it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
             await expect(
-                depository.create(pairODAI.address, maxUint96, vesting)
+                depository.create(pairODAI.address, defaultPriceLP, maxUint96, vesting)
             ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
         });
 
         it("Should return IDs of all products", async () => {
             // Create a second bond
-            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+            await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
             let [first, second] = await depository.getActiveProductsForToken(pairODAI.address);
             expect(Number(first)).to.equal(0);
             expect(Number(second)).to.equal(1);
@@ -270,7 +273,8 @@ describe("Depository LP", async () => {
 
         it("Get correct active product Ids when closing others", async () => {
             // Create a second bonding product
-            await depository.create(pairODAI.address, supplyProductOLAS, vesting);
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+            await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
             // Close the first bonding product
             await depository.close(pairODAI.address, 0);
             [first] = await depository.getActiveProductsForToken(pairODAI.address);
@@ -299,9 +303,10 @@ describe("Depository LP", async () => {
             await treasury.enableToken(pairDOLAS.address);
 
             // Try to create a bonding product with it
+            const priceLP = await depository.getCurrentPriceLP(pairDOLAS.address);
             await expect(
-                depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+                depository.create(pairDOLAS.address, priceLP, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "Underflow");
         });
 
         it("Should fail when there is no OLAS in the LP token", async () => {
@@ -340,9 +345,10 @@ describe("Depository LP", async () => {
             await treasury.enableToken(pairDOLAS.address);
 
             // Try to create a bonding product with it
+            const priceLP = await depository.getCurrentPriceLP(pairDOLAS.address);
             await expect(
-                depository.create(pairDOLAS.address, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+                depository.create(pairDOLAS.address, priceLP, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "Underflow");
         });
     });
 

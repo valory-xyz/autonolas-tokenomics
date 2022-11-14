@@ -36,6 +36,11 @@ interface IErrorsTokenomics {
     /// @param max Maximum possible value.
     error Overflow(uint256 provided, uint256 max);
 
+    /// @dev Value underflow.
+    /// @param provided Underflow value.
+    /// @param min Minimum possible value.
+    error Underflow(uint256 provided, uint256 min);
+
     /// @dev Service termination block has been reached. Service is terminated.
     /// @param teminationBlock The termination block.
     /// @param curBlock Current block.

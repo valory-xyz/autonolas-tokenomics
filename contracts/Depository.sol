@@ -116,6 +116,7 @@ contract Depository is GenericTokenomics {
         }
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
+        // Note that payout cannot be zero since the price LP is non-zero, since otherwise the product would not be created
         payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
@@ -127,6 +128,7 @@ contract Depository is GenericTokenomics {
         product.supply -= payout;
         product.purchased += tokenAmount;
 
+        // Updated number of bonds for this product
         numBonds = mapUserBonds[user].length;
 
         // Create and add a new bond
@@ -216,13 +218,19 @@ contract Depository is GenericTokenomics {
     // TODO Make sure deposit and create are not run in the same block number
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
+    /// @param priceLP LP token price.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(address token, uint96 supply, uint32 vesting) external returns (uint256 productId) {
+    function create(address token, uint256 priceLP, uint96 supply, uint32 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the pool liquidity as the LP price being greater than zero
+        if (priceLP < 1e18) {
+            revert Underflow(priceLP, 1e18);
         }
 
         // Check if the LP token is enabled and that it is the LP token
@@ -237,11 +245,6 @@ contract Depository is GenericTokenomics {
 
         // Create a new product
         productId = mapTokenProducts[token].length;
-        uint256 priceLP = IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
-        // Check for the pool liquidity as the LP price being greater than zero
-        if (priceLP == 0) {
-            revert ZeroValue();
-        }
 
         // Check for the expiration time overflow
         uint256 expiry = block.timestamp + vesting;
@@ -316,5 +319,12 @@ contract Depository is GenericTokenomics {
     /// @return Product instance.
     function getProduct(address token, uint256 productId) external view returns (Product memory) {
         return mapTokenProducts[token][productId];
+    }
+
+    /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
+    /// @param token Token address.
+    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals.
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
+        return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
 }

@@ -536,6 +536,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
 
+            // TODO Account for zero fractions for components and agents here, in setting them and in incentives calculations
+
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
             address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
             bool topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
@@ -944,6 +946,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
+    // TODO Make sure uintIds are unique otherwise the calculation will be wrong
     /// @dev Gets the component / agent owner incentives.
     /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
