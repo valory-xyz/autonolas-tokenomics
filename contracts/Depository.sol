@@ -229,8 +229,8 @@ contract Depository is GenericTokenomics {
         }
 
         // Check for the pool liquidity as the LP price being greater than zero
-        if (priceLP < 1e18) {
-            revert Underflow(priceLP, 1e18);
+        if (priceLP == 0) {
+            revert ZeroValue();
         }
 
         // Check if the LP token is enabled and that it is the LP token
