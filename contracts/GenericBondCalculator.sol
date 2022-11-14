@@ -45,8 +45,8 @@ contract GenericBondCalculator {
         if (totalSupply > 0) {
             address token0 = pair.token0();
             address token1 = pair.token1();
-            uint112 reserve0;
-            uint112 reserve1;
+            uint256 reserve0;
+            uint256 reserve1;
             // requires low gas
             (reserve0, reserve1, ) = pair.getReserves();
             // token0 != olas && token1 != olas, this should never happen
@@ -57,7 +57,7 @@ contract GenericBondCalculator {
                 }
                 // Calculate the LP price based on reserves and totalSupply ratio multiplied by 1e18
                 // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
-                priceLP = (uint256(reserve1) * 1e18) / totalSupply;
+                priceLP = (reserve1 * 1e18) / totalSupply;
             }
         }
     }
