@@ -306,7 +306,7 @@ describe.only("Depository LP", async () => {
             const priceLP = await depository.getCurrentPriceLP(pairDOLAS.address);
             await expect(
                 depository.create(pairDOLAS.address, priceLP, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "Underflow");
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
         });
 
         it("Should fail when there is no OLAS in the LP token", async () => {
@@ -348,7 +348,46 @@ describe.only("Depository LP", async () => {
             const priceLP = await depository.getCurrentPriceLP(pairDOLAS.address);
             await expect(
                 depository.create(pairDOLAS.address, priceLP, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "Underflow");
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+        });
+
+        it("Price LP check for unbalanced pools", async () => {
+            // Create one more ERC20 token
+            const ercToken = await erc20Token.deploy();
+            ercToken.mint(deployer.address, initialMint);
+
+            // Create an LP token
+            await factory.createPair(olas.address, ercToken.address);
+            const pAddress = await factory.allPairs(1);
+            const pairDOLAS = await ethers.getContractAt("UniswapV2Pair", pAddress);
+
+            // 10 vs 10k
+            const amountToken1 = "10" + decimals;
+            const amountToken2 = "1" + "0".repeat(4) + decimals;
+            const minAmountToken1 =  "5" + decimals;
+            const minAmountToken2 = "1" + "0".repeat(3) + decimals;
+            const deadline = Date.now() + 1000;
+            const toAddress = deployer.address;
+            await olas.approve(router.address, LARGE_APPROVAL);
+            await ercToken.approve(router.address, LARGE_APPROVAL);
+
+            await router.connect(deployer).addLiquidity(
+                olas.address,
+                ercToken.address,
+                amountToken1,
+                amountToken2,
+                minAmountToken1,
+                minAmountToken2,
+                toAddress,
+                deadline
+            );
+
+            // Enable the new LP token without liquidity
+            await treasury.enableToken(pairDOLAS.address);
+
+            // Try to create a bonding product with it
+            const priceLP = await depository.getCurrentPriceLP(pairDOLAS.address);
+            expect(Number(priceLP)).to.greaterThan(0);
         });
     });
 
