@@ -54,6 +54,7 @@ contract GenericBondCalculator {
                 // Calculate the LP price based on reserves and totalSupply ratio
                 priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
                 // Precision factor
+                // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
                 priceLP *= 1e18;
             }
         }
