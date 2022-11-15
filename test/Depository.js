@@ -158,11 +158,8 @@ describe("Depository LP", async () => {
         //console.log("balance LP for bob:", (await pairODAI.balanceOf(bob.address)));
         //console.log("deployer LP new balance:", await pairODAI.balanceOf(deployer.address));
 
-        await olas.connect(alice).approve(depository.address, LARGE_APPROVAL);
-        await dai.connect(bob).approve(depository.address, LARGE_APPROVAL);
-        await pairODAI.connect(bob).approve(depository.address, LARGE_APPROVAL);
-        await pairODAI.connect(alice).approve(depository.address, LARGE_APPROVAL);
-        await dai.connect(alice).approve(depository.address, supplyProductOLAS);
+        await pairODAI.connect(bob).approve(treasury.address, LARGE_APPROVAL);
+        await pairODAI.connect(alice).approve(treasury.address, LARGE_APPROVAL);
 
         await treasury.enableToken(pairODAI.address);
         const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
@@ -445,14 +442,14 @@ describe("Depository LP", async () => {
             let amount = (await pairODAI.balanceOf(bob.address));
             await expect(
                 depository.connect(deployer).deposit(bid, amount)
-            ).to.be.revertedWithCustomError(depository, "InsufficientAllowance");
+            ).to.be.revertedWithCustomError(treasury, "InsufficientAllowance");
         });
 
         it("Should not allow a deposit greater than max payout", async () => {
             const amount = (await pairODAI.balanceOf(deployer.address));
 
             // Trying to deposit the amount that would result in an overflow payout for the LP supply
-            await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
+            await pairODAI.connect(deployer).approve(treasury.address, LARGE_APPROVAL);
 
             await expect(
                 depository.connect(deployer).deposit(bid, amount)
@@ -655,11 +652,11 @@ describe("Depository LP", async () => {
             await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
 
             // Trying to deposit the amount that would result in an overflow payout for the LP supply
-            const payout = await attackDeposit.callStatic.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
-                bid, amountTo, router.address);
+            const payout = await attackDeposit.callStatic.flashAttackDepositImmune(depository.address, treasury.address,
+                pairODAI.address, olas.address, bid, amountTo, router.address);
 
             // Try to attack via flash loan
-            await attackDeposit.flashAttackDepositImmune(depository.address, pairODAI.address, olas.address,
+            await attackDeposit.flashAttackDepositImmune(depository.address, treasury.address, pairODAI.address, olas.address,
                 bid, amountTo, router.address);
 
             // Check that the flash attack did not do anything but obtained the same bond as everybody

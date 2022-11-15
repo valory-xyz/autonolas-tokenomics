@@ -34,7 +34,7 @@ import "./interfaces/ITokenomics.sol";
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Treasury is GenericTokenomics {
 
-    event DepositTokenFromDepository(address indexed token, uint256 tokenAmount, uint256 olasMintAmount);
+    event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
     event DepositETHFromServices(address indexed sender, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
     event TokenReserves(address indexed token, uint256 reserves);
@@ -83,10 +83,11 @@ contract Treasury is GenericTokenomics {
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
+    /// @param account Account address making a deposit of LP tokens for OLAS.
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
-    function depositTokenForOLAS(uint224 tokenAmount, address token, uint96 olasMintAmount) external
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -99,19 +100,24 @@ contract Treasury is GenericTokenomics {
             revert UnauthorizedToken(token);
         }
 
-        uint224 reserves = tokenInfo.reserves;
-        reserves += tokenAmount;
-        tokenInfo.reserves = reserves;
+        uint256 reserves = tokenInfo.reserves + tokenAmount;
+        tokenInfo.reserves = uint224(reserves);
+
+        // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
+        if (IERC20(token).allowance(account, address(this)) < tokenAmount) {
+            revert InsufficientAllowance(IERC20(token).allowance((account), address(this)), tokenAmount);
+        }
+
+        // Transfer tokens from account to treasury and add to the token treasury reserves
+        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
+        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
+        IERC20(token).transferFrom(account, address(this), tokenAmount);
+
         // Mint specified number of OLAS tokens corresponding to tokens bonding deposit
         // The olasMintAmount is guaranteed by the product supply limit, which is limited by the effectiveBond
         IOLAS(olas).mint(msg.sender, olasMintAmount);
 
-        // Transfer tokens from depository to treasury and add to the token treasury reserves
-        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
-        // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
-        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
-
-        emit DepositTokenFromDepository(token, tokenAmount, olasMintAmount);
+        emit DepositTokenFromAccount(account, token, tokenAmount, olasMintAmount);
     }
 
     /// @dev Deposits ETH from protocol-owned services in batch.

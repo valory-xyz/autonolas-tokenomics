@@ -21,11 +21,11 @@ interface ITokenomics {
     /// @notice Programs exceeding the limit in the epoch are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return True if effective bond threshold is not reached.
-    function reserveAmountForBondProgram(uint96 amount) external returns(bool);
+    function reserveAmountForBondProgram(uint256 amount) external returns(bool);
 
     /// @dev Refunds unused bond program amount.
     /// @param amount Amount to be refunded from the bond program.
-    function refundFromBondProgram(uint96 amount) external;
+    function refundFromBondProgram(uint256 amount) external;
 
     /// @dev Gets component / agent owner incentives and clears the balances.
     /// @param account Account address.
