@@ -76,7 +76,7 @@ contract Depository is GenericTokenomics {
     // Mapping of bond Id => account bond instance
     mapping(uint256 => Bond) public mapUserBonds;
     // Mapping of product Id => bond product instance
-    mapping(uint256 => Product) public mapTokenProducts;
+    mapping(uint256 => Product) public mapBondProducts;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
@@ -109,7 +109,7 @@ contract Depository is GenericTokenomics {
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint96 payout, uint32 expiry, uint256 bondId)
     {
-        Product storage product = mapTokenProducts[productId];
+        Product storage product = mapBondProducts[productId];
 
         // Get the LP token address
         address token = product.token;
@@ -161,33 +161,36 @@ contract Depository is GenericTokenomics {
     /// @return payout Total payout sent in OLAS tokens.
     function redeem(uint256[] memory bondIds) public returns (uint256 payout) {
         for (uint256 i = 0; i < bondIds.length; i++) {
+            // Get the amount to pay and the maturity status
+            uint256 pay = mapUserBonds[bondIds[i]].payout;
+            bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
+
+            // Revert if the bond is not matured yet
+            if (!matured) {
+                revert BondNotRedeemable(bondIds[i]);
+            }
+
             // Check that the msg.sender is the owner of the bond
             if (mapUserBonds[bondIds[i]].account != msg.sender) {
                 revert OwnerOnly(msg.sender, mapUserBonds[bondIds[i]].account);
             }
 
-            // Get the amount to pay and the maturity status
-            uint256 pay = mapUserBonds[bondIds[i]].payout;
-            bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && pay != 0;
+            // Delete the Bond struct and release the gas
+            uint256 productId = mapUserBonds[bondIds[i]].productId;
+            delete mapUserBonds[bondIds[i]];
+            payout += pay;
 
-            // If matured, delete the Bond struct and release the gas
-            if (matured) {
-                uint256 productId = mapUserBonds[bondIds[i]].productId;
-                delete mapUserBonds[bondIds[i]];
-                payout += pay;
-
-                // Close the program if it was not yet closed
-                if (mapTokenProducts[productId].expiry > 0) {
-                    uint96 supply = mapTokenProducts[productId].supply;
-                    // Refund unused OLAS supply from the program if not used completely
-                    if (supply > 0) {
-                        ITokenomics(tokenomics).refundFromBondProgram(supply);
-                    }
-                    address token = mapTokenProducts[productId].token;
-                    delete mapTokenProducts[productId];
-
-                    emit CloseProduct(token, productId);
+            // Close the program if it was not yet closed
+            if (mapBondProducts[productId].expiry > 0) {
+                uint96 supply = mapBondProducts[productId].supply;
+                // Refund unused OLAS supply from the program if not used completely
+                if (supply > 0) {
+                    ITokenomics(tokenomics).refundFromBondProgram(supply);
                 }
+                address token = mapBondProducts[productId].token;
+                delete mapBondProducts[productId];
+
+                emit CloseProduct(token, productId);
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
@@ -197,7 +200,8 @@ contract Depository is GenericTokenomics {
     /// @dev Gets bond Ids of all pending bonds for the account address.
     /// @param account Account address to query bonds for.
     /// @return bondIds Pending bond Ids.
-    function getPendingBonds(address account) external view returns (uint256[] memory bondIds) {
+    /// @return payout Cumulative expected OLAS payout.
+    function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
         uint256 numAccountBonds;
         // Calculate the number of pending bonds
         uint256 numBonds = bondCounter;
@@ -206,12 +210,13 @@ contract Depository is GenericTokenomics {
         for (uint256 i = 0; i < numBonds; i++) {
             if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
                 positions[i] = true;
-                numAccountBonds++;
+                ++numAccountBonds;
+                payout += mapUserBonds[i].payout;
             }
         }
 
         // Form pending bonds index array
-        bondIds = new uint256[](numBonds);
+        bondIds = new uint256[](numAccountBonds);
         uint256 numPos;
         for (uint256 i = 0; i < numBonds; i++) {
             if (positions[i]) {
@@ -265,12 +270,13 @@ contract Depository is GenericTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapTokenProducts[productId] = Product(priceLP, token, supply, uint32(expiry), 0);
+        mapBondProducts[productId] = Product(priceLP, token, supply, uint32(expiry), 0);
         productCounter = productId + 1;
         emit CreateProduct(token, productId, supply);
     }
 
     /// @dev Close a bonding product.
+    /// @notice This will terminate the program regardless of the expiration time.
     /// @param productId Product Id.
     function close(uint256 productId) external {
         // Check for the contract ownership
@@ -278,13 +284,18 @@ contract Depository is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        uint96 supply = mapTokenProducts[productId].supply;
+        // Check if the product is still open
+        if (mapBondProducts[productId].expiry == 0) {
+            revert ProductClosed(productId);
+        }
+
+        uint96 supply = mapBondProducts[productId].supply;
         // Refund unused OLAS supply from the program if not used completely
         if (supply > 0) {
             ITokenomics(tokenomics).refundFromBondProgram(supply);
         }
-        address token = mapTokenProducts[productId].token;
-        delete mapTokenProducts[productId];
+        address token = mapBondProducts[productId].token;
+        delete mapBondProducts[productId];
         
         emit CloseProduct(token, productId);
     }
@@ -293,18 +304,18 @@ contract Depository is GenericTokenomics {
     /// @param productId Product Id.
     /// @return status True if the product is active.
     function isActiveProduct(uint256 productId) external view returns (bool status) {
-        status = (mapTokenProducts[productId].supply > 0 && mapTokenProducts[productId].expiry > block.timestamp);
+        status = (mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp);
     }
 
     /// @dev Gets an array of all active product Ids for a specific token.
     /// @return productIds Active product Ids.
-    function getActiveProductsForToken() external view returns (uint256[] memory productIds) {
+    function getActiveProducts() external view returns (uint256[] memory productIds) {
         // Calculate the number of active products
         uint256 numProducts = productCounter;
         bool[] memory positions = new bool[](numProducts);
         uint256 numActive;
         for (uint256 i = 0; i < numProducts; i++) {
-            if (mapTokenProducts[i].supply > 0 && mapTokenProducts[i].expiry > block.timestamp) {
+            if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
                 positions[i] = true;
                 ++numActive;
             }
