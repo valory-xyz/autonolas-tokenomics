@@ -66,6 +66,7 @@ contract Depository is GenericTokenomics {
         uint224 purchased;
     }
 
+    // TODO Optimize for uint32
     // Individual bond counter
     uint256 bondCounter;
     // Bond product counter
@@ -165,7 +166,7 @@ contract Depository is GenericTokenomics {
             uint256 pay = mapUserBonds[bondIds[i]].payout;
             bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
 
-            // Revert if the bond is not matured yet
+            // Revert if the bond does not exist or is not matured yet
             if (!matured) {
                 revert BondNotRedeemable(bondIds[i]);
             }
@@ -232,7 +233,7 @@ contract Depository is GenericTokenomics {
     /// @return matured True if the payout can be redeemed.
     function getBondStatus(uint256 bondId) external view returns (uint256 payout, bool matured) {
         payout = mapUserBonds[bondId].payout;
-        matured = (block.timestamp >= mapUserBonds[bondId].maturity) && payout != 0;
+        matured = (block.timestamp >= mapUserBonds[bondId].maturity) && payout > 0;
     }
 
     /// @dev Creates a new bond product.
