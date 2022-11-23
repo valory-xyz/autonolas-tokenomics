@@ -56,6 +56,7 @@ describe("Treasury", async () => {
         
         await dai.mint(deployer.address, initialMint);
         await dai.approve(treasury.address, LARGE_APPROVAL);
+        await dai.connect(deployer).approve(treasury.address, LARGE_APPROVAL);
         await olas.changeMinter(treasury.address);
 
         // toggle DAI as reserve token (as example)
@@ -119,25 +120,25 @@ describe("Treasury", async () => {
 
     context("Deposits LP tokens for OLAS", async function () {
         it("Deposit to the treasury from depository for OLAS", async () => {
-            // Deposit 10,000 DAI to treasury,  1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
-            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit);
+            // Deposit 10,000 DAI to treasury, 1,000 OLAS gets minted to deployer with 9000 as excess reserves (ready to be minted)
+            await treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit, dai.address, defaultDeposit);
             expect(await olas.totalSupply()).to.equal(defaultDeposit);
         });
 
         it("Should fail when trying to deposit for the unauthorized token", async () => {
             // Try to call the function not from depository
             await expect(
-                treasury.connect(signers[1]).depositTokenForOLAS(defaultDeposit, olas.address, defaultDeposit)
+                treasury.connect(signers[1]).depositTokenForOLAS(deployer.address, defaultDeposit, olas.address, defaultDeposit)
             ).to.be.revertedWithCustomError(treasury, "ManagerOnly");
             // Now try with unauthorized token
             await expect(
-                treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, olas.address, defaultDeposit)
+                treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit, olas.address, defaultDeposit)
             ).to.be.revertedWithCustomError(treasury, "UnauthorizedToken");
         });
 
         it("Should fail when trying to disable an LP token that has reserves", async () => {
             // Try to disable token that has reserves
-            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit, dai.address, defaultDeposit);
+            await treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit, dai.address, defaultDeposit);
             await expect(
                 treasury.disableToken(dai.address)
             ).to.be.revertedWithCustomError(treasury, "NonZeroValue");
@@ -177,7 +178,7 @@ describe("Treasury", async () => {
     context("Withdraws", async function () {
         it("Withdraw specified LP tokens from reserves to a specified address", async () => {
             // Deposit
-            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+            await treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit + "0", dai.address, defaultDeposit);
             // Withdraw
             await treasury.connect(deployer).withdraw(deployer.address, defaultDeposit + "0", dai.address);
             // back to initialMint
@@ -185,7 +186,7 @@ describe("Treasury", async () => {
         });
 
         it("Should fail when trying to withdraw from unauthorized token and owner", async () => {
-            await treasury.connect(deployer).depositTokenForOLAS(defaultDeposit + "0", dai.address, defaultDeposit);
+            await treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit + "0", dai.address, defaultDeposit);
 
             await expect(
                 treasury.connect(signers[1]).withdraw(deployer.address, defaultDeposit + "0", olas.address)

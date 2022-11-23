@@ -33,25 +33,24 @@ contract Depository is GenericTokenomics {
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event CloseProduct(address indexed token, uint256 productId);
 
-    // The size of the struct is 96 + 32 * 2 + 8 = 168 bits (1 full slot)
+    // The size of the struct is 160 + 96 + 32 * 2 + 8 = 328 bits (2 full slots)
     struct Bond {
+        // Account address
+        address account;
         // OLAS remaining to be paid out
         // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 payout;
         // Bond maturity time
-        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
+        // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
         uint32 maturity;
         // Product Id of a bond
-        // We assume that the number of products will not be bigger than the number of blocks
+        // We assume that the number of products will not be bigger than the number of seconds
         uint32 productId;
-        // Flag stating whether the bond was redeemed
-        bool redeemed;
     }
 
     // The size of the struct is 256 + 160 + 96 + 32 + 224 = 768 bits (3 full slots)
     struct Product {
-        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
-        // For gas optimization this number is kept squared and does not exceed type(uint224).max
+        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
         uint256 priceLP;
         // Token to accept as a payment
         address token;
@@ -66,12 +65,19 @@ contract Depository is GenericTokenomics {
         uint224 purchased;
     }
 
+    // Individual bond counter
+    // We assume that the number of bonds will not be bigger than the number of seconds
+    uint32 bondCounter;
+    // Bond product counter
+    // We assume that the number of products will not be bigger than the number of seconds
+    uint32 productCounter;
+
     // Bond Calculator contract address
     address public bondCalculator;
-    // Mapping of user address => list of bonds
-    mapping(address => Bond[]) public mapUserBonds;
-    // Map of token address => bond products they are present
-    mapping(address => Product[]) public mapTokenProducts;
+    // Mapping of bond Id => account bond instance
+    mapping(uint256 => Bond) public mapUserBonds;
+    // Mapping of product Id => bond product instance
+    mapping(uint256 => Product) public mapBondProducts;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
@@ -96,17 +102,18 @@ contract Depository is GenericTokenomics {
     }
 
     /// @dev Deposits tokens in exchange for a bond from a specified product.
-    /// @param token Token address.
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
-    /// @param user Address of a payout recipient.
     /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
-    /// @return numBonds Number of user bonds.
-    function deposit(address token, uint32 productId, uint224 tokenAmount, address user) external
-        returns (uint96 payout, uint32 expiry, uint256 numBonds)
+    /// @return bondId Id of a newly created bond.
+    function deposit(uint256 productId, uint256 tokenAmount) external
+        returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
-        Product storage product = mapTokenProducts[token][productId];
+        Product storage product = mapBondProducts[productId];
+
+        // Get the LP token address
+        address token = product.token;
 
         // Check for the product expiry
         // Note that if the token or productId are invalid, the expiry will be zero by default and revert the function
@@ -121,108 +128,112 @@ contract Depository is GenericTokenomics {
 
         // Check for the sufficient supply
         if (payout > product.supply) {
-            revert ProductSupplyLow(token, productId, payout, product.supply);
+            revert ProductSupplyLow(token, uint32(productId), payout, product.supply);
         }
 
         // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
-        product.supply -= payout;
-        product.purchased += tokenAmount;
+        uint256 supply = product.supply - payout;
+        product.supply = uint96(supply);
+        uint256 purchased = product.purchased + tokenAmount;
+        product.purchased = uint224(purchased);
 
-        // Updated number of bonds for this product
-        numBonds = mapUserBonds[user].length;
+        // Create and add a new bond, update the bond counter
+        bondId = bondCounter;
+        mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(expiry), uint32(productId));
+        bondCounter = uint32(bondId + 1);
 
-        // Create and add a new bond
-        mapUserBonds[user].push(Bond(payout, expiry, productId, false));
-        emit CreateBond(token, productId, payout, tokenAmount);
-
-        // TODO All the transfer-related routines below can be moved to the treasury side without the need to receive funds by depository first?
-        // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
-        if (IERC20(product.token).allowance(msg.sender, address(this)) < tokenAmount) {
-            revert InsufficientAllowance(IERC20(product.token).allowance((msg.sender), address(this)), tokenAmount);
-        }
-        // Transfer tokens to the depository
-        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
-        // UniswapV2ERC20 implementation has a standard transferFrom() function that returns a boolean value
-        IERC20(product.token).transferFrom(msg.sender, address(this), tokenAmount);
-        // Approve treasury for the specified token amount
-        IERC20(product.token).approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLAS tokens in exchange
-        ITreasury(treasury).depositTokenForOLAS(tokenAmount, product.token, payout);
+        ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
+
+        emit CreateBond(token, productId, payout, tokenAmount);
     }
 
-    /// @dev Redeem user bonds.
-    /// @param user Address of a payout recipient.
-    /// @param indexes Bond indexes to redeem.
+    /// @dev Redeem account bonds.
+    /// @param bondIds Bond Ids to redeem.
     /// @return payout Total payout sent in OLAS tokens.
-    function redeem(address user, uint256[] memory indexes) public returns (uint256 payout) {
-        for (uint256 i = 0; i < indexes.length; i++) {
+    function redeem(uint256[] memory bondIds) public returns (uint256 payout) {
+        for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
-            (uint256 pay, bool maturity) = getBondStatus(user, indexes[i]);
+            uint256 pay = mapUserBonds[bondIds[i]].payout;
+            bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
 
-            // If matured, mark as redeemed and add to the total payout
-            if (maturity) {
-                mapUserBonds[user][indexes[i]].redeemed = true;
-                payout += pay;
+            // Revert if the bond does not exist or is not matured yet
+            if (!matured) {
+                revert BondNotRedeemable(bondIds[i]);
+            }
+
+            // Check that the msg.sender is the owner of the bond
+            if (mapUserBonds[bondIds[i]].account != msg.sender) {
+                revert OwnerOnly(msg.sender, mapUserBonds[bondIds[i]].account);
+            }
+
+            // Delete the Bond struct and release the gas
+            uint256 productId = mapUserBonds[bondIds[i]].productId;
+            delete mapUserBonds[bondIds[i]];
+            payout += pay;
+
+            // Close the program if it was not yet closed
+            if (mapBondProducts[productId].expiry > 0) {
+                uint96 supply = mapBondProducts[productId].supply;
+                // Refund unused OLAS supply from the program if not used completely
+                if (supply > 0) {
+                    ITokenomics(tokenomics).refundFromBondProgram(supply);
+                }
+                address token = mapBondProducts[productId].token;
+                delete mapBondProducts[productId];
+
+                emit CloseProduct(token, productId);
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
-        IERC20(olas).transfer(user, payout);
+        IERC20(olas).transfer(msg.sender, payout);
     }
 
-    /// @dev Redeems all redeemable products for a user. Best to query off-chain and input in redeem() to save gas.
-    /// @param user Address of the user to redeem all bonds for.
-    /// @return payout Total payout sent in OLAS tokens.
-    function redeemAll(address user) external returns (uint256 payout) {
-        payout = redeem(user, getPendingBonds(user));
-    }
-
-    /// @dev Gets indexes of all pending bonds for a user.
-    /// @param user User address to query bonds for.
-    /// @return indexes Pending bond indexes.
-    function getPendingBonds(address user) public view returns (uint256[] memory indexes) {
-        Bond[] memory bonds = mapUserBonds[user];
-
+    /// @dev Gets bond Ids of all pending bonds for the account address.
+    /// @param account Account address to query bonds for.
+    /// @return bondIds Pending bond Ids.
+    /// @return payout Cumulative expected OLAS payout.
+    function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
+        uint256 numAccountBonds;
         // Calculate the number of pending bonds
-        uint numBonds = bonds.length;
+        uint256 numBonds = bondCounter;
         bool[] memory positions = new bool[](numBonds);
-        uint256 numPendingBonds;
+        // Record the bond number if it belongs to the account address and was not yet redeemed
         for (uint256 i = 0; i < numBonds; i++) {
-            if (!bonds[i].redeemed && bonds[i].payout != 0) {
+            if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
                 positions[i] = true;
-                numPendingBonds++;
+                ++numAccountBonds;
+                payout += mapUserBonds[i].payout;
             }
         }
 
         // Form pending bonds index array
-        indexes = new uint256[](numPendingBonds);
+        bondIds = new uint256[](numAccountBonds);
         uint256 numPos;
         for (uint256 i = 0; i < numBonds; i++) {
             if (positions[i]) {
-                indexes[numPos] = i;
+                bondIds[numPos] = i;
                 ++numPos;
             }
         }
     }
 
     /// @dev Calculates the maturity and payout to claim for a single bond.
-    /// @param user Address of a payout recipient.
-    /// @param index The user bond index.
+    /// @param bondId The account bond Id.
     /// @return payout The payout amount in OLAS.
     /// @return matured True if the payout can be redeemed.
-    function getBondStatus(address user, uint256 index) public view returns (uint256 payout, bool matured) {
-        Bond memory bond = mapUserBonds[user][index];
-        payout = bond.payout;
-        matured = !bond.redeemed && bond.maturity <= block.timestamp && bond.payout != 0;
+    function getBondStatus(uint256 bondId) external view returns (uint256 payout, bool matured) {
+        payout = mapUserBonds[bondId].payout;
+        matured = (block.timestamp >= mapUserBonds[bondId].maturity) && payout > 0;
     }
 
-    // TODO Make sure deposit and create are not run in the same block number
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
-    /// @param priceLP LP token price.
+    /// @param priceLP LP token price with 18 additional decimals.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(address token, uint256 priceLP, uint96 supply, uint32 vesting) external returns (uint256 productId) {
+    function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -243,87 +254,80 @@ contract Depository is GenericTokenomics {
             revert AmountLowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
         }
 
-        // Create a new product
-        productId = mapTokenProducts[token].length;
-
         // Check for the expiration time overflow
         uint256 expiry = block.timestamp + vesting;
         if (expiry > type(uint32).max) {
             revert Overflow(expiry, type(uint32).max);
         }
+
         // Push newly created bond product into the list of products
-        mapTokenProducts[token].push(Product(priceLP, token, supply, uint32(expiry), 0));
+        productId = productCounter;
+        mapBondProducts[productId] = Product(priceLP, token, uint96(supply), uint32(expiry), 0);
+        productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply);
     }
 
-    // TODO Make this function callable by everybody, also from the redeem function
     /// @dev Close a bonding product.
-    /// @param token Specified token.
+    /// @notice This will terminate the program regardless of the expiration time.
     /// @param productId Product Id.
-    function close(address token, uint256 productId) external {
+    function close(uint256 productId) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        uint96 supply = mapTokenProducts[token][productId].supply;
+        // Check if the product is still open
+        if (mapBondProducts[productId].expiry == 0) {
+            revert ProductClosed(productId);
+        }
+
+        uint96 supply = mapBondProducts[productId].supply;
         // Refund unused OLAS supply from the program if not used completely
         if (supply > 0) {
             ITokenomics(tokenomics).refundFromBondProgram(supply);
         }
-        // TODO Check if delete of the mapTokenProducts[token][productId] is better
-        mapTokenProducts[token][productId].supply = 0;
+        address token = mapBondProducts[productId].token;
+        delete mapBondProducts[productId];
         
         emit CloseProduct(token, productId);
     }
 
-    // TODO Optimize for gas usage
     /// @dev Gets activity information about a given product.
     /// @param productId Product Id.
     /// @return status True if the product is active.
-    function isActive(address token, uint256 productId) public view returns (bool status) {
-        status = (mapTokenProducts[token].length > productId && mapTokenProducts[token][productId].supply > 0 &&
-            mapTokenProducts[token][productId].expiry > block.timestamp);
+    function isActiveProduct(uint256 productId) external view returns (bool status) {
+        status = (mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp);
     }
 
     /// @dev Gets an array of all active product Ids for a specific token.
-    /// @param token Token address
-    /// @return ids Active product Ids.
-    function getActiveProductsForToken(address token) external view returns (uint256[] memory ids) {
+    /// @return productIds Active product Ids.
+    function getActiveProducts() external view returns (uint256[] memory productIds) {
         // Calculate the number of active products
-        uint256 numProducts = mapTokenProducts[token].length;
+        uint256 numProducts = productCounter;
         bool[] memory positions = new bool[](numProducts);
         uint256 numActive;
         for (uint256 i = 0; i < numProducts; i++) {
-            if (isActive(token, i)) {
+            if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
                 positions[i] = true;
                 ++numActive;
             }
         }
 
         // Form the active products index array
-        ids = new uint256[](numActive);
+        productIds = new uint256[](numActive);
         uint256 numPos;
         for (uint256 i = 0; i < numProducts; i++) {
             if (positions[i]) {
-                ids[numPos] = i;
-                numPos++;
+                productIds[numPos] = i;
+                ++numPos;
             }
         }
-        return ids;
-    }
-
-    /// @dev Gets the product instance.
-    /// @param token Token address.
-    /// @param productId Product Id.
-    /// @return Product instance.
-    function getProduct(address token, uint256 productId) external view returns (Product memory) {
-        return mapTokenProducts[token][productId];
+        return productIds;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
     /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
         return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
