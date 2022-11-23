@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 interface IDepository {
-    function deposit(address token, uint32 productId, uint224 tokenAmount, address user) external
-        returns (uint96 payout, uint32 expiry, uint256 numBonds);
+    function deposit(uint256 productId, uint256 tokenAmount) external
+        returns (uint256 payout, uint256 expiry, uint256 bondId);
 }
 
 interface IRouter {
@@ -26,14 +26,15 @@ contract AttackDeposit {
     constructor() {}
 
     // @dev emulate attack against deposit.
-    // @param depository Address of depository.
+    // @param treasury Address of depository.
+    // @param treasury Address of treasury.
     // @param token Address of pair
     // @param olas Address of OLAS token
     // @param bid number of bid
     // @param amountTo amount LP for deposit.
     // @param swapRouter uniswapV2 router address 
-    function flashAttackDepositImmune(address depository, address token, address olas, uint32 bid, uint224 amountTo, address swapRouter) external
-        returns (uint256 payout)
+    function flashAttackDepositImmune(address depository, address treasury, address token, address olas, uint32 bid,
+        uint256 amountTo, address swapRouter) external returns (uint256 payout)
     {
         // Trying to deposit the amount that would result in an overflow payout for the LP supply
         // await pairODAI.connect(deployer).approve(depository.address, LARGE_APPROVAL);
@@ -41,7 +42,7 @@ contract AttackDeposit {
         address[] memory path = new address[](2);
         uint256[] memory amounts = new uint256[](2);
 
-        IERC20(token).approve(depository, LARGE_APPROVAL);
+        IERC20(token).approve(treasury, LARGE_APPROVAL);
         // IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = IUniswapV2Pair(address(token)).token0();
         address token1 = IUniswapV2Pair(address(token)).token1();
@@ -70,7 +71,7 @@ contract AttackDeposit {
         // console.log("AttackDeposit ## OLAS reserved after swap", balanceOLA);
         // console.log("AttackDeposit ## DAI reserved before swap", balanceDAI);
 
-        (payout, , ) = IDepository(depository).deposit(token, bid, amountTo, address(this));
+        (payout, , ) = IDepository(depository).deposit(bid, amountTo);
         
         // DAI approve 
         IERC20(path[1]).approve(swapRouter, LARGE_APPROVAL);

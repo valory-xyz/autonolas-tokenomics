@@ -51,12 +51,20 @@ interface IErrorsTokenomics {
     /// @param expected Expected token address.
     error WrongTokenAddress(address provided, address expected);
 
+    /// @dev Bond is not redeemable (does not exist or not matured).
+    /// @param bondId Bond Id.
+    error BondNotRedeemable(uint256 bondId);
+
     /// @dev The product is expired.
     /// @param tokenAddress Address of a token.
     /// @param productId Product Id.
     /// @param deadline The program expiry time.
     /// @param curTime Current timestamp.
     error ProductExpired(address tokenAddress, uint256 productId, uint256 deadline, uint256 curTime);
+
+    /// @dev The product is already closed.
+    /// @param productId Product Id.
+    error ProductClosed(uint256 productId);
 
     /// @dev The product supply is low for the requested payout.
     /// @param tokenAddress Address of a token.

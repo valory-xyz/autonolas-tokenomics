@@ -24,19 +24,21 @@ contract GenericBondCalculator {
 
     /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
     /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
+    /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutOLAS(uint224 tokenAmount, uint256 priceLP) external view
-        returns (uint96 amountOLAS)
+    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS)
     {
-        uint256 amountDF = (ITokenomics(tokenomics).getLastIDF() * priceLP * tokenAmount) / 1e18;
-        amountOLAS = uint96(amountDF);
+        // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
+        uint256 amountDF = (ITokenomics(tokenomics).getLastIDF() * priceLP * tokenAmount) / 1e36;
+        amountOLAS = amountDF;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
     /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
@@ -44,13 +46,19 @@ contract GenericBondCalculator {
         if (totalSupply > 0) {
             address token0 = pair.token0();
             address token1 = pair.token1();
-            uint112 reserve0;
-            uint112 reserve1;
+            uint256 reserve0;
+            uint256 reserve1;
             // requires low gas
             (reserve0, reserve1, ) = pair.getReserves();
             // token0 != olas && token1 != olas, this should never happen
             if (token0 == olas || token1 == olas) {
-                priceLP = (token0 == olas) ? reserve0 / totalSupply : reserve1 / totalSupply;
+                // If OLAS is in token0, assign its reserve to reserve1, otherwise the reserve1 is already correct
+                if (token0 == olas) {
+                    reserve1 = reserve0;
+                }
+                // Calculate the LP price based on reserves and totalSupply ratio multiplied by 1e18
+                // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
+                priceLP = (reserve1 * 1e18) / totalSupply;
             }
         }
     }

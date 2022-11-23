@@ -75,6 +75,7 @@ struct EpochPoint {
     uint96 totalTopUpsOLAS;
     // Inverse of the discount factor
     // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
+    // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
     // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
     uint64 idf;
     // Number of valuable devs can be paid per units of capital per epoch
@@ -449,30 +450,33 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @notice Programs exceeding the limit of the effective bond are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return success True if effective bond threshold is not reached.
-    function reserveAmountForBondProgram(uint96 amount) external returns (bool success) {
+    function reserveAmountForBondProgram(uint256 amount) external returns (bool success) {
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
         }
 
         // Effective bond must be bigger than the requested amount
-        if ((effectiveBond + 1) > amount) {
+        uint256 eBond = effectiveBond;
+        if ((eBond + 1) > amount) {
             // The value of effective bond is then adjusted to the amount that is now reserved for bonding
             // The unrealized part of the bonding amount will be returned when the bonding program is closed
-            effectiveBond -= amount;
+            eBond -= amount;
+            effectiveBond = uint96(eBond);
             success = true;
         }
     }
 
     /// @dev Refunds unused bond program amount when the program is closed.
     /// @param amount Amount to be refunded from the closed bond program.
-    function refundFromBondProgram(uint96 amount) external {
+    function refundFromBondProgram(uint256 amount) external {
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
         }
 
-        effectiveBond += amount;
+        uint256 eBond = effectiveBond + amount;
+        effectiveBond = uint96(eBond);
     }
 
     /// @dev Finalizes epoch incentives for a specified component / agent Id.
@@ -535,6 +539,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
+
+            // TODO Account for zero fractions for components and agents here, in setting them and in incentives calculations
 
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
             address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
@@ -944,6 +950,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
+    // TODO Make sure uintIds are unique otherwise the calculation will be wrong
     /// @dev Gets the component / agent owner incentives.
     /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
