@@ -3,11 +3,12 @@ pragma solidity ^0.8.17;
 
 /// @dev Interface for treasury management.
 interface ITreasury {
-    /// @dev Allows approved address to deposit an asset for OLA.
-    /// @param tokenAmount Token amount to get OLA for.
+    /// @dev Allows approved address to deposit an asset for OLAS.
+    /// @param account Account address making a deposit of LP tokens for OLAS.
+    /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
-    /// @param olaMintAmount Amount of OLA token issued.
-    function depositTokenForOLAS(uint224 tokenAmount, address token, uint96 olaMintAmount) external;
+    /// @param olaMintAmount Amount of OLAS token issued.
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olaMintAmount) external;
 
     /// @dev Deposits ETH from protocol-owned service.
     /// @param serviceIds Set of service Ids.

@@ -21,7 +21,7 @@ describe("Dispenser", async () => {
     const epochLen = 1;
     const regDepositFromServices = "1" + "0".repeat(21);
     const twoRegDepositFromServices = "2" + "0".repeat(21);
-    const delta = 10**5;
+    const delta = 100;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -100,7 +100,7 @@ describe("Dispenser", async () => {
     });
 
     context("Get incentives", async function () {
-        it("Withdraw incentives for unit owners and stakers", async () => {
+        it("Claim incentives for unit owners and stakers", async () => {
             // Try to claim rewards
             await dispenser.connect(deployer).claimOwnerIncentives([], []);
             await dispenser.connect(deployer).claimStakingIncentives();
@@ -150,65 +150,79 @@ describe("Dispenser", async () => {
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
-            const rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+            const percentFraction = ethers.BigNumber.from(100);
+            let rewards = [
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
-            const accountRewards = rewards[0] + rewards[1] + rewards[2];
+            let accountRewards = rewards[0].add(rewards[1]).add(rewards[2]);
             // Calculate top-ups based on the points information
             let topUps = [
-                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                Number(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS)
             ];
-            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
-            const accountTopUps = topUps[1] + topUps[2] + topUps[3];
+            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
+            let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
             // Get the overall incentive amounts for owners
-            const unitRewards = rewards[1] + rewards[2];
-            const unitTopUps = topUps[1] + topUps[2];
+            const unitRewards = rewards[1].add(rewards[2]);
+            const unitTopUps = topUps[1].add(topUps[2]);
+
+            // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
+            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
+            expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
+            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
+            expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
 
             // Get deployer incentives information
             const result = await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
-            const checkedReward = Number(result.reward);
-            const checkedTopUp = Number(result.topUp);
+            const checkedReward = ethers.BigNumber.from(result.reward);
+            const checkedTopUp = ethers.BigNumber.from(result.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
             // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
-            expect(unitRewards - checkedReward).to.lessThan(delta);
-            expect(unitTopUps - checkedTopUp).to.lessThan(delta);
+            expect(Math.abs(Number(unitRewards.sub(checkedReward)))).to.lessThan(delta);
+            expect(Math.abs(Number(unitTopUps.sub(checkedTopUp)))).to.lessThan(delta);
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
             const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
-            let claimedReward = Number(claimedOwnerIncentives.reward);
-            let claimedTopUp = Number(claimedOwnerIncentives.topUp);
+            let claimedReward = ethers.BigNumber.from(claimedOwnerIncentives.reward);
+            let claimedTopUp = ethers.BigNumber.from(claimedOwnerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
-            expect(unitRewards - claimedReward).to.lessThan(delta);
-            expect(unitTopUps - claimedTopUp).to.lessThan(delta);
+            expect(claimedReward).to.lessThanOrEqual(unitRewards);
+            expect(Math.abs(Number(unitRewards.sub(claimedReward)))).to.lessThan(delta);
+            expect(claimedTopUp).to.lessThanOrEqual(unitTopUps);
+            expect(Math.abs(Number(unitTopUps.sub(claimedTopUp)))).to.lessThan(delta);
 
             // Simulate claiming of incentives for stakers
             const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingIncentives();
             // Get accumulated rewards and top-ups
-            claimedReward = Number(claimedStakerIncentives.reward);
-            claimedTopUp = Number(claimedStakerIncentives.topUp);
+            claimedReward = ethers.BigNumber.from(claimedStakerIncentives.reward);
+            claimedTopUp = ethers.BigNumber.from(claimedStakerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with staker reward and top-up fractions
-            expect(rewards[0] - claimedReward).to.lessThan(delta);
-            expect(topUps[3] - claimedTopUp).to.lessThan(delta);
+            expect(claimedReward).to.lessThanOrEqual(rewards[0]);
+            expect(Math.abs(Number(rewards[0].sub(claimedReward)))).to.lessThan(delta);
+            expect(claimedTopUp).to.lessThanOrEqual(topUps[3]);
+            expect(Math.abs(Number(topUps[3].sub(claimedTopUp)))).to.lessThan(delta);
 
             // Claim rewards and top-ups
-            const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingIncentives();
-            const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
-            const balance = Number(balanceAfterTopUps - balanceBeforeTopUps);
-            expect(accountTopUps - balance).to.lessThan(delta);
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(balance).to.lessThanOrEqual(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
         });
 
         it("Should fail when trying to get incentives with incorrect inputs", async () => {
@@ -241,7 +255,7 @@ describe("Dispenser", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "Overflow");
         });
 
-        it("Withdraw incentives for unit owners and stakers for more than one epoch", async () => {
+        it("Claim incentives for unit owners and stakers for more than one epoch", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -298,27 +312,28 @@ describe("Dispenser", async () => {
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
+            const percentFraction = ethers.BigNumber.from(100);
             let rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
-            let accountRewards = rewards[0] + rewards[1] + rewards[2];
+            let accountRewards = rewards[0].add(rewards[1]).add(rewards[2]);
             // Calculate top-ups based on the points information
             let topUps = [
-                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                Number(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS)
             ];
-            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
-            let accountTopUps = topUps[1] + topUps[2] + topUps[3];
+            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
+            let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
             // Get the overall incentive amounts for owners
-            let unitRewards = rewards[1] + rewards[2];
-            let unitTopUps = topUps[1] + topUps[2];
+            let unitRewards = rewards[1].add(rewards[2]);
+            let unitTopUps = topUps[1].add(topUps[2]);
 
             // Get deployer incentives information
             let result = await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
@@ -326,11 +341,11 @@ describe("Dispenser", async () => {
             // Since no service owners locked enough OLAS in veOLAS, there must be a zero top-up for owners
             expect(result.topUp).to.equal(0);
             // Get accumulated rewards and top-ups
-            let checkedReward = Number(result.reward);
-            let checkedTopUp = Number(result.topUp);
+            let checkedReward = ethers.BigNumber.from(result.reward);
+            let checkedTopUp = ethers.BigNumber.from(result.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
             // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
-            expect(Math.abs(unitRewards - checkedReward)).to.lessThan(delta);
+            expect(Math.abs(Number(unitRewards.sub(checkedReward)))).to.lessThan(delta);
             // Once again, the top-up of the owner must be zero here, since the owner of the service didn't stake enough veOLAS
             expect(checkedTopUp).to.equal(0);
 
@@ -339,13 +354,13 @@ describe("Dispenser", async () => {
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
             // Compare rewards and top-ups
-            checkedReward = Number(result.reward);
-            checkedTopUp = Number(result.topUp);
+            checkedReward = ethers.BigNumber.from(result.reward);
+            checkedTopUp = ethers.BigNumber.from(result.topUp);
             // The obtained incentives must be 2 times smaller than the overall available reward since
             // we explicitly made in this test case that out deployer's veOLAS balance is half of the veOLAS total supply
-            expect(Math.abs(rewards[0] / 2 - checkedReward)).to.lessThan(delta);
-            expect(Math.abs(topUps[3] / 2 - checkedTopUp)).to.lessThan(delta);
-            let lastUnitTopUp = topUps[3] / 2;
+            expect(Math.abs(Number(rewards[0].div(ethers.BigNumber.from(2)).sub(checkedReward)))).to.lessThan(delta);
+            expect(Math.abs(Number(topUps[3].div(ethers.BigNumber.from(2)).sub(checkedTopUp)))).to.lessThan(delta);
+            let lastUnitTopUp = topUps[3].div(ethers.BigNumber.from(2));
 
 
             // EPOCH 2 with donations and top-ups
@@ -369,85 +384,86 @@ describe("Dispenser", async () => {
             up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
-            accountRewards = rewards[0] + rewards[1] + rewards[2];
+            accountRewards = rewards[0].add(rewards[1]).add(rewards[2]);
             // Calculate top-ups based on the points information
             topUps = [
-                (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                Number(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS)
             ];
-            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
-            accountTopUps = topUps[1] + topUps[2] + topUps[3];
+            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
+            accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
             // Get the overall incentive amounts for owners
-            unitRewards = rewards[1] + rewards[2];
-            unitTopUps = topUps[1] + topUps[2];
+            unitRewards = rewards[1].add(rewards[2]);
+            unitTopUps = topUps[1].add(topUps[2]);
 
             // Get deployer incentives information
             result = await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
-            checkedReward = Number(result.reward);
-            checkedTopUp = Number(result.topUp);
+            checkedReward = ethers.BigNumber.from(result.reward);
+            checkedTopUp = ethers.BigNumber.from(result.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
             // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
             // Since we didn't claim rewards during the previous epoch, the expected amount is twice as big
-            expect(Math.abs(2 * unitRewards - checkedReward)).to.lessThan(delta);
+            expect(Math.abs(Number(ethers.BigNumber.from(2).mul(unitRewards).sub(checkedReward)))).to.lessThan(delta);
             // The top-ups were zero last time, so now we are getting top-ups for the second epoch only
-            expect(Math.abs(unitTopUps - checkedTopUp)).to.lessThan(delta);
+            expect(Math.abs(Number(unitTopUps.sub(checkedTopUp)))).to.lessThan(delta);
 
             // Calculate staking incentives
             result = await tokenomics.getStakingIncentives(deployer.address, 1);
             expect(result.reward).to.greaterThan(0);
             expect(result.topUp).to.greaterThan(0);
             // Compare rewards and top-ups
-            checkedReward = Number(result.reward);
-            checkedTopUp = Number(result.topUp);
+            checkedReward = ethers.BigNumber.from(result.reward);
+            checkedTopUp = ethers.BigNumber.from(result.topUp);
             // Since the deployer's veOLAS balance is half of the veOLAS total supply, last epoch plus this one results
             // in one total reward
-            expect(Math.abs(rewards[0] - checkedReward)).to.lessThan(delta);
+            expect(Math.abs(Number(rewards[0].sub(checkedReward)))).to.lessThan(delta);
             // As for the top-up, it must be accumulated with the last epoch top-up
-            expect(Math.abs(lastUnitTopUp + topUps[3] / 2 - checkedTopUp)).to.lessThan(delta);
+            const halfTopUps = topUps[3].div(ethers.BigNumber.from(2));
+            expect(Math.abs(Number(lastUnitTopUp.add(halfTopUps).sub(checkedTopUp)))).to.lessThan(delta);
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
             const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             // Get accumulated rewards and top-ups
-            let claimedReward = Number(claimedOwnerIncentives.reward);
-            let claimedTopUp = Number(claimedOwnerIncentives.topUp);
+            let claimedReward = ethers.BigNumber.from(claimedOwnerIncentives.reward);
+            let claimedTopUp = ethers.BigNumber.from(claimedOwnerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
-            expect(Math.abs(2 * unitRewards - claimedReward)).to.lessThan(delta);
-            expect(Math.abs(unitTopUps - claimedTopUp)).to.lessThan(delta);
+            expect(Math.abs(Number(ethers.BigNumber.from(2).mul(unitRewards).sub(claimedReward)))).to.lessThan(delta);
+            expect(Math.abs(Number(unitTopUps.sub(claimedTopUp)))).to.lessThan(delta);
 
             // Simulate claiming of incentives for stakers
             const claimedStakerIncentives = await dispenser.connect(deployer).callStatic.claimStakingIncentives();
             // Get accumulated rewards and top-ups
-            claimedReward = Number(claimedStakerIncentives.reward);
-            claimedTopUp = Number(claimedStakerIncentives.topUp);
+            claimedReward = ethers.BigNumber.from(claimedStakerIncentives.reward);
+            claimedTopUp = ethers.BigNumber.from(claimedStakerIncentives.topUp);
             // Check if they match with what was written to the tokenomics point with staker reward and top-up fractions
-            expect(Math.abs(rewards[0] - claimedReward)).to.lessThan(delta);
-            expect(Math.abs(lastUnitTopUp + topUps[3] / 2 - claimedTopUp)).to.lessThan(delta);
+            expect(Math.abs(Number(rewards[0].sub(claimedReward)))).to.lessThan(delta);
+            expect(Math.abs(Number(lastUnitTopUp.add(halfTopUps).sub(claimedTopUp)))).to.lessThan(delta);
 
             // Claim rewards and top-ups
-            const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingIncentives();
-            const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
-            const balance = Number(balanceAfterTopUps - balanceBeforeTopUps);
-            expect(Math.abs(unitTopUps + lastUnitTopUp + topUps[3] / 2 - balance)).to.lessThan(delta);
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(Math.abs(Number(unitTopUps.add(lastUnitTopUp).add(halfTopUps).sub(balance)))).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
         });
 
-        it("Withdraw accumulated incentives for unit owners and stakers for numerous epochs", async () => {
+        it("Claim accumulated incentives for unit owners and stakers for numerous epochs", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -486,9 +502,10 @@ describe("Dispenser", async () => {
             const curEpochLen = 10;
             await tokenomics.changeTokenomicsParameters(1, "1" + "0".repeat(17), curEpochLen, "5" + "0".repeat(21));
 
-            let totalAccountTopUps = 0;
+            let totalAccountTopUps = ethers.BigNumber.from(0);
             // Define the number of epochs
             const numEpochs = 20;
+            const percentFraction = ethers.BigNumber.from(100);
             // Loop over a defined number of epochs
             for (let i = 0; i < numEpochs; i++) {
                 // Increase the time to the length of the epoch plus a little more every time such that
@@ -508,14 +525,14 @@ describe("Dispenser", async () => {
                 let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
                 // Calculate top-ups based on the points information
                 let topUps = [
-                    (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
-                    (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                    (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                    Number(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
                 ];
-                topUps[3] -= topUps[0] + topUps[1] + topUps[2];
-                let accountTopUps = topUps[1] + topUps[2] + topUps[3];
-                totalAccountTopUps += accountTopUps;
+                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
+                let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
+                totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
 
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
@@ -525,36 +542,36 @@ describe("Dispenser", async () => {
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             let rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
-            let accountRewards = rewards[0] + rewards[1] + rewards[2];
-            let totalAccountRewards = accountRewards * numEpochs;
+            let accountRewards = rewards[0].add(rewards[1]).add(rewards[2]);
+            let totalAccountRewards = accountRewards.mul(ethers.BigNumber.from(numEpochs));
 
             // Claim rewards and top-ups
-            const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
             // Static calls for incentive value returns
             const ownerReward = await dispenser.callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             const ownerTopUp = await dispenser.callStatic.claimStakingIncentives();
             // Real contract calls
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingIncentives();
-            const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
 
             // Check the overall ETH reward
-            const totalRewardETH = Number(ownerReward.reward) + Number(ownerTopUp.reward);
-            expect(Math.abs(totalAccountRewards - totalRewardETH)).to.lessThan(delta);
+            const totalRewardETH = ethers.BigNumber.from(ownerReward.reward).add(ethers.BigNumber.from(ownerTopUp.reward));
+            expect(Math.abs(Number(totalAccountRewards.sub(totalRewardETH)))).to.lessThan(delta);
 
             // Check the OLAS balance after receiving incentives
-            const balance = Number(balanceAfterTopUps - balanceBeforeTopUps);
-            expect(Math.abs(totalAccountTopUps - balance)).to.lessThan(delta);
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(Math.abs(Number(totalAccountTopUps.sub(balance)))).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
         });
 
-        it("Withdraw smallest accumulated incentives for owners and stakers for numerous epochs", async () => {
+        it("Claim smallest accumulated incentives for owners and stakers for numerous epochs", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -597,17 +614,18 @@ describe("Dispenser", async () => {
             const curEpochLen = 10;
             await tokenomics.changeTokenomicsParameters(1, "1" + "0".repeat(17), curEpochLen, "5" + "0".repeat(21));
 
-            let totalAccountTopUps = 0;
+            let totalAccountTopUps = ethers.BigNumber.from(0);
             // Define the number of epochs
             const numEpochs = 20;
+            const percentFraction = ethers.BigNumber.from(100);
             // Loop over a defined number of epochs
             for (let i = 0; i < numEpochs; i++) {
                 // Increase the time to the length of the epoch plus a little more every time such that
                 // OALS top-up numbers are not the same every epoch
                 await helpers.time.increase(curEpochLen + i);
                 // Send donations to services
-                await treasury.connect(deployer).depositETHFromServices([1], [smallDeposit],
-                    {value: smallDeposit});
+                await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices, regDepositFromServices],
+                    {value: twoRegDepositFromServices});
                 // Start new epoch and calculate tokenomics parameters and rewards
                 await tokenomics.connect(deployer).checkpoint();
 
@@ -619,14 +637,14 @@ describe("Dispenser", async () => {
                 let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
                 // Calculate top-ups based on the points information
                 let topUps = [
-                    (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
-                    (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                    (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                    Number(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
                 ];
-                topUps[3] -= topUps[0] + topUps[1] + topUps[2];
-                let accountTopUps = topUps[1] + topUps[2] + topUps[3];
-                totalAccountTopUps += accountTopUps;
+                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
+                let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
+                totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
 
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
@@ -636,30 +654,30 @@ describe("Dispenser", async () => {
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             let rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
-                (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
-            let accountRewards = rewards[0] + rewards[1] + rewards[2];
-            let totalAccountRewards = accountRewards * numEpochs;
+            let accountRewards = rewards[0].add(rewards[1]).add(rewards[2]);
+            let totalAccountRewards = accountRewards.mul(ethers.BigNumber.from(numEpochs));
 
             // Claim rewards and top-ups
-            const balanceBeforeTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
             // Static calls for incentive value returns
             const ownerReward = await dispenser.callStatic.claimOwnerIncentives([0, 1], [1, 1]);
             const ownerTopUp = await dispenser.callStatic.claimStakingIncentives();
             // Real contract calls
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
             await dispenser.connect(deployer).claimStakingIncentives();
-            const balanceAfterTopUps = BigInt(await olas.balanceOf(deployer.address));
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
 
             // Check the overall ETH reward
-            const totalRewardETH = Number(ownerReward.reward) + Number(ownerTopUp.reward);
-            expect(Math.abs(totalAccountRewards - totalRewardETH)).to.lessThan(delta);
+            const totalRewardETH = ethers.BigNumber.from(ownerReward.reward).add(ethers.BigNumber.from(ownerTopUp.reward));
+            expect(Math.abs(Number(totalAccountRewards.sub(totalRewardETH)))).to.lessThan(delta);
 
             // Check the OLAS balance after receiving incentives
-            const balance = Number(balanceAfterTopUps - balanceBeforeTopUps);
-            expect(Math.abs(totalAccountTopUps - balance)).to.lessThan(delta);
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(Math.abs(Number(totalAccountTopUps.sub(balance)))).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
