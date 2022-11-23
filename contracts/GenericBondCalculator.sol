@@ -24,6 +24,7 @@ contract GenericBondCalculator {
 
     /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
     /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
+    /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
@@ -37,7 +38,7 @@ contract GenericBondCalculator {
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
     /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(address(token));
@@ -51,7 +52,7 @@ contract GenericBondCalculator {
             (reserve0, reserve1, ) = pair.getReserves();
             // token0 != olas && token1 != olas, this should never happen
             if (token0 == olas || token1 == olas) {
-                // If OLAS is in token0, assign its reserves to reserve1, otherwise the reserve1 is already correct
+                // If OLAS is in token0, assign its reserve to reserve1, otherwise the reserve1 is already correct
                 if (token0 == olas) {
                     reserve1 = reserve0;
                 }

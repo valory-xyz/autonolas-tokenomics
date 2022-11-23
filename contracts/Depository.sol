@@ -44,14 +44,13 @@ contract Depository is GenericTokenomics {
         // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
         uint32 maturity;
         // Product Id of a bond
-        // We assume that the number of products will not be bigger than the number of blocks
+        // We assume that the number of products will not be bigger than the number of seconds
         uint32 productId;
     }
 
     // The size of the struct is 256 + 160 + 96 + 32 + 224 = 768 bits (3 full slots)
     struct Product {
-        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
-        // For gas optimization this number is kept squared and does not exceed type(uint224).max
+        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
         uint256 priceLP;
         // Token to accept as a payment
         address token;
@@ -66,11 +65,12 @@ contract Depository is GenericTokenomics {
         uint224 purchased;
     }
 
-    // TODO Optimize for uint32
     // Individual bond counter
-    uint256 bondCounter;
+    // We assume that the number of bonds will not be bigger than the number of seconds
+    uint32 bondCounter;
     // Bond product counter
-    uint256 productCounter;
+    // We assume that the number of products will not be bigger than the number of seconds
+    uint32 productCounter;
 
     // Bond Calculator contract address
     address public bondCalculator;
@@ -108,7 +108,7 @@ contract Depository is GenericTokenomics {
     /// @return expiry Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
     function deposit(uint256 productId, uint256 tokenAmount) external
-        returns (uint96 payout, uint32 expiry, uint256 bondId)
+        returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
         Product storage product = mapBondProducts[productId];
 
@@ -124,37 +124,28 @@ contract Depository is GenericTokenomics {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, since otherwise the product would not be created
-        payout = uint96(IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP));
+        payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
             revert ProductSupplyLow(token, uint32(productId), payout, product.supply);
         }
 
-        // TODO Check if it's cheaper to subtract and add with temporary variables
         // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
-        product.supply -= payout;
-        product.purchased += uint224(tokenAmount);
+        uint256 supply = product.supply - payout;
+        product.supply = uint96(supply);
+        uint256 purchased = product.purchased + tokenAmount;
+        product.purchased = uint224(purchased);
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
-        mapUserBonds[bondId] = Bond(msg.sender, payout, expiry, uint32(productId));
-        bondCounter = bondId + 1;
-        emit CreateBond(token, productId, payout, tokenAmount);
+        mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(expiry), uint32(productId));
+        bondCounter = uint32(bondId + 1);
 
-        // TODO All the transfer-related routines below can be moved to the treasury side without the need to receive funds by depository first?
-        // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
-        if (IERC20(token).allowance(msg.sender, address(this)) < tokenAmount) {
-            revert InsufficientAllowance(IERC20(token).allowance((msg.sender), address(this)), tokenAmount);
-        }
-        // Transfer tokens to the depository
-        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
-        // UniswapV2ERC20 implementation has a standard transferFrom() function that returns a boolean value
-        IERC20(token).transferFrom(msg.sender, address(this), tokenAmount);
-        // Approve treasury for the specified token amount
-        IERC20(token).approve(treasury, tokenAmount);
         // Deposit that token amount to mint OLAS tokens in exchange
-        ITreasury(treasury).depositTokenForOLAS(uint224(tokenAmount), token, payout);
+        ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
+
+        emit CreateBond(token, productId, payout, tokenAmount);
     }
 
     /// @dev Redeem account bonds.
@@ -238,11 +229,11 @@ contract Depository is GenericTokenomics {
 
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
-    /// @param priceLP LP token price.
+    /// @param priceLP LP token price with 18 additional decimals.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    function create(address token, uint256 priceLP, uint96 supply, uint32 vesting) external returns (uint256 productId) {
+    function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -271,8 +262,8 @@ contract Depository is GenericTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(priceLP, token, supply, uint32(expiry), 0);
-        productCounter = productId + 1;
+        mapBondProducts[productId] = Product(priceLP, token, uint96(supply), uint32(expiry), 0);
+        productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply);
     }
 
@@ -336,7 +327,7 @@ contract Depository is GenericTokenomics {
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
     /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
         return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
