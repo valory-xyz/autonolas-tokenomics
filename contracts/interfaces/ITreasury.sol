@@ -24,11 +24,18 @@ interface ITreasury {
     /// @param token Address of a token.
     function checkPair(address token) external returns (bool);
 
-    /// @dev Allocates rewards and top-ups based on the input reward values from tokenomics.
+    /// @dev Withdraws ETH and / or OLAS amounts for the requested account.
+    /// @notice Only dispenser contract can call this function.
+    /// @notice Reentrancy guard is on a dispenser side.
+    /// @notice Zero account address is not possible, since the dispenser contract interacts with msg.sender.
+    /// @param account Account address.
+    /// @param accountRewards Amount of account rewards.
+    /// @param accountTopUps Amount of account top-ups.
+    /// @return success True if the function execution is successful.
+    function withdrawAccount(address account, uint256 accountRewards, uint256 accountTopUps) external returns (bool success);
+
+    /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
-    /// @param accountRewards Cumulative staker, component and agent rewards.
-    /// @param accountTopUps Cumulative staker, component and agent top-ups.
     /// @return success True, if the function execution is successful.
-    function allocateRewards(uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) external
-        returns (bool success);
+    function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success);
 }

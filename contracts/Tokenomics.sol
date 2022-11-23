@@ -599,7 +599,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.totalDonationsETH = donationETH;
     }
 
-    // TODO Double check we are always in sync with correct rewards allocation, i.e., such that we calculate rewards and don't allocate them
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
@@ -612,7 +611,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             return false;
         }
 
-        uint32 eCounter = epochCounter;
+        uint256 eCounter = epochCounter;
         TokenomicsPoint storage tp = mapEpochTokenomics[eCounter];
 
         // 0: total rewards funded with donations in ETH, that are split between:
@@ -710,7 +709,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
         if (rewards[0] > 0) {
-            // TODO: Recalculate component and agent weights correctly based on the corresponding fractions
             // 0 for components and 1 for agents
             uint256 sumWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
@@ -749,7 +747,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Allocate rewards via Treasury and start new epoch
         uint96 accountRewards = uint96(rewards[2] + rewards[3] + rewards[4]);
-        // TODO do not mint the accumulated amount of OLAS, but mint directly to the claimer. The array values can be then deleted
         // Owner top-ups: epoch incentives for component owners funded with the inflation
         rewards[6] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
         // Owner top-ups: epoch incentives for agent owners funded with the inflation
@@ -757,7 +754,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
         rewards[8] = inflationPerEpoch - rewards[5] - rewards[6] - rewards[7];
         uint96 accountTopUps = uint96(rewards[8]);
-        // TODO Verify that this is the default tokenomics behavior
         // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
         // This means that it is safe to check for the sum related to OLAS top-ups in agents,
         // since a service has at least one agent, and each agent has at least one component
@@ -766,15 +762,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Treasury contract allocates rewards
-        if (ITreasury(treasury).allocateRewards(uint96(rewards[1]), accountRewards, accountTopUps)) {
+        if (ITreasury(treasury).rebalanceTreasury(rewards[1])) {
             // Emit settled epoch written to the last economics point
             emit EpochSettled(eCounter, rewards[1], accountRewards, accountTopUps);
             // Start new epoch
             eCounter++;
-            epochCounter = eCounter;
+            epochCounter = uint32(eCounter);
         } else {
             // If rewards were not correctly allocated, the new epoch does not start
-            revert RewardsAllocationFailed(eCounter);
+            revert TreasuryRebalanceFailed(eCounter);
         }
 
         // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters

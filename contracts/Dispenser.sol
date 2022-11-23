@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
+import "./interfaces/ITreasury.sol";
 
 /// @title Dispenser - Smart contract for rewards
 /// @author AL
@@ -17,8 +18,9 @@ contract Dispenser is GenericTokenomics {
     /// @dev Dispenser constructor.
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _tokenomics)
-        GenericTokenomics(_olas, _tokenomics, SENTINEL_ADDRESS, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
+    /// @param _treasury Treasury address.
+    constructor(address _olas, address _tokenomics, address _treasury)
+        GenericTokenomics(_olas, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
     {
     }
 
@@ -39,18 +41,10 @@ contract Dispenser is GenericTokenomics {
         }
         _locked = 2;
 
+        // Calculate incentives
         (reward, topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender, unitTypes, unitIds);
-        if (reward > 0) {
-            (success, ) = msg.sender.call{value: reward}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), msg.sender, reward);
-            }
-        }
-        if (topUp > 0) {
-            // OLAS token is safe as it uses the standard ERC20 transfer() function.
-            // The function reverts if something goes wrong, so no additional check is needed.
-            success = IOLAS(olas).transfer(msg.sender, topUp);
-        }
+        // Request treasury to transfer funds to msg.sender
+        success = ITreasury(treasury).withdrawAccount(msg.sender, reward, topUp);
 
         _locked = 1;
     }
@@ -74,17 +68,8 @@ contract Dispenser is GenericTokenomics {
         // Update the latest epoch number from which reward will be calculated the next time
         mapLastRewardEpochs[msg.sender] = endEpochNumber;
 
-        if (reward > 0) {
-            (success, ) = msg.sender.call{value: reward}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), msg.sender, reward);
-            }
-        }
-        if (topUp > 0) {
-            // OLAS token is safe as it uses the standard ERC20 transfer() function.
-            // The function reverts if something goes wrong, so no additional check is needed.
-            success = IOLAS(olas).transfer(msg.sender, topUp);
-        }
+        // Request treasury to transfer funds to msg.sender
+        success = ITreasury(treasury).withdrawAccount(msg.sender, reward, topUp);
 
         _locked = 1;
     }
