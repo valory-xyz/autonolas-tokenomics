@@ -75,6 +75,7 @@ struct EpochPoint {
     uint96 totalTopUpsOLAS;
     // Inverse of the discount factor
     // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
+    // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
     // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
     uint64 idf;
     // Number of valuable devs can be paid per units of capital per epoch

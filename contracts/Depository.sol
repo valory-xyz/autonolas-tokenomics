@@ -50,8 +50,7 @@ contract Depository is GenericTokenomics {
 
     // The size of the struct is 256 + 160 + 96 + 32 + 224 = 768 bits (3 full slots)
     struct Product {
-        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply)
-        // For gas optimization this number is kept squared and does not exceed type(uint224).max
+        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
         uint256 priceLP;
         // Token to accept as a payment
         address token;
@@ -230,7 +229,7 @@ contract Depository is GenericTokenomics {
 
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
-    /// @param priceLP LP token price.
+    /// @param priceLP LP token price with 18 additional decimals.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
@@ -328,7 +327,7 @@ contract Depository is GenericTokenomics {
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
     /// @param token Token address.
-    /// @return priceLP Resulting reserveX/totalSupply ratio with 18 decimals.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
         return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
