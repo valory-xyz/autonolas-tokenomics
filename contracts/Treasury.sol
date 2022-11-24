@@ -202,7 +202,7 @@ contract Treasury is GenericTokenomics {
         }
     }
 
-    /// @dev Withdraws ETH and / or OLAS amounts for the requested account.
+    /// @dev Withdraws ETH and / or OLAS amounts to the requested account address.
     /// @notice Only dispenser contract can call this function.
     /// @notice Reentrancy guard is on a dispenser side.
     /// @notice Zero account address is not possible, since the dispenser contract interacts with msg.sender.
@@ -210,7 +210,7 @@ contract Treasury is GenericTokenomics {
     /// @param accountRewards Amount of account rewards.
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
-    function withdrawAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
+    function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
         // Check for the dispenser access

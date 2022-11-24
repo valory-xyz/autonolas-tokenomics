@@ -9,7 +9,7 @@ require("hardhat-tracer");
  */
 const accounts = {
     mnemonic: "test test test test test test test test test test test junk",
-    accountsBalance: "100000000000000000000000000",
+    accountsBalance: "100000000000000000000000000000",
 };
 
 module.exports = {

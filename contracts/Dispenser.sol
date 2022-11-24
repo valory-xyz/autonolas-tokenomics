@@ -44,7 +44,7 @@ contract Dispenser is GenericTokenomics {
         // Calculate incentives
         (reward, topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender, unitTypes, unitIds);
         // Request treasury to transfer funds to msg.sender
-        success = ITreasury(treasury).withdrawAccount(msg.sender, reward, topUp);
+        success = ITreasury(treasury).withdrawToAccount(msg.sender, reward, topUp);
 
         _locked = 1;
     }
@@ -69,13 +69,8 @@ contract Dispenser is GenericTokenomics {
         mapLastRewardEpochs[msg.sender] = endEpochNumber;
 
         // Request treasury to transfer funds to msg.sender
-        success = ITreasury(treasury).withdrawAccount(msg.sender, reward, topUp);
+        success = ITreasury(treasury).withdrawToAccount(msg.sender, reward, topUp);
 
         _locked = 1;
-    }
-
-    /// @dev Receives ETH.
-    receive() external payable {
-        emit ReceivedETH(msg.sender, msg.value);
     }
 }

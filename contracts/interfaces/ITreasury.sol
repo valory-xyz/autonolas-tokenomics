@@ -24,7 +24,7 @@ interface ITreasury {
     /// @param token Address of a token.
     function checkPair(address token) external returns (bool);
 
-    /// @dev Withdraws ETH and / or OLAS amounts for the requested account.
+    /// @dev Withdraws ETH and / or OLAS amounts to the requested account address.
     /// @notice Only dispenser contract can call this function.
     /// @notice Reentrancy guard is on a dispenser side.
     /// @notice Zero account address is not possible, since the dispenser contract interacts with msg.sender.
@@ -32,7 +32,7 @@ interface ITreasury {
     /// @param accountRewards Amount of account rewards.
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
-    function withdrawAccount(address account, uint256 accountRewards, uint256 accountTopUps) external returns (bool success);
+    function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external returns (bool success);
 
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
