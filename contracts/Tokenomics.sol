@@ -762,7 +762,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Treasury contract allocates rewards
-        if (ITreasury(treasury).rebalanceTreasury(rewards[1])) {
+        if (rewards[1] == 0 || ITreasury(treasury).rebalanceTreasury(rewards[1])) {
             // Emit settled epoch written to the last economics point
             emit EpochSettled(eCounter, rewards[1], accountRewards, accountTopUps);
             // Start new epoch
