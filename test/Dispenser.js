@@ -47,12 +47,15 @@ describe("Dispenser", async () => {
         await ve.deployed();
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address);
+        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
         treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, dispenser.address);
         await treasury.deployed();
+
+        // Update for the correct treasury contract
+        await dispenser.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
 
         // Treasury address is deployer since there are functions that require treasury only
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
@@ -86,8 +89,9 @@ describe("Dispenser", async () => {
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
-            await dispenser.connect(deployer).changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address, AddressZero, AddressZero);
             expect(await dispenser.tokenomics()).to.equal(deployer.address);
+            expect(await dispenser.treasury()).to.equal(deployer.address);
 
             // Changing the owner
             await dispenser.connect(deployer).changeOwner(account.address);

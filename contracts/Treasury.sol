@@ -83,6 +83,7 @@ contract Treasury is GenericTokenomics {
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
+    /// @notice Only depository contract can call this function.
     /// @param account Account address making a deposit of LP tokens for OLAS.
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
@@ -201,6 +202,46 @@ contract Treasury is GenericTokenomics {
         }
     }
 
+    /// @dev Withdraws ETH and / or OLAS amounts to the requested account address.
+    /// @notice Only dispenser contract can call this function.
+    /// @notice Reentrancy guard is on a dispenser side.
+    /// @notice Zero account address is not possible, since the dispenser contract interacts with msg.sender.
+    /// @param account Account address.
+    /// @param accountRewards Amount of account rewards.
+    /// @param accountTopUps Amount of account top-ups.
+    /// @return success True if the function execution is successful.
+    function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
+        returns (bool success)
+    {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+
+        // TODO restriction list?
+        // TODO pause withdraws here or in dispenser?
+
+        uint256 amountETHFromServices = ETHFromServices;
+        // Send ETH rewards, if any
+        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
+            amountETHFromServices -= accountRewards;
+            ETHFromServices = uint96(amountETHFromServices);
+            (success, ) = account.call{value: accountRewards}("");
+            if (!success) {
+                revert TransferFailed(address(0), address(this), treasury, accountRewards);
+            }
+        }
+
+        // Send OLAS top-ups
+        if (accountTopUps > 0) {
+            // Tokenomics has already accounted for the account's top-up amount,
+            // thus the the mint does not break the inflation schedule
+            IOLAS(olas).mint(account, accountTopUps);
+            success = true;
+            emit TransferToDispenserOLAS(accountTopUps);
+        }
+    }
+
     /// @dev Enables a token to be exchanged for OLAS.
     /// @param token Token address.
     function enableToken(address token) external {
@@ -245,54 +286,33 @@ contract Treasury is GenericTokenomics {
         enabled = (mapTokens[token].state == TokenState.Enabled);
     }
 
-    // TODO Understand how run this function independently (i.e. keeper)
-    /// @dev Allocates rewards and top-ups based on the input reward values from tokenomics.
+    /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
-    /// @param accountRewards Cumulative staker, component and agent rewards.
-    /// @param accountTopUps Cumulative staker, component and agent top-ups.
     /// @return success True, if the function execution is successful.
-    function allocateRewards(uint96 treasuryRewards, uint96 accountRewards, uint96 accountTopUps) external
-        returns (bool success)
-    {
+    function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check for the tokenomics contract access
         if (msg.sender != tokenomics) {
             revert ManagerOnly(msg.sender, tokenomics);
         }
 
-        uint96 amountETHFromServices = ETHFromServices;
         // Collect treasury's own reward share
-        if (treasuryRewards > 0 && amountETHFromServices >= treasuryRewards) {
-            // Update ETH from services value
-            amountETHFromServices -= treasuryRewards;
-
-            // Updated treasury ETH value
-            uint96 amountETHOwned = ETHOwned;
-            amountETHOwned += treasuryRewards;
-            ETHOwned = amountETHOwned;
-        }
-
-        // Send cumulative funds of staker, component, agent rewards and top-ups to dispenser
-        // Send ETH rewards
-        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
-            amountETHFromServices -= accountRewards;
-            (success, ) = dispenser.call{value: accountRewards}("");
-            if (!success) {
-                revert TransferFailed(address(0), address(this), dispenser, accountRewards);
+        success = true;
+        if (treasuryRewards > 0) {
+            uint256 amountETHFromServices = ETHFromServices;
+            if (amountETHFromServices >= treasuryRewards) {
+                // Update ETH from services value
+                amountETHFromServices -= treasuryRewards;
+                // Update treasury ETH owned values
+                uint256 amountETHOwned = ETHOwned;
+                amountETHOwned += treasuryRewards;
+                // Assign back to state variables
+                ETHOwned = uint96(amountETHOwned);
+                ETHFromServices = uint96(amountETHFromServices);
+            } else {
+                // There is not enough amount from services to allocate to the treasury
+                success = false;
             }
         }
-        // If ETHFromServices is not updated earlier due to if conditions, it is synced here
-        ETHFromServices = amountETHFromServices;
-        // Send OLAS top-ups
-        if (accountTopUps > 0) {
-            // TODO This check is not needed if the calculations in Tokenomics are done correctly.
-            // TODO if amountOLAS os greater than zero at this point of time, we definitely can mint that amount.
-            // TODO Otherwise amountOLAS will be equal to zero.
-            //if (ITokenomics(tokenomics).isAllowedMint(accountTopUps)) {
-            IOLAS(olas).mint(dispenser, accountTopUps);
-            emit TransferToDispenserOLAS(accountTopUps);
-        }
-
-        success = true;
     }
 
     /// @dev Receives ETH.

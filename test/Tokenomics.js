@@ -268,6 +268,26 @@ describe("Tokenomics", async () => {
             expect(zeroDF).to.equal(defaultEpsRate);
         });
 
+        it("Checkpoint with inability to re-balance treasury rewards", async () => {
+            // Skip the number of blocks within the epoch
+            await ethers.provider.send("evm_mine");
+            // Change tokenomics factors such that all the rewards are given to the treasury
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 0, 10, 50, 20);
+            // Send the revenues to services
+            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices,
+                regDepositFromServices], {value: twoRegDepositFromServices});
+            // Change the manager for the treasury contract and re-balance treasury before the checkpoint
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            // After the treasury re-balance the ETHFromServices value will be equal to zero
+            await treasury.rebalanceTreasury(twoRegDepositFromServices);
+            // Change the manager for the treasury back to the tokenomics
+            await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await expect(
+                tokenomics.connect(deployer).checkpoint()
+            ).to.be.revertedWithCustomError(tokenomics, "TreasuryRebalanceFailed");
+        });
+
         it("Get IDF based on the epsilonRate", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
@@ -295,12 +315,6 @@ describe("Tokenomics", async () => {
             // Send the revenues to services
             await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
-
-            // Try to fail the reward allocation
-            await tokenomics.changeManagers(AddressZero, attacker.address, AddressZero, AddressZero);
-            await expect(
-                tokenomics.connect(deployer).checkpoint()
-            ).to.be.revertedWithCustomError(tokenomics, "RewardsAllocationFailed");
 
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
