@@ -155,7 +155,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
     // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
     uint64 public epsilonRate = 1e17;
-    // TODO Change to seconds
     // Epoch length in seconds
     // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
     uint32 public epochLen;
@@ -165,7 +164,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     // Inflation amount per second
     uint96 public inflationPerSecond;
-    // TODO: Get the final veOLAS amount requirement
     // veOLAS threshold for top-ups
     // This number cannot be practically bigger than the number of OLAS tokens
     uint96 public veOLASThreshold = 5_000e18;
@@ -868,7 +866,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @return idf Discount factor with the multiple of 1e18.
     function getIDF(uint256 epoch) external view returns (uint256 idf)
     {
-        // TODO if IDF si undefined somewhere, we must return 1 but not the maximum possible
+        // TODO if IDF is undefined somewhere, we must return 1 but not the maximum possible
         idf = mapEpochTokenomics[epoch].epochPoint.idf;
         if (idf == 0) {
             idf = 1e18 + epsilonRate;
@@ -946,7 +944,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    // TODO Make sure uintIds are unique otherwise the calculation will be wrong
+    // TODO Make sure unitIds are unique otherwise the calculation will be wrong
     /// @dev Gets the component / agent owner incentives.
     /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @param account Account address.
