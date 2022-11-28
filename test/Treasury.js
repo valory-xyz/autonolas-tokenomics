@@ -17,11 +17,14 @@ describe("Treasury", async () => {
     let olasFactory;
     let treasuryFactory;
     let tokenomicsFactory;
+    let serviceRegistryFactory;
     let dai;
     let olas;
     let treasury;
     let tokenomics;
+    let serviceRegistry;
     let attacker;
+    const oneEther = "1" + "0".repeat(18);
     const regDepositFromServices = "1" + "0".repeat(25);
     const treasuryRewards = "1" + "0".repeat(19);
     const accountRewards = "5" + "0".repeat(19);
@@ -40,6 +43,7 @@ describe("Treasury", async () => {
         olasFactory = await ethers.getContractFactory("ERC20Token");
         treasuryFactory = await ethers.getContractFactory("Treasury");
         tokenomicsFactory = await ethers.getContractFactory("MockTokenomics");
+        serviceRegistryFactory = await ethers.getContractFactory("MockRegistry");
     });
 
     // These should not be in beforeEach.
@@ -47,6 +51,7 @@ describe("Treasury", async () => {
         dai = await erc20Token.deploy();
         olas = await olasFactory.deploy();
         tokenomics = await tokenomicsFactory.deploy();
+        serviceRegistry = await serviceRegistryFactory.deploy();
         // Depository and dispenser addresses are irrelevant in these tests, so we are using a deployer's address
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
 
@@ -267,6 +272,23 @@ describe("Treasury", async () => {
                 treasury.withdrawToAccount(deployer.address, accountRewards, accountTopUps)
             ).to.be.revertedWithCustomError(treasury, "ManagerOnly");
         });
+
+        it("Withdraw zero value incentives", async () => {
+            // Change the dispenser address
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, deployer.address);
+
+            // Zero rewards and top-ups
+            let result = await treasury.connect(deployer).callStatic.withdrawToAccount(deployer.address, 0, 0);
+            expect(result).to.equal(false);
+
+            // Zero rewards, the amount will be minted
+            result = await treasury.connect(deployer).callStatic.withdrawToAccount(deployer.address, 0, 10);
+            expect(result).to.equal(true);
+
+            // Zero top-ups, will fail since there is no ETHFromServices balance
+            result = await treasury.connect(deployer).callStatic.withdrawToAccount(deployer.address, 10, 0);
+            expect(result).to.equal(false);
+        });
     });
 
     context("Reentrancy attacks", async function () {
@@ -283,6 +305,25 @@ describe("Treasury", async () => {
 
             // Check that the attack did not succeed
             expect(await attacker.attackOnDepositETHFromServices()).to.equal(true);
+        });
+    });
+
+    context("Drain slashed funds", async function () {
+        it("Drain slashed funds from the service registry", async () => {
+            // Set the service registry contract address to the tokenomics
+            await tokenomics.setServiceRegistry(serviceRegistry.address);
+
+            // Try to drain by the non-owner
+            await expect(
+                treasury.connect(signers[1]).drainServiceSlashedFunds()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Drain slashed funds
+            // Static call to get the return value
+            const amount = await treasury.connect(deployer).callStatic.drainServiceSlashedFunds();
+            expect(amount).to.equal(oneEther);
+            // The real call
+            await treasury.connect(deployer).drainServiceSlashedFunds();
         });
     });
 });

@@ -48,4 +48,8 @@ interface ITokenomics {
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
     /// @return idf Discount factor with the multiple of 1e18.
     function getLastIDF() external view returns (uint256 idf);
+
+    /// @dev Gets the service registry contract address
+    /// @return Service registry contract address;
+    function serviceRegistry() external view returns (address);
 }

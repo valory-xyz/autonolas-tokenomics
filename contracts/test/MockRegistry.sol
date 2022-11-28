@@ -58,4 +58,10 @@ contract MockRegistry {
     function getUnitOwners() external view returns (address[] memory) {
         return accounts;
     }
+
+    /// @dev Drains slashed funds.
+    /// @return amount Drained amount.
+    function drain() external pure returns (uint256 amount) {
+        amount = 1 ether;
+    }
 }

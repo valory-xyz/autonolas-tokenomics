@@ -6,6 +6,7 @@ contract MockTokenomics {
     uint32 public epochCounter = 1;
     uint96 public mintCap = 1_000_000_000e18;
     uint96 public topUps = 40 ether;
+    address public serviceRegistry;
 
     /// @dev Changes the mint cap.
     /// @param _mintCap New mint cap.
@@ -51,8 +52,13 @@ contract MockTokenomics {
         return false;
     }
 
-    /// @dev Record global data to the checkpoint
+    /// @dev Record global data to the checkpoint.
     function checkpoint() external {
         epochCounter = 2;
+    }
+
+    /// @dev Sets service registry contract address.
+    function setServiceRegistry(address _serviceRegistry) external {
+        serviceRegistry = _serviceRegistry;
     }
 }

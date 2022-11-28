@@ -22,6 +22,8 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
 
     // Tokenomics role
     TokenomicsRole public immutable tokenomicsRole;
+    // Reentrancy lock
+    uint8 internal _locked = 1;
     // Address of unused tokenomics roles
     address public constant SENTINEL_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
     // Owner address
@@ -36,8 +38,6 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     address public depository;
     // Dispenser contract address
     address public dispenser;
-    // Reentrancy lock
-    uint8 internal _locked = 1;
 
     /// @dev Generic Tokenomics constructor.
     /// @param _olas OLAS token address.

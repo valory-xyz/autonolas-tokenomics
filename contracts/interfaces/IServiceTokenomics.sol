@@ -20,4 +20,8 @@ interface IServiceTokenomics {
     /// @return unitIds Set of component / agent Ids.
     function getUnitIdsOfService(UnitType unitType, uint256 serviceId) external view
         returns (uint256 numUnitIds, uint32[] memory unitIds);
+
+    /// @dev Drains slashed funds.
+    /// @return amount Drained amount.
+    function drain() external returns (uint256 amount);
 }
