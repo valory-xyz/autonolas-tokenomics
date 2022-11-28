@@ -63,7 +63,7 @@ struct UnitPoint {
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 3 = 256 + (128 + 24) (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 4 = 256 + (128 + 32) (2 full slots)
 struct EpochPoint {
     // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -88,18 +88,19 @@ struct EpochPoint {
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
-    // Staking parameters for rewards (in percentage)
-    // treasuryFraction (implicitly set to zero by default) + rewardComponentFraction + rewardAgentFraction + rewardStakerFraction = 100%
-    // Staker reward fraction
+    // Parameters for rewards (in percentage)
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
+    // treasuryFraction (implicitly set to zero by default) + rewardComponentFraction + rewardAgentFraction + rewardStakerFraction = 100%
+    // Treasury fraction
+    uint8 rewardTreasuryFraction;
+    // Staker reward fraction
     uint8 rewardStakerFraction;
-    // Staking parameters for top-ups (in percentage)
+    // Parameters for top-ups (in percentage)
+    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     // maxBondFraction + topUpComponentFraction + topUpAgentFraction + topUpStakerFraction = 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
-    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
     // Amount of OLAS (in percentage of inflation) intended to fund staker to-ups during the epoch
-    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 topUpStakerFraction;
 }
 
@@ -244,6 +245,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // for components royalties and 1/3 for agents royalties
         tp.unitPoints[0].rewardUnitFraction = 34;
         tp.unitPoints[1].rewardUnitFraction = 17;
+        // tp.epochPoint.rewardTreasuryFraction is essentially equal to zero
 
         // We want to measure a unit of code as n agents or m components.
         // Initially we consider 1 unit of code as either 2 agents or 1 component.
@@ -393,6 +395,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
+        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardStakerFraction - _rewardComponentFraction - _rewardAgentFraction;
         tp.epochPoint.rewardStakerFraction = _rewardStakerFraction;
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = _rewardComponentFraction;
@@ -621,12 +624,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // 5: maxBond, 6: component ownerTopUps, 7: agent ownerTopUps, 8: stakerTopUps
         uint256[] memory rewards = new uint256[](9);
         rewards[0] = tp.epochPoint.totalDonationsETH;
+        rewards[1] = (rewards[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
         // 0 stands for components and 1 for agents
         rewards[2] = (rewards[0] * tp.epochPoint.rewardStakerFraction) / 100;
         rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
         rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
-        // Treasury reward calculation
-        rewards[1] = rewards[0] - rewards[2] - rewards[3] - rewards[4];
 
         // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
@@ -753,7 +755,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Owner top-ups: epoch incentives for agent owners funded with the inflation
         rewards[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
-        rewards[8] = inflationPerEpoch - rewards[5] - rewards[6] - rewards[7];
+        rewards[8] = (inflationPerEpoch * tp.epochPoint.topUpStakerFraction) / 100;
         uint96 accountTopUps = uint96(rewards[8]);
         // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
         // This means that it is safe to check for the sum related to OLAS top-ups in agents,
