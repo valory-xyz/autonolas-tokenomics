@@ -50,8 +50,6 @@ struct UnitPoint {
     // Number of new units
     // This number cannot be practically bigger than the total number of supported units
     uint32 numNewUnits;
-    // TODO Investigate the impact of storing values with multiplied fractions already
-    // TODO It will require more gas to write a point, but less gas to process incentive calculations
     // Reward component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 rewardUnitFraction;
@@ -100,7 +98,7 @@ struct EpochPoint {
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 maxBondFraction;
-    // Amount of OLAS (in percentage of inflation) intended to fund veOLAS locker to-ups during the epoch
+    // Amount of OLAS (in percentage of inflation) intended to fund staker to-ups during the epoch
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
     uint8 topUpStakerFraction;
 }
