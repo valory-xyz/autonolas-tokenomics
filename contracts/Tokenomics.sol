@@ -784,6 +784,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         nextPoint.unitPoints[1].topUpUnitFraction = tp.unitPoints[1].topUpUnitFraction;
         nextPoint.unitPoints[1].rewardUnitFraction = tp.unitPoints[1].rewardUnitFraction;
         nextPoint.unitPoints[1].unitWeight = tp.unitPoints[1].unitWeight;
+        nextPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
         nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         nextPoint.epochPoint.rewardStakerFraction = tp.epochPoint.rewardStakerFraction;
         nextPoint.epochPoint.topUpStakerFraction = tp.epochPoint.topUpStakerFraction;
