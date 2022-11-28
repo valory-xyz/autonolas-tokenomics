@@ -778,12 +778,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
         TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter];
-        nextPoint.unitPoints[0].topUpUnitFraction = tp.unitPoints[0].topUpUnitFraction;
-        nextPoint.unitPoints[0].rewardUnitFraction = tp.unitPoints[0].rewardUnitFraction;
-        nextPoint.unitPoints[0].unitWeight = tp.unitPoints[0].unitWeight;
-        nextPoint.unitPoints[1].topUpUnitFraction = tp.unitPoints[1].topUpUnitFraction;
-        nextPoint.unitPoints[1].rewardUnitFraction = tp.unitPoints[1].rewardUnitFraction;
-        nextPoint.unitPoints[1].unitWeight = tp.unitPoints[1].unitWeight;
+        for (uint256 i = 0; i < 2; ++i) {
+            nextPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
+            nextPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
+            nextPoint.unitPoints[i].unitWeight = tp.unitPoints[i].unitWeight;
+        }
         nextPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
         nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         nextPoint.epochPoint.rewardStakerFraction = tp.epochPoint.rewardStakerFraction;
