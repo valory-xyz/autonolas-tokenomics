@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
+import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 
 /*
@@ -321,5 +322,19 @@ contract Treasury is GenericTokenomics {
         amount += uint96(msg.value);
         ETHOwned = amount;
         emit ReceivedETH(msg.sender, msg.value);
+    }
+
+    /// @dev Drains slashed funds from the service registry.
+    /// @return amount Drained amount.
+    function drainServiceSlashedFunds() external returns (uint256 amount) {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get the service registry contract address
+        address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
+        // Call the service registry drain function
+        amount = IServiceTokenomics(serviceRegistry).drain();
     }
 }

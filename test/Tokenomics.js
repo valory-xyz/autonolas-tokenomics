@@ -309,6 +309,9 @@ describe("Tokenomics", async () => {
 
     context("Incentives", async function () {
         it("Calculate incentives", async () => {
+            // Change tokenomics factors such that the rewards are given to the treasury as well
+            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 15, 40, 34, 17);
+
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             const accounts = await serviceRegistry.getUnitOwners();
