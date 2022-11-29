@@ -341,9 +341,8 @@ describe("Tokenomics", async () => {
                 (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
                 (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
                 (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                Number(ep.totalTopUpsOLAS)
+                (Number(ep.totalTopUpsOLAS) * Number(ep.topUpStakerFraction)) / 100
             ];
-            topUps[3] -= topUps[0] + topUps[1] + topUps[2];
             const accountTopUps = topUps[1] + topUps[2] + topUps[3];
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);

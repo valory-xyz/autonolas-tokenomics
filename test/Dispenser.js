@@ -166,9 +166,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -328,9 +327,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -398,9 +396,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -532,9 +529,8 @@ describe("Dispenser", async () => {
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.topUpStakerFraction)).div(percentFraction)
                 ];
-                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
                 let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
                 totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
@@ -644,9 +640,8 @@ describe("Dispenser", async () => {
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.topUpStakerFraction)).div(percentFraction)
                 ];
-                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
                 let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
                 totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
