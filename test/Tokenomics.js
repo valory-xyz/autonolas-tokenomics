@@ -329,9 +329,11 @@ describe("Tokenomics", async () => {
             const ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            const sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             const rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(sp.rewardStakerFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
             ];
@@ -341,7 +343,7 @@ describe("Tokenomics", async () => {
                 (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
                 (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
                 (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(ep.topUpStakerFraction)) / 100
+                (Number(ep.totalTopUpsOLAS) * Number(sp.topUpStakerFraction)) / 100
             ];
             const accountTopUps = topUps[1] + topUps[2] + topUps[3];
             expect(accountRewards).to.greaterThan(0);
