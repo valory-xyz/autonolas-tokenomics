@@ -15,11 +15,10 @@ contract Dispenser is GenericTokenomics {
     mapping(address => uint256) public mapLastRewardEpochs;
 
     /// @dev Dispenser constructor.
-    /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
-    constructor(address _olas, address _tokenomics, address _treasury)
-        GenericTokenomics(_olas, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
+    constructor(address _tokenomics, address _treasury)
+        GenericTokenomics(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
     {
     }
 

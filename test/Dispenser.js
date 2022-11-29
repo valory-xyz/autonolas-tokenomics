@@ -47,7 +47,7 @@ describe("Dispenser", async () => {
         await ve.deployed();
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address);
+        dispenser = await Dispenser.deploy(deployer.address, deployer.address);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
