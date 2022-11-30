@@ -543,6 +543,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
 
+        // If both component and agent owner top-up fractions are zero, there is no need to call external contract
+        // functions to check each service owner veOLAS balance
+        bool topUpFractions = (mapEpochTokenomics[curEpoch].unitPoints[0].topUpUnitFraction > 0) ||
+            (mapEpochTokenomics[curEpoch].unitPoints[1].topUpUnitFraction > 0);
+
         // Get the number of services
         uint256 numServices = serviceIds.length;
         // Loop over service Ids to calculate their partial UCFu-s
@@ -550,8 +555,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             uint96 amount = uint96(amounts[i]);
 
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
-            address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
-            bool topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
+            bool topUpEligible;
+            if (topUpFractions) {
+                address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
+                topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
+            }
 
             // Loop over component and agent Ids
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
