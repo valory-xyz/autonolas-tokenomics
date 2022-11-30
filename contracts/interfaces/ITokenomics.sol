@@ -14,8 +14,8 @@ interface ITokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
-    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
-        returns (uint96 donationETH);
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
+        returns (uint256 donationETH);
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
     /// @notice Programs exceeding the limit in the epoch are not allowed.

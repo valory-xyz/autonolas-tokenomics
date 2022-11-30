@@ -125,7 +125,7 @@ contract Treasury is GenericTokenomics {
     /// @dev Deposits ETH from protocol-owned services in batch.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable {
+    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -147,9 +147,9 @@ contract Treasury is GenericTokenomics {
         }
 
         // Accumulate received donation from services
-        uint96 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        uint256 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
         donationETH += ETHFromServices;
-        ETHFromServices = donationETH;
+        ETHFromServices = uint96(donationETH);
 
         emit DepositETHFromServices(msg.sender, donationETH);
     }
@@ -219,7 +219,6 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, dispenser);
         }
 
-        // TODO restriction list?
         // TODO pause withdraws here or in dispenser?
 
         uint256 amountETHFromServices = ETHFromServices;

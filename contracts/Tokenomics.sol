@@ -393,6 +393,13 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check if there were donations during the current epoch
+        // If yes, it is prohibited to change incentive fractions, since incentives might not be correctly calculated
+        TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
+        if (tp.epochPoint.totalDonationsETH > 0) {
+            revert();
+        }
+
         // Check that the sum of fractions is 100%
         if (_rewardStakerFraction + _rewardComponentFraction + _rewardAgentFraction > 100) {
             revert WrongAmount(_rewardStakerFraction + _rewardComponentFraction + _rewardAgentFraction, 100);
@@ -403,7 +410,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
         }
 
-        TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
         StakerPoint storage sp = mapEpochStakerPoints[epochCounter];
         tp.epochPoint.rewardTreasuryFraction = 100 - _rewardStakerFraction - _rewardComponentFraction - _rewardAgentFraction;
         sp.rewardStakerFraction = _rewardStakerFraction;
@@ -499,25 +505,29 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param unitId Unit Id.
     function _finalizeIncentivesForUnitId(uint256 epochNum, uint256 unitType, uint256 unitId) internal {
         // Get the overall amount of component rewards for the component's last epoch
+        // The pendingRelativeReward cannot be zero since the value was based on a non-zero amount
         // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
         uint256 totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeReward;
         totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH;
         totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction;
         uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
-        // TODO Optimize gas usage
         // Add to the final reward for the last epoch
-        mapUnitIncentives[unitType][unitId].reward += uint96(totalIncentives / sumUnitIncentives);
+        uint256 incentiveAmount = mapUnitIncentives[unitType][unitId].reward + totalIncentives / sumUnitIncentives;
+        mapUnitIncentives[unitType][unitId].reward = uint96(incentiveAmount);
         // Setting pending reward to zero
         mapUnitIncentives[unitType][unitId].pendingRelativeReward = 0;
+
         // Add to the final top-up for the last epoch
-        if (mapUnitIncentives[unitType][unitId].pendingRelativeTopUp > 0) {
+        totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeTopUp;
+        // The pendingRelativeTopUp can be zero if the service owner did not stake enough veOLAS
+        if (totalIncentives > 0) {
             // Summation of all the unit top-ups and total amount of top-ups per epoch
             // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
-            totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeTopUp;
             totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
             sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
-            mapUnitIncentives[unitType][unitId].topUp += uint96(totalIncentives / sumUnitIncentives);
+            incentiveAmount = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumUnitIncentives;
+            mapUnitIncentives[unitType][unitId].topUp = uint96(incentiveAmount);
             // Setting pending top-up to zero
             mapUnitIncentives[unitType][unitId].pendingRelativeTopUp = 0;
         }
@@ -527,44 +537,30 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    /// @return donationETH Overall service donation amount in ETH.
-    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
-        returns (uint96 donationETH)
+    /// @param curEpoch Current epoch number.
+    /// @param unitTypeLimits Component / agent traversal limits.
+    function _trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch,
+        uint256[] memory unitTypeLimits) internal
     {
-        // Check for the treasury access
-        if (treasury != msg.sender) {
-            revert ManagerOnly(msg.sender, treasury);
-        }
-
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
 
-        // Get the current epoch
-        uint256 curEpoch = epochCounter;
-        // TODO gas optimization
-        // Get the current epoch struct pointer
-        TokenomicsPoint storage tp = mapEpochTokenomics[curEpoch];
         // Get the number of services
         uint256 numServices = serviceIds.length;
         // Loop over service Ids to calculate their partial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
-            // Check for the service Id existence
-            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
-                revert ServiceDoesNotExist(serviceIds[i]);
-            }
-
-            // TODO Account for zero fractions for components and agents here, in setting them and in incentives calculations
+            uint96 amount = uint96(amounts[i]);
 
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
             address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
             bool topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
 
             // Loop over component and agent Ids
-            for (uint256 unitType = 0; unitType < 2; ++unitType) {
+            for (uint256 unitType = unitTypeLimits[0]; unitType < unitTypeLimits[1]; ++unitType) {
                 // Get the number and set of units in the service
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceTokenomics(serviceRegistry).
-                    getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
+                getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
                 // Accumulate amounts for each unit Id
                 for (uint256 j = 0; j < numServiceUnits; ++j) {
                     // Get the last epoch number the incentives were accumulated for
@@ -579,38 +575,82 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                         mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                     }
                     // Sum the relative amounts for the corresponding components / agents
-                    mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amounts[i];
-                    mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amounts[i];
+                    mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amount;
+                    mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amount;
                     // If eligible, add relative top-up weights in the form of donation amounts.
                     // These weights will represent the fraction of top-ups for each component / agent relative
                     // to the overall amount of top-ups that must be allocated
                     if (topUpEligible) {
-                        mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += amounts[i];
-                        mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amounts[i];
+                        mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += amount;
+                        mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amount;
                     }
-    
+
                     // Check if the component / agent is used for the first time
                     if (!mapNewUnits[unitType][serviceUnitIds[j]]) {
                         mapNewUnits[unitType][serviceUnitIds[j]] = true;
-                        tp.unitPoints[unitType].numNewUnits++;
+                        mapEpochTokenomics[curEpoch].unitPoints[unitType].numNewUnits++;
                         // Check if the owner has introduced component / agent for the first time
                         // This is done together with the new unit check, otherwise it could be just a new unit owner
                         address unitOwner = IToken(registries[unitType]).ownerOf(serviceUnitIds[j]);
                         if (!mapNewOwners[unitOwner]) {
                             mapNewOwners[unitOwner] = true;
-                            tp.epochPoint.numNewOwners++;
+                            mapEpochTokenomics[curEpoch].epochPoint.numNewOwners++;
                         }
                     }
                 }
             }
+        }
+    }
 
+    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @param serviceIds Set of service Ids.
+    /// @param amounts Correspondent set of ETH amounts provided by services.
+    /// @return donationETH Overall service donation amount in ETH.
+    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
+        returns (uint256 donationETH)
+    {
+        // Check for the treasury access
+        if (treasury != msg.sender) {
+            revert ManagerOnly(msg.sender, treasury);
+        }
+
+        // Get the number of services
+        uint256 numServices = serviceIds.length;
+        // Loop over service Ids, accumulate donation value and check for the service existence
+        for (uint256 i = 0; i < numServices; ++i) {
+            // Check for the service Id existence
+            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
+                revert ServiceDoesNotExist(serviceIds[i]);
+            }
             // Sum up ETH service amounts
             donationETH += amounts[i];
         }
-
+        // Get the current epoch
+        uint256 curEpoch = epochCounter;
         // Increase the total service donation balance per epoch
-        donationETH = tp.epochPoint.totalDonationsETH + donationETH;
-        tp.epochPoint.totalDonationsETH = donationETH;
+        donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH;
+        mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
+
+        // Check the component / agent owner fractions and limit calculations for a specific unit type, if needed
+        uint256[] memory unitTypeLimits = new uint256[](2);
+        (unitTypeLimits[0], unitTypeLimits[1]) = (0, 2);
+        // If component owner fractions are zero, unit type 0 (component) is ignored
+        if (mapEpochTokenomics[curEpoch].unitPoints[0].rewardUnitFraction == 0 &&
+            mapEpochTokenomics[curEpoch].unitPoints[0].topUpUnitFraction == 0) {
+            unitTypeLimits[0] = 1;
+        }
+        // If agent owner fractions are zero, unit type 1 (agent) is ignored
+        if (mapEpochTokenomics[curEpoch].unitPoints[1].rewardUnitFraction == 0 &&
+            mapEpochTokenomics[curEpoch].unitPoints[1].topUpUnitFraction == 0) {
+            unitTypeLimits[1] = 1;
+        }
+
+        // Check that at least one of the component / agent incentive fraction is not zero
+        if (unitTypeLimits[1] > unitTypeLimits[0]) {
+            // Track service donations
+            _trackServicesETHRevenue(serviceIds, amounts, curEpoch, unitTypeLimits);
+        }
     }
 
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
