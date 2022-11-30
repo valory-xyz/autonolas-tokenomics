@@ -147,7 +147,7 @@ contract Treasury is GenericTokenomics {
         }
 
         // Accumulate received donation from services
-        uint256 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(serviceIds, amounts);
         donationETH += ETHFromServices;
         ETHFromServices = uint96(donationETH);
 
@@ -159,7 +159,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    function withdraw(address to, uint224 tokenAmount, address token) external returns (bool success) {
+    function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -190,9 +190,9 @@ contract Treasury is GenericTokenomics {
                 revert UnauthorizedToken(token);
             }
             // Decrease the global LP token record
-            uint224 reserves = tokenInfo.reserves;
+            uint256 reserves = tokenInfo.reserves;
             reserves -= tokenAmount;
-            tokenInfo.reserves = reserves;
+            tokenInfo.reserves = uint224(reserves);
 
             success = true;
             emit Withdraw(token, tokenAmount);

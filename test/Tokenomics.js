@@ -201,7 +201,7 @@ describe("Tokenomics", async () => {
 
         it("Should fail when calling treasury-owned functions by other addresses", async function () {
             await expect(
-                tokenomics.connect(signers[1]).trackServicesETHRevenue([], [])
+                tokenomics.connect(signers[1]).trackServiceDonations([], [])
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -218,7 +218,7 @@ describe("Tokenomics", async () => {
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
 
             await expect(
-                tokenomics.connect(deployer).trackServicesETHRevenue([3], [regDepositFromServices])
+                tokenomics.connect(deployer).trackServiceDonations([3], [regDepositFromServices])
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
@@ -226,8 +226,8 @@ describe("Tokenomics", async () => {
             // Only treasury can access the function, so let's change it for deployer here
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
 
-            await tokenomics.connect(deployer).trackServicesETHRevenue([1, 2], [regDepositFromServices, regDepositFromServices]);
-            await tokenomics.connect(deployer).trackServicesETHRevenue([1], [regDepositFromServices]);
+            await tokenomics.connect(deployer).trackServiceDonations([1, 2], [regDepositFromServices, regDepositFromServices]);
+            await tokenomics.connect(deployer).trackServiceDonations([1], [regDepositFromServices]);
         });
     });
 

@@ -533,12 +533,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
-    /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @dev Records service donations into corresponding data structures.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    function _trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal
+    function _trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal
     {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
@@ -600,12 +599,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
-    function trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts) external
+    function trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 donationETH)
     {
         // Check for the treasury access
@@ -631,7 +630,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
 
         // Track service donations
-        _trackServicesETHRevenue(serviceIds, amounts, curEpoch);
+        _trackServiceDonations(serviceIds, amounts, curEpoch);
     }
 
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
@@ -650,17 +649,17 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         TokenomicsPoint storage tp = mapEpochTokenomics[eCounter];
         StakerPoint storage sp = mapEpochStakerPoints[eCounter];
 
-        // 0: total rewards funded with donations in ETH, that are split between:
+        // 0: total incentives funded with donations in ETH, that are split between:
         // 1: treasuryRewards, 2: stakerRewards, 3: componentRewards, 4: agentRewards
         // OLAS inflation is split between:
         // 5: maxBond, 6: component ownerTopUps, 7: agent ownerTopUps, 8: stakerTopUps
-        uint256[] memory rewards = new uint256[](9);
-        rewards[0] = tp.epochPoint.totalDonationsETH;
-        rewards[1] = (rewards[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
+        uint256[] memory incentives = new uint256[](9);
+        incentives[0] = tp.epochPoint.totalDonationsETH;
+        incentives[1] = (incentives[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
         // 0 stands for components and 1 for agents
-        rewards[2] = (rewards[0] * sp.rewardStakerFraction) / 100;
-        rewards[3] = (rewards[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
-        rewards[4] = (rewards[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
+        incentives[2] = (incentives[0] * sp.rewardStakerFraction) / 100;
+        incentives[3] = (incentives[0] * tp.unitPoints[0].rewardUnitFraction) / 100;
+        incentives[4] = (incentives[0] * tp.unitPoints[1].rewardUnitFraction) / 100;
 
         // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
@@ -697,20 +696,20 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Bonding and top-ups in OLAS are recalculated based on the inflation schedule per epoch
         // Actual maxBond of the epoch
         tp.epochPoint.totalTopUpsOLAS = uint96(inflationPerEpoch);
-        rewards[5] = (inflationPerEpoch * tp.epochPoint.maxBondFraction) / 100;
+        incentives[5] = (inflationPerEpoch * tp.epochPoint.maxBondFraction) / 100;
 
         // Effective bond accumulates bonding leftovers from previous epochs (with the last max bond value set)
         // It is given the value of the maxBond for the next epoch as a credit
         // The difference between recalculated max bond per epoch and maxBond value must be reflected in effectiveBond,
         // since the epoch checkpoint delay was not accounted for initially
         // TODO optimize for gas usage below
-        // TODO Prove that the adjusted maxBond (rewards[5]) will never be lower than the epoch maxBond
-        // This has to always be true, or rewards[5] == curMaxBond if the epoch is settled exactly at the epochLen time
-        if (rewards[5] > curMaxBond) {
+        // TODO Prove that the adjusted maxBond (incentives[5]) will never be lower than the epoch maxBond
+        // This has to always be true, or incentives[5] == curMaxBond if the epoch is settled exactly at the epochLen time
+        if (incentives[5] > curMaxBond) {
             // Adjust the effectiveBond
-            //rewards[5] = effectiveBond + rewards[5] - curMaxBond;
-            //effectiveBond = uint96(rewards[5]);
-            effectiveBond += uint96(rewards[5] - curMaxBond);
+            //incentives[5] = effectiveBond + incentives[5] - curMaxBond;
+            //effectiveBond = uint96(incentives[5]);
+            effectiveBond += uint96(incentives[5] - curMaxBond);
         }
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
@@ -743,7 +742,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
-        if (rewards[0] > 0) {
+        if (incentives[0] > 0) {
             // 0 for components and 1 for agents
             uint256 sumWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
@@ -754,7 +753,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
             // Convert treasuryRewards and convert to ETH
-            int256 fp1 = PRBMathSD59x18.fromInt(int256(rewards[1])) / 1e18;
+            int256 fp1 = PRBMathSD59x18.fromInt(int256(incentives[1])) / 1e18;
             // Convert (codeUnits * devsPerCapital)
             int256 fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital));
             // fp1 == codeUnits * devsPerCapital * treasuryRewards
@@ -780,28 +779,28 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.epochPoint.endBlockNumber = uint32(block.number);
         tp.epochPoint.endTime = uint32(block.timestamp);
 
-        // Allocate rewards via Treasury and start new epoch
-        uint96 accountRewards = uint96(rewards[2] + rewards[3] + rewards[4]);
+        // Cumulative incentives
+        uint96 accountRewards = uint96(incentives[2] + incentives[3] + incentives[4]);
         // Owner top-ups: epoch incentives for component owners funded with the inflation
-        rewards[6] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
+        incentives[6] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
         // Owner top-ups: epoch incentives for agent owners funded with the inflation
-        rewards[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
+        incentives[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
-        rewards[8] = (inflationPerEpoch * sp.topUpStakerFraction) / 100;
+        incentives[8] = (inflationPerEpoch * sp.topUpStakerFraction) / 100;
         // Even if there were no single donating service owner that had a sufficient veOLAS balance,
         // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
         // This amount will appear in the EpochSettled event, and thus can be tracked historically
-        uint96 accountTopUps = uint96(rewards[6] + rewards[7] + rewards[8]);
+        uint96 accountTopUps = uint96(incentives[6] + incentives[7] + incentives[8]);
 
-        // Treasury contract allocates rewards
-        if (rewards[1] == 0 || ITreasury(treasury).rebalanceTreasury(rewards[1])) {
+        // Treasury contract rebalances ETH funds depending on the treasury rewards
+        if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {
             // Emit settled epoch written to the last economics point
-            emit EpochSettled(eCounter, rewards[1], accountRewards, accountTopUps);
+            emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps);
             // Start new epoch
             eCounter++;
             epochCounter = uint32(eCounter);
         } else {
-            // If rewards were not correctly allocated, the new epoch does not start
+            // If the treasury rebalance was not executed correctly, the new epoch does not start
             revert TreasuryRebalanceFailed(eCounter);
         }
 
