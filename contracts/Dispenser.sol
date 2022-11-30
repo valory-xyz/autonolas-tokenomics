@@ -2,25 +2,23 @@
 pragma solidity ^0.8.17;
 
 import "./GenericTokenomics.sol";
-import "./interfaces/IOLAS.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
-/// @title Dispenser - Smart contract for rewards
+/// @title Dispenser - Smart contract for incentives
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is GenericTokenomics {
     event ReceivedETH(address indexed sender, uint256 amount);
 
-    // Mapping account => last reward block for staking
+    // Mapping account => last incentive block for staking
     mapping(address => uint256) public mapLastRewardEpochs;
 
     /// @dev Dispenser constructor.
-    /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
-    constructor(address _olas, address _tokenomics, address _treasury)
-        GenericTokenomics(_olas, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
+    constructor(address _tokenomics, address _treasury)
+        GenericTokenomics(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
     {
     }
 
@@ -62,7 +60,7 @@ contract Dispenser is GenericTokenomics {
         }
         _locked = 2;
 
-        // Starting epoch number where the last time reward was not yet given
+        // Starting epoch number where the last time incentives were not yet claimed
         uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
         uint256 endEpochNumber;
         // Get the reward and epoch number up to which the reward was calculated

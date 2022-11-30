@@ -47,7 +47,7 @@ describe("Dispenser", async () => {
         await ve.deployed();
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address);
+        dispenser = await Dispenser.deploy(deployer.address, deployer.address);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
@@ -153,10 +153,12 @@ describe("Dispenser", async () => {
             const ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            const sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             const percentFraction = ethers.BigNumber.from(100);
             let rewards = [
-                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(sp.rewardStakerFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
@@ -166,9 +168,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(sp.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -315,10 +316,13 @@ describe("Dispenser", async () => {
             let ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            let sp = await tokenomics.mapEpochStakerPoints(lastPoint);
+
             // Calculate rewards based on the points information
             const percentFraction = ethers.BigNumber.from(100);
             let rewards = [
-                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(sp.rewardStakerFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
@@ -328,9 +332,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(sp.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -388,7 +391,7 @@ describe("Dispenser", async () => {
             up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             rewards = [
-                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(sp.rewardStakerFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
@@ -398,9 +401,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(sp.topUpStakerFraction)).div(percentFraction)
             ];
-            topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
             accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
@@ -527,14 +529,15 @@ describe("Dispenser", async () => {
                 let ep = await tokenomics.getEpochPoint(lastPoint);
                 // Get the unit points of the last epoch
                 let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+                // Get the staker point
+                let sp = await tokenomics.mapEpochStakerPoints(lastPoint);
                 // Calculate top-ups based on the points information
                 let topUps = [
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(sp.topUpStakerFraction)).div(percentFraction)
                 ];
-                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
                 let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
                 totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
@@ -544,9 +547,11 @@ describe("Dispenser", async () => {
             let ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            let sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             let rewards = [
-                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(sp.rewardStakerFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
@@ -639,14 +644,15 @@ describe("Dispenser", async () => {
                 let ep = await tokenomics.getEpochPoint(lastPoint);
                 // Get the unit points of the last epoch
                 let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+                // Get the staker point
+                let sp = await tokenomics.mapEpochStakerPoints(lastPoint);
                 // Calculate top-ups based on the points information
                 let topUps = [
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
                     ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction),
-                    ethers.BigNumber.from(ep.totalTopUpsOLAS)
+                    ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(sp.topUpStakerFraction)).div(percentFraction)
                 ];
-                topUps[3] = topUps[3].sub(topUps[0].add(topUps[1]).add(topUps[2]));
                 let accountTopUps = topUps[1].add(topUps[2]).add(topUps[3]);
                 totalAccountTopUps = totalAccountTopUps.add(accountTopUps);
             }
@@ -656,9 +662,11 @@ describe("Dispenser", async () => {
             let ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            let sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             let rewards = [
-                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(ep.rewardStakerFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(sp.rewardStakerFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
                 ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
             ];
@@ -720,9 +728,11 @@ describe("Dispenser", async () => {
             const ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            const sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             const rewards = [
-                (Number(ep.totalDonationsETH) * Number(ep.rewardStakerFraction)) / 100,
+                (Number(ep.totalDonationsETH) * Number(sp.rewardStakerFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
             ];
