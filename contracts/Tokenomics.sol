@@ -150,7 +150,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
-    event EpochSettled(uint256 epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+    event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     // Voting Escrow address
     address public immutable ve;
@@ -538,9 +538,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    /// @param unitTypeLimits Component / agent traversal limits.
-    function _trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch,
-        uint256[] memory unitTypeLimits) internal
+    function _trackServicesETHRevenue(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal
     {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
@@ -557,7 +555,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             bool topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
 
             // Loop over component and agent Ids
-            for (uint256 unitType = unitTypeLimits[0]; unitType < unitTypeLimits[1]; ++unitType) {
+            for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceTokenomics(serviceRegistry).
                 getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
@@ -632,25 +630,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH;
         mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
 
-        // Check the component / agent owner fractions and limit calculations for a specific unit type, if needed
-        uint256[] memory unitTypeLimits = new uint256[](2);
-        (unitTypeLimits[0], unitTypeLimits[1]) = (0, 2);
-        // If component owner fractions are zero, unit type 0 (component) is ignored
-        if (mapEpochTokenomics[curEpoch].unitPoints[0].rewardUnitFraction == 0 &&
-            mapEpochTokenomics[curEpoch].unitPoints[0].topUpUnitFraction == 0) {
-            unitTypeLimits[0] = 1;
-        }
-        // If agent owner fractions are zero, unit type 1 (agent) is ignored
-        if (mapEpochTokenomics[curEpoch].unitPoints[1].rewardUnitFraction == 0 &&
-            mapEpochTokenomics[curEpoch].unitPoints[1].topUpUnitFraction == 0) {
-            unitTypeLimits[1] = 1;
-        }
-
-        // Check that at least one of the component / agent incentive fraction is not zero
-        if (unitTypeLimits[1] > unitTypeLimits[0]) {
-            // Track service donations
-            _trackServicesETHRevenue(serviceIds, amounts, curEpoch, unitTypeLimits);
-        }
+        // Track service donations
+        _trackServicesETHRevenue(serviceIds, amounts, curEpoch);
     }
 
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
@@ -807,13 +788,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         rewards[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
         rewards[8] = (inflationPerEpoch * sp.topUpStakerFraction) / 100;
-        uint96 accountTopUps = uint96(rewards[8]);
-        // Add owner top-ups only if there was at least one donating service owner that had a sufficient veOLAS balance
-        // This means that it is safe to check for the sum related to OLAS top-ups in agents,
-        // since a service has at least one agent, and each agent has at least one component
-        if (tp.unitPoints[1].sumUnitTopUpsOLAS > 0) {
-            accountTopUps += uint96(rewards[6] + rewards[7]);
-        }
+        // Even if there were no single donating service owner that had a sufficient veOLAS balance,
+        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
+        // This amount will appear in the EpochSettled event, and thus can be tracked historically
+        uint96 accountTopUps = uint96(rewards[6] + rewards[7] + rewards[8]);
 
         // Treasury contract allocates rewards
         if (rewards[1] == 0 || ITreasury(treasury).rebalanceTreasury(rewards[1])) {
