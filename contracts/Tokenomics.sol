@@ -9,7 +9,6 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "hardhat/console.sol";
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
