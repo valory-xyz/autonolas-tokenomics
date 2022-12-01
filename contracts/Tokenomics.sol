@@ -154,21 +154,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     // Voting Escrow address
     address public immutable ve;
-
     // Max bond per epoch: calculated as a fraction from the OLAS inflation parameter
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 public maxBond;
+
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
     // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
     // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
     uint64 public epsilonRate = 1e17;
-    // Epoch length in seconds
-    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
-    uint32 public epochLen;
-    // Global epoch counter
-    // This number cannot be practically bigger than the number of blocks
-    uint32 public epochCounter;
-
     // Inflation amount per second
     uint96 public inflationPerSecond;
     // veOLAS threshold for top-ups
@@ -182,6 +175,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // This number cannot be practically bigger than the inflation remainder of OLAS
     uint96 public effectiveBond;
 
+    // Epoch length in seconds
+    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
+    uint32 public epochLen;
+    // Global epoch counter
+    // This number cannot be practically bigger than the number of blocks
+    uint32 public epochCounter;
     // Agent Registry
     address public agentRegistry;
     // Current year number
