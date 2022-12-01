@@ -31,8 +31,8 @@ describe("Depository LP", async () => {
     let epochLen = 100;
     let defaultPriceLP = "2" + decimals;
 
-    // 2,200
-    let supplyProductOLAS =  "22" + "0".repeat(2) + decimals;
+    // 2,000
+    let supplyProductOLAS =  "2" + "0".repeat(3) + decimals;
     let pseudoFlashLoan = "2"  + "0".repeat(2) + decimals;
     const maxUint96 = "79228162514264337593543950335";
     const maxUint32 = "4294967295";

@@ -9,6 +9,7 @@ import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
+import "hardhat/console.sol";
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -501,12 +502,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // The pendingRelativeReward can be zero if the rewardUnitFraction was zero in the first place
         // Note that if the rewardUnitFraction is set to zero at the end of epoch, the whole pending reward will be zero
         // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
-        uint256 sumUnitIncentives;
         uint256 totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeReward;
         if (totalIncentives > 0) {
             totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalDonationsETH;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].rewardUnitFraction;
-            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
+            uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitDonationsETH * 100;
+            // TODO Fuzzer: verify sumUnitIncentives is never zero
             // Add to the final reward for the last epoch
             totalIncentives = mapUnitIncentives[unitType][unitId].reward + totalIncentives / sumUnitIncentives;
             mapUnitIncentives[unitType][unitId].reward = uint96(totalIncentives);
@@ -523,7 +524,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
             totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
-            sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
+            uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
+            // TODO Fuzzer: verify sumUnitIncentives is never zero
             totalIncentives = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumUnitIncentives;
             mapUnitIncentives[unitType][unitId].topUp = uint96(totalIncentives);
             // Setting pending top-up to zero
@@ -721,7 +723,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // The difference between recalculated max bond per epoch and maxBond value must be reflected in effectiveBond,
         // since the epoch checkpoint delay was not accounted for initially
         // TODO optimize for gas usage below
-        // TODO Prove that the adjusted maxBond (incentives[5]) will never be lower than the epoch maxBond
+        // TODO Fuzzer task: prove the adjusted maxBond (incentives[5]) will never be lower than the epoch maxBond
         // This has to always be true, or incentives[5] == curMaxBond if the epoch is settled exactly at the epochLen time
         if (incentives[5] > curMaxBond) {
             // Adjust the effectiveBond
@@ -1036,11 +1038,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                 // Get the overall amount of component rewards for the component's last epoch
                 // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
                 uint256 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeReward;
-                totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH;
-                totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction;
-                uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH * 100;
-                // Accumulate to the final reward for the last epoch
-                reward += totalIncentives / sumUnitIncentives;
+                if (totalIncentives > 0) {
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalDonationsETH;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].rewardUnitFraction;
+                    uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitDonationsETH * 100;
+                    // TODO Fuzzer: verify sumUnitIncentives is never zero
+                    // Accumulate to the final reward for the last epoch
+                    reward += totalIncentives / sumUnitIncentives;
+                }
                 // Add the final top-up for the last epoch
                 if (mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp > 0) {
                     // Summation of all the unit top-ups and total amount of top-ups per epoch
@@ -1048,7 +1053,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                     totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp;
                     totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS;
                     totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
-                    sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
+                    uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
+                    // TODO Fuzzer: verify sumUnitIncentives is never zero
                     // Accumulate to the final top-up for the last epoch
                     topUp += totalIncentives / sumUnitIncentives;
                 }
@@ -1062,6 +1068,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets incentive balances of a component / agent.
+    /// @notice Note that these numbers are not final values per epoch, since more donations might be given
+    ///         and incentive fractions are subject to change by the governance.
     /// @param unitType Unit type (component or agent).
     /// @param unitId Unit Id.
     /// @return Component / agent incentive balances.
