@@ -499,7 +499,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param unitId Unit Id.
     function _finalizeIncentivesForUnitId(uint256 epochNum, uint256 unitType, uint256 unitId) internal {
         // Get the overall amount of component rewards for the component's last epoch
-        // The pendingRelativeReward can only be zero if the rewardUnitFraction was zero in the first place
+        // The pendingRelativeReward can be zero if the rewardUnitFraction was zero in the first place
+        // Note that if the rewardUnitFraction is set to zero at the end of epoch, the whole pending reward will be zero
         // reward = (pendingRelativeReward * totalDonationsETH * rewardUnitFraction) / (100 * sumUnitDonationsETH)
         uint256 sumUnitIncentives;
         uint256 totalIncentives = mapUnitIncentives[unitType][unitId].pendingRelativeReward;
@@ -585,7 +586,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                         }
                         // Sum the relative amounts for the corresponding components / agents
                         if (incentiveFlags[unitType]) {
-
                             mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amount;
                             mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amount;
                         }
@@ -915,10 +915,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @return idf Discount factor with the multiple of 1e18.
     function getIDF(uint256 epoch) external view returns (uint256 idf)
     {
-        // TODO if IDF is undefined somewhere, we must return 1 but not the maximum possible
         idf = mapEpochTokenomics[epoch].epochPoint.idf;
         if (idf == 0) {
-            idf = 1e18 + epsilonRate;
+            idf = 1e18;
         }
     }
 
@@ -928,7 +927,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     {
         idf = mapEpochTokenomics[epochCounter - 1].epochPoint.idf;
         if (idf == 0) {
-            idf = 1e18 + epsilonRate;
+            idf = 1e18;
         }
     }
 

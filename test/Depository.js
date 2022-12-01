@@ -426,8 +426,9 @@ describe("Depository LP", async () => {
             await depository.connect(bob).deposit(bid, bamount);
             expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
-            // 1250 * 1.1 = 1375 * e18 =  1.375 * e21
-            expect(Number(res.payout)).to.equal(1.375e+21);
+            // The default IDF without any incentivized coefficient or epsilon rate is 1
+            // 1250 * 1.0 = 1250 * e18 =  1.25 * e21
+            expect(Number(res.payout)).to.equal(1.25e+21);
         });
 
         it("Should not allow to deposit after the bonding product is expired", async () => {
@@ -664,7 +665,7 @@ describe("Depository LP", async () => {
             expect(res.payout).to.equal(payout);
 
             // We know that the payout for any account under these parameters must be 1.375 * e21
-            expect(Number(res.payout)).to.equal(1.375e+21);
+            expect(Number(res.payout)).to.equal(1.25e+21);
         });
     });
 });

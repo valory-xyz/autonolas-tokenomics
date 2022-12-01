@@ -122,10 +122,10 @@ contract Treasury is GenericTokenomics {
         emit DepositTokenFromAccount(account, token, tokenAmount, olasMintAmount);
     }
 
-    /// @dev Deposits ETH from protocol-owned services in batch.
+    /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
         }

@@ -246,7 +246,7 @@ describe("Tokenomics", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             // Send the revenues to services
-            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
@@ -262,10 +262,10 @@ describe("Tokenomics", async () => {
             const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
             expect(idf).to.equal(lastIDF);
 
-            // Get IDF of the zero (arbitrary) epoch
-            const defaultEpsRate = Number(await tokenomics.epsilonRate()) + E18;
+            // Get IDF of the zero (arbitrary) epoch that has a zero IDF
+            // By default, if IDF is not defined, it must be set to 1
             const zeroDF = Number(await tokenomics.getIDF(0));
-            expect(zeroDF).to.equal(defaultEpsRate);
+            expect(zeroDF).to.equal(E18);
         });
 
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
@@ -274,7 +274,7 @@ describe("Tokenomics", async () => {
             // Change tokenomics factors such that all the rewards are given to the treasury
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 0, 10, 50, 20);
             // Send the revenues to services
-            await treasury.connect(deployer).depositETHFromServices([1, 2], [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Change the manager for the treasury contract and re-balance treasury before the checkpoint
             await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
@@ -293,7 +293,7 @@ describe("Tokenomics", async () => {
             await ethers.provider.send("evm_mine");
             const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
-            await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10);
@@ -316,7 +316,7 @@ describe("Tokenomics", async () => {
             await ethers.provider.send("evm_mine");
             const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
-            await treasury.connect(deployer).depositETHFromServices(accounts, [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
 
             // Start new epoch and calculate tokenomics parameters and rewards

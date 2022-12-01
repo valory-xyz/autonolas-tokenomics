@@ -153,30 +153,30 @@ describe("Treasury", async () => {
     context("Deposits ETH from protocol-owned services", async function () {
         it("Should fail when depositing a zero value", async () => {
             await expect(
-                treasury.connect(deployer).depositETHFromServices([], [])
+                treasury.connect(deployer).depositServiceDonationsETH([], [])
             ).to.be.revertedWithCustomError(treasury, "ZeroValue");
         });
 
         it("Should fail when input arrays do not match", async () => {
             await expect(
-                treasury.connect(deployer).depositETHFromServices([], [1], {value: regDepositFromServices})
+                treasury.connect(deployer).depositServiceDonationsETH([], [1], {value: regDepositFromServices})
             ).to.be.revertedWithCustomError(treasury, "WrongArrayLength");
         });
 
         it("Should fail when the amount does not match the total input amount from services", async () => {
             await expect(
-                treasury.connect(deployer).depositETHFromServices([1], [100], {value: regDepositFromServices})
+                treasury.connect(deployer).depositServiceDonationsETH([1], [100], {value: regDepositFromServices})
             ).to.be.revertedWithCustomError(treasury, "WrongAmount");
         });
 
         it("Should fail when the amount does not match the total input amount from services", async () => {
             await expect(
-                treasury.connect(deployer).depositETHFromServices([1], [100], {value: regDepositFromServices})
+                treasury.connect(deployer).depositServiceDonationsETH([1], [100], {value: regDepositFromServices})
             ).to.be.revertedWithCustomError(treasury, "WrongAmount");
         });
 
         it("Deposit ETH from one protocol-owned service", async () => {
-            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+            await treasury.connect(deployer).depositServiceDonationsETH([1], [regDepositFromServices], {value: regDepositFromServices});
         });
     });
 
@@ -231,7 +231,7 @@ describe("Treasury", async () => {
     context("Account for rewards", async function () {
         it("Start new epoch and account for treasury rewards", async () => {
             // Deposit ETH for protocol-owned services
-            await treasury.connect(deployer).depositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
+            await treasury.connect(deployer).depositServiceDonationsETH([1], [regDepositFromServices], {value: regDepositFromServices});
 
             // Try to re-balance treasury rewards not by the contract manager (tokenomics)
             await expect(
