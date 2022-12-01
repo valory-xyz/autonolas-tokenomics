@@ -393,13 +393,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check if there were donations during the current epoch
-        // If yes, it is prohibited to change incentive fractions, since incentives might not be correctly calculated
-        TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
-        if (tp.epochPoint.totalDonationsETH > 0) {
-            revert();
-        }
-
         // Check that the sum of fractions is 100%
         if (_rewardStakerFraction + _rewardComponentFraction + _rewardAgentFraction > 100) {
             revert WrongAmount(_rewardStakerFraction + _rewardComponentFraction + _rewardAgentFraction, 100);
@@ -410,6 +403,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
         }
 
+        TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
         StakerPoint storage sp = mapEpochStakerPoints[epochCounter];
         tp.epochPoint.rewardTreasuryFraction = 100 - _rewardStakerFraction - _rewardComponentFraction - _rewardAgentFraction;
         sp.rewardStakerFraction = _rewardStakerFraction;
@@ -574,9 +568,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                 // Get the number and set of units in the service
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceTokenomics(serviceRegistry).
                 getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
-                // Accumulate amounts for each unit Id
-                for (uint256 j = 0; j < numServiceUnits; ++j) {
-                    if (incentiveFlags[unitType] || incentiveFlags[unitType + 2]) {
+                // Record amounts data only if at least one incentive unit fraction is not zero
+                if (incentiveFlags[unitType] || incentiveFlags[unitType + 2]) {
+                    // Accumulate amounts for each unit Id
+                    for (uint256 j = 0; j < numServiceUnits; ++j) {
                         // Get the last epoch number the incentives were accumulated for
                         uint256 lastEpoch = mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch;
                         // Check if there were no donations in previous epochs and set the current epoch
@@ -590,6 +585,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                         }
                         // Sum the relative amounts for the corresponding components / agents
                         if (incentiveFlags[unitType]) {
+
                             mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeReward += amount;
                             mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitDonationsETH += amount;
                         }
@@ -601,7 +597,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                             mapEpochTokenomics[curEpoch].unitPoints[unitType].sumUnitTopUpsOLAS += amount;
                         }
                     }
+                }
 
+                // Record new units and new unit owners
+                for (uint256 j = 0; j < numServiceUnits; ++j) {
                     // Check if the component / agent is used for the first time
                     if (!mapNewUnits[unitType][serviceUnitIds[j]]) {
                         mapNewUnits[unitType][serviceUnitIds[j]] = true;
