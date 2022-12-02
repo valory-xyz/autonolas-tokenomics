@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
 import "./GenericTokenomics.sol";
 import "./TokenomicsConstants.sol";
+import "./interfaces/IBlackList.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -206,6 +207,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     mapping(address => bool) public mapNewOwners;
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
+
+    // Blacklist contract address
+    address public blackList;
     // Mapping of epoch => staker point
     mapping(uint256 => StakerPoint) public mapEpochStakerPoints;
 
@@ -457,6 +461,19 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         if (_serviceRegistry != address(0)) {
             serviceRegistry = _serviceRegistry;
             emit ServiceRegistryUpdated(_serviceRegistry);
+        }
+    }
+
+    /// @dev Changes blacklist contract address.
+    /// @param _blackList Blacklist contract address.
+    function changeBlackList(address _blackList) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_blackList != address(0)) {
+            blackList = _blackList;
         }
     }
 
