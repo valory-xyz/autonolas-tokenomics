@@ -163,16 +163,16 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "WrongArrayLength");
         });
 
-        it("Should fail when the amount does not match the total input amount from services", async () => {
+        it("Should fail when the amount does not match the total donation amounts", async () => {
             await expect(
                 treasury.connect(deployer).depositServiceDonationsETH([1], [100], {value: regDepositFromServices})
             ).to.be.revertedWithCustomError(treasury, "WrongAmount");
         });
 
-        it("Should fail when the amount does not match the total input amount from services", async () => {
+        it("Should fail when there is at least one zero donation amount passed", async () => {
             await expect(
-                treasury.connect(deployer).depositServiceDonationsETH([1], [100], {value: regDepositFromServices})
-            ).to.be.revertedWithCustomError(treasury, "WrongAmount");
+                treasury.connect(deployer).depositServiceDonationsETH([1, 2], [100, 0], {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
         });
 
         it("Deposit ETH from one protocol-owned service", async () => {

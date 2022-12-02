@@ -109,4 +109,9 @@ interface IErrorsTokenomics {
     /// @dev Failure of treasury re-balance during the reward allocation.
     /// @param epochNumber Epoch number.
     error TreasuryRebalanceFailed(uint256 epochNumber);
+
+    /// @dev Operation with a wrong component / agent Id.
+    /// @param unitId Component / agent Id.
+    /// @param unitType Type of the unit (component / agent).
+    error WrongUnitId(uint256 unitId, uint256 unitType);
 }

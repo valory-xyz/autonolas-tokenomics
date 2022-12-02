@@ -104,36 +104,6 @@ describe("Dispenser", async () => {
     });
 
     context("Get incentives", async function () {
-        it("Should fail when trying to get incentives with incorrect inputs", async () => {
-            // Try to get and claim owner rewards with the wrong array length
-            await expect(
-                tokenomics.getOwnerIncentives(deployer.address, [0], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
-            await expect(
-                dispenser.claimOwnerIncentives([0], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
-
-            // Try to get and claim owner rewards while not being the owner of components / agents
-            await expect(
-                tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
-            await expect(
-                dispenser.claimOwnerIncentives([0, 1], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
-
-            // Assign component and agent ownership to a deployer
-            await componentRegistry.changeUnitOwner(1, deployer.address);
-            await agentRegistry.changeUnitOwner(1, deployer.address);
-
-            // Try to get and claim owner rewards with incorrect unit type
-            await expect(
-                tokenomics.getOwnerIncentives(deployer.address, [2, 1], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
-            await expect(
-                dispenser.claimOwnerIncentives([2, 1], [1, 1])
-            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
-        });
-
         it("Claim incentives for unit owners and stakers", async () => {
             // Try to claim rewards
             await dispenser.connect(deployer).claimOwnerIncentives([], []);
