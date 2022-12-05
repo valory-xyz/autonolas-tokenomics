@@ -122,10 +122,10 @@ contract Treasury is GenericTokenomics {
         emit DepositTokenFromAccount(account, token, tokenAmount, olasMintAmount);
     }
 
-    /// @dev Deposits ETH from protocol-owned services in batch.
+    /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable {
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -147,9 +147,9 @@ contract Treasury is GenericTokenomics {
         }
 
         // Accumulate received donation from services
-        uint96 donationETH = ITokenomics(tokenomics).trackServicesETHRevenue(serviceIds, amounts);
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(serviceIds, amounts);
         donationETH += ETHFromServices;
-        ETHFromServices = donationETH;
+        ETHFromServices = uint96(donationETH);
 
         emit DepositETHFromServices(msg.sender, donationETH);
     }
@@ -159,7 +159,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    function withdraw(address to, uint224 tokenAmount, address token) external returns (bool success) {
+    function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -190,9 +190,9 @@ contract Treasury is GenericTokenomics {
                 revert UnauthorizedToken(token);
             }
             // Decrease the global LP token record
-            uint224 reserves = tokenInfo.reserves;
+            uint256 reserves = tokenInfo.reserves;
             reserves -= tokenAmount;
-            tokenInfo.reserves = reserves;
+            tokenInfo.reserves = uint224(reserves);
 
             success = true;
             emit Withdraw(token, tokenAmount);
@@ -219,7 +219,6 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, dispenser);
         }
 
-        // TODO restriction list?
         // TODO pause withdraws here or in dispenser?
 
         uint256 amountETHFromServices = ETHFromServices;

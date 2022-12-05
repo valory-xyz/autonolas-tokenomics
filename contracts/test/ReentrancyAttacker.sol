@@ -17,10 +17,10 @@ interface ITokenomics {
     /// @return topUp Top-up amount in OLAS.
     function claimStakingIncentives() external returns (uint256 reward, uint256 topUp, bool success);
 
-    /// @dev Deposits ETH from protocol-owned services in batch.
+    /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
-    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable;
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable;
 }
 
 contract ReentrancyAttacker {
@@ -87,9 +87,9 @@ contract ReentrancyAttacker {
     }
 
     /// @dev Lets the attacker call back its contract to get back to the depositETHFromServices() function.
-    function badDepositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable
+    function badDepositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable
     {
         attackOnDepositETHFromServices = true;
-        ITokenomics(treasury).depositETHFromServices{value: msg.value}(serviceIds, amounts);
+        ITokenomics(treasury).depositServiceDonationsETH{value: msg.value}(serviceIds, amounts);
     }
 }

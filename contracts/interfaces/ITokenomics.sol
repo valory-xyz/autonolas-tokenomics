@@ -10,12 +10,13 @@ interface ITokenomics {
     /// @dev Record global data to the checkpoint
     function checkpoint() external returns (bool);
 
-    /// @dev Tracks the deposited ETH amounts from services during the current epoch.
+    /// @dev Tracks the deposited ETH service donations during the current epoch.
+    /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
-    function trackServicesETHRevenue(uint32[] memory serviceIds, uint96[] memory amounts) external
-        returns (uint96 donationETH);
+    function trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts) external
+        returns (uint256 donationETH);
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
     /// @notice Programs exceeding the limit in the epoch are not allowed.

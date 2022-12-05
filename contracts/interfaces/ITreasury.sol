@@ -10,10 +10,10 @@ interface ITreasury {
     /// @param olaMintAmount Amount of OLAS token issued.
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olaMintAmount) external;
 
-    /// @dev Deposits ETH from protocol-owned service.
+    /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
-    /// @param amounts Correspondent set of amounts.
-    function depositETHFromServices(uint32[] memory serviceIds, uint96[] memory amounts) external payable;
+    /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable;
 
     /// @dev Gets information about token being enabled.
     /// @param token Token address.

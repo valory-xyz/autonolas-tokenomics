@@ -12,7 +12,7 @@ contract Dispenser is GenericTokenomics {
     event ReceivedETH(address indexed sender, uint256 amount);
 
     // Mapping account => last incentive block for staking
-    mapping(address => uint256) public mapLastRewardEpochs;
+    mapping(address => uint256) public mapLastIncentiveEpochs;
 
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
@@ -61,12 +61,12 @@ contract Dispenser is GenericTokenomics {
         _locked = 2;
 
         // Starting epoch number where the last time incentives were not yet claimed
-        uint256 startEpochNumber = mapLastRewardEpochs[msg.sender];
+        uint256 startEpochNumber = mapLastIncentiveEpochs[msg.sender];
         uint256 endEpochNumber;
         // Get the reward and epoch number up to which the reward was calculated
         (reward, topUp, endEpochNumber) = ITokenomics(tokenomics).getStakingIncentives(msg.sender, startEpochNumber);
         // Update the latest epoch number from which reward will be calculated the next time
-        mapLastRewardEpochs[msg.sender] = endEpochNumber;
+        mapLastIncentiveEpochs[msg.sender] = endEpochNumber;
 
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0
         if ((reward + topUp) > 0) {
