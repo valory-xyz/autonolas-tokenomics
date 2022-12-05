@@ -71,7 +71,7 @@ describe("Depository LP", async () => {
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
         // Change bond fraction to 100% in these tests
-        await tokenomics.changeIncentiveFractions(50, 33, 17, 100, 0, 0);
+        await tokenomics.changeIncentiveFractions(66, 34, 100, 0);
 
         // Deploy generic bond calculator contract
         const GenericBondCalculator = await ethers.getContractFactory("GenericBondCalculator");
