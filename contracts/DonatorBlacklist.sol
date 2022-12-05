@@ -14,19 +14,19 @@ error ZeroAddress();
 /// @param numValues2 Number of values in a second array.
 error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
-/// @title BlackList - Smart contract for account address blacklisting
+/// @title DonatorBlacklist - Smart contract for donator address blacklisting
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract BlackList {
+contract DonatorBlacklist {
     event OwnerUpdated(address indexed owner);
-    event BlackListStatus(address indexed account, bool status);
+    event DonatorBlacklistStatus(address indexed account, bool status);
 
     // Owner address
     address public owner;
     // Mapping account address => blacklisting status
-    mapping(address => bool) public mapBlackListedAddresses;
+    mapping(address => bool) public mapBlacklistedDonators;
 
-    /// @dev BlackList constructor.
+    /// @dev DonatorBlacklist constructor.
     constructor() {
         owner = msg.sender;
     }
@@ -48,11 +48,11 @@ contract BlackList {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Controls accounts blacklisting statuses.
+    /// @dev Controls donators blacklisting statuses.
     /// @param accounts Set of account addresses.
     /// @param statuses Set blacklisting statuses.
     /// @return success True, if the function executed successfully.
-    function setAccountsStatuses(address[] memory accounts, bool[] memory statuses) external returns (bool success) {
+    function setDonatorsStatuses(address[] memory accounts, bool[] memory statuses) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -69,8 +69,8 @@ contract BlackList {
                 revert ZeroAddress();
             }
             // Set the account blacklisting status
-            mapBlackListedAddresses[accounts[i]] = statuses[i];
-            emit BlackListStatus(accounts[i], statuses[i]);
+            mapBlacklistedDonators[accounts[i]] = statuses[i];
+            emit DonatorBlacklistStatus(accounts[i], statuses[i]);
         }
         success = true;
     }
@@ -78,7 +78,7 @@ contract BlackList {
     /// @dev Gets account blacklisting status.
     /// @param account Account address.
     /// @return status Blacklisting status.
-    function isBlackListed(address account) external view returns (bool status) {
-        status = mapBlackListedAddresses[account];
+    function isDonatorBlacklisted(address account) external view returns (bool status) {
+        status = mapBlacklistedDonators[account];
     }
 }

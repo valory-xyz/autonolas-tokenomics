@@ -115,7 +115,7 @@ interface IErrorsTokenomics {
     /// @param unitType Type of the unit (component / agent).
     error WrongUnitId(uint256 unitId, uint256 unitType);
 
-    /// @dev The account address is blacklisted.
-    /// @param account Account address.
-    error BlackListed(address account);
+    /// @dev The donator address is blacklisted.
+    /// @param account Donator account address.
+    error DonatorBlacklisted(address account);
 }

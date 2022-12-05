@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
 import "./GenericTokenomics.sol";
 import "./TokenomicsConstants.sol";
-import "./interfaces/IBlackList.sol";
+import "./interfaces/IDonatorBlacklist.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -151,7 +151,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
-    event BlackListUpdated(address indexed blackList);
+    event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     // Voting Escrow address
@@ -210,7 +210,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
 
     // Blacklist contract address
-    address public blackList;
+    address public donatorBlacklist;
     // Mapping of epoch => staker point
     mapping(uint256 => StakerPoint) public mapEpochStakerPoints;
 
@@ -225,7 +225,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _componentRegistry Component registry address.
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
-    /// @param _blackList BlackList address.
+    /// @param _donatorBlacklist DonatorBlacklist address.
     constructor(
         address _olas,
         address _treasury,
@@ -236,7 +236,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         address _componentRegistry,
         address _agentRegistry,
         address _serviceRegistry,
-        address _blackList
+        address _donatorBlacklist
     )
         TokenomicsConstants()
         GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
@@ -246,7 +246,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
-        blackList = _blackList;
+        donatorBlacklist = _donatorBlacklist;
 
         // Calculating initial inflation per second: (mintable OLAS from inflationAmounts[0]) / (seconds left in a year)
         uint256 _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft;
@@ -477,17 +477,17 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
     }
 
-    /// @dev Changes blacklist contract address.
-    /// @notice Blacklist contract can be disabled by setting its address to zero.
-    /// @param _blackList Blacklist contract address.
-    function changeBlackList(address _blackList) external {
+    /// @dev Changes donator blacklist contract address.
+    /// @notice DonatorBlacklist contract can be disabled by setting its address to zero.
+    /// @param _donatorBlacklist DonatorBlacklist contract address.
+    function changeDonatorBlacklist(address _donatorBlacklist) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        blackList = _blackList;
-        emit BlackListUpdated(_blackList);
+        donatorBlacklist = _donatorBlacklist;
+        emit DonatorBlacklistUpdated(_donatorBlacklist);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -649,11 +649,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
-    /// @param account Account address.
+    /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
-    function trackServiceDonations(address account, uint256[] memory serviceIds, uint256[] memory amounts) external
+    function trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 donationETH)
     {
         // Check for the treasury access
@@ -661,10 +661,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert ManagerOnly(msg.sender, treasury);
         }
 
-        // Check if the blacklist is enabled, and the status of the account address
-        address bList = blackList;
-        if (bList != address(0) && IBlackList(bList).isBlackListed(account)) {
-            revert BlackListed(account);
+        // Check if the donator blacklist is enabled, and the status of the donator address
+        address bList = donatorBlacklist;
+        if (bList != address(0) && IDonatorBlacklist(bList).isDonatorBlacklisted(donator)) {
+            revert DonatorBlacklisted(donator);
         }
 
         // Get the number of services
@@ -841,7 +841,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         incentives[7] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
         // Staker top-ups: epoch incentives for veOLAS lockers funded with the inflation
         incentives[8] = (inflationPerEpoch * sp.topUpStakerFraction) / 100;
-        // Even if there were no single donating service owner that had a sufficient veOLAS balance,
+        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
         // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
         // This amount will appear in the EpochSettled event, and thus can be tracked historically
         uint256 accountTopUps = incentives[6] + incentives[7] + incentives[8];
