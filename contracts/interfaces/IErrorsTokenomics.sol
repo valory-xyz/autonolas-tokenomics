@@ -18,7 +18,7 @@ interface IErrorsTokenomics {
 
     /// @dev Wrong length of two arrays.
     /// @param numValues1 Number of values in a first array.
-    /// @param numValues2 Numberf of values in a second array.
+    /// @param numValues2 Number of values in a second array.
     error WrongArrayLength(uint256 numValues1, uint256 numValues2);
 
     /// @dev Service Id does not exist in registry records.
@@ -114,4 +114,8 @@ interface IErrorsTokenomics {
     /// @param unitId Component / agent Id.
     /// @param unitType Type of the unit (component / agent).
     error WrongUnitId(uint256 unitId, uint256 unitType);
+
+    /// @dev The account address is blacklisted.
+    /// @param account Account address.
+    error BlackListed(address account);
 }

@@ -150,7 +150,7 @@ contract Treasury is GenericTokenomics {
         }
 
         // Accumulate received donation from services
-        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(serviceIds, amounts);
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
         donationETH += ETHFromServices;
         ETHFromServices = uint96(donationETH);
 

@@ -151,6 +151,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
+    event BlackListUpdated(address indexed blackList);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     // Voting Escrow address
@@ -224,8 +225,19 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _componentRegistry Component registry address.
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
-    constructor(address _olas, address _treasury, address _depository, address _dispenser, address _ve, uint32 _epochLen,
-        address _componentRegistry, address _agentRegistry, address _serviceRegistry)
+    /// @param _blackList BlackList address.
+    constructor(
+        address _olas,
+        address _treasury,
+        address _depository,
+        address _dispenser,
+        address _ve,
+        uint32 _epochLen,
+        address _componentRegistry,
+        address _agentRegistry,
+        address _serviceRegistry,
+        address _blackList
+    )
         TokenomicsConstants()
         GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
     {
@@ -234,6 +246,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
+        blackList = _blackList;
 
         // Calculating initial inflation per second: (mintable OLAS from inflationAmounts[0]) / (seconds left in a year)
         uint256 _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft;
@@ -465,6 +478,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Changes blacklist contract address.
+    /// @notice Blacklist contract can be disabled by setting its address to zero.
     /// @param _blackList Blacklist contract address.
     function changeBlackList(address _blackList) external {
         // Check for the contract ownership
@@ -472,9 +486,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        if (_blackList != address(0)) {
-            blackList = _blackList;
-        }
+        blackList = _blackList;
+        emit BlackListUpdated(_blackList);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -636,15 +649,22 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @param account Account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
-    function trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts) external
+    function trackServiceDonations(address account, uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 donationETH)
     {
         // Check for the treasury access
         if (treasury != msg.sender) {
             revert ManagerOnly(msg.sender, treasury);
+        }
+
+        // Check if the blacklist is enabled, and the status of the account address
+        address bList = blackList;
+        if (bList != address(0) && IBlackList(bList).isBlackListed(account)) {
+            revert BlackListed(account);
         }
 
         // Get the number of services

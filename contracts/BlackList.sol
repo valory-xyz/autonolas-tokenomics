@@ -9,6 +9,11 @@ error OwnerOnly(address sender, address owner);
 /// @dev Provided zero address.
 error ZeroAddress();
 
+/// @dev Wrong length of two arrays.
+/// @param numValues1 Number of values in a first array.
+/// @param numValues2 Number of values in a second array.
+error WrongArrayLength(uint256 numValues1, uint256 numValues2);
+
 /// @title BlackList - Smart contract for account address blacklisting
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -43,26 +48,31 @@ contract BlackList {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Controls account blacklisting status.
-    /// @param account Account address.
-    /// @param status Sets or unsets blacklisting status.
+    /// @dev Controls accounts blacklisting statuses.
+    /// @param accounts Set of account addresses.
+    /// @param statuses Set blacklisting statuses.
     /// @return success True, if the function executed successfully.
-    function setBlackListStatus(address account, bool status) external returns (bool success) {
+    function setAccountsStatuses(address[] memory accounts, bool[] memory statuses) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check for the zero address
-        if (account == address(0)) {
-            revert ZeroAddress();
+        // Check for the array length
+        if (accounts.length != statuses.length) {
+            revert WrongArrayLength(accounts.length, statuses.length);
         }
 
-        // Set the account blacklisting status
-        mapBlackListedAddresses[account] = status;
+        for (uint256 i = 0; i < accounts.length; ++i) {
+            // Check for the zero address
+            if (accounts[i] == address(0)) {
+                revert ZeroAddress();
+            }
+            // Set the account blacklisting status
+            mapBlackListedAddresses[accounts[i]] = statuses[i];
+            emit BlackListStatus(accounts[i], statuses[i]);
+        }
         success = true;
-
-        emit BlackListStatus(account, status);
     }
 
     /// @dev Gets account blacklisting status.

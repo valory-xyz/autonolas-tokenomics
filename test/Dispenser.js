@@ -60,7 +60,7 @@ describe("Dispenser", async () => {
         // Treasury address is deployer since there are functions that require treasury only
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, dispenser.address,
-            ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address);
+            ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address, AddressZero);
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
         attacker = await Attacker.deploy(dispenser.address, treasury.address);
