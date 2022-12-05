@@ -15,6 +15,8 @@ describe("Tokenomics", async () => {
     let tokenomics;
     let treasury;
     let serviceRegistry;
+    let componentRegistry;
+    let agentRegistry;
     let ve;
     let attacker;
     const epochLen = 1;
@@ -37,8 +39,8 @@ describe("Tokenomics", async () => {
         serviceRegistry = await ServiceRegistry.deploy();
         await serviceRegistry.deployed();
 
-        const componentRegistry = await ServiceRegistry.deploy();
-        const agentRegistry = await ServiceRegistry.deploy();
+        componentRegistry = await ServiceRegistry.deploy();
+        agentRegistry = await ServiceRegistry.deploy();
 
         const Treasury = await ethers.getContractFactory("Treasury");
         treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
@@ -308,6 +310,57 @@ describe("Tokenomics", async () => {
     });
 
     context("Incentives", async function () {
+        it("Should fail when trying to get incentives with incorrect inputs", async () => {
+            // Try to get and claim owner rewards with the wrong array length
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongArrayLength");
+
+            // Try to get and claim owner rewards while not being the owner of components / agents
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+
+            // Assign component and agent ownership to a deployer
+            await componentRegistry.changeUnitOwner(1, deployer.address);
+            await agentRegistry.changeUnitOwner(1, deployer.address);
+
+            // Try to get and claim owner rewards with incorrect unit type
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [2, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [2, 1], [1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+
+            await componentRegistry.changeUnitOwner(2, deployer.address);
+            await agentRegistry.changeUnitOwner(2, deployer.address);
+
+            // Try to get incentives with the incorrect unit order
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0, 1, 1], [2, 1, 1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0, 1, 1], [2, 1, 1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0, 1, 1], [1, 2, 1, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0, 1, 1], [1, 2, 2, 1])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+
+            await tokenomics.getOwnerIncentives(deployer.address, [0, 0, 1, 1], [1, 2, 1, 2]);
+            await tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0, 1, 1], [1, 2, 1, 2]);
+        });
+
         it("Calculate incentives", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
             await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 15, 40, 34, 17);

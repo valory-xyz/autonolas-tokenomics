@@ -664,7 +664,7 @@ describe("Depository LP", async () => {
             const res = await depository.getBondStatus(0);
             expect(res.payout).to.equal(payout);
 
-            // We know that the payout for any account under these parameters must be 1.375 * e21
+            // We know that the payout for any account under these parameters must be 1.25 * e21
             expect(Number(res.payout)).to.equal(1.25e+21);
         });
     });

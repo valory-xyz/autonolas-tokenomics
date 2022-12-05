@@ -138,6 +138,9 @@ contract Treasury is GenericTokenomics {
 
         uint256 totalAmount;
         for (uint256 i = 0; i < numServices; ++i) {
+            if (amounts[i] == 0) {
+                revert ZeroValue();
+            }
             totalAmount += amounts[i];
         }
 
