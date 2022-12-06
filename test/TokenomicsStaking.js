@@ -229,6 +229,13 @@ describe("Tokenomics with Staking", async () => {
                 tokenomics.connect(signers[1]).accountOwnerIncentives(deployer.address, [], [])
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
+
+        it("Should fail when calling initializer once again", async function () {
+            await expect(
+                tokenomics.initializeTokenomics(AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, 0,
+                    AddressZero, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(tokenomics, "AlreadyInitialized");
+        });
     });
 
     context("Track revenue of services", async function () {
@@ -251,6 +258,20 @@ describe("Tokenomics with Staking", async () => {
     });
 
     context("Tokenomics calculation", async function () {
+        it("Check the default last IDF", async function () {
+            const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
+            expect(lastIDF).to.equal(1);
+        });
+
+        it("Simulate bonding program reservation and refund", async function () {
+            // Assign deployer to be a depository
+            await tokenomics.changeManagers(AddressZero, AddressZero, deployer.address, AddressZero);
+            // Reserve by the bonding program
+            await tokenomics.connect(deployer).reserveAmountForBondProgram(200);
+            // Refund back from the bonding program
+            await tokenomics.connect(deployer).refundFromBondProgram(200);
+        });
+
         it("Checkpoint without any revenues", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");

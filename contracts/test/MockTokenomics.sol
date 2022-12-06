@@ -53,4 +53,9 @@ contract MockTokenomics {
     function setServiceRegistry(address _serviceRegistry) external {
         serviceRegistry = _serviceRegistry;
     }
+
+    /// @dev Simulates the function that fails.
+    function simulateFailure() external pure {
+        revert();
+    }
 }

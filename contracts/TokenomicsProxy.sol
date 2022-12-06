@@ -19,7 +19,7 @@ contract TokenomicsProxy {
         assembly {
             sstore(PROXY_TOKENOMICS, tokenomics)
         }
-        // Initialize tokenomics storage
+        // Initialize proxy tokenomics storage
         (bool success, ) = tokenomics.delegatecall(tokenomicsData);
         if (!success) {
             revert InitializationFailed();
@@ -29,7 +29,7 @@ contract TokenomicsProxy {
     /// @dev Delegatecall to all the incoming data.
     fallback() external {
         assembly {
-            let tokenomics := sload(0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f)
+            let tokenomics := sload(PROXY_TOKENOMICS)
             // Otherwise continue with the delegatecall to the tokenomics implementation
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), tokenomics, 0, calldatasize(), 0, 0)

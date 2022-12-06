@@ -3,6 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 describe("TokenomicsProxy", async () => {
+    let TokenomicsProxy;
     let tokenomicsProxy;
     let mockTokenomics;
     let tokenomics;
@@ -14,7 +15,7 @@ describe("TokenomicsProxy", async () => {
         await mockTokenomics.deployed();
 
         const proxyData = mockTokenomics.interface.encodeFunctionData("initialize", []);
-        const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+        TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
         tokenomicsProxy = await TokenomicsProxy.deploy(mockTokenomics.address, proxyData);
         await tokenomicsProxy.deployed();
 
@@ -24,6 +25,13 @@ describe("TokenomicsProxy", async () => {
     context("Initialization", async function () {
         it("Checking the implementation address", async function () {
             expect(await tokenomics.tokenomicsImplementation()).to.equal(mockTokenomics.address);
+        });
+
+        it("Should fail if the initialization is reverted", async function () {
+            const proxyData = mockTokenomics.interface.encodeFunctionData("simulateFailure", []);
+            await expect(
+                TokenomicsProxy.deploy(mockTokenomics.address, proxyData)
+            ).to.be.reverted;
         });
     });
 });

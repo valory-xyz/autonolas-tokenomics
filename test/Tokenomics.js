@@ -565,6 +565,7 @@ describe("Tokenomics", async () => {
             const newTokenomics = await tokenomics.tokenomicsImplementation();
             // The implementation now has to be different
             expect(newTokenomics).to.not.equal(currentTokenomics);
+            expect(newTokenomics).to.equal(tokenomicsMaster2.address);
         });
     });
 });
