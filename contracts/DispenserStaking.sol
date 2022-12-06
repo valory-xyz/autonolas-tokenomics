@@ -18,8 +18,9 @@ contract DispenserStaking is GenericTokenomics {
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     constructor(address _tokenomics, address _treasury)
-        GenericTokenomics(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser)
+        GenericTokenomics()
     {
+        super.initialize(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser);
     }
 
     /// @dev Claims incentives for the owner of components / agents.

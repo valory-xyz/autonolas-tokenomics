@@ -61,7 +61,8 @@ describe("Tokenomics", async () => {
         await ve.deployed();
 
         // deployer.address is given to the contracts that are irrelevant in these tests
-        tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, deployer.address,
+        tokenomics = await tokenomicsFactory.deploy();
+        await tokenomics.initialize(olas.address, treasury.address, deployer.address, deployer.address,
             ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address);
 
         // Update tokenomics address for treasury

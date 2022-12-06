@@ -145,7 +145,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
 
     // Voting Escrow address
-    address public immutable ve;
+    address public ve;
     // Max bond per epoch: calculated as a fraction from the OLAS inflation parameter
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 public maxBond;
@@ -183,6 +183,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     // Service Registry
     address public serviceRegistry;
+    // Number of seconds left in a year of deployment
+    // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
+    uint32 public zeroYearSecondsLeft;
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -203,6 +206,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     address public donatorBlacklist;
 
     /// @dev Tokenomics constructor.
+    constructor()
+        TokenomicsConstants()
+        GenericTokenomics()
+    {}
+
+    /// @dev Tokenomics initializer.
     /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
@@ -214,7 +223,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
     /// @param _donatorBlacklist DonatorBlacklist address.
-    constructor(
+    function initialize(
         address _olas,
         address _treasury,
         address _depository,
@@ -225,10 +234,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         address _agentRegistry,
         address _serviceRegistry,
         address _donatorBlacklist
-    )
-        TokenomicsConstants()
-        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
+    ) external
     {
+        // Initialize generic variables
+        super.initialize(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics);
+        // Seconds left in the deployment year for the zero year inflation schedule
+        zeroYearSecondsLeft = uint32(timeLaunch + oneYear - block.timestamp);
+
+        // Assign other passed variables
         ve = _ve;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
