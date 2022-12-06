@@ -23,11 +23,12 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     // Address of unused tokenomics roles
     address public constant SENTINEL_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
     // Tokenomics proxy address slot
+    // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
     // Tokenomics role
     TokenomicsRole public tokenomicsRole;
     // Reentrancy lock
-    uint8 internal _locked = 1;
+    uint8 internal _locked;
     // Initializer flag
     bool public initialized;
     // Owner address
@@ -60,9 +61,10 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     {
         // Check if the contract is already initialized
         if (initialized) {
-            revert();
+            revert AlreadyInitialized();
         }
 
+        _locked = 1;
         olas = _olas;
         tokenomics = _tokenomics;
         treasury = _treasury;

@@ -67,7 +67,7 @@ describe("Depository LP", async () => {
         olas = await olasFactory.deploy();
         // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy();
-        await tokenomics.initialize(olas.address, deployer.address, deployer.address, deployer.address,
+        await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
             deployer.address, epochLen, AddressZero, AddressZero, AddressZero, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);

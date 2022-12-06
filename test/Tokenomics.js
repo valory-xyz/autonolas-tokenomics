@@ -18,6 +18,7 @@ describe("Tokenomics", async () => {
     let componentRegistry;
     let agentRegistry;
     let donatorBlacklist;
+    let tokenomicsFactory;
     let ve;
     let attacker;
     const epochLen = 1;
@@ -31,7 +32,7 @@ describe("Tokenomics", async () => {
         deployer = signers[0];
         // Note: this is not a real OLAS token, just an ERC20 mock-up
         const olasFactory = await ethers.getContractFactory("ERC20Token");
-        const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         olas = await olasFactory.deploy();
         await olas.deployed();
 
@@ -60,10 +61,20 @@ describe("Tokenomics", async () => {
         ve = await VE.deploy();
         await ve.deployed();
 
+        // Deploy master tokenomics contract
+        const tokenomicsMaster = await tokenomicsFactory.deploy();
+
         // deployer.address is given to the contracts that are irrelevant in these tests
-        tokenomics = await tokenomicsFactory.deploy();
-        await tokenomics.initialize(olas.address, treasury.address, deployer.address, deployer.address,
-            ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address);
+        const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+            [olas.address, treasury.address, deployer.address, deployer.address, ve.address, epochLen,
+                componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
+        // Deploy tokenomics proxy based on the needed tokenomics initialization
+        const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+        const tokenomicsProxy = await TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData);
+        await tokenomicsProxy.deployed();
+
+        // Get the tokenomics proxy contract
+        tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
         // Update tokenomics address for treasury
         await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
@@ -217,6 +228,13 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(signers[1]).accountOwnerIncentives(deployer.address, [], [])
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
+        });
+
+        it("Should fail when calling initializer once again", async function () {
+            await expect(
+                tokenomics.initializeTokenomics(AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, 0,
+                    AddressZero, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(tokenomics, "AlreadyInitialized");
         });
     });
 
@@ -519,6 +537,34 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [])
             ).to.be.revertedWithCustomError(tokenomics, "DonatorBlacklisted");
+        });
+    });
+
+    context("Proxy", async function () {
+        it("Should fail when calling checkpoint not via the proxy", async function () {
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+            await expect(
+                tokenomicsMaster.connect(deployer).checkpoint()
+            ).to.be.revertedWithCustomError(tokenomics, "DelegatecallOnly");
+        });
+
+        it("Change tokenomics implementation", async function () {
+            // Deploy another master tokenomics contract
+            const tokenomicsMaster2 = await tokenomicsFactory.deploy();
+
+            // Get the tokenomics contract
+            const currentTokenomics = await tokenomics.tokenomicsImplementation();
+
+            // Try to change to the new tokenomics not by the owner
+            await expect(
+                tokenomics.connect(signers[1]).changeTokenomicsImplementation(tokenomicsMaster2.address)
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+
+            // Change the tokenomics implementation
+            await tokenomics.connect(deployer).changeTokenomicsImplementation(tokenomicsMaster2.address);
+            const newTokenomics = await tokenomics.tokenomicsImplementation();
+            // The implementation now has to be different
+            expect(newTokenomics).to.not.equal(currentTokenomics);
         });
     });
 });
