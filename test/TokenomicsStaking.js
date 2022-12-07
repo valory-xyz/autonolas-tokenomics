@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("Tokenomics", async () => {
+describe("Tokenomics with Staking", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
@@ -31,7 +31,7 @@ describe("Tokenomics", async () => {
         deployer = signers[0];
         // Note: this is not a real OLAS token, just an ERC20 mock-up
         const olasFactory = await ethers.getContractFactory("ERC20Token");
-        const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
+        const tokenomicsFactory = await ethers.getContractFactory("TokenomicsStaking");
         olas = await olasFactory.deploy();
         await olas.deployed();
 
@@ -163,22 +163,22 @@ describe("Tokenomics", async () => {
         it("Changing reward fractions", async function () {
             // Trying to change tokenomics reward fractions from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 100, 0, 0)
+                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 50, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
-            // The sum of first 2 must not be bigger than 100
+            // The sum of first 3 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 51, 100, 0, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 50, 50, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
             // The sum of last 2 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 50, 51, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 10, 50, 51, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20, 10);
             // Try to set exactly same values again
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20, 10);
         });
 
         it("Changing registries addresses", async function () {
@@ -279,7 +279,7 @@ describe("Tokenomics", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             // Change tokenomics factors such that all the rewards are given to the treasury
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 0, 10, 50, 20, 20);
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -368,7 +368,7 @@ describe("Tokenomics", async () => {
 
         it("Calculate incentives", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
-            await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 15, 40, 34, 17, 9);
 
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
@@ -387,24 +387,31 @@ describe("Tokenomics", async () => {
             const ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Get the staker point
+            const sp = await tokenomics.mapEpochStakerPoints(lastPoint);
             // Calculate rewards based on the points information
             const rewards = [
+                (Number(ep.totalDonationsETH) * Number(sp.rewardStakerFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[0].rewardUnitFraction)) / 100,
                 (Number(ep.totalDonationsETH) * Number(up[1].rewardUnitFraction)) / 100
             ];
-            const accountRewards = rewards[0] + rewards[1];
+            const accountRewards = rewards[0] + rewards[1] + rewards[2];
             // Calculate top-ups based on the points information
             let topUps = [
                 (Number(ep.totalTopUpsOLAS) * Number(ep.maxBondFraction)) / 100,
                 (Number(ep.totalTopUpsOLAS) * Number(up[0].topUpUnitFraction)) / 100,
-                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100
+                (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100,
+                (Number(ep.totalTopUpsOLAS) * Number(sp.topUpStakerFraction)) / 100
             ];
-            const accountTopUps = topUps[1] + topUps[2];
+            const accountTopUps = topUps[1] + topUps[2] + topUps[3];
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
+            // Calculate staking rewards
+            const result = await tokenomics.getStakingIncentives(accounts[0], 1);
             // Get owner rewards (mock registry has agent and component with Id 1)
             await tokenomics.getOwnerIncentives(accounts[0], [0, 1], [1, 1]);
+            expect(result.endEpochNumber).to.equal(2);
 
             // Get the top-up number per epoch
             const topUp = await tokenomics.getInflationPerEpoch();
@@ -467,7 +474,7 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
             // Try to change the maxBondFraction as well
             await expect(
-                tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0)
+                tokenomics.changeIncentiveFractions(30, 40, 10, 60, 40, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
 
             // Now skip one epoch
@@ -476,7 +483,7 @@ describe("Tokenomics", async () => {
 
             // Change parameters now
             await tokenomics.changeTokenomicsParameters(1, 1, 1, 1);
-            await tokenomics.changeIncentiveFractions(30, 40, 50, 50, 0);
+            await tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50, 0, 0);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
