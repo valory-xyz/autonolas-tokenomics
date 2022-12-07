@@ -163,22 +163,22 @@ describe("Tokenomics with Staking", async () => {
         it("Changing reward fractions", async function () {
             // Trying to change tokenomics reward fractions from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 50, 100, 0, 0)
+                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 50, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // The sum of first 3 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 50, 50, 100, 0, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 50, 50, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
             // The sum of last 2 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 10, 50, 51, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 10, 50, 51, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20, 10);
             // Try to set exactly same values again
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 10, 50, 20, 10);
         });
 
         it("Changing registries addresses", async function () {
@@ -279,7 +279,7 @@ describe("Tokenomics with Staking", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
             // Change tokenomics factors such that all the rewards are given to the treasury
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 0, 10, 50, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 0, 10, 50, 20, 20);
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -368,7 +368,7 @@ describe("Tokenomics with Staking", async () => {
 
         it("Calculate incentives", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
-            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 15, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 15, 40, 34, 17, 9);
 
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
@@ -474,7 +474,7 @@ describe("Tokenomics with Staking", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
             // Try to change the maxBondFraction as well
             await expect(
-                tokenomics.changeIncentiveFractions(30, 40, 10, 60, 40, 0)
+                tokenomics.changeIncentiveFractions(30, 40, 10, 60, 40, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
 
             // Now skip one epoch
@@ -483,7 +483,7 @@ describe("Tokenomics with Staking", async () => {
 
             // Change parameters now
             await tokenomics.changeTokenomicsParameters(1, 1, 1, 1);
-            await tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50, 0);
+            await tokenomics.changeIncentiveFractions(30, 40, 10, 50, 50, 0, 0);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

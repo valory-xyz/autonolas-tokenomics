@@ -139,7 +139,7 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that top-ups for stakers are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17, 9);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -263,7 +263,7 @@ describe("Dispenser with Staking", async () => {
             await ve.createLock(deployer.address);
 
             // Change the fractions such that top-ups for stakers are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17, 9);
 
             // EPOCH 1 with donations
             // Consider the scenario when no service owners locks enough OLAS for component / agent owners to claim top-ups
@@ -472,7 +472,7 @@ describe("Dispenser with Staking", async () => {
             await ve.createLock(deployer.address);
 
             // Change the fractions such that top-ups for stakers are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17, 9);
 
             // Changing the epoch length, keeping all other parameters unchanged
             const curEpochLen = 10;
@@ -587,7 +587,7 @@ describe("Dispenser with Staking", async () => {
             await ve.createLock(deployer.address);
 
             // Change the fractions such that top-ups for stakers are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17, 9);
 
             // Changing the epoch length, keeping all other parameters unchanged
             const curEpochLen = 10;
@@ -699,7 +699,7 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups for component owners are zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 34, 17, 9);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -816,7 +816,7 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups for component owners are zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 51, 40, 0, 51);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 51, 40, 0, 51, 9);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -933,7 +933,7 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that top-ups for component and agent owners are zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 0, 0, 60);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -1050,13 +1050,13 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 34, 17, 40, 34, 17, 9);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Change the fractions such that rewards and top-ups are now zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 0, 0, 60);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -1169,7 +1169,7 @@ describe("Dispenser with Staking", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(49, 0, 0, 40, 0, 0, 60);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],

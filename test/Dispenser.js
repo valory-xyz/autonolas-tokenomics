@@ -562,7 +562,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component and agent fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 40, 40);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 40, 40, 20);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -659,7 +659,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 100, 40, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 100, 40, 0, 60);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -756,7 +756,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component and agent to-up fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 100, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 100, 0, 0);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -856,7 +856,7 @@ describe("Dispenser", async () => {
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Change the fractions such that rewards and top-ups are now zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -949,7 +949,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
