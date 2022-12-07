@@ -29,8 +29,6 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     uint8 internal _locked;
     // Tokenomics role
     TokenomicsRole public tokenomicsRole;
-    // Initializer flag
-    bool public initialized;
     // Owner address
     address public owner;
     // OLAS token address
@@ -60,7 +58,7 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     ) internal
     {
         // Check if the contract is already initialized
-        if (initialized) {
+        if (owner != address(0)) {
             revert AlreadyInitialized();
         }
 
@@ -72,7 +70,6 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
         dispenser = _dispenser;
         tokenomicsRole = _tokenomicsRole;
         owner = msg.sender;
-        initialized = true;
     }
 
     /// @dev Changes the owner address.
