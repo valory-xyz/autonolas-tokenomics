@@ -25,6 +25,7 @@ describe("Tokenomics", async () => {
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
+    let proxyData;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -65,7 +66,7 @@ describe("Tokenomics", async () => {
         const tokenomicsMaster = await tokenomicsFactory.deploy();
 
         // deployer.address is given to the contracts that are irrelevant in these tests
-        const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+        proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
             [olas.address, treasury.address, deployer.address, deployer.address, ve.address, epochLen,
                 componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
         // Deploy tokenomics proxy based on the needed tokenomics initialization
@@ -235,6 +236,26 @@ describe("Tokenomics", async () => {
                 tokenomics.initializeTokenomics(AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, 0,
                     AddressZero, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(tokenomics, "AlreadyInitialized");
+        });
+
+        it("Should fail when initializing tokenomics later than one year after the OLAS launch", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Move past one year in time
+            await helpers.time.increase(oneYear + 100);
+
+            // Deploy master tokenomics contract
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+
+            // Try to deploy tokenomics proxy
+            const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
         });
     });
 
@@ -444,7 +465,7 @@ describe("Tokenomics", async () => {
             expect(allowed).to.equal(true);
 
             // Check the same condition after 10 years
-            await helpers.time.increase(3153600000);
+            await helpers.time.increase(10 * oneYear);
             allowed = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(1000);
             expect(allowed).to.equal(true);
 

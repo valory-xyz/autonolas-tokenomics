@@ -5,8 +5,6 @@ pragma solidity ^0.8.17;
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract TokenomicsConstants {
-    // Timestamp of the OLAS token deployment
-    uint256 public constant timeLaunch = 1656584807;
     // One year in seconds
     uint256 public constant oneYear = 1 days * 365;
 

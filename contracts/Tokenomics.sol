@@ -184,9 +184,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     // Service Registry
     address public serviceRegistry;
-    // Number of seconds left in a year of deployment
-    // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
-    uint32 public zeroYearSecondsLeft;
+    // Time launch of the OLAS contract
+    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+    uint32 public timeLaunch;
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -213,7 +213,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     {}
 
     /// @dev Tokenomics initializer.
-    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
+    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this).
+    /// @notice Tokenomics contract must be initialized no later than one year from the launch of the OLAS contract.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -239,8 +240,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     {
         // Initialize generic variables
         super.initialize(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics);
-        // Seconds left in the deployment year for the zero year inflation schedule
-        zeroYearSecondsLeft = uint32(timeLaunch + oneYear - block.timestamp);
 
         // Initialize storage variables
         epsilonRate = 1e17;
@@ -255,9 +254,19 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         serviceRegistry = _serviceRegistry;
         donatorBlacklist = _donatorBlacklist;
 
+        // Time launch of the OLAS contract
+        uint256 _timeLaunch = IOLAS(_olas).timeLaunch();
+        // Check that the tokenomics contract is initialized no later than one year after the OLAS token is deployed
+        if ((block.timestamp + 1) > (_timeLaunch + oneYear)) {
+            revert Overflow(_timeLaunch + oneYear, block.timestamp);
+        }
+        // Seconds left in the deployment year for the zero year inflation schedule
+        // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
+        uint256 zeroYearSecondsLeft = uint32(_timeLaunch + oneYear - block.timestamp);
         // Calculating initial inflation per second: (mintable OLAS from inflationAmounts[0]) / (seconds left in a year)
         uint256 _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft;
         inflationPerSecond = uint96(_inflationPerSecond);
+        timeLaunch = uint32(_timeLaunch);
 
         // The initial epoch start time is the end time of the zero epoch
         mapEpochTokenomics[0].epochPoint.endTime = uint32(block.timestamp);
