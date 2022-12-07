@@ -734,7 +734,7 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     function checkpoint() external returns (bool) {
-        //Get the implementation address that was written to the proxy contract
+        // Get the implementation address that was written to the proxy contract
         address implementation;
         assembly {
             implementation := sload(PROXY_TOKENOMICS)

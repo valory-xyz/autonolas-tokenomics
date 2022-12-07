@@ -25,10 +25,10 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
-    // Tokenomics role
-    TokenomicsRole public tokenomicsRole;
     // Reentrancy lock
     uint8 internal _locked;
+    // Tokenomics role
+    TokenomicsRole public tokenomicsRole;
     // Initializer flag
     bool public initialized;
     // Owner address
