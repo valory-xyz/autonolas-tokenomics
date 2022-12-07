@@ -315,6 +315,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Changes the tokenomics implementation contract address.
+    /// @notice Make sure the implementation contract has a function for implementation changing.
     /// @param implementation Tokenomics implementation contract address.
     function changeTokenomicsImplementation(address implementation) external {
         // Check for the contract ownership
