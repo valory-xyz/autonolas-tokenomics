@@ -124,4 +124,7 @@ interface IErrorsTokenomics {
 
     /// @dev The contract has to be delegate-called via proxy.
     error DelegatecallOnly();
+
+    /// @dev The contract is paused.
+    error Paused();
 }

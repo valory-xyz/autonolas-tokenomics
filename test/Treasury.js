@@ -326,4 +326,34 @@ describe("Treasury", async () => {
             await treasury.connect(deployer).drainServiceSlashedFunds();
         });
     });
+
+    context("Pausing", async function () {
+        it("Pause and unpause treasury", async () => {
+            // Try to pause treasury not by the owner
+            await expect(
+                treasury.connect(signers[1]).pause()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Try to unpause treasury not by the owner
+            await expect(
+                treasury.connect(signers[1]).unpause()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Pause the contract
+            await treasury.connect(deployer).pause();
+
+            // Try to withdraw for an account
+            await expect(
+                treasury.connect(deployer).withdrawToAccount(deployer.address, 0, 0)
+            ).to.be.revertedWithCustomError(treasury, "Paused");
+
+            //
+            await expect(
+                treasury.connect(deployer).rebalanceTreasury(treasuryRewards)
+            ).to.be.revertedWithCustomError(treasury, "Paused");
+
+            // Unpause the contract
+            await treasury.connect(deployer).unpause();
+        });
+    });
 });
