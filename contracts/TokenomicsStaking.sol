@@ -147,7 +147,7 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     event EpochLengthUpdated(uint256 epochLength);
     event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event IncentiveFractionsUpdated(uint256 rewardStakerFraction, uint256 rewardComponentFraction, uint256 rewardAgentFraction,
-        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
+        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 topUpStakerFraction);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
@@ -436,15 +436,17 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     /// @param _rewardComponentFraction Fraction for component owner rewards funded by ETH donations.
     /// @param _rewardAgentFraction Fraction for agent owner rewards funded by ETH donations.
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
-    /// @param _topUpComponentFraction Fraction for OLAS top-up for component owners.
-    /// @param _topUpAgentFraction Fraction for OLAS top-up for agent owners.
+    /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
+    /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
+    /// @param _topUpStakerFraction Fraction for staker OLAS top-up.
     function changeIncentiveFractions(
         uint8 _rewardStakerFraction,
         uint8 _rewardComponentFraction,
         uint8 _rewardAgentFraction,
         uint8 _maxBondFraction,
         uint8 _topUpComponentFraction,
-        uint8 _topUpAgentFraction
+        uint8 _topUpAgentFraction,
+        uint8 _topUpStakerFraction
     ) external
     {
         // Check for the contract ownership
@@ -458,17 +460,18 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
         }
 
         // Same check for OLAS-related fractions
-        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction > 100) {
-            revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
+        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _topUpStakerFraction > 100) {
+            revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _topUpStakerFraction, 100);
         }
 
         TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
         StakerPoint storage sp = mapEpochStakerPoints[epochCounter];
-        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardStakerFraction - _rewardComponentFraction - _rewardAgentFraction;
         sp.rewardStakerFraction = _rewardStakerFraction;
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = _rewardComponentFraction;
         tp.unitPoints[1].rewardUnitFraction = _rewardAgentFraction;
+        // Rewards are always distributed in full: the leftovers will be allocated to treasury
+        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardStakerFraction - _rewardComponentFraction - _rewardAgentFraction;
 
         // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = tp.epochPoint.maxBondFraction;
@@ -488,10 +491,10 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
         }
         tp.unitPoints[0].topUpUnitFraction = _topUpComponentFraction;
         tp.unitPoints[1].topUpUnitFraction = _topUpAgentFraction;
-        sp.topUpStakerFraction = 100 - _maxBondFraction - _topUpComponentFraction - _topUpAgentFraction;
+        sp.topUpStakerFraction = _topUpStakerFraction;
 
         emit IncentiveFractionsUpdated(_rewardStakerFraction, _rewardComponentFraction, _rewardAgentFraction,
-            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction);
+            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _topUpStakerFraction);
     }
 
     /// @dev Changes registries contract addresses.

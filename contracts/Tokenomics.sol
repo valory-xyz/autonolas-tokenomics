@@ -137,7 +137,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event EpochLengthUpdated(uint256 epochLength);
     event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event IncentiveFractionsUpdated(uint256 rewardComponentFraction, uint256 rewardAgentFraction,
-        uint256 maxBondFraction, uint256 topUpComponentFraction);
+        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
@@ -420,12 +420,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _rewardComponentFraction Fraction for component owner rewards funded by ETH donations.
     /// @param _rewardAgentFraction Fraction for agent owner rewards funded by ETH donations.
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
-    /// @param _topUpComponentFraction Fraction for OLAS top-up for component owners.
+    /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
+    /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
     function changeIncentiveFractions(
         uint8 _rewardComponentFraction,
         uint8 _rewardAgentFraction,
         uint8 _maxBondFraction,
-        uint8 _topUpComponentFraction
+        uint8 _topUpComponentFraction,
+        uint8 _topUpAgentFraction
     ) external
     {
         // Check for the contract ownership
@@ -439,15 +441,16 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Same check for top-up fractions
-        if (_maxBondFraction + _topUpComponentFraction > 100) {
-            revert WrongAmount(_maxBondFraction + _topUpComponentFraction, 100);
+        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction > 100) {
+            revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
         }
 
         TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
-        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardComponentFraction - _rewardAgentFraction;
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = _rewardComponentFraction;
         tp.unitPoints[1].rewardUnitFraction = _rewardAgentFraction;
+        // Rewards are always distributed in full: the leftovers will be allocated to treasury
+        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardComponentFraction - _rewardAgentFraction;
 
         // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = tp.epochPoint.maxBondFraction;
@@ -466,9 +469,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             tp.epochPoint.maxBondFraction = _maxBondFraction;
         }
         tp.unitPoints[0].topUpUnitFraction = _topUpComponentFraction;
-        tp.unitPoints[1].topUpUnitFraction = 100 - _maxBondFraction - _topUpComponentFraction;
+        tp.unitPoints[1].topUpUnitFraction = _topUpAgentFraction;
 
-        emit IncentiveFractionsUpdated(_rewardComponentFraction, _rewardAgentFraction, _maxBondFraction, _topUpComponentFraction);
+        emit IncentiveFractionsUpdated(_rewardComponentFraction, _rewardAgentFraction, _maxBondFraction,
+            _topUpComponentFraction, _topUpAgentFraction);
     }
 
     /// @dev Changes registries contract addresses.
