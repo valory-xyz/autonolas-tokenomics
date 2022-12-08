@@ -3,6 +3,9 @@ require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-tracer");
+/* storage layout tooling */
+require('hardhat-storage-layout');
+
 
 /**
  * @type import('hardhat/config').HardhatUserConfig

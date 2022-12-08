@@ -2,6 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
+const hre = require("hardhat");
 
 describe("Tokenomics with Staking", async () => {
     const initialMint = "1" + "0".repeat(26);
@@ -256,6 +257,9 @@ describe("Tokenomics with Staking", async () => {
 
             // Restore to the state of the snapshot
             await snapshot.restore();
+        });
+        it.only("show layout", async function () {
+            await hre.storageLayout.export();
         });
     });
 
