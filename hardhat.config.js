@@ -3,8 +3,8 @@ require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-tracer");
-/* storage layout tooling */
-require('hardhat-storage-layout');
+// storage layout tool
+// require('hardhat-storage-layout');
 
 
 /**

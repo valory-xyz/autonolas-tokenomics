@@ -26,6 +26,7 @@ describe("Tokenomics", async () => {
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
     let proxyData;
+    let storageLayout = false;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -85,10 +86,18 @@ describe("Tokenomics", async () => {
 
         // Give treasury the minter role
         await olas.changeMinter(treasury.address);
+
+        // Storage layout
+        if (storageLayout) {
+            // Make sure require('hardhat-storage-layout') is enabled in hardhat.confog.js
+            await hre.storageLayout.export();
+            // Let it run once
+            storageLayout = false;
+        }
     });
 
     context("Initialization", async function () {
-        it("Changing managers and owners", async function () {
+        it.only("Changing managers and owners", async function () {
             const account = signers[1];
 
             // Trying to change owner from a non-owner account address
