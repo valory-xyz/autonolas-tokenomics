@@ -97,7 +97,7 @@ describe("Tokenomics", async () => {
     });
 
     context("Initialization", async function () {
-        it.only("Changing managers and owners", async function () {
+        it("Changing managers and owners", async function () {
             const account = signers[1];
 
             // Trying to change owner from a non-owner account address

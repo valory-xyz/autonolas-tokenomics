@@ -6,7 +6,6 @@ require("hardhat-tracer");
 // storage layout tool
 // require('hardhat-storage-layout');
 
-
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
