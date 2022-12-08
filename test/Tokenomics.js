@@ -1,4 +1,4 @@
-/*global describe, beforeEach, it, context*/
+/*global describe, beforeEach, it, context, hre*/
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
