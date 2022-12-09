@@ -1,6 +1,6 @@
-# Internal audit of autonolas-tokenomics
+# Internal audit of autonolas-registries
 The review has been performed based on the contract code in the following repository:<br>
-`https://github.com/valory-xyz/autonolas-tokonomics` <br>
+`https://github.com/valory-xyz/autonolas-tokenomics` <br>
 commit: `383a4310270d801197bb45df408d19d16dbbfb54` or `v0.1.0.pre-internal-audit`<br> 
 
 ## Objectives
