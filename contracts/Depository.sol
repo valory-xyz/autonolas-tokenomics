@@ -84,8 +84,9 @@ contract Depository is GenericTokenomics {
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
     constructor(address _olas, address _treasury, address _tokenomics, address _bondCalculator)
-        GenericTokenomics(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository)
+        GenericTokenomics()
     {
+        super.initialize(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository);
         bondCalculator = _bondCalculator;
     }
 

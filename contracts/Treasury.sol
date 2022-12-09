@@ -43,6 +43,8 @@ contract Treasury is GenericTokenomics {
     event DisableToken(address indexed token);
     event TransferToDispenserOLAS(uint256 amount);
     event ReceivedETH(address indexed sender, uint256 amount);
+    event TreasuryPaused();
+    event TreasuryUnpaused();
 
     enum TokenState {
         NonExistent,
@@ -64,6 +66,8 @@ contract Treasury is GenericTokenomics {
     // ETH owned by treasury
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public ETHOwned;
+    // Contract pausing
+    uint8 public paused = 1;
     // Token address => token info related to bonding
     mapping(address => TokenInfo) public mapTokens;
     // Set of registered tokens
@@ -78,9 +82,18 @@ contract Treasury is GenericTokenomics {
     /// @param _tokenomics Tokenomics address.
     /// @param _dispenser Dispenser address.
     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
-        GenericTokenomics(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury)
+        GenericTokenomics()
     {
+        super.initialize(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury);
         ETHOwned = uint96(msg.value);
+    }
+
+    /// @dev Receives ETH.
+    receive() external payable {
+        uint96 amount = ETHOwned;
+        amount += uint96(msg.value);
+        ETHOwned = amount;
+        emit ReceivedETH(msg.sender, msg.value);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -217,12 +230,15 @@ contract Treasury is GenericTokenomics {
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
+        // Check if the contract is paused
+        if (paused == 2) {
+            revert Paused();
+        }
+
         // Check for the dispenser access
         if (dispenser != msg.sender) {
             revert ManagerOnly(msg.sender, dispenser);
         }
-
-        // TODO pause withdraws here or in dispenser?
 
         uint256 amountETHFromServices = ETHFromServices;
         // Send ETH rewards, if any
@@ -293,6 +309,11 @@ contract Treasury is GenericTokenomics {
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
+        // Check if the contract is paused
+        if (paused == 2) {
+            revert Paused();
+        }
+
         // Check for the tokenomics contract access
         if (msg.sender != tokenomics) {
             revert ManagerOnly(msg.sender, tokenomics);
@@ -318,14 +339,6 @@ contract Treasury is GenericTokenomics {
         }
     }
 
-    /// @dev Receives ETH.
-    receive() external payable {
-        uint96 amount = ETHOwned;
-        amount += uint96(msg.value);
-        ETHOwned = amount;
-        emit ReceivedETH(msg.sender, msg.value);
-    }
-
     /// @dev Drains slashed funds from the service registry.
     /// @return amount Drained amount.
     function drainServiceSlashedFunds() external returns (uint256 amount) {
@@ -338,5 +351,27 @@ contract Treasury is GenericTokenomics {
         address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
         // Call the service registry drain function
         amount = IServiceTokenomics(serviceRegistry).drain();
+    }
+
+    /// @dev Pauses the contract.
+    function pause() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = 2;
+        emit TreasuryPaused();
+    }
+
+    /// @dev Unpauses the contract.
+    function unpause() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = 1;
+        emit TreasuryUnpaused();
     }
 }

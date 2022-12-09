@@ -7,6 +7,22 @@ contract MockTokenomics {
     uint256 public mintCap = 1_000_000_000e18;
     uint256 public topUps = 40 ether;
     address public serviceRegistry;
+    bool public initialized;
+
+    function initialize() external {
+        if (initialized) {
+            revert();
+        }
+        initialized = true;
+    }
+
+    /// @dev Gets the tokenomics implementation address.
+    function tokenomicsImplementation() external view returns (address implementation) {
+        assembly {
+            implementation := sload(0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f)
+        }
+        return implementation;
+    }
 
     /// @dev Changes the mint cap.
     /// @param _mintCap New mint cap.
@@ -28,16 +44,6 @@ contract MockTokenomics {
         donationETH = 1 ether;
     }
 
-    /// @dev Checks for the OLA minting ability WRT the inflation schedule.
-    /// @param amount Amount of requested OLA tokens to mint.
-    /// @return True if the mint is allowed.
-    function isAllowedMint(uint256 amount) external view returns (bool) {
-        if (amount < mintCap) {
-            return true;
-        }
-        return false;
-    }
-
     /// @dev Record global data to the checkpoint.
     function checkpoint() external {
         epochCounter = 2;
@@ -46,5 +52,10 @@ contract MockTokenomics {
     /// @dev Sets service registry contract address.
     function setServiceRegistry(address _serviceRegistry) external {
         serviceRegistry = _serviceRegistry;
+    }
+
+    /// @dev Simulates the function that fails.
+    function simulateFailure() external pure {
+        revert();
     }
 }

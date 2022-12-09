@@ -118,4 +118,13 @@ interface IErrorsTokenomics {
     /// @dev The donator address is blacklisted.
     /// @param account Donator account address.
     error DonatorBlacklisted(address account);
+
+    /// @dev The contract is already initialized.
+    error AlreadyInitialized();
+
+    /// @dev The contract has to be delegate-called via proxy.
+    error DelegatecallOnly();
+
+    /// @dev The contract is paused.
+    error Paused();
 }

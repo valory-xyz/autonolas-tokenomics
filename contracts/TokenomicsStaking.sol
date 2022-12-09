@@ -153,9 +153,10 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     event ServiceRegistryUpdated(address indexed serviceRegistry);
     event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+    event TokenomicsImplementationUpdated(address indexed implementation);
 
     // Voting Escrow address
-    address public immutable ve;
+    address public ve;
     // Max bond per epoch: calculated as a fraction from the OLAS inflation parameter
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 public maxBond;
@@ -163,12 +164,12 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
     // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
     // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
-    uint64 public epsilonRate = 1e17;
+    uint64 public epsilonRate;
     // Inflation amount per second
     uint96 public inflationPerSecond;
     // veOLAS threshold for top-ups
     // This number cannot be practically bigger than the number of OLAS tokens
-    uint96 public veOLASThreshold = 5_000e18;
+    uint96 public veOLASThreshold;
 
     // Component Registry
     address public componentRegistry;
@@ -189,10 +190,13 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     // This number is enough for the next 255 years
     uint8 public currentYear;
     // maxBond-related parameter change locker
-    uint8 public lockMaxBond = 1;
+    uint8 public lockMaxBond;
 
     // Service Registry
     address public serviceRegistry;
+    // Time launch of the OLAS contract
+    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+    uint32 public timeLaunch;
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -215,7 +219,14 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     mapping(uint256 => StakerPoint) public mapEpochStakerPoints;
 
     /// @dev Tokenomics constructor.
-    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this)
+    constructor()
+        TokenomicsConstants()
+        GenericTokenomics()
+    {}
+
+    /// @dev Tokenomics initializer.
+    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this).
+    /// @notice Tokenomics contract must be initialized no later than one year from the launch of the OLAS contract.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -226,7 +237,7 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
     /// @param _donatorBlacklist DonatorBlacklist address.
-    constructor(
+    function initializeTokenomics(
         address _olas,
         address _treasury,
         address _depository,
@@ -237,10 +248,17 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
         address _agentRegistry,
         address _serviceRegistry,
         address _donatorBlacklist
-    )
-        TokenomicsConstants()
-        GenericTokenomics(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics)
+    ) external
     {
+        // Initialize generic variables
+        super.initialize(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics);
+
+        // Initialize storage variables
+        epsilonRate = 1e17;
+        veOLASThreshold = 5_000e18;
+        lockMaxBond = 1;
+
+        // Assign other passed variables
         ve = _ve;
         epochLen = _epochLen;
         componentRegistry = _componentRegistry;
@@ -248,9 +266,19 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
         serviceRegistry = _serviceRegistry;
         donatorBlacklist = _donatorBlacklist;
 
+        // Time launch of the OLAS contract
+        uint256 _timeLaunch = IOLAS(_olas).timeLaunch();
+        // Check that the tokenomics contract is initialized no later than one year after the OLAS token is deployed
+        if ((block.timestamp + 1) > (_timeLaunch + oneYear)) {
+            revert Overflow(_timeLaunch + oneYear, block.timestamp);
+        }
+        // Seconds left in the deployment year for the zero year inflation schedule
+        // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
+        uint256 zeroYearSecondsLeft = uint32(_timeLaunch + oneYear - block.timestamp);
         // Calculating initial inflation per second: (mintable OLAS from inflationAmounts[0]) / (seconds left in a year)
         uint256 _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft;
         inflationPerSecond = uint96(_inflationPerSecond);
+        timeLaunch = uint32(_timeLaunch);
 
         // The initial epoch start time is the end time of the zero epoch
         mapEpochTokenomics[0].epochPoint.endTime = uint32(block.timestamp);
@@ -291,6 +319,29 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
         uint256 _maxBond = _inflationPerSecond * _epochLen * _maxBondFraction / 100;
         maxBond = uint96(_maxBond);
         effectiveBond = uint96(_maxBond);
+    }
+
+    /// @dev Gets the tokenomics implementation contract address.
+    /// @return implementation Tokenomics implementation contract address.
+    function tokenomicsImplementation() external view returns (address implementation) {
+        assembly {
+            implementation := sload(PROXY_TOKENOMICS)
+        }
+    }
+
+    /// @dev Changes the tokenomics implementation contract address.
+    /// @param implementation Tokenomics implementation contract address.
+    function changeTokenomicsImplementation(address implementation) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Store the implementation address under the designated storage slot
+        assembly {
+            sstore(PROXY_TOKENOMICS, implementation)
+        }
+        emit TokenomicsImplementationUpdated(implementation);
     }
 
     /// @dev Checks if the maxBond update is within allowed limits of the effectiveBond, and adjusts maxBond and effectiveBond.
@@ -695,6 +746,16 @@ contract TokenomicsStaking is TokenomicsConstants, GenericTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     function checkpoint() external returns (bool) {
+        // Get the implementation address that was written to the proxy contract
+        address implementation;
+        assembly {
+            implementation := sload(PROXY_TOKENOMICS)
+        }
+        // Check if there is any address in the PROXY_TOKENOMICS address slot
+        if (implementation == address(0)) {
+            revert DelegatecallOnly();
+        }
+
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
         uint256 prevEpochTime = mapEpochTokenomics[epochCounter - 1].epochPoint.endTime;
         uint256 diffNumSeconds = block.timestamp - prevEpochTime;

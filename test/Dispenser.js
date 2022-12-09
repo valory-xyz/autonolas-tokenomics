@@ -57,10 +57,21 @@ describe("Dispenser", async () => {
         // Update for the correct treasury contract
         await dispenser.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
 
-        // Treasury address is deployer since there are functions that require treasury only
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
-        tokenomics = await tokenomicsFactory.deploy(olas.address, treasury.address, deployer.address, dispenser.address,
-            ve.address, epochLen, componentRegistry.address, agentRegistry.address, serviceRegistry.address, AddressZero);
+        // Deploy master tokenomics contract
+        const tokenomicsMaster = await tokenomicsFactory.deploy();
+
+        // Treasury address is deployer since there are functions that require treasury only
+        const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+            [olas.address, treasury.address, deployer.address, dispenser.address, ve.address, epochLen,
+                componentRegistry.address, agentRegistry.address, serviceRegistry.address, AddressZero]);
+        // Deploy tokenomics proxy based on the needed tokenomics initialization
+        const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+        const tokenomicsProxy = await TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData);
+        await tokenomicsProxy.deployed();
+
+        // Get the tokenomics proxy contract
+        tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
         attacker = await Attacker.deploy(dispenser.address, treasury.address);

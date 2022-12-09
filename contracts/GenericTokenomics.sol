@@ -20,16 +20,19 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
         Dispenser
     }
 
-    // Tokenomics role
-    TokenomicsRole public immutable tokenomicsRole;
-    // Reentrancy lock
-    uint8 internal _locked = 1;
     // Address of unused tokenomics roles
     address public constant SENTINEL_ADDRESS = address(0x000000000000000000000000000000000000dEaD);
+    // Tokenomics proxy address slot
+    // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
+    bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
+    // Reentrancy lock
+    uint8 internal _locked;
+    // Tokenomics role
+    TokenomicsRole public tokenomicsRole;
     // Owner address
     address public owner;
     // OLAS token address
-    address public immutable olas;
+    address public olas;
     // Tkenomics contract address
     address public tokenomics;
     // Treasury contract address
@@ -39,21 +42,27 @@ abstract contract GenericTokenomics is IErrorsTokenomics {
     // Dispenser contract address
     address public dispenser;
 
-    /// @dev Generic Tokenomics constructor.
+    /// @dev Generic Tokenomics initializer.
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
-    constructor(
+    function initialize(
         address _olas,
         address _tokenomics,
         address _treasury,
         address _depository,
         address _dispenser,
         TokenomicsRole _tokenomicsRole
-    )
+    ) internal
     {
+        // Check if the contract is already initialized
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
+
+        _locked = 1;
         olas = _olas;
         tokenomics = _tokenomics;
         treasury = _treasury;
