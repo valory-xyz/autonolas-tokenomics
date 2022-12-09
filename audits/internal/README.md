@@ -15,3 +15,6 @@ Several checks are obtained automatically. They are commented. Some issues found
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
 [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
 
+##### Unused event
+This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
+[Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md)
