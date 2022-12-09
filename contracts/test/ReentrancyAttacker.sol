@@ -12,11 +12,6 @@ interface ITokenomics {
     function claimOwnerIncentives(uint256[] memory unitTypes, uint256[] memory unitIds) external
         returns (uint256 reward, uint256 topUp, bool success);
 
-    /// @dev Claims rewards for a staker address.
-    /// @return reward Reward amount in ETH.
-    /// @return topUp Top-up amount in OLAS.
-    function claimStakingIncentives() external returns (uint256 reward, uint256 topUp, bool success);
-
     /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
@@ -27,7 +22,6 @@ contract ReentrancyAttacker {
     bool public attackMode = true;
     bool public badAction;
     bool public attackOnClaimOwnerIncentives;
-    bool public attackOnClaimStakingIncentives;
     bool public attackOnDepositETHFromServices;
 
     address dispenser;
@@ -46,8 +40,6 @@ contract ReentrancyAttacker {
             uint256[] memory unitIds = new uint256[](2);
             (unitIds[0], unitIds[1]) = (1, 1);
             ITokenomics(dispenser).claimOwnerIncentives(unitTypes, unitIds);
-        } else if (attackOnClaimStakingIncentives) {
-            ITokenomics(dispenser).claimStakingIncentives();
         } else if (attackOnDepositETHFromServices) {
             // If this condition is entered, the reentrancy is possible
             attackOnDepositETHFromServices = false;
@@ -56,7 +48,6 @@ contract ReentrancyAttacker {
             revert();
         }
         attackOnClaimOwnerIncentives = false;
-        attackOnClaimStakingIncentives = false;
         badAction = true;
     }
 
@@ -75,15 +66,6 @@ contract ReentrancyAttacker {
             attackOnClaimOwnerIncentives = true;
         }
         return ITokenomics(dispenser).claimOwnerIncentives(unitTypes, unitIds);
-    }
-
-    /// @dev Lets the attacker call back its contract to get back to the claimStakingIncentives() function.
-    function badClaimStakingIncentives(bool attack) external returns (uint256 reward, uint256 topUp, bool success)
-    {
-        if (attack) {
-            attackOnClaimStakingIncentives = true;
-        }
-        return ITokenomics(dispenser).claimStakingIncentives();
     }
 
     /// @dev Lets the attacker call back its contract to get back to the depositETHFromServices() function.

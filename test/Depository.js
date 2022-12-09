@@ -28,7 +28,7 @@ describe("Depository LP", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
-    let epochLen = 100;
+    let epochLen = 10000;
     let defaultPriceLP = "2" + decimals;
 
     // 2,000
