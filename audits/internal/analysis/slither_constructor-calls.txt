@@ -1,0 +1,309 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+#################################
+####### UniswapV2Router02 #######
+#################################
+
+## Constructor Call Sequence
+	- UniswapV2Router02
+
+## Constructor Definitions
+
+### UniswapV2Router02
+
+     constructor(address _factory, address _WETH) public {
+        factory = _factory;
+        WETH = _WETH;
+    }
+
+################################
+####### UniswapV2Factory #######
+################################
+
+## Constructor Call Sequence
+	- UniswapV2Factory
+
+## Constructor Definitions
+
+### UniswapV2Factory
+
+     constructor(address _feeToSetter) public {
+        feeToSetter = _feeToSetter;
+    }
+
+#############################
+####### UniswapV2Pair #######
+#############################
+
+## Constructor Call Sequence
+	- UniswapV2ERC20
+	- UniswapV2Pair
+
+## Constructor Definitions
+
+### UniswapV2ERC20
+
+     constructor() public {
+        uint chainId;
+        assembly {
+            chainId := chainid
+        }
+        DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+                keccak256(bytes(name)),
+                keccak256(bytes('1')),
+                chainId,
+                address(this)
+            )
+        );
+    }
+
+### UniswapV2Pair
+
+     constructor() public {
+        factory = msg.sender;
+    }
+
+##########################
+####### Depository #######
+##########################
+
+## Constructor Call Sequence
+	- Depository
+
+## Constructor Definitions
+
+### Depository
+
+     constructor(address _olas, address _treasury, address _tokenomics, address _bondCalculator)
+        GenericTokenomics()
+    {
+        super.initialize(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository);
+        bondCalculator = _bondCalculator;
+    }
+
+#########################
+####### Dispenser #######
+#########################
+
+## Constructor Call Sequence
+	- Dispenser
+
+## Constructor Definitions
+
+### Dispenser
+
+     constructor(address _tokenomics, address _treasury)
+        GenericTokenomics()
+    {
+        super.initialize(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser);
+    }
+
+################################
+####### DonatorBlacklist #######
+################################
+
+## Constructor Call Sequence
+	- DonatorBlacklist
+
+## Constructor Definitions
+
+### DonatorBlacklist
+
+     constructor() {
+        owner = msg.sender;
+    }
+
+#####################################
+####### GenericBondCalculator #######
+#####################################
+
+## Constructor Call Sequence
+	- GenericBondCalculator
+
+## Constructor Definitions
+
+### GenericBondCalculator
+
+     constructor(address _olas, address _tokenomics) {
+        olas = _olas;
+        tokenomics = _tokenomics;
+    }
+
+##########################
+####### Tokenomics #######
+##########################
+
+## Constructor Call Sequence
+	- Tokenomics
+
+## Constructor Definitions
+
+### Tokenomics
+
+     constructor()
+        TokenomicsConstants()
+        GenericTokenomics()
+    {}
+
+###############################
+####### TokenomicsProxy #######
+###############################
+
+## Constructor Call Sequence
+	- TokenomicsProxy
+
+## Constructor Definitions
+
+### TokenomicsProxy
+
+     constructor(address tokenomics, bytes memory tokenomicsData) {
+        assembly {
+            sstore(PROXY_TOKENOMICS, tokenomics)
+        }
+        // Initialize proxy tokenomics storage
+        (bool success, ) = tokenomics.delegatecall(tokenomicsData);
+        if (!success) {
+            revert InitializationFailed();
+        }
+    }
+
+########################
+####### Treasury #######
+########################
+
+## Constructor Call Sequence
+	- Treasury
+
+## Constructor Definitions
+
+### Treasury
+
+     constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
+        GenericTokenomics()
+    {
+        super.initialize(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury);
+        ETHOwned = uint96(msg.value);
+    }
+
+#############################
+####### AttackDeposit #######
+#############################
+
+## Constructor Call Sequence
+	- AttackDeposit
+
+## Constructor Definitions
+
+### AttackDeposit
+
+     constructor() {}
+
+##########################
+####### ERC20Token #######
+##########################
+
+## Constructor Call Sequence
+	- ERC20
+	- Ownable
+	- ERC20Token
+
+## Constructor Definitions
+
+### ERC20
+
+     constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
+    }
+
+### Ownable
+
+     constructor() {
+        _transferOwnership(_msgSender());
+    }
+
+### ERC20Token
+
+     constructor() ERC20("ERC20 generic mocking token", "ERC20Token") {
+        timeLaunch = block.timestamp;
+        minter = msg.sender;
+    }
+
+############################
+####### MockRegistry #######
+############################
+
+## Constructor Call Sequence
+	- MockRegistry
+
+## Constructor Definitions
+
+### MockRegistry
+
+     constructor() {
+        accounts.push(address(1));
+        accounts.push(address(2));
+    }
+
+##################################
+####### ReentrancyAttacker #######
+##################################
+
+## Constructor Call Sequence
+	- ReentrancyAttacker
+
+## Constructor Definitions
+
+### ReentrancyAttacker
+
+     constructor(address _dispenser, address _treasury) {
+        dispenser = _dispenser;
+        treasury = _treasury;
+    }
+
+. analyzed (66 contracts)

@@ -1,0 +1,8 @@
+ +  TokenomicsProxy 
+    - [32m[Pub][39m [90m<Constructor>[39m[31m #[39m
+    - [34m[Ext][39m [90m<Fallback>[39m[31m #[39m
+
+
+[33m ($)[39m = payable function
+[31m #[39m = non-constant function
+  

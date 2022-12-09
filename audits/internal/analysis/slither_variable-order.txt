@@ -1,0 +1,465 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+UniswapV2Factory:
++------------------------------+-------------------------------------------------+------+--------+
+|             Name             |                       Type                      | Slot | Offset |
++------------------------------+-------------------------------------------------+------+--------+
+|    UniswapV2Factory.feeTo    |                     address                     |  0   |   0    |
+| UniswapV2Factory.feeToSetter |                     address                     |  1   |   0    |
+|   UniswapV2Factory.getPair   | mapping(address => mapping(address => address)) |  2   |   0    |
+|  UniswapV2Factory.allPairs   |                    address[]                    |  3   |   0    |
++------------------------------+-------------------------------------------------+------+--------+
+
+UniswapV2Pair:
++------------------------------------+-------------------------------------------------+------+--------+
+|                Name                |                       Type                      | Slot | Offset |
++------------------------------------+-------------------------------------------------+------+--------+
+|     UniswapV2ERC20.totalSupply     |                     uint256                     |  0   |   0    |
+|      UniswapV2ERC20.balanceOf      |           mapping(address => uint256)           |  1   |   0    |
+|      UniswapV2ERC20.allowance      | mapping(address => mapping(address => uint256)) |  2   |   0    |
+|  UniswapV2ERC20.DOMAIN_SEPARATOR   |                     bytes32                     |  3   |   0    |
+|       UniswapV2ERC20.nonces        |           mapping(address => uint256)           |  4   |   0    |
+|       UniswapV2Pair.factory        |                     address                     |  5   |   0    |
+|        UniswapV2Pair.token0        |                     address                     |  6   |   0    |
+|        UniswapV2Pair.token1        |                     address                     |  7   |   0    |
+|       UniswapV2Pair.reserve0       |                     uint112                     |  8   |   0    |
+|       UniswapV2Pair.reserve1       |                     uint112                     |  8   |   14   |
+|  UniswapV2Pair.blockTimestampLast  |                      uint32                     |  8   |   28   |
+| UniswapV2Pair.price0CumulativeLast |                     uint256                     |  9   |   0    |
+| UniswapV2Pair.price1CumulativeLast |                     uint256                     |  10  |   0    |
+|        UniswapV2Pair.kLast         |                     uint256                     |  11  |   0    |
+|       UniswapV2Pair.unlocked       |                     uint256                     |  12  |   0    |
++------------------------------------+-------------------------------------------------+------+--------+
+
+IERC20:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Callee:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+Math:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+SafeMath:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+UQ112x112:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+WETH9:
++-----------------+-------------------------------------------------+------+--------+
+|       Name      |                       Type                      | Slot | Offset |
++-----------------+-------------------------------------------------+------+--------+
+|    WETH9.name   |                      string                     |  0   |   0    |
+|   WETH9.symbol  |                      string                     |  1   |   0    |
+|  WETH9.decimals |                      uint8                      |  2   |   0    |
+| WETH9.balanceOf |           mapping(address => uint256)           |  3   |   0    |
+| WETH9.allowance | mapping(address => mapping(address => uint256)) |  4   |   0    |
++-----------------+-------------------------------------------------+------+--------+
+
+TransferHelper:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Factory:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Pair:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+UniswapV2Router02:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IERC20:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IWETH:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+SafeMath:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+UniswapV2Library:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+PRBMath:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+PRBMathSD59x18:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+TransferHelper:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IERC20:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Callee:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2ERC20:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Factory:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Pair:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IERC20:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IUniswapV2Router02:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IWETH:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+Depository:
++----------------------------------+----------------------------------------+------+--------+
+|               Name               |                  Type                  | Slot | Offset |
++----------------------------------+----------------------------------------+------+--------+
+|    GenericTokenomics._locked     |                 uint8                  |  0   |   0    |
+| GenericTokenomics.tokenomicsRole |    GenericTokenomics.TokenomicsRole    |  0   |   1    |
+|     GenericTokenomics.owner      |                address                 |  0   |   2    |
+|      GenericTokenomics.olas      |                address                 |  1   |   0    |
+|   GenericTokenomics.tokenomics   |                address                 |  2   |   0    |
+|    GenericTokenomics.treasury    |                address                 |  3   |   0    |
+|   GenericTokenomics.depository   |                address                 |  4   |   0    |
+|   GenericTokenomics.dispenser    |                address                 |  5   |   0    |
+|      Depository.bondCounter      |                 uint32                 |  5   |   20   |
+|    Depository.productCounter     |                 uint32                 |  5   |   24   |
+|    Depository.bondCalculator     |                address                 |  6   |   0    |
+|     Depository.mapUserBonds      |  mapping(uint256 => Depository.Bond)   |  7   |   0    |
+|    Depository.mapBondProducts    | mapping(uint256 => Depository.Product) |  8   |   0    |
++----------------------------------+----------------------------------------+------+--------+
+
+Dispenser:
++----------------------------------+----------------------------------+------+--------+
+|               Name               |               Type               | Slot | Offset |
++----------------------------------+----------------------------------+------+--------+
+|    GenericTokenomics._locked     |              uint8               |  0   |   0    |
+| GenericTokenomics.tokenomicsRole | GenericTokenomics.TokenomicsRole |  0   |   1    |
+|     GenericTokenomics.owner      |             address              |  0   |   2    |
+|      GenericTokenomics.olas      |             address              |  1   |   0    |
+|   GenericTokenomics.tokenomics   |             address              |  2   |   0    |
+|    GenericTokenomics.treasury    |             address              |  3   |   0    |
+|   GenericTokenomics.depository   |             address              |  4   |   0    |
+|   GenericTokenomics.dispenser    |             address              |  5   |   0    |
++----------------------------------+----------------------------------+------+--------+
+
+DonatorBlacklist:
++-----------------------------------------+--------------------------+------+--------+
+|                   Name                  |           Type           | Slot | Offset |
++-----------------------------------------+--------------------------+------+--------+
+|          DonatorBlacklist.owner         |         address          |  0   |   0    |
+| DonatorBlacklist.mapBlacklistedDonators | mapping(address => bool) |  1   |   0    |
++-----------------------------------------+--------------------------+------+--------+
+
+GenericBondCalculator:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+Tokenomics:
++----------------------------------+-----------------------------------------------------------+------+--------+
+|               Name               |                            Type                           | Slot | Offset |
++----------------------------------+-----------------------------------------------------------+------+--------+
+|    GenericTokenomics._locked     |                           uint8                           |  0   |   0    |
+| GenericTokenomics.tokenomicsRole |              GenericTokenomics.TokenomicsRole             |  0   |   1    |
+|     GenericTokenomics.owner      |                          address                          |  0   |   2    |
+|      GenericTokenomics.olas      |                          address                          |  1   |   0    |
+|   GenericTokenomics.tokenomics   |                          address                          |  2   |   0    |
+|    GenericTokenomics.treasury    |                          address                          |  3   |   0    |
+|   GenericTokenomics.depository   |                          address                          |  4   |   0    |
+|   GenericTokenomics.dispenser    |                          address                          |  5   |   0    |
+|          Tokenomics.ve           |                          address                          |  6   |   0    |
+|        Tokenomics.maxBond        |                           uint96                          |  6   |   20   |
+|      Tokenomics.epsilonRate      |                           uint64                          |  7   |   0    |
+|  Tokenomics.inflationPerSecond   |                           uint96                          |  7   |   8    |
+|    Tokenomics.veOLASThreshold    |                           uint96                          |  7   |   20   |
+|   Tokenomics.componentRegistry   |                          address                          |  8   |   0    |
+|     Tokenomics.effectiveBond     |                           uint96                          |  8   |   20   |
+|       Tokenomics.epochLen        |                           uint32                          |  9   |   0    |
+|     Tokenomics.epochCounter      |                           uint32                          |  9   |   4    |
+|     Tokenomics.agentRegistry     |                          address                          |  9   |   8    |
+|      Tokenomics.currentYear      |                           uint8                           |  9   |   28   |
+|      Tokenomics.lockMaxBond      |                           uint8                           |  9   |   29   |
+|    Tokenomics.serviceRegistry    |                          address                          |  10  |   0    |
+|      Tokenomics.timeLaunch       |                           uint32                          |  10  |   20   |
+|   Tokenomics.mapServiceAmounts   |                mapping(uint256 => uint256)                |  11  |   0    |
+|    Tokenomics.mapOwnerRewards    |                mapping(address => uint256)                |  12  |   0    |
+|    Tokenomics.mapOwnerTopUps     |                mapping(address => uint256)                |  13  |   0    |
+|  Tokenomics.mapEpochTokenomics   |            mapping(uint256 => TokenomicsPoint)            |  14  |   0    |
+|      Tokenomics.mapNewUnits      |        mapping(uint256 => mapping(uint256 => bool))       |  15  |   0    |
+|     Tokenomics.mapNewOwners      |                  mapping(address => bool)                 |  16  |   0    |
+|   Tokenomics.mapUnitIncentives   | mapping(uint256 => mapping(uint256 => IncentiveBalances)) |  17  |   0    |
+|   Tokenomics.donatorBlacklist    |                          address                          |  18  |   0    |
++----------------------------------+-----------------------------------------------------------+------+--------+
+
+TokenomicsProxy:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+Treasury:
++----------------------------------+----------------------------------------+------+--------+
+|               Name               |                  Type                  | Slot | Offset |
++----------------------------------+----------------------------------------+------+--------+
+|    GenericTokenomics._locked     |                 uint8                  |  0   |   0    |
+| GenericTokenomics.tokenomicsRole |    GenericTokenomics.TokenomicsRole    |  0   |   1    |
+|     GenericTokenomics.owner      |                address                 |  0   |   2    |
+|      GenericTokenomics.olas      |                address                 |  1   |   0    |
+|   GenericTokenomics.tokenomics   |                address                 |  2   |   0    |
+|    GenericTokenomics.treasury    |                address                 |  3   |   0    |
+|   GenericTokenomics.depository   |                address                 |  4   |   0    |
+|   GenericTokenomics.dispenser    |                address                 |  5   |   0    |
+|     Treasury.ETHFromServices     |                 uint96                 |  5   |   20   |
+|        Treasury.ETHOwned         |                 uint96                 |  6   |   0    |
+|         Treasury.paused          |                 uint8                  |  6   |   12   |
+|        Treasury.mapTokens        | mapping(address => Treasury.TokenInfo) |  7   |   0    |
+|      Treasury.tokenRegistry      |               address[]                |  8   |   0    |
++----------------------------------+----------------------------------------+------+--------+
+
+IDonatorBlacklist:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IGenericBondCalculator:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IOLAS:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IServiceTokenomics:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IToken:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ITokenomics:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ITreasury:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IVotingEscrow:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IDepository:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IRouter:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+AttackDeposit:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ERC20Token:
++--------------------+-------------------------------------------------+------+--------+
+|        Name        |                       Type                      | Slot | Offset |
++--------------------+-------------------------------------------------+------+--------+
+|  ERC20._balances   |           mapping(address => uint256)           |  0   |   0    |
+| ERC20._allowances  | mapping(address => mapping(address => uint256)) |  1   |   0    |
+| ERC20._totalSupply |                     uint256                     |  2   |   0    |
+|    ERC20._name     |                      string                     |  3   |   0    |
+|   ERC20._symbol    |                      string                     |  4   |   0    |
+|   Ownable._owner   |                     address                     |  5   |   0    |
+| ERC20Token.minter  |                     address                     |  6   |   0    |
++--------------------+-------------------------------------------------+------+--------+
+
+MockRegistry:
++-----------------------+-----------+------+--------+
+|          Name         |    Type   | Slot | Offset |
++-----------------------+-----------+------+--------+
+| MockRegistry.accounts | address[] |  0   |   0    |
++-----------------------+-----------+------+--------+
+
+MockTokenomics:
++--------------------------------+---------+------+--------+
+|              Name              |   Type  | Slot | Offset |
++--------------------------------+---------+------+--------+
+|  MockTokenomics.epochCounter   | uint256 |  0   |   0    |
+|     MockTokenomics.mintCap     | uint256 |  1   |   0    |
+|     MockTokenomics.topUps      | uint256 |  2   |   0    |
+| MockTokenomics.serviceRegistry | address |  3   |   0    |
+|   MockTokenomics.initialized   |   bool  |  3   |   20   |
++--------------------------------+---------+------+--------+
+
+MockVE:
++------------------------+-----------+------+--------+
+|          Name          |    Type   | Slot | Offset |
++------------------------+-----------+------+--------+
+|    MockVE.accounts     | address[] |  0   |   0    |
+|     MockVE.balance     |  uint256  |  1   |   0    |
+|     MockVE.supply      |  uint256  |  2   |   0    |
+| MockVE.weightedBalance |  uint256  |  3   |   0    |
++------------------------+-----------+------+--------+
+
+ITokenomics:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ReentrancyAttacker:
++---------------------------------------------------+---------+------+--------+
+|                        Name                       |   Type  | Slot | Offset |
++---------------------------------------------------+---------+------+--------+
+|           ReentrancyAttacker.attackMode           |   bool  |  0   |   0    |
+|            ReentrancyAttacker.badAction           |   bool  |  0   |   1    |
+|  ReentrancyAttacker.attackOnClaimOwnerIncentives  |   bool  |  0   |   2    |
+| ReentrancyAttacker.attackOnDepositETHFromServices |   bool  |  0   |   3    |
+|            ReentrancyAttacker.dispenser           | address |  0   |   4    |
+|            ReentrancyAttacker.treasury            | address |  1   |   0    |
++---------------------------------------------------+---------+------+--------+
+
+. analyzed (66 contracts)

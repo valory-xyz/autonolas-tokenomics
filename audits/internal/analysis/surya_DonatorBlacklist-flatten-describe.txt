@@ -1,0 +1,10 @@
+ +  DonatorBlacklist 
+    - [32m[Pub][39m [90m<Constructor>[39m[31m #[39m
+    - [34m[Ext][39m changeOwner[31m #[39m
+    - [34m[Ext][39m setDonatorsStatuses[31m #[39m
+    - [34m[Ext][39m isDonatorBlacklisted
+
+
+[33m ($)[39m = payable function
+[31m #[39m = non-constant function
+  

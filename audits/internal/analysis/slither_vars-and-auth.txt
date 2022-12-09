@@ -1,0 +1,1168 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+Contract UniswapV2ERC20
++-------------------------------------+---------------------------------------------------+-------------------------------------------------+
+|               Function              |              State variables written              |             Conditions on msg.sender            |
++-------------------------------------+---------------------------------------------------+-------------------------------------------------+
+|                 name                |                         []                        |                        []                       |
+|                symbol               |                         []                        |                        []                       |
+|               decimals              |                         []                        |                        []                       |
+|             totalSupply             |                         []                        |                        []                       |
+|              balanceOf              |                         []                        |                        []                       |
+|              allowance              |                         []                        |                        []                       |
+|               approve               |                         []                        |                        []                       |
+|               transfer              |                         []                        |                        []                       |
+|             transferFrom            |                         []                        |                        []                       |
+|           DOMAIN_SEPARATOR          |                         []                        |                        []                       |
+|           PERMIT_TYPEHASH           |                         []                        |                        []                       |
+|                nonces               |                         []                        |                        []                       |
+|                permit               |                         []                        |                        []                       |
+|             constructor             |                ['DOMAIN_SEPARATOR']               |                        []                       |
+|                _mint                |            ['totalSupply', 'balanceOf']           |                        []                       |
+|                _burn                |            ['totalSupply', 'balanceOf']           |                        []                       |
+|               _approve              |                   ['allowance']                   |                        []                       |
+|              _transfer              |                   ['balanceOf']                   |                        []                       |
+|               approve               |                   ['allowance']                   |                        []                       |
+|               transfer              |                   ['balanceOf']                   |                        []                       |
+|             transferFrom            |             ['balanceOf', 'allowance']            | ['allowance[from][msg.sender] != uint256(- 1)'] |
+|                permit               |              ['nonces', 'allowance']              |                        []                       |
+| slitherConstructorConstantVariables | ['PERMIT_TYPEHASH', 'name', 'symbol', 'decimals'] |                        []                       |
++-------------------------------------+---------------------------------------------------+-------------------------------------------------+
+
+Contract UniswapV2Factory
++----------------+-------------------------+--------------------------------------------------------------------------+
+|    Function    | State variables written |                         Conditions on msg.sender                         |
++----------------+-------------------------+--------------------------------------------------------------------------+
+|     feeTo      |            []           |                                    []                                    |
+|  feeToSetter   |            []           |                                    []                                    |
+|    getPair     |            []           |                                    []                                    |
+|    allPairs    |            []           |                                    []                                    |
+| allPairsLength |            []           |                                    []                                    |
+|   createPair   |            []           |                                    []                                    |
+|    setFeeTo    |            []           |                                    []                                    |
+| setFeeToSetter |            []           |                                    []                                    |
+|  constructor   |     ['feeToSetter']     |                                    []                                    |
+| allPairsLength |            []           |                                    []                                    |
+|   createPair   | ['getPair', 'allPairs'] |                                    []                                    |
+|    setFeeTo    |        ['feeTo']        | ['require(bool,string)(msg.sender == feeToSetter,UniswapV2: FORBIDDEN)'] |
+| setFeeToSetter |     ['feeToSetter']     | ['require(bool,string)(msg.sender == feeToSetter,UniswapV2: FORBIDDEN)'] |
++----------------+-------------------------+--------------------------------------------------------------------------+
+
+Contract UniswapV2Pair
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------+
+|               Function              |                                                             State variables written                                                             |                       Conditions on msg.sender                       |
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------+
+|             constructor             |                                                               ['DOMAIN_SEPARATOR']                                                              |                                  []                                  |
+|                _mint                |                                                           ['totalSupply', 'balanceOf']                                                          |                                  []                                  |
+|                _burn                |                                                           ['totalSupply', 'balanceOf']                                                          |                                  []                                  |
+|               _approve              |                                                                  ['allowance']                                                                  |                                  []                                  |
+|              _transfer              |                                                                  ['balanceOf']                                                                  |                                  []                                  |
+|               approve               |                                                                  ['allowance']                                                                  |                                  []                                  |
+|               transfer              |                                                                  ['balanceOf']                                                                  |                                  []                                  |
+|             transferFrom            |                                                            ['balanceOf', 'allowance']                                                           |           ['allowance[from][msg.sender] != uint256(- 1)']            |
+|                permit               |                                                             ['nonces', 'allowance']                                                             |                                  []                                  |
+|                 name                |                                                                        []                                                                       |                                  []                                  |
+|                symbol               |                                                                        []                                                                       |                                  []                                  |
+|               decimals              |                                                                        []                                                                       |                                  []                                  |
+|             totalSupply             |                                                                        []                                                                       |                                  []                                  |
+|              balanceOf              |                                                                        []                                                                       |                                  []                                  |
+|              allowance              |                                                                        []                                                                       |                                  []                                  |
+|               approve               |                                                                        []                                                                       |                                  []                                  |
+|               transfer              |                                                                        []                                                                       |                                  []                                  |
+|             transferFrom            |                                                                        []                                                                       |                                  []                                  |
+|           DOMAIN_SEPARATOR          |                                                                        []                                                                       |                                  []                                  |
+|           PERMIT_TYPEHASH           |                                                                        []                                                                       |                                  []                                  |
+|                nonces               |                                                                        []                                                                       |                                  []                                  |
+|                permit               |                                                                        []                                                                       |                                  []                                  |
+|                 name                |                                                                        []                                                                       |                                  []                                  |
+|                symbol               |                                                                        []                                                                       |                                  []                                  |
+|               decimals              |                                                                        []                                                                       |                                  []                                  |
+|             totalSupply             |                                                                        []                                                                       |                                  []                                  |
+|              balanceOf              |                                                                        []                                                                       |                                  []                                  |
+|              allowance              |                                                                        []                                                                       |                                  []                                  |
+|               approve               |                                                                        []                                                                       |                                  []                                  |
+|               transfer              |                                                                        []                                                                       |                                  []                                  |
+|             transferFrom            |                                                                        []                                                                       |                                  []                                  |
+|           DOMAIN_SEPARATOR          |                                                                        []                                                                       |                                  []                                  |
+|           PERMIT_TYPEHASH           |                                                                        []                                                                       |                                  []                                  |
+|                nonces               |                                                                        []                                                                       |                                  []                                  |
+|                permit               |                                                                        []                                                                       |                                  []                                  |
+|          MINIMUM_LIQUIDITY          |                                                                        []                                                                       |                                  []                                  |
+|               factory               |                                                                        []                                                                       |                                  []                                  |
+|                token0               |                                                                        []                                                                       |                                  []                                  |
+|                token1               |                                                                        []                                                                       |                                  []                                  |
+|             getReserves             |                                                                        []                                                                       |                                  []                                  |
+|         price0CumulativeLast        |                                                                        []                                                                       |                                  []                                  |
+|         price1CumulativeLast        |                                                                        []                                                                       |                                  []                                  |
+|                kLast                |                                                                        []                                                                       |                                  []                                  |
+|                 mint                |                                                                        []                                                                       |                                  []                                  |
+|                 burn                |                                                                        []                                                                       |                                  []                                  |
+|                 swap                |                                                                        []                                                                       |                                  []                                  |
+|                 skim                |                                                                        []                                                                       |                                  []                                  |
+|                 sync                |                                                                        []                                                                       |                                  []                                  |
+|              initialize             |                                                                        []                                                                       |                                  []                                  |
+|             getReserves             |                                                                        []                                                                       |                                  []                                  |
+|            _safeTransfer            |                                                                        []                                                                       |                                  []                                  |
+|             constructor             |                                                                   ['factory']                                                                   |                                  []                                  |
+|              initialize             |                                                               ['token0', 'token1']                                                              | ['require(bool,string)(msg.sender == factory,UniswapV2: FORBIDDEN)'] |
+|               _update               |                          ['reserve1', 'blockTimestampLast', 'price0CumulativeLast', 'reserve0', 'price1CumulativeLast']                         |                                  []                                  |
+|               _mintFee              |                                                      ['totalSupply', 'balanceOf', 'kLast']                                                      |                                  []                                  |
+|                 mint                | ['reserve1', 'kLast', 'totalSupply', 'blockTimestampLast', 'unlocked', 'price0CumulativeLast', 'balanceOf', 'reserve0', 'price1CumulativeLast'] |                                  []                                  |
+|                 burn                | ['reserve1', 'kLast', 'blockTimestampLast', 'totalSupply', 'unlocked', 'price0CumulativeLast', 'balanceOf', 'reserve0', 'price1CumulativeLast'] |                                  []                                  |
+|                 swap                |                    ['reserve1', 'blockTimestampLast', 'unlocked', 'price0CumulativeLast', 'reserve0', 'price1CumulativeLast']                   |                                  []                                  |
+|                 skim                |                                                                   ['unlocked']                                                                  |                                  []                                  |
+|                 sync                |                    ['reserve1', 'blockTimestampLast', 'unlocked', 'price0CumulativeLast', 'reserve0', 'price1CumulativeLast']                   |                                  []                                  |
+|     slitherConstructorVariables     |                                                                   ['unlocked']                                                                  |                                  []                                  |
+| slitherConstructorConstantVariables |                                ['decimals', 'MINIMUM_LIQUIDITY', 'PERMIT_TYPEHASH', 'name', 'SELECTOR', 'symbol']                               |                                  []                                  |
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------+
+
+Contract IERC20
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+|     name     |            []           |            []            |
+|    symbol    |            []           |            []            |
+|   decimals   |            []           |            []            |
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+|   transfer   |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Callee
++---------------+-------------------------+--------------------------+
+|    Function   | State variables written | Conditions on msg.sender |
++---------------+-------------------------+--------------------------+
+| uniswapV2Call |            []           |            []            |
++---------------+-------------------------+--------------------------+
+
+Contract IUniswapV2ERC20
++------------------+-------------------------+--------------------------+
+|     Function     | State variables written | Conditions on msg.sender |
++------------------+-------------------------+--------------------------+
+|       name       |            []           |            []            |
+|      symbol      |            []           |            []            |
+|     decimals     |            []           |            []            |
+|   totalSupply    |            []           |            []            |
+|    balanceOf     |            []           |            []            |
+|    allowance     |            []           |            []            |
+|     approve      |            []           |            []            |
+|     transfer     |            []           |            []            |
+|   transferFrom   |            []           |            []            |
+| DOMAIN_SEPARATOR |            []           |            []            |
+| PERMIT_TYPEHASH  |            []           |            []            |
+|      nonces      |            []           |            []            |
+|      permit      |            []           |            []            |
++------------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Factory
++----------------+-------------------------+--------------------------+
+|    Function    | State variables written | Conditions on msg.sender |
++----------------+-------------------------+--------------------------+
+|     feeTo      |            []           |            []            |
+|  feeToSetter   |            []           |            []            |
+|    getPair     |            []           |            []            |
+|    allPairs    |            []           |            []            |
+| allPairsLength |            []           |            []            |
+|   createPair   |            []           |            []            |
+|    setFeeTo    |            []           |            []            |
+| setFeeToSetter |            []           |            []            |
++----------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Pair
++----------------------+-------------------------+--------------------------+
+|       Function       | State variables written | Conditions on msg.sender |
++----------------------+-------------------------+--------------------------+
+|         name         |            []           |            []            |
+|        symbol        |            []           |            []            |
+|       decimals       |            []           |            []            |
+|     totalSupply      |            []           |            []            |
+|      balanceOf       |            []           |            []            |
+|      allowance       |            []           |            []            |
+|       approve        |            []           |            []            |
+|       transfer       |            []           |            []            |
+|     transferFrom     |            []           |            []            |
+|   DOMAIN_SEPARATOR   |            []           |            []            |
+|   PERMIT_TYPEHASH    |            []           |            []            |
+|        nonces        |            []           |            []            |
+|        permit        |            []           |            []            |
+|  MINIMUM_LIQUIDITY   |            []           |            []            |
+|       factory        |            []           |            []            |
+|        token0        |            []           |            []            |
+|        token1        |            []           |            []            |
+|     getReserves      |            []           |            []            |
+| price0CumulativeLast |            []           |            []            |
+| price1CumulativeLast |            []           |            []            |
+|        kLast         |            []           |            []            |
+|         mint         |            []           |            []            |
+|         burn         |            []           |            []            |
+|         swap         |            []           |            []            |
+|         skim         |            []           |            []            |
+|         sync         |            []           |            []            |
+|      initialize      |            []           |            []            |
++----------------------+-------------------------+--------------------------+
+
+Contract Math
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+|   min    |            []           |            []            |
+|   sqrt   |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract SafeMath
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+|   add    |            []           |            []            |
+|   sub    |            []           |            []            |
+|   mul    |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract UQ112x112
++-------------------------------------+-------------------------+--------------------------+
+|               Function              | State variables written | Conditions on msg.sender |
++-------------------------------------+-------------------------+--------------------------+
+|                encode               |            []           |            []            |
+|                uqdiv                |            []           |            []            |
+| slitherConstructorConstantVariables |         ['Q112']        |            []            |
++-------------------------------------+-------------------------+--------------------------+
+
+Contract WETH9
++-----------------------------+--------------------------------+-------------------------------------------------------------------------------------------------------------------------+
+|           Function          |    State variables written     |                                                 Conditions on msg.sender                                                |
++-----------------------------+--------------------------------+-------------------------------------------------------------------------------------------------------------------------+
+|           fallback          |         ['balanceOf']          |                                                            []                                                           |
+|           deposit           |         ['balanceOf']          |                                                            []                                                           |
+|           withdraw          |         ['balanceOf']          |                                     ['require(bool)(balanceOf[msg.sender] >= wad)']                                     |
+|         totalSupply         |               []               |                                                            []                                                           |
+|           approve           |         ['allowance']          |                                                            []                                                           |
+|           transfer          |   ['balanceOf', 'allowance']   | ['src != msg.sender && allowance[src][msg.sender] != uint256(- 1)', 'require(bool)(allowance[src][msg.sender] >= wad)'] |
+|         transferFrom        |   ['balanceOf', 'allowance']   | ['src != msg.sender && allowance[src][msg.sender] != uint256(- 1)', 'require(bool)(allowance[src][msg.sender] >= wad)'] |
+| slitherConstructorVariables | ['name', 'symbol', 'decimals'] |                                                            []                                                           |
++-----------------------------+--------------------------------+-------------------------------------------------------------------------------------------------------------------------+
+
+Contract TransferHelper
++------------------+-------------------------+--------------------------+
+|     Function     | State variables written | Conditions on msg.sender |
++------------------+-------------------------+--------------------------+
+|   safeApprove    |            []           |            []            |
+|   safeTransfer   |            []           |            []            |
+| safeTransferFrom |            []           |            []            |
+| safeTransferETH  |            []           |            []            |
++------------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Factory
++----------------+-------------------------+--------------------------+
+|    Function    | State variables written | Conditions on msg.sender |
++----------------+-------------------------+--------------------------+
+|     feeTo      |            []           |            []            |
+|  feeToSetter   |            []           |            []            |
+|    getPair     |            []           |            []            |
+|    allPairs    |            []           |            []            |
+| allPairsLength |            []           |            []            |
+|   createPair   |            []           |            []            |
+|    setFeeTo    |            []           |            []            |
+| setFeeToSetter |            []           |            []            |
++----------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Pair
++----------------------+-------------------------+--------------------------+
+|       Function       | State variables written | Conditions on msg.sender |
++----------------------+-------------------------+--------------------------+
+|         name         |            []           |            []            |
+|        symbol        |            []           |            []            |
+|       decimals       |            []           |            []            |
+|     totalSupply      |            []           |            []            |
+|      balanceOf       |            []           |            []            |
+|      allowance       |            []           |            []            |
+|       approve        |            []           |            []            |
+|       transfer       |            []           |            []            |
+|     transferFrom     |            []           |            []            |
+|   DOMAIN_SEPARATOR   |            []           |            []            |
+|   PERMIT_TYPEHASH    |            []           |            []            |
+|        nonces        |            []           |            []            |
+|        permit        |            []           |            []            |
+|  MINIMUM_LIQUIDITY   |            []           |            []            |
+|       factory        |            []           |            []            |
+|        token0        |            []           |            []            |
+|        token1        |            []           |            []            |
+|     getReserves      |            []           |            []            |
+| price0CumulativeLast |            []           |            []            |
+| price1CumulativeLast |            []           |            []            |
+|        kLast         |            []           |            []            |
+|         mint         |            []           |            []            |
+|         burn         |            []           |            []            |
+|         swap         |            []           |            []            |
+|         skim         |            []           |            []            |
+|         sync         |            []           |            []            |
+|      initialize      |            []           |            []            |
++----------------------+-------------------------+--------------------------+
+
+Contract UniswapV2Router02
++-----------------------------------------------------------+-------------------------+--------------------------------------+
+|                          Function                         | State variables written |       Conditions on msg.sender       |
++-----------------------------------------------------------+-------------------------+--------------------------------------+
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |            []           |                  []                  |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |            []           |                  []                  |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |            []           |                  []                  |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |            []           |                  []                  |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |            []           |                  []                  |
+|                          factory                          |            []           |                  []                  |
+|                            WETH                           |            []           |                  []                  |
+|                        addLiquidity                       |            []           |                  []                  |
+|                      addLiquidityETH                      |            []           |                  []                  |
+|                      removeLiquidity                      |            []           |                  []                  |
+|                     removeLiquidityETH                    |            []           |                  []                  |
+|                 removeLiquidityWithPermit                 |            []           |                  []                  |
+|                removeLiquidityETHWithPermit               |            []           |                  []                  |
+|                  swapExactTokensForTokens                 |            []           |                  []                  |
+|                  swapTokensForExactTokens                 |            []           |                  []                  |
+|                   swapExactETHForTokens                   |            []           |                  []                  |
+|                   swapTokensForExactETH                   |            []           |                  []                  |
+|                   swapExactTokensForETH                   |            []           |                  []                  |
+|                   swapETHForExactTokens                   |            []           |                  []                  |
+|                           quote                           |            []           |                  []                  |
+|                        getAmountOut                       |            []           |                  []                  |
+|                        getAmountIn                        |            []           |                  []                  |
+|                       getAmountsOut                       |            []           |                  []                  |
+|                        getAmountsIn                       |            []           |                  []                  |
+|                        constructor                        |   ['factory', 'WETH']   |                  []                  |
+|                          receive                          |            []           | ['assert(bool)(msg.sender == WETH)'] |
+|                       _addLiquidity                       |            []           |                  []                  |
+|                        addLiquidity                       |            []           |                  []                  |
+|                      addLiquidityETH                      |            []           |                  []                  |
+|                      removeLiquidity                      |            []           |                  []                  |
+|                     removeLiquidityETH                    |            []           |                  []                  |
+|                 removeLiquidityWithPermit                 |            []           |                  []                  |
+|                removeLiquidityETHWithPermit               |            []           |                  []                  |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |            []           |                  []                  |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |            []           |                  []                  |
+|                           _swap                           |            []           |                  []                  |
+|                  swapExactTokensForTokens                 |            []           |                  []                  |
+|                  swapTokensForExactTokens                 |            []           |                  []                  |
+|                   swapExactETHForTokens                   |            []           |                  []                  |
+|                   swapTokensForExactETH                   |            []           |                  []                  |
+|                   swapExactTokensForETH                   |            []           |                  []                  |
+|                   swapETHForExactTokens                   |            []           |                  []                  |
+|             _swapSupportingFeeOnTransferTokens            |            []           |                  []                  |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |            []           |                  []                  |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |            []           |                  []                  |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |            []           |                  []                  |
+|                           quote                           |            []           |                  []                  |
+|                        getAmountOut                       |            []           |                  []                  |
+|                        getAmountIn                        |            []           |                  []                  |
+|                       getAmountsOut                       |            []           |                  []                  |
+|                        getAmountsIn                       |            []           |                  []                  |
++-----------------------------------------------------------+-------------------------+--------------------------------------+
+
+Contract IERC20
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+|     name     |            []           |            []            |
+|    symbol    |            []           |            []            |
+|   decimals   |            []           |            []            |
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+|   transfer   |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Router01
++------------------------------+-------------------------+--------------------------+
+|           Function           | State variables written | Conditions on msg.sender |
++------------------------------+-------------------------+--------------------------+
+|           factory            |            []           |            []            |
+|             WETH             |            []           |            []            |
+|         addLiquidity         |            []           |            []            |
+|       addLiquidityETH        |            []           |            []            |
+|       removeLiquidity        |            []           |            []            |
+|      removeLiquidityETH      |            []           |            []            |
+|  removeLiquidityWithPermit   |            []           |            []            |
+| removeLiquidityETHWithPermit |            []           |            []            |
+|   swapExactTokensForTokens   |            []           |            []            |
+|   swapTokensForExactTokens   |            []           |            []            |
+|    swapExactETHForTokens     |            []           |            []            |
+|    swapTokensForExactETH     |            []           |            []            |
+|    swapExactTokensForETH     |            []           |            []            |
+|    swapETHForExactTokens     |            []           |            []            |
+|            quote             |            []           |            []            |
+|         getAmountOut         |            []           |            []            |
+|         getAmountIn          |            []           |            []            |
+|        getAmountsOut         |            []           |            []            |
+|         getAmountsIn         |            []           |            []            |
++------------------------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Router02
++-----------------------------------------------------------+-------------------------+--------------------------+
+|                          Function                         | State variables written | Conditions on msg.sender |
++-----------------------------------------------------------+-------------------------+--------------------------+
+|                          factory                          |            []           |            []            |
+|                            WETH                           |            []           |            []            |
+|                        addLiquidity                       |            []           |            []            |
+|                      addLiquidityETH                      |            []           |            []            |
+|                      removeLiquidity                      |            []           |            []            |
+|                     removeLiquidityETH                    |            []           |            []            |
+|                 removeLiquidityWithPermit                 |            []           |            []            |
+|                removeLiquidityETHWithPermit               |            []           |            []            |
+|                  swapExactTokensForTokens                 |            []           |            []            |
+|                  swapTokensForExactTokens                 |            []           |            []            |
+|                   swapExactETHForTokens                   |            []           |            []            |
+|                   swapTokensForExactETH                   |            []           |            []            |
+|                   swapExactTokensForETH                   |            []           |            []            |
+|                   swapETHForExactTokens                   |            []           |            []            |
+|                           quote                           |            []           |            []            |
+|                        getAmountOut                       |            []           |            []            |
+|                        getAmountIn                        |            []           |            []            |
+|                       getAmountsOut                       |            []           |            []            |
+|                        getAmountsIn                       |            []           |            []            |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |            []           |            []            |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |            []           |            []            |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |            []           |            []            |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |            []           |            []            |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |            []           |            []            |
++-----------------------------------------------------------+-------------------------+--------------------------+
+
+Contract IWETH
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+| deposit  |            []           |            []            |
+| transfer |            []           |            []            |
+| withdraw |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract SafeMath
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+|   add    |            []           |            []            |
+|   sub    |            []           |            []            |
+|   mul    |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract UniswapV2Library
++---------------+-------------------------+--------------------------+
+|    Function   | State variables written | Conditions on msg.sender |
++---------------+-------------------------+--------------------------+
+|   sortTokens  |            []           |            []            |
+|    pairFor    |            []           |            []            |
+|  getReserves  |            []           |            []            |
+|     quote     |            []           |            []            |
+|  getAmountOut |            []           |            []            |
+|  getAmountIn  |            []           |            []            |
+| getAmountsOut |            []           |            []            |
+|  getAmountsIn |            []           |            []            |
++---------------+-------------------------+--------------------------+
+
+Contract Ownable
++--------------------+-------------------------+--------------------------+
+|      Function      | State variables written | Conditions on msg.sender |
++--------------------+-------------------------+--------------------------+
+|     _msgSender     |            []           |            []            |
+|      _msgData      |            []           |            []            |
+|    constructor     |        ['_owner']       |            []            |
+|       owner        |            []           |            []            |
+|    _checkOwner     |            []           |            []            |
+| renounceOwnership  |        ['_owner']       |            []            |
+| transferOwnership  |        ['_owner']       |            []            |
+| _transferOwnership |        ['_owner']       |            []            |
++--------------------+-------------------------+--------------------------+
+
+Contract ERC20
++----------------------+-------------------------------+--------------------------+
+|       Function       |    State variables written    | Conditions on msg.sender |
++----------------------+-------------------------------+--------------------------+
+|         name         |               []              |            []            |
+|        symbol        |               []              |            []            |
+|       decimals       |               []              |            []            |
+|     totalSupply      |               []              |            []            |
+|      balanceOf       |               []              |            []            |
+|       transfer       |               []              |            []            |
+|      allowance       |               []              |            []            |
+|       approve        |               []              |            []            |
+|     transferFrom     |               []              |            []            |
+|      _msgSender      |               []              |            []            |
+|       _msgData       |               []              |            []            |
+|     constructor      |      ['_name', '_symbol']     |            []            |
+|         name         |               []              |            []            |
+|        symbol        |               []              |            []            |
+|       decimals       |               []              |            []            |
+|     totalSupply      |               []              |            []            |
+|      balanceOf       |               []              |            []            |
+|       transfer       |         ['_balances']         |            []            |
+|      allowance       |               []              |            []            |
+|       approve        |        ['_allowances']        |            []            |
+|     transferFrom     |  ['_balances', '_allowances'] |            []            |
+|  increaseAllowance   |        ['_allowances']        |            []            |
+|  decreaseAllowance   |        ['_allowances']        |            []            |
+|      _transfer       |         ['_balances']         |            []            |
+|        _mint         | ['_balances', '_totalSupply'] |            []            |
+|        _burn         | ['_balances', '_totalSupply'] |            []            |
+|       _approve       |        ['_allowances']        |            []            |
+|   _spendAllowance    |        ['_allowances']        |            []            |
+| _beforeTokenTransfer |               []              |            []            |
+| _afterTokenTransfer  |               []              |            []            |
++----------------------+-------------------------------+--------------------------+
+
+Contract IERC20
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|   transfer   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract IERC20Metadata
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|   transfer   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+| transferFrom |            []           |            []            |
+|     name     |            []           |            []            |
+|    symbol    |            []           |            []            |
+|   decimals   |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract Context
++------------+-------------------------+--------------------------+
+|  Function  | State variables written | Conditions on msg.sender |
++------------+-------------------------+--------------------------+
+| _msgSender |            []           |            []            |
+|  _msgData  |            []           |            []            |
++------------+-------------------------+--------------------------+
+
+Contract PRBMath
++-------------------------------------+-------------------------------------------+--------------------------+
+|               Function              |          State variables written          | Conditions on msg.sender |
++-------------------------------------+-------------------------------------------+--------------------------+
+|                 exp2                |                     []                    |            []            |
+|          mostSignificantBit         |                     []                    |            []            |
+|                mulDiv               |                     []                    |            []            |
+|           mulDivFixedPoint          |                     []                    |            []            |
+|             mulDivSigned            |                     []                    |            []            |
+|                 sqrt                |                     []                    |            []            |
+| slitherConstructorConstantVariables | ['SCALE', 'SCALE_LPOTD', 'SCALE_INVERSE'] |            []            |
++-------------------------------------+-------------------------------------------+--------------------------+
+
+Contract PRBMathSD59x18
++-------------------------------------+-----------------------------------------------------------------------------------------------------------+--------------------------+
+|               Function              |                                          State variables written                                          | Conditions on msg.sender |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------+--------------------------+
+|                 abs                 |                                                     []                                                    |            []            |
+|                 avg                 |                                                     []                                                    |            []            |
+|                 ceil                |                                                     []                                                    |            []            |
+|                 div                 |                                                     []                                                    |            []            |
+|                  e                  |                                                     []                                                    |            []            |
+|                 exp                 |                                                     []                                                    |            []            |
+|                 exp2                |                                                     []                                                    |            []            |
+|                floor                |                                                     []                                                    |            []            |
+|                 frac                |                                                     []                                                    |            []            |
+|               fromInt               |                                                     []                                                    |            []            |
+|                  gm                 |                                                     []                                                    |            []            |
+|                 inv                 |                                                     []                                                    |            []            |
+|                  ln                 |                                                     []                                                    |            []            |
+|                log10                |                                                     []                                                    |            []            |
+|                 log2                |                                                     []                                                    |            []            |
+|                 mul                 |                                                     []                                                    |            []            |
+|                  pi                 |                                                     []                                                    |            []            |
+|                 pow                 |                                                     []                                                    |            []            |
+|                 powu                |                                                     []                                                    |            []            |
+|                scale                |                                                     []                                                    |            []            |
+|                 sqrt                |                                                     []                                                    |            []            |
+|                toInt                |                                                     []                                                    |            []            |
+| slitherConstructorConstantVariables | ['MIN_WHOLE_SD59x18', 'MAX_SD59x18', 'SCALE', 'MAX_WHOLE_SD59x18', 'LOG2_E', 'MIN_SD59x18', 'HALF_SCALE'] |            []            |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------+--------------------------+
+
+Contract TransferHelper
++------------------+-------------------------+--------------------------+
+|     Function     | State variables written | Conditions on msg.sender |
++------------------+-------------------------+--------------------------+
+|   safeApprove    |            []           |            []            |
+|   safeTransfer   |            []           |            []            |
+| safeTransferFrom |            []           |            []            |
+| safeTransferETH  |            []           |            []            |
++------------------+-------------------------+--------------------------+
+
+Contract IERC20
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+|     name     |            []           |            []            |
+|    symbol    |            []           |            []            |
+|   decimals   |            []           |            []            |
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+|   transfer   |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Callee
++---------------+-------------------------+--------------------------+
+|    Function   | State variables written | Conditions on msg.sender |
++---------------+-------------------------+--------------------------+
+| uniswapV2Call |            []           |            []            |
++---------------+-------------------------+--------------------------+
+
+Contract IUniswapV2ERC20
++------------------+-------------------------+--------------------------+
+|     Function     | State variables written | Conditions on msg.sender |
++------------------+-------------------------+--------------------------+
+|       name       |            []           |            []            |
+|      symbol      |            []           |            []            |
+|     decimals     |            []           |            []            |
+|   totalSupply    |            []           |            []            |
+|    balanceOf     |            []           |            []            |
+|    allowance     |            []           |            []            |
+|     approve      |            []           |            []            |
+|     transfer     |            []           |            []            |
+|   transferFrom   |            []           |            []            |
+| DOMAIN_SEPARATOR |            []           |            []            |
+| PERMIT_TYPEHASH  |            []           |            []            |
+|      nonces      |            []           |            []            |
+|      permit      |            []           |            []            |
++------------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Factory
++----------------+-------------------------+--------------------------+
+|    Function    | State variables written | Conditions on msg.sender |
++----------------+-------------------------+--------------------------+
+|     feeTo      |            []           |            []            |
+|  feeToSetter   |            []           |            []            |
+|    getPair     |            []           |            []            |
+|    allPairs    |            []           |            []            |
+| allPairsLength |            []           |            []            |
+|   createPair   |            []           |            []            |
+|    setFeeTo    |            []           |            []            |
+| setFeeToSetter |            []           |            []            |
++----------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Pair
++----------------------+-------------------------+--------------------------+
+|       Function       | State variables written | Conditions on msg.sender |
++----------------------+-------------------------+--------------------------+
+|         name         |            []           |            []            |
+|        symbol        |            []           |            []            |
+|       decimals       |            []           |            []            |
+|     totalSupply      |            []           |            []            |
+|      balanceOf       |            []           |            []            |
+|      allowance       |            []           |            []            |
+|       approve        |            []           |            []            |
+|       transfer       |            []           |            []            |
+|     transferFrom     |            []           |            []            |
+|   DOMAIN_SEPARATOR   |            []           |            []            |
+|   PERMIT_TYPEHASH    |            []           |            []            |
+|        nonces        |            []           |            []            |
+|        permit        |            []           |            []            |
+|  MINIMUM_LIQUIDITY   |            []           |            []            |
+|       factory        |            []           |            []            |
+|        token0        |            []           |            []            |
+|        token1        |            []           |            []            |
+|     getReserves      |            []           |            []            |
+| price0CumulativeLast |            []           |            []            |
+| price1CumulativeLast |            []           |            []            |
+|        kLast         |            []           |            []            |
+|         mint         |            []           |            []            |
+|         burn         |            []           |            []            |
+|         swap         |            []           |            []            |
+|         skim         |            []           |            []            |
+|         sync         |            []           |            []            |
+|      initialize      |            []           |            []            |
++----------------------+-------------------------+--------------------------+
+
+Contract IERC20
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+|     name     |            []           |            []            |
+|    symbol    |            []           |            []            |
+|   decimals   |            []           |            []            |
+| totalSupply  |            []           |            []            |
+|  balanceOf   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+|   transfer   |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Router01
++------------------------------+-------------------------+--------------------------+
+|           Function           | State variables written | Conditions on msg.sender |
++------------------------------+-------------------------+--------------------------+
+|           factory            |            []           |            []            |
+|             WETH             |            []           |            []            |
+|         addLiquidity         |            []           |            []            |
+|       addLiquidityETH        |            []           |            []            |
+|       removeLiquidity        |            []           |            []            |
+|      removeLiquidityETH      |            []           |            []            |
+|  removeLiquidityWithPermit   |            []           |            []            |
+| removeLiquidityETHWithPermit |            []           |            []            |
+|   swapExactTokensForTokens   |            []           |            []            |
+|   swapTokensForExactTokens   |            []           |            []            |
+|    swapExactETHForTokens     |            []           |            []            |
+|    swapTokensForExactETH     |            []           |            []            |
+|    swapExactTokensForETH     |            []           |            []            |
+|    swapETHForExactTokens     |            []           |            []            |
+|            quote             |            []           |            []            |
+|         getAmountOut         |            []           |            []            |
+|         getAmountIn          |            []           |            []            |
+|        getAmountsOut         |            []           |            []            |
+|         getAmountsIn         |            []           |            []            |
++------------------------------+-------------------------+--------------------------+
+
+Contract IUniswapV2Router02
++-----------------------------------------------------------+-------------------------+--------------------------+
+|                          Function                         | State variables written | Conditions on msg.sender |
++-----------------------------------------------------------+-------------------------+--------------------------+
+|                          factory                          |            []           |            []            |
+|                            WETH                           |            []           |            []            |
+|                        addLiquidity                       |            []           |            []            |
+|                      addLiquidityETH                      |            []           |            []            |
+|                      removeLiquidity                      |            []           |            []            |
+|                     removeLiquidityETH                    |            []           |            []            |
+|                 removeLiquidityWithPermit                 |            []           |            []            |
+|                removeLiquidityETHWithPermit               |            []           |            []            |
+|                  swapExactTokensForTokens                 |            []           |            []            |
+|                  swapTokensForExactTokens                 |            []           |            []            |
+|                   swapExactETHForTokens                   |            []           |            []            |
+|                   swapTokensForExactETH                   |            []           |            []            |
+|                   swapExactTokensForETH                   |            []           |            []            |
+|                   swapETHForExactTokens                   |            []           |            []            |
+|                           quote                           |            []           |            []            |
+|                        getAmountOut                       |            []           |            []            |
+|                        getAmountIn                        |            []           |            []            |
+|                       getAmountsOut                       |            []           |            []            |
+|                        getAmountsIn                       |            []           |            []            |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |            []           |            []            |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |            []           |            []            |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |            []           |            []            |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |            []           |            []            |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |            []           |            []            |
++-----------------------------------------------------------+-------------------------+--------------------------+
+
+Contract IWETH
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+| deposit  |            []           |            []            |
+| transfer |            []           |            []            |
+| withdraw |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract Depository
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------+----------------------------------------------------+
+|               Function              |                                                State variables written                                                |              Conditions on msg.sender              |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------+----------------------------------------------------+
+|              initialize             |          ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole']          |                         []                         |
+|             changeOwner             |                                                       ['owner']                                                       |              ['msg.sender != owner']               |
+|            changeManagers           |                                 ['tokenomics', 'treasury', 'depository', 'dispenser']                                 |              ['msg.sender != owner']               |
+|             constructor             | ['treasury', 'owner', 'depository', 'olas', 'dispenser', 'bondCalculator', '_locked', 'tokenomics', 'tokenomicsRole'] |                         []                         |
+|         changeBondCalculator        |                                                   ['bondCalculator']                                                  |              ['msg.sender != owner']               |
+|               deposit               |                                   ['bondCounter', 'mapUserBonds', 'mapBondProducts']                                  |                         []                         |
+|                redeem               |                                          ['mapUserBonds', 'mapBondProducts']                                          | ['mapUserBonds[bondIds[i]].account != msg.sender'] |
+|           getPendingBonds           |                                                           []                                                          |                         []                         |
+|            getBondStatus            |                                                           []                                                          |                         []                         |
+|                create               |                                         ['productCounter', 'mapBondProducts']                                         |              ['msg.sender != owner']               |
+|                close                |                                                  ['mapBondProducts']                                                  |              ['msg.sender != owner']               |
+|           isActiveProduct           |                                                           []                                                          |                         []                         |
+|          getActiveProducts          |                                                           []                                                          |                         []                         |
+|          getCurrentPriceLP          |                                                           []                                                          |                         []                         |
+| slitherConstructorConstantVariables |                                        ['SENTINEL_ADDRESS', 'PROXY_TOKENOMICS']                                       |                         []                         |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------+----------------------------------------------------+
+
+Contract Dispenser
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+|               Function              |                                       State variables written                                       | Conditions on msg.sender |
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+|              initialize             | ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole'] |            []            |
+|             changeOwner             |                                              ['owner']                                              | ['msg.sender != owner']  |
+|            changeManagers           |                        ['tokenomics', 'treasury', 'depository', 'dispenser']                        | ['msg.sender != owner']  |
+|             constructor             | ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole'] |            []            |
+|         claimOwnerIncentives        |                                             ['_locked']                                             |            []            |
+| slitherConstructorConstantVariables |                               ['SENTINEL_ADDRESS', 'PROXY_TOKENOMICS']                              |            []            |
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+
+Contract DonatorBlacklist
++----------------------+----------------------------+--------------------------+
+|       Function       |  State variables written   | Conditions on msg.sender |
++----------------------+----------------------------+--------------------------+
+|     constructor      |         ['owner']          |            []            |
+|     changeOwner      |         ['owner']          | ['msg.sender != owner']  |
+| setDonatorsStatuses  | ['mapBlacklistedDonators'] | ['msg.sender != owner']  |
+| isDonatorBlacklisted |             []             |            []            |
++----------------------+----------------------------+--------------------------+
+
+Contract GenericBondCalculator
++---------------------+-------------------------+--------------------------+
+|       Function      | State variables written | Conditions on msg.sender |
++---------------------+-------------------------+--------------------------+
+|     constructor     |  ['olas', 'tokenomics'] |            []            |
+| calculatePayoutOLAS |            []           |            []            |
+|  getCurrentPriceLP  |            []           |            []            |
+|       checkLP       |            []           |            []            |
++---------------------+-------------------------+--------------------------+
+
+Contract GenericTokenomics
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+|               Function              |                                       State variables written                                       | Conditions on msg.sender |
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+|              initialize             | ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole'] |            []            |
+|             changeOwner             |                                              ['owner']                                              | ['msg.sender != owner']  |
+|            changeManagers           |                        ['tokenomics', 'treasury', 'depository', 'dispenser']                        | ['msg.sender != owner']  |
+| slitherConstructorConstantVariables |                               ['SENTINEL_ADDRESS', 'PROXY_TOKENOMICS']                              |            []            |
++-------------------------------------+-----------------------------------------------------------------------------------------------------+--------------------------+
+
+Contract Tokenomics
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+
+|               Function              |                                                                                                                                                                  State variables written                                                                                                                                                                  |   Conditions on msg.sender   |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+
+|              initialize             |                                                                                                                            ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole']                                                                                                                            |              []              |
+|             changeOwner             |                                                                                                                                                                         ['owner']                                                                                                                                                                         |   ['msg.sender != owner']    |
+|            changeManagers           |                                                                                                                                                   ['tokenomics', 'treasury', 'depository', 'dispenser']                                                                                                                                                   |   ['msg.sender != owner']    |
+|         getSupplyCapForYear         |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|         getInflationForYear         |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|             constructor             |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|         initializeTokenomics        | ['lockMaxBond', '_locked', 'serviceRegistry', 'tokenomicsRole', 'timeLaunch', 'owner', 've', 'olas', 'maxBond', 'tokenomics', 'epsilonRate', 'treasury', 'mapEpochTokenomics', 'inflationPerSecond', 'depository', 'veOLASThreshold', 'dispenser', 'componentRegistry', 'effectiveBond', 'donatorBlacklist', 'epochLen', 'epochCounter', 'agentRegistry'] |              []              |
+|       tokenomicsImplementation      |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|    changeTokenomicsImplementation   |                                                                                                                                                                             []                                                                                                                                                                            |   ['msg.sender != owner']    |
+|            _adjustMaxBond           |                                                                                                                                                                ['effectiveBond', 'maxBond']                                                                                                                                                               |              []              |
+|      changeTokenomicsParameters     |                                                                                                                              ['effectiveBond', 'mapEpochTokenomics', 'epochLen', 'veOLASThreshold', 'maxBond', 'epsilonRate']                                                                                                                             |   ['msg.sender != owner']    |
+|       changeIncentiveFractions      |                                                                                                                                                     ['effectiveBond', 'mapEpochTokenomics', 'maxBond']                                                                                                                                                    |   ['msg.sender != owner']    |
+|           changeRegistries          |                                                                                                                                                 ['serviceRegistry', 'componentRegistry', 'agentRegistry']                                                                                                                                                 |   ['msg.sender != owner']    |
+|        changeDonatorBlacklist       |                                                                                                                                                                    ['donatorBlacklist']                                                                                                                                                                   |   ['msg.sender != owner']    |
+|     reserveAmountForBondProgram     |                                                                                                                                                                     ['effectiveBond']                                                                                                                                                                     | ['depository != msg.sender'] |
+|        refundFromBondProgram        |                                                                                                                                                                     ['effectiveBond']                                                                                                                                                                     | ['depository != msg.sender'] |
+|     _finalizeIncentivesForUnitId    |                                                                                                                                                                   ['mapUnitIncentives']                                                                                                                                                                   |              []              |
+|        _trackServiceDonations       |                                                                                                                                         ['mapUnitIncentives', 'mapEpochTokenomics', 'mapNewUnits', 'mapNewOwners']                                                                                                                                        |              []              |
+|        trackServiceDonations        |                                                                                                                                         ['mapUnitIncentives', 'mapEpochTokenomics', 'mapNewUnits', 'mapNewOwners']                                                                                                                                        |  ['treasury != msg.sender']  |
+|              checkpoint             |                                                                                                                   ['effectiveBond', 'mapEpochTokenomics', 'currentYear', 'inflationPerSecond', 'lockMaxBond', 'epochCounter', 'maxBond']                                                                                                                  |              []              |
+|         getInflationPerEpoch        |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|            getEpochPoint            |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|             getUnitPoint            |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|                getIDF               |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|              getLastIDF             |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|        accountOwnerIncentives       |                                                                                                                                                                   ['mapUnitIncentives']                                                                                                                                                                   | ['dispenser != msg.sender']  |
+|          getOwnerIncentives         |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+|         getIncentiveBalances        |                                                                                                                                                                             []                                                                                                                                                                            |              []              |
+| slitherConstructorConstantVariables |                                                                                                                                                    ['SENTINEL_ADDRESS', 'PROXY_TOKENOMICS', 'oneYear']                                                                                                                                                    |              []              |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------------------------+
+
+Contract TokenomicsConstants
++-------------------------------------+-------------------------+--------------------------+
+|               Function              | State variables written | Conditions on msg.sender |
++-------------------------------------+-------------------------+--------------------------+
+|         getSupplyCapForYear         |            []           |            []            |
+|         getInflationForYear         |            []           |            []            |
+| slitherConstructorConstantVariables |       ['oneYear']       |            []            |
++-------------------------------------+-------------------------+--------------------------+
+
+Contract TokenomicsProxy
++-------------------------------------+-------------------------+--------------------------+
+|               Function              | State variables written | Conditions on msg.sender |
++-------------------------------------+-------------------------+--------------------------+
+|             constructor             |            []           |            []            |
+|               fallback              |            []           |            []            |
+| slitherConstructorConstantVariables |   ['PROXY_TOKENOMICS']  |            []            |
++-------------------------------------+-------------------------+--------------------------+
+
+Contract Treasury
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------+------------------------------+
+|               Function              |                                             State variables written                                             |   Conditions on msg.sender   |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------+------------------------------+
+|              initialize             |       ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'tokenomics', 'tokenomicsRole']       |              []              |
+|             changeOwner             |                                                    ['owner']                                                    |   ['msg.sender != owner']    |
+|            changeManagers           |                              ['tokenomics', 'treasury', 'depository', 'dispenser']                              |   ['msg.sender != owner']    |
+|             constructor             | ['treasury', 'owner', 'depository', 'olas', 'dispenser', '_locked', 'ETHOwned', 'tokenomics', 'tokenomicsRole'] |              []              |
+|               receive               |                                                   ['ETHOwned']                                                  |              []              |
+|         depositTokenForOLAS         |                                                  ['mapTokens']                                                  | ['depository != msg.sender'] |
+|      depositServiceDonationsETH     |                                               ['ETHFromServices']                                               |              []              |
+|               withdraw              |                                            ['mapTokens', 'ETHOwned']                                            |   ['msg.sender != owner']    |
+|          withdrawToAccount          |                                               ['ETHFromServices']                                               | ['dispenser != msg.sender']  |
+|             enableToken             |                                          ['mapTokens', 'tokenRegistry']                                         |   ['msg.sender != owner']    |
+|             disableToken            |                                                  ['mapTokens']                                                  |   ['msg.sender != owner']    |
+|              isEnabled              |                                                        []                                                       |              []              |
+|          rebalanceTreasury          |                                         ['ETHFromServices', 'ETHOwned']                                         | ['msg.sender != tokenomics'] |
+|       drainServiceSlashedFunds      |                                                        []                                                       |   ['msg.sender != owner']    |
+|                pause                |                                                    ['paused']                                                   |   ['msg.sender != owner']    |
+|               unpause               |                                                    ['paused']                                                   |   ['msg.sender != owner']    |
+|     slitherConstructorVariables     |                                                    ['paused']                                                   |              []              |
+| slitherConstructorConstantVariables |                          ['SENTINEL_ADDRESS', 'PROXY_TOKENOMICS', 'ETH_TOKEN_ADDRESS']                          |              []              |
++-------------------------------------+-----------------------------------------------------------------------------------------------------------------+------------------------------+
+
+Contract IDonatorBlacklist
++----------------------+-------------------------+--------------------------+
+|       Function       | State variables written | Conditions on msg.sender |
++----------------------+-------------------------+--------------------------+
+| isDonatorBlacklisted |            []           |            []            |
++----------------------+-------------------------+--------------------------+
+
+Contract IErrorsTokenomics
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
++----------+-------------------------+--------------------------+
+
+Contract IGenericBondCalculator
++---------------------+-------------------------+--------------------------+
+|       Function      | State variables written | Conditions on msg.sender |
++---------------------+-------------------------+--------------------------+
+| calculatePayoutOLAS |            []           |            []            |
+|  getCurrentPriceLP  |            []           |            []            |
+|       checkLP       |            []           |            []            |
++---------------------+-------------------------+--------------------------+
+
+Contract IOLAS
++--------------------+-------------------------+--------------------------+
+|      Function      | State variables written | Conditions on msg.sender |
++--------------------+-------------------------+--------------------------+
+|        mint        |            []           |            []            |
+|     timeLaunch     |            []           |            []            |
+| inflationRemainder |            []           |            []            |
+|      decimals      |            []           |            []            |
+|      transfer      |            []           |            []            |
++--------------------+-------------------------+--------------------------+
+
+Contract IServiceTokenomics
++---------------------+-------------------------+--------------------------+
+|       Function      | State variables written | Conditions on msg.sender |
++---------------------+-------------------------+--------------------------+
+|        exists       |            []           |            []            |
+| getUnitIdsOfService |            []           |            []            |
+|        drain        |            []           |            []            |
++---------------------+-------------------------+--------------------------+
+
+Contract IToken
++-------------+-------------------------+--------------------------+
+|   Function  | State variables written | Conditions on msg.sender |
++-------------+-------------------------+--------------------------+
+|  balanceOf  |            []           |            []            |
+|   ownerOf   |            []           |            []            |
+| totalSupply |            []           |            []            |
++-------------+-------------------------+--------------------------+
+
+Contract ITokenomics
++-----------------------------+-------------------------+--------------------------+
+|           Function          | State variables written | Conditions on msg.sender |
++-----------------------------+-------------------------+--------------------------+
+|        effectiveBond        |            []           |            []            |
+|          checkpoint         |            []           |            []            |
+|    trackServiceDonations    |            []           |            []            |
+| reserveAmountForBondProgram |            []           |            []            |
+|    refundFromBondProgram    |            []           |            []            |
+|    accountOwnerIncentives   |            []           |            []            |
+|          getLastIDF         |            []           |            []            |
+|       serviceRegistry       |            []           |            []            |
++-----------------------------+-------------------------+--------------------------+
+
+Contract ITreasury
++----------------------------+-------------------------+--------------------------+
+|          Function          | State variables written | Conditions on msg.sender |
++----------------------------+-------------------------+--------------------------+
+|    depositTokenForOLAS     |            []           |            []            |
+| depositServiceDonationsETH |            []           |            []            |
+|         isEnabled          |            []           |            []            |
+|         checkPair          |            []           |            []            |
+|     withdrawToAccount      |            []           |            []            |
+|     rebalanceTreasury      |            []           |            []            |
++----------------------------+-------------------------+--------------------------+
+
+Contract IVotingEscrow
++---------------+-------------------------+--------------------------+
+|    Function   | State variables written | Conditions on msg.sender |
++---------------+-------------------------+--------------------------+
+|    getVotes   |            []           |            []            |
+|  balanceOfAt  |            []           |            []            |
+| totalSupplyAt |            []           |            []            |
++---------------+-------------------------+--------------------------+
+
+Contract IDepository
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
+| deposit  |            []           |            []            |
++----------+-------------------------+--------------------------+
+
+Contract IRouter
++--------------------------+-------------------------+--------------------------+
+|         Function         | State variables written | Conditions on msg.sender |
++--------------------------+-------------------------+--------------------------+
+| swapExactTokensForTokens |            []           |            []            |
++--------------------------+-------------------------+--------------------------+
+
+Contract AttackDeposit
++-------------------------------------+-------------------------+--------------------------+
+|               Function              | State variables written | Conditions on msg.sender |
++-------------------------------------+-------------------------+--------------------------+
+|             constructor             |            []           |            []            |
+|       flashAttackDepositImmune      |            []           |            []            |
+| slitherConstructorConstantVariables |    ['LARGE_APPROVAL']   |            []            |
++-------------------------------------+-------------------------+--------------------------+
+
+Contract ERC20Token
++----------------------+----------------------------------------------+---------------------------+
+|       Function       |           State variables written            |  Conditions on msg.sender |
++----------------------+----------------------------------------------+---------------------------+
+|     constructor      |                  ['_owner']                  |             []            |
+|        owner         |                      []                      |             []            |
+|     _checkOwner      |                      []                      |             []            |
+|  renounceOwnership   |                  ['_owner']                  |             []            |
+|  transferOwnership   |                  ['_owner']                  |             []            |
+|  _transferOwnership  |                  ['_owner']                  |             []            |
+|      _msgSender      |                      []                      |             []            |
+|       _msgData       |                      []                      |             []            |
+|     constructor      |             ['_name', '_symbol']             |             []            |
+|         name         |                      []                      |             []            |
+|        symbol        |                      []                      |             []            |
+|       decimals       |                      []                      |             []            |
+|     totalSupply      |                      []                      |             []            |
+|      balanceOf       |                      []                      |             []            |
+|       transfer       |                ['_balances']                 |             []            |
+|      allowance       |                      []                      |             []            |
+|       approve        |               ['_allowances']                |             []            |
+|     transferFrom     |         ['_balances', '_allowances']         |             []            |
+|  increaseAllowance   |               ['_allowances']                |             []            |
+|  decreaseAllowance   |               ['_allowances']                |             []            |
+|      _transfer       |                ['_balances']                 |             []            |
+|        _mint         |        ['_balances', '_totalSupply']         |             []            |
+|        _burn         |        ['_balances', '_totalSupply']         |             []            |
+|       _approve       |               ['_allowances']                |             []            |
+|   _spendAllowance    |               ['_allowances']                |             []            |
+| _beforeTokenTransfer |                      []                      |             []            |
+| _afterTokenTransfer  |                      []                      |             []            |
+|         name         |                      []                      |             []            |
+|        symbol        |                      []                      |             []            |
+|       decimals       |                      []                      |             []            |
+|     totalSupply      |                      []                      |             []            |
+|      balanceOf       |                      []                      |             []            |
+|       transfer       |                      []                      |             []            |
+|      allowance       |                      []                      |             []            |
+|       approve        |                      []                      |             []            |
+|     transferFrom     |                      []                      |             []            |
+|     constructor      | ['minter', 'timeLaunch', '_name', '_symbol'] |             []            |
+|     changeMinter     |                  ['minter']                  | ['msg.sender != owner()'] |
+|         mint         |        ['_balances', '_totalSupply']         |  ['msg.sender != minter'] |
+|  inflationRemainder  |                      []                      |             []            |
++----------------------+----------------------------------------------+---------------------------+
+
+Contract MockRegistry
++---------------------+-------------------------+--------------------------+
+|       Function      | State variables written | Conditions on msg.sender |
++---------------------+-------------------------+--------------------------+
+|     constructor     |       ['accounts']      |            []            |
+|        exists       |            []           |            []            |
+| getUnitIdsOfService |            []           |            []            |
+|       ownerOf       |            []           |            []            |
+|   changeUnitOwner   |       ['accounts']      |            []            |
+|     totalSupply     |            []           |            []            |
+|    getUnitOwners    |            []           |            []            |
+|        drain        |            []           |            []            |
++---------------------+-------------------------+--------------------------+
+
+Contract MockTokenomics
++-----------------------------+---------------------------------------+--------------------------+
+|           Function          |        State variables written        | Conditions on msg.sender |
++-----------------------------+---------------------------------------+--------------------------+
+|          initialize         |            ['initialized']            |            []            |
+|   tokenomicsImplementation  |                   []                  |            []            |
+|        changeMintCap        |              ['mintCap']              |            []            |
+|         changeTopUps        |               ['topUps']              |            []            |
+|    trackServiceDonations    |                   []                  |            []            |
+|          checkpoint         |            ['epochCounter']           |            []            |
+|      setServiceRegistry     |          ['serviceRegistry']          |            []            |
+|       simulateFailure       |                   []                  |            []            |
+| slitherConstructorVariables | ['topUps', 'epochCounter', 'mintCap'] |            []            |
++-----------------------------+---------------------------------------+--------------------------+
+
+Contract MockVE
++-----------------------------+------------------------------------------+--------------------------+
+|           Function          |         State variables written          | Conditions on msg.sender |
++-----------------------------+------------------------------------------+--------------------------+
+|          createLock         |               ['accounts']               |            []            |
+|         balanceOfAt         |                    []                    |            []            |
+|        totalSupplyAt        |                    []                    |            []            |
+|           getVotes          |                    []                    |            []            |
+|          setBalance         |               ['balance']                |            []            |
+|          setSupply          |                ['supply']                |            []            |
+|      setWeightedBalance     |           ['weightedBalance']            |            []            |
+| slitherConstructorVariables | ['balance', 'supply', 'weightedBalance'] |            []            |
++-----------------------------+------------------------------------------+--------------------------+
+
+Contract ITokenomics
++----------------------------+-------------------------+--------------------------+
+|          Function          | State variables written | Conditions on msg.sender |
++----------------------------+-------------------------+--------------------------+
+|    claimOwnerIncentives    |            []           |            []            |
+| depositServiceDonationsETH |            []           |            []            |
++----------------------------+-------------------------+--------------------------+
+
+Contract ReentrancyAttacker
++-----------------------------+---------------------------------------------------------------------------------+--------------------------+
+|           Function          |                             State variables written                             | Conditions on msg.sender |
++-----------------------------+---------------------------------------------------------------------------------+--------------------------+
+|         constructor         |                            ['dispenser', 'treasury']                            |            []            |
+|           receive           | ['badAction', 'attackOnClaimOwnerIncentives', 'attackOnDepositETHFromServices'] |            []            |
+|        setAttackMode        |                                  ['attackMode']                                 |            []            |
+|   badClaimOwnerIncentives   |                         ['attackOnClaimOwnerIncentives']                        |            []            |
+|  badDepositETHFromServices  |                        ['attackOnDepositETHFromServices']                       |            []            |
+| slitherConstructorVariables |                                  ['attackMode']                                 |            []            |
++-----------------------------+---------------------------------------------------------------------------------+--------------------------+
+
+. analyzed (66 contracts)

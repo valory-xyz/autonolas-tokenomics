@@ -1,0 +1,895 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
++ Contract UniswapV2ERC20
+  - From IUniswapV2ERC20
+    - DOMAIN_SEPARATOR() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - nonces(address) (external)
+    - symbol() (external)
+    - totalSupply() (external)
+  - From UniswapV2ERC20
+    - _approve(address,address,uint256) (private)
+    - _burn(address,uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _transfer(address,address,uint256) (private)
+    - approve(address,uint256) (external)
+    - constructor() (public)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract UniswapV2Factory (Most derived contract)
+  - From IUniswapV2Factory
+    - allPairs(uint256) (external)
+    - feeTo() (external)
+    - feeToSetter() (external)
+    - getPair(address,address) (external)
+  - From UniswapV2Factory
+    - allPairsLength() (external)
+    - constructor(address) (public)
+    - createPair(address,address) (external)
+    - setFeeTo(address) (external)
+    - setFeeToSetter(address) (external)
+
++ Contract UniswapV2Pair (Most derived contract)
+  - From UniswapV2ERC20
+    - _approve(address,address,uint256) (private)
+    - _burn(address,uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _transfer(address,address,uint256) (private)
+    - approve(address,uint256) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+  - From IUniswapV2ERC20
+    - DOMAIN_SEPARATOR() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - nonces(address) (external)
+    - symbol() (external)
+    - totalSupply() (external)
+  - From IUniswapV2Pair
+    - MINIMUM_LIQUIDITY() (external)
+    - factory() (external)
+    - kLast() (external)
+    - price0CumulativeLast() (external)
+    - price1CumulativeLast() (external)
+    - token0() (external)
+    - token1() (external)
+  - From UniswapV2Pair
+    - _mintFee(uint112,uint112) (private)
+    - _safeTransfer(address,address,uint256) (private)
+    - _update(uint256,uint256,uint112,uint112) (private)
+    - burn(address) (external)
+    - constructor() (public)
+    - getReserves() (public)
+    - initialize(address,address) (external)
+    - mint(address) (external)
+    - skim(address) (external)
+    - swap(uint256,uint256,address,bytes) (external)
+    - sync() (external)
+
++ Contract IERC20 (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Callee (Most derived contract)
+  - From IUniswapV2Callee
+    - uniswapV2Call(address,uint256,uint256,bytes) (external)
+
++ Contract IUniswapV2ERC20
+  - From IUniswapV2ERC20
+    - DOMAIN_SEPARATOR() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - nonces(address) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Factory
+  - From IUniswapV2Factory
+    - allPairs(uint256) (external)
+    - allPairsLength() (external)
+    - createPair(address,address) (external)
+    - feeTo() (external)
+    - feeToSetter() (external)
+    - getPair(address,address) (external)
+    - setFeeTo(address) (external)
+    - setFeeToSetter(address) (external)
+
++ Contract IUniswapV2Pair
+  - From IUniswapV2Pair
+    - DOMAIN_SEPARATOR() (external)
+    - MINIMUM_LIQUIDITY() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - burn(address) (external)
+    - decimals() (external)
+    - factory() (external)
+    - getReserves() (external)
+    - initialize(address,address) (external)
+    - kLast() (external)
+    - mint(address) (external)
+    - name() (external)
+    - nonces(address) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - price0CumulativeLast() (external)
+    - price1CumulativeLast() (external)
+    - skim(address) (external)
+    - swap(uint256,uint256,address,bytes) (external)
+    - symbol() (external)
+    - sync() (external)
+    - token0() (external)
+    - token1() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract Math (Most derived contract)
+  - From Math
+    - min(uint256,uint256) (internal)
+    - sqrt(uint256) (internal)
+
++ Contract SafeMath (Most derived contract)
+  - From SafeMath
+    - add(uint256,uint256) (internal)
+    - mul(uint256,uint256) (internal)
+    - sub(uint256,uint256) (internal)
+
++ Contract UQ112x112 (Most derived contract)
+  - From UQ112x112
+    - encode(uint112) (internal)
+    - uqdiv(uint224,uint112) (internal)
+
++ Contract WETH9 (Most derived contract)
+  - From WETH9
+    - approve(address,uint256) (public)
+    - deposit() (public)
+    - fallback() (external)
+    - totalSupply() (public)
+    - transfer(address,uint256) (public)
+    - transferFrom(address,address,uint256) (public)
+    - withdraw(uint256) (public)
+
++ Contract TransferHelper (Most derived contract)
+  - From TransferHelper
+    - safeApprove(address,address,uint256) (internal)
+    - safeTransfer(address,address,uint256) (internal)
+    - safeTransferETH(address,uint256) (internal)
+    - safeTransferFrom(address,address,address,uint256) (internal)
+
++ Contract IUniswapV2Factory (Most derived contract)
+  - From IUniswapV2Factory
+    - allPairs(uint256) (external)
+    - allPairsLength() (external)
+    - createPair(address,address) (external)
+    - feeTo() (external)
+    - feeToSetter() (external)
+    - getPair(address,address) (external)
+    - setFeeTo(address) (external)
+    - setFeeToSetter(address) (external)
+
++ Contract IUniswapV2Pair (Most derived contract)
+  - From IUniswapV2Pair
+    - DOMAIN_SEPARATOR() (external)
+    - MINIMUM_LIQUIDITY() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - burn(address) (external)
+    - decimals() (external)
+    - factory() (external)
+    - getReserves() (external)
+    - initialize(address,address) (external)
+    - kLast() (external)
+    - mint(address) (external)
+    - name() (external)
+    - nonces(address) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - price0CumulativeLast() (external)
+    - price1CumulativeLast() (external)
+    - skim(address) (external)
+    - swap(uint256,uint256,address,bytes) (external)
+    - symbol() (external)
+    - sync() (external)
+    - token0() (external)
+    - token1() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract UniswapV2Router02 (Most derived contract)
+  - From IUniswapV2Router01
+    - WETH() (external)
+    - factory() (external)
+  - From UniswapV2Router02
+    - _addLiquidity(address,address,uint256,uint256,uint256,uint256) (internal)
+    - _swap(uint256[],address[],address) (internal)
+    - _swapSupportingFeeOnTransferTokens(address[],address) (internal)
+    - addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256) (external)
+    - addLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - constructor(address,address) (public)
+    - getAmountIn(uint256,uint256,uint256) (public)
+    - getAmountOut(uint256,uint256,uint256) (public)
+    - getAmountsIn(uint256,address[]) (public)
+    - getAmountsOut(uint256,address[]) (public)
+    - quote(uint256,uint256,uint256) (public)
+    - receive() (external)
+    - removeLiquidity(address,address,uint256,uint256,uint256,address,uint256) (public)
+    - removeLiquidityETH(address,uint256,uint256,uint256,address,uint256) (public)
+    - removeLiquidityETHSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256) (public)
+    - removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapETHForExactTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETH(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactETH(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract IERC20 (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Router01
+  - From IUniswapV2Router01
+    - WETH() (external)
+    - addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256) (external)
+    - addLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - factory() (external)
+    - getAmountIn(uint256,uint256,uint256) (external)
+    - getAmountOut(uint256,uint256,uint256) (external)
+    - getAmountsIn(uint256,address[]) (external)
+    - getAmountsOut(uint256,address[]) (external)
+    - quote(uint256,uint256,uint256) (external)
+    - removeLiquidity(address,address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapETHForExactTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETH(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactETH(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract IUniswapV2Router02
+  - From IUniswapV2Router01
+    - WETH() (external)
+    - addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256) (external)
+    - addLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - factory() (external)
+    - getAmountIn(uint256,uint256,uint256) (external)
+    - getAmountOut(uint256,uint256,uint256) (external)
+    - getAmountsIn(uint256,address[]) (external)
+    - getAmountsOut(uint256,address[]) (external)
+    - quote(uint256,uint256,uint256) (external)
+    - removeLiquidity(address,address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapETHForExactTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETH(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactETH(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactTokens(uint256,uint256,address[],address,uint256) (external)
+  - From IUniswapV2Router02
+    - removeLiquidityETHSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract IWETH (Most derived contract)
+  - From IWETH
+    - deposit() (external)
+    - transfer(address,uint256) (external)
+    - withdraw(uint256) (external)
+
++ Contract SafeMath (Most derived contract)
+  - From SafeMath
+    - add(uint256,uint256) (internal)
+    - mul(uint256,uint256) (internal)
+    - sub(uint256,uint256) (internal)
+
++ Contract UniswapV2Library (Most derived contract)
+  - From UniswapV2Library
+    - getAmountIn(uint256,uint256,uint256) (internal)
+    - getAmountOut(uint256,uint256,uint256) (internal)
+    - getAmountsIn(address,uint256,address[]) (internal)
+    - getAmountsOut(address,uint256,address[]) (internal)
+    - getReserves(address,address,address) (internal)
+    - pairFor(address,address,address) (internal)
+    - quote(uint256,uint256,uint256) (internal)
+    - sortTokens(address,address) (internal)
+
++ Contract Ownable
+  - From Context
+    - _msgData() (internal)
+    - _msgSender() (internal)
+  - From Ownable
+    - _checkOwner() (internal)
+    - _transferOwnership(address) (internal)
+    - constructor() (internal)
+    - owner() (public)
+    - renounceOwnership() (public)
+    - transferOwnership(address) (public)
+
++ Contract ERC20
+  - From Context
+    - _msgData() (internal)
+    - _msgSender() (internal)
+  - From ERC20
+    - _afterTokenTransfer(address,address,uint256) (internal)
+    - _approve(address,address,uint256) (internal)
+    - _beforeTokenTransfer(address,address,uint256) (internal)
+    - _burn(address,uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _spendAllowance(address,address,uint256) (internal)
+    - _transfer(address,address,uint256) (internal)
+    - allowance(address,address) (public)
+    - approve(address,uint256) (public)
+    - balanceOf(address) (public)
+    - constructor(string,string) (public)
+    - decimals() (public)
+    - decreaseAllowance(address,uint256) (public)
+    - increaseAllowance(address,uint256) (public)
+    - name() (public)
+    - symbol() (public)
+    - totalSupply() (public)
+    - transfer(address,uint256) (public)
+    - transferFrom(address,address,uint256) (public)
+
++ Contract IERC20
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IERC20Metadata
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+  - From IERC20Metadata
+    - decimals() (external)
+    - name() (external)
+    - symbol() (external)
+
++ Contract Context
+  - From Context
+    - _msgData() (internal)
+    - _msgSender() (internal)
+
++ Contract PRBMath (Most derived contract)
+  - From PRBMath
+    - exp2(uint256) (internal)
+    - mostSignificantBit(uint256) (internal)
+    - mulDiv(uint256,uint256,uint256) (internal)
+    - mulDivFixedPoint(uint256,uint256) (internal)
+    - mulDivSigned(int256,int256,int256) (internal)
+    - sqrt(uint256) (internal)
+
++ Contract PRBMathSD59x18 (Most derived contract)
+  - From PRBMathSD59x18
+    - abs(int256) (internal)
+    - avg(int256,int256) (internal)
+    - ceil(int256) (internal)
+    - div(int256,int256) (internal)
+    - e() (internal)
+    - exp(int256) (internal)
+    - exp2(int256) (internal)
+    - floor(int256) (internal)
+    - frac(int256) (internal)
+    - fromInt(int256) (internal)
+    - gm(int256,int256) (internal)
+    - inv(int256) (internal)
+    - ln(int256) (internal)
+    - log10(int256) (internal)
+    - log2(int256) (internal)
+    - mul(int256,int256) (internal)
+    - pi() (internal)
+    - pow(int256,int256) (internal)
+    - powu(int256,uint256) (internal)
+    - scale() (internal)
+    - sqrt(int256) (internal)
+    - toInt(int256) (internal)
+
++ Contract TransferHelper (Most derived contract)
+  - From TransferHelper
+    - safeApprove(address,address,uint256) (internal)
+    - safeTransfer(address,address,uint256) (internal)
+    - safeTransferETH(address,uint256) (internal)
+    - safeTransferFrom(address,address,address,uint256) (internal)
+
++ Contract IERC20 (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Callee (Most derived contract)
+  - From IUniswapV2Callee
+    - uniswapV2Call(address,uint256,uint256,bytes) (external)
+
++ Contract IUniswapV2ERC20 (Most derived contract)
+  - From IUniswapV2ERC20
+    - DOMAIN_SEPARATOR() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - nonces(address) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Factory (Most derived contract)
+  - From IUniswapV2Factory
+    - allPairs(uint256) (external)
+    - allPairsLength() (external)
+    - createPair(address,address) (external)
+    - feeTo() (external)
+    - feeToSetter() (external)
+    - getPair(address,address) (external)
+    - setFeeTo(address) (external)
+    - setFeeToSetter(address) (external)
+
++ Contract IUniswapV2Pair (Most derived contract)
+  - From IUniswapV2Pair
+    - DOMAIN_SEPARATOR() (external)
+    - MINIMUM_LIQUIDITY() (external)
+    - PERMIT_TYPEHASH() (external)
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - burn(address) (external)
+    - decimals() (external)
+    - factory() (external)
+    - getReserves() (external)
+    - initialize(address,address) (external)
+    - kLast() (external)
+    - mint(address) (external)
+    - name() (external)
+    - nonces(address) (external)
+    - permit(address,address,uint256,uint256,uint8,bytes32,bytes32) (external)
+    - price0CumulativeLast() (external)
+    - price1CumulativeLast() (external)
+    - skim(address) (external)
+    - swap(uint256,uint256,address,bytes) (external)
+    - symbol() (external)
+    - sync() (external)
+    - token0() (external)
+    - token1() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IERC20 (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - decimals() (external)
+    - name() (external)
+    - symbol() (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IUniswapV2Router01
+  - From IUniswapV2Router01
+    - WETH() (external)
+    - addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256) (external)
+    - addLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - factory() (external)
+    - getAmountIn(uint256,uint256,uint256) (external)
+    - getAmountOut(uint256,uint256,uint256) (external)
+    - getAmountsIn(uint256,address[]) (external)
+    - getAmountsOut(uint256,address[]) (external)
+    - quote(uint256,uint256,uint256) (external)
+    - removeLiquidity(address,address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapETHForExactTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETH(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactETH(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract IUniswapV2Router02 (Most derived contract)
+  - From IUniswapV2Router01
+    - WETH() (external)
+    - addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256) (external)
+    - addLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - factory() (external)
+    - getAmountIn(uint256,uint256,uint256) (external)
+    - getAmountOut(uint256,uint256,uint256) (external)
+    - getAmountsIn(uint256,address[]) (external)
+    - getAmountsOut(uint256,address[]) (external)
+    - quote(uint256,uint256,uint256) (external)
+    - removeLiquidity(address,address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETH(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermit(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - removeLiquidityWithPermit(address,address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapETHForExactTokens(uint256,address[],address,uint256) (external)
+    - swapExactETHForTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETH(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactETH(uint256,uint256,address[],address,uint256) (external)
+    - swapTokensForExactTokens(uint256,uint256,address[],address,uint256) (external)
+  - From IUniswapV2Router02
+    - removeLiquidityETHSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256) (external)
+    - removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address,uint256,uint256,uint256,address,uint256,bool,uint8,bytes32,bytes32) (external)
+    - swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256) (external)
+    - swapExactTokensForETHSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+    - swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract IWETH (Most derived contract)
+  - From IWETH
+    - deposit() (external)
+    - transfer(address,uint256) (external)
+    - withdraw(uint256) (external)
+
++ Contract Depository (Most derived contract)
+  - From GenericTokenomics
+    - changeManagers(address,address,address,address) (external)
+    - changeOwner(address) (external)
+    - initialize(address,address,address,address,address,GenericTokenomics.TokenomicsRole) (internal)
+  - From Depository
+    - changeBondCalculator(address) (external)
+    - close(uint256) (external)
+    - constructor(address,address,address,address) (public)
+    - create(address,uint256,uint256,uint256) (external)
+    - deposit(uint256,uint256) (external)
+    - getActiveProducts() (external)
+    - getBondStatus(uint256) (external)
+    - getCurrentPriceLP(address) (external)
+    - getPendingBonds(address) (external)
+    - isActiveProduct(uint256) (external)
+    - redeem(uint256[]) (public)
+
++ Contract Dispenser (Most derived contract)
+  - From GenericTokenomics
+    - changeManagers(address,address,address,address) (external)
+    - changeOwner(address) (external)
+    - initialize(address,address,address,address,address,GenericTokenomics.TokenomicsRole) (internal)
+  - From Dispenser
+    - claimOwnerIncentives(uint256[],uint256[]) (external)
+    - constructor(address,address) (public)
+
++ Contract DonatorBlacklist (Most derived contract)
+  - From DonatorBlacklist
+    - changeOwner(address) (external)
+    - constructor() (public)
+    - isDonatorBlacklisted(address) (external)
+    - setDonatorsStatuses(address[],bool[]) (external)
+
++ Contract GenericBondCalculator (Most derived contract)
+  - From GenericBondCalculator
+    - calculatePayoutOLAS(uint256,uint256) (external)
+    - checkLP(address) (external)
+    - constructor(address,address) (public)
+    - getCurrentPriceLP(address) (external)
+
++ Contract GenericTokenomics
+  - From GenericTokenomics
+    - changeManagers(address,address,address,address) (external)
+    - changeOwner(address) (external)
+    - initialize(address,address,address,address,address,GenericTokenomics.TokenomicsRole) (internal)
+
++ Contract Tokenomics (Most derived contract)
+  - From GenericTokenomics
+    - changeManagers(address,address,address,address) (external)
+    - changeOwner(address) (external)
+    - initialize(address,address,address,address,address,GenericTokenomics.TokenomicsRole) (internal)
+  - From TokenomicsConstants
+    - getInflationForYear(uint256) (public)
+    - getSupplyCapForYear(uint256) (public)
+  - From Tokenomics
+    - _adjustMaxBond(uint256) (internal)
+    - _finalizeIncentivesForUnitId(uint256,uint256,uint256) (internal)
+    - _trackServiceDonations(uint256[],uint256[],uint256) (internal)
+    - accountOwnerIncentives(address,uint256[],uint256[]) (external)
+    - changeDonatorBlacklist(address) (external)
+    - changeIncentiveFractions(uint8,uint8,uint8,uint8,uint8) (external)
+    - changeRegistries(address,address,address) (external)
+    - changeTokenomicsImplementation(address) (external)
+    - changeTokenomicsParameters(uint32,uint64,uint32,uint96) (external)
+    - checkpoint() (external)
+    - constructor() (public)
+    - getEpochPoint(uint256) (external)
+    - getIDF(uint256) (external)
+    - getIncentiveBalances(uint256,uint256) (external)
+    - getInflationPerEpoch() (external)
+    - getLastIDF() (external)
+    - getOwnerIncentives(address,uint256[],uint256[]) (external)
+    - getUnitPoint(uint256,uint256) (external)
+    - initializeTokenomics(address,address,address,address,address,uint32,address,address,address,address) (external)
+    - refundFromBondProgram(uint256) (external)
+    - reserveAmountForBondProgram(uint256) (external)
+    - tokenomicsImplementation() (external)
+    - trackServiceDonations(address,uint256[],uint256[]) (external)
+
++ Contract TokenomicsConstants
+  - From TokenomicsConstants
+    - getInflationForYear(uint256) (public)
+    - getSupplyCapForYear(uint256) (public)
+
++ Contract TokenomicsProxy (Upgradeable Proxy) (Most derived contract)
+  - From TokenomicsProxy
+    - constructor(address,bytes) (public)
+    - fallback() (external)
+
++ Contract Treasury (Most derived contract)
+  - From GenericTokenomics
+    - changeManagers(address,address,address,address) (external)
+    - changeOwner(address) (external)
+    - initialize(address,address,address,address,address,GenericTokenomics.TokenomicsRole) (internal)
+  - From Treasury
+    - constructor(address,address,address,address) (public)
+    - depositServiceDonationsETH(uint256[],uint256[]) (external)
+    - depositTokenForOLAS(address,uint256,address,uint256) (external)
+    - disableToken(address) (external)
+    - drainServiceSlashedFunds() (external)
+    - enableToken(address) (external)
+    - isEnabled(address) (external)
+    - pause() (external)
+    - rebalanceTreasury(uint256) (external)
+    - receive() (external)
+    - unpause() (external)
+    - withdraw(address,uint256,address) (external)
+    - withdrawToAccount(address,uint256,uint256) (external)
+
++ Contract IDonatorBlacklist (Most derived contract)
+  - From IDonatorBlacklist
+    - isDonatorBlacklisted(address) (external)
+
++ Contract IErrorsTokenomics
+
++ Contract IGenericBondCalculator (Most derived contract)
+  - From IGenericBondCalculator
+    - calculatePayoutOLAS(uint256,uint256) (external)
+    - checkLP(address) (external)
+    - getCurrentPriceLP(address) (external)
+
++ Contract IOLAS (Most derived contract)
+  - From IOLAS
+    - decimals() (external)
+    - inflationRemainder() (external)
+    - mint(address,uint256) (external)
+    - timeLaunch() (external)
+    - transfer(address,uint256) (external)
+
++ Contract IServiceTokenomics (Most derived contract)
+  - From IServiceTokenomics
+    - drain() (external)
+    - exists(uint256) (external)
+    - getUnitIdsOfService(IServiceTokenomics.UnitType,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - balanceOf(address) (external)
+    - ownerOf(uint256) (external)
+    - totalSupply() (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - accountOwnerIncentives(address,uint256[],uint256[]) (external)
+    - checkpoint() (external)
+    - effectiveBond() (external)
+    - getLastIDF() (external)
+    - refundFromBondProgram(uint256) (external)
+    - reserveAmountForBondProgram(uint256) (external)
+    - serviceRegistry() (external)
+    - trackServiceDonations(address,uint256[],uint256[]) (external)
+
++ Contract ITreasury (Most derived contract)
+  - From ITreasury
+    - checkPair(address) (external)
+    - depositServiceDonationsETH(uint256[],uint256[]) (external)
+    - depositTokenForOLAS(address,uint256,address,uint256) (external)
+    - isEnabled(address) (external)
+    - rebalanceTreasury(uint256) (external)
+    - withdrawToAccount(address,uint256,uint256) (external)
+
++ Contract IVotingEscrow (Most derived contract)
+  - From IVotingEscrow
+    - balanceOfAt(address,uint256) (external)
+    - getVotes(address) (external)
+    - totalSupplyAt(uint256) (external)
+
++ Contract IDepository (Most derived contract)
+  - From IDepository
+    - deposit(uint256,uint256) (external)
+
++ Contract IRouter (Most derived contract)
+  - From IRouter
+    - swapExactTokensForTokens(uint256,uint256,address[],address,uint256) (external)
+
++ Contract AttackDeposit (Most derived contract)
+  - From AttackDeposit
+    - constructor() (public)
+    - flashAttackDepositImmune(address,address,address,address,uint32,uint256,address) (external)
+
++ Contract ERC20Token (Most derived contract)
+  - From Ownable
+    - _checkOwner() (internal)
+    - _transferOwnership(address) (internal)
+    - owner() (public)
+    - renounceOwnership() (public)
+    - transferOwnership(address) (public)
+  - From Context
+    - _msgData() (internal)
+    - _msgSender() (internal)
+  - From ERC20
+    - _afterTokenTransfer(address,address,uint256) (internal)
+    - _approve(address,address,uint256) (internal)
+    - _beforeTokenTransfer(address,address,uint256) (internal)
+    - _burn(address,uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _spendAllowance(address,address,uint256) (internal)
+    - _transfer(address,address,uint256) (internal)
+    - allowance(address,address) (public)
+    - approve(address,uint256) (public)
+    - balanceOf(address) (public)
+    - constructor(string,string) (public)
+    - decimals() (public)
+    - decreaseAllowance(address,uint256) (public)
+    - increaseAllowance(address,uint256) (public)
+    - name() (public)
+    - symbol() (public)
+    - totalSupply() (public)
+    - transfer(address,uint256) (public)
+    - transferFrom(address,address,uint256) (public)
+  - From ERC20Token
+    - changeMinter(address) (external)
+    - constructor() (public)
+    - inflationRemainder() (external)
+    - mint(address,uint256) (external)
+
++ Contract MockRegistry (Most derived contract)
+  - From MockRegistry
+    - changeUnitOwner(uint256,address) (external)
+    - constructor() (public)
+    - drain() (external)
+    - exists(uint256) (external)
+    - getUnitIdsOfService(MockRegistry.UnitType,uint256) (external)
+    - getUnitOwners() (external)
+    - ownerOf(uint256) (external)
+    - totalSupply() (external)
+
++ Contract MockTokenomics (Most derived contract)
+  - From MockTokenomics
+    - changeMintCap(uint256) (external)
+    - changeTopUps(uint256) (external)
+    - checkpoint() (external)
+    - initialize() (external)
+    - setServiceRegistry(address) (external)
+    - simulateFailure() (external)
+    - tokenomicsImplementation() (external)
+    - trackServiceDonations(address,uint256[],uint256[]) (external)
+
++ Contract MockVE (Most derived contract)
+  - From MockVE
+    - balanceOfAt(address,uint256) (external)
+    - createLock(address) (external)
+    - getVotes(address) (external)
+    - setBalance(uint256) (external)
+    - setSupply(uint256) (external)
+    - setWeightedBalance(uint256) (external)
+    - totalSupplyAt(uint256) (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - claimOwnerIncentives(uint256[],uint256[]) (external)
+    - depositServiceDonationsETH(uint256[],uint256[]) (external)
+
++ Contract ReentrancyAttacker (Most derived contract)
+  - From ReentrancyAttacker
+    - badClaimOwnerIncentives(bool,uint256[],uint256[]) (external)
+    - badDepositETHFromServices(uint256[],uint256[]) (external)
+    - constructor(address,address) (public)
+    - receive() (external)
+    - setAttackMode(bool) (external)
+
+. analyzed (66 contracts)

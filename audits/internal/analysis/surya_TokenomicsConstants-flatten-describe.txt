@@ -1,0 +1,8 @@
+ +  TokenomicsConstants 
+    - [32m[Pub][39m getSupplyCapForYear
+    - [32m[Pub][39m getInflationForYear
+
+
+[33m ($)[39m = payable function
+[31m #[39m = non-constant function
+  

@@ -1,0 +1,56 @@
+ + [34m[Int][39m IERC20 
+    - [34m[Ext][39m totalSupply
+    - [34m[Ext][39m balanceOf
+    - [34m[Ext][39m transfer[31m #[39m
+    - [34m[Ext][39m allowance
+    - [34m[Ext][39m approve[31m #[39m
+    - [34m[Ext][39m transferFrom[31m #[39m
+
+ + [34m[Int][39m IErrorsTokenomics 
+
+ +  GenericTokenomics [90m(IErrorsTokenomics)[39m
+    - [90m[Int][39m initialize[31m #[39m
+    - [34m[Ext][39m changeOwner[31m #[39m
+    - [34m[Ext][39m changeManagers[31m #[39m
+
+ + [34m[Int][39m IGenericBondCalculator 
+    - [34m[Ext][39m calculatePayoutOLAS
+    - [34m[Ext][39m getCurrentPriceLP
+    - [34m[Ext][39m checkLP[31m #[39m
+
+ + [34m[Int][39m ITokenomics 
+    - [34m[Ext][39m effectiveBond
+    - [34m[Ext][39m checkpoint[31m #[39m
+    - [34m[Ext][39m trackServiceDonations[31m #[39m
+    - [34m[Ext][39m reserveAmountForBondProgram[31m #[39m
+    - [34m[Ext][39m refundFromBondProgram[31m #[39m
+    - [34m[Ext][39m accountOwnerIncentives[31m #[39m
+    - [34m[Ext][39m getLastIDF
+    - [34m[Ext][39m serviceRegistry
+
+ + [34m[Int][39m ITreasury 
+    - [34m[Ext][39m depositTokenForOLAS[31m #[39m
+    - [34m[Ext][39m depositServiceDonationsETH[33m ($)[39m
+    - [34m[Ext][39m isEnabled
+    - [34m[Ext][39m checkPair[31m #[39m
+    - [34m[Ext][39m withdrawToAccount[31m #[39m
+    - [34m[Ext][39m rebalanceTreasury[31m #[39m
+
+ +  Depository [90m(GenericTokenomics)[39m
+    - [32m[Pub][39m [90m<Constructor>[39m[31m #[39m
+       - modifiers: GenericTokenomics
+    - [34m[Ext][39m changeBondCalculator[31m #[39m
+    - [34m[Ext][39m deposit[31m #[39m
+    - [32m[Pub][39m redeem[31m #[39m
+    - [34m[Ext][39m getPendingBonds
+    - [34m[Ext][39m getBondStatus
+    - [34m[Ext][39m create[31m #[39m
+    - [34m[Ext][39m close[31m #[39m
+    - [34m[Ext][39m isActiveProduct
+    - [34m[Ext][39m getActiveProducts
+    - [34m[Ext][39m getCurrentPriceLP
+
+
+[33m ($)[39m = payable function
+[31m #[39m = non-constant function
+  

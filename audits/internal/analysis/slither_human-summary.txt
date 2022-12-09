@@ -1,0 +1,85 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+Compiled with Builder
+Number of lines: 2636 (+ 3965 in dependencies, + 403 in tests)
+Number of assembly lines: 4
+Number of contracts: 18 (+ 39 in dependencies, + 9 tests) 
+
+Number of optimization issues: 5
+Number of informational issues: 323
+Number of low issues: 66
+Number of medium issues: 42
+Number of high issues: 8
+
+Use: Openzeppelin-Ownable, Openzeppelin-ERC20
+ERCs: ERC20, ERC2612
+
++------------------------+-------------+------+------------+--------------+--------------------+
+|          Name          | # functions | ERCS | ERC20 info | Complex code |      Features      |
++------------------------+-------------+------+------------+--------------+--------------------+
+|       Depository       |      15     |      |            |     Yes      | Tokens interaction |
+|       Dispenser        |      6      |      |            |      No      |                    |
+|    DonatorBlacklist    |      4      |      |            |      No      |                    |
+| GenericBondCalculator  |      4      |      |            |      No      | Tokens interaction |
+|                        |             |      |            |              |      Assembly      |
+|       Tokenomics       |      29     |      |            |     Yes      | Tokens interaction |
+|                        |             |      |            |              |      Assembly      |
+|    TokenomicsProxy     |      3      |      |            |      No      |    Delegatecall    |
+|                        |             |      |            |              |      Assembly      |
+|                        |             |      |            |              |       Proxy        |
+|        Treasury        |      18     |      |            |     Yes      |    Receive ETH     |
+|                        |             |      |            |              |      Send ETH      |
+|                        |             |      |            |              | Tokens interaction |
+|   IDonatorBlacklist    |      1      |      |            |      No      |                    |
+| IGenericBondCalculator |      3      |      |            |      No      |                    |
+|         IOLAS          |      5      |      |            |      No      |                    |
+|   IServiceTokenomics   |      3      |      |            |      No      |                    |
+|         IToken         |      3      |      |            |      No      |                    |
+|      ITokenomics       |      8      |      |            |      No      |                    |
+|       ITreasury        |      6      |      |            |      No      |    Receive ETH     |
+|     IVotingEscrow      |      3      |      |            |      No      |                    |
++------------------------+-------------+------+------------+--------------+--------------------+
+. analyzed (66 contracts)
