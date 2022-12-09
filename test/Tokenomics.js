@@ -1,4 +1,4 @@
-/*global describe, beforeEach, it, context*/
+/*global describe, beforeEach, it, context, hre*/
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
@@ -26,6 +26,7 @@ describe("Tokenomics", async () => {
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
     let proxyData;
+    let storageLayout = false;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -85,6 +86,14 @@ describe("Tokenomics", async () => {
 
         // Give treasury the minter role
         await olas.changeMinter(treasury.address);
+
+        // Storage layout
+        if (storageLayout) {
+            // Make sure require('hardhat-storage-layout') is enabled in hardhat.confog.js
+            await hre.storageLayout.export();
+            // Let it run once
+            storageLayout = false;
+        }
     });
 
     context("Initialization", async function () {
@@ -449,6 +458,67 @@ describe("Tokenomics", async () => {
             // Get the top-up number per epoch
             const topUp = await tokenomics.getInflationPerEpoch();
             expect(topUp).to.greaterThan(0);
+        });
+
+        it("Changing maxBond values", async function () {
+            // Changing maxBond fraction to 100%
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            const initEffectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            // Changing the epoch length to 10
+            let epochLenFactor = 10;
+            let newEpochLen = epochLen * epochLenFactor;
+            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
+
+            let effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            // Verify that the effectiveBond increased by a factor of epochLenFactor
+            expect(initEffectiveBond.mul(epochLenFactor)).to.equal(effectiveBond);
+
+            // Reserve half of the effectiveBond
+            const halfEffectiveBond = effectiveBond.div(2);
+            await tokenomics.connect(deployer).reserveAmountForBondProgram(halfEffectiveBond);
+
+            // Check that the epoch length cannot be reduced by a half or more
+            newEpochLen = newEpochLen / 2;
+            await expect(
+                tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+
+            // Check in a static call that the change on a bigger value is fine
+            await tokenomics.connect(deployer).callStatic.changeTokenomicsParameters(0, 0, newEpochLen + 1, 0);
+
+            // Check that the maxBond fraction cannot be reduced by a half or more
+            await expect(
+                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 50, 0, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+
+            // Check in a static call that the change on a bigger maxBond fraction value is fine
+            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 51, 0, 0);
+
+            // Check that the reserve amount can go maximum to the effectiveBond == 0
+            let result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond);
+            expect(result).to.equal(true);
+            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond.add(1));
+            expect(result).to.equal(false);
+
+            // Increase the epoch length by 10 (was 1, then 10, then 5 (not executed), now will be 15)
+            newEpochLen += 10;
+            await tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0);
+
+            // Now we should be able to reserve of the amount of the effectiveBond, since we increased by half of the original
+            // Since we reserved half, we can now go no lower than one third
+            // EffectiveBond was 100, we reserved 50, it became 100 - 50 = 50. We then added 50 more. The effectiveBond is 100.
+            // The total effectiveBond if we returned the reserved one would be 150. So we can reduce the effectiveBond
+            // by a maximum of 100 out of 150, which is 66%.
+            await expect(
+                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 33, 0, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 34, 0, 0);
+
+            // Since 50 was reserved, the maximum we can reserve now is 100 (out of 150), or the full effectiveBond
+            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond);
+            expect(result).to.equal(true);
+            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond.add(1));
+            expect(result).to.equal(false);
         });
     });
 

@@ -407,7 +407,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             }
 
             // Calculate next maxBond based on the proposed epochLen
-            uint256 nextMaxBond = inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen / 100;
+            uint256 nextMaxBond = (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
             // Adjust maxBond and effectiveBond, if they are within the allowed limits
             _adjustMaxBond(nextMaxBond);
 
@@ -471,7 +471,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             }
 
             // Calculate next maxBond based on the proposed maxBondFraction
-            uint256 nextMaxBond = inflationPerSecond * _maxBondFraction * epochLen;
+            uint256 nextMaxBond = (inflationPerSecond * _maxBondFraction * epochLen) / 100;
             // Adjust maxBond and effectiveBond, if they are within the allowed limits
             _adjustMaxBond(nextMaxBond);
 
