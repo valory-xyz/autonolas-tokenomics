@@ -15,7 +15,7 @@ Several checks are obtained automatically. They are commented. Some issues found
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
 [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
 
-### Fixed point library update
+#### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
 https://github.com/paulrberg/prb-math/blob/main/src/UD60x18.sol#L589 - сheaper and easier. <br>
