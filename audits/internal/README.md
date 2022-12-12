@@ -9,6 +9,46 @@ The audit focused on contracts in this repo.
 ### Flatten version
 Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/contracts) 
 
+### Storage and proxy
+Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
+```
+npm link sol2uml --only=production
+sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal/analysis/storage
+Generated png file autonolas-tokenomics/audits/internal/analysis/storage/Tokenomics.png
+sol2uml storage contracts/ -f png -c Treasury -o audits/internal/analysis/storage          
+Generated png file autonolas-tokenomics/audits/internal/analysis/storage/Treasury.png
+sol2uml storage contracts/ -f png -c Depository -o audits/internal/analysis/storage
+Generated png file autonolas-tokenomics/audits/internal/analysis/storage/Depository.png
+sol2uml storage contracts/ -f png -c Dispenser -o audits/internal/analysis/storage          
+Generated png file autonolas-tokenomics/audits/internal/analysis/storage/Dispenser.png
+storage contracts/ -f png -c DonatorBlacklist -o audits/internal/analysis/storage         
+autonolas-tokenomics/audits/internal/analysis/storage/DonatorBlacklist.png
+sol2uml storage contracts/ -f png -c TokenomicsProxy -o audits/internal/analysis/storage                
+Generated png file autonolas-tokenomics/audits/internal/analysis/storage/TokenomicsProxy.png
+```
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Tokenomics.png) 
+[Depository-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Depository.png)
+[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Dispenser.png)
+[Treasury-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Treasury.png)
+[DonatorBlacklist-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/DonatorBlacklist.png)
+[TokenomicsProxy-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/TokenomicsProxy.png)
+
+From the point of view of auditing a proxy contract, only 2 storage are important: Tokenomics and TokenomicsProxy. <br>
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Tokenomics.png) - 18 slots <br>
+[TokenomicsProxy-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/TokenomicsProxy.png) - 0 slots <br>
+When there will be future implementations, it is critical that the storage be used: current as is + new variables. <br>
+One of the semi-automatic verification algorithms:
+```
+1. enable hardhat.config.js:
+// storage layout tool
+require('hardhat-storage-layout');
+2. enable test Tokenomics.js
+let storageLayout = true;
+3. run npx hardhat test
+4. Compare the number and content of slots for the current implementation and the future one.
+```
+The remaining storage layouts are useful for final optimization. <br>
+
 ### Security issues. Updated 12-12-22
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
@@ -54,11 +94,15 @@ Since it has the property of an internal independent barrier.
         fKD = epsilonRate;
     }
 ```
-#### Unused event
+#### Optimization and improvements
+##### Unused event
 This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
 [Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md)
 
-#### Optimization notices
+##### Semantic versioning in tokenomics implementation
+Needs to add a variable (constant) with the version number.
+
+##### Optimization notices
 Tokenomics.sol <br>
 ```
 // fp = fp/100 - calculate the final value in fixed point
