@@ -112,3 +112,13 @@ Tokenomics.sol <br>
 fp = fp.div(PRBMathSD59x18.fromInt(100));
 PRBMathSD59x18.fromInt(100) => const
 ```
+Treasury.sol <br>
+```
+Try map instead of array
+// Set of registered tokens
+address[] public tokenRegistry;
+logic of functions:
+function enableToken(address token) external
+function disableToken(address token) external
+function isEnabled(address token) external view returns (bool enabled)
+```
