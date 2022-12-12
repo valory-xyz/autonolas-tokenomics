@@ -121,4 +121,12 @@ logic of functions:
 function enableToken(address token) external
 function disableToken(address token) external
 function isEnabled(address token) external view returns (bool enabled)
+
+// Token address => token info related to bonding
+mapping(address => TokenInfo) public mapTokens;
+// Set of registered tokens
+address[] public tokenRegistry;
+=>
+mapping(address => uint256) public mapTokensReserves;
+mapping(address => bool) public mapTokenRegistry;
 ```
