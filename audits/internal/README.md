@@ -102,6 +102,9 @@ This is not a runtime error, but the contract needs to be cleaned up to reduce t
 ##### Semantic versioning in tokenomics implementation
 Needs to add a variable (constant) with the version number.
 
+##### Improvement test if needed
+Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa.
+
 ##### Optimization notices
 Tokenomics.sol <br>
 ```
