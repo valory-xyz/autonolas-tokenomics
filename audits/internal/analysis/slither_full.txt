@@ -14,7 +14,9 @@ Treasury.depositTokenForOLAS(address,uint256,address,uint256) (contracts/Treasur
 Treasury.withdraw(address,uint256,address) (contracts/Treasury.sol#178-220) ignores return value by IERC20(token).transfer(to,tokenAmount) (contracts/Treasury.sol#218)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
 
-Clarification:  WIP (09.12 - 13.12). It is necessary to cross-check the tests from the original source. Overall outside the scope of the audit
+Clarification:  Tests contract in https://github.com/DeltaDex-Protocol/statistics_solidity/blob/main/contracts/dependencies/prb-math/PRBMath.sol
+Overall outside the scope of the audit
+We will avoid mentioning it if we switch to the original library: https://github.com/paulrberg/prb-math 
 PRBMath.mulDiv(uint256,uint256,uint256) (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#394-478) performs a multiplication on the result of a division:
 	- denominator = denominator / lpotdod (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#445)
 	- inverse = (3 * denominator) ^ 2 (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#460)
@@ -68,10 +70,22 @@ Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplica
 	- codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits + tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights (contracts/Tokenomics.sol#845-846)
 	- fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital)) (contracts/Tokenomics.sol#853)
 
-Clarification: Needs to double be check. WIP.
+Clarification: False positive.
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
 	- fp1 = PRBMathSD59x18.fromInt(int256(incentives[1])) / 1e18 (contracts/Tokenomics.sol#851)
 	- fp1 = fp1.mul(fp2) (contracts/Tokenomics.sol#855)
+By logic:
+    // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
+    // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
+    // Convert treasuryRewards and convert to ETH
+    int256 fp1 = PRBMathSD59x18.fromInt(int256(incentives[1])) / 1e18;
+    // Example: incentives[1] = 5e17 wei == 0.5 eth
+    // PRBMathSD59x18.fromInt(int256(incentives[1])) =>  5e17 * 1e18 Floating point representation of a number "5e17.0"
+    // 5e17 * 1e18 / 1e18 Floating point representation of a number "0.5". What we want
+    // Convert (codeUnits * devsPerCapital)
+    int256 fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital));
+    // fp1 == codeUnits * devsPerCapital * treasuryRewards
+    fp1 = fp1.mul(fp2);
 
 Clarification: Needs to be fixed.
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
@@ -304,7 +318,6 @@ Pragma version^0.8.17 (contracts/test/ReentrancyAttacker.sol#2) necessitates a v
 solc-0.8.17 is not recommended for deployment
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
 
-
 Clarification: False positive. Low level calls by design
 Low level call in TokenomicsProxy.constructor(address,bytes) (contracts/TokenomicsProxy.sol#16-25):
 	- (success) = tokenomics.delegatecall(tokenomicsData) (contracts/TokenomicsProxy.sol#21)
@@ -325,9 +338,6 @@ Clarification: Please pay attention.
 Variable Tokenomics._finalizeIncentivesForUnitId(uint256,uint256,uint256).sumUnitIncentives_scope_0 (contracts/Tokenomics.sol#589) is too similar to Tokenomics.getOwnerIncentives(address,uint256[],uint256[]).sumUnitIncentives_scope_1 (contracts/Tokenomics.sol#1091)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
 
-
-WIP:
-Re-check a events-list in contracts!
 
 
 
