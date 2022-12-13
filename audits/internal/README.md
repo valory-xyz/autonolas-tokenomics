@@ -49,6 +49,49 @@ let storageLayout = true;
 ```
 The remaining storage layouts are useful for final optimization. <br>
 
+### Fuzzing. Updated 13-12-22
+#### In-place testing with Scribble
+```
+./scripts/scribble.sh Treasury.sol
+
+Detected problem and needs an explanation.
+As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwn.
+if donationETH < msg.value then delta = msg.value - donationETH becomes irrelevant to anyone.
+    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; !!! fails
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+    ...
+    // Accumulate received donation from services
+    uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
+    donationETH += ETHFromServices;
+    ETHFromServices = uint96(donationETH); !!! donationETH != msg.value
+or with console.log
+        console.log("ETH sended",msg.value);
+        console.log("ETHFromServices before",ETHFromServices);
+        // Accumulate received donation from services
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
+        int256 delta = int256(msg.value - donationETH);
+        console.log("delta");
+        console.logInt(delta); 
+        console.log("donationETH calc",donationETH);
+        donationETH += ETHFromServices;
+        ETHFromServices = uint96(donationETH);
+        console.log("ETHFromServices after",ETHFromServices);
+        emit DepositETHFromServices(msg.sender, donationETH);
+
+Deposits ETH from protocol-owned services
+      ✓ Should fail when depositing a zero value
+      ✓ Should fail when input arrays do not match
+      ✓ Should fail when the amount does not match the total donation amounts
+      ✓ Should fail when there is at least one zero donation amount passed
+ETH sended 10000000000000000000000000
+ETHFromServices before 0
+delta
+9999999000000000000000000
+donationETH calc 1000000000000000000
+ETHFromServices after 1000000000000000000
+```
+
+
 ### Security issues. Updated 12-12-22
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>

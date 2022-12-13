@@ -6,6 +6,7 @@ import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
+import "hardhat/console.sol";
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -89,6 +90,8 @@ contract Treasury is GenericTokenomics {
     }
 
     /// @dev Receives ETH.
+    ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "conservation law"} address(this).balance == ETHFromServices+ETHOwned;
     receive() external payable {
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
@@ -102,6 +105,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
+    ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
         // Check for the depository access
@@ -138,6 +142,8 @@ contract Treasury is GenericTokenomics {
     /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
+    ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
+    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; !!! fails
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
@@ -161,12 +167,17 @@ contract Treasury is GenericTokenomics {
         if (msg.value != totalAmount) {
             revert WrongAmount(msg.value, totalAmount);
         }
-
+        console.log("ETH sended",msg.value);
+        console.log("ETHFromServices before",ETHFromServices);
         // Accumulate received donation from services
         uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
+        int256 delta = int256(msg.value - donationETH);
+        console.log("delta");
+        console.logInt(delta); 
+        console.log("donationETH calc",donationETH);
         donationETH += ETHFromServices;
         ETHFromServices = uint96(donationETH);
-
+        console.log("ETHFromServices after",ETHFromServices);
         emit DepositETHFromServices(msg.sender, donationETH);
     }
 
@@ -175,6 +186,7 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
+    ///if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -227,6 +239,7 @@ contract Treasury is GenericTokenomics {
     /// @param accountRewards Amount of account rewards.
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
+    ///if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
@@ -308,6 +321,7 @@ contract Treasury is GenericTokenomics {
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
+    ///if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check if the contract is paused
         if (paused == 2) {

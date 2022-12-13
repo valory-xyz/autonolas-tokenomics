@@ -56,6 +56,7 @@
     "eth-permit": "^0.2.1",
     "hardhat-deploy-ethers": "^0.3.0-beta.13",
     "hardhat-tracer": "^1.1.1",
+    "scribble-generator": "^1.1.0",
     "solhint": "^3.3.7"
   }
 }
