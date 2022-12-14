@@ -6,7 +6,6 @@ import "./GenericTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
-import "hardhat/console.sol";
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -34,7 +33,7 @@ import "hardhat/console.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; 
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off, broken in original version
 contract Treasury is GenericTokenomics {
 
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
@@ -144,7 +143,7 @@ contract Treasury is GenericTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
-    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; !!! fails
+    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
@@ -168,17 +167,12 @@ contract Treasury is GenericTokenomics {
         if (msg.value != totalAmount) {
             revert WrongAmount(msg.value, totalAmount);
         }
-        console.log("ETH sended",msg.value);
-        console.log("ETHFromServices before",ETHFromServices);
         // Accumulate received donation from services
-        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
-        int256 delta = int256(msg.value - donationETH);
-        console.log("delta");
-        console.logInt(delta); 
-        console.log("donationETH calc",donationETH);
+        // issue ETHFromServices += donationETH, but received msg.value
+        // donationETH possible irrelevant to msg.value
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts); 
         donationETH += ETHFromServices;
-        ETHFromServices = uint96(donationETH);
-        console.log("ETHFromServices after",ETHFromServices);
+        ETHFromServices = uint96(donationETH); 
         emit DepositETHFromServices(msg.sender, donationETH);
     }
 
