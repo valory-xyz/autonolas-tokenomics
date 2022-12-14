@@ -13,7 +13,7 @@ import "hardhat/node_modules/ansi-colors/__scribble_ReentrancyUtils.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 ///  @author AL
 ///  @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; broken in original version!!!
+/// #invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; 
 contract Treasury is __scribble_ReentrancyUtils, GenericTokenomics {
     enum TokenState { NonExistent, Enabled, Disabled }
 
