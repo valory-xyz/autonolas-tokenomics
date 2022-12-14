@@ -91,6 +91,7 @@ contract Depository is GenericTokenomics {
     }
 
     /// @dev Changes Bond Calculator contract address
+    ///#if_succeeds {:msg "changed"} bondCalculator != address(0); 
     function changeBondCalculator(address _bondCalculator) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -234,6 +235,7 @@ contract Depository is GenericTokenomics {
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
+    ///#if_succeeds {:msg "productCounter increases" } productCounter == old(productCounter + 1);
     function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -271,6 +273,8 @@ contract Depository is GenericTokenomics {
     /// @dev Close a bonding product.
     /// @notice This will terminate the program regardless of the expiration time.
     /// @param productId Product Id.
+    ///#if_succeeds {:msg "productCounter not touched" } productCounter == old(productCounter);
+    ///#if_succeeds {:msg "success closed" } mapBondProducts[productId].expiry == 0 || mapBondProducts[productId].supply == 0;
     function close(uint256 productId) external {
         // Check for the contract ownership
         if (msg.sender != owner) {

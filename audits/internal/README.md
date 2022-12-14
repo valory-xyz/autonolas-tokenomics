@@ -53,6 +53,11 @@ The remaining storage layouts are useful for final optimization. <br>
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
+./scripts/scribble.sh TokenomicsConstants.sol
+Scibble bugs, problem:
+- Incorrect postprocessing pure/view function to public. As a result, it breaks a properly working test
+- I did not find a native way to evaluate an expression like 1e27 * (1.02)^(x-9). This renders the check useless.
+./scripts/scribble.sh Depository.sol
 ```
 All found issues are located in "Security issues"
 
@@ -166,6 +171,7 @@ Needs to add a variable (constant) with the version number.
 
 ##### Improvement test if needed
 Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa.
+
 
 ##### Optimization notices
 Tokenomics.sol <br>
