@@ -108,7 +108,7 @@ donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donati
 ##### Treasury function drainServiceSlashedFunds.  manual analysis
 ```
 Please pay attention: 
-The problem is very similar to the previous one. As we receive ETH, but no updated ETOwn. Receive ETH just locked in the contract.
+The problem is very similar to the previous one. As we receive ETH, but no updated ETHOwned. Receive ETH just locked in the contract.
 ```
 
 #### Fixed point library update
