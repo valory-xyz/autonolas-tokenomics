@@ -65,18 +65,18 @@ if donationETH < msg.value then delta = msg.value - donationETH becomes irreleva
     donationETH += ETHFromServices;
     ETHFromServices = uint96(donationETH); !!! donationETH != msg.value
 or with console.log
-        console.log("ETH sended",msg.value);
-        console.log("ETHFromServices before",ETHFromServices);
-        // Accumulate received donation from services
-        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
-        int256 delta = int256(msg.value - donationETH);
-        console.log("delta");
-        console.logInt(delta); 
-        console.log("donationETH calc",donationETH);
-        donationETH += ETHFromServices;
-        ETHFromServices = uint96(donationETH);
-        console.log("ETHFromServices after",ETHFromServices);
-        emit DepositETHFromServices(msg.sender, donationETH);
+    console.log("ETH sended",msg.value);
+    console.log("ETHFromServices before",ETHFromServices);
+    // Accumulate received donation from services
+    uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
+    int256 delta = int256(msg.value - donationETH);
+    console.log("delta");
+    console.logInt(delta); 
+    console.log("donationETH calc",donationETH);
+    donationETH += ETHFromServices;
+    ETHFromServices = uint96(donationETH);
+    console.log("ETHFromServices after",ETHFromServices);
+    emit DepositETHFromServices(msg.sender, donationETH);
 
 Deposits ETH from protocol-owned services
       ✓ Should fail when depositing a zero value
@@ -89,6 +89,11 @@ delta
 9999999000000000000000000
 donationETH calc 1000000000000000000
 ETHFromServices after 1000000000000000000
+Even if in this case, this is due to "Mock"-tokenomics - but the logic as a whole needs to be corrected.
+Pay attenion:
+Ref: trackServiceDonations
+donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH; ! so returned donationETH = x + msg.value;
+
 ```
 
 
