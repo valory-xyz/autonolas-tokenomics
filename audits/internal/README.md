@@ -49,13 +49,15 @@ let storageLayout = true;
 ```
 The remaining storage layouts are useful for final optimization. <br>
 
-### Fuzzing. Updated 13-12-22
+### Fuzzing. Updated 14-12-22
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
-./scripts/scribble.sh TokenomicsConstants.sol
+./scripts/scribble.sh TokenomicsProxy.sol -- skipped, not suitable for testing with this tool
+- I did not find a native way checking slot by index like sload(PROXY_TOKENOMICS)
+./scripts/scribble.sh TokenomicsConstants.sol -- skipped, not suitable for testing with this tool
 Scibble bugs, problem:
-- Incorrect postprocessing pure/view function to public. As a result, it breaks a properly working test
+- Incorrect postprocessing pure/view function to public in instrumental version. As a result, it breaks a properly working test
 - I did not find a native way to evaluate an expression like 1e27 * (1.02)^(x-9). This renders the check useless.
 ./scripts/scribble.sh Depository.sol
 ```
@@ -66,6 +68,14 @@ All found issues are located in "Security issues"
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
 [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
+Short list: <br>
+- ignores return value by IERC20(olas). details in slither-full
+- performs a multiplication on the result of a division. details in slither-full 
+- should emit an event. details in slither-full
+- lacks a zero-check. details in slither-full
+- add a reentrancy guard for any blacklisted contract. details in slither-full
+- re-check gas optimization for delete mapUserBonds[bondIds[i]]. details in slither-full 
+- too similar variable. details in slither-full 
 
 #### Problems found by manual analysis or semi-automatically
 ##### Treasury function depositServiceDonationsETH. detected with Scribble
@@ -122,6 +132,25 @@ I marked the functions that need to be re-analyzed - whether they should also be
 Perhaps not a bug.
 ```
 
+##### Depository  getPendingBonds. manual analysis
+```
+function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
+    uint256 numAccountBonds;
+    // Calculate the number of pending bonds
+    uint256 numBonds = bondCounter;
+    bool[] memory positions = new bool[](numBonds);
+    // Record the bond number if it belongs to the account address and was not yet redeemed
+    for (uint256 i = 0; i < numBonds; i++) {
+        if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
+    + block.timestamp >= mapUserBonds[bondId].maturity
+    Otherwise:
+    redeem(getPendingBonds()) fails on:
+    bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
+     // Revert if the bond does not exist or is not matured yet
+    if (!matured) {
+        revert BondNotRedeemable(bondIds[i]);
+    } 
+```
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
@@ -172,15 +201,14 @@ Needs to add a variable (constant) with the version number.
 ##### Improvement test if needed
 Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa.
 
-
 ##### Optimization notices
-Tokenomics.sol <br>
+###### Tokenomics.sol
 ```
 // fp = fp/100 - calculate the final value in fixed point
 fp = fp.div(PRBMathSD59x18.fromInt(100));
 PRBMathSD59x18.fromInt(100) => const
 ```
-Treasury.sol <br>
+###### Treasury.sol <br>
 ```
 Try map instead of array
 // Set of registered tokens
@@ -198,3 +226,7 @@ address[] public tokenRegistry;
 mapping(address => uint256) public mapTokensReserves;
 mapping(address => bool) public mapTokenRegistry;
 ```
+###### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
+Details in slither-full.
+###### All contracts based on GenericTokenomics
+To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach.
