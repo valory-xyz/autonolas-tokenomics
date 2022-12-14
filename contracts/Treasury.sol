@@ -186,7 +186,8 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
-    ///if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount; 
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -239,7 +240,8 @@ contract Treasury is GenericTokenomics {
     /// @param accountRewards Amount of account rewards.
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
-    ///if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
+    ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
+    ///#if_succeeds {:msg "updated ETHFromServices"} accountRewards > 0 && ETHFromServices >= accountRewards ==> ETHFromServices == old(ETHFromServices) - accountRewards; 
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
@@ -321,7 +323,8 @@ contract Treasury is GenericTokenomics {
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
-    ///if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
+    ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned;
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check if the contract is paused
         if (paused == 2) {

@@ -54,6 +54,18 @@ The remaining storage layouts are useful for final optimization. <br>
 ```
 ./scripts/scribble.sh Treasury.sol
 
+```
+All found issues are located in "Security issues"
+
+### Security issues. Updated 13-12-22
+#### Problems found instrumentally
+Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
+All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
+[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
+
+#### Problems found by manual analysis or semi-automatically
+##### Treasury function depositServiceDonationsETH. detected with Scribble
+```
 Detected problem and needs an explanation.
 As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwn.
 if donationETH < msg.value then delta = msg.value - donationETH becomes irrelevant to anyone.
@@ -90,18 +102,15 @@ delta
 donationETH calc 1000000000000000000
 ETHFromServices after 1000000000000000000
 Even if in this case, this is due to "Mock"-tokenomics - but the logic as a whole needs to be corrected.
-Pay attenion:
+Please pay attention:
 Ref: trackServiceDonations
 donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH; ! so returned donationETH = x + msg.value;
-
 ```
-
-
-### Security issues. Updated 12-12-22
-#### Problems found instrumentally
-Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
-All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
+##### Treasury function drainServiceSlashedFunds.  manual analysis
+```
+Please pay attention: 
+The problem is very similar to the previous one. As we receive ETH, but no updated ETOwn. Receive ETH just locked in the contract.
+```
 
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
