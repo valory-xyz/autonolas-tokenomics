@@ -92,6 +92,8 @@ contract Treasury is GenericTokenomics {
     /// @dev Receives ETH.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
     ///#if_succeeds {:msg "conservation law"} address(this).balance == ETHFromServices+ETHOwned;
+    /// Is it good to get able received ETH in paused?
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     receive() external payable {
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
@@ -106,6 +108,8 @@ contract Treasury is GenericTokenomics {
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
     ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
+    /// Is it good to get able received LP/minted OLAS in paused?
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
         // Check for the depository access
@@ -144,6 +148,8 @@ contract Treasury is GenericTokenomics {
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
     ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
+    /// Is it good to get able received ETH in paused?
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
@@ -182,7 +188,8 @@ contract Treasury is GenericTokenomics {
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
-    ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount; 
+    ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount;
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -236,7 +243,8 @@ contract Treasury is GenericTokenomics {
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
-    ///#if_succeeds {:msg "updated ETHFromServices"} accountRewards > 0 && ETHFromServices >= accountRewards ==> ETHFromServices == old(ETHFromServices) - accountRewards; 
+    ///#if_succeeds {:msg "updated ETHFromServices"} accountRewards > 0 && ETHFromServices >= accountRewards ==> ETHFromServices == old(ETHFromServices) - accountRewards;
+    ///#if_succeeds {:msg "unpaused"} paused == 1; 
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
@@ -320,6 +328,7 @@ contract Treasury is GenericTokenomics {
     /// @return success True, if the function execution is successful.
     ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
     ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "unpaused"} paused == 1;
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check if the contract is paused
         if (paused == 2) {

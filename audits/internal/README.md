@@ -66,7 +66,7 @@ All automatic warnings are listed in the following file, concerns of which we ad
 ##### Treasury function depositServiceDonationsETH. detected with Scribble
 ```
 Detected problem and needs an explanation.
-As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwn.
+As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwned.
 if donationETH < msg.value then delta = msg.value - donationETH becomes irrelevant to anyone.
     ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; !!! fails
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
@@ -109,6 +109,12 @@ donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donati
 ```
 Please pay attention: 
 The problem is very similar to the previous one. As we receive ETH, but no updated ETHOwned. Receive ETH just locked in the contract.
+```
+##### Treasury open issue ref: paused. manual analysis
+```
+Please pay attention: 
+I marked the functions that need to be re-analyzed - whether they should also be paused.
+Perhaps not a bug.
 ```
 
 #### Fixed point library update
