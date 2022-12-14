@@ -34,7 +34,7 @@ import "hardhat/console.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-///#invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; 
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; 
 contract Treasury is GenericTokenomics {
 
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
