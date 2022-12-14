@@ -151,6 +151,25 @@ function getPendingBonds(address account) external view returns (uint256[] memor
         revert BondNotRedeemable(bondIds[i]);
     } 
 ```
+
+##### Depository reedem() && close() vs product.purchased. manual analysis
+```
+function redeem(uint256[] memory bondIds) public returns (uint256 payout)
+...
+delete mapBondProducts[productId];
+or
+function close(uint256 productId) external
+...
+delete mapBondProducts[productId];
+vs
+function deposit(uint256 productId, uint256 tokenAmount)
+...
+    uint256 purchased = product.purchased + tokenAmount;
+    product.purchased = uint224(purchased);
+Thus, this information will be erased at the time of closing the product.
+```
+
+
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
