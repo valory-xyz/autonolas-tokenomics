@@ -22,6 +22,8 @@ contract BaseSetup is Test {
     Tokenomics internal tokenomics;
 
     uint256[] internal emptyArray;
+    uint256[] internal serviceIds;
+    uint256[] internal serviceAmounts;
     address payable[] internal users;
     address internal deployer;
     address internal dev;
@@ -31,6 +33,9 @@ contract BaseSetup is Test {
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
+        serviceIds = new uint256[](2);
+        (serviceIds[0], serviceIds[1]) = (1, 2);
+        serviceAmounts = new uint256[](2);
         utils = new Utils();
         users = utils.createUsers(2);
         deployer = users[0];
@@ -51,8 +56,9 @@ contract BaseSetup is Test {
         treasury = new Treasury(address(olas), deployer, deployer, address(dispenser));
 
         Tokenomics tokenomicsMaster = new Tokenomics();
+        // Depository contract is irrelevant here, so we are using a deployer's address
         bytes memory proxyData = abi.encodeWithSelector(tokenomicsMaster.initializeTokenomics.selector,
-            address(olas), deployer, deployer, address(dispenser), address(ve), epochLen,
+            address(olas), address(treasury), deployer, address(dispenser), address(ve), epochLen,
             address(componentRegistry), address(agentRegistry), address(serviceRegistry), address(0));
         TokenomicsProxy tokenomicsProxy = new TokenomicsProxy(address(tokenomicsMaster), proxyData);
         tokenomics = Tokenomics(address(tokenomicsProxy));
@@ -77,5 +83,62 @@ contract TreasuryTest is BaseSetup {
         (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
         assertEq(reward, 0);
         assertEq(topUp, 0);
+
+        // Change the first service owner to the deployer (same for components and agents)
+        serviceRegistry.changeUnitOwner(1, deployer);
+        componentRegistry.changeUnitOwner(1, deployer);
+        agentRegistry.changeUnitOwner(1, deployer);
+
+        // Send donations to services from the deployer
+        (serviceAmounts[0], serviceAmounts[1]) = (1 ether, 1 ether);
+        vm.prank(deployer);
+        treasury.depositServiceDonationsETH{value: 2 ether}(serviceIds, serviceAmounts);
+
+        // Move at least epochLen seconds in time
+        vm.warp(block.timestamp + epochLen + 10);
+
+        // Start new epoch and calculate tokenomics parameters and rewards
+        tokenomics.checkpoint();
+
+        // Get the last settled epoch counter
+        uint256 lastPoint = tokenomics.epochCounter() - 1;
+        assertEq(lastPoint, 1);
+        // Get the epoch point of the last epoch
+        EpochPoint memory ep = tokenomics.getEpochPoint(lastPoint);
+        // Get the unit points of the last epoch
+        UnitPoint memory up0 = tokenomics.getUnitPoint(lastPoint, 0);
+        UnitPoint memory up1 = tokenomics.getUnitPoint(lastPoint, 1);
+
+        // Calculate rewards based on the points information
+        uint256 rewards0 = (ep.totalDonationsETH * up0.rewardUnitFraction) / 100;
+        uint256 rewards1 = (ep.totalDonationsETH * up1.rewardUnitFraction) / 100;
+        uint256 accountRewards = rewards0 + rewards1;
+        // Calculate top-ups based on the points information
+        uint256 topUps0 = (ep.totalTopUpsOLAS * up0.topUpUnitFraction) / 100;
+        uint256 topUps1 = (ep.totalTopUpsOLAS * up1.topUpUnitFraction) / 100;
+        uint256 accountTopUps = topUps0 + topUps1;
+
+        assertGe(accountRewards, 0);
+        assertGe(accountTopUps, 0);
+
+        // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
+        IncentiveBalances memory incentiveBalances = tokenomics.getIncentiveBalances(0, 1);
+        assertGe(incentiveBalances.pendingRelativeReward, 0);
+        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+        incentiveBalances = tokenomics.getIncentiveBalances(1, 1);
+        assertGe(incentiveBalances.pendingRelativeReward, 0);
+        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+
+        // Define the types of units to claim rewards and top-ups for
+        (serviceIds[0], serviceIds[1]) = (0, 1);
+        // Define unit Ids to claim rewards and top-ups for
+        (serviceAmounts[0], serviceAmounts[1]) = (1, 1);
+        // Claim rewards and top-ups
+        uint256 balanceOLAS = olas.balanceOf(deployer);
+        vm.prank(deployer);
+        (rewards0, topUps0, ) = dispenser.claimOwnerIncentives(serviceIds, serviceAmounts);
+        // Check the OLAS balance after receiving incentives
+        balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
+        assertEq(balanceOLAS, accountTopUps);
     }
 }
