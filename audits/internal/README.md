@@ -53,11 +53,10 @@ The remaining storage layouts are useful for final optimization. <br>
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
-
 ```
 All found issues are located in "Security issues"
 
-### Security issues. Updated 13-12-22
+### Security issues. Updated 14-12-22
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
