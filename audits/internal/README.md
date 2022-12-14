@@ -67,7 +67,7 @@ All found issues are located in "Security issues"
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt)
+[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
 Short list: <br>
 - ignores return value by IERC20(olas). details in slither-full
 - performs a multiplication on the result of a division. details in slither-full 
