@@ -67,7 +67,6 @@ Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playgroun
 ./scripts/scribble.sh Treasury.sol
 Remade original MockRegistry.sol for function `drain() external returns (uint256 amount)` with actual sending a ETH.
 Notes: Please fixing original test for real send a ETH.
-
 ./scripts/scribble.sh TokenomicsProxy.sol -- skipped, not suitable for testing with this tool
 - I did not find a native way checking slot by index like sload(PROXY_TOKENOMICS)
 ./scripts/scribble.sh TokenomicsConstants.sol -- skipped, not suitable for testing with this tool
@@ -75,6 +74,7 @@ Scibble bugs, problem:
 - Incorrect postprocessing pure/view function to public in instrumental version. As a result, it breaks a properly working test
 - I did not find a native way to evaluate an expression like 1e27 * (1.02)^(x-9). This renders the check useless.
 ./scripts/scribble.sh Depository.sol
+./scripts/scribble.sh Tokenomics.sol
 ```
 All found issues are located in "Security issues"
 
@@ -253,6 +253,27 @@ Needs to add a variable (constant) with the version number.
 
 ##### Improvement test if needed
 Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa.
+
+##### Explanations for Tokenomics accountOwnerIncentives 
+accountOwnerIncentives Requires additional explanation so uses non-obvious mechanics: <br>
+```
+mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch = 0;
+which affects the following calls
+trackServiceDonations
+_trackServiceDonations
+    if (lastEpoch == 0) {
+        mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
+    } else if (lastEpoch < curEpoch) {
+        // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+        _finalizeIncentivesForUnitId(lastEpoch, unitType, serviceUnitIds[j]);
+        // Change the last epoch number
+        mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
+    }
+Since the "relations" between "opposite" processes accountOwnerIncentives and trackServiceDonations quite complex and they both called
+_finalizeIncentivesForUnitId more explanation is needed.
+
+```
+
 
 ##### Optimization notices
 ###### Tokenomics.sol
