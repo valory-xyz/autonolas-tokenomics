@@ -55,9 +55,9 @@ Proxy Conclusions: <br>
 - Upgrade logic located in the implementation contract.
 - Contract verification is possible, most evm block explorers support it. <br>
 Well known vulnerabilities: <br>
-- Uninitialized proxy: passed ✔️
-- Function clashing: passed ✔️
-- Selfdestruct: passed ✔️ <br>
+- Uninitialized proxy: no ✔️
+- Function clashing: no ✔️
+- Selfdestruct: no ✔️ <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
