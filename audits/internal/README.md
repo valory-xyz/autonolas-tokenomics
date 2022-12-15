@@ -92,6 +92,7 @@ Short list: <br>
 
 #### Problems found by manual analysis or semi-automatically
 ##### Treasury function depositServiceDonationsETH. 
+```
 Detected problem and needs an explanation.
 As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwned.
 if donationETH < msg.value then delta = msg.value - donationETH becomes irrelevant to anyone.
