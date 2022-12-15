@@ -135,7 +135,7 @@ donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donati
 ```
 Recommendation: must to be fixed. certain bug. 💥
 
-##### Depository  getPendingBonds. 
+##### Depository function getPendingBonds. 
 ```
 function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
     uint256 numAccountBonds;
@@ -169,7 +169,7 @@ Recommendation: needs to be fixed. Non-critical.
 Needs to add a variable (constant) with the version number. <br>
 Recommendation: needs to be fixed. 
 
-##### Treasury open issue ref: paused. manual analysis
+##### Treasury pause for some other functions.
 ```
 Please pay attention: 
 I marked the functions that need to be re-analyzed - whether they should also be paused.
@@ -285,7 +285,7 @@ mapping(address => bool) public mapTokenRegistry;
 ```
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
 #### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
-Details in slither-full. <br>
+Details in [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
 Recommendation: needs to be fixed. Not a bug, but should be a optimize and eliminate unnecessary code. 💹
 #### All contracts based on GenericTokenomics
 To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach. <br>
