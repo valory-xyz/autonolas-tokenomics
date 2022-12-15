@@ -53,7 +53,7 @@ Proxy Conclusions: <br>
 - Implementation conforms on Universal Upgradeable Proxy Standard (UUPS) EIP-1822 standard
 - Implementation address located in a unique storage slot in the proxy contract.
 - Upgrade logic located in the implementation contract.
-- Contract verification is possible, most evm block explorers support it.
+- Contract verification is possible, most evm block explorers support it. <br>
 Well known vulnerabilities: <br>
 - Uninitialized proxy: passed ✔️
 - Function clashing: passed ✔️
