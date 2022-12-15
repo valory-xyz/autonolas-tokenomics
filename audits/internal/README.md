@@ -49,6 +49,18 @@ let storageLayout = true;
 ```
 The remaining storage layouts are useful for final optimization. <br>
 
+Proxy Conclusions: <br>
+- Implementation conforms on Universal Upgradeable Proxy Standard (UUPS) EIP-1822 standard
+- Implementation address located in a unique storage slot in the proxy contract.
+- Upgrade logic located in the implementation contract.
+- Contract verification is possible, most evm block explorers support it.
+Well known vulnerabilities: <br>
+- Uninitialized proxy: not found, ok
+- Function clashing: not found, ok
+- Selfdestruct: not found, ok
+Tokenomics.sol as implementation should not contain delegatecall itself. <br>
+Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
+
 ### Fuzzing. Updated 14-12-22
 #### In-place testing with Scribble
 ```
