@@ -55,9 +55,9 @@ Proxy Conclusions: <br>
 - Upgrade logic located in the implementation contract.
 - Contract verification is possible, most evm block explorers support it.
 Well known vulnerabilities: <br>
-- Uninitialized proxy: not found, ok
-- Function clashing: not found, ok
-- Selfdestruct: not found, ok <br>
+- Uninitialized proxy: passed ✔️
+- Function clashing: passed ✔️
+- Selfdestruct: passed ✔️ <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
@@ -65,8 +65,6 @@ Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playgroun
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
-Remade original MockRegistry.sol for function `drain() external returns (uint256 amount)` with actual sending a ETH.
-Notes: Please fixing original test for real send a ETH.
 ./scripts/scribble.sh TokenomicsProxy.sol -- skipped, not suitable for testing with this tool
 - I did not find a native way checking slot by index like sload(PROXY_TOKENOMICS)
 ./scripts/scribble.sh TokenomicsConstants.sol -- skipped, not suitable for testing with this tool
@@ -78,23 +76,22 @@ Scibble bugs, problem:
 ```
 All found issues are located in "Security issues"
 
-### Security issues. Updated 15-12-22
+### Security issues.
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
 [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
 Short list: <br>
-- ignores return value by IERC20(olas). details in slither-full
-- performs a multiplication on the result of a division. details in slither-full 
-- should emit an event. details in slither-full
-- lacks a zero-check. details in slither-full
-- add a reentrancy guard for any blacklisted contract. details in slither-full
-- re-check gas optimization for delete mapUserBonds[bondIds[i]]. details in slither-full 
-- too similar variable. details in slither-full 
+- ignores return value by IERC20(olas). Recommendation: needs to be fixed.
+- performs a multiplication on the result of a division. Recommendation: must to be fixed.
+- should emit an event. Recommendation: must to be fixed.
+- lacks a zero-check. Recommendation: needs to be fixed.
+- add a reentrancy guard for any blacklisted contract. Recommendation: must to be fixed (if planned external blacklist contract) 
+- re-check gas optimization for delete mapUserBonds[bondIds[i]]. Recommendation: pay attention. 
+- too similar variable. Recommendation: are welcome but no required to be fixed. Minor issue.  
 
 #### Problems found by manual analysis or semi-automatically
-##### Treasury function depositServiceDonationsETH. detected with Scribble
-```
+##### Treasury function depositServiceDonationsETH. 
 Detected problem and needs an explanation.
 As a result, there will be at least a desynchronization between the amount of eth on Treasury (this.balance) and 2 variables: ETHFromServices and ETHOwned.
 if donationETH < msg.value then delta = msg.value - donationETH becomes irrelevant to anyone.
@@ -135,15 +132,9 @@ Please pay attention:
 Ref: trackServiceDonations
 donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH; ! so returned donationETH = x + msg.value;
 ```
+Recommendation: must to be fixed. certain bug. 💥
 
-##### Treasury open issue ref: paused. manual analysis
-```
-Please pay attention: 
-I marked the functions that need to be re-analyzed - whether they should also be paused.
-Perhaps not a bug.
-```
-
-##### Depository  getPendingBonds. manual analysis
+##### Depository  getPendingBonds. 
 ```
 function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
     uint256 numAccountBonds;
@@ -165,45 +156,28 @@ Explanation: we rely on the presence of a helper view function for the function 
 But, current getPendingBonds() returns the array of ids that does not satisfy the condition: block.timestamp >= mapUserBonds[bondIds[i]].maturity
 Accordingly, the user does not have a function whose result can be safely used as redeem input.
 ```
+Recommendation: must to be fixed. Bug from point view of UX. 🔶
 
-##### Depository reedem() && close() vs product.purchased. manual analysis
-```
-function redeem(uint256[] memory bondIds) public returns (uint256 payout)
-...
-delete mapBondProducts[productId];
-or
-function close(uint256 productId) external
-...
-delete mapBondProducts[productId];
-vs
-function deposit(uint256 productId, uint256 tokenAmount)
-...
-    uint256 purchased = product.purchased + tokenAmount;
-    product.purchased = uint224(purchased);
-Thus, this information will be erased at the time of closing the product.
-It makes the field product.purchased a waste of storage.
-function deposit(uint256 productId, uint256 tokenAmount) ->
-    ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
-    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) 
-        uint256 reserves = tokenInfo.reserves + tokenAmount;
-        tokenInfo.reserves = uint224(reserves);
-This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
-```
+#### Minor issue and necessary logical fixes
+##### Unused event
+This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
+[Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md) <br>
+Recommendation: needs to be fixed. Non-critical. 
 
-##### Tokenomics tp.epochPoint.endBlockNumber. manual analysis 
+##### Semantic versioning in tokenomics implementation
+Needs to add a variable (constant) with the version number. <br>
+Recommendation: needs to be fixed. 
+
+##### Treasury open issue ref: paused. manual analysis
 ```
-struct EpochPoint {
-        // Epoch end block number
-    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
-    uint32 endBlockNumber;
-}
- grep -r endBlockNumber ./contracts/
-./contracts/Tokenomics.sol:    uint32 endBlockNumber;
-./contracts/Tokenomics.sol:        tp.epochPoint.endBlockNumber = uint32(block.number);
-Only assigned but not used in any way.
-All real calculations are based on `endTime`
+Please pay attention: 
+I marked the functions that need to be re-analyzed - whether they should also be paused.
+Perhaps not a bug.
 ```
-#### Fixed point library update
+Recommendation: pay attention. 
+
+### Improvements related to critical external updates
+#### Update a external fixed point library and fixed point related code
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
 https://github.com/paulrberg/prb-math/blob/main/src/UD60x18.sol#L589 - сheaper and easier. <br>
@@ -242,18 +216,85 @@ Since it has the property of an internal independent barrier.
         fKD = epsilonRate;
     }
 ```
-#### Optimization and improvements
-##### Unused event
-This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
-[Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md)
+Recommendation: must to be fixed. ✴️
 
-##### Semantic versioning in tokenomics implementation
-Needs to add a variable (constant) with the version number.
+### Optimization
+#### Depository reedem() && close() vs product.purchased.
+```
+function redeem(uint256[] memory bondIds) public returns (uint256 payout)
+...
+delete mapBondProducts[productId];
+or
+function close(uint256 productId) external
+...
+delete mapBondProducts[productId];
+vs
+function deposit(uint256 productId, uint256 tokenAmount)
+...
+    uint256 purchased = product.purchased + tokenAmount;
+    product.purchased = uint224(purchased);
+Thus, this information will be erased at the time of closing the product.
+It makes the field product.purchased a waste of storage.
+function deposit(uint256 productId, uint256 tokenAmount) ->
+    ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) 
+        uint256 reserves = tokenInfo.reserves + tokenAmount;
+        tokenInfo.reserves = uint224(reserves);
+This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
+```
+Recommendation: must to be fixed. in terms of useless spending of gas, this is a bug. ✴️
+#### Tokenomics tp.epochPoint.endBlockNumber.
+```
+struct EpochPoint {
+        // Epoch end block number
+    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
+    uint32 endBlockNumber;
+}
+ grep -r endBlockNumber ./contracts/
+./contracts/Tokenomics.sol:    uint32 endBlockNumber;
+./contracts/Tokenomics.sol:        tp.epochPoint.endBlockNumber = uint32(block.number);
+Only assigned but not used in any way.
+All real calculations are based on `endTime`
+```
+Recommendation: needs to be fixed if it is not necessary for the excluded functionality.💹
+#### Tokenomics.sol
+```
+// fp = fp/100 - calculate the final value in fixed point
+fp = fp.div(PRBMathSD59x18.fromInt(100));
+PRBMathSD59x18.fromInt(100) => const
+```
+Recommendation: needs to be fixed.
+#### Treasury.sol <br>
+```
+Try map instead of array
+// Set of registered tokens
+address[] public tokenRegistry;
+logic of functions:
+function enableToken(address token) external
+function disableToken(address token) external
+function isEnabled(address token) external view returns (bool enabled)
 
-##### Improvement test if needed
-Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa.
+// Token address => token info related to bonding
+mapping(address => TokenInfo) public mapTokens;
+// Set of registered tokens
+address[] public tokenRegistry;
+=>
+mapping(address => uint256) public mapTokensReserves;
+mapping(address => bool) public mapTokenRegistry;
+```
+Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
+#### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
+Details in slither-full. <br>
+Recommendation: needs to be fixed. Not a bug, but should be a optimize and eliminate unnecessary code. 💹
+#### All contracts based on GenericTokenomics
+To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach. <br>
+Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
 
-##### Explanations for Tokenomics accountOwnerIncentives 
+### Improvements to tests and code self-documentation.
+#### Improvement test if needed
+Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa. <br>
+Notes: Fulfilled in fact with scribble. ✔️
+#### Explanations for Tokenomics accountOwnerIncentives 
 accountOwnerIncentives Requires additional explanation so uses non-obvious mechanics: <br>
 ```
 mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch = 0;
@@ -272,32 +313,8 @@ Since the "relations" between "opposite" processes accountOwnerIncentives and tr
 _finalizeIncentivesForUnitId more explanation is needed.
 
 ```
-##### Optimization notices
-###### Tokenomics.sol
-```
-// fp = fp/100 - calculate the final value in fixed point
-fp = fp.div(PRBMathSD59x18.fromInt(100));
-PRBMathSD59x18.fromInt(100) => const
-```
-###### Treasury.sol <br>
-```
-Try map instead of array
-// Set of registered tokens
-address[] public tokenRegistry;
-logic of functions:
-function enableToken(address token) external
-function disableToken(address token) external
-function isEnabled(address token) external view returns (bool enabled)
-
-// Token address => token info related to bonding
-mapping(address => TokenInfo) public mapTokens;
-// Set of registered tokens
-address[] public tokenRegistry;
-=>
-mapping(address => uint256) public mapTokensReserves;
-mapping(address => bool) public mapTokenRegistry;
-```
-###### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
-Details in slither-full.
-###### All contracts based on GenericTokenomics
-To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach.
+Recommendation: are welcome but no required to be fixed. Minor issue. 
+#### Improved Mock contracts
+I remade during audit a original MockRegistry.sol: function `drain() external returns (uint256 amount)` now actually sending a ETH. <br>
+Notes: Please fixing tests/Mock for real sending a ETH. <br>
+Recommendation: needs to be fixed. Without this, the rules written in the language scribble will not work correctly.
