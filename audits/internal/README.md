@@ -171,6 +171,12 @@ function deposit(uint256 productId, uint256 tokenAmount)
     product.purchased = uint224(purchased);
 Thus, this information will be erased at the time of closing the product.
 It makes the field product.purchased a waste of storage.
+function deposit(uint256 productId, uint256 tokenAmount) ->
+    ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) 
+        uint256 reserves = tokenInfo.reserves + tokenAmount;
+        tokenInfo.reserves = uint224(reserves);
+This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
 ```
 
 
