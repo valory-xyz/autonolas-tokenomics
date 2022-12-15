@@ -61,7 +61,7 @@ Well known vulnerabilities: <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
-### Fuzzing. Updated 14-12-22
+### Fuzzing. Updated 15-12-22
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
@@ -78,7 +78,7 @@ Scibble bugs, problem:
 ```
 All found issues are located in "Security issues"
 
-### Security issues. Updated 14-12-22
+### Security issues. Updated 15-12-22
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
@@ -203,7 +203,6 @@ struct EpochPoint {
 Only assigned but not used in any way.
 All real calculations are based on `endTime`
 ```
-
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
@@ -273,8 +272,6 @@ Since the "relations" between "opposite" processes accountOwnerIncentives and tr
 _finalizeIncentivesForUnitId more explanation is needed.
 
 ```
-
-
 ##### Optimization notices
 ###### Tokenomics.sol
 ```
