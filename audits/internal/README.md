@@ -57,7 +57,7 @@ Proxy Conclusions: <br>
 Well known vulnerabilities: <br>
 - Uninitialized proxy: not found, ok
 - Function clashing: not found, ok
-- Selfdestruct: not found, ok
+- Selfdestruct: not found, ok <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
