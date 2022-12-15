@@ -179,6 +179,20 @@ function deposit(uint256 productId, uint256 tokenAmount) ->
 This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
 ```
 
+##### Tokenomics tp.epochPoint.endBlockNumber. manual analysis 
+```
+struct EpochPoint {
+        // Epoch end block number
+    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
+    uint32 endBlockNumber;
+}
+ grep -r endBlockNumber ./contracts/
+./contracts/Tokenomics.sol:    uint32 endBlockNumber;
+./contracts/Tokenomics.sol:        tp.epochPoint.endBlockNumber = uint32(block.number);
+Only assigned but not used in any way.
+All real calculations are based on `endTime`
+```
+
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
