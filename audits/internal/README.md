@@ -144,12 +144,15 @@ function getPendingBonds(address account) external view returns (uint256[] memor
         if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
     + block.timestamp >= mapUserBonds[bondId].maturity
     Otherwise:
-    redeem(getPendingBonds()) fails on:
+    redeem(getPendingBonds()) can be fails on:
     bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
      // Revert if the bond does not exist or is not matured yet
     if (!matured) {
         revert BondNotRedeemable(bondIds[i]);
-    } 
+    }
+Explanation: we rely on the presence of a helper view function for the function redeem(uint256[] memory bondIds), which will form the correct array of bondIds.
+But, current getPendingBonds() returns the array of ids that does not satisfy the condition: block.timestamp >= mapUserBonds[bondIds[i]].maturity
+Accordingly, the user does not have a function whose result can be safely used as redeem input.
 ```
 
 ##### Depository reedem() && close() vs product.purchased. manual analysis
@@ -167,6 +170,7 @@ function deposit(uint256 productId, uint256 tokenAmount)
     uint256 purchased = product.purchased + tokenAmount;
     product.purchased = uint224(purchased);
 Thus, this information will be erased at the time of closing the product.
+It makes the field product.purchased a waste of storage.
 ```
 
 
