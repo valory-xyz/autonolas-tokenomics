@@ -132,11 +132,7 @@ Please pay attention:
 Ref: trackServiceDonations
 donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH; ! so returned donationETH = x + msg.value;
 ```
-##### Treasury function drainServiceSlashedFunds.  manual analysis
-```
-Please pay attention: 
-The problem is very similar to the previous one. As we receive ETH, but no updated ETHOwned. Receive ETH just locked in the contract.
-```
+
 ##### Treasury open issue ref: paused. manual analysis
 ```
 Please pay attention: 
