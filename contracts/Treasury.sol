@@ -362,6 +362,8 @@ contract Treasury is GenericTokenomics {
 
     /// @dev Drains slashed funds from the service registry.
     /// @return amount Drained amount.
+    ///#if_succeeds {:msg "correct update total eth balance" } old(address(this).balance) == address(this).balance-amount;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned-amount;
     function drainServiceSlashedFunds() external returns (uint256 amount) {
         // Check for the contract ownership
         if (msg.sender != owner) {

@@ -312,6 +312,8 @@ describe("Treasury", async () => {
         it("Drain slashed funds from the service registry", async () => {
             // Set the service registry contract address to the tokenomics
             await tokenomics.setServiceRegistry(serviceRegistry.address);
+            let amount = ethers.utils.parseEther("10");
+            await deployer.sendTransaction({to: serviceRegistry.address, value: amount});
 
             // Try to drain by the non-owner
             await expect(
@@ -320,7 +322,7 @@ describe("Treasury", async () => {
 
             // Drain slashed funds
             // Static call to get the return value
-            const amount = await treasury.connect(deployer).callStatic.drainServiceSlashedFunds();
+            amount = await treasury.connect(deployer).callStatic.drainServiceSlashedFunds();
             expect(amount).to.equal(oneEther);
             // The real call
             await treasury.connect(deployer).drainServiceSlashedFunds();

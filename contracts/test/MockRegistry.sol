@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+ error TransferFailed(address token, address from, address to, uint256 value);
+
 /// @dev Mocking the service registry functionality.
 contract MockRegistry {
     enum UnitType {
@@ -61,7 +63,16 @@ contract MockRegistry {
 
     /// @dev Drains slashed funds.
     /// @return amount Drained amount.
-    function drain() external pure returns (uint256 amount) {
+    function drain() external returns (uint256 amount) {
         amount = 1 ether;
+        (bool result, ) = msg.sender.call{value: amount}("");
+        if (!result) {
+            revert TransferFailed(address(0), address(this), msg.sender, amount);
+        }
     }
+
+    /// @dev For drain testing.
+    receive() external payable {
+    }
+
 }

@@ -65,6 +65,9 @@ Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playgroun
 #### In-place testing with Scribble
 ```
 ./scripts/scribble.sh Treasury.sol
+Remade original MockRegistry.sol for function `drain() external returns (uint256 amount)` with actual sending a ETH.
+Notes: Please fixing original test for real send a ETH.
+
 ./scripts/scribble.sh TokenomicsProxy.sol -- skipped, not suitable for testing with this tool
 - I did not find a native way checking slot by index like sload(PROXY_TOKENOMICS)
 ./scripts/scribble.sh TokenomicsConstants.sol -- skipped, not suitable for testing with this tool
