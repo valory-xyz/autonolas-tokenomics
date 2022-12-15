@@ -179,7 +179,6 @@ function deposit(uint256 productId, uint256 tokenAmount) ->
 This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
 ```
 
-
 #### Fixed point library update
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
 Since our business logic does not involve the use of negative numbers (fKD), we need to unsigned 60.18-decimal fixed-point numbers. <br>
