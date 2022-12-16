@@ -177,6 +177,13 @@ Perhaps not a bug.
 ```
 Recommendation: pay attention. 
 
+#### Tokenomics epochLen can be zero by misconfig
+```
+    function initializeTokenomics(
+        epochLen = _epochLen;
+```
+Recommendation: needs to be fixed. 
+
 ### Improvements related to critical external updates
 #### Update a external fixed point library and fixed point related code
 Not an bug, but it is desirable in own codebase to switch on latest v3.0.0 of original https://github.com/paulrberg/prb-math <br>
@@ -218,6 +225,7 @@ Since it has the property of an internal independent barrier.
     }
 ```
 Recommendation: must to be fixed. ✴️
+
 
 ### Optimization
 #### Depository reedem() && close() vs product.purchased.
