@@ -177,7 +177,7 @@ Perhaps not a bug.
 ```
 Recommendation: pay attention. 
 
-#### Tokenomics epochLen can be zero by misconfig
+##### Tokenomics epochLen can be zero by misconfig
 ```
     function initializeTokenomics(
         epochLen = _epochLen;
