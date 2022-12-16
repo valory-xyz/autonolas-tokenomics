@@ -182,7 +182,18 @@ Recommendation: pay attention.
     function initializeTokenomics(
         epochLen = _epochLen;
 ```
-Recommendation: needs to be fixed. 
+Recommendation: needs to be fixed.
+
+##### Tokenomics && Treasury. Parameters must have reasonable lower bounds.
+```
+epochLen - Must have a minimum reasonable duration. The "physical" limit is 2 * time between blocks, but realistically should be something like a week.
+function depositServiceDonationsETH - It is desirable to have the minimum reasonable amount of ETH(wei) and revert if msg.value < LIMIT.
+From the point of view of calculations, minimum values are sufficient, for example 1gWei.
+From the point of view of protection against "Dusting attack", we can set a reasonable minimum value that will allow anybody to send allowed values, but will limit explicit spam.
+The latter also refers to the receive().
+https://blockworks.co/news/defi-web-apps-block-users-hit-by-tornado-cash-dust-attack 
+```
+Recommendation: pay attention.
 
 ### Improvements related to critical external updates
 #### Update a external fixed point library and fixed point related code

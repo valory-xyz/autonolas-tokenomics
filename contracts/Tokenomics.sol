@@ -11,6 +11,8 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
+import "hardhat/console.sol";
+
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -746,7 +748,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
-    ///if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / oneYear > old(currentYear) ==> currentYear == old(currentYear)+1;
+    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / oneYear > old(currentYear) ==> currentYear == old(currentYear)+1;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
@@ -827,7 +829,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Adjust the effectiveBond
             incentives[4] = effectiveBond + incentives[4] - curMaxBond;
             effectiveBond = uint96(incentives[4]);
-        }
+        } 
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
