@@ -82,6 +82,12 @@ contract DispenserTest is BaseSetup {
         super.setUp();
     }
 
+    /// @dev Pseudo-random number generator in a range of 0 to 1000.
+    function random(uint256 seed) private pure returns (uint256) {
+        uint256 randomHash = uint256(keccak256(abi.encodePacked(seed)));
+        return randomHash % 1000;
+    }
+
     /// @dev Deposit incentives for 2 services.
     /// @notice Assume that no single donation is bigger than 2^64 - 1.
     /// @param amount0 Amount to donate to the first service.
@@ -130,6 +136,7 @@ contract DispenserTest is BaseSetup {
         uint256 topUps1 = (ep.totalTopUpsOLAS * up1.topUpUnitFraction) / 100;
         uint256 accountTopUps = topUps0 + topUps1;
 
+        // Rewards and top-ups must not be zero
         assertGe(accountRewards, 0);
         assertGe(accountTopUps, 0);
 
@@ -155,7 +162,7 @@ contract DispenserTest is BaseSetup {
         // Check the ETH and OLAS balance after receiving incentives
         balanceETH = address(deployer).balance - balanceETH;
         balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
-        assertEq(balanceETH, rewards0);
+        assertEq(balanceETH, accountRewards);
         assertEq(balanceOLAS, accountTopUps);
     }
 
@@ -163,7 +170,7 @@ contract DispenserTest is BaseSetup {
     /// @notice Assume that no single donation is bigger than 2^64 - 1.
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
-    function testIncentivesLoop(uint64 amount0, uint64 amount1) public {
+    function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
         // Amounts must be bigger than zero
         vm.assume(amount0 > 100);
         vm.assume(amount1 > 100);
@@ -245,8 +252,90 @@ contract DispenserTest is BaseSetup {
             // Check the ETH and OLAS balance after receiving incentives
             balanceETH = address(deployer).balance - balanceETH;
             balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
-            assertEq(balanceETH, rewards0);
+            assertEq(balanceETH, accountRewards);
             assertEq(balanceOLAS, accountTopUps);
+        }
+    }
+
+    /// @dev Deposit incentives in a loop as the previous one and claim incentives ones in two epochs.
+    /// @notice Assume that no single donation is bigger than 2^64 - 1.
+    /// @param amount0 Amount to donate to the first service.
+    /// @param amount1 Amount to donate to the second service.
+    function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
+        // Amounts must be bigger than zero
+        vm.assume(amount0 > 100);
+        vm.assume(amount1 > 100);
+
+        // Change the first service owner to the deployer (same for components and agents)
+        serviceRegistry.changeUnitOwner(1, deployer);
+        componentRegistry.changeUnitOwner(1, deployer);
+        agentRegistry.changeUnitOwner(1, deployer);
+
+        // Define the types of units to claim rewards and top-ups for
+        (unitTypes[0], unitTypes[1]) = (0, 1);
+        // Define unit Ids to claim rewards and top-ups for
+        (unitIds[0], unitIds[1]) = (1, 1);
+
+        // Set epoch length equal to a week
+        epochLen = 1 weeks;
+        tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
+
+        uint256[] memory rewards = new uint256[](2);
+        uint256[] memory topUps = new uint256[](2);
+
+        // Run for more than 2 years (more than 52 weeks in a year)
+        uint256 endTime = 110 weeks;
+        for (uint256 i = 0; i < endTime; i += epochLen) {
+            // Send donations to services from the deployer
+            (serviceAmounts[0], serviceAmounts[1]) = (amount0, amount1);
+            vm.prank(deployer);
+            treasury.depositServiceDonationsETH{value: serviceAmounts[0] + serviceAmounts[1]}(serviceIds, serviceAmounts);
+
+            // Move at least epochLen seconds in time with the random addition of seconds
+            vm.warp(block.timestamp + epochLen + random(tokenomics.epochCounter()));
+
+            // Start new epoch and calculate tokenomics parameters and rewards
+            tokenomics.checkpoint();
+
+            // Get the last settled epoch counter
+            uint256 lastPoint = tokenomics.epochCounter() - 1;
+
+            // Get the epoch point of the last epoch
+            EpochPoint memory ep = tokenomics.getEpochPoint(lastPoint);
+            // Get the unit points of the last epoch
+            UnitPoint[] memory up = new UnitPoint[](2);
+            (up[0], up[1]) = (tokenomics.getUnitPoint(lastPoint, 0), tokenomics.getUnitPoint(lastPoint, 1));
+
+            // Calculate rewards based on the points information
+            rewards[0] += (ep.totalDonationsETH * up[0].rewardUnitFraction) / 100;
+            rewards[1] += (ep.totalDonationsETH * up[1].rewardUnitFraction) / 100;
+            // Calculate top-ups based on the points information
+            topUps[0] += (ep.totalTopUpsOLAS * up[0].topUpUnitFraction) / 100;
+            topUps[1] += (ep.totalTopUpsOLAS * up[1].topUpUnitFraction) / 100;
+
+            // Claim rewards and top-ups during even epoch numbers
+            if ((tokenomics.epochCounter() % 2) == 0) {
+                // This will be a sum up of two epoch incentives
+                uint256 accountRewards = rewards[0] + rewards[1];
+                uint256 accountTopUps = topUps[0] + topUps[1];
+
+                uint256 balanceETH = address(deployer).balance;
+                uint256 balanceOLAS = olas.balanceOf(deployer);
+                vm.prank(deployer);
+                (rewards[0], topUps[0],) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
+
+                // Check the ETH and OLAS balance after receiving incentives
+                balanceETH = address(deployer).balance - balanceETH;
+                balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
+                assertEq(balanceETH, accountRewards);
+                assertEq(balanceOLAS, accountTopUps);
+
+                // Zero previously calculated rewards and top-ups
+                rewards[0] = 0;
+                rewards[1] = 0;
+                topUps[0] = 0;
+                topUps[1] = 0;
+            }
         }
     }
 }
