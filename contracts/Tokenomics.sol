@@ -744,7 +744,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
-    ///if_succeeds {:msg "epochCounter can only increase"} $return == true ==> epochCounter == old(epochCounter) + 1;
+    ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
