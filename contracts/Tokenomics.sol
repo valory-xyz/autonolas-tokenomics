@@ -11,6 +11,7 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
+
 /*
 * In this contract we consider both ETH and OLAS tokens.
 * For ETH tokens, there are currently about 121 million tokens.
@@ -745,7 +746,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
-    ///if_succeeds {:msg "two events will never happen at the same time"} $result == true ==> (block.timestamp - timeLaunch) / oneYear !=  (block.timestamp + epochLen - timeLaunch) / oneYear; !fails
+    ///if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / oneYear > old(currentYear) ==> currentYear == old(currentYear)+1;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
@@ -832,6 +833,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year will change
         numYears = (block.timestamp + curEpochLen - timeLaunch) / oneYear;
+        // Audits!
         // Account for the year change to adjust the max bond
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
