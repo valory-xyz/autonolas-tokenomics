@@ -61,7 +61,6 @@ describe("Dispenser", async () => {
         // Deploy master tokenomics contract
         const tokenomicsMaster = await tokenomicsFactory.deploy();
 
-        // Treasury address is deployer since there are functions that require treasury only
         const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
             [olas.address, treasury.address, deployer.address, dispenser.address, ve.address, epochLen,
                 componentRegistry.address, agentRegistry.address, serviceRegistry.address, AddressZero]);
@@ -77,8 +76,8 @@ describe("Dispenser", async () => {
         attacker = await Attacker.deploy(dispenser.address, treasury.address);
         await attacker.deployed();
 
-        // Change the tokenomics address in the dispenser to the correct one
-        await dispenser.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+        // Change the tokenomics and treasury addresses in the dispenser to correct ones
+        await dispenser.changeManagers(tokenomics.address, treasury.address, AddressZero, AddressZero);
 
         // Update tokenomics address in treasury
         await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
