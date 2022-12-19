@@ -296,6 +296,7 @@ describe("Tokenomics", async () => {
             // Try to run checkpoint while the epoch length is not yet reached
             await tokenomics.changeTokenomicsParameters(10, 10, 10, 10);
             await tokenomics.connect(deployer).checkpoint();
+
         });
 
         it("Checkpoint with revenues", async () => {

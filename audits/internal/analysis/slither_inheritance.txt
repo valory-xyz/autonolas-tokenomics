@@ -1,0 +1,358 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ TransferHelper
+
++ IUniswapV2Factory
+
++ IUniswapV2Pair
+
++ UniswapV2Router02
+ -> IUniswapV2Router02
+, [IUniswapV2Router01]
+
++ IERC20
+
++ IUniswapV2Router01
+
++ IUniswapV2Router02
+ -> IUniswapV2Router01
+
++ IWETH
+
++ SafeMath
+
++ UniswapV2Library
+
++ UniswapV2ERC20
+ -> IUniswapV2ERC20
+
++ UniswapV2Factory
+ -> IUniswapV2Factory
+
++ UniswapV2Pair
+ -> IUniswapV2Pair, UniswapV2ERC20
+, [IUniswapV2ERC20]
+
++ IERC20
+
++ IUniswapV2Callee
+
++ IUniswapV2ERC20
+
++ IUniswapV2Factory
+
++ IUniswapV2Pair
+
++ Math
+
++ SafeMath
+
++ UQ112x112
+
++ WETH9
+
++ Ownable
+ -> Context
+
++ ERC20
+ -> Context, IERC20, IERC20Metadata
+
++ IERC20
+
++ IERC20Metadata
+ -> IERC20
+
++ Context
+
++ PRBMath
+
++ PRBMathSD59x18
+
++ TransferHelper
+
++ IERC20
+
++ IUniswapV2Callee
+
++ IUniswapV2ERC20
+
++ IUniswapV2Factory
+
++ IUniswapV2Pair
+
++ IERC20
+
++ IUniswapV2Router01
+
++ IUniswapV2Router02
+ -> IUniswapV2Router01
+
++ IWETH
+
++ Depository
+ -> GenericTokenomics
+, [IErrorsTokenomics]
+
++ Dispenser
+ -> GenericTokenomics
+, [IErrorsTokenomics]
+
++ DonatorBlacklist
+
++ GenericBondCalculator
+
++ GenericTokenomics
+ -> IErrorsTokenomics
+
++ Tokenomics
+ -> TokenomicsConstants, GenericTokenomics
+, [IErrorsTokenomics]
+
++ TokenomicsConstants
+
++ TokenomicsProxy
+
++ Treasury
+ -> GenericTokenomics
+, [IErrorsTokenomics]
+
++ IDonatorBlacklist
+
++ IErrorsTokenomics
+
++ IGenericBondCalculator
+
++ IOLAS
+
++ IServiceTokenomics
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ IVotingEscrow
+
++ IDepository
+
++ IRouter
+
++ AttackDeposit
+
++ ERC20Token
+ -> ERC20, Ownable
+, [IERC20Metadata, IERC20, Context]
+
++ MockRegistry
+
++ MockTokenomics
+
++ MockVE
+
++ ITokenomics
+
++ ReentrancyAttacker
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ TransferHelper
+
++ IUniswapV2Factory
+
++ IUniswapV2Pair
+
++ UniswapV2Router02
+
++ IERC20
+
++ IUniswapV2Router01
+ -> IUniswapV2Router02
+, [UniswapV2Router02]
+
++ IUniswapV2Router02
+ -> UniswapV2Router02
+
++ IWETH
+
++ SafeMath
+
++ UniswapV2Library
+
++ UniswapV2ERC20
+ -> UniswapV2Pair
+
++ UniswapV2Factory
+
++ UniswapV2Pair
+
++ IERC20
+
++ IUniswapV2Callee
+
++ IUniswapV2ERC20
+ -> UniswapV2ERC20
+, [UniswapV2Pair]
+
++ IUniswapV2Factory
+ -> UniswapV2Factory
+
++ IUniswapV2Pair
+ -> UniswapV2Pair
+
++ Math
+
++ SafeMath
+
++ UQ112x112
+
++ WETH9
+
++ Ownable
+ -> ERC20Token
+
++ ERC20
+ -> ERC20Token
+
++ IERC20
+ -> ERC20, IERC20Metadata
+, [ERC20Token]
+
++ IERC20Metadata
+ -> ERC20
+, [ERC20Token]
+
++ Context
+ -> Ownable, ERC20
+, [ERC20Token]
+
++ PRBMath
+
++ PRBMathSD59x18
+
++ TransferHelper
+
++ IERC20
+
++ IUniswapV2Callee
+
++ IUniswapV2ERC20
+
++ IUniswapV2Factory
+
++ IUniswapV2Pair
+
++ IERC20
+
++ IUniswapV2Router01
+ -> IUniswapV2Router02
+
++ IUniswapV2Router02
+
++ IWETH
+
++ Depository
+
++ Dispenser
+
++ DonatorBlacklist
+
++ GenericBondCalculator
+
++ GenericTokenomics
+ -> Depository, Dispenser, Tokenomics, Treasury
+
++ Tokenomics
+
++ TokenomicsConstants
+ -> Tokenomics
+
++ TokenomicsProxy
+
++ Treasury
+
++ IDonatorBlacklist
+
++ IErrorsTokenomics
+ -> GenericTokenomics
+, [Depository, Dispenser, Tokenomics, Treasury]
+
++ IGenericBondCalculator
+
++ IOLAS
+
++ IServiceTokenomics
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ IVotingEscrow
+
++ IDepository
+
++ IRouter
+
++ AttackDeposit
+
++ ERC20Token
+
++ MockRegistry
+
++ MockTokenomics
+
++ MockVE
+
++ ITokenomics
+
++ ReentrancyAttacker
+
+. analyzed (66 contracts)

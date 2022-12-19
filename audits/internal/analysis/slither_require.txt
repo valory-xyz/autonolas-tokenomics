@@ -1,0 +1,1140 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+Contract TransferHelper
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+|     Function     |                                                        require or assert                                                         |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+|   safeApprove    |    require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeApprove: approve failed)    |
+|   safeTransfer   |   require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)   |
+| safeTransferFrom | require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed) |
+| safeTransferETH  |                        require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                        |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+
+Contract IUniswapV2Factory
++----------------+-------------------+
+|    Function    | require or assert |
++----------------+-------------------+
+|     feeTo      |                   |
+|  feeToSetter   |                   |
+|    getPair     |                   |
+|    allPairs    |                   |
+| allPairsLength |                   |
+|   createPair   |                   |
+|    setFeeTo    |                   |
+| setFeeToSetter |                   |
++----------------+-------------------+
+
+Contract IUniswapV2Pair
++----------------------+-------------------+
+|       Function       | require or assert |
++----------------------+-------------------+
+|         name         |                   |
+|        symbol        |                   |
+|       decimals       |                   |
+|     totalSupply      |                   |
+|      balanceOf       |                   |
+|      allowance       |                   |
+|       approve        |                   |
+|       transfer       |                   |
+|     transferFrom     |                   |
+|   DOMAIN_SEPARATOR   |                   |
+|   PERMIT_TYPEHASH    |                   |
+|        nonces        |                   |
+|        permit        |                   |
+|  MINIMUM_LIQUIDITY   |                   |
+|       factory        |                   |
+|        token0        |                   |
+|        token1        |                   |
+|     getReserves      |                   |
+| price0CumulativeLast |                   |
+| price1CumulativeLast |                   |
+|        kLast         |                   |
+|         mint         |                   |
+|         burn         |                   |
+|         swap         |                   |
+|         skim         |                   |
+|         sync         |                   |
+|      initialize      |                   |
++----------------------+-------------------+
+
+Contract UniswapV2Router02
++-----------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+|                          Function                         |                                                                require or assert                                                                 |
++-----------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |                                                                                                                                                  |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |                                                                                                                                                  |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |                                                                                                                                                  |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |                                                                                                                                                  |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |                                                                                                                                                  |
+|                          factory                          |                                                                                                                                                  |
+|                            WETH                           |                                                                                                                                                  |
+|                        addLiquidity                       |                                                                                                                                                  |
+|                      addLiquidityETH                      |                                                                                                                                                  |
+|                      removeLiquidity                      |                                                                                                                                                  |
+|                     removeLiquidityETH                    |                                                                                                                                                  |
+|                 removeLiquidityWithPermit                 |                                                                                                                                                  |
+|                removeLiquidityETHWithPermit               |                                                                                                                                                  |
+|                  swapExactTokensForTokens                 |                                                                                                                                                  |
+|                  swapTokensForExactTokens                 |                                                                                                                                                  |
+|                   swapExactETHForTokens                   |                                                                                                                                                  |
+|                   swapTokensForExactETH                   |                                                                                                                                                  |
+|                   swapExactTokensForETH                   |                                                                                                                                                  |
+|                   swapETHForExactTokens                   |                                                                                                                                                  |
+|                           quote                           |                                                                                                                                                  |
+|                        getAmountOut                       |                                                                                                                                                  |
+|                        getAmountIn                        |                                                                                                                                                  |
+|                       getAmountsOut                       |                                                                                                                                                  |
+|                        getAmountsIn                       |                                                                                                                                                  |
+|                        constructor                        |                                                                                                                                                  |
+|                          receive                          |                                                         assert(bool)(msg.sender == WETH)                                                         |
+|                       _addLiquidity                       |                                                  assert(bool)(amountAOptimal <= amountADesired)                                                  |
+|                                                           |                           require(bool,string)(reserveA > 0 && reserveB > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                            |
+|                                                           |                            require(bool,string)(amountBOptimal >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                             |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                     require(bool,string)(amountA > 0,UniswapV2Library: INSUFFICIENT_AMOUNT)                                      |
+|                                                           |                            require(bool,string)(amountAOptimal >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                             |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                        addLiquidity                       |                                                  assert(bool)(amountAOptimal <= amountADesired)                                                  |
+|                                                           |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                            require(bool,string)(amountBOptimal >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                             |
+|                                                           |                           require(bool,string)(reserveA > 0 && reserveB > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                            |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                     require(bool,string)(amountA > 0,UniswapV2Library: INSUFFICIENT_AMOUNT)                                      |
+|                                                           |                            require(bool,string)(amountAOptimal >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                             |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                      addLiquidityETH                      |                                                  assert(bool)(amountAOptimal <= amountADesired)                                                  |
+|                                                           |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                            require(bool,string)(amountBOptimal >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                             |
+|                                                           |                           require(bool,string)(reserveA > 0 && reserveB > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                            |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                     require(bool,string)(amountA > 0,UniswapV2Library: INSUFFICIENT_AMOUNT)                                      |
+|                                                           |                            require(bool,string)(amountAOptimal >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                             |
+|                                                           |                                                assert(bool)(IWETH(WETH).transfer(pair,amountETH))                                                |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                      removeLiquidity                      |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                     removeLiquidityETH                    |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)           |
+|                 removeLiquidityWithPermit                 |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                removeLiquidityETHWithPermit               |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)           |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)           |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |                                require(bool,string)(amountB >= amountBMin,UniswapV2Router: INSUFFICIENT_B_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                require(bool,string)(amountA >= amountAMin,UniswapV2Router: INSUFFICIENT_A_AMOUNT)                                |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)           |
+|                           _swap                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                  swapExactTokensForTokens                 |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                  require(bool,string)(amounts[amounts.length - 1] >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT)                   |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                  swapTokensForExactTokens                 |                                 require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)                                 |
+|                                                           |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                             require(bool,string)(amounts[0] <= amountInMax,UniswapV2Router: EXCESSIVE_INPUT_AMOUNT)                              |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                   swapExactETHForTokens                   |                                       require(bool,string)(path[0] == WETH,UniswapV2Router: INVALID_PATH)                                        |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                         assert(bool)(IWETH(WETH).transfer(UniswapV2Library.pairFor(factory,path[0],path[1]),amounts[0]))                         |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                  require(bool,string)(amounts[amounts.length - 1] >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT)                   |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                   swapTokensForExactETH                   |                                 require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)                                 |
+|                                                           |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                                require(bool,string)(path[path.length - 1] == WETH,UniswapV2Router: INVALID_PATH)                                 |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                             require(bool,string)(amounts[0] <= amountInMax,UniswapV2Router: EXCESSIVE_INPUT_AMOUNT)                              |
+|                   swapExactTokensForETH                   |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                  require(bool,string)(amounts[amounts.length - 1] >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT)                   |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                                require(bool,string)(path[path.length - 1] == WETH,UniswapV2Router: INVALID_PATH)                                 |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                   swapETHForExactTokens                   |                              require(bool,string)(amounts[0] <= msg.value,UniswapV2Router: EXCESSIVE_INPUT_AMOUNT)                               |
+|                                                           |                                 require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)                                 |
+|                                                           |                                       require(bool,string)(path[0] == WETH,UniswapV2Router: INVALID_PATH)                                        |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                         assert(bool)(IWETH(WETH).transfer(UniswapV2Library.pairFor(factory,path[0],path[1]),amounts[0]))                         |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|             _swapSupportingFeeOnTransferTokens            |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           | require(bool,string)(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT) |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |                          assert(bool)(IWETH(WETH).transfer(UniswapV2Library.pairFor(factory,path[0],path[1]),amountIn))                          |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           | require(bool,string)(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT) |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                       require(bool,string)(path[0] == WETH,UniswapV2Router: INVALID_PATH)                                        |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |         require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed)         |
+|                                                           |                           require(bool,string)(amountOut >= amountOutMin,UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT)                            |
+|                                                           |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                require(bool,string)(path[path.length - 1] == WETH,UniswapV2Router: INVALID_PATH)                                 |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                                |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                    require(bool,string)(deadline >= block.timestamp,UniswapV2Router: EXPIRED)                                    |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                           quote                           |                           require(bool,string)(reserveA > 0 && reserveB > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                            |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                     require(bool,string)(amountA > 0,UniswapV2Library: INSUFFICIENT_AMOUNT)                                      |
+|                        getAmountOut                       |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                        getAmountIn                        |                                 require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)                                 |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                       getAmountsOut                       |                                  require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)                                  |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                        getAmountsIn                       |                                 require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)                                 |
+|                                                           |                                    require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                                     |
+|                                                           |                                      require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)                                       |
+|                                                           |                                           require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                            |
+|                                                           |                          require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)                          |
+|                                                           |                                           require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                           |
+|                                                           |                                    require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)                                     |
+|                                                           |                                   require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)                                   |
++-----------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Contract IERC20
++--------------+-------------------+
+|   Function   | require or assert |
++--------------+-------------------+
+|     name     |                   |
+|    symbol    |                   |
+|   decimals   |                   |
+| totalSupply  |                   |
+|  balanceOf   |                   |
+|  allowance   |                   |
+|   approve    |                   |
+|   transfer   |                   |
+| transferFrom |                   |
++--------------+-------------------+
+
+Contract IWETH
++----------+-------------------+
+| Function | require or assert |
++----------+-------------------+
+| deposit  |                   |
+| transfer |                   |
+| withdraw |                   |
++----------+-------------------+
+
+Contract SafeMath
++----------+---------------------------------------------------------------------------+
+| Function |                             require or assert                             |
++----------+---------------------------------------------------------------------------+
+|   add    |        require(bool,string)((z = x + y) >= x,ds-math-add-overflow)        |
+|   sub    |        require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)       |
+|   mul    | require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow) |
++----------+---------------------------------------------------------------------------+
+
+Contract UniswapV2Library
++---------------+------------------------------------------------------------------------------------------------+
+|    Function   |                                       require or assert                                        |
++---------------+------------------------------------------------------------------------------------------------+
+|   sortTokens  |           require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)            |
+|               |          require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)          |
+|    pairFor    |          require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)          |
+|               |           require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)            |
+|  getReserves  |          require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)          |
+|               |           require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)            |
+|     quote     |  require(bool,string)(reserveA > 0 && reserveB > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY)   |
+|               |           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)            |
+|               |            require(bool,string)(amountA > 0,UniswapV2Library: INSUFFICIENT_AMOUNT)             |
+|  getAmountOut |         require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)         |
+|               |           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)            |
+|               | require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY) |
+|               |                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                   |
+|  getAmountIn  |        require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)        |
+|               |           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)            |
+|               |                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                  |
+|               | require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY) |
+|               |                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                   |
+| getAmountsOut |         require(bool,string)(amountIn > 0,UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT)         |
+|               |           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)            |
+|               |          require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)          |
+|               |           require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)            |
+|               | require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY) |
+|               |             require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)              |
+|               |                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                   |
+|  getAmountsIn |        require(bool,string)(amountOut > 0,UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT)        |
+|               |           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)            |
+|               |             require(bool,string)(path.length >= 2,UniswapV2Library: INVALID_PATH)              |
+|               |                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                   |
+|               | require(bool,string)(reserveIn > 0 && reserveOut > 0,UniswapV2Library: INSUFFICIENT_LIQUIDITY) |
+|               |                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                  |
+|               |           require(bool,string)(token0 != address(0),UniswapV2Library: ZERO_ADDRESS)            |
+|               |          require(bool,string)(tokenA != tokenB,UniswapV2Library: IDENTICAL_ADDRESSES)          |
++---------------+------------------------------------------------------------------------------------------------+
+
+Contract UniswapV2Factory
++----------------+------------------------------------------------------------------------------------+
+|    Function    |                                 require or assert                                  |
++----------------+------------------------------------------------------------------------------------+
+|     feeTo      |                                                                                    |
+|  feeToSetter   |                                                                                    |
+|    getPair     |                                                                                    |
+|    allPairs    |                                                                                    |
+| allPairsLength |                                                                                    |
+|   createPair   |                                                                                    |
+|    setFeeTo    |                                                                                    |
+| setFeeToSetter |                                                                                    |
+|  constructor   |                                                                                    |
+| allPairsLength |                                                                                    |
+|   createPair   | require(bool,string)(getPair[token0][token1] == address(0),UniswapV2: PAIR_EXISTS) |
+|                |         require(bool,string)(token0 != address(0),UniswapV2: ZERO_ADDRESS)         |
+|                |       require(bool,string)(tokenA != tokenB,UniswapV2: IDENTICAL_ADDRESSES)        |
+|    setFeeTo    |        require(bool,string)(msg.sender == feeToSetter,UniswapV2: FORBIDDEN)        |
+| setFeeToSetter |        require(bool,string)(msg.sender == feeToSetter,UniswapV2: FORBIDDEN)        |
++----------------+------------------------------------------------------------------------------------+
+
+Contract UniswapV2Pair
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+|               Function              |                                                       require or assert                                                       |
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+|             constructor             |                                                                                                                               |
+|                _mint                |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|                _burn                |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|               _approve              |                                                                                                                               |
+|              _transfer              |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|               approve               |                                                                                                                               |
+|               transfer              |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|             transferFrom            |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|                permit               |         require(bool,string)(recoveredAddress != address(0) && recoveredAddress == owner,UniswapV2: INVALID_SIGNATURE)        |
+|                                     |                              require(bool,string)(deadline >= block.timestamp,UniswapV2: EXPIRED)                             |
+|                 name                |                                                                                                                               |
+|                symbol               |                                                                                                                               |
+|               decimals              |                                                                                                                               |
+|             totalSupply             |                                                                                                                               |
+|              balanceOf              |                                                                                                                               |
+|              allowance              |                                                                                                                               |
+|               approve               |                                                                                                                               |
+|               transfer              |                                                                                                                               |
+|             transferFrom            |                                                                                                                               |
+|           DOMAIN_SEPARATOR          |                                                                                                                               |
+|           PERMIT_TYPEHASH           |                                                                                                                               |
+|                nonces               |                                                                                                                               |
+|                permit               |                                                                                                                               |
+|                 name                |                                                                                                                               |
+|                symbol               |                                                                                                                               |
+|               decimals              |                                                                                                                               |
+|             totalSupply             |                                                                                                                               |
+|              balanceOf              |                                                                                                                               |
+|              allowance              |                                                                                                                               |
+|               approve               |                                                                                                                               |
+|               transfer              |                                                                                                                               |
+|             transferFrom            |                                                                                                                               |
+|           DOMAIN_SEPARATOR          |                                                                                                                               |
+|           PERMIT_TYPEHASH           |                                                                                                                               |
+|                nonces               |                                                                                                                               |
+|                permit               |                                                                                                                               |
+|          MINIMUM_LIQUIDITY          |                                                                                                                               |
+|               factory               |                                                                                                                               |
+|                token0               |                                                                                                                               |
+|                token1               |                                                                                                                               |
+|             getReserves             |                                                                                                                               |
+|         price0CumulativeLast        |                                                                                                                               |
+|         price1CumulativeLast        |                                                                                                                               |
+|                kLast                |                                                                                                                               |
+|                 mint                |                                                                                                                               |
+|                 burn                |                                                                                                                               |
+|                 swap                |                                                                                                                               |
+|                 skim                |                                                                                                                               |
+|                 sync                |                                                                                                                               |
+|              initialize             |                                                                                                                               |
+|             getReserves             |                                                                                                                               |
+|            _safeTransfer            |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),UniswapV2: TRANSFER_FAILED)           |
+|             constructor             |                                                                                                                               |
+|              initialize             |                                require(bool,string)(msg.sender == factory,UniswapV2: FORBIDDEN)                               |
+|               _update               |                 require(bool,string)(balance0 <= uint112(- 1) && balance1 <= uint112(- 1),UniswapV2: OVERFLOW)                |
+|               _mintFee              |                           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                           |
+|                                     |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|                 mint                |                          require(bool,string)(liquidity > 0,UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED)                         |
+|                                     |                           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                           |
+|                                     |                 require(bool,string)(balance0 <= uint112(- 1) && balance1 <= uint112(- 1),UniswapV2: OVERFLOW)                |
+|                                     |                                     require(bool,string)(unlocked == 1,UniswapV2: LOCKED)                                     |
+|                                     |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|                 burn                |                   require(bool,string)(amount0 > 0 && amount1 > 0,UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED)                   |
+|                                     |                           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                           |
+|                                     |                 require(bool,string)(balance0 <= uint112(- 1) && balance1 <= uint112(- 1),UniswapV2: OVERFLOW)                |
+|                                     |                                     require(bool,string)(unlocked == 1,UniswapV2: LOCKED)                                     |
+|                                     |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),UniswapV2: TRANSFER_FAILED)           |
+|                                     |                                  require(bool,string)((z = x + y) >= x,ds-math-add-overflow)                                  |
+|                 swap                |                           require(bool,string)(to != _token0 && to != _token1,UniswapV2: INVALID_TO)                          |
+|                                     |            require(bool,string)(amount0Out < _reserve0 && amount1Out < _reserve1,UniswapV2: INSUFFICIENT_LIQUIDITY)           |
+|                                     |                           require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow)                           |
+|                                     |                   require(bool,string)(amount0In > 0 || amount1In > 0,UniswapV2: INSUFFICIENT_INPUT_AMOUNT)                   |
+|                                     |                 require(bool,string)(balance0 <= uint112(- 1) && balance1 <= uint112(- 1),UniswapV2: OVERFLOW)                |
+|                                     | require(bool,string)(balance0Adjusted.mul(balance1Adjusted) >= uint256(_reserve0).mul(_reserve1).mul(1000 ** 2),UniswapV2: K) |
+|                                     |                                     require(bool,string)(unlocked == 1,UniswapV2: LOCKED)                                     |
+|                                     |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |                  require(bool,string)(amount0Out > 0 || amount1Out > 0,UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT)                 |
+|                                     |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),UniswapV2: TRANSFER_FAILED)           |
+|                 skim                |                                  require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)                                 |
+|                                     |           require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),UniswapV2: TRANSFER_FAILED)           |
+|                                     |                                     require(bool,string)(unlocked == 1,UniswapV2: LOCKED)                                     |
+|                 sync                |                 require(bool,string)(balance0 <= uint112(- 1) && balance1 <= uint112(- 1),UniswapV2: OVERFLOW)                |
+|                                     |                                     require(bool,string)(unlocked == 1,UniswapV2: LOCKED)                                     |
+|     slitherConstructorVariables     |                                                                                                                               |
+| slitherConstructorConstantVariables |                                                                                                                               |
++-------------------------------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+Contract IERC20
++--------------+-------------------+
+|   Function   | require or assert |
++--------------+-------------------+
+|     name     |                   |
+|    symbol    |                   |
+|   decimals   |                   |
+| totalSupply  |                   |
+|  balanceOf   |                   |
+|  allowance   |                   |
+|   approve    |                   |
+|   transfer   |                   |
+| transferFrom |                   |
++--------------+-------------------+
+
+Contract IUniswapV2Callee
++---------------+-------------------+
+|    Function   | require or assert |
++---------------+-------------------+
+| uniswapV2Call |                   |
++---------------+-------------------+
+
+Contract Math
++----------+-------------------+
+| Function | require or assert |
++----------+-------------------+
+|   min    |                   |
+|   sqrt   |                   |
++----------+-------------------+
+
+Contract SafeMath
++----------+---------------------------------------------------------------------------+
+| Function |                             require or assert                             |
++----------+---------------------------------------------------------------------------+
+|   add    |        require(bool,string)((z = x + y) >= x,ds-math-add-overflow)        |
+|   sub    |        require(bool,string)((z = x - y) <= x,ds-math-sub-underflow)       |
+|   mul    | require(bool,string)(y == 0 || (z = x * y) / y == x,ds-math-mul-overflow) |
++----------+---------------------------------------------------------------------------+
+
+Contract UQ112x112
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|                encode               |                   |
+|                uqdiv                |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract WETH9
++-----------------------------+--------------------------------------------------+
+|           Function          |                require or assert                 |
++-----------------------------+--------------------------------------------------+
+|           fallback          |                                                  |
+|           deposit           |                                                  |
+|           withdraw          |   require(bool)(balanceOf[msg.sender] >= wad)    |
+|         totalSupply         |                                                  |
+|           approve           |                                                  |
+|           transfer          | require(bool)(allowance[src][msg.sender] >= wad) |
+|                             |       require(bool)(balanceOf[src] >= wad)       |
+|         transferFrom        | require(bool)(allowance[src][msg.sender] >= wad) |
+|                             |       require(bool)(balanceOf[src] >= wad)       |
+| slitherConstructorVariables |                                                  |
++-----------------------------+--------------------------------------------------+
+
+Contract PRBMath
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|                 exp2                |                   |
+|          mostSignificantBit         |                   |
+|                mulDiv               |                   |
+|           mulDivFixedPoint          |                   |
+|             mulDivSigned            |                   |
+|                 sqrt                |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract PRBMathSD59x18
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|                 abs                 |                   |
+|                 avg                 |                   |
+|                 ceil                |                   |
+|                 div                 |                   |
+|                  e                  |                   |
+|                 exp                 |                   |
+|                 exp2                |                   |
+|                floor                |                   |
+|                 frac                |                   |
+|               fromInt               |                   |
+|                  gm                 |                   |
+|                 inv                 |                   |
+|                  ln                 |                   |
+|                log10                |                   |
+|                 log2                |                   |
+|                 mul                 |                   |
+|                  pi                 |                   |
+|                 pow                 |                   |
+|                 powu                |                   |
+|                scale                |                   |
+|                 sqrt                |                   |
+|                toInt                |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract TransferHelper
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+|     Function     |                                                        require or assert                                                         |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+|   safeApprove    |    require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeApprove: approve failed)    |
+|   safeTransfer   |   require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::safeTransfer: transfer failed)   |
+| safeTransferFrom | require(bool,string)(success && (data.length == 0 || abi.decode(data,(bool))),TransferHelper::transferFrom: transferFrom failed) |
+| safeTransferETH  |                        require(bool,string)(success,TransferHelper::safeTransferETH: ETH transfer failed)                        |
++------------------+----------------------------------------------------------------------------------------------------------------------------------+
+
+Contract IERC20
++--------------+-------------------+
+|   Function   | require or assert |
++--------------+-------------------+
+|     name     |                   |
+|    symbol    |                   |
+|   decimals   |                   |
+| totalSupply  |                   |
+|  balanceOf   |                   |
+|  allowance   |                   |
+|   approve    |                   |
+|   transfer   |                   |
+| transferFrom |                   |
++--------------+-------------------+
+
+Contract IUniswapV2Callee
++---------------+-------------------+
+|    Function   | require or assert |
++---------------+-------------------+
+| uniswapV2Call |                   |
++---------------+-------------------+
+
+Contract IUniswapV2ERC20
++------------------+-------------------+
+|     Function     | require or assert |
++------------------+-------------------+
+|       name       |                   |
+|      symbol      |                   |
+|     decimals     |                   |
+|   totalSupply    |                   |
+|    balanceOf     |                   |
+|    allowance     |                   |
+|     approve      |                   |
+|     transfer     |                   |
+|   transferFrom   |                   |
+| DOMAIN_SEPARATOR |                   |
+| PERMIT_TYPEHASH  |                   |
+|      nonces      |                   |
+|      permit      |                   |
++------------------+-------------------+
+
+Contract IUniswapV2Factory
++----------------+-------------------+
+|    Function    | require or assert |
++----------------+-------------------+
+|     feeTo      |                   |
+|  feeToSetter   |                   |
+|    getPair     |                   |
+|    allPairs    |                   |
+| allPairsLength |                   |
+|   createPair   |                   |
+|    setFeeTo    |                   |
+| setFeeToSetter |                   |
++----------------+-------------------+
+
+Contract IUniswapV2Pair
++----------------------+-------------------+
+|       Function       | require or assert |
++----------------------+-------------------+
+|         name         |                   |
+|        symbol        |                   |
+|       decimals       |                   |
+|     totalSupply      |                   |
+|      balanceOf       |                   |
+|      allowance       |                   |
+|       approve        |                   |
+|       transfer       |                   |
+|     transferFrom     |                   |
+|   DOMAIN_SEPARATOR   |                   |
+|   PERMIT_TYPEHASH    |                   |
+|        nonces        |                   |
+|        permit        |                   |
+|  MINIMUM_LIQUIDITY   |                   |
+|       factory        |                   |
+|        token0        |                   |
+|        token1        |                   |
+|     getReserves      |                   |
+| price0CumulativeLast |                   |
+| price1CumulativeLast |                   |
+|        kLast         |                   |
+|         mint         |                   |
+|         burn         |                   |
+|         swap         |                   |
+|         skim         |                   |
+|         sync         |                   |
+|      initialize      |                   |
++----------------------+-------------------+
+
+Contract IERC20
++--------------+-------------------+
+|   Function   | require or assert |
++--------------+-------------------+
+|     name     |                   |
+|    symbol    |                   |
+|   decimals   |                   |
+| totalSupply  |                   |
+|  balanceOf   |                   |
+|  allowance   |                   |
+|   approve    |                   |
+|   transfer   |                   |
+| transferFrom |                   |
++--------------+-------------------+
+
+Contract IUniswapV2Router02
++-----------------------------------------------------------+-------------------+
+|                          Function                         | require or assert |
++-----------------------------------------------------------+-------------------+
+|                          factory                          |                   |
+|                            WETH                           |                   |
+|                        addLiquidity                       |                   |
+|                      addLiquidityETH                      |                   |
+|                      removeLiquidity                      |                   |
+|                     removeLiquidityETH                    |                   |
+|                 removeLiquidityWithPermit                 |                   |
+|                removeLiquidityETHWithPermit               |                   |
+|                  swapExactTokensForTokens                 |                   |
+|                  swapTokensForExactTokens                 |                   |
+|                   swapExactETHForTokens                   |                   |
+|                   swapTokensForExactETH                   |                   |
+|                   swapExactTokensForETH                   |                   |
+|                   swapETHForExactTokens                   |                   |
+|                           quote                           |                   |
+|                        getAmountOut                       |                   |
+|                        getAmountIn                        |                   |
+|                       getAmountsOut                       |                   |
+|                        getAmountsIn                       |                   |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |                   |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |                   |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |                   |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |                   |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |                   |
++-----------------------------------------------------------+-------------------+
+
+Contract IWETH
++----------+-------------------+
+| Function | require or assert |
++----------+-------------------+
+| deposit  |                   |
+| transfer |                   |
+| withdraw |                   |
++----------+-------------------+
+
+Contract Depository
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|              initialize             |                   |
+|             changeOwner             |                   |
+|            changeManagers           |                   |
+|             constructor             |                   |
+|         changeBondCalculator        |                   |
+|               deposit               |                   |
+|                redeem               |                   |
+|           getPendingBonds           |                   |
+|            getBondStatus            |                   |
+|                create               |                   |
+|                close                |                   |
+|           isActiveProduct           |                   |
+|          getActiveProducts          |                   |
+|          getCurrentPriceLP          |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract Dispenser
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|              initialize             |                   |
+|             changeOwner             |                   |
+|            changeManagers           |                   |
+|             constructor             |                   |
+|         claimOwnerIncentives        |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract DonatorBlacklist
++----------------------+-------------------+
+|       Function       | require or assert |
++----------------------+-------------------+
+|     constructor      |                   |
+|     changeOwner      |                   |
+| setDonatorsStatuses  |                   |
+| isDonatorBlacklisted |                   |
++----------------------+-------------------+
+
+Contract GenericBondCalculator
++---------------------+-------------------+
+|       Function      | require or assert |
++---------------------+-------------------+
+|     constructor     |                   |
+| calculatePayoutOLAS |                   |
+|  getCurrentPriceLP  |                   |
+|       checkLP       |                   |
++---------------------+-------------------+
+
+Contract Tokenomics
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|              initialize             |                   |
+|             changeOwner             |                   |
+|            changeManagers           |                   |
+|         getSupplyCapForYear         |                   |
+|         getInflationForYear         |                   |
+|             constructor             |                   |
+|         initializeTokenomics        |                   |
+|       tokenomicsImplementation      |                   |
+|    changeTokenomicsImplementation   |                   |
+|            _adjustMaxBond           |                   |
+|      changeTokenomicsParameters     |                   |
+|       changeIncentiveFractions      |                   |
+|           changeRegistries          |                   |
+|        changeDonatorBlacklist       |                   |
+|     reserveAmountForBondProgram     |                   |
+|        refundFromBondProgram        |                   |
+|     _finalizeIncentivesForUnitId    |                   |
+|        _trackServiceDonations       |                   |
+|        trackServiceDonations        |                   |
+|              checkpoint             |                   |
+|         getInflationPerEpoch        |                   |
+|            getEpochPoint            |                   |
+|             getUnitPoint            |                   |
+|                getIDF               |                   |
+|              getLastIDF             |                   |
+|        accountOwnerIncentives       |                   |
+|          getOwnerIncentives         |                   |
+|         getIncentiveBalances        |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract TokenomicsProxy
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|             constructor             |                   |
+|               fallback              |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract Treasury
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|              initialize             |                   |
+|             changeOwner             |                   |
+|            changeManagers           |                   |
+|             constructor             |                   |
+|               receive               |                   |
+|         depositTokenForOLAS         |                   |
+|      depositServiceDonationsETH     |                   |
+|               withdraw              |                   |
+|          withdrawToAccount          |                   |
+|             enableToken             |                   |
+|             disableToken            |                   |
+|              isEnabled              |                   |
+|          rebalanceTreasury          |                   |
+|       drainServiceSlashedFunds      |                   |
+|                pause                |                   |
+|               unpause               |                   |
+|     slitherConstructorVariables     |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract IDonatorBlacklist
++----------------------+-------------------+
+|       Function       | require or assert |
++----------------------+-------------------+
+| isDonatorBlacklisted |                   |
++----------------------+-------------------+
+
+Contract IGenericBondCalculator
++---------------------+-------------------+
+|       Function      | require or assert |
++---------------------+-------------------+
+| calculatePayoutOLAS |                   |
+|  getCurrentPriceLP  |                   |
+|       checkLP       |                   |
++---------------------+-------------------+
+
+Contract IOLAS
++--------------------+-------------------+
+|      Function      | require or assert |
++--------------------+-------------------+
+|        mint        |                   |
+|     timeLaunch     |                   |
+| inflationRemainder |                   |
+|      decimals      |                   |
+|      transfer      |                   |
++--------------------+-------------------+
+
+Contract IServiceTokenomics
++---------------------+-------------------+
+|       Function      | require or assert |
++---------------------+-------------------+
+|        exists       |                   |
+| getUnitIdsOfService |                   |
+|        drain        |                   |
++---------------------+-------------------+
+
+Contract IToken
++-------------+-------------------+
+|   Function  | require or assert |
++-------------+-------------------+
+|  balanceOf  |                   |
+|   ownerOf   |                   |
+| totalSupply |                   |
++-------------+-------------------+
+
+Contract ITokenomics
++-----------------------------+-------------------+
+|           Function          | require or assert |
++-----------------------------+-------------------+
+|        effectiveBond        |                   |
+|          checkpoint         |                   |
+|    trackServiceDonations    |                   |
+| reserveAmountForBondProgram |                   |
+|    refundFromBondProgram    |                   |
+|    accountOwnerIncentives   |                   |
+|          getLastIDF         |                   |
+|       serviceRegistry       |                   |
++-----------------------------+-------------------+
+
+Contract ITreasury
++----------------------------+-------------------+
+|          Function          | require or assert |
++----------------------------+-------------------+
+|    depositTokenForOLAS     |                   |
+| depositServiceDonationsETH |                   |
+|         isEnabled          |                   |
+|         checkPair          |                   |
+|     withdrawToAccount      |                   |
+|     rebalanceTreasury      |                   |
++----------------------------+-------------------+
+
+Contract IVotingEscrow
++---------------+-------------------+
+|    Function   | require or assert |
++---------------+-------------------+
+|    getVotes   |                   |
+|  balanceOfAt  |                   |
+| totalSupplyAt |                   |
++---------------+-------------------+
+
+Contract IDepository
++----------+-------------------+
+| Function | require or assert |
++----------+-------------------+
+| deposit  |                   |
++----------+-------------------+
+
+Contract IRouter
++--------------------------+-------------------+
+|         Function         | require or assert |
++--------------------------+-------------------+
+| swapExactTokensForTokens |                   |
++--------------------------+-------------------+
+
+Contract AttackDeposit
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|             constructor             |                   |
+|       flashAttackDepositImmune      |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+
+Contract ERC20Token
++----------------------+-------------------------------------------------------------------------------------------------+
+|       Function       |                                        require or assert                                        |
++----------------------+-------------------------------------------------------------------------------------------------+
+|     constructor      |                                                                                                 |
+|        owner         |                                                                                                 |
+|     _checkOwner      |          require(bool,string)(owner() == _msgSender(),Ownable: caller is not the owner)         |
+|  renounceOwnership   |          require(bool,string)(owner() == _msgSender(),Ownable: caller is not the owner)         |
+|  transferOwnership   |          require(bool,string)(owner() == _msgSender(),Ownable: caller is not the owner)         |
+|                      |       require(bool,string)(newOwner != address(0),Ownable: new owner is the zero address)       |
+|  _transferOwnership  |                                                                                                 |
+|      _msgSender      |                                                                                                 |
+|       _msgData       |                                                                                                 |
+|     constructor      |                                                                                                 |
+|         name         |                                                                                                 |
+|        symbol        |                                                                                                 |
+|       decimals       |                                                                                                 |
+|     totalSupply      |                                                                                                 |
+|      balanceOf       |                                                                                                 |
+|       transfer       |          require(bool,string)(from != address(0),ERC20: transfer from the zero address)         |
+|                      |        require(bool,string)(fromBalance >= amount,ERC20: transfer amount exceeds balance)       |
+|                      |            require(bool,string)(to != address(0),ERC20: transfer to the zero address)           |
+|      allowance       |                                                                                                 |
+|       approve        |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+|     transferFrom     |          require(bool,string)(currentAllowance >= amount,ERC20: insufficient allowance)         |
+|                      |            require(bool,string)(to != address(0),ERC20: transfer to the zero address)           |
+|                      |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |        require(bool,string)(fromBalance >= amount,ERC20: transfer amount exceeds balance)       |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+|                      |          require(bool,string)(from != address(0),ERC20: transfer from the zero address)         |
+|  increaseAllowance   |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+|  decreaseAllowance   | require(bool,string)(currentAllowance >= subtractedValue,ERC20: decreased allowance below zero) |
+|                      |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+|      _transfer       |          require(bool,string)(from != address(0),ERC20: transfer from the zero address)         |
+|                      |        require(bool,string)(fromBalance >= amount,ERC20: transfer amount exceeds balance)       |
+|                      |            require(bool,string)(to != address(0),ERC20: transfer to the zero address)           |
+|        _mint         |           require(bool,string)(account != address(0),ERC20: mint to the zero address)           |
+|        _burn         |          require(bool,string)(account != address(0),ERC20: burn from the zero address)          |
+|                      |        require(bool,string)(accountBalance >= amount,ERC20: burn amount exceeds balance)        |
+|       _approve       |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+|   _spendAllowance    |          require(bool,string)(owner != address(0),ERC20: approve from the zero address)         |
+|                      |          require(bool,string)(currentAllowance >= amount,ERC20: insufficient allowance)         |
+|                      |          require(bool,string)(spender != address(0),ERC20: approve to the zero address)         |
+| _beforeTokenTransfer |                                                                                                 |
+| _afterTokenTransfer  |                                                                                                 |
+|         name         |                                                                                                 |
+|        symbol        |                                                                                                 |
+|       decimals       |                                                                                                 |
+|     totalSupply      |                                                                                                 |
+|      balanceOf       |                                                                                                 |
+|       transfer       |                                                                                                 |
+|      allowance       |                                                                                                 |
+|       approve        |                                                                                                 |
+|     transferFrom     |                                                                                                 |
+|     constructor      |                                                                                                 |
+|     changeMinter     |                                                                                                 |
+|         mint         |           require(bool,string)(account != address(0),ERC20: mint to the zero address)           |
+|  inflationRemainder  |                                                                                                 |
++----------------------+-------------------------------------------------------------------------------------------------+
+
+Contract MockRegistry
++---------------------+-------------------+
+|       Function      | require or assert |
++---------------------+-------------------+
+|     constructor     |                   |
+|        exists       |                   |
+| getUnitIdsOfService |                   |
+|       ownerOf       |                   |
+|   changeUnitOwner   |                   |
+|     totalSupply     |                   |
+|    getUnitOwners    |                   |
+|        drain        |                   |
++---------------------+-------------------+
+
+Contract MockTokenomics
++-----------------------------+-------------------+
+|           Function          | require or assert |
++-----------------------------+-------------------+
+|          initialize         |                   |
+|   tokenomicsImplementation  |                   |
+|        changeMintCap        |                   |
+|         changeTopUps        |                   |
+|    trackServiceDonations    |                   |
+|          checkpoint         |                   |
+|      setServiceRegistry     |                   |
+|       simulateFailure       |                   |
+| slitherConstructorVariables |                   |
++-----------------------------+-------------------+
+
+Contract MockVE
++-----------------------------+-------------------+
+|           Function          | require or assert |
++-----------------------------+-------------------+
+|          createLock         |                   |
+|         balanceOfAt         |                   |
+|        totalSupplyAt        |                   |
+|           getVotes          |                   |
+|          setBalance         |                   |
+|          setSupply          |                   |
+|      setWeightedBalance     |                   |
+| slitherConstructorVariables |                   |
++-----------------------------+-------------------+
+
+Contract ITokenomics
++----------------------------+-------------------+
+|          Function          | require or assert |
++----------------------------+-------------------+
+|    claimOwnerIncentives    |                   |
+| depositServiceDonationsETH |                   |
++----------------------------+-------------------+
+
+Contract ReentrancyAttacker
++-----------------------------+-------------------+
+|           Function          | require or assert |
++-----------------------------+-------------------+
+|         constructor         |                   |
+|           receive           |                   |
+|        setAttackMode        |                   |
+|   badClaimOwnerIncentives   |                   |
+|  badDepositETHFromServices  |                   |
+| slitherConstructorVariables |                   |
++-----------------------------+-------------------+
+. analyzed (66 contracts)

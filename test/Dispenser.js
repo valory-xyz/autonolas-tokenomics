@@ -126,7 +126,7 @@ describe("Dispenser", async () => {
 
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
-            await deployer.sendTransaction({to: treasury.address, value: amount});
+            await deployer.sendTransaction({to: treasury.address, value: amount});          
 
             // Lock OLAS balances with Voting Escrow
             await ve.createLock(deployer.address);

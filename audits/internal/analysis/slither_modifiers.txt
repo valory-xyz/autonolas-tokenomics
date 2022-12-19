@@ -1,0 +1,882 @@
+'npx hardhat compile --force' running
+Compiled 53 Solidity files successfully
+
+@uniswap/v2-periphery/contracts/UniswapV2Router02.sol:12:1: Warning: Contract code size exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+contract UniswapV2Router02 is IUniswapV2Router02 {
+^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2ERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IERC20.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol
+
+
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> @uniswap/v2-periphery/contracts/interfaces/IWETH.sol
+
+
+
+
+Contract TransferHelper
++------------------+-----------+
+|     Function     | Modifiers |
++------------------+-----------+
+|   safeApprove    |     []    |
+|   safeTransfer   |     []    |
+| safeTransferFrom |     []    |
+| safeTransferETH  |     []    |
++------------------+-----------+
+
+Contract IUniswapV2Factory
++----------------+-----------+
+|    Function    | Modifiers |
++----------------+-----------+
+|     feeTo      |     []    |
+|  feeToSetter   |     []    |
+|    getPair     |     []    |
+|    allPairs    |     []    |
+| allPairsLength |     []    |
+|   createPair   |     []    |
+|    setFeeTo    |     []    |
+| setFeeToSetter |     []    |
++----------------+-----------+
+
+Contract IUniswapV2Pair
++----------------------+-----------+
+|       Function       | Modifiers |
++----------------------+-----------+
+|         name         |     []    |
+|        symbol        |     []    |
+|       decimals       |     []    |
+|     totalSupply      |     []    |
+|      balanceOf       |     []    |
+|      allowance       |     []    |
+|       approve        |     []    |
+|       transfer       |     []    |
+|     transferFrom     |     []    |
+|   DOMAIN_SEPARATOR   |     []    |
+|   PERMIT_TYPEHASH    |     []    |
+|        nonces        |     []    |
+|        permit        |     []    |
+|  MINIMUM_LIQUIDITY   |     []    |
+|       factory        |     []    |
+|        token0        |     []    |
+|        token1        |     []    |
+|     getReserves      |     []    |
+| price0CumulativeLast |     []    |
+| price1CumulativeLast |     []    |
+|        kLast         |     []    |
+|         mint         |     []    |
+|         burn         |     []    |
+|         swap         |     []    |
+|         skim         |     []    |
+|         sync         |     []    |
+|      initialize      |     []    |
++----------------------+-----------+
+
+Contract UniswapV2Router02
++-----------------------------------------------------------+------------+
+|                          Function                         | Modifiers  |
++-----------------------------------------------------------+------------+
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |     []     |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |     []     |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |     []     |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |     []     |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |     []     |
+|                          factory                          |     []     |
+|                            WETH                           |     []     |
+|                        addLiquidity                       |     []     |
+|                      addLiquidityETH                      |     []     |
+|                      removeLiquidity                      |     []     |
+|                     removeLiquidityETH                    |     []     |
+|                 removeLiquidityWithPermit                 |     []     |
+|                removeLiquidityETHWithPermit               |     []     |
+|                  swapExactTokensForTokens                 |     []     |
+|                  swapTokensForExactTokens                 |     []     |
+|                   swapExactETHForTokens                   |     []     |
+|                   swapTokensForExactETH                   |     []     |
+|                   swapExactTokensForETH                   |     []     |
+|                   swapETHForExactTokens                   |     []     |
+|                           quote                           |     []     |
+|                        getAmountOut                       |     []     |
+|                        getAmountIn                        |     []     |
+|                       getAmountsOut                       |     []     |
+|                        getAmountsIn                       |     []     |
+|                        constructor                        |     []     |
+|                          receive                          |     []     |
+|                       _addLiquidity                       |     []     |
+|                        addLiquidity                       | ['ensure'] |
+|                      addLiquidityETH                      | ['ensure'] |
+|                      removeLiquidity                      | ['ensure'] |
+|                     removeLiquidityETH                    | ['ensure'] |
+|                 removeLiquidityWithPermit                 | ['ensure'] |
+|                removeLiquidityETHWithPermit               | ['ensure'] |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      | ['ensure'] |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens | ['ensure'] |
+|                           _swap                           |     []     |
+|                  swapExactTokensForTokens                 | ['ensure'] |
+|                  swapTokensForExactTokens                 | ['ensure'] |
+|                   swapExactETHForTokens                   | ['ensure'] |
+|                   swapTokensForExactETH                   | ['ensure'] |
+|                   swapExactTokensForETH                   | ['ensure'] |
+|                   swapETHForExactTokens                   | ['ensure'] |
+|             _swapSupportingFeeOnTransferTokens            |     []     |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   | ['ensure'] |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    | ['ensure'] |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    | ['ensure'] |
+|                           quote                           |     []     |
+|                        getAmountOut                       |     []     |
+|                        getAmountIn                        |     []     |
+|                       getAmountsOut                       |     []     |
+|                        getAmountsIn                       |     []     |
++-----------------------------------------------------------+------------+
+
+Contract IERC20
++--------------+-----------+
+|   Function   | Modifiers |
++--------------+-----------+
+|     name     |     []    |
+|    symbol    |     []    |
+|   decimals   |     []    |
+| totalSupply  |     []    |
+|  balanceOf   |     []    |
+|  allowance   |     []    |
+|   approve    |     []    |
+|   transfer   |     []    |
+| transferFrom |     []    |
++--------------+-----------+
+
+Contract IWETH
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+| deposit  |     []    |
+| transfer |     []    |
+| withdraw |     []    |
++----------+-----------+
+
+Contract SafeMath
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+|   add    |     []    |
+|   sub    |     []    |
+|   mul    |     []    |
++----------+-----------+
+
+Contract UniswapV2Library
++---------------+-----------+
+|    Function   | Modifiers |
++---------------+-----------+
+|   sortTokens  |     []    |
+|    pairFor    |     []    |
+|  getReserves  |     []    |
+|     quote     |     []    |
+|  getAmountOut |     []    |
+|  getAmountIn  |     []    |
+| getAmountsOut |     []    |
+|  getAmountsIn |     []    |
++---------------+-----------+
+
+Contract UniswapV2Factory
++----------------+-----------+
+|    Function    | Modifiers |
++----------------+-----------+
+|     feeTo      |     []    |
+|  feeToSetter   |     []    |
+|    getPair     |     []    |
+|    allPairs    |     []    |
+| allPairsLength |     []    |
+|   createPair   |     []    |
+|    setFeeTo    |     []    |
+| setFeeToSetter |     []    |
+|  constructor   |     []    |
+| allPairsLength |     []    |
+|   createPair   |     []    |
+|    setFeeTo    |     []    |
+| setFeeToSetter |     []    |
++----------------+-----------+
+
+Contract UniswapV2Pair
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|             constructor             |     []    |
+|                _mint                |     []    |
+|                _burn                |     []    |
+|               _approve              |     []    |
+|              _transfer              |     []    |
+|               approve               |     []    |
+|               transfer              |     []    |
+|             transferFrom            |     []    |
+|                permit               |     []    |
+|                 name                |     []    |
+|                symbol               |     []    |
+|               decimals              |     []    |
+|             totalSupply             |     []    |
+|              balanceOf              |     []    |
+|              allowance              |     []    |
+|               approve               |     []    |
+|               transfer              |     []    |
+|             transferFrom            |     []    |
+|           DOMAIN_SEPARATOR          |     []    |
+|           PERMIT_TYPEHASH           |     []    |
+|                nonces               |     []    |
+|                permit               |     []    |
+|                 name                |     []    |
+|                symbol               |     []    |
+|               decimals              |     []    |
+|             totalSupply             |     []    |
+|              balanceOf              |     []    |
+|              allowance              |     []    |
+|               approve               |     []    |
+|               transfer              |     []    |
+|             transferFrom            |     []    |
+|           DOMAIN_SEPARATOR          |     []    |
+|           PERMIT_TYPEHASH           |     []    |
+|                nonces               |     []    |
+|                permit               |     []    |
+|          MINIMUM_LIQUIDITY          |     []    |
+|               factory               |     []    |
+|                token0               |     []    |
+|                token1               |     []    |
+|             getReserves             |     []    |
+|         price0CumulativeLast        |     []    |
+|         price1CumulativeLast        |     []    |
+|                kLast                |     []    |
+|                 mint                |     []    |
+|                 burn                |     []    |
+|                 swap                |     []    |
+|                 skim                |     []    |
+|                 sync                |     []    |
+|              initialize             |     []    |
+|             getReserves             |     []    |
+|            _safeTransfer            |     []    |
+|             constructor             |     []    |
+|              initialize             |     []    |
+|               _update               |     []    |
+|               _mintFee              |     []    |
+|                 mint                |  ['lock'] |
+|                 burn                |  ['lock'] |
+|                 swap                |  ['lock'] |
+|                 skim                |  ['lock'] |
+|                 sync                |  ['lock'] |
+|     slitherConstructorVariables     |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract IERC20
++--------------+-----------+
+|   Function   | Modifiers |
++--------------+-----------+
+|     name     |     []    |
+|    symbol    |     []    |
+|   decimals   |     []    |
+| totalSupply  |     []    |
+|  balanceOf   |     []    |
+|  allowance   |     []    |
+|   approve    |     []    |
+|   transfer   |     []    |
+| transferFrom |     []    |
++--------------+-----------+
+
+Contract IUniswapV2Callee
++---------------+-----------+
+|    Function   | Modifiers |
++---------------+-----------+
+| uniswapV2Call |     []    |
++---------------+-----------+
+
+Contract Math
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+|   min    |     []    |
+|   sqrt   |     []    |
++----------+-----------+
+
+Contract SafeMath
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+|   add    |     []    |
+|   sub    |     []    |
+|   mul    |     []    |
++----------+-----------+
+
+Contract UQ112x112
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|                encode               |     []    |
+|                uqdiv                |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract WETH9
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|           fallback          |     []    |
+|           deposit           |     []    |
+|           withdraw          |     []    |
+|         totalSupply         |     []    |
+|           approve           |     []    |
+|           transfer          |     []    |
+|         transferFrom        |     []    |
+| slitherConstructorVariables |     []    |
++-----------------------------+-----------+
+
+Contract PRBMath
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|                 exp2                |     []    |
+|          mostSignificantBit         |     []    |
+|                mulDiv               |     []    |
+|           mulDivFixedPoint          |     []    |
+|             mulDivSigned            |     []    |
+|                 sqrt                |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract PRBMathSD59x18
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|                 abs                 |     []    |
+|                 avg                 |     []    |
+|                 ceil                |     []    |
+|                 div                 |     []    |
+|                  e                  |     []    |
+|                 exp                 |     []    |
+|                 exp2                |     []    |
+|                floor                |     []    |
+|                 frac                |     []    |
+|               fromInt               |     []    |
+|                  gm                 |     []    |
+|                 inv                 |     []    |
+|                  ln                 |     []    |
+|                log10                |     []    |
+|                 log2                |     []    |
+|                 mul                 |     []    |
+|                  pi                 |     []    |
+|                 pow                 |     []    |
+|                 powu                |     []    |
+|                scale                |     []    |
+|                 sqrt                |     []    |
+|                toInt                |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract TransferHelper
++------------------+-----------+
+|     Function     | Modifiers |
++------------------+-----------+
+|   safeApprove    |     []    |
+|   safeTransfer   |     []    |
+| safeTransferFrom |     []    |
+| safeTransferETH  |     []    |
++------------------+-----------+
+
+Contract IERC20
++--------------+-----------+
+|   Function   | Modifiers |
++--------------+-----------+
+|     name     |     []    |
+|    symbol    |     []    |
+|   decimals   |     []    |
+| totalSupply  |     []    |
+|  balanceOf   |     []    |
+|  allowance   |     []    |
+|   approve    |     []    |
+|   transfer   |     []    |
+| transferFrom |     []    |
++--------------+-----------+
+
+Contract IUniswapV2Callee
++---------------+-----------+
+|    Function   | Modifiers |
++---------------+-----------+
+| uniswapV2Call |     []    |
++---------------+-----------+
+
+Contract IUniswapV2ERC20
++------------------+-----------+
+|     Function     | Modifiers |
++------------------+-----------+
+|       name       |     []    |
+|      symbol      |     []    |
+|     decimals     |     []    |
+|   totalSupply    |     []    |
+|    balanceOf     |     []    |
+|    allowance     |     []    |
+|     approve      |     []    |
+|     transfer     |     []    |
+|   transferFrom   |     []    |
+| DOMAIN_SEPARATOR |     []    |
+| PERMIT_TYPEHASH  |     []    |
+|      nonces      |     []    |
+|      permit      |     []    |
++------------------+-----------+
+
+Contract IUniswapV2Factory
++----------------+-----------+
+|    Function    | Modifiers |
++----------------+-----------+
+|     feeTo      |     []    |
+|  feeToSetter   |     []    |
+|    getPair     |     []    |
+|    allPairs    |     []    |
+| allPairsLength |     []    |
+|   createPair   |     []    |
+|    setFeeTo    |     []    |
+| setFeeToSetter |     []    |
++----------------+-----------+
+
+Contract IUniswapV2Pair
++----------------------+-----------+
+|       Function       | Modifiers |
++----------------------+-----------+
+|         name         |     []    |
+|        symbol        |     []    |
+|       decimals       |     []    |
+|     totalSupply      |     []    |
+|      balanceOf       |     []    |
+|      allowance       |     []    |
+|       approve        |     []    |
+|       transfer       |     []    |
+|     transferFrom     |     []    |
+|   DOMAIN_SEPARATOR   |     []    |
+|   PERMIT_TYPEHASH    |     []    |
+|        nonces        |     []    |
+|        permit        |     []    |
+|  MINIMUM_LIQUIDITY   |     []    |
+|       factory        |     []    |
+|        token0        |     []    |
+|        token1        |     []    |
+|     getReserves      |     []    |
+| price0CumulativeLast |     []    |
+| price1CumulativeLast |     []    |
+|        kLast         |     []    |
+|         mint         |     []    |
+|         burn         |     []    |
+|         swap         |     []    |
+|         skim         |     []    |
+|         sync         |     []    |
+|      initialize      |     []    |
++----------------------+-----------+
+
+Contract IERC20
++--------------+-----------+
+|   Function   | Modifiers |
++--------------+-----------+
+|     name     |     []    |
+|    symbol    |     []    |
+|   decimals   |     []    |
+| totalSupply  |     []    |
+|  balanceOf   |     []    |
+|  allowance   |     []    |
+|   approve    |     []    |
+|   transfer   |     []    |
+| transferFrom |     []    |
++--------------+-----------+
+
+Contract IUniswapV2Router02
++-----------------------------------------------------------+-----------+
+|                          Function                         | Modifiers |
++-----------------------------------------------------------+-----------+
+|                          factory                          |     []    |
+|                            WETH                           |     []    |
+|                        addLiquidity                       |     []    |
+|                      addLiquidityETH                      |     []    |
+|                      removeLiquidity                      |     []    |
+|                     removeLiquidityETH                    |     []    |
+|                 removeLiquidityWithPermit                 |     []    |
+|                removeLiquidityETHWithPermit               |     []    |
+|                  swapExactTokensForTokens                 |     []    |
+|                  swapTokensForExactTokens                 |     []    |
+|                   swapExactETHForTokens                   |     []    |
+|                   swapTokensForExactETH                   |     []    |
+|                   swapExactTokensForETH                   |     []    |
+|                   swapETHForExactTokens                   |     []    |
+|                           quote                           |     []    |
+|                        getAmountOut                       |     []    |
+|                        getAmountIn                        |     []    |
+|                       getAmountsOut                       |     []    |
+|                        getAmountsIn                       |     []    |
+|      removeLiquidityETHSupportingFeeOnTransferTokens      |     []    |
+| removeLiquidityETHWithPermitSupportingFeeOnTransferTokens |     []    |
+|   swapExactTokensForTokensSupportingFeeOnTransferTokens   |     []    |
+|     swapExactETHForTokensSupportingFeeOnTransferTokens    |     []    |
+|     swapExactTokensForETHSupportingFeeOnTransferTokens    |     []    |
++-----------------------------------------------------------+-----------+
+
+Contract IWETH
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+| deposit  |     []    |
+| transfer |     []    |
+| withdraw |     []    |
++----------+-----------+
+
+Contract Depository
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|              initialize             |     []    |
+|             changeOwner             |     []    |
+|            changeManagers           |     []    |
+|             constructor             |     []    |
+|         changeBondCalculator        |     []    |
+|               deposit               |     []    |
+|                redeem               |     []    |
+|           getPendingBonds           |     []    |
+|            getBondStatus            |     []    |
+|                create               |     []    |
+|                close                |     []    |
+|           isActiveProduct           |     []    |
+|          getActiveProducts          |     []    |
+|          getCurrentPriceLP          |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract Dispenser
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|              initialize             |     []    |
+|             changeOwner             |     []    |
+|            changeManagers           |     []    |
+|             constructor             |     []    |
+|         claimOwnerIncentives        |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract DonatorBlacklist
++----------------------+-----------+
+|       Function       | Modifiers |
++----------------------+-----------+
+|     constructor      |     []    |
+|     changeOwner      |     []    |
+| setDonatorsStatuses  |     []    |
+| isDonatorBlacklisted |     []    |
++----------------------+-----------+
+
+Contract GenericBondCalculator
++---------------------+-----------+
+|       Function      | Modifiers |
++---------------------+-----------+
+|     constructor     |     []    |
+| calculatePayoutOLAS |     []    |
+|  getCurrentPriceLP  |     []    |
+|       checkLP       |     []    |
++---------------------+-----------+
+
+Contract Tokenomics
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|              initialize             |     []    |
+|             changeOwner             |     []    |
+|            changeManagers           |     []    |
+|         getSupplyCapForYear         |     []    |
+|         getInflationForYear         |     []    |
+|             constructor             |     []    |
+|         initializeTokenomics        |     []    |
+|       tokenomicsImplementation      |     []    |
+|    changeTokenomicsImplementation   |     []    |
+|            _adjustMaxBond           |     []    |
+|      changeTokenomicsParameters     |     []    |
+|       changeIncentiveFractions      |     []    |
+|           changeRegistries          |     []    |
+|        changeDonatorBlacklist       |     []    |
+|     reserveAmountForBondProgram     |     []    |
+|        refundFromBondProgram        |     []    |
+|     _finalizeIncentivesForUnitId    |     []    |
+|        _trackServiceDonations       |     []    |
+|        trackServiceDonations        |     []    |
+|              checkpoint             |     []    |
+|         getInflationPerEpoch        |     []    |
+|            getEpochPoint            |     []    |
+|             getUnitPoint            |     []    |
+|                getIDF               |     []    |
+|              getLastIDF             |     []    |
+|        accountOwnerIncentives       |     []    |
+|          getOwnerIncentives         |     []    |
+|         getIncentiveBalances        |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract TokenomicsProxy
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|             constructor             |     []    |
+|               fallback              |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract Treasury
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|              initialize             |     []    |
+|             changeOwner             |     []    |
+|            changeManagers           |     []    |
+|             constructor             |     []    |
+|               receive               |     []    |
+|         depositTokenForOLAS         |     []    |
+|      depositServiceDonationsETH     |     []    |
+|               withdraw              |     []    |
+|          withdrawToAccount          |     []    |
+|             enableToken             |     []    |
+|             disableToken            |     []    |
+|              isEnabled              |     []    |
+|          rebalanceTreasury          |     []    |
+|       drainServiceSlashedFunds      |     []    |
+|                pause                |     []    |
+|               unpause               |     []    |
+|     slitherConstructorVariables     |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract IDonatorBlacklist
++----------------------+-----------+
+|       Function       | Modifiers |
++----------------------+-----------+
+| isDonatorBlacklisted |     []    |
++----------------------+-----------+
+
+Contract IGenericBondCalculator
++---------------------+-----------+
+|       Function      | Modifiers |
++---------------------+-----------+
+| calculatePayoutOLAS |     []    |
+|  getCurrentPriceLP  |     []    |
+|       checkLP       |     []    |
++---------------------+-----------+
+
+Contract IOLAS
++--------------------+-----------+
+|      Function      | Modifiers |
++--------------------+-----------+
+|        mint        |     []    |
+|     timeLaunch     |     []    |
+| inflationRemainder |     []    |
+|      decimals      |     []    |
+|      transfer      |     []    |
++--------------------+-----------+
+
+Contract IServiceTokenomics
++---------------------+-----------+
+|       Function      | Modifiers |
++---------------------+-----------+
+|        exists       |     []    |
+| getUnitIdsOfService |     []    |
+|        drain        |     []    |
++---------------------+-----------+
+
+Contract IToken
++-------------+-----------+
+|   Function  | Modifiers |
++-------------+-----------+
+|  balanceOf  |     []    |
+|   ownerOf   |     []    |
+| totalSupply |     []    |
++-------------+-----------+
+
+Contract ITokenomics
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|        effectiveBond        |     []    |
+|          checkpoint         |     []    |
+|    trackServiceDonations    |     []    |
+| reserveAmountForBondProgram |     []    |
+|    refundFromBondProgram    |     []    |
+|    accountOwnerIncentives   |     []    |
+|          getLastIDF         |     []    |
+|       serviceRegistry       |     []    |
++-----------------------------+-----------+
+
+Contract ITreasury
++----------------------------+-----------+
+|          Function          | Modifiers |
++----------------------------+-----------+
+|    depositTokenForOLAS     |     []    |
+| depositServiceDonationsETH |     []    |
+|         isEnabled          |     []    |
+|         checkPair          |     []    |
+|     withdrawToAccount      |     []    |
+|     rebalanceTreasury      |     []    |
++----------------------------+-----------+
+
+Contract IVotingEscrow
++---------------+-----------+
+|    Function   | Modifiers |
++---------------+-----------+
+|    getVotes   |     []    |
+|  balanceOfAt  |     []    |
+| totalSupplyAt |     []    |
++---------------+-----------+
+
+Contract IDepository
++----------+-----------+
+| Function | Modifiers |
++----------+-----------+
+| deposit  |     []    |
++----------+-----------+
+
+Contract IRouter
++--------------------------+-----------+
+|         Function         | Modifiers |
++--------------------------+-----------+
+| swapExactTokensForTokens |     []    |
++--------------------------+-----------+
+
+Contract AttackDeposit
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|             constructor             |     []    |
+|       flashAttackDepositImmune      |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+
+Contract ERC20Token
++----------------------+---------------+
+|       Function       |   Modifiers   |
++----------------------+---------------+
+|     constructor      |       []      |
+|        owner         |       []      |
+|     _checkOwner      |       []      |
+|  renounceOwnership   | ['onlyOwner'] |
+|  transferOwnership   | ['onlyOwner'] |
+|  _transferOwnership  |       []      |
+|      _msgSender      |       []      |
+|       _msgData       |       []      |
+|     constructor      |       []      |
+|         name         |       []      |
+|        symbol        |       []      |
+|       decimals       |       []      |
+|     totalSupply      |       []      |
+|      balanceOf       |       []      |
+|       transfer       |       []      |
+|      allowance       |       []      |
+|       approve        |       []      |
+|     transferFrom     |       []      |
+|  increaseAllowance   |       []      |
+|  decreaseAllowance   |       []      |
+|      _transfer       |       []      |
+|        _mint         |       []      |
+|        _burn         |       []      |
+|       _approve       |       []      |
+|   _spendAllowance    |       []      |
+| _beforeTokenTransfer |       []      |
+| _afterTokenTransfer  |       []      |
+|         name         |       []      |
+|        symbol        |       []      |
+|       decimals       |       []      |
+|     totalSupply      |       []      |
+|      balanceOf       |       []      |
+|       transfer       |       []      |
+|      allowance       |       []      |
+|       approve        |       []      |
+|     transferFrom     |       []      |
+|     constructor      |       []      |
+|     changeMinter     |       []      |
+|         mint         |       []      |
+|  inflationRemainder  |       []      |
++----------------------+---------------+
+
+Contract MockRegistry
++---------------------+-----------+
+|       Function      | Modifiers |
++---------------------+-----------+
+|     constructor     |     []    |
+|        exists       |     []    |
+| getUnitIdsOfService |     []    |
+|       ownerOf       |     []    |
+|   changeUnitOwner   |     []    |
+|     totalSupply     |     []    |
+|    getUnitOwners    |     []    |
+|        drain        |     []    |
++---------------------+-----------+
+
+Contract MockTokenomics
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|          initialize         |     []    |
+|   tokenomicsImplementation  |     []    |
+|        changeMintCap        |     []    |
+|         changeTopUps        |     []    |
+|    trackServiceDonations    |     []    |
+|          checkpoint         |     []    |
+|      setServiceRegistry     |     []    |
+|       simulateFailure       |     []    |
+| slitherConstructorVariables |     []    |
++-----------------------------+-----------+
+
+Contract MockVE
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|          createLock         |     []    |
+|         balanceOfAt         |     []    |
+|        totalSupplyAt        |     []    |
+|           getVotes          |     []    |
+|          setBalance         |     []    |
+|          setSupply          |     []    |
+|      setWeightedBalance     |     []    |
+| slitherConstructorVariables |     []    |
++-----------------------------+-----------+
+
+Contract ITokenomics
++----------------------------+-----------+
+|          Function          | Modifiers |
++----------------------------+-----------+
+|    claimOwnerIncentives    |     []    |
+| depositServiceDonationsETH |     []    |
++----------------------------+-----------+
+
+Contract ReentrancyAttacker
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|         constructor         |     []    |
+|           receive           |     []    |
+|        setAttackMode        |     []    |
+|   badClaimOwnerIncentives   |     []    |
+|  badDepositETHFromServices  |     []    |
+| slitherConstructorVariables |     []    |
++-----------------------------+-----------+
+. analyzed (66 contracts)

@@ -33,6 +33,7 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
 contract Treasury is GenericTokenomics {
 
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
@@ -89,7 +90,11 @@ contract Treasury is GenericTokenomics {
     }
 
     /// @dev Receives ETH.
+    ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "conservation law"} address(this).balance == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
+        // TODO shall the contract continue receiving ETH when paused?
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
@@ -102,8 +107,12 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get OLAS for.
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
+    ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
+        // TODO shall the contract continue receiving LP / minting OLAS when paused?
+
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
@@ -138,6 +147,9 @@ contract Treasury is GenericTokenomics {
     /// @dev Deposits service donations in ETH.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
+    ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
+    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
@@ -161,12 +173,13 @@ contract Treasury is GenericTokenomics {
         if (msg.value != totalAmount) {
             revert WrongAmount(msg.value, totalAmount);
         }
-
         // Accumulate received donation from services
-        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts);
+        // TODO shall the contract continue receiving ETH when paused?
+        // TODO issue ETHFromServices += donationETH, but received msg.value
+        // TODO donationETH possible irrelevant to msg.value
+        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts); 
         donationETH += ETHFromServices;
-        ETHFromServices = uint96(donationETH);
-
+        ETHFromServices = uint96(donationETH); 
         emit DepositETHFromServices(msg.sender, donationETH);
     }
 
@@ -175,6 +188,9 @@ contract Treasury is GenericTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True is the transfer is successful.
+    ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount;
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -227,6 +243,9 @@ contract Treasury is GenericTokenomics {
     /// @param accountRewards Amount of account rewards.
     /// @param accountTopUps Amount of account top-ups.
     /// @return success True if the function execution is successful.
+    ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
+    ///#if_succeeds {:msg "updated ETHFromServices"} accountRewards > 0 && ETHFromServices >= accountRewards ==> ETHFromServices == old(ETHFromServices) - accountRewards;
+    ///#if_succeeds {:msg "unpaused"} paused == 1; 
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
     {
@@ -308,6 +327,9 @@ contract Treasury is GenericTokenomics {
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
+    ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "unpaused"} paused == 1;
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check if the contract is paused
         if (paused == 2) {
@@ -341,6 +363,8 @@ contract Treasury is GenericTokenomics {
 
     /// @dev Drains slashed funds from the service registry.
     /// @return amount Drained amount.
+    ///#if_succeeds {:msg "correct update total eth balance" } old(address(this).balance) == address(this).balance-amount;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned-amount;
     function drainServiceSlashedFunds() external returns (uint256 amount) {
         // Check for the contract ownership
         if (msg.sender != owner) {

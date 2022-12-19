@@ -225,6 +225,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _agentRegistry Agent registry address.
     /// @param _serviceRegistry Service registry address.
     /// @param _donatorBlacklist DonatorBlacklist address.
+    ///#if_succeeds {:msg "ep is correct endTime"} mapEpochTokenomics[0].epochPoint.endTime > 0;
+    ///#if_succeeds {:msg "maxBond eq effectiveBond form start"} effectiveBond == maxBond;
     function initializeTokenomics(
         address _olas,
         address _treasury,
@@ -317,6 +319,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Changes the tokenomics implementation contract address.
     /// @notice Make sure the implementation contract has a function for implementation changing.
     /// @param implementation Tokenomics implementation contract address.
+    ///#if_succeeds {:msg "new implementation"} implementation == tokenomicsImplementation();
     function changeTokenomicsImplementation(address implementation) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -359,6 +362,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
+    ///#if_succeeds {:msg "ep is correct endTime"} epochCounter >= 2 ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
+    ///#if_succeeds {:msg "ep is correct maxBondFraction"} mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction > 0;
+    ///#if_succeeds {:msg "epochLen"} old(_epochLen > 0 && epochLen != _epochLen) ==> epochLen == _epochLen;
+    ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital == _devsPerCapital;
+    ///#if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
+    ///#if_succeeds {:msg "maxBond"} old(_epochLen > 0 && epochLen != _epochLen) ==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
+    ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
+    ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeTokenomicsParameters(
         uint32 _devsPerCapital,
         uint64 _epsilonRate,
@@ -432,6 +443,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
+    ///#if_succeeds {:msg "ep is correct endTime"} epochCounter >= 2 ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
+    ///#if_succeeds {:msg "ep is correct maxBondFraction"} mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction > 0;
+    ///#if_succeeds {:msg "maxBond"} old(_maxBondFraction > 0 && mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction) ==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
+    ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
+    ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeIncentiveFractions(
         uint8 _rewardComponentFraction,
         uint8 _rewardAgentFraction,
@@ -527,6 +543,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @notice Programs exceeding the limit of the effective bond are not allowed.
     /// @param amount Requested amount for the bond program.
     /// @return success True if effective bond threshold is not reached.
+    ///#if_succeeds {:msg "effectiveBond"} old(effectiveBond) > amount ==> effectiveBond == old(effectiveBond) - amount;
     function reserveAmountForBondProgram(uint256 amount) external returns (bool success) {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -546,6 +563,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
     /// @dev Refunds unused bond program amount when the program is closed.
     /// @param amount Amount to be refunded from the closed bond program.
+    ///#if_succeeds {:msg "effectiveBond"} effectiveBond == old(effectiveBond) + amount;
     function refundFromBondProgram(uint256 amount) external {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -686,6 +704,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @return donationETH Overall service donation amount in ETH.
+    ///#if_succeeds {:msg "totalDonationsETH can only increase"} mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + unchecked_sum(amounts);
+    ///#if_succeeds {:msg "numNewOwners can only increase"} mapEpochTokenomics[epochCounter].epochPoint.numNewOwners >= old(mapEpochTokenomics[epochCounter].epochPoint.numNewOwners);
     function trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts) external
         returns (uint256 donationETH)
     {
@@ -724,6 +744,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
+    ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
+    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / oneYear > old(currentYear) ==> currentYear == old(currentYear)+1;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
