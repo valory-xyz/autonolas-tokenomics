@@ -11,8 +11,6 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
-
-
 /*
 * In this contract we consider both ETH and OLAS tokens.
 * For ETH tokens, there are currently about 121 million tokens.
@@ -828,13 +826,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Adjust the effectiveBond
             incentives[4] = effectiveBond + incentives[4] - curMaxBond;
             effectiveBond = uint96(incentives[4]);
-        } 
+        }
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year will change
         numYears = (block.timestamp + curEpochLen - timeLaunch) / oneYear;
-        // Audits!
         // Account for the year change to adjust the max bond
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year

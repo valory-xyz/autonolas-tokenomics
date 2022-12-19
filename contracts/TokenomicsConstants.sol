@@ -13,9 +13,9 @@ abstract contract TokenomicsConstants {
     /// @return supplyCap Supply cap.
     /// supplyCap = 1e27 * (1.02)^(x-9) for x >= 10
     /// if_succeeds {:msg "correct supplyCap"} (numYears >= 10) ==> (supplyCap > 1e27);  
-    /// bug at scribble tools, broken instrumented version: 
+    /// There is a bug in scribble tools, a broken instrumented version is as follows:
     /// function getSupplyCapForYear(uint256 numYears) public returns (uint256 supplyCap)
-    /// But the test is waiting for a view/pure function! 
+    /// And the test is waiting for a view / pure function, which would be correct
     function getSupplyCapForYear(uint256 numYears) public pure returns (uint256 supplyCap) {
         // For the first 10 years the supply caps are pre-defined
         if (numYears < 10) {

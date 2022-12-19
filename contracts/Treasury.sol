@@ -33,7 +33,7 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off, broken in original version
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
 contract Treasury is GenericTokenomics {
 
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
@@ -92,9 +92,9 @@ contract Treasury is GenericTokenomics {
     /// @dev Receives ETH.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
     ///#if_succeeds {:msg "conservation law"} address(this).balance == ETHFromServices+ETHOwned;
-    /// Is it good to get able received ETH in paused?
-    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
+        // TODO shall the contract continue receiving ETH when paused?
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
@@ -108,10 +108,11 @@ contract Treasury is GenericTokenomics {
     /// @param token Token address.
     /// @param olasMintAmount Amount of OLAS token issued.
     ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
-    /// Is it good to get able received LP/minted OLAS in paused?
-    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
     {
+        // TODO shall the contract continue receiving LP / minting OLAS when paused?
+
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
@@ -148,8 +149,7 @@ contract Treasury is GenericTokenomics {
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
     ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
-    /// Is it good to get able received ETH in paused?
-    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
+    ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         if (msg.value == 0) {
             revert ZeroValue();
@@ -174,8 +174,9 @@ contract Treasury is GenericTokenomics {
             revert WrongAmount(msg.value, totalAmount);
         }
         // Accumulate received donation from services
-        // issue ETHFromServices += donationETH, but received msg.value
-        // donationETH possible irrelevant to msg.value
+        // TODO shall the contract continue receiving ETH when paused?
+        // TODO issue ETHFromServices += donationETH, but received msg.value
+        // TODO donationETH possible irrelevant to msg.value
         uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts); 
         donationETH += ETHFromServices;
         ETHFromServices = uint96(donationETH); 
