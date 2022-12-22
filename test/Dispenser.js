@@ -60,6 +60,7 @@ describe("Dispenser", async () => {
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         // Deploy master tokenomics contract
         const tokenomicsMaster = await tokenomicsFactory.deploy();
+        await tokenomicsMaster.deployed();
 
         const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
             [olas.address, treasury.address, deployer.address, dispenser.address, ve.address, epochLen,

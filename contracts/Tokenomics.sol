@@ -233,7 +233,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         address _depository,
         address _dispenser,
         address _ve,
-        uint32 _epochLen,
+        uint256 _epochLen,
         address _componentRegistry,
         address _agentRegistry,
         address _serviceRegistry,
@@ -250,7 +250,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Assign other passed variables
         ve = _ve;
-        epochLen = _epochLen;
+        epochLen = uint32(_epochLen);
         componentRegistry = _componentRegistry;
         agentRegistry = _agentRegistry;
         serviceRegistry = _serviceRegistry;
@@ -371,10 +371,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeTokenomicsParameters(
-        uint32 _devsPerCapital,
-        uint64 _epsilonRate,
-        uint32 _epochLen,
-        uint96 _veOLASThreshold
+        uint256 _devsPerCapital,
+        uint256 _epsilonRate,
+        uint256 _epochLen,
+        uint256 _veOLASThreshold
     ) external
     {
         // Check for the contract ownership
@@ -383,7 +383,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         if (_devsPerCapital > 0) {
-            mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = _devsPerCapital;
+            mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = uint32(_devsPerCapital);
         } else {
             // This is done in order not to pass incorrect parameters into the event
             _devsPerCapital = mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital;
@@ -392,7 +392,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Check the epsilonRate value for idf to fit in its size
         // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
         if (_epsilonRate > 0 && _epsilonRate < 17e18) {
-            epsilonRate = _epsilonRate;
+            epsilonRate = uint64(_epsilonRate);
         } else {
             _epsilonRate = epsilonRate;
         }
@@ -423,13 +423,13 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             _adjustMaxBond(nextMaxBond);
 
             // Update the epochLen
-            epochLen = _epochLen;
+            epochLen = uint32(_epochLen);
         } else {
             _epochLen = epochLen;
         }
 
         if (_veOLASThreshold > 0) {
-            veOLASThreshold = _veOLASThreshold;
+            veOLASThreshold = uint96(_veOLASThreshold);
         } else {
             _veOLASThreshold = veOLASThreshold;
         }
@@ -449,11 +449,11 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeIncentiveFractions(
-        uint8 _rewardComponentFraction,
-        uint8 _rewardAgentFraction,
-        uint8 _maxBondFraction,
-        uint8 _topUpComponentFraction,
-        uint8 _topUpAgentFraction
+        uint256 _rewardComponentFraction,
+        uint256 _rewardAgentFraction,
+        uint256 _maxBondFraction,
+        uint256 _topUpComponentFraction,
+        uint256 _topUpAgentFraction
     ) external
     {
         // Check for the contract ownership
@@ -473,10 +473,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
         // 0 stands for components and 1 for agents
-        tp.unitPoints[0].rewardUnitFraction = _rewardComponentFraction;
-        tp.unitPoints[1].rewardUnitFraction = _rewardAgentFraction;
+        tp.unitPoints[0].rewardUnitFraction = uint8(_rewardComponentFraction);
+        tp.unitPoints[1].rewardUnitFraction = uint8(_rewardAgentFraction);
         // Rewards are always distributed in full: the leftovers will be allocated to treasury
-        tp.epochPoint.rewardTreasuryFraction = 100 - _rewardComponentFraction - _rewardAgentFraction;
+        tp.epochPoint.rewardTreasuryFraction = uint8(100 - _rewardComponentFraction - _rewardAgentFraction);
 
         // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = tp.epochPoint.maxBondFraction;
@@ -492,10 +492,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             _adjustMaxBond(nextMaxBond);
 
             // Update the maxBondFraction
-            tp.epochPoint.maxBondFraction = _maxBondFraction;
+            tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
         }
-        tp.unitPoints[0].topUpUnitFraction = _topUpComponentFraction;
-        tp.unitPoints[1].topUpUnitFraction = _topUpAgentFraction;
+        tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
+        tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
 
         emit IncentiveFractionsUpdated(_rewardComponentFraction, _rewardAgentFraction, _maxBondFraction,
             _topUpComponentFraction, _topUpAgentFraction);
