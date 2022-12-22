@@ -31,7 +31,7 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint32 epochLen = 100;
+    uint256 epochLen = 100;
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);

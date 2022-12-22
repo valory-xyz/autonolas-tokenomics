@@ -65,6 +65,7 @@ describe("Tokenomics", async () => {
 
         // Deploy master tokenomics contract
         const tokenomicsMaster = await tokenomicsFactory.deploy();
+        await tokenomicsMaster.deployed();
 
         // deployer.address is given to the contracts that are irrelevant in these tests
         proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
