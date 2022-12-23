@@ -231,7 +231,7 @@ describe("Tokenomics", async () => {
 
         it("Should fail when calling treasury-owned functions by other addresses", async function () {
             await expect(
-                tokenomics.connect(signers[1]).trackServiceDonations(deployer.address, [], [])
+                tokenomics.connect(signers[1]).trackServiceDonations(deployer.address, [], [], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -275,7 +275,7 @@ describe("Tokenomics", async () => {
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
 
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices])
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
@@ -283,8 +283,10 @@ describe("Tokenomics", async () => {
             // Only treasury can access the function, so let's change it for deployer here
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
 
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1, 2], [regDepositFromServices, regDepositFromServices]);
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1], [regDepositFromServices]);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1, 2],
+                [regDepositFromServices, regDepositFromServices], twoRegDepositFromServices);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1], [regDepositFromServices],
+                regDepositFromServices);
         });
     });
 
@@ -619,7 +621,7 @@ describe("Tokenomics", async () => {
             // Change the treasury address to deployer
             await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
             // Able to receive donations when the blacklist if turned off
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], []);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0);
 
             // Change blacklist to a non-zero address
             await tokenomics.connect(deployer).changeDonatorBlacklist(donatorBlacklist.address);
@@ -628,7 +630,7 @@ describe("Tokenomics", async () => {
 
             // Try to donate from the deployer address
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [])
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0)
             ).to.be.revertedWithCustomError(tokenomics, "DonatorBlacklisted");
         });
     });

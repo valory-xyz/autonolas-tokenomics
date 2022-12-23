@@ -191,6 +191,7 @@ contract Depository is GenericTokenomics {
             }
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
+        // No need to check for the return value, since it either reverts or returns true, see the ERC20 implementation
         IERC20(olas).transfer(msg.sender, payout);
     }
 
@@ -251,8 +252,8 @@ contract Depository is GenericTokenomics {
             revert ZeroValue();
         }
 
-        // Check if the LP token is enabled and that it is the LP token
-        if (!ITreasury(treasury).isEnabled(token) || !IGenericBondCalculator(bondCalculator).checkLP(token)) {
+        // Check if the LP token is enabled
+        if (!ITreasury(treasury).isEnabled(token)) {
             revert UnauthorizedToken(token);
         }
 

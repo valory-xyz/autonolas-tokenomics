@@ -218,12 +218,6 @@ describe("Depository LP", async () => {
                 depository.create(alice.address, defaultPriceLP, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
 
-            // Token address is enabled but is not an LP token
-            await treasury.enableToken(olas.address);
-            await expect(
-                depository.create(olas.address, defaultPriceLP, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
-
             // Token is not a contract, so the LP price will not be calculated as the Uniswap pair will fail
             await expect(
                 depository.getCurrentPriceLP(alice.address)

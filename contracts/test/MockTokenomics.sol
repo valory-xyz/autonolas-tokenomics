@@ -37,11 +37,8 @@ contract MockTokenomics {
     }
 
     /// @dev Tracks the deposited ETH amounts from services during the current epoch.
-    /// @return donationETH Donations to services.
-    function trackServiceDonations(address, uint256[] memory, uint256[] memory) external pure
-        returns (uint256 donationETH)
+    function trackServiceDonations(address, uint256[] memory, uint256[] memory, uint256 donationETH) external pure
     {
-        donationETH = 1 ether;
     }
 
     /// @dev Record global data to the checkpoint.

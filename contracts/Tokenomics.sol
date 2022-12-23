@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMathSD59x18.sol";
+import "@prb/math/src/UD60x18.sol";
 import "./GenericTokenomics.sol";
 import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
@@ -132,9 +132,8 @@ struct IncentiveBalances {
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Tokenomics is TokenomicsConstants, GenericTokenomics {
-    using PRBMathSD59x18 for *;
-
-    event EpochLengthUpdated(uint256 epochLength);
+    event EpochLengthUpdated(uint256 epochLen);
+    event EffectiveBondUpdated(uint256 effectiveBond);
     event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event IncentiveFractionsUpdated(uint256 rewardComponentFraction, uint256 rewardAgentFraction,
         uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
@@ -144,6 +143,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
     event TokenomicsImplementationUpdated(address indexed implementation);
+
+    // Fixed point value of 100
+    UD60x18 constant UNIT100 = UD60x18.wrap(100 * uUNIT);
 
     // Voting Escrow address
     address public ve;
@@ -303,7 +305,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         tp.unitPoints[1].topUpUnitFraction = 17;
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
-        uint256 _maxBond = _inflationPerSecond * _epochLen * _maxBondFraction / 100;
+        // maxBond = inflationPerSecond * epochLen * maxBondFraction / 100
+        uint256 _maxBond = (22_113_000_0e17 * _epochLen * _maxBondFraction) / (100 * zeroYearSecondsLeft);
         maxBond = uint96(_maxBond);
         effectiveBond = uint96(_maxBond);
     }
@@ -558,6 +561,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             eBond -= amount;
             effectiveBond = uint96(eBond);
             success = true;
+            emit EffectiveBondUpdated(eBond);
         }
     }
 
@@ -572,6 +576,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         uint256 eBond = effectiveBond + amount;
         effectiveBond = uint96(eBond);
+        emit EffectiveBondUpdated(eBond);
     }
 
     /// @dev Finalizes epoch incentives for a specified component / agent Id.
@@ -703,12 +708,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    /// @return donationETH Overall service donation amount in ETH.
+    /// @param donationETH Overall service donation amount in ETH.
     ///#if_succeeds {:msg "totalDonationsETH can only increase"} mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + unchecked_sum(amounts);
     ///#if_succeeds {:msg "numNewOwners can only increase"} mapEpochTokenomics[epochCounter].epochPoint.numNewOwners >= old(mapEpochTokenomics[epochCounter].epochPoint.numNewOwners);
-    function trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts) external
-        returns (uint256 donationETH)
-    {
+    function trackServiceDonations(
+        address donator,
+        uint256[] memory serviceIds,
+        uint256[] memory amounts,
+        uint256 donationETH
+    ) external {
         // Check for the treasury access
         if (treasury != msg.sender) {
             revert ManagerOnly(msg.sender, treasury);
@@ -728,8 +736,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
-            // Sum up ETH service amounts
-            donationETH += amounts[i];
         }
         // Get the current epoch
         uint256 curEpoch = epochCounter;
@@ -799,9 +805,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Recalculate the inflation per second based on the new inflation for the current year
             curInflationPerSecond = getInflationForYear(numYears) / oneYear;
             // Add the remainder of inflation amount for this epoch based on a new inflation per second ratio
-            inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond;
+            inflationPerEpoch += ((block.timestamp - yearEndTime) * getInflationForYear(numYears)) / oneYear;
             // Update the maxBond value for the next epoch after the year changes
-            maxBond = uint96(curInflationPerSecond * curEpochLen * tp.epochPoint.maxBondFraction) / 100;
+            maxBond = uint96((getInflationForYear(numYears) * curEpochLen * tp.epochPoint.maxBondFraction) / (100 * oneYear));
             // Updating state variables
             inflationPerSecond = uint96(curInflationPerSecond);
             currentYear = uint8(numYears);
@@ -841,9 +847,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Calculate the  max bond value until the end of the year
             curMaxBond = ((yearEndTime - block.timestamp) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
             // Recalculate the inflation per second based on the new inflation for the current year
-            curInflationPerSecond = getInflationForYear(numYears) / oneYear;
+            // curInflationPerSecond = getInflationForYear(numYears) / oneYear;
             // Add the remainder of max bond amount for the next epoch based on a new inflation per second ratio
-            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
+            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * getInflationForYear(numYears) *
+                tp.epochPoint.maxBondFraction) / (100 * oneYear);
             maxBond = uint96(curMaxBond);
             // maxBond lock is set and cannot be changed until the next epoch with the year change passes
             lockMaxBond = 2;
@@ -861,28 +868,28 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         uint64 idf;
         if (incentives[0] > 0) {
             // 0 for components and 1 for agents
-            uint256 sumWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
+            uint256 mulWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
-            // (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
+            // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
+            // (weightComponent * weightAgent) will be divided by when assigning to another variable
             uint256 codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits +
-                tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights;
+                tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits);
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
-            // Convert treasuryRewards and convert to ETH
-            int256 fp1 = PRBMathSD59x18.fromInt(int256(incentives[1])) / 1e18;
+            UD60x18 fp1 = UD60x18.wrap(incentives[1]);
             // Convert (codeUnits * devsPerCapital)
-            int256 fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital));
+            UD60x18 fp2 = toUD60x18((codeUnits * tp.epochPoint.devsPerCapital) / mulWeights);
             // fp1 == codeUnits * devsPerCapital * treasuryRewards
             fp1 = fp1.mul(fp2);
             // fp2 = codeUnits * newOwners
-            fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.numNewOwners));
+            fp2 = toUD60x18((codeUnits * tp.epochPoint.numNewOwners) / mulWeights);
             // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
-            int256 fp = fp1 + fp2;
-            // fp = fp/100 - calculate the final value in fixed point
-            fp = fp.div(PRBMathSD59x18.fromInt(100));
+            UD60x18 fp = fp1.add(fp2);
+            // fp = fp / 100 - calculate the final value in fixed point
+            fp = fp.div(UNIT100);
             // fKD in the state that is comparable with epsilon rate
-            uint256 fKD = uint256(fp);
+            uint256 fKD = UD60x18.unwrap(fp);
 
             // Compare with epsilon rate and choose the smallest one
             if (fKD > epsilonRate) {
