@@ -88,7 +88,12 @@ Short list: <br>
 - lacks a zero-check. Recommendation: needs to be fixed.
 - add a reentrancy guard for any blacklisted contract. Recommendation: must to be fixed (if planned external blacklist contract) 
 - re-check gas optimization for delete mapUserBonds[bondIds[i]]. Recommendation: pay attention. 
-- too similar variable. Recommendation: are welcome but no required to be fixed. Minor issue.  
+- too similar variable. Recommendation: are welcome but no required to be fixed. Minor issue.
+
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680);
+- [bb6a692b072cd91e6740d8f7081bf1753a81f1bb](https://github.com/valory-xyz/autonolas-tokenomics/commit/bb6a692b072cd91e6740d8f7081bf1753a81f1bb);
+- [416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d](https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d).
 
 #### Problems found by manual analysis or semi-automatically
 ##### Treasury function depositServiceDonationsETH. 
@@ -135,7 +140,10 @@ donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donati
 ```
 Recommendation: must to be fixed. certain bug. 💥
 
-##### Depository function getPendingBonds. 
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
+#### Depository function getPendingBonds. 
 ```
 function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
     uint256 numAccountBonds;
@@ -237,6 +245,9 @@ Since it has the property of an internal independent barrier.
 ```
 Recommendation: must to be fixed. ✴️
 
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
 
 ### Optimization
 #### Depository reedem() && close() vs product.purchased.
@@ -284,6 +295,9 @@ fp = fp.div(PRBMathSD59x18.fromInt(100));
 PRBMathSD59x18.fromInt(100) => const
 ```
 Recommendation: needs to be fixed.
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
 #### Treasury.sol <br>
 ```
 Try map instead of array

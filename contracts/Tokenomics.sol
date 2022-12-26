@@ -63,7 +63,7 @@ struct UnitPoint {
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + (128 + 16) (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 3 + 8 * 2 = 256 + 112 (2 full slots)
 struct EpochPoint {
     // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -82,9 +82,6 @@ struct EpochPoint {
     // Number of new owners
     // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
     uint32 numNewOwners;
-    // Epoch end block number
-    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
-    uint32 endBlockNumber;
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
@@ -142,6 +139,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
     event TokenomicsImplementationUpdated(address indexed implementation);
+
+    // Tokenomics version number
+    string public constant VERSION = "1.0.0";
 
     // Voting Escrow address
     address public ve;
@@ -245,6 +245,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         epsilonRate = 1e17;
         veOLASThreshold = 5_000e18;
         lockMaxBond = 1;
+
+        // Check that the epoch length has at least a practical minimal value
+        // TODO Decide on the final minimal value
+        if (_epochLen < 1 weeks) {
+            revert AmountLowerThan(_epochLen, 1 weeks);
+        }
 
         // Assign other passed variables
         ve = _ve;
@@ -425,6 +431,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
             // Update the epochLen
             epochLen = uint32(_epochLen);
+            emit EpochLengthUpdated(_epochLen);
         } else {
             _epochLen = epochLen;
         }
@@ -896,8 +903,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             idf = uint64(1e18 + fKD);
         }
 
-        // Record settled epoch point values
-        tp.epochPoint.endBlockNumber = uint32(block.number);
+        // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
 
         // Cumulative incentives

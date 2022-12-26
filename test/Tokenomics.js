@@ -8,6 +8,7 @@ describe("Tokenomics", async () => {
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
     const oneYear = 86400 * 365;
+    const oneWeek = 86400 * 7;
 
     let signers;
     let deployer;
@@ -21,7 +22,7 @@ describe("Tokenomics", async () => {
     let tokenomicsFactory;
     let ve;
     let attacker;
-    const epochLen = 1;
+    const epochLen = oneWeek;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
@@ -303,11 +304,11 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with revenues", async () => {
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -329,13 +330,13 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
             // Change tokenomics factors such that all the rewards are given to the treasury
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30);
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Change the manager for the treasury contract and re-balance treasury before the checkpoint
             await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
             // After the treasury re-balance the ETHFromServices value will be equal to zero
@@ -423,12 +424,12 @@ describe("Tokenomics", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
             await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20);
 
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
             const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
 
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
@@ -504,8 +505,8 @@ describe("Tokenomics", async () => {
             result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond.add(1));
             expect(result).to.equal(false);
 
-            // Increase the epoch length by 10 (was 1, then 10, then 5 (not executed), now will be 15)
-            newEpochLen += 10;
+            // Increase the epoch length by 10 (was x1, then x10, then x5 (not executed), now will be x15)
+            newEpochLen += epochLen * 10;
             await tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0);
 
             // Now we should be able to reserve of the amount of the effectiveBond, since we increased by half of the original

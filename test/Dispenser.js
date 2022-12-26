@@ -6,6 +6,7 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers");
 describe("Dispenser", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
+    const oneWeek = 86400 * 7;
 
     let signers;
     let deployer;
@@ -18,7 +19,7 @@ describe("Dispenser", async () => {
     let componentRegistry;
     let agentRegistry;
     let attacker;
-    const epochLen = 1;
+    const epochLen = oneWeek;
     const regDepositFromServices = "1" + "0".repeat(21);
     const twoRegDepositFromServices = "2" + "0".repeat(21);
     const delta = 100;
@@ -116,13 +117,16 @@ describe("Dispenser", async () => {
 
     context("Get incentives", async function () {
         it("Claim incentives for unit owners and stakers", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
             // Try to claim incentives
             await dispenser.connect(deployer).claimOwnerIncentives([], []);
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
+            // Skip the number of seconds for 2 epochs
+            await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
+            await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
 
             // Send ETH to treasury
@@ -140,6 +144,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -204,6 +210,9 @@ describe("Dispenser", async () => {
             const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
             expect(balance).to.lessThanOrEqual(accountTopUps);
             expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
         });
 
         it("Claim incentives for unit owners and stakers for more than one epoch", async () => {
@@ -369,9 +378,9 @@ describe("Dispenser", async () => {
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
 
             // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
+            await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
+            await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
 
             // Send ETH to treasury
@@ -381,10 +390,6 @@ describe("Dispenser", async () => {
             // Lock OLAS balances with Voting Escrow
             await ve.createLock(deployer.address);
 
-            // Changing the epoch length, keeping all other parameters unchanged
-            const curEpochLen = 10;
-            await tokenomics.changeTokenomicsParameters(1, "1" + "0".repeat(17), curEpochLen, "5" + "0".repeat(21));
-
             let totalAccountTopUps = ethers.BigNumber.from(0);
             // Define the number of epochs
             const numEpochs = 20;
@@ -393,7 +398,7 @@ describe("Dispenser", async () => {
             for (let i = 0; i < numEpochs; i++) {
                 // Increase the time to the length of the epoch plus a little more every time such that
                 // OALS top-up numbers are not the same every epoch
-                await helpers.time.increase(curEpochLen + i);
+                await helpers.time.increase(epochLen + i);
                 // Send donations to services
                 await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                     {value: twoRegDepositFromServices});
@@ -464,12 +469,6 @@ describe("Dispenser", async () => {
             // Try to get and claim rewards
             await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
-
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
 
             // Set the voting escrow value to be 1000 times smaller than the total supply
             await ve.setBalance(smallDeposit);
@@ -554,12 +553,6 @@ describe("Dispenser", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -578,6 +571,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -651,12 +646,6 @@ describe("Dispenser", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -675,6 +664,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -748,12 +739,6 @@ describe("Dispenser", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -772,6 +757,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -845,12 +832,6 @@ describe("Dispenser", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -868,6 +849,8 @@ describe("Dispenser", async () => {
                 {value: twoRegDepositFromServices});
             // Change the fractions such that rewards and top-ups are now zero
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -941,12 +924,6 @@ describe("Dispenser", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -965,6 +942,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -1037,12 +1016,6 @@ describe("Dispenser", async () => {
 
     context("Reentrancy attacks", async function () {
         it("Attacks on withdraw rewards for unit owners and stakers", async () => {
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -1058,6 +1031,8 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 

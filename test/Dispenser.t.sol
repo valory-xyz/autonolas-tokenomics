@@ -31,7 +31,7 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint256 epochLen = 100;
+    uint256 epochLen = 1 weeks;
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -185,10 +185,6 @@ contract DispenserTest is BaseSetup {
         // Define unit Ids to claim rewards and top-ups for
         (unitIds[0], unitIds[1]) = (1, 1);
 
-        // Set epoch length equal to a week
-        epochLen = 1 weeks;
-        tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
-
         // Run for more than 2 years (more than 52 weeks in a year)
         uint256 endTime = 54 weeks;
         uint256 lastPoint = tokenomics.epochCounter() - 1;
@@ -275,10 +271,6 @@ contract DispenserTest is BaseSetup {
         (unitTypes[0], unitTypes[1]) = (0, 1);
         // Define unit Ids to claim rewards and top-ups for
         (unitIds[0], unitIds[1]) = (1, 1);
-
-        // Set epoch length equal to a week
-        epochLen = 1 weeks;
-        tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
 
         uint256[] memory rewards = new uint256[](2);
         uint256[] memory topUps = new uint256[](2);

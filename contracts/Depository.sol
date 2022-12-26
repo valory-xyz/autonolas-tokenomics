@@ -48,7 +48,8 @@ contract Depository is GenericTokenomics {
         uint32 productId;
     }
 
-    // The size of the struct is 256 + 160 + 96 + 32 + 224 = 768 bits (3 full slots)
+    // The size of the struct is 256 + 160 + 96 + 32 = 544 bits (3 full slots)
+    // TODO If priceLP can be stored in uint224, then the struct is reduced to 2 full slots
     struct Product {
         // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
         uint256 priceLP;
@@ -60,9 +61,6 @@ contract Depository is GenericTokenomics {
         // Product expiry time (initialization time + vesting time)
         // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
         uint32 expiry;
-        // LP tokens purchased
-        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
-        uint224 purchased;
     }
 
     // Individual bond counter
@@ -134,11 +132,9 @@ contract Depository is GenericTokenomics {
             revert ProductSupplyLow(token, uint32(productId), payout, product.supply);
         }
 
-        // Decrease the supply for the amount of payout, increase number of purchased tokens and sold OLAS tokens
+        // Decrease the supply for the amount of payout
         uint256 supply = product.supply - payout;
         product.supply = uint96(supply);
-        uint256 purchased = product.purchased + tokenAmount;
-        product.purchased = uint224(purchased);
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
@@ -197,9 +193,12 @@ contract Depository is GenericTokenomics {
 
     /// @dev Gets bond Ids of all pending bonds for the account address.
     /// @param account Account address to query bonds for.
+    /// @param matured Record matured bonds only.
     /// @return bondIds Pending bond Ids.
     /// @return payout Cumulative expected OLAS payout.
-    function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
+    function getPendingBonds(address account, bool matured) external view
+        returns (uint256[] memory bondIds, uint256 payout)
+    {
         uint256 numAccountBonds;
         // Calculate the number of pending bonds
         uint256 numBonds = bondCounter;
@@ -207,9 +206,15 @@ contract Depository is GenericTokenomics {
         // Record the bond number if it belongs to the account address and was not yet redeemed
         for (uint256 i = 0; i < numBonds; i++) {
             if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
-                positions[i] = true;
-                ++numAccountBonds;
-                payout += mapUserBonds[i].payout;
+                // Check if bond is not matured but owned by the account address
+                if (!matured ||
+                    // Or if the bond is matured, i.e., the bond maturity timestamp passed and the payout is non-zero
+                    (matured && (block.timestamp >= mapUserBonds[i].maturity) && mapUserBonds[i].payout > 0))
+                {
+                    positions[i] = true;
+                    ++numAccountBonds;
+                    payout += mapUserBonds[i].payout;
+                }
             }
         }
 
@@ -270,7 +275,7 @@ contract Depository is GenericTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(priceLP, token, uint96(supply), uint32(expiry), 0);
+        mapBondProducts[productId] = Product(priceLP, token, uint96(supply), uint32(expiry));
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply);
     }
