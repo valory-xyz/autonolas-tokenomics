@@ -9,10 +9,6 @@ import "@prb/math/src/UD60x18.sol";
 abstract contract TokenomicsConstants {
     // One year in seconds
     uint256 public constant oneYear = 1 days * 365;
-    // Fixed point value of 100
-    UD60x18 constant UNIT100 = UD60x18.wrap(100 * uUNIT);
-    // Seconds in a year multiplier
-
 
     /// @dev Gets an inflation cap for a specific year.
     /// @param numYears Number of years passed from the launch date.

@@ -876,15 +876,15 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
             UD60x18 fp1 = UD60x18.wrap(incentives[1]);
             // Convert (codeUnits * devsPerCapital)
-            UD60x18 fp2 = toUD60x18((codeUnits * tp.epochPoint.devsPerCapital) / mulWeights);
+            UD60x18 fp2 = toUD60x18(codeUnits * tp.epochPoint.devsPerCapital);
             // fp1 == codeUnits * devsPerCapital * treasuryRewards
             fp1 = fp1.mul(fp2);
             // fp2 = codeUnits * newOwners
-            fp2 = toUD60x18((codeUnits * tp.epochPoint.numNewOwners) / mulWeights);
+            fp2 = toUD60x18(codeUnits * tp.epochPoint.numNewOwners);
             // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             UD60x18 fp = fp1.add(fp2);
             // fp = fp / 100 - calculate the final value in fixed point
-            fp = fp.div(UNIT100);
+            fp = fp.div(wrap(100 * mulWeights));
             // fKD in the state that is comparable with epsilon rate
             uint256 fKD = UD60x18.unwrap(fp);
 
