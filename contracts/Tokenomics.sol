@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@prb/math/src/UD60x18.sol";
 import "./GenericTokenomics.sol";
 import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
@@ -144,9 +143,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
     event TokenomicsImplementationUpdated(address indexed implementation);
 
-    // Fixed point value of 100
-    UD60x18 constant UNIT100 = UD60x18.wrap(100 * uUNIT);
-
     // Voting Escrow address
     address public ve;
     // Max bond per epoch: calculated as a fraction from the OLAS inflation parameter
@@ -267,8 +263,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Seconds left in the deployment year for the zero year inflation schedule
         // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
         uint256 zeroYearSecondsLeft = uint32(_timeLaunch + oneYear - block.timestamp);
-        // Calculating initial inflation per second: (mintable OLAS from inflationAmounts[0]) / (seconds left in a year)
-        uint256 _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft;
+        // Calculating initial inflation per second: (mintable OLAS from getInflationForYear(0)) / (seconds left in a year)
+        // Note that we lose precision here dividing by the number of seconds right away, but to avoid complex calculations
+        // later we consider it is less error-prone to sacrifice at most 6 insignificant digits (or 1e-12) of OLAS per year
+        uint256 _inflationPerSecond = getInflationForYear(0) / zeroYearSecondsLeft;
         inflationPerSecond = uint96(_inflationPerSecond);
         timeLaunch = uint32(_timeLaunch);
 
@@ -306,7 +304,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
         // maxBond = inflationPerSecond * epochLen * maxBondFraction / 100
-        uint256 _maxBond = (22_113_000_0e17 * _epochLen * _maxBondFraction) / (100 * zeroYearSecondsLeft);
+        uint256 _maxBond = _inflationPerSecond * _epochLen * _maxBondFraction / 100;
         maxBond = uint96(_maxBond);
         effectiveBond = uint96(_maxBond);
     }
@@ -805,9 +803,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Recalculate the inflation per second based on the new inflation for the current year
             curInflationPerSecond = getInflationForYear(numYears) / oneYear;
             // Add the remainder of inflation amount for this epoch based on a new inflation per second ratio
-            inflationPerEpoch += ((block.timestamp - yearEndTime) * getInflationForYear(numYears)) / oneYear;
+            inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond;
             // Update the maxBond value for the next epoch after the year changes
-            maxBond = uint96((getInflationForYear(numYears) * curEpochLen * tp.epochPoint.maxBondFraction) / (100 * oneYear));
+            maxBond = uint96(curInflationPerSecond * curEpochLen * tp.epochPoint.maxBondFraction) / 100;
             // Updating state variables
             inflationPerSecond = uint96(curInflationPerSecond);
             currentYear = uint8(numYears);
@@ -847,10 +845,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Calculate the  max bond value until the end of the year
             curMaxBond = ((yearEndTime - block.timestamp) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
             // Recalculate the inflation per second based on the new inflation for the current year
-            // curInflationPerSecond = getInflationForYear(numYears) / oneYear;
+            curInflationPerSecond = getInflationForYear(numYears) / oneYear;
             // Add the remainder of max bond amount for the next epoch based on a new inflation per second ratio
-            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * getInflationForYear(numYears) *
-                tp.epochPoint.maxBondFraction) / (100 * oneYear);
+            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
             maxBond = uint96(curMaxBond);
             // maxBond lock is set and cannot be changed until the next epoch with the year change passes
             lockMaxBond = 2;

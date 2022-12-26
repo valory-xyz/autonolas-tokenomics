@@ -93,9 +93,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentives(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        // Amounts must be meaningful
+        vm.assume(amount0 > 1e9);
+        vm.assume(amount1 > 1e9);
         // Claim empty incentives
         vm.prank(deployer);
         (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
@@ -137,16 +137,16 @@ contract DispenserTest is BaseSetup {
         uint256 accountTopUps = topUps0 + topUps1;
 
         // Rewards and top-ups must not be zero
-        assertGe(accountRewards, 0);
-        assertGe(accountTopUps, 0);
+        assertGt(accountRewards, 0);
+        assertGt(accountTopUps, 0);
 
         // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
         IncentiveBalances memory incentiveBalances = tokenomics.getIncentiveBalances(0, 1);
-        assertGe(incentiveBalances.pendingRelativeReward, 0);
-        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+        assertGt(incentiveBalances.pendingRelativeReward, 0);
+        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
         incentiveBalances = tokenomics.getIncentiveBalances(1, 1);
-        assertGe(incentiveBalances.pendingRelativeReward, 0);
-        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+        assertGt(incentiveBalances.pendingRelativeReward, 0);
+        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
 
         // Define the types of units to claim rewards and top-ups for
         (unitTypes[0], unitTypes[1]) = (0, 1);
@@ -172,8 +172,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
         // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        vm.assume(amount0 > 1e9);
+        vm.assume(amount1 > 1e9);
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -190,7 +190,7 @@ contract DispenserTest is BaseSetup {
         tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
 
         // Run for more than 2 years (more than 52 weeks in a year)
-        uint256 endTime = 110 weeks;
+        uint256 endTime = 54 weeks;
         uint256 lastPoint = tokenomics.epochCounter() - 1;
         uint256 effectiveBond = tokenomics.effectiveBond();
         for (uint256 i = 0; i < endTime; i += epochLen) {
@@ -240,8 +240,8 @@ contract DispenserTest is BaseSetup {
             effectiveBond += tokenomics.maxBond();
 
             // Rewards and top-ups must not be zero
-            assertGe(accountRewards, 0);
-            assertGe(accountTopUps, 0);
+            assertGt(accountRewards, 0);
+            assertGt(accountTopUps, 0);
 
             // Claim rewards and top-ups
             uint256 balanceETH = address(deployer).balance;
@@ -263,8 +263,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
         // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        vm.assume(amount0 > 1e9);
+        vm.assume(amount1 > 1e9);
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
