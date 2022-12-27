@@ -68,9 +68,9 @@ contract BaseSetup is Test {
         tokenomics = Tokenomics(address(tokenomicsProxy));
 
         // Change tokenomics address
-        treasury.changeManagers(address(tokenomics), address(0), address(0), address(0));
+        treasury.changeManagers(address(tokenomics), address(0), address(0));
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury), address(0), address(0));
+        dispenser.changeManagers(address(tokenomics), address(treasury));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));

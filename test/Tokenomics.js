@@ -81,7 +81,7 @@ describe("Tokenomics", async () => {
         tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
         // Update tokenomics address for treasury
-        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -114,11 +114,11 @@ describe("Tokenomics", async () => {
 
             // Trying to change managers from a non-owner account address
             await expect(
-                tokenomics.connect(account).changeManagers(AddressZero, AddressZero, AddressZero, AddressZero)
+                tokenomics.connect(account).changeManagers(AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // Changing depository, dispenser and tokenomics addresses
-            await tokenomics.connect(deployer).changeManagers(AddressZero, account.address, deployer.address, signers[2].address);
+            await tokenomics.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address);
             expect(await tokenomics.treasury()).to.equal(account.address);
             expect(await tokenomics.depository()).to.equal(deployer.address);
             expect(await tokenomics.dispenser()).to.equal(signers[2].address);
@@ -274,7 +274,7 @@ describe("Tokenomics", async () => {
     context("Track revenue of services", async function () {
         it("Should fail when the service does not exist", async () => {
             // Only treasury can access the function, so let's change it for deployer here
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
             await expect(
                 tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices], 0)
@@ -283,7 +283,7 @@ describe("Tokenomics", async () => {
 
         it("Send service revenues twice for protocol-owned services and donation", async () => {
             // Only treasury can access the function, so let's change it for deployer here
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
             await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1, 2],
                 [regDepositFromServices, regDepositFromServices], twoRegDepositFromServices);
@@ -339,11 +339,11 @@ describe("Tokenomics", async () => {
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Change the manager for the treasury contract and re-balance treasury before the checkpoint
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero);
             // After the treasury re-balance the ETHFromServices value will be equal to zero
             await treasury.rebalanceTreasury(twoRegDepositFromServices);
             // Change the manager for the treasury back to the tokenomics
-            await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
             // Start new epoch and calculate tokenomics parameters and rewards
             await expect(
                 tokenomics.connect(deployer).checkpoint()
@@ -433,7 +433,7 @@ describe("Tokenomics", async () => {
             await helpers.time.increase(epochLen + 10);
 
             // Start new epoch and calculate tokenomics parameters and rewards
-            await tokenomics.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(treasury.address, AddressZero, AddressZero);
             await tokenomics.connect(deployer).checkpoint();
 
             // Get the last settled epoch counter
@@ -617,7 +617,7 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.donatorBlacklist()).to.equal(AddressZero);
 
             // Change the treasury address to deployer
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
             // Able to receive donations when the blacklist if turned off
             await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0);
 

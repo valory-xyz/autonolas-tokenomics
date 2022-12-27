@@ -70,7 +70,7 @@ describe("Depository LP", async () => {
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
             deployer.address, epochLen, AddressZero, AddressZero, AddressZero, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, AddressZero);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeIncentiveFractions(66, 34, 100, 0, 0);
 
@@ -79,14 +79,14 @@ describe("Depository LP", async () => {
         genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
         await genericBondCalculator.deployed();
         // Deploy depository contract
-        depository = await depositoryFactory.deploy(olas.address, treasury.address, tokenomics.address,
+        depository = await depositoryFactory.deploy(olas.address, tokenomics.address, treasury.address,
             genericBondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 
         // Change to the correct addresses
-        await treasury.changeManagers(AddressZero, AddressZero, depository.address, AddressZero);
-        await tokenomics.changeManagers(AddressZero, treasury.address, depository.address, AddressZero);
+        await treasury.changeManagers(AddressZero, depository.address, AddressZero);
+        await tokenomics.changeManagers(treasury.address, depository.address, AddressZero);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -180,7 +180,7 @@ describe("Depository LP", async () => {
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
-            await depository.connect(deployer).changeManagers(deployer.address, account.address, AddressZero, AddressZero);
+            await depository.connect(deployer).changeManagers(deployer.address, account.address);
             expect(await depository.treasury()).to.equal(account.address);
             expect(await depository.tokenomics()).to.equal(deployer.address);
 
