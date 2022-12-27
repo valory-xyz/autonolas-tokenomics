@@ -228,12 +228,6 @@ describe("Dispenser", async () => {
             await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
             await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
 
-            // Skip the number of blocks for 2 epochs
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-            await ethers.provider.send("evm_mine");
-            await tokenomics.connect(deployer).checkpoint();
-
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -245,11 +239,8 @@ describe("Dispenser", async () => {
             // Consider the scenario when no service owners lock enough OLAS for component / agent owners to claim top-ups
             await ve.setWeightedBalance(0);
 
-            // Changing the epoch length, keeping all other parameters unchanged
-            const curEpochLen = 10;
-            await tokenomics.changeTokenomicsParameters(1, "1" + "0".repeat(17), curEpochLen, "5" + "0".repeat(21));
             // Increase the time to the length of the epoch
-            await helpers.time.increase(curEpochLen + 1);
+            await helpers.time.increase(epochLen + 10);
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
@@ -294,14 +285,13 @@ describe("Dispenser", async () => {
             // Once again, the top-up of the owner must be zero here, since the owner of the service didn't stake enough veOLAS
             expect(checkedTopUp).to.equal(0);
 
-
             // EPOCH 2 with donations and top-ups
             // Return the ability for the service owner to have enough veOLAS for the owner top-ups
             const minWeightedBalance = await tokenomics.veOLASThreshold();
             await ve.setWeightedBalance(minWeightedBalance.toString() + "1");
 
             // Increase the time to more than the length of the epoch
-            await helpers.time.increase(curEpochLen + 3);
+            await helpers.time.increase(epochLen + 3);
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});

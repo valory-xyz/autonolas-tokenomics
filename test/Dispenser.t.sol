@@ -226,8 +226,8 @@ contract DispenserTest is BaseSetup {
             uint256 calculatedMaxBond = (ep.totalTopUpsOLAS * ep.maxBondFraction) / 100;
             // Compare it with the max bond calculated from the fraction and the total OLAS inflation for the epoch
             // Do not compare directly if it is the current or next epoch of the year change
-            uint256 numYearsCurEpoch = (block.timestamp - tokenomics.timeLaunch()) / tokenomics.oneYear();
-            uint256 numYearsNextEpoch = (block.timestamp + tokenomics.epochLen() - tokenomics.timeLaunch()) / tokenomics.oneYear();
+            uint256 numYearsCurEpoch = (block.timestamp - tokenomics.timeLaunch()) / tokenomics.ONE_YEAR();
+            uint256 numYearsNextEpoch = (block.timestamp + tokenomics.epochLen() - tokenomics.timeLaunch()) / tokenomics.ONE_YEAR();
             if (numYearsCurEpoch == curYear && numYearsNextEpoch == curYear) {
                 assertEq(tokenomics.maxBond(), calculatedMaxBond);
             }

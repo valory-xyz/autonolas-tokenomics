@@ -8,7 +8,9 @@ import "@prb/math/src/UD60x18.sol";
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract TokenomicsConstants {
     // One year in seconds
-    uint256 public constant oneYear = 1 days * 365;
+    uint256 public constant ONE_YEAR = 1 days * 365;
+    // Minimum epoch length
+    uint256 public constant MIN_EPOCH_LENGTH = 1 weeks;
 
     /// @dev Gets an inflation cap for a specific year.
     /// @param numYears Number of years passed from the launch date.

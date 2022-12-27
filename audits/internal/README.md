@@ -167,15 +167,27 @@ Accordingly, the user does not have a function whose result can be safely used a
 ```
 Recommendation: must to be fixed. Bug from point view of UX. 🔶
 
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
+
 #### Minor issue and necessary logical fixes
 ##### Unused event
 This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
 [Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md) <br>
 Recommendation: needs to be fixed. Non-critical. 
 
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
+
 ##### Semantic versioning in tokenomics implementation
 Needs to add a variable (constant) with the version number. <br>
 Recommendation: needs to be fixed. 
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
 
 ##### Treasury pause for some other functions.
 ```
@@ -191,6 +203,10 @@ Recommendation: pay attention.
         epochLen = _epochLen;
 ```
 Recommendation: needs to be fixed.
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
 
 ##### Tokenomics && Treasury. Parameters must have reasonable lower bounds.
 ```
@@ -274,6 +290,11 @@ function deposit(uint256 productId, uint256 tokenAmount) ->
 This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
 ```
 Recommendation: must to be fixed. in terms of useless spending of gas, this is a bug. ✴️
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
+
 #### Tokenomics tp.epochPoint.endBlockNumber.
 ```
 struct EpochPoint {
@@ -288,6 +309,11 @@ Only assigned but not used in any way.
 All real calculations are based on `endTime`
 ```
 Recommendation: needs to be fixed if it is not necessary for the excluded functionality.💹
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
+
 #### Tokenomics.sol
 ```
 // fp = fp/100 - calculate the final value in fixed point
@@ -317,9 +343,16 @@ mapping(address => uint256) public mapTokensReserves;
 mapping(address => bool) public mapTokenRegistry;
 ```
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
+
+
 #### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
 Details in [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
 Recommendation: needs to be fixed. Not a bug, but should be a optimize and eliminate unnecessary code. 💹
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1)
+
+
 #### All contracts based on GenericTokenomics
 To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach. <br>
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
