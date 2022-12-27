@@ -360,6 +360,10 @@ Recommendation: needs to be fixed. Not a bug, but should be a optimize and elimi
 To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach. <br>
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
 
+##### Fixes
+- [369b2393cc1bf84e825629947f5af246971652ca](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/369b2393cc1bf84e825629947f5af246971652ca).
+
+
 ### Improvements to tests and code self-documentation.
 #### Improvement test if needed
 Expicity test: all funds earmarked for developers and temporarily in the treasury are not movable by the owner of the treasury, and vice versa. <br>
@@ -383,6 +387,8 @@ Since the "relations" between "opposite" processes accountOwnerIncentives and tr
 _finalizeIncentivesForUnitId more explanation is needed.
 
 ```
+- Added more documentation.
+
 Recommendation: are welcome but no required to be fixed. Minor issue. 
 #### Improved Mock contracts
 I remade during audit a original MockRegistry.sol: function `drain() external returns (uint256 amount)` now actually sending a ETH. <br>

@@ -737,6 +737,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                             mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                         } else if (lastEpoch < curEpoch) {
                             // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+                            // Pending rewards are getting finalized during the next epoch the component / agent
+                            // receives donations. If this is not the case before claiming incentives, the finalization
+                            // happens in the accountOwnerIncentives() where the incentives are issued
                             _finalizeIncentivesForUnitId(lastEpoch, unitType, serviceUnitIds[j]);
                             // Change the last epoch number
                             mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
@@ -1054,7 +1057,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
-    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
     /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
     /// @param account Account address.
@@ -1107,6 +1110,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Get the last epoch number the incentives were accumulated for
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+            // The finalization is needed when the trackServiceDonations() function did not take care of it
+            // since between last epoch the donations were received and this current epoch there were no more donations
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
                 _finalizeIncentivesForUnitId(lastEpoch, unitTypes[i], unitIds[i]);
                 // Change the last epoch number
