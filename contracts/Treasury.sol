@@ -33,7 +33,8 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
+/// TODO check for invariant to be not broken in the original version
+///#invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned;
 contract Treasury is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
@@ -52,6 +53,8 @@ contract Treasury is IErrorsTokenomics {
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    // Minimum accepted donation value
+    uint256 public constant MIN_ACCEPTED_AMOUNT = 5e16;
 
     // Owner address
     address public owner;
@@ -103,6 +106,10 @@ contract Treasury is IErrorsTokenomics {
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
+        if (msg.value < MIN_ACCEPTED_AMOUNT) {
+            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
+        }
+
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
@@ -213,8 +220,8 @@ contract Treasury is IErrorsTokenomics {
 
         // Check that the amount donated has at least a practical minimal value
         // TODO Decide on the final minimal value
-        if (msg.value == 0) {
-            revert ZeroValue();
+        if (msg.value < MIN_ACCEPTED_AMOUNT) {
+            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
         }
 
         // Check for the same length of arrays

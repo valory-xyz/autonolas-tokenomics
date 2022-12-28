@@ -941,8 +941,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
         if (incentives[0] > 0) {
-            // 0 for components and 1 for agents
-            uint256 mulWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
             // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
             // (weightComponent * weightAgent) will be divided by when assigning to another variable
@@ -961,7 +959,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             UD60x18 fp = fp1.add(fp2);
             // fp = fp / 100 - calculate the final value in fixed point
-            fp = fp.div(wrap(100 * mulWeights));
+            // 0 for components and 1 for agents
+            // Reserved a divider of (weightComponent * weightAgent) from the codeUnits
+            fp = fp.div(wrap(100 * tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight));
             // fKD in the state that is comparable with epsilon rate
             uint256 fKD = UD60x18.unwrap(fp);
 

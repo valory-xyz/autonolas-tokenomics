@@ -154,7 +154,7 @@ describe("Treasury", async () => {
         it("Should fail when depositing a zero value", async () => {
             await expect(
                 treasury.connect(deployer).depositServiceDonationsETH([], [])
-            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
         });
 
         it("Should fail when input arrays do not match", async () => {
