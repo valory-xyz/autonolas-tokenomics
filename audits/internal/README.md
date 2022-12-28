@@ -61,6 +61,14 @@ Well known vulnerabilities: <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
+#### Updated contract storage
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Tokenomics.png) <br>
+[Depository-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Depository.png) <br>
+[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Dispenser.png) <br>
+[Treasury-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Treasury.png) <br>
+
+All the contracts got reduced by a minimum of 2 slots, which results in contract size deployment as well.
+
 ### Fuzzing. Updated 15-12-22
 #### In-place testing with Scribble
 ```
@@ -218,6 +226,9 @@ The latter also refers to the receive().
 https://blockworks.co/news/defi-web-apps-block-users-hit-by-tornado-cash-dust-attack 
 ```
 Recommendation: pay attention.
+
+##### Fixes
+- [e199c662e49a11c6531c8ee443ed4a1bf231c9ed](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/e199c662e49a11c6531c8ee443ed4a1bf231c9ed).
 
 ### Improvements related to critical external updates
 #### Update a external fixed point library and fixed point related code

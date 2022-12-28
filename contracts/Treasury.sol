@@ -33,8 +33,9 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// TODO check for invariant to be not broken in the original version
-///#invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned;
+/// Invariant does not support a failing call() function while transferring ETH when using the CEI pattern:
+/// revert TransferFailed(address(0), address(this), to, tokenAmount);
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices + ETHOwned;
 contract Treasury is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
