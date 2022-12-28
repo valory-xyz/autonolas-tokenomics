@@ -174,15 +174,30 @@ describe("Depository LP", async () => {
         it("Changing managers and owners", async function () {
             const account = alice;
 
-            // Trying to change owner from a non-owner account address
+            // Trying to change managers from a non-owner account address
             await expect(
-                depository.connect(account).changeOwner(account.address)
+                depository.connect(account).changeManagers(deployer.address, account.address)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
             await depository.connect(deployer).changeManagers(deployer.address, account.address);
             expect(await depository.treasury()).to.equal(account.address);
             expect(await depository.tokenomics()).to.equal(deployer.address);
+
+            // Trying to change to zero addresses and making sure nothing has changed
+            await depository.connect(deployer).changeManagers(AddressZero, AddressZero);
+            expect(await depository.treasury()).to.equal(account.address);
+            expect(await depository.tokenomics()).to.equal(deployer.address);
+
+            // Trying to change owner from a non-owner account address
+            await expect(
+                depository.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
+            // Trying to change the owner to the zero address
+            await expect(
+                depository.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
 
             // Changing the owner
             await depository.connect(deployer).changeOwner(account.address);
@@ -473,10 +488,15 @@ describe("Depository LP", async () => {
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
             await depository.connect(bob).deposit(bid, amount);
 
+            // Increase the time to a half vesting
+            await helpers.time.increase(vesting / 2);
+            // Check for the matured pending bond which is not yet ready
+            let pendingBonds = await depository.getPendingBonds(bob.address, true);
+            expect(pendingBonds.bondIds).to.deep.equal([]);
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
             // Check for the matured pending bond
-            let pendingBonds = await depository.getPendingBonds(bob.address, true);
+            pendingBonds = await depository.getPendingBonds(bob.address, true);
             expect(pendingBonds.bondIds[0]).to.equal(0);
             await depository.connect(bob).redeem([0]);
             const bobBalance = Number(await olas.balanceOf(bob.address));

@@ -23,6 +23,7 @@ contract ReentrancyAttacker {
     bool public badAction;
     bool public attackOnClaimOwnerIncentives;
     bool public attackOnDepositETHFromServices;
+    bool public transferStatus;
 
     address dispenser;
     address treasury;
@@ -68,10 +69,33 @@ contract ReentrancyAttacker {
         return ITokenomics(dispenser).claimOwnerIncentives(unitTypes, unitIds);
     }
 
-    /// @dev Lets the attacker call back its contract to get back to the depositETHFromServices() function.
-    function badDepositETHFromServices(uint256[] memory serviceIds, uint256[] memory amounts) external payable
-    {
-        attackOnDepositETHFromServices = true;
-        ITokenomics(treasury).depositServiceDonationsETH{value: msg.value}(serviceIds, amounts);
+    /// @dev Attack via a blacklisting check that calls again the Treasury depositServiceDonationsETH() function.
+    function isDonatorBlacklisted(address) external returns (bool status) {
+        uint256[] memory serviceIds = new uint256[](1);
+        serviceIds[0] = 1;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1 ether;
+        ITokenomics(treasury).depositServiceDonationsETH(serviceIds, amounts);
+        return false;
+    }
+
+    /// @dev Allowance simulation function.
+    function allowance(address, address) external pure returns (uint256) {
+        return 10_000 ether;
+    }
+
+    /// @dev Sets the ability or inability to transfer.
+    function setTransfer(bool success) external {
+        transferStatus = success;
+    }
+
+    /// @dev Transfer function that fails.
+    function transfer(address, uint256) external view returns (bool) {
+        return transferStatus;
+    }
+
+    /// @dev Transfer from function that fails.
+    function transferFrom(address, address, uint256) external view returns (bool) {
+        return transferStatus;
     }
 }

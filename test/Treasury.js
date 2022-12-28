@@ -72,9 +72,9 @@ describe("Treasury", async () => {
         it("Changing managers and owners", async function () {
             const account = signers[1];
 
-            // Trying to change owner from a non-owner account address
+            // Trying to change managers from a non-owner account address
             await expect(
-                treasury.connect(account).changeOwner(account.address)
+                treasury.connect(account).changeManagers(signers[2].address, account.address, deployer.address)
             ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Changing tokenomics, depository and dispenser addresses
@@ -82,6 +82,16 @@ describe("Treasury", async () => {
             expect(await treasury.tokenomics()).to.equal(signers[2].address);
             expect(await treasury.depository()).to.equal(account.address);
             expect(await treasury.dispenser()).to.equal(deployer.address);
+
+            // Trying to change owner from a non-owner account address
+            await expect(
+                treasury.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Trying to change the owner to the zero address
+            await expect(
+                treasury.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
 
             // Changing the owner
             await treasury.connect(deployer).changeOwner(account.address);
@@ -148,6 +158,13 @@ describe("Treasury", async () => {
                 treasury.disableToken(dai.address)
             ).to.be.revertedWithCustomError(treasury, "NonZeroValue");
         });
+
+        it("Should fail when transferring a token that fails the transferFrom() function", async () => {
+            treasury.enableToken(attacker.address);
+            await expect(
+                treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit, attacker.address, defaultDeposit)
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+        });
     });
 
     context("Deposits ETH from protocol-owned services", async function () {
@@ -203,6 +220,11 @@ describe("Treasury", async () => {
         });
 
         it("Send ETH directly to treasury and withdraw", async () => {
+            // Try to send insufficient ETH to treasury
+            await expect(
+                deployer.sendTransaction({to: treasury.address, value: 100})
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("10");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -221,10 +243,32 @@ describe("Treasury", async () => {
             // Call the non-static withdraw
             await treasury.withdraw(deployer.address, amount, ETHAddress);
 
+            // Try to withdraw zero amount
+            await expect(
+                treasury.withdraw(deployer.address, 0, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
+
             // Try to withdraw more ETH amount than treasury owns
             await expect(
                 treasury.withdraw(deployer.address, amount, ETHAddress)
             ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+
+            // Try to withdraw other tokens that do not have balance
+            await expect(
+                treasury.withdraw(deployer.address, amount, dai.address)
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+        });
+
+        it("Should fail when transferring a token that fails to be transferred", async () => {
+            treasury.enableToken(attacker.address);
+            attacker.setTransfer(true);
+            // Deposit the incorrectly working token
+            await treasury.connect(deployer).depositTokenForOLAS(deployer.address, defaultDeposit, attacker.address, defaultDeposit);
+            attacker.setTransfer(false);
+            // Try to withdraw the token that fails
+            await expect(
+                treasury.connect(deployer).withdraw(deployer.address, defaultDeposit, attacker.address)
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
         });
     });
 
@@ -288,23 +332,6 @@ describe("Treasury", async () => {
             // Zero top-ups, will fail since there is no ETHFromServices balance
             result = await treasury.connect(deployer).callStatic.withdrawToAccount(deployer.address, 10, 0);
             expect(result).to.equal(false);
-        });
-    });
-
-    context("Reentrancy attacks", async function () {
-        it("Proof that the attack is not possible via attacker's receive() function", async () => {
-            // Send ETH to the attacker
-            const amount = ethers.utils.parseEther("10");
-            // Set attack mode to false to receive funds
-            await attacker.setAttackMode(false);
-            await deployer.sendTransaction({to: attacker.address, value: amount});
-
-            // Try to attack via the deposit of ETH for protocol-owned services
-            await attacker.setAttackMode(true);
-            await attacker.badDepositETHFromServices([1], [regDepositFromServices], {value: regDepositFromServices});
-
-            // Check that the attack did not succeed
-            expect(await attacker.attackOnDepositETHFromServices()).to.equal(true);
         });
     });
 
