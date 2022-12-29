@@ -207,6 +207,9 @@ contract Treasury is IErrorsTokenomics {
     }
 
     /// @dev Deposits service donations in ETH.
+    /// @notice Each provided service Id must be deployed at least once, otherwise its components and agents are undefined.
+    /// @notice If a specific service is terminated with agent Ids being updated, incentives will be issued to its old
+    ///         configuration component / agent owners until the service is re-deployed when new agent Ids are accounted for.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;

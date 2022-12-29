@@ -36,11 +36,9 @@ interface IErrorsTokenomics {
     /// @param max Maximum possible value.
     error Overflow(uint256 provided, uint256 max);
 
-    /// @dev Service termination block has been reached. Service is terminated.
-    /// @param teminationBlock The termination block.
-    /// @param curBlock Current block.
+    /// @dev Service was never deployed.
     /// @param serviceId Service Id.
-    error ServiceTerminated(uint256 teminationBlock, uint256 curBlock, uint256 serviceId);
+    error ServiceNeverDeployed(uint256 serviceId);
 
     /// @dev Token is disabled or not whitelisted.
     /// @param tokenAddress Address of a token.
