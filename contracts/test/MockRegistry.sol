@@ -73,10 +73,17 @@ contract MockRegistry {
         return accounts;
     }
 
+    /// @dev Gets the value of slashed funds from the service registry.
+    /// @return amount Drained amount.
+    function slashedFunds() external view returns (uint256 amount) {
+        amount = address(this).balance / 10;
+    }
+
     /// @dev Drains slashed funds.
     /// @return amount Drained amount.
     function drain() external returns (uint256 amount) {
-        amount = 1 ether;
+        // Amount to drain is simulated to be 1/10th of the account balance
+        amount = address(this).balance / 10;
         (bool result, ) = msg.sender.call{value: amount}("");
         if (!result) {
             revert TransferFailed(address(0), address(this), msg.sender, amount);

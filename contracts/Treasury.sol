@@ -455,6 +455,13 @@ contract Treasury is IErrorsTokenomics {
 
         // Get the service registry contract address
         address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
+
+        // Check if the amount of slashed funds are at least the minimum required amount to receive by the Treasury
+        uint256 slashedFunds = IServiceTokenomics(serviceRegistry).slashedFunds();
+        if (slashedFunds < MIN_ACCEPTED_AMOUNT) {
+            revert AmountLowerThan(slashedFunds, MIN_ACCEPTED_AMOUNT);
+        }
+
         // Call the service registry drain function
         amount = IServiceTokenomics(serviceRegistry).drain();
     }
