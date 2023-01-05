@@ -6,7 +6,6 @@ import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IGenericBondCalculator.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
-import "hardhat/console.sol";
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
