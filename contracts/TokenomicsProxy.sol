@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 /// @dev Proxy initialization failed.
 error InitializationFailed();
 
-/// @dev Provided zero master tokenomics address.
+/// @dev Zero master tokenomics address.
 error ZeroTokenomicsAddress();
 
 /// @dev Zero tokenomics initialization data.

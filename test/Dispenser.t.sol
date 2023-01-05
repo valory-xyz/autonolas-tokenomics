@@ -171,7 +171,7 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
+        // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
 
@@ -258,7 +258,7 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
+        // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
 
