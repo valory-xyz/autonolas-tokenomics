@@ -595,6 +595,14 @@ describe("Depository LP", async () => {
             // Deposit to another bond for bob (bondId == 2)
             await depository.connect(bob).deposit(bid, amounts[2]);
 
+            // Get bond statuses
+            let bondStatus;
+            for (let i = 0; i < 3; i++) {
+                bondStatus = await depository.getBondStatus(0);
+                expect(bondStatus.payout).to.greaterThan(0);
+                expect(bondStatus.matured).to.equal(false);
+            }
+
             // Check for the active products
             let activeProducts = await depository.getActiveProducts();
             expect(activeProducts.length).to.equal(1);
@@ -602,6 +610,13 @@ describe("Depository LP", async () => {
 
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
+
+            // Get bond statuses
+            for (let i = 0; i < 3; i++) {
+                bondStatus = await depository.getBondStatus(0);
+                expect(bondStatus.payout).to.greaterThan(0);
+                expect(bondStatus.matured).to.equal(true);
+            }
 
             // Try to redeem the same bond twice
             await expect(
@@ -629,6 +644,14 @@ describe("Depository LP", async () => {
             await depository.connect(bob).redeem([0, 2]);
             const amountOLASAfter = ethers.BigNumber.from(await olas.balanceOf(bob.address));
             expect(amountOLASAfter.sub(amountOLASBefore)).to.equal(bondsToRedeem.payout);
+
+            // Get bond statuses
+            bondStatus = await depository.getBondStatus(0);
+            expect(bondStatus.payout).to.equal(0);
+            expect(bondStatus.matured).to.equal(false);
+            bondStatus = await depository.getBondStatus(2);
+            expect(bondStatus.payout).to.equal(0);
+            expect(bondStatus.matured).to.equal(false);
 
             // Check that the bond product is not active
             expect(await depository.isActiveProduct(bid)).to.equal(false);
