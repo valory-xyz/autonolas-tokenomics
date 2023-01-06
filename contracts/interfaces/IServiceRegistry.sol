@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 /// @dev Required interface for the service registry.
-interface IServiceTokenomics {
+interface IServiceRegistry {
     enum UnitType {
         Component,
         Agent

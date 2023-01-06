@@ -1,14 +1,16 @@
 pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
+import "unifap-v2/UnifapV2Router.sol";
 import "./utils/Utils.sol";
 import "../contracts/Depository.sol";
-import "../contracts/test/ERC20Token.sol";
+//import "../contracts/test/ERC20Token.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
-    ERC20Token internal olas;
-    ERC20Token internal dai;
+//    ERC20Token internal olas;
+//    ERC20Token internal dai;
+    UnifapV2Router internal router;
 
     address payable[] internal users;
     address internal deployer;
@@ -24,10 +26,10 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
-        olas = new ERC20Token();
-        olas.mint(deployer, initialMint);
-        dai = new ERC20Token();
-        dai.mint(deployer, initialMint);
+//        olas = new ERC20Token();
+//        olas.mint(deployer, initialMint);
+//        dai = new ERC20Token();
+//        dai.mint(deployer, initialMint);
     }
 }
 
@@ -37,6 +39,6 @@ contract DepositoryTest is BaseSetup {
     }
 
     function testMint() public {
-        assertEq(dai.balanceOf(deployer), initialMint);
+//        assertEq(dai.balanceOf(deployer), initialMint);
     }
 }

@@ -2,13 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "./interfaces/ITokenomics.sol";
-
-interface IUniswapV2Pair {
-    function totalSupply() external view returns (uint);
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
-}
+import "./interfaces/IUniswapV2Pair.sol";
 
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.

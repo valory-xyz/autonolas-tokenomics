@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IGenericBondCalculator.sol";
+import "./interfaces/IToken.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
@@ -243,7 +243,7 @@ contract Depository is IErrorsTokenomics {
         }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
         // No need to check for the return value, since it either reverts or returns true, see the ERC20 implementation
-        IERC20(olas).transfer(msg.sender, payout);
+        IToken(olas).transfer(msg.sender, payout);
     }
 
     /// @dev Gets bond Ids of all pending bonds for the account address.
