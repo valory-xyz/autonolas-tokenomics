@@ -4,3 +4,7 @@
 [submodule "lib/unifap-v2"]
 	path = lib/unifap-v2
 	url = git@github.com:lonerapier/unifap-v2.git
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/rari-capital/solmate
+	branch = v7
