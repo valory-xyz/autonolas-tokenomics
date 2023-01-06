@@ -31,7 +31,7 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint256 epochLen = 100;
+    uint256 epochLen = 1 weeks;
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -68,9 +68,9 @@ contract BaseSetup is Test {
         tokenomics = Tokenomics(address(tokenomicsProxy));
 
         // Change tokenomics address
-        treasury.changeManagers(address(tokenomics), address(0), address(0), address(0));
+        treasury.changeManagers(address(tokenomics), address(0), address(0));
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury), address(0), address(0));
+        dispenser.changeManagers(address(tokenomics), address(treasury));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));
@@ -93,9 +93,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentives(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        // Amounts must be meaningful
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
         // Claim empty incentives
         vm.prank(deployer);
         (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
@@ -137,16 +137,16 @@ contract DispenserTest is BaseSetup {
         uint256 accountTopUps = topUps0 + topUps1;
 
         // Rewards and top-ups must not be zero
-        assertGe(accountRewards, 0);
-        assertGe(accountTopUps, 0);
+        assertGt(accountRewards, 0);
+        assertGt(accountTopUps, 0);
 
         // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
         IncentiveBalances memory incentiveBalances = tokenomics.getIncentiveBalances(0, 1);
-        assertGe(incentiveBalances.pendingRelativeReward, 0);
-        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+        assertGt(incentiveBalances.pendingRelativeReward, 0);
+        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
         incentiveBalances = tokenomics.getIncentiveBalances(1, 1);
-        assertGe(incentiveBalances.pendingRelativeReward, 0);
-        assertGe(incentiveBalances.pendingRelativeTopUp, 0);
+        assertGt(incentiveBalances.pendingRelativeReward, 0);
+        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
 
         // Define the types of units to claim rewards and top-ups for
         (unitTypes[0], unitTypes[1]) = (0, 1);
@@ -171,9 +171,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        // Amounts must be meaningful
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -185,12 +185,8 @@ contract DispenserTest is BaseSetup {
         // Define unit Ids to claim rewards and top-ups for
         (unitIds[0], unitIds[1]) = (1, 1);
 
-        // Set epoch length equal to a week
-        epochLen = 1 weeks;
-        tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
-
         // Run for more than 2 years (more than 52 weeks in a year)
-        uint256 endTime = 110 weeks;
+        uint256 endTime = 54 weeks;
         uint256 lastPoint = tokenomics.epochCounter() - 1;
         uint256 effectiveBond = tokenomics.effectiveBond();
         for (uint256 i = 0; i < endTime; i += epochLen) {
@@ -230,8 +226,8 @@ contract DispenserTest is BaseSetup {
             uint256 calculatedMaxBond = (ep.totalTopUpsOLAS * ep.maxBondFraction) / 100;
             // Compare it with the max bond calculated from the fraction and the total OLAS inflation for the epoch
             // Do not compare directly if it is the current or next epoch of the year change
-            uint256 numYearsCurEpoch = (block.timestamp - tokenomics.timeLaunch()) / tokenomics.oneYear();
-            uint256 numYearsNextEpoch = (block.timestamp + tokenomics.epochLen() - tokenomics.timeLaunch()) / tokenomics.oneYear();
+            uint256 numYearsCurEpoch = (block.timestamp - tokenomics.timeLaunch()) / tokenomics.ONE_YEAR();
+            uint256 numYearsNextEpoch = (block.timestamp + tokenomics.epochLen() - tokenomics.timeLaunch()) / tokenomics.ONE_YEAR();
             if (numYearsCurEpoch == curYear && numYearsNextEpoch == curYear) {
                 assertEq(tokenomics.maxBond(), calculatedMaxBond);
             }
@@ -240,8 +236,8 @@ contract DispenserTest is BaseSetup {
             effectiveBond += tokenomics.maxBond();
 
             // Rewards and top-ups must not be zero
-            assertGe(accountRewards, 0);
-            assertGe(accountTopUps, 0);
+            assertGt(accountRewards, 0);
+            assertGt(accountTopUps, 0);
 
             // Claim rewards and top-ups
             uint256 balanceETH = address(deployer).balance;
@@ -262,9 +258,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > 100);
-        vm.assume(amount1 > 100);
+        // Amounts must be meaningful
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -275,10 +271,6 @@ contract DispenserTest is BaseSetup {
         (unitTypes[0], unitTypes[1]) = (0, 1);
         // Define unit Ids to claim rewards and top-ups for
         (unitIds[0], unitIds[1]) = (1, 1);
-
-        // Set epoch length equal to a week
-        epochLen = 1 weeks;
-        tokenomics.changeTokenomicsParameters(0, 0, epochLen, 0);
 
         uint256[] memory rewards = new uint256[](2);
         uint256[] memory topUps = new uint256[](2);

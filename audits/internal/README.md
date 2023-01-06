@@ -61,6 +61,14 @@ Well known vulnerabilities: <br>
 Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
+#### Updated contract storage
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Tokenomics.png) <br>
+[Depository-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Depository.png) <br>
+[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Dispenser.png) <br>
+[Treasury-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Treasury.png) <br>
+
+All the contracts got reduced by a minimum of 2 slots, which results in contract size deployment as well.
+
 ### Fuzzing. Updated 15-12-22
 #### In-place testing with Scribble
 ```
@@ -88,7 +96,12 @@ Short list: <br>
 - lacks a zero-check. Recommendation: needs to be fixed.
 - add a reentrancy guard for any blacklisted contract. Recommendation: must to be fixed (if planned external blacklist contract) 
 - re-check gas optimization for delete mapUserBonds[bondIds[i]]. Recommendation: pay attention. 
-- too similar variable. Recommendation: are welcome but no required to be fixed. Minor issue.  
+- too similar variable. Recommendation: are welcome but no required to be fixed. Minor issue.
+
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680);
+- [bb6a692b072cd91e6740d8f7081bf1753a81f1bb](https://github.com/valory-xyz/autonolas-tokenomics/commit/bb6a692b072cd91e6740d8f7081bf1753a81f1bb);
+- [416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d](https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d).
 
 #### Problems found by manual analysis or semi-automatically
 ##### Treasury function depositServiceDonationsETH. 
@@ -135,7 +148,10 @@ donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donati
 ```
 Recommendation: must to be fixed. certain bug. 💥
 
-##### Depository function getPendingBonds. 
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
+#### Depository function getPendingBonds. 
 ```
 function getPendingBonds(address account) external view returns (uint256[] memory bondIds, uint256 payout) {
     uint256 numAccountBonds;
@@ -159,15 +175,27 @@ Accordingly, the user does not have a function whose result can be safely used a
 ```
 Recommendation: must to be fixed. Bug from point view of UX. 🔶
 
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
+
 #### Minor issue and necessary logical fixes
 ##### Unused event
 This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
 [Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md) <br>
 Recommendation: needs to be fixed. Non-critical. 
 
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
+
 ##### Semantic versioning in tokenomics implementation
 Needs to add a variable (constant) with the version number. <br>
 Recommendation: needs to be fixed. 
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
 
 ##### Treasury pause for some other functions.
 ```
@@ -177,12 +205,19 @@ Perhaps not a bug.
 ```
 Recommendation: pay attention. 
 
+##### Fixes
+- Has left TODO-s, decision is pending.
+
 ##### Tokenomics epochLen can be zero by misconfig
 ```
     function initializeTokenomics(
         epochLen = _epochLen;
 ```
 Recommendation: needs to be fixed.
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
 
 ##### Tokenomics && Treasury. Parameters must have reasonable lower bounds.
 ```
@@ -194,6 +229,10 @@ The latter also refers to the receive().
 https://blockworks.co/news/defi-web-apps-block-users-hit-by-tornado-cash-dust-attack 
 ```
 Recommendation: pay attention.
+
+##### Fixes
+- [e199c662e49a11c6531c8ee443ed4a1bf231c9ed](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/e199c662e49a11c6531c8ee443ed4a1bf231c9ed);
+- Has left TODO-s, decision is pending.
 
 ### Improvements related to critical external updates
 #### Update a external fixed point library and fixed point related code
@@ -237,6 +276,9 @@ Since it has the property of an internal independent barrier.
 ```
 Recommendation: must to be fixed. ✴️
 
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
 
 ### Optimization
 #### Depository reedem() && close() vs product.purchased.
@@ -263,6 +305,11 @@ function deposit(uint256 productId, uint256 tokenAmount) ->
 This data is accounted in the right place, i.e. in the Treasury. product.purchased = uint224(purchased) - useless
 ```
 Recommendation: must to be fixed. in terms of useless spending of gas, this is a bug. ✴️
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
+
 #### Tokenomics tp.epochPoint.endBlockNumber.
 ```
 struct EpochPoint {
@@ -277,6 +324,11 @@ Only assigned but not used in any way.
 All real calculations are based on `endTime`
 ```
 Recommendation: needs to be fixed if it is not necessary for the excluded functionality.💹
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
+
 #### Tokenomics.sol
 ```
 // fp = fp/100 - calculate the final value in fixed point
@@ -284,6 +336,9 @@ fp = fp.div(PRBMathSD59x18.fromInt(100));
 PRBMathSD59x18.fromInt(100) => const
 ```
 Recommendation: needs to be fixed.
+##### Fixes
+- [1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680](https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680).
+
 #### Treasury.sol <br>
 ```
 Try map instead of array
@@ -303,12 +358,26 @@ mapping(address => uint256) public mapTokensReserves;
 mapping(address => bool) public mapTokenRegistry;
 ```
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
+
+##### Fixes
+- [327789af9b23c2d738986af731ea5fd728d1d548](https://github.com/valory-xyz/autonolas-tokenomics/pull/58/commits/327789af9b23c2d738986af731ea5fd728d1d548).
+
+
 #### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
 Details in [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
 Recommendation: needs to be fixed. Not a bug, but should be a optimize and eliminate unnecessary code. 💹
+
+##### Fixes
+- [47735d42e579a752518ab345fee613bf31a3e2f1](https://github.com/valory-xyz/autonolas-tokenomics/pull/57/commits/47735d42e579a752518ab345fee613bf31a3e2f1).
+
+
 #### All contracts based on GenericTokenomics
 To optimize storage usage avoid GenericTokenomics and re-optimize based on "Storage and proxy" information and approach. <br>
 Recommendation: needs to be fixed. Not a bug, but should be a significant optimization. 💹
+
+##### Fixes
+- [369b2393cc1bf84e825629947f5af246971652ca](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/369b2393cc1bf84e825629947f5af246971652ca).
+
 
 ### Improvements to tests and code self-documentation.
 #### Improvement test if needed
@@ -333,8 +402,13 @@ Since the "relations" between "opposite" processes accountOwnerIncentives and tr
 _finalizeIncentivesForUnitId more explanation is needed.
 
 ```
+- Added more documentation.
+
 Recommendation: are welcome but no required to be fixed. Minor issue. 
 #### Improved Mock contracts
 I remade during audit a original MockRegistry.sol: function `drain() external returns (uint256 amount)` now actually sending a ETH. <br>
 Notes: Please fixing tests/Mock for real sending a ETH. <br>
 Recommendation: needs to be fixed. Without this, the rules written in the language scribble will not work correctly.
+
+##### Fixes
+- [37f22d484d8285f05ca7e560df8a39d45e04f805](https://github.com/valory-xyz/autonolas-tokenomics/pull/61/commits/37f22d484d8285f05ca7e560df8a39d45e04f805).

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-/// @dev Required interface for the service manipulation.
+/// @dev Required interface for the service registry.
 interface IServiceTokenomics {
     enum UnitType {
         Component,
@@ -20,6 +20,10 @@ interface IServiceTokenomics {
     /// @return unitIds Set of component / agent Ids.
     function getUnitIdsOfService(UnitType unitType, uint256 serviceId) external view
         returns (uint256 numUnitIds, uint32[] memory unitIds);
+
+    /// @dev Gets the value of slashed funds from the service registry.
+    /// @return amount Drained amount.
+    function slashedFunds() external view returns (uint256 amount);
 
     /// @dev Drains slashed funds.
     /// @return amount Drained amount.

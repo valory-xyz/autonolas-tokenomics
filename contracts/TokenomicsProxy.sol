@@ -4,6 +4,12 @@ pragma solidity ^0.8.17;
 /// @dev Proxy initialization failed.
 error InitializationFailed();
 
+/// @dev Zero master tokenomics address.
+error ZeroTokenomicsAddress();
+
+/// @dev Zero tokenomics initialization data.
+error ZeroTokenomicsData();
+
 /// @title TokenomicsProxy - Smart contract for tokenomics proxy
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -15,6 +21,16 @@ contract TokenomicsProxy {
     /// @dev TokenomicsProxy constructor.
     /// @param tokenomics Tokenomics implementation address.
     constructor(address tokenomics, bytes memory tokenomicsData) {
+        // Check for the zero address, since the delegatecall works even with the zero one
+        if (tokenomics == address(0)) {
+            revert ZeroTokenomicsAddress();
+        }
+
+        // Check for the zero data
+        if (tokenomicsData.length == 0) {
+            revert ZeroTokenomicsData();
+        }
+
         assembly {
             sstore(PROXY_TOKENOMICS, tokenomics)
         }

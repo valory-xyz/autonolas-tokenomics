@@ -8,6 +8,7 @@ describe("Tokenomics", async () => {
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
     const oneYear = 86400 * 365;
+    const oneWeek = 86400 * 7;
 
     let signers;
     let deployer;
@@ -21,7 +22,7 @@ describe("Tokenomics", async () => {
     let tokenomicsFactory;
     let ve;
     let attacker;
-    const epochLen = 1;
+    const epochLen = oneWeek;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
@@ -55,7 +56,7 @@ describe("Tokenomics", async () => {
         await donatorBlacklist.deployed();
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
-        attacker = await Attacker.deploy(AddressZero, AddressZero);
+        attacker = await Attacker.deploy(AddressZero, treasury.address);
         await attacker.deployed();
 
         // Voting Escrow mock
@@ -80,7 +81,7 @@ describe("Tokenomics", async () => {
         tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
         // Update tokenomics address for treasury
-        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -113,11 +114,17 @@ describe("Tokenomics", async () => {
 
             // Trying to change managers from a non-owner account address
             await expect(
-                tokenomics.connect(account).changeManagers(AddressZero, AddressZero, AddressZero, AddressZero)
+                tokenomics.connect(account).changeManagers(AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // Changing depository, dispenser and tokenomics addresses
-            await tokenomics.connect(deployer).changeManagers(AddressZero, account.address, deployer.address, signers[2].address);
+            await tokenomics.connect(deployer).changeManagers(account.address, deployer.address, signers[2].address);
+            expect(await tokenomics.treasury()).to.equal(account.address);
+            expect(await tokenomics.depository()).to.equal(deployer.address);
+            expect(await tokenomics.dispenser()).to.equal(signers[2].address);
+
+            // Trying to change to zero addresses and making sure nothing has changed
+            await tokenomics.connect(deployer).changeManagers(AddressZero, AddressZero, AddressZero);
             expect(await tokenomics.treasury()).to.equal(account.address);
             expect(await tokenomics.depository()).to.equal(deployer.address);
             expect(await tokenomics.dispenser()).to.equal(signers[2].address);
@@ -129,6 +136,21 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(deployer).changeOwner(deployer.address)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+        });
+
+        it("Should fail when the epoch length is smaller than the minimum required", async function () {
+            // Deploy master tokenomics contract
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+            await tokenomicsMaster.deployed();
+
+            // Try to deploy Tokenomics proxy
+            const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, treasury.address, deployer.address, deployer.address, ve.address, 0,
+                    componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
         });
 
         it("Get inflation numbers", async function () {
@@ -146,23 +168,24 @@ describe("Tokenomics", async () => {
         });
 
         it("Changing tokenomics parameters", async function () {
+            const cutEpochLen = epochLen * 2;
             // Trying to change tokenomics parameters from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, 10, 10)
+                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, cutEpochLen, 10)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, cutEpochLen, 10);
             // Change epoch len to a smaller value
-            await tokenomics.changeTokenomicsParameters(10, 10, 1, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
             // Leave the epoch length untouched
-            await tokenomics.changeTokenomicsParameters(10, 10, 1, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
             // And then change back to the bigger one
-            await tokenomics.changeTokenomicsParameters(10, 10, 8, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen + 100, 10);
             // Try to set the epochLen to a time where it fails due to effectiveBond going below zero
-            // since part of the effectiveBond is already reserved
-            await tokenomics.reserveAmountForBondProgram("1" + "0".repeat(18));
+            // since all the current effectiveBond is already reserved
+            await tokenomics.reserveAmountForBondProgram(await tokenomics.effectiveBond());
             await expect(
-                tokenomics.changeTokenomicsParameters(10, 10, 1, 10)
+                tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10)
             ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
 
             // Trying to set epsilonRate bigger than 17e18
@@ -173,7 +196,7 @@ describe("Tokenomics", async () => {
             await tokenomics.changeTokenomicsParameters(0, 0, 0, 0);
             // Check that parameters were not changed
             expect(await tokenomics.epsilonRate()).to.equal(10);
-            expect(await tokenomics.epochLen()).to.equal(10);
+            expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
             expect(await tokenomics.veOLASThreshold()).to.equal(10);
 
             // Get the current epoch counter
@@ -231,7 +254,7 @@ describe("Tokenomics", async () => {
 
         it("Should fail when calling treasury-owned functions by other addresses", async function () {
             await expect(
-                tokenomics.connect(signers[1]).trackServiceDonations(deployer.address, [], [])
+                tokenomics.connect(signers[1]).trackServiceDonations(deployer.address, [], [], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -272,19 +295,21 @@ describe("Tokenomics", async () => {
     context("Track revenue of services", async function () {
         it("Should fail when the service does not exist", async () => {
             // Only treasury can access the function, so let's change it for deployer here
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices])
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
         it("Send service revenues twice for protocol-owned services and donation", async () => {
             // Only treasury can access the function, so let's change it for deployer here
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1, 2], [regDepositFromServices, regDepositFromServices]);
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1], [regDepositFromServices]);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1, 2],
+                [regDepositFromServices, regDepositFromServices], twoRegDepositFromServices);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [1], [regDepositFromServices],
+                regDepositFromServices);
         });
     });
 
@@ -301,11 +326,11 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with revenues", async () => {
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
 
@@ -327,19 +352,19 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
             // Change tokenomics factors such that all the rewards are given to the treasury
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30);
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
             // Change the manager for the treasury contract and re-balance treasury before the checkpoint
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero);
             // After the treasury re-balance the ETHFromServices value will be equal to zero
             await treasury.rebalanceTreasury(twoRegDepositFromServices);
             // Change the manager for the treasury back to the tokenomics
-            await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
             // Start new epoch and calculate tokenomics parameters and rewards
             await expect(
                 tokenomics.connect(deployer).checkpoint()
@@ -421,15 +446,21 @@ describe("Tokenomics", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
             await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20);
 
-            // Skip the number of blocks within the epoch
-            await ethers.provider.send("evm_mine");
+            // Check the case when the service was not yet deployed and component / agent Ids are not set up
+            await expect(
+                treasury.connect(deployer).depositServiceDonationsETH([100], [regDepositFromServices],
+                    {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(tokenomics, "ServiceNeverDeployed");
+
             const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
 
             // Start new epoch and calculate tokenomics parameters and rewards
-            await tokenomics.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(treasury.address, AddressZero, AddressZero);
             await tokenomics.connect(deployer).checkpoint();
 
             // Get the last settled epoch counter
@@ -502,8 +533,8 @@ describe("Tokenomics", async () => {
             result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond.add(1));
             expect(result).to.equal(false);
 
-            // Increase the epoch length by 10 (was 1, then 10, then 5 (not executed), now will be 15)
-            newEpochLen += 10;
+            // Increase the epoch length by 10 (was x1, then x10, then x5 (not executed), now will be x15)
+            newEpochLen += epochLen * 10;
             await tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0);
 
             // Now we should be able to reserve of the amount of the effectiveBond, since we increased by half of the original
@@ -549,33 +580,29 @@ describe("Tokenomics", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            // Set epochLen to 10 seconds
-            const currentEpochLen = 10;
-            await tokenomics.changeTokenomicsParameters(1, 1, currentEpochLen, 1);
-
             // OLAS starting time
             const timeLaunch = Number(await tokenomics.timeLaunch());
             // One year time from the launch
-            const yearChangeTime = timeLaunch + Number(oneYear);
+            const yearChangeTime = timeLaunch + oneYear;
 
             // Get to the time of more than one epoch length before the year change (1.5 epoch length)
-            let timeEpochBeforeYearChange = yearChangeTime - currentEpochLen - 5;
+            let timeEpochBeforeYearChange = yearChangeTime - epochLen - epochLen / 2;
             await helpers.time.increaseTo(timeEpochBeforeYearChange);
             await tokenomics.checkpoint();
             // Try to change the epoch length now such that the next epoch will immediately have the year change
             await expect(
-                tokenomics.changeTokenomicsParameters(1, 1, 20, 1)
+                tokenomics.changeTokenomicsParameters(1, 1, 2 * epochLen, 1)
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
 
             // Get to the time of the half epoch length before the year change
             // Meaning that the year does not change yet during the current epoch, but it will during the next one
-            timeEpochBeforeYearChange += currentEpochLen;
+            timeEpochBeforeYearChange += epochLen;
             await helpers.time.increaseTo(timeEpochBeforeYearChange);
             await tokenomics.checkpoint();
 
             // The maxBond lock flag must be set to true, now try to change the epochLen
             await expect(
-                tokenomics.changeTokenomicsParameters(1, 1, 1, 1)
+                tokenomics.changeTokenomicsParameters(1, 1, epochLen + 100, 1)
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
             // Try to change the maxBondFraction as well
             await expect(
@@ -583,11 +610,11 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
 
             // Now skip one epoch
-            await helpers.time.increaseTo(timeEpochBeforeYearChange + currentEpochLen);
+            await helpers.time.increaseTo(timeEpochBeforeYearChange + epochLen);
             await tokenomics.checkpoint();
 
             // Change parameters now
-            await tokenomics.changeTokenomicsParameters(1, 1, 1, 1);
+            await tokenomics.changeTokenomicsParameters(1, 1, epochLen, 1);
             await tokenomics.changeIncentiveFractions(30, 40, 50, 50, 0);
 
             // Restore to the state of the snapshot
@@ -617,9 +644,9 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.donatorBlacklist()).to.equal(AddressZero);
 
             // Change the treasury address to deployer
-            await tokenomics.changeManagers(AddressZero, deployer.address, AddressZero, AddressZero);
+            await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
             // Able to receive donations when the blacklist if turned off
-            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], []);
+            await tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0);
 
             // Change blacklist to a non-zero address
             await tokenomics.connect(deployer).changeDonatorBlacklist(donatorBlacklist.address);
@@ -628,8 +655,22 @@ describe("Tokenomics", async () => {
 
             // Try to donate from the deployer address
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [])
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0)
             ).to.be.revertedWithCustomError(tokenomics, "DonatorBlacklisted");
+        });
+
+        it("Reentrancy attack via a blacklist", async function () {
+            // Change blacklist to the attacker address
+            await tokenomics.connect(deployer).changeDonatorBlacklist(attacker.address);
+            // Send some funds to the attacker
+            await attacker.setAttackMode(false);
+            await deployer.sendTransaction({to: attacker.address, value: ethers.utils.parseEther("2")});
+
+            // Try to attack via a deposit function
+            await expect(
+                treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
+                    regDepositFromServices], {value: twoRegDepositFromServices})
+            ).to.be.revertedWithCustomError(tokenomics, "ReentrancyGuard");
         });
     });
 

@@ -9,8 +9,8 @@ describe("Depository LP", async () => {
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
     // Initial mint for OLAS and DAI (40,000)
     const initialMint = "4" + "0".repeat(4) + decimals;
-
     const AddressZero = "0x" + "0".repeat(40);
+    const oneWeek = 86400 * 7;
 
     let deployer, alice, bob;
     let erc20Token;
@@ -28,7 +28,7 @@ describe("Depository LP", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
-    let epochLen = 10000;
+    let epochLen = oneWeek;
     let defaultPriceLP = "2" + decimals;
 
     // 2,000
@@ -70,7 +70,7 @@ describe("Depository LP", async () => {
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
             deployer.address, epochLen, AddressZero, AddressZero, AddressZero, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, AddressZero);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, AddressZero);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeIncentiveFractions(66, 34, 100, 0, 0);
 
@@ -79,14 +79,14 @@ describe("Depository LP", async () => {
         genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
         await genericBondCalculator.deployed();
         // Deploy depository contract
-        depository = await depositoryFactory.deploy(olas.address, treasury.address, tokenomics.address,
+        depository = await depositoryFactory.deploy(olas.address, tokenomics.address, treasury.address,
             genericBondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 
         // Change to the correct addresses
-        await treasury.changeManagers(AddressZero, AddressZero, depository.address, AddressZero);
-        await tokenomics.changeManagers(AddressZero, treasury.address, depository.address, AddressZero);
+        await treasury.changeManagers(AddressZero, depository.address, AddressZero);
+        await tokenomics.changeManagers(treasury.address, depository.address, AddressZero);
 
         // Airdrop from the deployer :)
         await dai.mint(deployer.address, initialMint);
@@ -174,15 +174,30 @@ describe("Depository LP", async () => {
         it("Changing managers and owners", async function () {
             const account = alice;
 
+            // Trying to change managers from a non-owner account address
+            await expect(
+                depository.connect(account).changeManagers(deployer.address, account.address)
+            ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
+            // Changing treasury and tokenomics addresses
+            await depository.connect(deployer).changeManagers(deployer.address, account.address);
+            expect(await depository.treasury()).to.equal(account.address);
+            expect(await depository.tokenomics()).to.equal(deployer.address);
+
+            // Trying to change to zero addresses and making sure nothing has changed
+            await depository.connect(deployer).changeManagers(AddressZero, AddressZero);
+            expect(await depository.treasury()).to.equal(account.address);
+            expect(await depository.tokenomics()).to.equal(deployer.address);
+
             // Trying to change owner from a non-owner account address
             await expect(
                 depository.connect(account).changeOwner(account.address)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
-            // Changing treasury and tokenomics addresses
-            await depository.connect(deployer).changeManagers(deployer.address, account.address, AddressZero, AddressZero);
-            expect(await depository.treasury()).to.equal(account.address);
-            expect(await depository.tokenomics()).to.equal(deployer.address);
+            // Trying to change the owner to the zero address
+            await expect(
+                depository.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
 
             // Changing the owner
             await depository.connect(deployer).changeOwner(account.address);
@@ -216,12 +231,6 @@ describe("Depository LP", async () => {
             // Token address is not enabled
             await expect(
                 depository.create(alice.address, defaultPriceLP, supplyProductOLAS, vesting)
-            ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
-
-            // Token address is enabled but is not an LP token
-            await treasury.enableToken(olas.address);
-            await expect(
-                depository.create(olas.address, defaultPriceLP, supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
 
             // Token is not a contract, so the LP price will not be calculated as the Uniswap pair will fail
@@ -425,7 +434,7 @@ describe("Depository LP", async () => {
 
             const bamount = (await pairODAI.balanceOf(bob.address));
             await depository.connect(bob).deposit(bid, bamount);
-            expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
+            expect(Array(await depository.getPendingBonds(bob.address, false)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
             // The default IDF without any incentivized coefficient or epsilon rate is 1
             // 1250 * 1.0 = 1250 * e18 =  1.25 * e21
@@ -479,14 +488,22 @@ describe("Depository LP", async () => {
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
             await depository.connect(bob).deposit(bid, amount);
 
+            // Increase the time to a half vesting
+            await helpers.time.increase(vesting / 2);
+            // Check for the matured pending bond which is not yet ready
+            let pendingBonds = await depository.getPendingBonds(bob.address, true);
+            expect(pendingBonds.bondIds).to.deep.equal([]);
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
+            // Check for the matured pending bond
+            pendingBonds = await depository.getPendingBonds(bob.address, true);
+            expect(pendingBonds.bondIds[0]).to.equal(0);
             await depository.connect(bob).redeem([0]);
             const bobBalance = Number(await olas.balanceOf(bob.address));
             expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
             expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
-            // Check for pending bonds after the redeem
-            const pendingBonds = await depository.getPendingBonds(bob.address);
+            // Check for all pending bonds after the redeem (must be none left)
+            pendingBonds = await depository.getPendingBonds(bob.address, false);
             expect(pendingBonds.bondIds).to.deep.equal([]);
             expect(pendingBonds.payout).to.equal(0);
         });
@@ -601,8 +618,8 @@ describe("Depository LP", async () => {
                 depository.connect(bob).redeem([0, 1, 2])
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
-            // Get all redeemable bonds for bob
-            let bondsToRedeem = await depository.getPendingBonds(bob.address);
+            // Get all redeemable (matured) bonds for bob
+            let bondsToRedeem = await depository.getPendingBonds(bob.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(2);
             expect(bondsToRedeem.bondIds[0]).to.equal(0);
             expect(bondsToRedeem.bondIds[1]).to.equal(2);
@@ -618,8 +635,8 @@ describe("Depository LP", async () => {
             activeProducts = await depository.getActiveProducts();
             expect(activeProducts).to.deep.equal([]);
 
-            // Try to get redeemable bonds for bob once again
-            bondsToRedeem = await depository.getPendingBonds(bob.address);
+            // Try to get redeemable (matured) bonds for bob once again
+            bondsToRedeem = await depository.getPendingBonds(bob.address, true);
             expect(bondsToRedeem.bondIds).to.deep.equal([]);
             expect(bondsToRedeem.payout).to.equal(0);
 
@@ -631,8 +648,8 @@ describe("Depository LP", async () => {
                 depository.connect(bob).redeem([2])
             ).to.be.revertedWithCustomError(depository, "BondNotRedeemable");
 
-            // Get pending bonds for alice
-            bondsToRedeem = await depository.getPendingBonds(alice.address);
+            // Get matured pending bonds for alice
+            bondsToRedeem = await depository.getPendingBonds(alice.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(1);
             expect(bondsToRedeem.bondIds[0]).to.equal(1);
 

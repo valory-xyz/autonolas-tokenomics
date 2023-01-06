@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./GenericTokenomics.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
@@ -33,59 +33,73 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
-contract Treasury is GenericTokenomics {
-
+/// Invariant does not support a failing call() function while transferring ETH when using the CEI pattern:
+/// revert TransferFailed(address(0), address(this), to, tokenAmount);
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices + ETHOwned;
+contract Treasury is IErrorsTokenomics {
+    event OwnerUpdated(address indexed owner);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event DepositoryUpdated(address indexed depository);
+    event DispenserUpdated(address indexed dispenser);
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
-    event DepositETHFromServices(address indexed sender, uint256 donation);
+    event DonateToServicesETH(address indexed sender, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
-    event TokenReserves(address indexed token, uint256 reserves);
     event EnableToken(address indexed token);
     event DisableToken(address indexed token);
     event TransferToDispenserOLAS(uint256 amount);
-    event ReceivedETH(address indexed sender, uint256 amount);
-    event TreasuryPaused();
-    event TreasuryUnpaused();
-
-    enum TokenState {
-        NonExistent,
-        Enabled,
-        Disabled
-    }
-    
-    struct TokenInfo {
-        // State of a token in this treasury
-        TokenState state;
-        // Reserves of a token
-        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
-        uint224 reserves;
-    }
-
-    // ETH received from services
-    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    uint96 public ETHFromServices;
-    // ETH owned by treasury
-    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    uint96 public ETHOwned;
-    // Contract pausing
-    uint8 public paused = 1;
-    // Token address => token info related to bonding
-    mapping(address => TokenInfo) public mapTokens;
-    // Set of registered tokens
-    address[] public tokenRegistry;
+    event ReceiveETH(address indexed sender, uint256 amount);
+    event UpdateTreasuryBalances(uint256 ETHOwned, uint256 ETHFromServices);
+    event PauseTreasury();
+    event UnpauseTreasury();
+    event MinAcceptedETHUpdated(uint256 amount);
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
 
+    // Owner address
+    address public owner;
+    // ETH received from services
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 public ETHFromServices;
+
+    // OLAS token address
+    address public olas;
+    // ETH owned by treasury
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 public ETHOwned;
+
+    // Tkenomics contract address
+    address public tokenomics;
+    // Minimum accepted donation value
+    uint96 public minAcceptedETH = 5e16;
+
+    // Depository contract address
+    address public depository;
+    // Contract pausing
+    uint8 public paused = 1;
+    // Reentrancy lock
+    uint8 internal _locked;
+    
+    // Dispenser contract address
+    address public dispenser;
+
+    // Token address => token reserves
+    mapping(address => uint256) public mapTokenReserves;
+    // Token address => enabled / disabled status
+    mapping(address => bool) public mapEnabledTokens;
+
     /// @dev Treasury constructor.
     /// @param _olas OLAS token address.
-    /// @param _depository Depository address.
     /// @param _tokenomics Tokenomics address.
+    /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
-    constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
-        GenericTokenomics()
-    {
-        super.initialize(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury);
+    constructor(address _olas, address _tokenomics, address _depository, address _dispenser) payable {
+        owner = msg.sender;
+        _locked = 1;
+        olas = _olas;
+        tokenomics = _tokenomics;
+        depository = _depository;
+        dispenser = _dispenser;
         ETHOwned = uint96(msg.value);
     }
 
@@ -95,10 +109,74 @@ contract Treasury is GenericTokenomics {
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
+        if (msg.value < minAcceptedETH) {
+            revert AmountLowerThan(msg.value, minAcceptedETH);
+        }
+
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
-        emit ReceivedETH(msg.sender, msg.value);
+        emit ReceiveETH(msg.sender, msg.value);
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes various managing contract addresses.
+    /// @param _tokenomics Tokenomics address.
+    /// @param _depository Depository address.
+    /// @param _dispenser Dispenser address.
+    function changeManagers(address _tokenomics, address _depository, address _dispenser) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Change Tokenomics contract address
+        if (_tokenomics != address(0)) {
+            tokenomics = _tokenomics;
+            emit TokenomicsUpdated(_tokenomics);
+        }
+        // Change Depository contract address
+        if (_depository != address(0)) {
+            depository = _depository;
+            emit DepositoryUpdated(_depository);
+        }
+        // Change Dispenser contract address
+        if (_dispenser != address(0)) {
+            dispenser = _dispenser;
+            emit DispenserUpdated(_dispenser);
+        }
+    }
+
+    /// @dev Changes minimum accepted ETH amount by the Treasury.
+    /// @param _minAcceptedETH New minimum accepted ETH amount.
+    function changeMinAcceptedETH(uint256 _minAcceptedETH) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_minAcceptedETH == 0) {
+            revert ZeroValue();
+        }
+
+        minAcceptedETH = uint96(_minAcceptedETH);
+        emit MinAcceptedETHUpdated(_minAcceptedETH);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -109,8 +187,7 @@ contract Treasury is GenericTokenomics {
     /// @param olasMintAmount Amount of OLAS token issued.
     ///#if_succeeds {:msg "we do not touch the total eth balance" } old(address(this).balance) == address(this).balance;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
-    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external
-    {
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external {
         // TODO shall the contract continue receiving LP / minting OLAS when paused?
 
         // Check for the depository access
@@ -118,14 +195,14 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
-        TokenInfo storage tokenInfo = mapTokens[token];
         // Check if the token is authorized by the registry
-        if (tokenInfo.state != TokenState.Enabled) {
+        if (!mapEnabledTokens[token]) {
             revert UnauthorizedToken(token);
         }
 
-        uint256 reserves = tokenInfo.reserves + tokenAmount;
-        tokenInfo.reserves = uint224(reserves);
+        // Increase the amount of LP token reserves
+        uint256 reserves = mapTokenReserves[token] + tokenAmount;
+        mapTokenReserves[token] = reserves;
 
         // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
         if (IERC20(token).allowance(account, address(this)) < tokenAmount) {
@@ -135,7 +212,10 @@ contract Treasury is GenericTokenomics {
         // Transfer tokens from account to treasury and add to the token treasury reserves
         // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
         // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
-        IERC20(token).transferFrom(account, address(this), tokenAmount);
+        bool success = IERC20(token).transferFrom(account, address(this), tokenAmount);
+        if (!success) {
+            revert TransferFailed(token, account, address(this), tokenAmount);
+        }
 
         // Mint specified number of OLAS tokens corresponding to tokens bonding deposit
         // The olasMintAmount is guaranteed by the product supply limit, which is limited by the effectiveBond
@@ -145,14 +225,25 @@ contract Treasury is GenericTokenomics {
     }
 
     /// @dev Deposits service donations in ETH.
+    /// @notice Each provided service Id must be deployed at least once, otherwise its components and agents are undefined.
+    /// @notice If a specific service is terminated with agent Ids being updated, incentives will be issued to its old
+    ///         configuration component / agent owners until the service is re-deployed when new agent Ids are accounted for.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
     ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
-        if (msg.value == 0) {
-            revert ZeroValue();
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check that the amount donated has at least a practical minimal value
+        // TODO Decide on the final minimal value
+        if (msg.value < minAcceptedETH) {
+            revert AmountLowerThan(msg.value, minAcceptedETH);
         }
 
         // Check for the same length of arrays
@@ -173,14 +264,17 @@ contract Treasury is GenericTokenomics {
         if (msg.value != totalAmount) {
             revert WrongAmount(msg.value, totalAmount);
         }
-        // Accumulate received donation from services
+
         // TODO shall the contract continue receiving ETH when paused?
-        // TODO issue ETHFromServices += donationETH, but received msg.value
-        // TODO donationETH possible irrelevant to msg.value
-        uint256 donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts); 
-        donationETH += ETHFromServices;
-        ETHFromServices = uint96(donationETH); 
-        emit DepositETHFromServices(msg.sender, donationETH);
+        // Accumulate received donation from services
+        uint256 donationETH = ETHFromServices + msg.value;
+        ETHFromServices = uint96(donationETH);
+        emit DonateToServicesETH(msg.sender, msg.value);
+
+        // Track service donations on the Tokenomics side
+        ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts, msg.value);
+
+        _locked = 1;
     }
 
     /// @dev Allows owner to transfer tokens from reserves to a specified address.
@@ -195,6 +289,10 @@ contract Treasury is GenericTokenomics {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (tokenAmount == 0) {
+            revert ZeroValue();
         }
 
         // All the LP tokens must go under the bonding condition
@@ -216,22 +314,28 @@ contract Treasury is GenericTokenomics {
                 revert AmountLowerThan(tokenAmount, amountOwned);
             }
         } else {
-            TokenInfo storage tokenInfo = mapTokens[token];
             // Only approved token reserves can be used for redemptions
-            if (tokenInfo.state != TokenState.Enabled) {
+            if (!mapEnabledTokens[token]) {
                 revert UnauthorizedToken(token);
             }
             // Decrease the global LP token record
-            uint256 reserves = tokenInfo.reserves;
-            reserves -= tokenAmount;
-            tokenInfo.reserves = uint224(reserves);
+            uint256 reserves = mapTokenReserves[token];
+            if ((reserves + 1) > tokenAmount) {
+                reserves -= tokenAmount;
+                mapTokenReserves[token] = reserves;
 
-            success = true;
-            emit Withdraw(token, tokenAmount);
-            // Transfer LP token
-            // We assume that LP tokens enabled in the protocol are safe by default
-            // UniswapV2ERC20 realization has a standard transfer() function
-            IERC20(token).transfer(to, tokenAmount);
+                emit Withdraw(token, tokenAmount);
+                // Transfer LP token
+                // We assume that LP tokens enabled in the protocol are safe by default
+                // UniswapV2ERC20 realization has a standard transfer() function
+                success = IERC20(token).transfer(to, tokenAmount);
+                if (!success) {
+                    revert TransferFailed(token, address(this), to, tokenAmount);
+                }
+            }  else {
+                // Insufficient amount of LP tokens
+                revert AmountLowerThan(tokenAmount, reserves);
+            }
         }
     }
 
@@ -261,12 +365,12 @@ contract Treasury is GenericTokenomics {
 
         uint256 amountETHFromServices = ETHFromServices;
         // Send ETH rewards, if any
-        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
+        if (accountRewards > 0 && (amountETHFromServices + 1) > accountRewards) {
             amountETHFromServices -= accountRewards;
             ETHFromServices = uint96(amountETHFromServices);
             (success, ) = account.call{value: accountRewards}("");
             if (!success) {
-                revert TransferFailed(address(0), address(this), treasury, accountRewards);
+                revert TransferFailed(address(0), address(this), account, accountRewards);
             }
         }
 
@@ -288,12 +392,8 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenState state = mapTokens[token].state;
-        if (state != TokenState.Enabled) {
-            if (state == TokenState.NonExistent) {
-                tokenRegistry.push(token);
-            }
-            mapTokens[token].state = TokenState.Enabled;
+        if (!mapEnabledTokens[token]) {
+            mapEnabledTokens[token] = true;
             emit EnableToken(token);
         }
     }
@@ -306,13 +406,12 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenInfo storage tokenInfo = mapTokens[token];
-        if (tokenInfo.state != TokenState.Disabled) {
+        if (mapEnabledTokens[token]) {
             // The reserves of a token must be zero in order to disable it
-            if (tokenInfo.reserves > 0) {
+            if (mapTokenReserves[token] > 0) {
                 revert NonZeroValue();
             }
-            tokenInfo.state = TokenState.Disabled;
+            mapEnabledTokens[token] = false;
             emit DisableToken(token);
         }
     }
@@ -321,7 +420,7 @@ contract Treasury is GenericTokenomics {
     /// @param token Token address.
     /// @return enabled True if token is enabled.
     function isEnabled(address token) external view returns (bool enabled) {
-        enabled = (mapTokens[token].state == TokenState.Enabled);
+        enabled = mapEnabledTokens[token];
     }
 
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
@@ -354,6 +453,7 @@ contract Treasury is GenericTokenomics {
                 // Assign back to state variables
                 ETHOwned = uint96(amountETHOwned);
                 ETHFromServices = uint96(amountETHFromServices);
+                emit UpdateTreasuryBalances(amountETHOwned, amountETHFromServices);
             } else {
                 // There is not enough amount from services to allocate to the treasury
                 success = false;
@@ -373,6 +473,13 @@ contract Treasury is GenericTokenomics {
 
         // Get the service registry contract address
         address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
+
+        // Check if the amount of slashed funds are at least the minimum required amount to receive by the Treasury
+        uint256 slashedFunds = IServiceTokenomics(serviceRegistry).slashedFunds();
+        if (slashedFunds < minAcceptedETH) {
+            revert AmountLowerThan(slashedFunds, minAcceptedETH);
+        }
+
         // Call the service registry drain function
         amount = IServiceTokenomics(serviceRegistry).drain();
     }
@@ -385,7 +492,7 @@ contract Treasury is GenericTokenomics {
         }
 
         paused = 2;
-        emit TreasuryPaused();
+        emit PauseTreasury();
     }
 
     /// @dev Unpauses the contract.
@@ -396,6 +503,6 @@ contract Treasury is GenericTokenomics {
         }
 
         paused = 1;
-        emit TreasuryUnpaused();
+        emit UnpauseTreasury();
     }
 }

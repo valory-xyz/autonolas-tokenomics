@@ -14,9 +14,4 @@ interface IGenericBondCalculator {
     /// @param token Token address.
     /// @return priceLP Resulting reserve ratio.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
-
-    /// @dev Checks if the token is a UniswapV2Pair.
-    /// @param token Address of an LP token.
-    /// @return success True if successful.
-    function checkLP(address token) external returns (bool success);
 }

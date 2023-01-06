@@ -12,12 +12,16 @@ interface ITokenomics {
 
     /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
-    /// @param account Account address.
+    /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
-    /// @return donationETH Overall service donation amount in ETH.
-    function trackServiceDonations(address account, uint256[] memory serviceIds, uint256[] memory amounts) external
-        returns (uint256 donationETH);
+    /// @param donationETH Overall service donation amount in ETH.
+    function trackServiceDonations(
+        address donator,
+        uint256[] memory serviceIds,
+        uint256[] memory amounts,
+        uint256 donationETH
+    ) external;
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
     /// @notice Programs exceeding the limit in the epoch are not allowed.
