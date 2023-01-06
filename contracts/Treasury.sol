@@ -36,16 +36,15 @@ import "./interfaces/ITokenomics.sol";
 /// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
 contract Treasury is GenericTokenomics {
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
-    event DonatedToServicesETH(address indexed sender, uint256 donation);
+    event DonateToServicesETH(address indexed sender, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
-    event TokenReserves(address indexed token, uint256 reserves);
     event EnableToken(address indexed token);
     event DisableToken(address indexed token);
     event TransferToDispenserOLAS(uint256 amount);
-    event ReceivedETH(address indexed sender, uint256 amount);
-    event TreasuryBalancesUpdated(uint256 ETHOwned, uint256 ETHFromServices);
-    event TreasuryPaused();
-    event TreasuryUnpaused();
+    event ReceiveETH(address indexed sender, uint256 amount);
+    event UpdateTreasuryBalances(uint256 ETHOwned, uint256 ETHFromServices);
+    event PauseTreasury();
+    event UnpauseTreasury();
 
     enum TokenState {
         NonExistent,
@@ -98,7 +97,7 @@ contract Treasury is GenericTokenomics {
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
-        emit ReceivedETH(msg.sender, msg.value);
+        emit ReceiveETH(msg.sender, msg.value);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -123,6 +122,7 @@ contract Treasury is GenericTokenomics {
             revert UnauthorizedToken(token);
         }
 
+        // Increase the amount of LP token reserves
         uint256 reserves = tokenInfo.reserves + tokenAmount;
         tokenInfo.reserves = uint224(reserves);
 
@@ -159,6 +159,8 @@ contract Treasury is GenericTokenomics {
         }
         _locked = 2;
 
+        // Check that the amount donated has at least a practical minimal value
+        // TODO Decide on the final minimal value
         if (msg.value == 0) {
             revert ZeroValue();
         }
@@ -186,7 +188,7 @@ contract Treasury is GenericTokenomics {
         // Accumulate received donation from services
         uint256 donationETH = ETHFromServices + msg.value;
         ETHFromServices = uint96(donationETH);
-        emit DonatedToServicesETH(msg.sender, msg.value);
+        emit DonateToServicesETH(msg.sender, msg.value);
 
         // Track service donations on the Tokenomics side
         ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts, msg.value);
@@ -376,7 +378,7 @@ contract Treasury is GenericTokenomics {
                 // Assign back to state variables
                 ETHOwned = uint96(amountETHOwned);
                 ETHFromServices = uint96(amountETHFromServices);
-                emit TreasuryBalancesUpdated(amountETHOwned, amountETHFromServices);
+                emit UpdateTreasuryBalances(amountETHOwned, amountETHFromServices);
             } else {
                 // There is not enough amount from services to allocate to the treasury
                 success = false;
@@ -408,7 +410,7 @@ contract Treasury is GenericTokenomics {
         }
 
         paused = 2;
-        emit TreasuryPaused();
+        emit PauseTreasury();
     }
 
     /// @dev Unpauses the contract.
@@ -419,6 +421,6 @@ contract Treasury is GenericTokenomics {
         }
 
         paused = 1;
-        emit TreasuryUnpaused();
+        emit UnpauseTreasury();
     }
 }

@@ -9,8 +9,6 @@ import "./interfaces/ITreasury.sol";
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is GenericTokenomics {
-    event ReceivedETH(address indexed sender, uint256 amount);
-
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.

@@ -9,8 +9,8 @@ describe("Depository LP", async () => {
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
     // Initial mint for OLAS and DAI (40,000)
     const initialMint = "4" + "0".repeat(4) + decimals;
-
     const AddressZero = "0x" + "0".repeat(40);
+    const oneWeek = 86400 * 7;
 
     let deployer, alice, bob;
     let erc20Token;
@@ -28,7 +28,7 @@ describe("Depository LP", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
-    let epochLen = 10000;
+    let epochLen = oneWeek;
     let defaultPriceLP = "2" + decimals;
 
     // 2,000
@@ -419,7 +419,7 @@ describe("Depository LP", async () => {
 
             const bamount = (await pairODAI.balanceOf(bob.address));
             await depository.connect(bob).deposit(bid, bamount);
-            expect(Array(await depository.getPendingBonds(bob.address)).length).to.equal(1);
+            expect(Array(await depository.getPendingBonds(bob.address, false)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
             // The default IDF without any incentivized coefficient or epsilon rate is 1
             // 1250 * 1.0 = 1250 * e18 =  1.25 * e21
@@ -475,12 +475,15 @@ describe("Depository LP", async () => {
 
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
+            // Check for the matured pending bond
+            let pendingBonds = await depository.getPendingBonds(bob.address, true);
+            expect(pendingBonds.bondIds[0]).to.equal(0);
             await depository.connect(bob).redeem([0]);
             const bobBalance = Number(await olas.balanceOf(bob.address));
             expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
             expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
-            // Check for pending bonds after the redeem
-            const pendingBonds = await depository.getPendingBonds(bob.address);
+            // Check for all pending bonds after the redeem (must be none left)
+            pendingBonds = await depository.getPendingBonds(bob.address, false);
             expect(pendingBonds.bondIds).to.deep.equal([]);
             expect(pendingBonds.payout).to.equal(0);
         });
@@ -595,8 +598,8 @@ describe("Depository LP", async () => {
                 depository.connect(bob).redeem([0, 1, 2])
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
-            // Get all redeemable bonds for bob
-            let bondsToRedeem = await depository.getPendingBonds(bob.address);
+            // Get all redeemable (matured) bonds for bob
+            let bondsToRedeem = await depository.getPendingBonds(bob.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(2);
             expect(bondsToRedeem.bondIds[0]).to.equal(0);
             expect(bondsToRedeem.bondIds[1]).to.equal(2);
@@ -612,8 +615,8 @@ describe("Depository LP", async () => {
             activeProducts = await depository.getActiveProducts();
             expect(activeProducts).to.deep.equal([]);
 
-            // Try to get redeemable bonds for bob once again
-            bondsToRedeem = await depository.getPendingBonds(bob.address);
+            // Try to get redeemable (matured) bonds for bob once again
+            bondsToRedeem = await depository.getPendingBonds(bob.address, true);
             expect(bondsToRedeem.bondIds).to.deep.equal([]);
             expect(bondsToRedeem.payout).to.equal(0);
 
@@ -625,8 +628,8 @@ describe("Depository LP", async () => {
                 depository.connect(bob).redeem([2])
             ).to.be.revertedWithCustomError(depository, "BondNotRedeemable");
 
-            // Get pending bonds for alice
-            bondsToRedeem = await depository.getPendingBonds(alice.address);
+            // Get matured pending bonds for alice
+            bondsToRedeem = await depository.getPendingBonds(alice.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(1);
             expect(bondsToRedeem.bondIds[0]).to.equal(1);
 

@@ -63,7 +63,7 @@ struct UnitPoint {
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 4 + 8 * 2 = 256 + (128 + 16) (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 3 + 8 * 2 = 256 + 112 (2 full slots)
 struct EpochPoint {
     // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -82,9 +82,6 @@ struct EpochPoint {
     // Number of new owners
     // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
     uint32 numNewOwners;
-    // Epoch end block number
-    // With the current number of seconds per block and the current block number, 2^32 - 1 is enough for the next 1600+ years
-    uint32 endBlockNumber;
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
@@ -142,6 +139,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
     event TokenomicsImplementationUpdated(address indexed implementation);
+
+    // Tokenomics version number
+    string public constant VERSION = "1.0.0";
 
     // Voting Escrow address
     address public ve;
@@ -246,6 +246,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         veOLASThreshold = 5_000e18;
         lockMaxBond = 1;
 
+        // Check that the epoch length has at least a practical minimal value
+        // TODO Decide on the final minimal value
+        if (_epochLen < MIN_EPOCH_LENGTH) {
+            revert AmountLowerThan(_epochLen, MIN_EPOCH_LENGTH);
+        }
+
         // Assign other passed variables
         ve = _ve;
         epochLen = uint32(_epochLen);
@@ -257,12 +263,12 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Time launch of the OLAS contract
         uint256 _timeLaunch = IOLAS(_olas).timeLaunch();
         // Check that the tokenomics contract is initialized no later than one year after the OLAS token is deployed
-        if ((block.timestamp + 1) > (_timeLaunch + oneYear)) {
-            revert Overflow(_timeLaunch + oneYear, block.timestamp);
+        if ((block.timestamp + 1) > (_timeLaunch + ONE_YEAR)) {
+            revert Overflow(_timeLaunch + ONE_YEAR, block.timestamp);
         }
         // Seconds left in the deployment year for the zero year inflation schedule
         // This value is necessary since it is different from a precise one year time, as the OLAS contract started earlier
-        uint256 zeroYearSecondsLeft = uint32(_timeLaunch + oneYear - block.timestamp);
+        uint256 zeroYearSecondsLeft = uint32(_timeLaunch + ONE_YEAR - block.timestamp);
         // Calculating initial inflation per second: (mintable OLAS from getInflationForYear(0)) / (seconds left in a year)
         // Note that we lose precision here dividing by the number of seconds right away, but to avoid complex calculations
         // later we consider it is less error-prone to sacrifice at most 6 insignificant digits (or 1e-12) of OLAS per year
@@ -400,7 +406,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
         // Check for the epochLen value to change
         uint256 oldEpochLen = epochLen;
-        if (_epochLen > 0 && oldEpochLen != _epochLen) {
+        if ((_epochLen + 1) > MIN_EPOCH_LENGTH && oldEpochLen != _epochLen) {
             // Check if the year change is ongoing in the current epoch, and thus maxBond cannot be changed
             if (lockMaxBond == 2) {
                 revert MaxBondUpdateLocked();
@@ -411,7 +417,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                 // End time of the last epoch
                 uint256 lastEpochEndTime = mapEpochTokenomics[epochCounter - 1].epochPoint.endTime;
                 // Actual year of the time when the epoch is going to finish with the proposed epoch length
-                uint256 numYears = (lastEpochEndTime + _epochLen - timeLaunch) / oneYear;
+                uint256 numYears = (lastEpochEndTime + _epochLen - timeLaunch) / ONE_YEAR;
                 // Check if the year is going to change
                 if (numYears > currentYear) {
                     revert MaxBondUpdateLocked();
@@ -425,6 +431,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
 
             // Update the epochLen
             epochLen = uint32(_epochLen);
+            emit EpochLengthUpdated(_epochLen);
         } else {
             _epochLen = epochLen;
         }
@@ -749,7 +756,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
-    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / oneYear > old(currentYear) ==> currentYear == old(currentYear)+1;
+    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear)+1;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
@@ -790,18 +797,18 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // later when the effectiveBond is updated for the next epoch
         uint256 curMaxBond = maxBond;
         // Current year
-        uint256 numYears = (block.timestamp - timeLaunch) / oneYear;
+        uint256 numYears = (block.timestamp - timeLaunch) / ONE_YEAR;
         // There amounts for the yearly inflation change from year to year, so if the year changes in the middle
         // of the epoch, it is necessary to adjust the epoch inflation numbers to account for the year change
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
             uint256 curInflationPerSecond = inflationPerSecond;
             // End of the year timestamp
-            uint256 yearEndTime = timeLaunch + numYears * oneYear;
+            uint256 yearEndTime = timeLaunch + numYears * ONE_YEAR;
             // Initial inflation per epoch during the end of the year minus previous epoch timestamp
             inflationPerEpoch = (yearEndTime - prevEpochTime) * curInflationPerSecond;
             // Recalculate the inflation per second based on the new inflation for the current year
-            curInflationPerSecond = getInflationForYear(numYears) / oneYear;
+            curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR;
             // Add the remainder of inflation amount for this epoch based on a new inflation per second ratio
             inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond;
             // Update the maxBond value for the next epoch after the year changes
@@ -835,17 +842,17 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year will change
-        numYears = (block.timestamp + curEpochLen - timeLaunch) / oneYear;
+        numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR;
         // Account for the year change to adjust the max bond
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
             uint256 curInflationPerSecond = inflationPerSecond;
             // End of the year timestamp
-            uint256 yearEndTime = timeLaunch + numYears * oneYear;
+            uint256 yearEndTime = timeLaunch + numYears * ONE_YEAR;
             // Calculate the  max bond value until the end of the year
             curMaxBond = ((yearEndTime - block.timestamp) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
             // Recalculate the inflation per second based on the new inflation for the current year
-            curInflationPerSecond = getInflationForYear(numYears) / oneYear;
+            curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR;
             // Add the remainder of max bond amount for the next epoch based on a new inflation per second ratio
             curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
             maxBond = uint96(curMaxBond);
@@ -896,8 +903,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             idf = uint64(1e18 + fKD);
         }
 
-        // Record settled epoch point values
-        tp.epochPoint.endBlockNumber = uint32(block.number);
+        // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
 
         // Cumulative incentives
