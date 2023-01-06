@@ -46,20 +46,6 @@ contract Treasury is GenericTokenomics {
     event PauseTreasury();
     event UnpauseTreasury();
 
-    enum TokenState {
-        NonExistent,
-        Enabled,
-        Disabled
-    }
-    
-    struct TokenInfo {
-        // State of a token in this treasury
-        TokenState state;
-        // Reserves of a token
-        // Reserves are 112 bits in size, we assume that their calculations will be limited by reserves0 x reserves1
-        uint224 reserves;
-    }
-
     // ETH received from services
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public ETHFromServices;
@@ -68,10 +54,10 @@ contract Treasury is GenericTokenomics {
     uint96 public ETHOwned;
     // Contract pausing
     uint8 public paused = 1;
-    // Token address => token info related to bonding
-    mapping(address => TokenInfo) public mapTokens;
-    // Set of registered tokens
-    address[] public tokenRegistry;
+    // Token address => token reserves
+    mapping(address => uint256) public mapTokenReserves;
+    // Token address => enabled / disabled status
+    mapping(address => bool) public mapEnabledTokens;
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
@@ -116,15 +102,14 @@ contract Treasury is GenericTokenomics {
             revert ManagerOnly(msg.sender, depository);
         }
 
-        TokenInfo storage tokenInfo = mapTokens[token];
         // Check if the token is authorized by the registry
-        if (tokenInfo.state != TokenState.Enabled) {
+        if (!mapEnabledTokens[token]) {
             revert UnauthorizedToken(token);
         }
 
         // Increase the amount of LP token reserves
-        uint256 reserves = tokenInfo.reserves + tokenAmount;
-        tokenInfo.reserves = uint224(reserves);
+        uint256 reserves = mapTokenReserves[token] + tokenAmount;
+        mapTokenReserves[token] = reserves;
 
         // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
         if (IERC20(token).allowance(account, address(this)) < tokenAmount) {
@@ -233,16 +218,15 @@ contract Treasury is GenericTokenomics {
                 revert AmountLowerThan(tokenAmount, amountOwned);
             }
         } else {
-            TokenInfo storage tokenInfo = mapTokens[token];
             // Only approved token reserves can be used for redemptions
-            if (tokenInfo.state != TokenState.Enabled) {
+            if (!mapEnabledTokens[token]) {
                 revert UnauthorizedToken(token);
             }
             // Decrease the global LP token record
-            uint256 reserves = tokenInfo.reserves;
+            uint256 reserves = mapTokenReserves[token];
             if ((reserves + 1) > tokenAmount) {
                 reserves -= tokenAmount;
-                tokenInfo.reserves = uint224(reserves);
+                mapTokenReserves[token] = reserves;
 
                 emit Withdraw(token, tokenAmount);
                 // Transfer LP token
@@ -312,12 +296,8 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenState state = mapTokens[token].state;
-        if (state != TokenState.Enabled) {
-            if (state == TokenState.NonExistent) {
-                tokenRegistry.push(token);
-            }
-            mapTokens[token].state = TokenState.Enabled;
+        if (!mapEnabledTokens[token]) {
+            mapEnabledTokens[token] = true;
             emit EnableToken(token);
         }
     }
@@ -330,13 +310,12 @@ contract Treasury is GenericTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        TokenInfo storage tokenInfo = mapTokens[token];
-        if (tokenInfo.state != TokenState.Disabled) {
+        if (mapEnabledTokens[token]) {
             // The reserves of a token must be zero in order to disable it
-            if (tokenInfo.reserves > 0) {
+            if (mapTokenReserves[token] > 0) {
                 revert NonZeroValue();
             }
-            tokenInfo.state = TokenState.Disabled;
+            mapEnabledTokens[token] = false;
             emit DisableToken(token);
         }
     }
@@ -345,7 +324,7 @@ contract Treasury is GenericTokenomics {
     /// @param token Token address.
     /// @return enabled True if token is enabled.
     function isEnabled(address token) external view returns (bool enabled) {
-        enabled = (mapTokens[token].state == TokenState.Enabled);
+        enabled = mapEnabledTokens[token];
     }
 
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
