@@ -131,6 +131,24 @@ describe("Treasury", async () => {
             // Re-enable the disabled token
             await treasury.enableToken(olas.address);
         });
+
+        it("Changing minimal amount of received ETH", async function () {
+            const account = signers[1];
+
+            // Trying to change the value from a non-owner account address
+            await expect(
+                treasury.connect(account).changeMinAcceptedETH(0)
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Trying to change the value to zero
+            await expect(
+                treasury.connect(deployer).changeMinAcceptedETH(0)
+            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
+
+            // Changing the min accepted ETH amount
+            await treasury.connect(deployer).changeMinAcceptedETH(regDepositFromServices);
+            expect(await treasury.minAcceptedETH()).to.equal(regDepositFromServices);
+        });
     });
 
     context("Deposits LP tokens for OLAS", async function () {
@@ -336,6 +354,25 @@ describe("Treasury", async () => {
     });
 
     context("Drain slashed funds", async function () {
+        it("Should fail if the drain amount is less than the minimum value received by the Treasury", async () => {
+            // Set the service registry contract address to the tokenomics
+            await tokenomics.setServiceRegistry(serviceRegistry.address);
+            let amount = treasury.minAcceptedETH();
+            await deployer.sendTransaction({to: serviceRegistry.address, value: amount});
+
+            // Try to drain by the non-owner
+            await expect(
+                treasury.connect(signers[1]).drainServiceSlashedFunds()
+            ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
+
+            // Drain slashed funds
+            // Static call to get the return value, the simulated version returns 1/10th of the serviceRegistry balance,
+            // which will be lower than the minimum accepted amount by the Treasury
+            await expect(
+                treasury.connect(deployer).callStatic.drainServiceSlashedFunds()
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+        });
+
         it("Drain slashed funds from the service registry", async () => {
             // Set the service registry contract address to the tokenomics
             await tokenomics.setServiceRegistry(serviceRegistry.address);
@@ -348,7 +385,7 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Drain slashed funds
-            // Static call to get the return value
+            // Static call to get the return value, the simulated version returns 1/10th of the serviceRegistry balance
             amount = await treasury.connect(deployer).callStatic.drainServiceSlashedFunds();
             expect(amount).to.equal(oneEther);
             // The real call

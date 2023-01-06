@@ -51,11 +51,10 @@ contract Treasury is IErrorsTokenomics {
     event UpdateTreasuryBalances(uint256 ETHOwned, uint256 ETHFromServices);
     event PauseTreasury();
     event UnpauseTreasury();
+    event MinAcceptedETHUpdated(uint256 amount);
 
     // A well-known representation of an ETH as address
     address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-    // Minimum accepted donation value
-    uint256 public constant MIN_ACCEPTED_AMOUNT = 5e16;
 
     // Owner address
     address public owner;
@@ -71,13 +70,16 @@ contract Treasury is IErrorsTokenomics {
 
     // Tkenomics contract address
     address public tokenomics;
+    // Minimum accepted donation value
+    uint96 public minAcceptedETH = 5e16;
+
+    // Depository contract address
+    address public depository;
     // Contract pausing
     uint8 public paused = 1;
     // Reentrancy lock
     uint8 internal _locked;
-
-    // Depository contract address
-    address public depository;
+    
     // Dispenser contract address
     address public dispenser;
 
@@ -107,8 +109,8 @@ contract Treasury is IErrorsTokenomics {
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
-        if (msg.value < MIN_ACCEPTED_AMOUNT) {
-            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
+        if (msg.value < minAcceptedETH) {
+            revert AmountLowerThan(msg.value, minAcceptedETH);
         }
 
         uint96 amount = ETHOwned;
@@ -119,7 +121,7 @@ contract Treasury is IErrorsTokenomics {
 
     /// @dev Changes the owner address.
     /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
+    function changeOwner(address newOwner) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -159,6 +161,22 @@ contract Treasury is IErrorsTokenomics {
             dispenser = _dispenser;
             emit DispenserUpdated(_dispenser);
         }
+    }
+
+    /// @dev Changes minimum accepted ETH amount by the Treasury.
+    /// @param _minAcceptedETH New minimum accepted ETH amount.
+    function changeMinAcceptedETH(uint256 _minAcceptedETH) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_minAcceptedETH == 0) {
+            revert ZeroValue();
+        }
+
+        minAcceptedETH = uint96(_minAcceptedETH);
+        emit MinAcceptedETHUpdated(_minAcceptedETH);
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -207,6 +225,9 @@ contract Treasury is IErrorsTokenomics {
     }
 
     /// @dev Deposits service donations in ETH.
+    /// @notice Each provided service Id must be deployed at least once, otherwise its components and agents are undefined.
+    /// @notice If a specific service is terminated with agent Ids being updated, incentives will be issued to its old
+    ///         configuration component / agent owners until the service is re-deployed when new agent Ids are accounted for.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance" } old(ETHOwned) == ETHOwned;
@@ -221,8 +242,8 @@ contract Treasury is IErrorsTokenomics {
 
         // Check that the amount donated has at least a practical minimal value
         // TODO Decide on the final minimal value
-        if (msg.value < MIN_ACCEPTED_AMOUNT) {
-            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
+        if (msg.value < minAcceptedETH) {
+            revert AmountLowerThan(msg.value, minAcceptedETH);
         }
 
         // Check for the same length of arrays
@@ -452,6 +473,13 @@ contract Treasury is IErrorsTokenomics {
 
         // Get the service registry contract address
         address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
+
+        // Check if the amount of slashed funds are at least the minimum required amount to receive by the Treasury
+        uint256 slashedFunds = IServiceTokenomics(serviceRegistry).slashedFunds();
+        if (slashedFunds < minAcceptedETH) {
+            revert AmountLowerThan(slashedFunds, minAcceptedETH);
+        }
+
         // Call the service registry drain function
         amount = IServiceTokenomics(serviceRegistry).drain();
     }

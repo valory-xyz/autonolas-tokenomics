@@ -107,7 +107,7 @@ contract Depository is IErrorsTokenomics {
 
     /// @dev Changes the owner address.
     /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
+    function changeOwner(address newOwner) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -248,7 +248,7 @@ contract Depository is IErrorsTokenomics {
 
     /// @dev Gets bond Ids of all pending bonds for the account address.
     /// @param account Account address to query bonds for.
-    /// @param matured Record matured bonds only.
+    /// @param matured Flag to record matured bonds only or all of them.
     /// @return bondIds Pending bond Ids.
     /// @return payout Cumulative expected OLAS payout.
     function getPendingBonds(address account, bool matured) external view
@@ -261,10 +261,10 @@ contract Depository is IErrorsTokenomics {
         // Record the bond number if it belongs to the account address and was not yet redeemed
         for (uint256 i = 0; i < numBonds; i++) {
             if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
-                // Check if bond is not matured but owned by the account address
+                // Check if requested bond is not matured but owned by the account address
                 if (!matured ||
-                    // Or if the bond is matured, i.e., the bond maturity timestamp passed and the payout is non-zero
-                    (matured && (block.timestamp >= mapUserBonds[i].maturity) && mapUserBonds[i].payout > 0))
+                    // Or if the requested bond is matured, i.e., the bond maturity timestamp passed
+                    mapUserBonds[i].maturity < block.timestamp)
                 {
                     positions[i] = true;
                     ++numAccountBonds;

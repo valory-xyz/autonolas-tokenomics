@@ -1,20 +1,22 @@
 Clarification: False positive
 Treasury.depositTokenForOLAS(address,uint256,address,uint256) (contracts/Treasury.sol#105-136) uses arbitrary from in transferFrom: IERC20(token).transferFrom(account,address(this),tokenAmount) (contracts/Treasury.sol#129)
 Reference: https://github.com/trailofbits/slither/wiki/Detector-Documentation#arbitrary-send-erc20
+=> Verified
 
 Clarification: False positive
 ITokenomics is re-used:
 	- ITokenomics (contracts/interfaces/ITokenomics.sol#5-48)
 	- ITokenomics (contracts/test/ReentrancyAttacker.sol#5-19)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#name-reused
+=> Verified
 
 Clarification: Low risk. Not hard to fix.
 Depository.redeem(uint256[]) (contracts/Depository.sol#155-191) ignores return value by IERC20(olas).transfer(msg.sender,payout) (contracts/Depository.sol#190)
 Treasury.depositTokenForOLAS(address,uint256,address,uint256) (contracts/Treasury.sol#105-136) ignores return value by IERC20(token).transferFrom(account,address(this),tokenAmount) (contracts/Treasury.sol#129)
 Treasury.withdraw(address,uint256,address) (contracts/Treasury.sol#178-220) ignores return value by IERC20(token).transfer(to,tokenAmount) (contracts/Treasury.sol#218)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
-- IERC20(olas).transfer() does not need to be checked, since it either fails or returns true
-- Others are fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
+=> IERC20(olas).transfer() does not need to be checked, since it either fails or returns true
+=> Others are fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
 
 Clarification:  Tests contract in https://github.com/DeltaDex-Protocol/statistics_solidity/blob/main/contracts/dependencies/prb-math/PRBMath.sol
 Overall outside the scope of the audit
@@ -43,13 +45,13 @@ PRBMath.mulDiv(uint256,uint256,uint256) (node_modules/@partylikeits1983/statisti
 PRBMath.mulDiv(uint256,uint256,uint256) (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#394-478) performs a multiplication on the result of a division:
 	- prod0 = prod0 / lpotdod (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#448)
 	- result = prod0 * inverse (node_modules/@partylikeits1983/statistics_solidity/contracts/dependencies/prb-math/PRBMath.sol#475)
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
 
 Clarification: Needs to be fixed.
 Tokenomics.initializeTokenomics(address,address,address,address,address,uint32,address,address,address,address) (contracts/Tokenomics.sol#228-307) performs a multiplication on the result of a division:
 	- _inflationPerSecond = 22_113_000_0e17 / zeroYearSecondsLeft (contracts/Tokenomics.sol#267)
 	- _maxBond = _inflationPerSecond * _epochLen * _maxBondFraction / 100 (contracts/Tokenomics.sol#304)
-- Left as is, extended comment is in https://github.com/valory-xyz/autonolas-tokenomics/commit/bb6a692b072cd91e6740d8f7081bf1753a81f1bb:
+=> Left division as is, extended comment is in https://github.com/valory-xyz/autonolas-tokenomics/commit/bb6a692b072cd91e6740d8f7081bf1753a81f1bb:
 Precision is lost for at most 6 insignificant digits (or 1e-12) of OLAS per year, but it allows to avoid complex calculations.
 
 Clarification: False positive. The code works as intended.
@@ -63,7 +65,7 @@ Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplica
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
 	- numYears = (block.timestamp + curEpochLen - timeLaunch) / oneYear (contracts/Tokenomics.sol#812)
 	- yearEndTime_scope_1 = timeLaunch + numYears * oneYear (contracts/Tokenomics.sol#818)
-- By design, the correct number of years is floored from the number of seconds divided by the number of seconds in a year
+=> By design, the correct number of years is floored from the number of seconds divided by the number of seconds in a year
 
 Clarification: Needs to be fixed.
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
@@ -77,7 +79,7 @@ Precision is lost for at most 6 insignificant digits (or 1e-12) of OLAS per year
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
 	- codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits + tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights (contracts/Tokenomics.sol#845-846)
 	- fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital)) (contracts/Tokenomics.sol#853)
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
 
 Clarification: False positive.
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
@@ -95,14 +97,14 @@ By logic:
     int256 fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.devsPerCapital));
     // fp1 == codeUnits * devsPerCapital * treasuryRewards
     fp1 = fp1.mul(fp2);
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
+=> Refactored in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
 
 Clarification: Needs to be fixed.
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) performs a multiplication on the result of a division:
 	- codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits + tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits) / sumWeights (contracts/Tokenomics.sol#845-846)
 	- fp2 = PRBMathSD59x18.fromInt(int256(codeUnits * tp.epochPoint.numNewOwners)) (contracts/Tokenomics.sol#857)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/416eb7dd585f8a1e1daadd3a7e3e8d995336fc0d
 
 Clarification: Probably false positive. 
 Depository.close(uint256) (contracts/Depository.sol#274-294) uses a dangerous strict equality:
@@ -110,7 +112,7 @@ Depository.close(uint256) (contracts/Depository.sol#274-294) uses a dangerous st
 Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) uses a dangerous strict equality:
 	- incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1]) (contracts/Tokenomics.sol#889)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
-- Verified, false positive
+=> Verified, false positive
 
 Clarification: False positive. Treasury is trusted contracts and rebalanceTreasury does not have a re-entry point.
 Reentrancy in Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913):
@@ -125,6 +127,7 @@ Reentrancy in Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913):
 	- nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction (contracts/Tokenomics.sol#908)
 	- nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital (contracts/Tokenomics.sol#909)
 	- nextPoint.epochPoint.idf = idf (contracts/Tokenomics.sol#910)
+=> Verified
 
 Clarification: False positive. _locked is reentrancy guard.
 Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (contracts/Dispenser.sol#31-48):
@@ -133,6 +136,7 @@ Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (contracts/Dis
 	- success = ITreasury(treasury).withdrawToAccount(msg.sender,reward,topUp) (contracts/Dispenser.sol#44)
 	State variables written after the call(s):
 	- _locked = 1 (contracts/Dispenser.sol#47)
+=> Verified
 
 Clarification: False positive. Tokenomics is trusted contracts and refundFromBondProgram does not have a re-entry point.
 Reentrancy in Depository.close(uint256) (contracts/Depository.sol#274-294):
@@ -140,6 +144,7 @@ Reentrancy in Depository.close(uint256) (contracts/Depository.sol#274-294):
 	- ITokenomics(tokenomics).refundFromBondProgram(supply) (contracts/Depository.sol#288)
 	State variables written after the call(s):
 	- delete mapBondProducts[productId] (contracts/Depository.sol#291)
+=> Verified
 
 Clarification: False positive. Special test contract for simulation of a reentrancy attack. 
 Reentrancy in ReentrancyAttacker.receive() (contracts/test/ReentrancyAttacker.sol#36-52):
@@ -147,6 +152,7 @@ Reentrancy in ReentrancyAttacker.receive() (contracts/test/ReentrancyAttacker.so
 	- ITokenomics(dispenser).claimOwnerIncentives(unitTypes,unitIds) (contracts/test/ReentrancyAttacker.sol#42)
 	State variables written after the call(s):
 	- attackOnClaimOwnerIncentives = false (contracts/test/ReentrancyAttacker.sol#50)
+=> Verified
 
 Clarification: False positive. Tokenomics is trusted contracts and refundFromBondProgram does not have a re-entry point.
 Reentrancy in Depository.redeem(uint256[]) (contracts/Depository.sol#155-191):
@@ -155,6 +161,7 @@ Reentrancy in Depository.redeem(uint256[]) (contracts/Depository.sol#155-191):
 	State variables written after the call(s):
 	- delete mapBondProducts[productId] (contracts/Depository.sol#184)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+=> Verified
 
 Clarification: Please pay attention. Usually this is "false positive" 
 Tokenomics._trackServiceDonations(uint256[],uint256[],uint256).topUpEligible (contracts/Tokenomics.sol#623) is a local variable never initialized
@@ -163,7 +170,7 @@ Depository.getActiveProducts().numPos (contracts/Depository.sol#319) is a local 
 Depository.getActiveProducts().numActive (contracts/Depository.sol#309) is a local variable never initialized
 Depository.getPendingBonds(address).numPos (contracts/Depository.sol#213) is a local variable never initialized
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
-- Verified, false positive
+=> Verified, false positive
 
 
 Clarification: Good point and should be corrected.
@@ -175,7 +182,7 @@ Treasury.rebalanceTreasury(uint256) (contracts/Treasury.sol#311-340) should emit
 	- ETHOwned = uint96(amountETHOwned) (contracts/Treasury.sol#333) 
 	- ETHFromServices = uint96(amountETHFromServices) (contracts/Treasury.sol#334) 
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
 
 Clarification: Low risk. The fix is optional. 
 Depository.constructor(address,address,address,address)._bondCalculator (contracts/Depository.sol#86) lacks a zero-check on :
@@ -192,25 +199,27 @@ Tokenomics.initializeTokenomics(address,address,address,address,address,uint32,a
 		- agentRegistry = _agentRegistry (contracts/Tokenomics.sol#253)
 Tokenomics.initializeTokenomics(address,address,address,address,address,uint32,address,address,address,address)._serviceRegistry (contracts/Tokenomics.sol#237) lacks a zero-check on :
 		- serviceRegistry = _serviceRegistry (contracts/Tokenomics.sol#254)
-- Left as is, as it is related to the initialization only
+=> Left as is, as it is related to the initialization only
 
 Clarification: False positive. donatorBlacklist can be zero address by design.
 Tokenomics.initializeTokenomics(address,address,address,address,address,uint32,address,address,address,address)._donatorBlacklist (contracts/Tokenomics.sol#238) lacks a zero-check on :
 		- donatorBlacklist = _donatorBlacklist (contracts/Tokenomics.sol#255)
 Tokenomics.changeDonatorBlacklist(address)._donatorBlacklist (contracts/Tokenomics.sol#516) lacks a zero-check on :
 		- donatorBlacklist = _donatorBlacklist (contracts/Tokenomics.sol#522)
+=> Verified
 
 Clarification: Can be fix.
 TokenomicsProxy.constructor(address,bytes).tokenomics (contracts/TokenomicsProxy.sol#16) lacks a zero-check on :
 		- (success) = tokenomics.delegatecall(tokenomicsData) (contracts/TokenomicsProxy.sol#21)
 Treasury.withdraw(address,uint256,address).to (contracts/Treasury.sol#178) lacks a zero-check on :
 		- (success,None) = to.call{value: tokenAmount}() (contracts/Treasury.sol#194)
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
 
 Clarification: False positive. account(msg. sender for Dispenser) always can't be zero. 
 Treasury.withdrawToAccount(address,uint256,uint256).account (contracts/Treasury.sol#230) lacks a zero-check on :
 		- (success,None) = account.call{value: accountRewards}() (contracts/Treasury.sol#248)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+=> Verified
 
 Clarification: The code follows the business logic, so it fits the design.
 Depository.redeem(uint256[]) (contracts/Depository.sol#155-191) has external calls inside a loop: ITokenomics(tokenomics).refundFromBondProgram(supply) (contracts/Depository.sol#181)
@@ -218,6 +227,7 @@ Tokenomics.trackServiceDonations(address,uint256[],uint256[]) (contracts/Tokenom
 Tokenomics.accountOwnerIncentives(address,uint256[],uint256[]) (contracts/Tokenomics.sol#966-1024) has external calls inside a loop: unitOwner = IToken(registries[unitTypes[i]]).ownerOf(unitIds[i]) (contracts/Tokenomics.sol#992)
 Tokenomics.getOwnerIncentives(address,uint256[],uint256[]) (contracts/Tokenomics.sol#1033-1102) has external calls inside a loop: unitOwner = IToken(registries[unitTypes[i]]).ownerOf(unitIds[i]) (contracts/Tokenomics.sol#1054)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+=> Verified
 
 Clarification: Very low (practically zero) risk.
 The risk is minimal since a potential attack must meet the following conditions:
@@ -238,7 +248,7 @@ Notes: It makes practical sense to opt out of this check.
 In any case, we will have to manual check that this is the correct LP-pair contract.
 It's easy to fake the existence of a function kLast()
 Ref: function checkLP(address token) external returns (bool success)
-- Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
+=> Fixed in https://github.com/valory-xyz/autonolas-tokenomics/commit/1c4ac57a7f5aa1cd017101f5bcb8d3c4e342b680
 
 Clarification: False positive if bList is trusted contract or needing reentrancy guard. Better add a guard for any blacklisted contract.
 trackServiceDonations -> IDonatorBlacklist(bList).isDonatorBlacklisted(donator)
@@ -249,6 +259,7 @@ Reentrancy in Treasury.depositServiceDonationsETH(uint256[],uint256[]) (contract
 	- donationETH = ITokenomics(tokenomics).trackServiceDonations(msg.sender,serviceIds,amounts) (contracts/Treasury.sol#166)
 	State variables written after the call(s):
 	- ETHFromServices = uint96(donationETH) (contracts/Treasury.sol#168)
+=> Verified
 
 Clarification: Probably false positive
 Depository.deposit(uint256,uint256) (contracts/Depository.sol#111-150) uses timestamp for comparisons
@@ -298,7 +309,7 @@ Tokenomics.checkpoint() (contracts/Tokenomics.sol#727-913) uses timestamp for co
 	- fKD > epsilonRate (contracts/Tokenomics.sol#866)
 	- incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1]) (contracts/Tokenomics.sol#889)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
-- Verified, false positives
+=> Verified, false positives
 
 Clarification: False positive. void contructor by design.
 Void constructor called in Depository.constructor(address,address,address,address) (contracts/Depository.sol#86-91):
@@ -312,6 +323,7 @@ Void constructor called in Tokenomics.constructor() (contracts/Tokenomics.sol#21
 Void constructor called in Treasury.constructor(address,address,address,address) (contracts/Treasury.sol#84-89):
 	- GenericTokenomics() (contracts/Treasury.sol#85)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#void-constructor
+=> Refactored, no GenericTokenomics contract anymore; TokenomicsConstants is void by design.
 
 Clarification: False positive. Different version by design.
 Different versions of Solidity are used:
@@ -319,6 +331,7 @@ Different versions of Solidity are used:
 	- Version used: ['=0.5.16', '>=0.4.22<0.6', '>=0.5.0']
 	- Version used: ['>=0.5.0', '>=0.6.0', '>=0.6.2', '>=0.8.4', '^0.8.0', '^0.8.17']
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#different-pragma-directives-are-used
+=> Verified
 
 Clarification: Please double check. Gas optimization notes.
 That means that delete voterStructs[voterId] on that first voter will again just be an extra 5,000 gas. No refund will be given because the value was already zero. (c)
@@ -328,7 +341,7 @@ Depository.redeem(uint256[]) (contracts/Depository.sol#155-191) has costly opera
 Depository.redeem(uint256[]) (contracts/Depository.sol#155-191) has costly operations inside a loop:
 	- delete mapBondProducts[productId] (contracts/Depository.sol#184)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#costly-operations-inside-a-loop
-- Verified, the delete operation is called only once
+=> Verified, the delete operation is called only once
 
 Clarification: Ignore it.
 Pragma version^0.8.17 (contracts/Depository.sol#2) necessitates a version too recent to be trusted. Consider deploying with 0.6.12/0.7.6/0.8.16
@@ -336,6 +349,7 @@ Pragma version^0.8.17 (contracts/Depository.sol#2) necessitates a version too re
 Pragma version^0.8.17 (contracts/test/ReentrancyAttacker.sol#2) necessitates a version too recent to be trusted. Consider deploying with 0.6.12/0.7.6/0.8.16
 solc-0.8.17 is not recommended for deployment
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+=> Verified
 
 Clarification: False positive. Low level calls by design
 Low level call in TokenomicsProxy.constructor(address,bytes) (contracts/TokenomicsProxy.sol#16-25):
@@ -345,6 +359,7 @@ Low level call in Treasury.withdraw(address,uint256,address) (contracts/Treasury
 Low level call in Treasury.withdrawToAccount(address,uint256,uint256) (contracts/Treasury.sol#230-262):
 	- (success,None) = account.call{value: accountRewards}() (contracts/Treasury.sol#248)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+=> Verified
 
 Clarification: Ignore it.
 Depository (contracts/Depository.sol#31-335) should inherit from IDepository (contracts/test/AttackDeposit.sol#7-10)
@@ -352,11 +367,12 @@ DonatorBlacklist (contracts/DonatorBlacklist.sol#20-84) should inherit from IDon
 GenericBondCalculator (contracts/GenericBondCalculator.sol#11-83) should inherit from IGenericBondCalculator (contracts/interfaces/IGenericBondCalculator.sol#5-22)
 MockVE (contracts/test/MockVE.sol#5-45) should inherit from IVotingEscrow (contracts/interfaces/IVotingEscrow.sol#5-20)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-inheritance
+=> Verified
 
 Clarification: Please pay attention.
 Variable Tokenomics._finalizeIncentivesForUnitId(uint256,uint256,uint256).sumUnitIncentives_scope_0 (contracts/Tokenomics.sol#589) is too similar to Tokenomics.getOwnerIncentives(address,uint256[],uint256[]).sumUnitIncentives_scope_1 (contracts/Tokenomics.sol#1091)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
-- Verified, false positive. The variables are located in different functions and scopes. Somehow other same-named variables were not identified
+=> Verified, false positive. The variables are located in different functions and scopes. Somehow other same-named variables were not identified
 
 
 

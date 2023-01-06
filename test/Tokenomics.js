@@ -446,6 +446,12 @@ describe("Tokenomics", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
             await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20);
 
+            // Check the case when the service was not yet deployed and component / agent Ids are not set up
+            await expect(
+                treasury.connect(deployer).depositServiceDonationsETH([100], [regDepositFromServices],
+                    {value: regDepositFromServices})
+            ).to.be.revertedWithCustomError(tokenomics, "ServiceNeverDeployed");
+
             const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,

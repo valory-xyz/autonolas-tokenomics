@@ -365,7 +365,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Changes the owner address.
     /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external virtual {
+    function changeOwner(address newOwner) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -693,8 +693,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    function _trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal
-    {
+    function _trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
@@ -725,7 +724,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceTokenomics(serviceRegistry).
-                getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
+                    getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
+                // Service has to be deployed at least once to be able to receive donations,
+                // otherwise its components and agents are undefined
+                if (numServiceUnits == 0) {
+                    revert ServiceNeverDeployed(serviceIds[i]);
+                }
                 // Record amounts data only if at least one incentive unit fraction is not zero
                 if (incentiveFlags[unitType] || incentiveFlags[unitType + 2]) {
                     // Accumulate amounts for each unit Id
