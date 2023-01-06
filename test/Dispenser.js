@@ -95,15 +95,30 @@ describe("Dispenser", async () => {
         it("Changing managers and owners", async function () {
             const account = signers[1];
 
-            // Trying to change owner from a non-owner account address
+            // Trying to change managers from a non-owner account address
             await expect(
-                dispenser.connect(account).changeOwner(account.address)
+                dispenser.connect(account).changeManagers(deployer.address, deployer.address)
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
             await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address);
             expect(await dispenser.tokenomics()).to.equal(deployer.address);
             expect(await dispenser.treasury()).to.equal(deployer.address);
+
+            // Trying to change to zero addresses and making sure nothing has changed
+            await dispenser.connect(deployer).changeManagers(AddressZero, AddressZero);
+            expect(await dispenser.tokenomics()).to.equal(deployer.address);
+            expect(await dispenser.treasury()).to.equal(deployer.address);
+
+            // Trying to change owner from a non-owner account address
+            await expect(
+                dispenser.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
+
+            // Trying to change the owner to the zero address
+            await expect(
+                dispenser.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
 
             // Changing the owner
             await dispenser.connect(deployer).changeOwner(account.address);

@@ -62,22 +62,4 @@ contract GenericBondCalculator {
             }
         }
     }
-
-    /// @dev Check if the token is a UniswapV2Pair.
-    /// @param token Address of an LP token.
-    /// @return success True if successful.
-    function checkLP(address token) external returns (bool success) {
-        bytes memory data = abi.encodeWithSelector(bytes4(keccak256("kLast()")));
-        assembly {
-            success := call(
-            5000,           // 5k gas
-            token,          // destination address
-            0,              // no ether
-            add(data, 32),  // input buffer (starts after the first 32 bytes in the `data` array)
-            mload(data),    // input length (loaded from the first 32 bytes in the `data` array)
-            0,              // output buffer
-            0               // output length
-            )
-        }
-    }
 }    

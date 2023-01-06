@@ -56,7 +56,7 @@ describe("Tokenomics", async () => {
         await donatorBlacklist.deployed();
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
-        attacker = await Attacker.deploy(AddressZero, AddressZero);
+        attacker = await Attacker.deploy(AddressZero, treasury.address);
         await attacker.deployed();
 
         // Voting Escrow mock
@@ -123,6 +123,12 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.depository()).to.equal(deployer.address);
             expect(await tokenomics.dispenser()).to.equal(signers[2].address);
 
+            // Trying to change to zero addresses and making sure nothing has changed
+            await tokenomics.connect(deployer).changeManagers(AddressZero, AddressZero, AddressZero);
+            expect(await tokenomics.treasury()).to.equal(account.address);
+            expect(await tokenomics.depository()).to.equal(deployer.address);
+            expect(await tokenomics.dispenser()).to.equal(signers[2].address);
+
             // Changing the owner
             await tokenomics.connect(deployer).changeOwner(account.address);
 
@@ -130,6 +136,21 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(deployer).changeOwner(deployer.address)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+        });
+
+        it("Should fail when the epoch length is smaller than the minimum required", async function () {
+            // Deploy master tokenomics contract
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+            await tokenomicsMaster.deployed();
+
+            // Try to deploy Tokenomics proxy
+            const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, treasury.address, deployer.address, deployer.address, ve.address, 0,
+                    componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
         });
 
         it("Get inflation numbers", async function () {
@@ -630,6 +651,20 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(deployer).trackServiceDonations(deployer.address, [], [], 0)
             ).to.be.revertedWithCustomError(tokenomics, "DonatorBlacklisted");
+        });
+
+        it("Reentrancy attack via a blacklist", async function () {
+            // Change blacklist to the attacker address
+            await tokenomics.connect(deployer).changeDonatorBlacklist(attacker.address);
+            // Send some funds to the attacker
+            await attacker.setAttackMode(false);
+            await deployer.sendTransaction({to: attacker.address, value: ethers.utils.parseEther("2")});
+
+            // Try to attack via a deposit function
+            await expect(
+                treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
+                    regDepositFromServices], {value: twoRegDepositFromServices})
+            ).to.be.revertedWithCustomError(tokenomics, "ReentrancyGuard");
         });
     });
 
