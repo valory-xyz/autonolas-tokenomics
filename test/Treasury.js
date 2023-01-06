@@ -146,7 +146,7 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "ZeroValue");
 
             // Changing the min accepted ETH amount
-            await treasury.connect(deployer).changeMinAcceptedETH(regDepositFromServices)
+            await treasury.connect(deployer).changeMinAcceptedETH(regDepositFromServices);
             expect(await treasury.minAcceptedETH()).to.equal(regDepositFromServices);
         });
     });

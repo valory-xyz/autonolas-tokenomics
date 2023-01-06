@@ -94,8 +94,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentives(uint64 amount0, uint64 amount1) public {
         // Amounts must be meaningful
-        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
-        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
         // Claim empty incentives
         vm.prank(deployer);
         (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
@@ -171,9 +171,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
-        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
+        // Amounts must be meaningful
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -258,9 +258,9 @@ contract DispenserTest is BaseSetup {
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
-        // Amounts must be bigger than zero
-        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
-        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
+        // Amounts must be meaningful
+        vm.assume(amount0 > treasury.minAcceptedETH());
+        vm.assume(amount1 > treasury.minAcceptedETH());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);

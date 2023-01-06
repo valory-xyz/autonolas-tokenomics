@@ -205,6 +205,9 @@ Perhaps not a bug.
 ```
 Recommendation: pay attention. 
 
+##### Fixes
+- Has left TODO-s, decision is pending.
+
 ##### Tokenomics epochLen can be zero by misconfig
 ```
     function initializeTokenomics(
@@ -228,7 +231,8 @@ https://blockworks.co/news/defi-web-apps-block-users-hit-by-tornado-cash-dust-at
 Recommendation: pay attention.
 
 ##### Fixes
-- [e199c662e49a11c6531c8ee443ed4a1bf231c9ed](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/e199c662e49a11c6531c8ee443ed4a1bf231c9ed).
+- [e199c662e49a11c6531c8ee443ed4a1bf231c9ed](https://github.com/valory-xyz/autonolas-tokenomics/pull/59/commits/e199c662e49a11c6531c8ee443ed4a1bf231c9ed);
+- Has left TODO-s, decision is pending.
 
 ### Improvements related to critical external updates
 #### Update a external fixed point library and fixed point related code
@@ -405,3 +409,6 @@ Recommendation: are welcome but no required to be fixed. Minor issue.
 I remade during audit a original MockRegistry.sol: function `drain() external returns (uint256 amount)` now actually sending a ETH. <br>
 Notes: Please fixing tests/Mock for real sending a ETH. <br>
 Recommendation: needs to be fixed. Without this, the rules written in the language scribble will not work correctly.
+
+##### Fixes
+- [37f22d484d8285f05ca7e560df8a39d45e04f805](https://github.com/valory-xyz/autonolas-tokenomics/pull/61/commits/37f22d484d8285f05ca7e560df8a39d45e04f805).
