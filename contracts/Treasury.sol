@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./GenericTokenomics.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
@@ -33,8 +33,14 @@ import "./interfaces/ITokenomics.sol";
 /// @title Treasury - Smart contract for managing OLAS Treasury
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices+ETHOwned; ! invariant is off as it is broken in the original version
-contract Treasury is GenericTokenomics {
+/// Invariant does not support a failing call() function while transferring ETH when using the CEI pattern:
+/// revert TransferFailed(address(0), address(this), to, tokenAmount);
+/// invariant {:msg "broken conservation law"} address(this).balance == ETHFromServices + ETHOwned;
+contract Treasury is IErrorsTokenomics {
+    event OwnerUpdated(address indexed owner);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event DepositoryUpdated(address indexed depository);
+    event DispenserUpdated(address indexed dispenser);
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
     event DonateToServicesETH(address indexed sender, uint256 donation);
     event Withdraw(address indexed token, uint256 tokenAmount);
@@ -46,31 +52,52 @@ contract Treasury is GenericTokenomics {
     event PauseTreasury();
     event UnpauseTreasury();
 
+    // A well-known representation of an ETH as address
+    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    // Minimum accepted donation value
+    uint256 public constant MIN_ACCEPTED_AMOUNT = 5e16;
+
+    // Owner address
+    address public owner;
     // ETH received from services
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public ETHFromServices;
+
+    // OLAS token address
+    address public olas;
     // ETH owned by treasury
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
     uint96 public ETHOwned;
+
+    // Tkenomics contract address
+    address public tokenomics;
     // Contract pausing
     uint8 public paused = 1;
+    // Reentrancy lock
+    uint8 internal _locked;
+
+    // Depository contract address
+    address public depository;
+    // Dispenser contract address
+    address public dispenser;
+
     // Token address => token reserves
     mapping(address => uint256) public mapTokenReserves;
     // Token address => enabled / disabled status
     mapping(address => bool) public mapEnabledTokens;
 
-    // A well-known representation of an ETH as address
-    address public constant ETH_TOKEN_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-
     /// @dev Treasury constructor.
     /// @param _olas OLAS token address.
-    /// @param _depository Depository address.
     /// @param _tokenomics Tokenomics address.
+    /// @param _depository Depository address.
     /// @param _dispenser Dispenser address.
-    constructor(address _olas, address _depository, address _tokenomics, address _dispenser) payable
-        GenericTokenomics()
-    {
-        super.initialize(_olas, _tokenomics, address(this), _depository, _dispenser, TokenomicsRole.Treasury);
+    constructor(address _olas, address _tokenomics, address _depository, address _dispenser) payable {
+        owner = msg.sender;
+        _locked = 1;
+        olas = _olas;
+        tokenomics = _tokenomics;
+        depository = _depository;
+        dispenser = _dispenser;
         ETHOwned = uint96(msg.value);
     }
 
@@ -80,10 +107,58 @@ contract Treasury is GenericTokenomics {
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
+        if (msg.value < MIN_ACCEPTED_AMOUNT) {
+            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
+        }
+
         uint96 amount = ETHOwned;
         amount += uint96(msg.value);
         ETHOwned = amount;
         emit ReceiveETH(msg.sender, msg.value);
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes various managing contract addresses.
+    /// @param _tokenomics Tokenomics address.
+    /// @param _depository Depository address.
+    /// @param _dispenser Dispenser address.
+    function changeManagers(address _tokenomics, address _depository, address _dispenser) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Change Tokenomics contract address
+        if (_tokenomics != address(0)) {
+            tokenomics = _tokenomics;
+            emit TokenomicsUpdated(_tokenomics);
+        }
+        // Change Depository contract address
+        if (_depository != address(0)) {
+            depository = _depository;
+            emit DepositoryUpdated(_depository);
+        }
+        // Change Dispenser contract address
+        if (_dispenser != address(0)) {
+            dispenser = _dispenser;
+            emit DispenserUpdated(_dispenser);
+        }
     }
 
     /// @dev Allows the depository to deposit an asset for OLAS.
@@ -146,8 +221,8 @@ contract Treasury is GenericTokenomics {
 
         // Check that the amount donated has at least a practical minimal value
         // TODO Decide on the final minimal value
-        if (msg.value == 0) {
-            revert ZeroValue();
+        if (msg.value < MIN_ACCEPTED_AMOUNT) {
+            revert AmountLowerThan(msg.value, MIN_ACCEPTED_AMOUNT);
         }
 
         // Check for the same length of arrays
@@ -274,7 +349,7 @@ contract Treasury is GenericTokenomics {
             ETHFromServices = uint96(amountETHFromServices);
             (success, ) = account.call{value: accountRewards}("");
             if (!success) {
-                revert TransferFailed(address(0), address(this), treasury, accountRewards);
+                revert TransferFailed(address(0), address(this), account, accountRewards);
             }
         }
 

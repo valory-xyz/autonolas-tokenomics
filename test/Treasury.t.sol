@@ -37,10 +37,10 @@ contract BaseSetup is Test {
             address(deployer), epochLen, address(0), address(0), address(0), address(0));
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Dispenser address is irrelevant in these tests, so its contract is passed as a zero address
-        treasury = new Treasury(address(olas), deployer, address(tokenomics), address(0));
+        treasury = new Treasury(address(olas), address(tokenomics), deployer, address(0));
 
         // Change to the correct treasury address
-        tokenomics.changeManagers(address(0), address(treasury), address(0), address(0));
+        tokenomics.changeManagers(address(treasury), address(0), address(0));
 
         dai.mint(deployer, initialMint);
         vm.prank(deployer);

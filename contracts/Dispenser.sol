@@ -1,21 +1,75 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "./GenericTokenomics.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
 /// @title Dispenser - Smart contract for incentives
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Dispenser is GenericTokenomics {
+contract Dispenser is IErrorsTokenomics {
+    event OwnerUpdated(address indexed owner);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event TreasuryUpdated(address indexed treasury);
+
+    // Owner address
+    address public owner;
+    // Reentrancy lock
+    uint8 internal _locked;
+
+    // Tkenomics contract address
+    address public tokenomics;
+    // Treasury contract address
+    address public treasury;
+
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     constructor(address _tokenomics, address _treasury)
-        GenericTokenomics()
     {
-        super.initialize(SENTINEL_ADDRESS, _tokenomics, _treasury, SENTINEL_ADDRESS, address(this), TokenomicsRole.Dispenser);
+        owner = msg.sender;
+        _locked = 1;
+        tokenomics = _tokenomics;
+        treasury = _treasury;
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes various managing contract addresses.
+    /// @param _tokenomics Tokenomics address.
+    /// @param _treasury Treasury address.
+    function changeManagers(address _tokenomics, address _treasury) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Change Tokenomics contract address
+        if (_tokenomics != address(0)) {
+            tokenomics = _tokenomics;
+            emit TokenomicsUpdated(_tokenomics);
+        }
+        // Change Treasury contract address
+        if (_treasury != address(0)) {
+            treasury = _treasury;
+            emit TreasuryUpdated(_treasury);
+        }
     }
 
     /// @dev Claims incentives for the owner of components / agents.

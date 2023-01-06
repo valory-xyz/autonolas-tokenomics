@@ -56,7 +56,7 @@ describe("Dispenser", async () => {
         await treasury.deployed();
 
         // Update for the correct treasury contract
-        await dispenser.changeManagers(AddressZero, treasury.address, AddressZero, AddressZero);
+        await dispenser.changeManagers(AddressZero, treasury.address);
 
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         // Deploy master tokenomics contract
@@ -79,10 +79,10 @@ describe("Dispenser", async () => {
         await attacker.deployed();
 
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        await dispenser.changeManagers(tokenomics.address, treasury.address, AddressZero, AddressZero);
+        await dispenser.changeManagers(tokenomics.address, treasury.address);
 
         // Update tokenomics address in treasury
-        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero, AddressZero);
+        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -101,7 +101,7 @@ describe("Dispenser", async () => {
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
             // Changing treasury and tokenomics addresses
-            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address, AddressZero, AddressZero);
+            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address);
             expect(await dispenser.tokenomics()).to.equal(deployer.address);
             expect(await dispenser.treasury()).to.equal(deployer.address);
 

@@ -68,9 +68,9 @@ contract BaseSetup is Test {
         tokenomics = Tokenomics(address(tokenomicsProxy));
 
         // Change tokenomics address
-        treasury.changeManagers(address(tokenomics), address(0), address(0), address(0));
+        treasury.changeManagers(address(tokenomics), address(0), address(0));
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury), address(0), address(0));
+        dispenser.changeManagers(address(tokenomics), address(treasury));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));
@@ -94,8 +94,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentives(uint64 amount0, uint64 amount1) public {
         // Amounts must be meaningful
-        vm.assume(amount0 > 1e9);
-        vm.assume(amount1 > 1e9);
+        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
+        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
         // Claim empty incentives
         vm.prank(deployer);
         (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
@@ -172,8 +172,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
         // Amounts must be bigger than zero
-        vm.assume(amount0 > 1e9);
-        vm.assume(amount1 > 1e9);
+        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
+        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -259,8 +259,8 @@ contract DispenserTest is BaseSetup {
     /// @param amount1 Amount to donate to the second service.
     function testIncentivesLoopEvenOdd(uint64 amount0, uint64 amount1) public {
         // Amounts must be bigger than zero
-        vm.assume(amount0 > 1e9);
-        vm.assume(amount1 > 1e9);
+        vm.assume(amount0 > treasury.MIN_ACCEPTED_AMOUNT());
+        vm.assume(amount1 > treasury.MIN_ACCEPTED_AMOUNT());
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);

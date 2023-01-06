@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "./GenericTokenomics.sol";
 import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
 import "./interfaces/IServiceTokenomics.sol";
 import "./interfaces/IToken.sol";
@@ -127,7 +127,11 @@ struct IncentiveBalances {
 /// @title Tokenomics - Smart contract for store/interface for key tokenomics params
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is TokenomicsConstants, GenericTokenomics {
+contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
+    event OwnerUpdated(address indexed owner);
+    event TreasuryUpdated(address indexed treasury);
+    event DepositoryUpdated(address indexed depository);
+    event DispenserUpdated(address indexed dispenser);
     event EpochLengthUpdated(uint256 epochLen);
     event EffectiveBondUpdated(uint256 effectiveBond);
     event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
@@ -140,51 +144,63 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
     event TokenomicsImplementationUpdated(address indexed implementation);
 
-    // Tokenomics version number
-    string public constant VERSION = "1.0.0";
-
-    // Voting Escrow address
-    address public ve;
+    // Owner address
+    address public owner;
     // Max bond per epoch: calculated as a fraction from the OLAS inflation parameter
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 public maxBond;
 
-    // Default epsilon rate that contributes to the interest rate: 10% or 0.1
-    // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
-    // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
-    uint64 public epsilonRate;
+    // OLAS token address
+    address public olas;
     // Inflation amount per second
     uint96 public inflationPerSecond;
+
+    // Treasury contract address
+    address public treasury;
     // veOLAS threshold for top-ups
     // This number cannot be practically bigger than the number of OLAS tokens
     uint96 public veOLASThreshold;
 
-    // Component Registry
-    address public componentRegistry;
+    // Depository contract address
+    address public depository;
     // effectiveBond = sum(MaxBond(e)) - sum(BondingProgram) over all epochs: accumulates leftovers from previous epochs
     // Effective bond is updated before the start of the next epoch such that the bonding limits are accounted for
     // This number cannot be practically bigger than the inflation remainder of OLAS
     uint96 public effectiveBond;
 
+    // Dispenser contract address
+    address public dispenser;
+    // Default epsilon rate that contributes to the interest rate: 10% or 0.1
+    // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
+    // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
+    uint64 public epsilonRate;
     // Epoch length in seconds
     // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
     uint32 public epochLen;
+
+    // Voting Escrow address
+    address public ve;
     // Global epoch counter
     // This number cannot be practically bigger than the number of blocks
     uint32 public epochCounter;
-    // Agent Registry
-    address public agentRegistry;
+    // Time launch of the OLAS contract
+    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+    uint32 public timeLaunch;
     // Current year number
     // This number is enough for the next 255 years
     uint8 public currentYear;
     // maxBond-related parameter change locker
     uint8 public lockMaxBond;
+    // Reentrancy lock
+    uint8 internal _locked;
 
+    // Component Registry
+    address public componentRegistry;
+    // Agent Registry
+    address public agentRegistry;
     // Service Registry
     address public serviceRegistry;
-    // Time launch of the OLAS contract
-    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
-    uint32 public timeLaunch;
+
 
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
@@ -207,7 +223,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     /// @dev Tokenomics constructor.
     constructor()
         TokenomicsConstants()
-        GenericTokenomics()
     {}
 
     /// @dev Tokenomics initializer.
@@ -238,10 +253,14 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         address _donatorBlacklist
     ) external
     {
-        // Initialize generic variables
-        super.initialize(_olas, address(this), _treasury, _depository, _dispenser, TokenomicsRole.Tokenomics);
+        // Check if the contract is already initialized
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
 
         // Initialize storage variables
+        owner = msg.sender;
+        _locked = 1;
         epsilonRate = 1e17;
         veOLASThreshold = 5_000e18;
         lockMaxBond = 1;
@@ -253,6 +272,10 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         }
 
         // Assign other passed variables
+        olas = _olas;
+        treasury = _treasury;
+        depository = _depository;
+        dispenser = _dispenser;
         ve = _ve;
         epochLen = uint32(_epochLen);
         componentRegistry = _componentRegistry;
@@ -338,6 +361,88 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             sstore(PROXY_TOKENOMICS, implementation)
         }
         emit TokenomicsImplementationUpdated(implementation);
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes various managing contract addresses.
+    /// @param _treasury Treasury address.
+    /// @param _depository Depository address.
+    /// @param _dispenser Dispenser address.
+    function changeManagers(address _treasury, address _depository, address _dispenser) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Change Treasury contract address
+        if (_treasury != address(0)) {
+            treasury = _treasury;
+            emit TreasuryUpdated(_treasury);
+        }
+        // Change Depository contract address
+        if (_depository != address(0)) {
+            depository = _depository;
+            emit DepositoryUpdated(_depository);
+        }
+        // Change Dispenser contract address
+        if (_dispenser != address(0)) {
+            dispenser = _dispenser;
+            emit DispenserUpdated(_dispenser);
+        }
+    }
+
+    /// @dev Changes registries contract addresses.
+    /// @param _componentRegistry Component registry address.
+    /// @param _agentRegistry Agent registry address.
+    /// @param _serviceRegistry Service registry address.
+    function changeRegistries(address _componentRegistry, address _agentRegistry, address _serviceRegistry) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for registries addresses
+        if (_componentRegistry != address(0)) {
+            componentRegistry = _componentRegistry;
+            emit ComponentRegistryUpdated(_componentRegistry);
+        }
+        if (_agentRegistry != address(0)) {
+            agentRegistry = _agentRegistry;
+            emit AgentRegistryUpdated(_agentRegistry);
+        }
+        if (_serviceRegistry != address(0)) {
+            serviceRegistry = _serviceRegistry;
+            emit ServiceRegistryUpdated(_serviceRegistry);
+        }
+    }
+
+    /// @dev Changes donator blacklist contract address.
+    /// @notice DonatorBlacklist contract can be disabled by setting its address to zero.
+    /// @param _donatorBlacklist DonatorBlacklist contract address.
+    function changeDonatorBlacklist(address _donatorBlacklist) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        donatorBlacklist = _donatorBlacklist;
+        emit DonatorBlacklistUpdated(_donatorBlacklist);
     }
 
     /// @dev Checks if the maxBond update is within allowed limits of the effectiveBond, and adjusts maxBond and effectiveBond.
@@ -509,44 +614,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             _topUpComponentFraction, _topUpAgentFraction);
     }
 
-    /// @dev Changes registries contract addresses.
-    /// @param _componentRegistry Component registry address.
-    /// @param _agentRegistry Agent registry address.
-    /// @param _serviceRegistry Service registry address.
-    function changeRegistries(address _componentRegistry, address _agentRegistry, address _serviceRegistry) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for registries addresses
-        if (_componentRegistry != address(0)) {
-            componentRegistry = _componentRegistry;
-            emit ComponentRegistryUpdated(_componentRegistry);
-        }
-        if (_agentRegistry != address(0)) {
-            agentRegistry = _agentRegistry;
-            emit AgentRegistryUpdated(_agentRegistry);
-        }
-        if (_serviceRegistry != address(0)) {
-            serviceRegistry = _serviceRegistry;
-            emit ServiceRegistryUpdated(_serviceRegistry);
-        }
-    }
-
-    /// @dev Changes donator blacklist contract address.
-    /// @notice DonatorBlacklist contract can be disabled by setting its address to zero.
-    /// @param _donatorBlacklist DonatorBlacklist contract address.
-    function changeDonatorBlacklist(address _donatorBlacklist) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        donatorBlacklist = _donatorBlacklist;
-        emit DonatorBlacklistUpdated(_donatorBlacklist);
-    }
-
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
     /// @notice Programs exceeding the limit of the effective bond are not allowed.
     /// @param amount Requested amount for the bond program.
@@ -670,6 +737,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
                             mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                         } else if (lastEpoch < curEpoch) {
                             // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+                            // Pending rewards are getting finalized during the next epoch the component / agent
+                            // receives donations. If this is not the case before claiming incentives, the finalization
+                            // happens in the accountOwnerIncentives() where the incentives are issued
                             _finalizeIncentivesForUnitId(lastEpoch, unitType, serviceUnitIds[j]);
                             // Change the last epoch number
                             mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
@@ -871,8 +941,6 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
         uint64 idf;
         if (incentives[0] > 0) {
-            // 0 for components and 1 for agents
-            uint256 mulWeights = tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight;
             // Calculate IDF from epsilon rate and f(K,D)
             // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
             // (weightComponent * weightAgent) will be divided by when assigning to another variable
@@ -891,7 +959,9 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             UD60x18 fp = fp1.add(fp2);
             // fp = fp / 100 - calculate the final value in fixed point
-            fp = fp.div(wrap(100 * mulWeights));
+            // 0 for components and 1 for agents
+            // Reserved a divider of (weightComponent * weightAgent) from the codeUnits
+            fp = fp.div(wrap(100 * tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight));
             // fKD in the state that is comparable with epsilon rate
             uint256 fKD = UD60x18.unwrap(fp);
 
@@ -987,7 +1057,7 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
-    /// @notice `account` must be the owner of components / agents they are passing, otherwise the function will revert.
+    /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
     /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
     /// @param account Account address.
@@ -1040,6 +1110,8 @@ contract Tokenomics is TokenomicsConstants, GenericTokenomics {
             // Get the last epoch number the incentives were accumulated for
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+            // The finalization is needed when the trackServiceDonations() function did not take care of it
+            // since between last epoch the donations were received and this current epoch there were no more donations
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
                 _finalizeIncentivesForUnitId(lastEpoch, unitTypes[i], unitIds[i]);
                 // Change the last epoch number

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./GenericTokenomics.sol";
+import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IGenericBondCalculator.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
@@ -28,7 +28,10 @@ import "./interfaces/ITreasury.sol";
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Depository is GenericTokenomics {
+contract Depository is IErrorsTokenomics {
+    event OwnerUpdated(address indexed owner);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event TreasuryUpdated(address indexed treasury);
     event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event CloseProduct(address indexed token, uint256 productId);
@@ -63,15 +66,26 @@ contract Depository is GenericTokenomics {
         uint32 expiry;
     }
 
+    // Owner address
+    address public owner;
     // Individual bond counter
     // We assume that the number of bonds will not be bigger than the number of seconds
     uint32 bondCounter;
     // Bond product counter
     // We assume that the number of products will not be bigger than the number of seconds
     uint32 productCounter;
+    // Reentrancy lock
+    uint8 internal _locked;
 
+    // OLAS token address
+    address public olas;
+    // Tkenomics contract address
+    address public tokenomics;
+    // Treasury contract address
+    address public treasury;
     // Bond Calculator contract address
     address public bondCalculator;
+
     // Mapping of bond Id => account bond instance
     mapping(uint256 => Bond) public mapUserBonds;
     // Mapping of product Id => bond product instance
@@ -81,11 +95,52 @@ contract Depository is GenericTokenomics {
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _tokenomics Tokenomics address.
-    constructor(address _olas, address _treasury, address _tokenomics, address _bondCalculator)
-        GenericTokenomics()
+    constructor(address _olas, address _tokenomics, address _treasury, address _bondCalculator)
     {
-        super.initialize(_olas, _tokenomics, _treasury, address(this), SENTINEL_ADDRESS, TokenomicsRole.Depository);
+        owner = msg.sender;
+        _locked = 1;
+        olas = _olas;
+        tokenomics = _tokenomics;
+        treasury = _treasury;
         bondCalculator = _bondCalculator;
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external virtual {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes various managing contract addresses.
+    /// @param _tokenomics Tokenomics address.
+    /// @param _treasury Treasury address.
+    function changeManagers(address _tokenomics, address _treasury) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Change Tokenomics contract address
+        if (_tokenomics != address(0)) {
+            tokenomics = _tokenomics;
+            emit TokenomicsUpdated(_tokenomics);
+        }
+        // Change Treasury contract address
+        if (_treasury != address(0)) {
+            treasury = _treasury;
+            emit TreasuryUpdated(_treasury);
+        }
     }
 
     /// @dev Changes Bond Calculator contract address

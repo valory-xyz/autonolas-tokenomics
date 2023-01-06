@@ -53,7 +53,7 @@ describe("Treasury", async () => {
         tokenomics = await tokenomicsFactory.deploy();
         serviceRegistry = await serviceRegistryFactory.deploy();
         // Depository and dispenser addresses are irrelevant in these tests, so we are using a deployer's address
-        treasury = await treasuryFactory.deploy(olas.address, deployer.address, tokenomics.address, deployer.address);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address);
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
         attacker = await Attacker.deploy(AddressZero, treasury.address);
@@ -78,7 +78,7 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "OwnerOnly");
 
             // Changing tokenomics, depository and dispenser addresses
-            await treasury.connect(deployer).changeManagers(signers[2].address, AddressZero, account.address, deployer.address);
+            await treasury.connect(deployer).changeManagers(signers[2].address, account.address, deployer.address);
             expect(await treasury.tokenomics()).to.equal(signers[2].address);
             expect(await treasury.depository()).to.equal(account.address);
             expect(await treasury.dispenser()).to.equal(deployer.address);
@@ -154,7 +154,7 @@ describe("Treasury", async () => {
         it("Should fail when depositing a zero value", async () => {
             await expect(
                 treasury.connect(deployer).depositServiceDonationsETH([], [])
-            ).to.be.revertedWithCustomError(treasury, "ZeroValue");
+            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
         });
 
         it("Should fail when input arrays do not match", async () => {
@@ -239,19 +239,19 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "ManagerOnly");
 
             // Change the dispenser address back to the correct one
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, deployer.address);
+            await treasury.changeManagers(deployer.address, AddressZero, deployer.address);
             // Re-balance treasury with treasury rewards
             await treasury.connect(deployer).rebalanceTreasury(treasuryRewards);
         });
 
         it("Re-balance treasury with zero treasury rewards", async () => {
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero);
             await treasury.connect(deployer).rebalanceTreasury(0);
         });
 
         it("Try to re-balance treasury with treasury balance been lower", async () => {
             // Change the tokenomics manager to the deployer address
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, AddressZero);
+            await treasury.changeManagers(deployer.address, AddressZero, AddressZero);
             // Set the amount ofr re-balance
             const amount = treasuryRewards + "0";
             const ETHFromServices = await treasury.ETHFromServices();
@@ -265,7 +265,7 @@ describe("Treasury", async () => {
 
         it("Try to withdraw to an account not by the dispenser request", async () => {
             // Change the dispenser address
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, signers[1].address);
+            await treasury.changeManagers(deployer.address, AddressZero, signers[1].address);
 
             // Try to withdraw to the deployer account address not by the dispenser request
             await expect(
@@ -275,7 +275,7 @@ describe("Treasury", async () => {
 
         it("Withdraw zero value incentives", async () => {
             // Change the dispenser address
-            await treasury.changeManagers(deployer.address, AddressZero, AddressZero, deployer.address);
+            await treasury.changeManagers(deployer.address, AddressZero, deployer.address);
 
             // Zero rewards and top-ups
             let result = await treasury.connect(deployer).callStatic.withdrawToAccount(deployer.address, 0, 0);
