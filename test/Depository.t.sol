@@ -1,26 +1,32 @@
 pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
-import "unifap-v2/UnifapV2Factory.sol";
-import "unifap-v2/UnifapV2Router.sol";
-import "unifap-v2/UnifapV2Pair.sol";
+import "zuniswapv2/ZuniswapV2Factory.sol";
+import "zuniswapv2/ZuniswapV2Router.sol";
+import "zuniswapv2/ZuniswapV2Pair.sol";
 import "./utils/Utils.sol";
 import "../contracts/Depository.sol";
-import "../contracts/test/ERC20Token.sol";
-import "unifap-v2/libraries/UnifapV2Library.sol";
-//import "solmate/test/utils/mocks/MockERC20.sol";
+import "../contracts/GenericBondCalculator.sol";
+import "../contracts/test/MockTokenomics.sol";
+import "../contracts/Treasury.sol";
+import "../lib/zuniswapv2/lib/solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
-    ERC20Token internal olas;
-    ERC20Token internal dai;
-    UnifapV2Factory internal factory;
-    UnifapV2Router internal router;
+    MockERC20 internal olas;
+    MockERC20 internal dai;
+    ZuniswapV2Factory internal factory;
+    ZuniswapV2Router internal router;
+    MockTokenomics internal tokenomics;
+    Treasury internal treasury;
+    Depository internal depository;
+    GenericBondCalculator internal genericBondCalculator;
 
     address payable[] internal users;
     address internal deployer;
     address internal dev;
     address internal pair;
+
     uint256 internal initialMint = 40_000 ether;
     uint256 internal largeApproval = 1_000_000 ether;
     uint256 internal initialLiquidity;
@@ -28,9 +34,9 @@ contract BaseSetup is Test {
     uint256 internal amountDAI = 5_000 ether;
     uint256 internal minAmountOLAS = 5_00 ether;
     uint256 internal minAmountDAI = 5_00 ether;
-
-//    MockERC20 public token0;
-//    MockERC20 public token1;
+    uint256 internal supplyProductOLAS =  2_000 ether;
+    uint256 internal defaultPriceLP = 2 ether;
+    uint256 internal vesting = 7 days;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -40,15 +46,26 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
-        // Deploy factory and router
-        factory = new UnifapV2Factory();
-        router = new UnifapV2Router(address(factory));
-
         // Get tokens and their initial mint
-        olas = new ERC20Token();
+        olas = new MockERC20("OLAS Token", "OLAS", 18);
         olas.mint(address(this), initialMint);
-        dai = new ERC20Token();
+        dai = new MockERC20("DAI Token", "DAI", 18);
         dai.mint(address(this), initialMint);
+
+        // Deploying depository, treasury and mock tokenomics contracts
+        tokenomics = new MockTokenomics();
+        // Correct depository address is missing here, it will be defined just one line below
+        treasury = new Treasury(address(olas), address(tokenomics), deployer, deployer);
+        // Deploy generic bond calculator contract
+        genericBondCalculator = new GenericBondCalculator(address(olas), address(tokenomics));
+        // Deploy depository contract
+        depository = new Depository(address(olas), address(tokenomics), address(treasury), address(genericBondCalculator));
+        // Change depository contract addresses to the correct ones
+        treasury.changeManagers(address(0), address(depository), address(0));
+
+        // Deploy factory and router
+        factory = new ZuniswapV2Factory();
+        router = new ZuniswapV2Router(address(factory));
 
         // Create LP token
         factory.createPair(address(olas), address(dai));
@@ -59,22 +76,28 @@ contract BaseSetup is Test {
         olas.approve(address(router), largeApproval);
         dai.approve(address(router), largeApproval);
 
-//        (, , initialLiquidity) = router.addLiquidity(
-//            address(dai),
-//            address(olas),
-//            amountDAI,
-//            amountOLAS,
-//            amountDAI,
-//            amountOLAS,
-//            address(this),
-//            block.timestamp + 1
-//        );
+        (, , initialLiquidity) = router.addLiquidity(
+            address(dai),
+            address(olas),
+            amountDAI,
+            amountOLAS,
+            amountDAI,
+            amountOLAS,
+            address(this)
+        );
 
-//        token0 = new MockERC20("UnifapToken0", "UT0", 18);
-//        token1 = new MockERC20("UnifapToken1", "UT1", 18);
-//
-//        token0.mint(address(this), 10 ether);
-//        token1.mint(address(this), 10 ether);
+        // Enable LP token in treasury
+        treasury.enableToken(pair);
+        uint256 priceLP = depository.getCurrentPriceLP(pair);
+
+        // Create bond product
+        depository.create(pair, priceLP, supplyProductOLAS, vesting);
+
+        // Give large approvals to accounts
+        vm.prank(deployer);
+        ZuniswapV2Pair(pair).approve(address(treasury), largeApproval);
+        vm.prank(dev);
+        ZuniswapV2Pair(pair).approve(address(treasury), largeApproval);
     }
 }
 
@@ -83,8 +106,24 @@ contract DepositoryTest is BaseSetup {
         super.setUp();
     }
 
-    function testMint() public {
-        assertEq(dai.balanceOf(deployer), initialMint);
+    function testCreateProduct() public {
+        // Trying to create a product not by the contract owner
+//        await expect(
+//        depository.connect(alice).create(pair, defaultPriceLP, supplyProductOLAS, vesting)
+//    ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+
+        // Try to give the overflow vesting value
+//        await expect(
+//        depository.create(pair, defaultPriceLP, supplyProductOLAS, maxUint32)
+//    ).to.be.revertedWithCustomError(depository, "Overflow");
+
+        // Create a second product, the first one is already created
+        uint256 priceLP = depository.getCurrentPriceLP(pair);
+        depository.create(pair, priceLP, supplyProductOLAS, vesting);
+        // Check for the product being active
+        assertEq(depository.isActiveProduct(0), true);
+        assertEq(depository.isActiveProduct(1), true);
+        assertEq(depository.isActiveProduct(2), false);
     }
 
 //    function testDefault() public {

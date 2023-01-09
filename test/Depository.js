@@ -694,11 +694,11 @@ describe("Depository LP", async () => {
             await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
 
             // Trying to deposit the amount that would result in an overflow payout for the LP supply
-            const payout = await attackDeposit.callStatic.flashAttackDepositImmune(depository.address, treasury.address,
+            const payout = await attackDeposit.callStatic.flashAttackDepositImmuneOriginal(depository.address, treasury.address,
                 pairODAI.address, olas.address, bid, amountTo, router.address);
 
             // Try to attack via flash loan
-            await attackDeposit.flashAttackDepositImmune(depository.address, treasury.address, pairODAI.address, olas.address,
+            await attackDeposit.flashAttackDepositImmuneOriginal(depository.address, treasury.address, pairODAI.address, olas.address,
                 bid, amountTo, router.address);
 
             // Check that the flash attack did not do anything but obtained the same bond as everybody

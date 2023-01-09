@@ -3,8 +3,7 @@
 const hre = require("hardhat");
 
 async function main() {
-//    var json = require("../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
-    var json = require("../../artifacts/lib/unifap-v2/src/UnifapV2Pair.sol/UnifapV2Pair.json");
+    var json = require("../../artifacts/@uniswap/v2-core/contracts/UniswapV2Pair.sol/UniswapV2Pair.json");
     const actualBytecode = json["bytecode"];
     const initHash = hre.ethers.utils.keccak256(actualBytecode);
     const initHashReplace = initHash.slice(2);

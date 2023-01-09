@@ -1,5 +1,5 @@
 #!/bin/bash
-# Real Uniswap
+# Original Uniswap V2Pair patching
 FILE="node_modules/@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol"
 x=$(npx hardhat run scripts/uni-adjust/adjust.js)
 case "$(uname -s)" in
@@ -13,23 +13,6 @@ case "$(uname -s)" in
 
    *)
      echo 'Other OS' 
-     ;;
-esac
-
-# Uniswap simulation
-FILE="lib/unifap-v2/src/UnifapV2Pair.sol"
-x=$(npx hardhat run scripts/uni-adjust/adjust.js)
-case "$(uname -s)" in
-   Darwin)
-     sed -i.bu "s/d1d193543731c8e1f46834a814b5cba11190896c4b5256f84588a284db998d60/$x/g" $FILE
-     ;;
-
-   Linux)
-     sed -i "s/d1d193543731c8e1f46834a814b5cba11190896c4b5256f84588a284db998d60/$x/g" $FILE
-     ;;
-
-   *)
-     echo 'Other OS'
      ;;
 esac
 

@@ -313,6 +313,7 @@ contract Depository is IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // TODO have a minimum vesting time the bond program should last for
         // Check for the pool liquidity as the LP price being greater than zero
         if (priceLP == 0) {
             revert ZeroValue();

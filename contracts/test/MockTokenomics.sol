@@ -55,4 +55,9 @@ contract MockTokenomics {
     function simulateFailure() external pure {
         revert();
     }
+
+    /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
+    function reserveAmountForBondProgram(uint256) external pure returns (bool) {
+        return true;
+    }
 }
