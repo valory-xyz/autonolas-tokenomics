@@ -166,6 +166,11 @@ contract Depository is IErrorsTokenomics {
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
+        // Check the token amount
+        if (tokenAmount == 0) {
+            revert ZeroValue();
+        }
+
         Product storage product = mapBondProducts[productId];
 
         // Get the LP token address
