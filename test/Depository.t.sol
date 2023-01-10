@@ -108,14 +108,13 @@ contract DepositoryTest is BaseSetup {
 
     function testCreateProduct() public {
         // Trying to create a product not by the contract owner
-//        await expect(
-//        depository.connect(alice).create(pair, defaultPriceLP, supplyProductOLAS, vesting)
-//    ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+        vm.prank(deployer);
+        vm.expectRevert();
+        depository.create(pair, defaultPriceLP, supplyProductOLAS, vesting);
 
         // Try to give the overflow vesting value
-//        await expect(
-//        depository.create(pair, defaultPriceLP, supplyProductOLAS, maxUint32)
-//    ).to.be.revertedWithCustomError(depository, "Overflow");
+        vm.expectRevert();
+        depository.create(pair, defaultPriceLP, supplyProductOLAS, type(uint32).max);
 
         // Create a second product, the first one is already created
         uint256 priceLP = depository.getCurrentPriceLP(pair);
@@ -125,34 +124,40 @@ contract DepositoryTest is BaseSetup {
         assertEq(depository.isActiveProduct(1), true);
         assertEq(depository.isActiveProduct(2), false);
     }
+    
+    function testDeposit() public {
+        // Transfer LP tokens to deployer
+        ZuniswapV2Pair(pair).transfer(deployer, 1250 ether);
+        uint256 bamount = ZuniswapV2Pair(pair).balanceOf(deployer);
+        // Deposit to the product Id 0
+        vm.prank(deployer);
+        depository.deposit(0, bamount);
+        // Check the size of pending bond array
+        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, false);
+        assertEq(bondIds.length, 1);
+        (uint256 payout, ) = depository.getBondStatus(0);
+        // The default IDF without any incentivized coefficient or epsilon rate is 1
+        // 1250 * 1.0 = 1250 * e18
+        assertEq(payout, 1250 ether);
+    }
+    
+    function testCreateDepositRedeemClose() public {
+        // Transfer LP tokens to deployer
+        ZuniswapV2Pair(pair).transfer(deployer, 1250 ether);
+        uint256 bamount = ZuniswapV2Pair(pair).balanceOf(deployer);
 
-//    function testDefault() public {
-//        token0.approve(address(router), 1 ether);
-//        token1.approve(address(router), 1 ether);
-//
-//        (address _token0, address _token1) = UnifapV2Library.sortPairs(
-//            address(token0),
-//            address(token1)
-//        );
-//        address pair = UnifapV2Library.pairFor(
-//            address(factory),
-//            _token0,
-//            _token1
-//        );
-//
-////        factory.createPair(address(token0), address(token1));
-//        (, , uint256 liquidity) = router.addLiquidity(
-//            address(token0),
-//            address(token1),
-//            1 ether,
-//            1 ether,
-//            1 ether,
-//            1 ether,
-//            address(this),
-//            block.timestamp + 1
-//        );
-//
-//        assertEq(liquidity, 1 ether - UnifapV2Pair(pair).MINIMUM_LIQUIDITY());
-//        assertEq(factory.pairs(address(token0), address(token1)), pair);
-//    }
+        // Make a bond deposit for the product Id 0
+        vm.prank(deployer);
+        depository.deposit(0, bamount);
+
+        // Increase time such that the vesting is complete
+        vm.warp(block.timestamp + vesting + 60);
+        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, true);
+        // Redeem the bond
+        vm.prank(deployer);
+        depository.redeem(bondIds);
+        // Try to close the already closed bond program
+        vm.expectRevert();
+        depository.close(0);
+    }
 }

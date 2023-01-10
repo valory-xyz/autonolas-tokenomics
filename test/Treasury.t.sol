@@ -54,7 +54,7 @@ contract TreasuryTest is BaseSetup {
         super.setUp();
     }
 
-    function testDeposit() public {
+    function testAmount() public {
         // toggle DAI as reserve token (as example)
         treasury.enableToken(address(dai));
 
