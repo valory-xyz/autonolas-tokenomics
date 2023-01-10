@@ -166,6 +166,11 @@ contract Depository is IErrorsTokenomics {
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
+        // Check the token amount
+        if (tokenAmount == 0) {
+            revert ZeroValue();
+        }
+
         Product storage product = mapBondProducts[productId];
 
         // Get the LP token address
@@ -179,7 +184,7 @@ contract Depository is IErrorsTokenomics {
         }
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
-        // Note that payout cannot be zero since the price LP is non-zero, since otherwise the product would not be created
+        // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
         payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
@@ -211,10 +216,10 @@ contract Depository is IErrorsTokenomics {
         for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
             uint256 pay = mapUserBonds[bondIds[i]].payout;
-            bool matured = (block.timestamp >= mapUserBonds[bondIds[i]].maturity) && (pay > 0);
+            bool matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity;
 
             // Revert if the bond does not exist or is not matured yet
-            if (!matured) {
+            if (pay == 0 || !matured) {
                 revert BondNotRedeemable(bondIds[i]);
             }
 
@@ -260,14 +265,17 @@ contract Depository is IErrorsTokenomics {
         bool[] memory positions = new bool[](numBonds);
         // Record the bond number if it belongs to the account address and was not yet redeemed
         for (uint256 i = 0; i < numBonds; i++) {
-            if (mapUserBonds[i].account == account && mapUserBonds[i].payout > 0) {
+            // Check if the bond belongs to the account
+            // If not and the address is zero, the bond was redeemed or never existed
+            if (mapUserBonds[i].account == account) {
                 // Check if requested bond is not matured but owned by the account address
                 if (!matured ||
                     // Or if the requested bond is matured, i.e., the bond maturity timestamp passed
-                    mapUserBonds[i].maturity < block.timestamp)
+                    block.timestamp >= mapUserBonds[i].maturity)
                 {
                     positions[i] = true;
                     ++numAccountBonds;
+                    // The payout is always bigger than zero if the bond exists
                     payout += mapUserBonds[i].payout;
                 }
             }
@@ -290,7 +298,10 @@ contract Depository is IErrorsTokenomics {
     /// @return matured True if the payout can be redeemed.
     function getBondStatus(uint256 bondId) external view returns (uint256 payout, bool matured) {
         payout = mapUserBonds[bondId].payout;
-        matured = (block.timestamp >= mapUserBonds[bondId].maturity) && payout > 0;
+        // If payout is zero, the bond has been redeemed or never existed
+        if (payout > 0) {
+            matured = block.timestamp >= mapUserBonds[bondId].maturity;
+        }
     }
 
     /// @dev Creates a new bond product.

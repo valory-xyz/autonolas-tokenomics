@@ -189,7 +189,6 @@ contract Treasury is IErrorsTokenomics {
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external {
         // TODO shall the contract continue receiving LP / minting OLAS when paused?
-
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
