@@ -34,10 +34,10 @@ contract AttackDeposit {
     
     constructor() {}
 
-    /// @dev Emulate attack against deposit using the original Uniswap interface.
-    /// @param treasury Address of depository.
+    /// @dev Emulate attack against depository using the original Uniswap interface.
+    /// @param depository Address of depository.
     /// @param treasury Address of treasury.
-    /// @param token Address of pair
+    /// @param token Address of an LP token.
     /// @param olas Address of OLAS token
     /// @param bid number of bid
     /// @param amountTo amount LP for deposit.
@@ -99,7 +99,7 @@ contract AttackDeposit {
         // console.log("AttackDeposit ## DAI reserved before swap", balanceDAI);
     }
 
-    /// @dev Emulate attack against deposit using the cloned implementation of Uniswap.
+    /// @dev Emulate attack against depository using the cloned implementation of Uniswap.
     /// @param treasury Address of depository.
     /// @param treasury Address of treasury.
     /// @param token Address of pair
