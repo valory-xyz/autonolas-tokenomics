@@ -5,7 +5,7 @@ import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
-import "./interfaces/IServiceTokenomics.sol";
+import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
@@ -723,8 +723,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Loop over component and agent Ids
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
-                (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceTokenomics(serviceRegistry).
-                    getUnitIdsOfService(IServiceTokenomics.UnitType(unitType), serviceIds[i]);
+                (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceRegistry(serviceRegistry).
+                    getUnitIdsOfService(IServiceRegistry.UnitType(unitType), serviceIds[i]);
                 // Service has to be deployed at least once to be able to receive donations,
                 // otherwise its components and agents are undefined
                 if (numServiceUnits == 0) {
@@ -812,7 +812,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Loop over service Ids, accumulate donation value and check for the service existence
         for (uint256 i = 0; i < numServices; ++i) {
             // Check for the service Id existence
-            if (!IServiceTokenomics(serviceRegistry).exists(serviceIds[i])) {
+            if (!IServiceRegistry(serviceRegistry).exists(serviceIds[i])) {
                 revert ServiceDoesNotExist(serviceIds[i]);
             }
         }

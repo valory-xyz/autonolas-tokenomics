@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "compile": "./scripts/uni-adjust/adjust-point.sh && ./node_modules/.bin/hardhat compile && ./scripts/uni-adjust/adjust-pair.sh && ./node_modules/.bin/hardhat compile"
+    "compile": "scripts/uni-adjust/adjust-pair-clone.sh && ./scripts/uni-adjust/adjust-point.sh && ./node_modules/.bin/hardhat compile && ./scripts/uni-adjust/adjust-pair.sh && ./node_modules/.bin/hardhat compile"
   },
   "repository": {
     "type": "git",

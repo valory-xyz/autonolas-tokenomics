@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./interfaces/ITokenomics.sol";
+import "./interfaces/IUniswapV2Pair.sol";
 
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.
@@ -41,7 +41,7 @@ contract GenericBondCalculator {
     /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
     {
-        IUniswapV2Pair pair = IUniswapV2Pair(address(token));
+        IUniswapV2Pair pair = IUniswapV2Pair(token);
         uint256 totalSupply = pair.totalSupply();
         if (totalSupply > 0) {
             address token0 = pair.token0();

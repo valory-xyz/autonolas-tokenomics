@@ -3,7 +3,7 @@ const { ethers, network } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("Depository LP", async () => {
+describe("Depository LP 2", async () => {
     const decimals = "0".repeat(18);
     // 1 million token
     const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
@@ -99,17 +99,25 @@ describe("Depository LP", async () => {
         // Change the minter to treasury
         await olas.changeMinter(treasury.address);
 
-        const wethFactory = await ethers.getContractFactory("WETH9");
-        const weth = await wethFactory.deploy();
         // Deploy Uniswap factory
-        const Factory = await ethers.getContractFactory("UniswapV2Factory");
-        factory = await Factory.deploy(deployer.address);
+        const Factory = await ethers.getContractFactory("ZuniswapV2Factory");
+        factory = await Factory.deploy();
         await factory.deployed();
         // console.log("Uniswap factory deployed to:", factory.address);
 
+        // Deploy Uniswap V2 library
+        const ZuniswapV2Library = await ethers.getContractFactory("ZuniswapV2Library");
+        const zuniswapV2Library = await ZuniswapV2Library.deploy();
+        await zuniswapV2Library.deployed();
+
         // Deploy Router02
-        const Router = await ethers.getContractFactory("UniswapV2Router02");
-        router = await Router.deploy(factory.address, weth.address);
+        const Router = await ethers.getContractFactory("ZuniswapV2Router", {
+            libraries: {
+                ZuniswapV2Library: zuniswapV2Library.address,
+            },
+        });
+
+        router = await Router.deploy(factory.address);
         await router.deployed();
         // console.log("Uniswap router02 deployed to:", router.address);
 
@@ -124,7 +132,7 @@ describe("Depository LP", async () => {
         // console.log("olas[%s]:DAI[%s] pool", pairODAIdata[0], pairODAIdata[1]);
         let pairAddress = await factory.allPairs(0);
         // console.log("olas - DAI address:", pairAddress);
-        pairODAI = await ethers.getContractAt("UniswapV2Pair", pairAddress);
+        pairODAI = await ethers.getContractAt("ZuniswapV2Pair", pairAddress);
         // let reserves = await pairODAI.getReserves();
         // console.log("olas - DAI reserves:", reserves.toString());
         // console.log("balance dai for deployer:",(await dai.balanceOf(deployer.address)));
@@ -135,7 +143,6 @@ describe("Depository LP", async () => {
         const amountDAI = "5" + "0".repeat(3) + decimals;
         const minAmountOLA =  "5" + "0".repeat(2) + decimals;
         const minAmountDAI = "1" + "0".repeat(3) + decimals;
-        const deadline = Date.now() + 1000;
         const toAddress = deployer.address;
         await olas.approve(router.address, LARGE_APPROVAL);
         await dai.approve(router.address, LARGE_APPROVAL);
@@ -147,8 +154,7 @@ describe("Depository LP", async () => {
             amountOLAS,
             minAmountDAI,
             minAmountOLA,
-            toAddress,
-            deadline
+            toAddress
         );
 
         //console.log("deployer LP balance:", await pairODAI.balanceOf(deployer.address));
@@ -333,7 +339,6 @@ describe("Depository LP", async () => {
             const amountToken2 = "5" + "0".repeat(3) + decimals;
             const minAmountToken1 =  "5" + "0".repeat(2) + decimals;
             const minAmountToken2 = "1" + "0".repeat(3) + decimals;
-            const deadline = Date.now() + 1000;
             const toAddress = deployer.address;
             await ercToken1.approve(router.address, LARGE_APPROVAL);
             await ercToken2.approve(router.address, LARGE_APPROVAL);
@@ -345,8 +350,7 @@ describe("Depository LP", async () => {
                 amountToken2,
                 minAmountToken1,
                 minAmountToken2,
-                toAddress,
-                deadline
+                toAddress
             );
 
             // Enable the new LP token without liquidity
@@ -374,7 +378,6 @@ describe("Depository LP", async () => {
             const amountToken2 = "1" + "0".repeat(4) + decimals;
             const minAmountToken1 =  "5" + decimals;
             const minAmountToken2 = "1" + "0".repeat(3) + decimals;
-            const deadline = Date.now() + 1000;
             const toAddress = deployer.address;
             await olas.approve(router.address, LARGE_APPROVAL);
             await ercToken.approve(router.address, LARGE_APPROVAL);
@@ -386,8 +389,7 @@ describe("Depository LP", async () => {
                 amountToken2,
                 minAmountToken1,
                 minAmountToken2,
-                toAddress,
-                deadline
+                toAddress
             );
 
             // Enable the new LP token without liquidity
@@ -432,12 +434,6 @@ describe("Depository LP", async () => {
             await olas.approve(router.address, LARGE_APPROVAL);
             await dai.approve(router.address, LARGE_APPROVAL);
 
-            // Try to deposit zero amount of LP tokens
-            await expect(
-                depository.connect(bob).deposit(bid, 0)
-            ).to.be.revertedWithCustomError(depository, "ZeroValue");
-
-            // Get the full amount of LP tokens and deposit them
             const bamount = (await pairODAI.balanceOf(bob.address));
             await depository.connect(bob).deposit(bid, bamount);
             expect(Array(await depository.getPendingBonds(bob.address, false)).length).to.equal(1);
@@ -700,11 +696,11 @@ describe("Depository LP", async () => {
             await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
 
             // Trying to deposit the amount that would result in an overflow payout for the LP supply
-            const payout = await attackDeposit.callStatic.flashAttackDepositImmuneOriginal(depository.address, treasury.address,
+            const payout = await attackDeposit.callStatic.flashAttackDepositImmuneClone(depository.address, treasury.address,
                 pairODAI.address, olas.address, bid, amountTo, router.address);
 
             // Try to attack via flash loan
-            await attackDeposit.flashAttackDepositImmuneOriginal(depository.address, treasury.address, pairODAI.address, olas.address,
+            await attackDeposit.flashAttackDepositImmuneClone(depository.address, treasury.address, pairODAI.address, olas.address,
                 bid, amountTo, router.address);
 
             // Check that the flash attack did not do anything but obtained the same bond as everybody

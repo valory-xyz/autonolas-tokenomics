@@ -6,6 +6,7 @@ contract MockTokenomics {
     uint256 public epochCounter = 1;
     uint256 public mintCap = 1_000_000_000e18;
     uint256 public topUps = 40 ether;
+    uint256 public lastIDF = 1e18;
     address public serviceRegistry;
     bool public initialized;
 
@@ -54,5 +55,19 @@ contract MockTokenomics {
     /// @dev Simulates the function that fails.
     function simulateFailure() external pure {
         revert();
+    }
+
+    /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
+    function reserveAmountForBondProgram(uint256) external pure returns (bool) {
+        return true;
+    }
+
+    /// @dev Refunds unused bond program amount when the program is closed.
+    function refundFromBondProgram(uint256) external {
+    }
+
+    /// @dev Gets last IDF
+    function getLastIDF() external view returns (uint256) {
+        return lastIDF;
     }
 }

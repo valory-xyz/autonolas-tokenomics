@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IOLAS.sol";
-import "./interfaces/IServiceTokenomics.sol";
+import "./interfaces/IToken.sol";
+import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/ITokenomics.sol";
 
 /*
@@ -204,14 +204,14 @@ contract Treasury is IErrorsTokenomics {
         mapTokenReserves[token] = reserves;
 
         // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
-        if (IERC20(token).allowance(account, address(this)) < tokenAmount) {
-            revert InsufficientAllowance(IERC20(token).allowance((account), address(this)), tokenAmount);
+        if (IToken(token).allowance(account, address(this)) < tokenAmount) {
+            revert InsufficientAllowance(IToken(token).allowance((account), address(this)), tokenAmount);
         }
 
         // Transfer tokens from account to treasury and add to the token treasury reserves
         // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
         // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
-        bool success = IERC20(token).transferFrom(account, address(this), tokenAmount);
+        bool success = IToken(token).transferFrom(account, address(this), tokenAmount);
         if (!success) {
             revert TransferFailed(token, account, address(this), tokenAmount);
         }
@@ -327,7 +327,7 @@ contract Treasury is IErrorsTokenomics {
                 // Transfer LP token
                 // We assume that LP tokens enabled in the protocol are safe by default
                 // UniswapV2ERC20 realization has a standard transfer() function
-                success = IERC20(token).transfer(to, tokenAmount);
+                success = IToken(token).transfer(to, tokenAmount);
                 if (!success) {
                     revert TransferFailed(token, address(this), to, tokenAmount);
                 }
@@ -474,13 +474,13 @@ contract Treasury is IErrorsTokenomics {
         address serviceRegistry = ITokenomics(tokenomics).serviceRegistry();
 
         // Check if the amount of slashed funds are at least the minimum required amount to receive by the Treasury
-        uint256 slashedFunds = IServiceTokenomics(serviceRegistry).slashedFunds();
+        uint256 slashedFunds = IServiceRegistry(serviceRegistry).slashedFunds();
         if (slashedFunds < minAcceptedETH) {
             revert AmountLowerThan(slashedFunds, minAcceptedETH);
         }
 
         // Call the service registry drain function
-        amount = IServiceTokenomics(serviceRegistry).drain();
+        amount = IServiceRegistry(serviceRegistry).drain();
     }
 
     /// @dev Pauses the contract.
