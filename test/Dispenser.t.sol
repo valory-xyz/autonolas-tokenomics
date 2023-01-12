@@ -96,9 +96,11 @@ contract DispenserTest is BaseSetup {
         // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
-        // Claim empty incentives
+
+        // Try to claim empty incentives
         vm.prank(deployer);
-        (uint256 reward, uint256 topUp, ) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
+        vm.expectRevert();
+        (uint256 reward, uint256 topUp) = dispenser.claimOwnerIncentives(emptyArray, emptyArray);
         assertEq(reward, 0);
         assertEq(topUp, 0);
 
@@ -157,7 +159,7 @@ contract DispenserTest is BaseSetup {
         uint256 balanceETH = address(deployer).balance;
         uint256 balanceOLAS = olas.balanceOf(deployer);
         vm.prank(deployer);
-        (rewards0, topUps0, ) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
+        (rewards0, topUps0) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
 
         // Check the ETH and OLAS balance after receiving incentives
         balanceETH = address(deployer).balance - balanceETH;
@@ -243,7 +245,7 @@ contract DispenserTest is BaseSetup {
             uint256 balanceETH = address(deployer).balance;
             uint256 balanceOLAS = olas.balanceOf(deployer);
             vm.prank(deployer);
-            (rewards0, topUps0, ) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
+            (rewards0, topUps0) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
 
             // Check the ETH and OLAS balance after receiving incentives
             balanceETH = address(deployer).balance - balanceETH;
@@ -314,7 +316,7 @@ contract DispenserTest is BaseSetup {
                 uint256 balanceETH = address(deployer).balance;
                 uint256 balanceOLAS = olas.balanceOf(deployer);
                 vm.prank(deployer);
-                (rewards[0], topUps[0],) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
+                (rewards[0], topUps[0]) = dispenser.claimOwnerIncentives(unitTypes, unitIds);
 
                 // Check the ETH and OLAS balance after receiving incentives
                 balanceETH = address(deployer).balance - balanceETH;
