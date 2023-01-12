@@ -79,9 +79,8 @@ contract Dispenser is IErrorsTokenomics {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    /// @return success True if the claim is successful and has at least one non-zero incentive.
     function claimOwnerIncentives(uint256[] memory unitTypes, uint256[] memory unitIds) external
-        returns (uint256 reward, uint256 topUp, bool success)
+        returns (uint256 reward, uint256 topUp)
     {
         // Reentrancy guard
         if (_locked > 1) {
@@ -91,9 +90,16 @@ contract Dispenser is IErrorsTokenomics {
 
         // Calculate incentives
         (reward, topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender, unitTypes, unitIds);
+
+        bool success;
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0
         if ((reward + topUp) > 0) {
             success = ITreasury(treasury).withdrawToAccount(msg.sender, reward, topUp);
+        }
+
+        // Check if the claim is successful and has at least one non-zero incentive.
+        if (!success) {
+            revert ClaimIncentivesFailed(msg.sender, reward, topUp);
         }
 
         _locked = 1;

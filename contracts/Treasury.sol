@@ -280,7 +280,7 @@ contract Treasury is IErrorsTokenomics {
     /// @param to Address to transfer funds to.
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
-    /// @return success True is the transfer is successful.
+    /// @return success True if the transfer is successful.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
     ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
@@ -290,6 +290,12 @@ contract Treasury is IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check that the withdraw address is not treasury itself
+        if (to == address(this)) {
+            revert TransferFailed(token, address(this), to, tokenAmount);
+        }
+
+        // Check for the zero withdraw amount
         if (tokenAmount == 0) {
             revert ZeroValue();
         }

@@ -250,6 +250,11 @@ describe("Treasury", async () => {
             // Check the ETH balance of the treasury
             expect(await treasury.ETHOwned()).to.equal(amount);
 
+            // Try to withdraw to the treasury address itself
+            await expect(
+                treasury.withdraw(treasury.address, amount, ETHAddress)
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
+
             // Try to withdraw ETH to the address that cannot accept ETH
             await expect(
                 treasury.withdraw(attacker.address, amount, ETHAddress)

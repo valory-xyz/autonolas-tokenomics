@@ -483,6 +483,12 @@ describe("Depository LP", async () => {
         });
 
         it("Redeem OLAS after the product is vested", async () => {
+            // Try to redeem with empty bond list
+            await expect(
+                depository.connect(bob).redeem([])
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+
+            // Deposit LP tokens
             let amount = (await pairODAI.balanceOf(bob.address));
             let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(bid, amount);
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);

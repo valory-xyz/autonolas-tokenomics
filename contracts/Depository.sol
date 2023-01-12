@@ -241,6 +241,11 @@ contract Depository is IErrorsTokenomics {
                 emit CloseProduct(token, productId);
             }
         }
+
+        // Check for the non0zero payout
+        if (payout == 0) {
+            revert ZeroValue();
+        }
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
         // No need to check for the return value, since it either reverts or returns true, see the ERC20 implementation
         IToken(olas).transfer(msg.sender, payout);

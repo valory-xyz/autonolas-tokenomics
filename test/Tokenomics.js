@@ -423,6 +423,19 @@ describe("Tokenomics", async () => {
             await componentRegistry.changeUnitOwner(2, deployer.address);
             await agentRegistry.changeUnitOwner(2, deployer.address);
 
+            // Try to get incentives for non-existent components
+            await expect(
+                tokenomics.connect(deployer).getOwnerIncentives(deployer.address, [0], [0])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+
+            // Try to get and claim owner rewards with non-existent components bigget than the total supply
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [3, 4])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [3, 4])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+
             // Try to get incentives with the incorrect unit order
             await expect(
                 tokenomics.getOwnerIncentives(deployer.address, [0, 0, 1, 1], [2, 1, 1, 1])
