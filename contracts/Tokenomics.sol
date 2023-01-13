@@ -558,7 +558,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
     ///#if_succeeds {:msg "ep is correct endTime"} epochCounter >= 2 ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
     ///#if_succeeds {:msg "ep is correct maxBondFraction"} mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction > 0;
-    ///#if_succeeds {:msg "maxBond"} old(_maxBondFraction > 0 && mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction) ==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
+    ///#if_succeeds {:msg "maxBond"} old(mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction) ==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeIncentiveFractions(
@@ -591,7 +591,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Rewards are always distributed in full: the leftovers will be allocated to treasury
         tp.epochPoint.rewardTreasuryFraction = uint8(100 - _rewardComponentFraction - _rewardAgentFraction);
 
-        // TODO Can maxBond be zero? If not, what would be the minimal fraction?
         // Check if the maxBondFraction changes
         uint256 oldMaxBondFraction = tp.epochPoint.maxBondFraction;
         if (oldMaxBondFraction != _maxBondFraction) {
@@ -1101,7 +1100,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 revert Overflow(unitTypes[i], 1);
             }
 
-            // Check that the unit Ids are in ascending order and not repeating
+            // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
             if (unitIds[i] < (lastIds[unitTypes[i]] + 1) || unitIds[i] > registriesSupply[unitTypes[i]]) {
                 revert WrongUnitId(unitIds[i], unitTypes[i]);
             }
@@ -1171,7 +1170,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 revert Overflow(unitTypes[i], 1);
             }
 
-            // Check that the unit Ids are in ascending order and not repeating
+            // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
             if (unitIds[i] < (lastIds[unitTypes[i]] + 1) || unitIds[i] > registriesSupply[unitTypes[i]]) {
                 revert WrongUnitId(unitIds[i], unitTypes[i]);
             }

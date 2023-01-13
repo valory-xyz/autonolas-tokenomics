@@ -876,7 +876,7 @@ describe("Dispenser", async () => {
             expect(Math.abs(Number(accountRewards.sub(checkedReward)))).to.lessThan(delta);
             expect(Math.abs(Number(accountTopUps.sub(checkedTopUp)))).to.lessThan(delta);
 
-            // Try to claim rewards and top-ups for owners
+            // Try to claim rewards and top-ups for owners when all the incentives are zeros
             await expect(
                 dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1])
             ).to.be.revertedWithCustomError(dispenser, "ClaimIncentivesFailed");

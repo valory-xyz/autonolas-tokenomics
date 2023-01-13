@@ -242,7 +242,7 @@ contract Depository is IErrorsTokenomics {
             }
         }
 
-        // Check for the non0zero payout
+        // Check for the non-zero payout
         if (payout == 0) {
             revert ZeroValue();
         }
