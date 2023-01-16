@@ -240,6 +240,20 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _donatorBlacklist DonatorBlacklist address.
     ///#if_succeeds {:msg "ep is correct endTime"} mapEpochTokenomics[0].epochPoint.endTime > 0;
     ///#if_succeeds {:msg "maxBond eq effectiveBond form start"} effectiveBond == maxBond;
+    ///#if_succeeds {:msg "olas must not be a zero address"} old(_olas) != address(0) ==> olas == _olas;
+    ///#if_succeeds {:msg "treasury must not be a zero address"} old(_treasury) != address(0) ==> treasury == _treasury;
+    ///#if_succeeds {:msg "depository must not be a zero address"} old(_depository) != address(0) ==> depository == _depository;
+    ///#if_succeeds {:msg "dispenser must not be a zero address"} old(_dispenser) != address(0) ==> dispenser == _dispenser;
+    ///#if_succeeds {:msg "vaOLAS must not be a zero address"} old(_ve) != address(0) ==> ve == _ve;
+    ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max) ==> epochLen == _epochLen;
+    ///#if_succeeds {:msg "componentRegistry must not be a zero address"} old(_componentRegistry) != address(0) ==> componentRegistry == _componentRegistry;
+    ///#if_succeeds {:msg "agentRegistry must not be a zero address"} old(_agentRegistry) != address(0) ==> agentRegistry == _agentRegistry;
+    ///#if_succeeds {:msg "serviceRegistry must not be a zero address"} old(_serviceRegistry) != address(0) ==> serviceRegistry == _serviceRegistry;
+    ///#if_succeeds {:msg "donatorBlacklist assignment"} donatorBlacklist == _donatorBlacklist;
+    ///#if_succeeds {:msg "inflationPerSecond must not be zero"} inflationPerSecond > 0 && inflationPerSecond <= getInflationForYear(0);
+    ///#if_succeeds {:msg "Zero epoch point end time must be non-zero"} mapEpochTokenomics[0].epochPoint.endTime > 0;
+    ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max && inflationPerSecond > 0 && inflationPerSecond <= getInflationForYear(0))
+    ///==> maxBond == (inflationPerSecond * _epochLen * mapEpochTokenomics[1].epochPoint.maxBondFraction) / 100;
     function initializeTokenomics(
         address _olas,
         address _treasury,
@@ -256,6 +270,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check if the contract is already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
+        }
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _treasury == address(0) || _depository == address(0) || _dispenser == address(0) ||
+            _ve == address(0) || _componentRegistry == address(0) || _agentRegistry == address(0) ||
+            _serviceRegistry == address(0)) {
+            revert ZeroAddress();
         }
 
         // Initialize storage variables

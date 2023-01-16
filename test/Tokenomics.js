@@ -153,6 +153,21 @@ describe("Tokenomics", async () => {
             ).to.be.reverted;
         });
 
+        it("Should fail when at least one of the must-be-non-zero initialization contracts has a zero address", async function () {
+            // Deploy master tokenomics contract
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+            await tokenomicsMaster.deployed();
+
+            // Try to deploy Tokenomics proxy
+            const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+        });
+
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
             expect(fiveYearSupplyCap).to.equal("8718353429" + "0".repeat(17));
