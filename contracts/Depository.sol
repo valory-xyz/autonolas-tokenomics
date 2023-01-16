@@ -171,6 +171,11 @@ contract Depository is IErrorsTokenomics {
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
+        // Check the token amount
+        if (tokenAmount == 0) {
+            revert ZeroValue();
+        }
+
         Product storage product = mapBondProducts[productId];
 
         // Get the LP token address
@@ -216,7 +221,7 @@ contract Depository is IErrorsTokenomics {
         for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
             uint256 pay = mapUserBonds[bondIds[i]].payout;
-            bool matured = mapUserBonds[bondIds[i]].maturity < block.timestamp;
+            bool matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity;
 
             // Revert if the bond does not exist or is not matured yet
             if (pay == 0 || !matured) {
@@ -276,7 +281,7 @@ contract Depository is IErrorsTokenomics {
                 // Check if requested bond is not matured but owned by the account address
                 if (!matured ||
                     // Or if the requested bond is matured, i.e., the bond maturity timestamp passed
-                    mapUserBonds[i].maturity < block.timestamp)
+                    block.timestamp >= mapUserBonds[i].maturity)
                 {
                     positions[i] = true;
                     ++numAccountBonds;
@@ -305,7 +310,7 @@ contract Depository is IErrorsTokenomics {
         payout = mapUserBonds[bondId].payout;
         // If payout is zero, the bond has been redeemed or never existed
         if (payout > 0) {
-            matured = mapUserBonds[bondId].maturity < block.timestamp;
+            matured = block.timestamp >= mapUserBonds[bondId].maturity;
         }
     }
 

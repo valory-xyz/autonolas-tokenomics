@@ -659,6 +659,12 @@ describe("Depository LP", async () => {
             await olas.approve(router.address, LARGE_APPROVAL);
             await dai.approve(router.address, LARGE_APPROVAL);
 
+            // Try to deposit zero amount of LP tokens
+            await expect(
+                depository.connect(bob).deposit(bid, 0)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+
+            // Get the full amount of LP tokens and deposit them
             const bamount = (await pairODAI.balanceOf(bob.address));
             await depository.connect(bob).deposit(bid, bamount);
             expect(Array(await depository.getPendingBonds(bob.address, false)).length).to.equal(1);
