@@ -479,7 +479,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < 4294967296 && epochLen != _epochLen) ==> epochLen == _epochLen;
     ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 && _devsPerCapital < 4294967296 ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital == _devsPerCapital;
     ///#if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
-    ///#if_succeeds {:msg "maxBond"} old(_epochLen > 0 && epochLen != _epochLen) ==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
+    ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < 4294967296 && epochLen != _epochLen) ==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeTokenomicsParameters(
