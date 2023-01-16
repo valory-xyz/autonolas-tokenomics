@@ -168,6 +168,9 @@ contract Depository is IErrorsTokenomics {
     /// @return expiry Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
     ///#if_succeeds {:msg "token is valid"} mapBondProducts[productId].token != address(0);
+    ///#if_succeeds {:msg "input supply is non-zero"} old(mapBondProducts[productId].supply) > 0 && mapBondProducts[productId].supply < type(uint96).max;
+    ///#if_succeeds {:msg "expiry is non-zero"} mapBondProducts[productId].expiry > 0 && mapBondProducts[productId].expiry < type(uint32).max;
+    ///#if_succeeds {:msg "bond Id"} bondCounter == old(bondCounter) + 1 && bondCounter < type(uint32).max;
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
@@ -215,8 +218,11 @@ contract Depository is IErrorsTokenomics {
     /// @dev Redeem account bonds.
     /// @param bondIds Bond Ids to redeem.
     /// @return payout Total payout sent in OLAS tokens.
-    ///#if_succeeds {:msg "payout > 0" }  payout > 0;
-    ///#if_succeeds {:msg "msg.sender only and delete" } old(forall (uint k in bondIds) mapUserBonds[bondIds[k]].account == msg.sender);   
+    ///#if_succeeds {:msg "payout > 0"} payout > 0;
+    ///#if_succeeds {:msg "msg.sender is the only owner"} old(forall (uint k in bondIds) mapUserBonds[bondIds[k]].account == msg.sender);
+    ///#if_succeeds {:msg "accounts deleted"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].account == address(0);
+    ///#if_succeeds {:msg "payouts are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].payout == 0;
+    ///#if_succeeds {:msg "maturities are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].maturity == 0;
     function redeem(uint256[] memory bondIds) public returns (uint256 payout) {
         for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
@@ -320,8 +326,8 @@ contract Depository is IErrorsTokenomics {
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    ///#if_succeeds {:msg "productCounter increases" } productCounter == old(productCounter + 1);
-    ///#if_succeeds {:msg "isActive" } mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp;
+    ///#if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter + 1);
+    ///#if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp;
     function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -360,8 +366,8 @@ contract Depository is IErrorsTokenomics {
     /// @dev Close a bonding product.
     /// @notice This will terminate the program regardless of the expiration time.
     /// @param productId Product Id.
-    ///#if_succeeds {:msg "productCounter not touched" } productCounter == old(productCounter);
-    ///#if_succeeds {:msg "success closed" } mapBondProducts[productId].expiry == 0 || mapBondProducts[productId].supply == 0;
+    ///#if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
+    ///#if_succeeds {:msg "success closed"} mapBondProducts[productId].expiry == 0 || mapBondProducts[productId].supply == 0;
     function close(uint256 productId) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
