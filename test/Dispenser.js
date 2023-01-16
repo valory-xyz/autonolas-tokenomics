@@ -148,6 +148,17 @@ describe("Dispenser", async () => {
             // Skip the number of seconds for 2 epochs
             await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
+
+            // Get tokenomcis parameters from the previous epoch
+            let lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            let ep = await tokenomics.getEpochPoint(lastPoint);
+            expect(ep.devsPerCapital).to.greaterThan(0);
+            expect(ep.idf).to.greaterThan(0);
+            // Get the unit points of the last epoch
+            let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            expect(up[0].rewardUnitFraction + up[1].rewardUnitFraction + ep.rewardTreasuryFraction).to.equal(100);
+
             await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
 
@@ -172,11 +183,11 @@ describe("Dispenser", async () => {
             await tokenomics.connect(deployer).checkpoint();
 
             // Get the last settled epoch counter
-            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
-            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             const percentFraction = ethers.BigNumber.from(100);
             let rewards = [
