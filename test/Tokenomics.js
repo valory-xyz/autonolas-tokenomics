@@ -403,7 +403,7 @@ describe("Tokenomics", async () => {
 
             // Get IDF of the last epoch
             const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
-            expect(idf).to.greaterThan(1);
+            expect(idf).to.greaterThan(0);
             
             // Get last IDF that must match the idf of the last epoch
             const lastIDF = Number(await tokenomics.getLastIDF()) / E18;

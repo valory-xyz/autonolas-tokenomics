@@ -99,6 +99,11 @@ contract Depository is IErrorsTokenomics {
     {
         owner = msg.sender;
         _locked = 1;
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) || _bondCalculator == address(0)) {
+            revert ZeroAddress();
+        }
         olas = _olas;
         tokenomics = _tokenomics;
         treasury = _treasury;
@@ -162,7 +167,7 @@ contract Depository is IErrorsTokenomics {
     /// @return payout The amount of OLAS tokens due.
     /// @return expiry Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
-    ///#if_succeeds {:msg "token is valid" } mapBondProducts[productId].token != address(0);
+    ///#if_succeeds {:msg "token is valid"} mapBondProducts[productId].token != address(0);
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {

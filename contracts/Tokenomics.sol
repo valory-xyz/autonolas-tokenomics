@@ -329,7 +329,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Setting initial parameters and ratios
         tp.epochPoint.devsPerCapital = 1;
-        tp.epochPoint.idf = 1e18 + epsilonRate;
+        tp.epochPoint.idf = 1e18;
 
         // Reward fractions
         // 0 stands for components and 1 for agents

@@ -208,6 +208,24 @@ describe("Depository LP", async () => {
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
         });
 
+        it("Should fail when deploying with zero addresses", async function () {
+            await expect(
+                depositoryFactory.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, deployer.address, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, deployer.address, deployer.address, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+        });
+
         it("Changing Bond Calculator contract", async function () {
             const account = alice;
 
