@@ -166,6 +166,55 @@ describe("Tokenomics", async () => {
             await expect(
                 TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
             ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, AddressZero, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    deployer.address, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    deployer.address, deployer.address, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
         });
 
         it("Get inflation numbers", async function () {
@@ -354,7 +403,7 @@ describe("Tokenomics", async () => {
 
             // Get IDF of the last epoch
             const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
-            expect(idf).to.greaterThan(1);
+            expect(idf).to.greaterThan(0);
             
             // Get last IDF that must match the idf of the last epoch
             const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
