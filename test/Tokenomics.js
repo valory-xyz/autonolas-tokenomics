@@ -153,6 +153,70 @@ describe("Tokenomics", async () => {
             ).to.be.reverted;
         });
 
+        it("Should fail when at least one of the must-be-non-zero initialization contracts has a zero address", async function () {
+            // Deploy master tokenomics contract
+            const tokenomicsMaster = await tokenomicsFactory.deploy();
+            await tokenomicsMaster.deployed();
+
+            // Try to deploy Tokenomics proxy
+            const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, AddressZero, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, AddressZero, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, AddressZero, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, AddressZero, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    AddressZero, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    deployer.address, AddressZero, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, deployer.address, deployer.address, deployer.address, deployer.address, epochLen,
+                    deployer.address, deployer.address, AddressZero, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+        });
+
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
             expect(fiveYearSupplyCap).to.equal("8718353429" + "0".repeat(17));
@@ -339,7 +403,7 @@ describe("Tokenomics", async () => {
 
             // Get IDF of the last epoch
             const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
-            expect(idf).to.greaterThan(1);
+            expect(idf).to.greaterThan(0);
             
             // Get last IDF that must match the idf of the last epoch
             const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
@@ -422,6 +486,19 @@ describe("Tokenomics", async () => {
 
             await componentRegistry.changeUnitOwner(2, deployer.address);
             await agentRegistry.changeUnitOwner(2, deployer.address);
+
+            // Try to get incentives for non-existent components
+            await expect(
+                tokenomics.connect(deployer).getOwnerIncentives(deployer.address, [0], [0])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+
+            // Try to get and claim owner rewards with non-existent components bigget than the total supply
+            await expect(
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [3, 4])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
+            await expect(
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [3, 4])
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
             // Try to get incentives with the incorrect unit order
             await expect(

@@ -240,6 +240,20 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _donatorBlacklist DonatorBlacklist address.
     ///#if_succeeds {:msg "ep is correct endTime"} mapEpochTokenomics[0].epochPoint.endTime > 0;
     ///#if_succeeds {:msg "maxBond eq effectiveBond form start"} effectiveBond == maxBond;
+    ///#if_succeeds {:msg "olas must not be a zero address"} old(_olas) != address(0) ==> olas == _olas;
+    ///#if_succeeds {:msg "treasury must not be a zero address"} old(_treasury) != address(0) ==> treasury == _treasury;
+    ///#if_succeeds {:msg "depository must not be a zero address"} old(_depository) != address(0) ==> depository == _depository;
+    ///#if_succeeds {:msg "dispenser must not be a zero address"} old(_dispenser) != address(0) ==> dispenser == _dispenser;
+    ///#if_succeeds {:msg "vaOLAS must not be a zero address"} old(_ve) != address(0) ==> ve == _ve;
+    ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max) ==> epochLen == _epochLen;
+    ///#if_succeeds {:msg "componentRegistry must not be a zero address"} old(_componentRegistry) != address(0) ==> componentRegistry == _componentRegistry;
+    ///#if_succeeds {:msg "agentRegistry must not be a zero address"} old(_agentRegistry) != address(0) ==> agentRegistry == _agentRegistry;
+    ///#if_succeeds {:msg "serviceRegistry must not be a zero address"} old(_serviceRegistry) != address(0) ==> serviceRegistry == _serviceRegistry;
+    ///#if_succeeds {:msg "donatorBlacklist assignment"} donatorBlacklist == _donatorBlacklist;
+    ///#if_succeeds {:msg "inflationPerSecond must not be zero"} inflationPerSecond > 0 && inflationPerSecond <= getInflationForYear(0);
+    ///#if_succeeds {:msg "Zero epoch point end time must be non-zero"} mapEpochTokenomics[0].epochPoint.endTime > 0;
+    ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max && inflationPerSecond > 0 && inflationPerSecond <= getInflationForYear(0))
+    ///==> maxBond == (inflationPerSecond * _epochLen * mapEpochTokenomics[1].epochPoint.maxBondFraction) / 100;
     function initializeTokenomics(
         address _olas,
         address _treasury,
@@ -256,6 +270,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check if the contract is already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
+        }
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _treasury == address(0) || _depository == address(0) || _dispenser == address(0) ||
+            _ve == address(0) || _componentRegistry == address(0) || _agentRegistry == address(0) ||
+            _serviceRegistry == address(0)) {
+            revert ZeroAddress();
         }
 
         // Initialize storage variables
@@ -308,7 +329,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Setting initial parameters and ratios
         tp.epochPoint.devsPerCapital = 1;
-        tp.epochPoint.idf = 1e18 + epsilonRate;
+        tp.epochPoint.idf = 1e18;
 
         // Reward fractions
         // 0 stands for components and 1 for agents
@@ -471,17 +492,20 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     /// @dev Changes tokenomics parameters.
+    /// @notice Parameter values are not updated for those that are passed as zero.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
-    ///#if_succeeds {:msg "ep is correct endTime"} epochCounter >= 2 ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
-    ///#if_succeeds {:msg "ep is correct maxBondFraction"} mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction > 0;
-    ///#if_succeeds {:msg "epochLen"} old(_epochLen > 0 && epochLen != _epochLen) ==> epochLen == _epochLen;
-    ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital == _devsPerCapital;
+    ///#if_succeeds {:msg "ep is correct endTime"} epochCounter > 1
+    ///==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
+    ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max && epochLen != _epochLen) ==> epochLen == _epochLen;
+    ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 && _devsPerCapital < type(uint32).max ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital == _devsPerCapital;
     ///#if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
-    ///#if_succeeds {:msg "maxBond"} old(_epochLen > 0 && epochLen != _epochLen) ==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
+    ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen < type(uint32).max && epochLen != _epochLen)
+    ///==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
+    ///#if_succeeds {:msg "veOLASThreshold"} _veOLASThreshold > 0 && _veOLASThreshold < type(uint96).max ==> veOLASThreshold == _veOLASThreshold;
     function changeTokenomicsParameters(
         uint256 _devsPerCapital,
         uint256 _epsilonRate,
@@ -556,9 +580,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
-    ///#if_succeeds {:msg "ep is correct endTime"} epochCounter >= 2 ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
-    ///#if_succeeds {:msg "ep is correct maxBondFraction"} mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction > 0;
-    ///#if_succeeds {:msg "maxBond"} old(_maxBondFraction > 0 && mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction) ==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
+    ///#if_succeeds {:msg "maxBond"} old(mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction)
+    ///==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
     ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
     function changeIncentiveFractions(
@@ -639,7 +662,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Refunds unused bond program amount when the program is closed.
     /// @param amount Amount to be refunded from the closed bond program.
-    ///#if_succeeds {:msg "effectiveBond"} effectiveBond == old(effectiveBond) + amount;
+    ///#if_succeeds {:msg "effectiveBond"} old(effectiveBond + amount) < type(uint96).max ==> effectiveBond == old(effectiveBond) + amount;
     function refundFromBondProgram(uint256 amount) external {
         // Check for the depository access
         if (depository != msg.sender) {
@@ -788,7 +811,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param donationETH Overall service donation amount in ETH.
-    ///#if_succeeds {:msg "totalDonationsETH can only increase"} mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + unchecked_sum(amounts);
+    ///if_succeeds {:msg "totalDonationsETH can only increase"} old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + donationETH < type(uint96).max
+    ///==> mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + donationETH;
+    ///if_succeeds {:msg "sumUnitDonationsETH for components can only increase"} mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitDonationsETH >= old(mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitDonationsETH);
+    ///if_succeeds {:msg "sumUnitDonationsETH for agents can only increase"} mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitDonationsETH >= old(mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitDonationsETH);
+    ///if_succeeds {:msg "sumUnitTopUpsOLAS for components can only increase"} mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS);
+    ///if_succeeds {:msg "sumUnitTopUpsOLAS for agents can only increase"} mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS);
     ///#if_succeeds {:msg "numNewOwners can only increase"} mapEpochTokenomics[epochCounter].epochPoint.numNewOwners >= old(mapEpochTokenomics[epochCounter].epochPoint.numNewOwners);
     function trackServiceDonations(
         address donator,
@@ -830,7 +858,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @dev Record global data to new checkpoint
     /// @return True if the function execution is successful.
     ///#if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
-    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear)+1;
+    ///#if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear) + 1;
+    ///#if_succeeds {:msg "previous epoch endTime must never be zero"} mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > 0;
+    ///#if_succeeds {:msg "when the year is the same, the adjusted maxBond (incentives[4]) will never be lower than the epoch maxBond"}
+    ///$result == true && (block.timestamp - timeLaunch) / ONE_YEAR == old(currentYear)
+    ///==> old((inflationPerSecond * (block.timestamp - mapEpochTokenomics[epochCounter - 1].epochPoint.endTime) * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100) >= old(maxBond);
+    ///#if_succeeds {:msg "idf check"} $result == true ==> mapEpochTokenomics[epochCounter].epochPoint.idf >= 1e18 && mapEpochTokenomics[epochCounter].epochPoint.idf <= 18e18;
+    ///#if_succeeds {:msg "devsPerCapital check"} $result == true ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital > 0;
+    ///#if_succeeds {:msg "unit weight check for components"} $result == true ==> mapEpochTokenomics[epochCounter].unitPoints[0].unitWeight > 0;
+    ///#if_succeeds {:msg "unit weight check for agents"} $result == true ==> mapEpochTokenomics[epochCounter].unitPoints[1].unitWeight > 0;
+    ///#if_succeeds {:msg "sum of reward fractions must result in 100"} $result == true
+    ///==> mapEpochTokenomics[epochCounter].unitPoints[0].rewardUnitFraction + mapEpochTokenomics[epochCounter].unitPoints[1].rewardUnitFraction + mapEpochTokenomics[epochCounter].epochPoint.rewardTreasuryFraction == 100;
     function checkpoint() external returns (bool) {
         // Get the implementation address that was written to the proxy contract
         address implementation;
@@ -943,7 +981,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // idf = 1 / (1 + iterest_rate), reverse_df = 1/df >= 1.0.
-        uint64 idf;
+        uint64 idf = 1e18;
         if (incentives[0] > 0) {
             // Calculate IDF from epsilon rate and f(K,D)
             // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
@@ -974,7 +1012,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 fKD = epsilonRate;
             }
             // 1 + fKD in the system where 1e18 is equal to a whole unit (18 decimals)
-            idf = uint64(1e18 + fKD);
+            idf += uint64(fKD);
         }
 
         // Record settled epoch timestamp
@@ -1086,6 +1124,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
 
+        // Component / agent total supply
+        uint256[] memory registriesSupply = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            registriesSupply[i] = IToken(registries[i]).totalSupply();
+        }
+
         // Check the input data
         uint256[] memory lastIds = new uint256[](2);
         for (uint256 i = 0; i < unitIds.length; ++i) {
@@ -1094,17 +1138,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 revert Overflow(unitTypes[i], 1);
             }
 
+            // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
+            if (unitIds[i] < (lastIds[unitTypes[i]] + 1) || unitIds[i] > registriesSupply[unitTypes[i]]) {
+                revert WrongUnitId(unitIds[i], unitTypes[i]);
+            }
+            lastIds[unitTypes[i]] = unitIds[i];
+
             // Check the component / agent Id ownership
             address unitOwner = IToken(registries[unitTypes[i]]).ownerOf(unitIds[i]);
             if (unitOwner != account) {
                 revert OwnerOnly(unitOwner, account);
             }
-
-            // Check that the unit Ids are in ascending order and not repeating
-            if ((lastIds[unitTypes[i]] + 1) > unitIds[i]) {
-                revert WrongUnitId(unitIds[i], unitTypes[i]);
-            }
-            lastIds[unitTypes[i]] = unitIds[i];
         }
 
         // Get the current epoch counter
@@ -1150,6 +1194,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
 
+        // Component / agent total supply
+        uint256[] memory registriesSupply = new uint256[](2);
+        for (uint256 i = 0; i < 2; ++i) {
+            registriesSupply[i] = IToken(registries[i]).totalSupply();
+        }
+
         // Check the input data
         uint256[] memory lastIds = new uint256[](2);
         for (uint256 i = 0; i < unitIds.length; ++i) {
@@ -1158,17 +1208,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 revert Overflow(unitTypes[i], 1);
             }
 
+            // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
+            if (unitIds[i] < (lastIds[unitTypes[i]] + 1) || unitIds[i] > registriesSupply[unitTypes[i]]) {
+                revert WrongUnitId(unitIds[i], unitTypes[i]);
+            }
+            lastIds[unitTypes[i]] = unitIds[i];
+
             // Check the component / agent Id ownership
             address unitOwner = IToken(registries[unitTypes[i]]).ownerOf(unitIds[i]);
             if (unitOwner != account) {
                 revert OwnerOnly(unitOwner, account);
             }
-
-            // Check that the unit Ids are in ascending order and not repeating
-            if ((lastIds[unitTypes[i]] + 1) > unitIds[i]) {
-                revert WrongUnitId(unitIds[i], unitTypes[i]);
-            }
-            lastIds[unitTypes[i]] = unitIds[i];
         }
 
         // Get the current epoch counter

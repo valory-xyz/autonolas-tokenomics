@@ -90,8 +90,14 @@ interface IErrorsTokenomics {
     /// @param token Address of a token.
     /// @param from Address `from`.
     /// @param to Address `to`.
-    /// @param value Value.
-    error TransferFailed(address token, address from, address to, uint256 value);
+    /// @param amount Token amount.
+    error TransferFailed(address token, address from, address to, uint256 amount);
+
+    /// @dev Incentives claim has failed.
+    /// @param account Account address.
+    /// @param reward Reward amount.
+    /// @param topUp Top-up amount.
+    error ClaimIncentivesFailed(address account, uint256 reward, uint256 topUp);
 
     /// @dev Caught reentrancy violation.
     error ReentrancyGuard();

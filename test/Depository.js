@@ -6,9 +6,9 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers");
 describe("Depository LP", async () => {
     const decimals = "0".repeat(18);
     // 1 million token
-    const LARGE_APPROVAL = "1" + "0".repeat(6) + decimals;
+    const LARGE_APPROVAL = "1" + "0".repeat(10) + decimals;
     // Initial mint for OLAS and DAI (40,000)
-    const initialMint = "4" + "0".repeat(4) + decimals;
+    const initialMint = "1" + "0".repeat(6) + decimals;
     const AddressZero = "0x" + "0".repeat(40);
     const oneWeek = 86400 * 7;
 
@@ -68,7 +68,7 @@ describe("Depository LP", async () => {
         // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy();
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
-            deployer.address, epochLen, AddressZero, AddressZero, AddressZero, AddressZero);
+            deployer.address, epochLen, deployer.address, deployer.address, deployer.address, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, AddressZero);
         // Change bond fraction to 100% in these tests
@@ -206,6 +206,24 @@ describe("Depository LP", async () => {
             await expect(
                 depository.connect(deployer).changeOwner(account.address)
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
+        });
+
+        it("Should fail when deploying with zero addresses", async function () {
+            await expect(
+                depositoryFactory.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, deployer.address, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy(olas.address, deployer.address, deployer.address, AddressZero)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
         });
 
         it("Changing Bond Calculator contract", async function () {
@@ -398,6 +416,215 @@ describe("Depository LP", async () => {
             expect(Number(priceLP)).to.greaterThan(0);
         });
 
+        it("Estimate Price LP influence when remove liquidity of 1%, 20%, 50% and 99.9%", async () => {
+            // Create one more ERC20 token
+            const ercToken = await erc20Token.deploy();
+            ercToken.mint(deployer.address, initialMint);
+
+            // Create an LP token
+            await factory.createPair(olas.address, ercToken.address);
+            const pAddress = await factory.allPairs(1);
+            const pairDOLAS = await ethers.getContractAt("UniswapV2Pair", pAddress);
+
+            // 2k OALS vs 100k non-OLAS
+            const amountToken1 = "2" + "0".repeat(3) + decimals;
+            const amountToken2 = "1" + "0".repeat(5) + decimals;
+            let deadline = Date.now() + 1000;
+            const toAddress = deployer.address;
+            await olas.approve(router.address, LARGE_APPROVAL);
+            await ercToken.approve(router.address, LARGE_APPROVAL);
+
+            // Add LP token liquidity
+            await router.connect(deployer).addLiquidity(
+                olas.address,
+                ercToken.address,
+                amountToken1,
+                amountToken2,
+                amountToken1,
+                amountToken2,
+                toAddress,
+                deadline
+            );
+
+            await pairDOLAS.approve(router.address, LARGE_APPROVAL);
+            const path = [ercToken.address, olas.address];
+
+            // Check the balance of both pair tokens before removing the liquidity
+            const balanceOLASBefore = await olas.balanceOf(deployer.address);
+            const balanceERCTokenBefore = await ercToken.balanceOf(deployer.address);
+
+            let swappedBalancesCompare = new Array(4);
+
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Get the minimum LP token amount as a fraction of a pair of 1%
+            let minAmount = ethers.BigNumber.from(await pairDOLAS.balanceOf(deployer.address)).div(100);
+
+            // Removing liquidity of a specified minAmount
+            await router.connect(deployer).removeLiquidity(
+                olas.address,
+                ercToken.address,
+                minAmount,
+                0,
+                0,
+                toAddress,
+                deadline
+            );
+
+            // Check the balance of both tokens after removing the liquidity
+            let balanceOLASAfter = await olas.balanceOf(deployer.address);
+            let balanceERCTokenAfter = await ercToken.balanceOf(deployer.address);
+            // Get the difference between the OLAS balance after the liquidity is removed and the initial OLAS balance in ETH values
+            let differenceOLAS = Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18;
+            //console.log("OLAS difference", Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18);
+            //console.log("ERC20Token difference", Number(ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore)) / 10**18);
+
+            // Get the difference between the ERCToken balance after the liquidity is removed and the initial ERCToken balance in ETH values
+            let ercTokenAmount = ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore);
+            await router.connect(deployer).swapExactTokensForTokens(
+                ercTokenAmount,
+                0,
+                path,
+                toAddress,
+                deadline
+            );
+
+            // Get the OLAS balance after the swap
+            let balanceOLASAfterSwap = await olas.balanceOf(deployer.address);
+            // Compare with the initial OLAS balance
+            swappedBalancesCompare[0] = Number(ethers.BigNumber.from(balanceOLASAfterSwap).sub(balanceOLASAfter)) / 10**18;
+            //console.log("OLAS difference after swap", swappedBalancesCompare[0]);
+            // The ratio between the balance of OLAS after the swap and the initial one is almost 1%
+            swappedBalancesCompare[0] = swappedBalancesCompare[0] / differenceOLAS;
+            //console.log("Fraction of swapped OLAS compared to the original", swappedBalancesCompare[0]);
+
+            // Restore to the state of the snapshot to try with different LP token amount values
+            await snapshot.restore();
+
+            // Get the minimum LP token amount as a fraction of a pair of 20%
+            minAmount = ethers.BigNumber.from(await pairDOLAS.balanceOf(deployer.address)).div(5);
+
+            // Removing liquidity of a specified minAmount
+            await router.connect(deployer).removeLiquidity(
+                olas.address,
+                ercToken.address,
+                minAmount,
+                0,
+                0,
+                toAddress,
+                deadline
+            );
+
+            // Check the balance after removing the liquidity
+            balanceOLASAfter = await olas.balanceOf(deployer.address);
+            balanceERCTokenAfter = await ercToken.balanceOf(deployer.address);
+            differenceOLAS = Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18;
+            //console.log("OLAS difference", Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18);
+            //console.log("ERC20Token difference", Number(ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore)) / 10**18);
+
+            ercTokenAmount = ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore);
+            await router.connect(deployer).swapExactTokensForTokens(
+                ercTokenAmount,
+                0,
+                path,
+                toAddress,
+                deadline
+            );
+
+            balanceOLASAfterSwap = await olas.balanceOf(deployer.address);
+            swappedBalancesCompare[1] = Number(ethers.BigNumber.from(balanceOLASAfterSwap).sub(balanceOLASAfter)) / 10**18;
+            //console.log("OLAS difference after swap", swappedBalancesCompare[0]);
+            // The ratio is almost 20%
+            swappedBalancesCompare[1] = swappedBalancesCompare[1] / differenceOLAS;
+            //console.log("Fraction of swapped OLAS compared to the original", swappedBalancesCompare[0]);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+
+            // Get the minimum LP token amount as a fraction of a pair of 50%
+            minAmount = ethers.BigNumber.from(await pairDOLAS.balanceOf(deployer.address)).div(2);
+
+            // Removing liquidity of a specified minAmount
+            await router.connect(deployer).removeLiquidity(
+                olas.address,
+                ercToken.address,
+                minAmount,
+                0,
+                0,
+                toAddress,
+                deadline
+            );
+
+            // Check the balance after removing the liquidity
+            balanceOLASAfter = await olas.balanceOf(deployer.address);
+            balanceERCTokenAfter = await ercToken.balanceOf(deployer.address);
+            differenceOLAS = Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18;
+            //console.log("OLAS difference", Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18);
+            //console.log("ERC20Token difference", Number(ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore)) / 10**18);
+
+            ercTokenAmount = ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore);
+            await router.connect(deployer).swapExactTokensForTokens(
+                ercTokenAmount,
+                0,
+                path,
+                toAddress,
+                deadline
+            );
+
+            balanceOLASAfterSwap = await olas.balanceOf(deployer.address);
+            swappedBalancesCompare[2] = Number(ethers.BigNumber.from(balanceOLASAfterSwap).sub(balanceOLASAfter)) / 10**18;
+            //console.log("OLAS difference after swap", swappedBalancesCompare[0]);
+            // The ratio is almost 50%
+            swappedBalancesCompare[2] = swappedBalancesCompare[2] / differenceOLAS;
+            //console.log("Fraction of swapped OLAS compared to the original", swappedBalancesCompare[0]);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+            // Get the minimum LP token amount as a fraction of a pair of 99.9%
+            minAmount = (ethers.BigNumber.from(await pairDOLAS.balanceOf(deployer.address)).mul(999)).div(1000);
+
+            // Removing liquidity of a specified minAmount
+            await router.connect(deployer).removeLiquidity(
+                olas.address,
+                ercToken.address,
+                minAmount,
+                0,
+                0,
+                toAddress,
+                deadline
+            );
+
+            // Check the balance after removing the liquidity
+            balanceOLASAfter = await olas.balanceOf(deployer.address);
+            balanceERCTokenAfter = await ercToken.balanceOf(deployer.address);
+            differenceOLAS = Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18;
+            //console.log("OLAS difference", Number(ethers.BigNumber.from(balanceOLASAfter).sub(balanceOLASBefore)) / 10**18);
+            //console.log("ERC20Token difference", Number(ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore)) / 10**18);
+
+            ercTokenAmount = ethers.BigNumber.from(balanceERCTokenAfter).sub(balanceERCTokenBefore);
+            await router.connect(deployer).swapExactTokensForTokens(
+                ercTokenAmount,
+                0,
+                path,
+                toAddress,
+                deadline
+            );
+
+            balanceOLASAfterSwap = await olas.balanceOf(deployer.address);
+            swappedBalancesCompare[3] = Number(ethers.BigNumber.from(balanceOLASAfterSwap).sub(balanceOLASAfter)) / 10**18;
+            //console.log("OLAS difference after swap", swappedBalancesCompare[3]);
+            // The ratio is almost 99.9%
+            swappedBalancesCompare[3] = swappedBalancesCompare[3] / differenceOLAS;
+            //console.log("Fraction of swapped OLAS compared to the original", swappedBalancesCompare[3]);
+
+            // The swapped balance of OLAS with bigger removal of liquidity is always smaller than the
+            // swapped balance of OLAS with smaller removal of liquidity
+            for (let i = 3; i > 0; i--) {
+                expect(swappedBalancesCompare[i]).to.lessThan(swappedBalancesCompare[i - 1]);
+            }
+        });
+
         it("Crate several programs", async () => {
             // Create a second product, the first one is already created
             const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
@@ -489,6 +716,12 @@ describe("Depository LP", async () => {
         });
 
         it("Redeem OLAS after the product is vested", async () => {
+            // Try to redeem with empty bond list
+            await expect(
+                depository.connect(bob).redeem([])
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+
+            // Deposit LP tokens
             let amount = (await pairODAI.balanceOf(bob.address));
             let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(bid, amount);
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
