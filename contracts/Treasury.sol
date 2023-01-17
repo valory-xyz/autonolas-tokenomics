@@ -105,7 +105,7 @@ contract Treasury is IErrorsTokenomics {
 
     /// @dev Receives ETH.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
-    ///#if_succeeds {:msg "conservation law"} address(this).balance == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "conservation law"} old(ETHOwned) + msg.value <= type(uint96).max ==> address(this).balance == ETHFromServices+ETHOwned;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
@@ -113,9 +113,13 @@ contract Treasury is IErrorsTokenomics {
             revert AmountLowerThan(msg.value, minAcceptedETH);
         }
 
-        uint96 amount = ETHOwned;
-        amount += uint96(msg.value);
-        ETHOwned = amount;
+        uint256 amount = ETHOwned;
+        amount += msg.value;
+        // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible
+        if (amount > type(uint96).max) {
+            revert Overflow(amount, type(uint96).max);
+        }
+        ETHOwned = uint96(amount);
         emit ReceiveETH(msg.sender, msg.value);
     }
 
@@ -187,6 +191,7 @@ contract Treasury is IErrorsTokenomics {
     /// @param olasMintAmount Amount of OLAS token issued.
     ///#if_succeeds {:msg "we do not touch the total eth balance"} old(address(this).balance) == address(this).balance;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
+    ///#if_succeeds {:msg "OLAS balances"} IToken(olas).balanceOf(msg.sender) == old(IToken(olas).balanceOf(msg.sender)) + olasMintAmount;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external {
         // TODO shall the contract continue receiving LP / minting OLAS when paused?
         // Check for the depository access
@@ -230,7 +235,7 @@ contract Treasury is IErrorsTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance"} old(ETHOwned) == ETHOwned;
-    ///if_succeeds {:msg "updated ETHFromServices"} ETHFromServices == old(ETHFromServices) + msg.value; ! rule is off, broken in original version
+    ///#if_succeeds {:msg "updated ETHFromServices"} old(ETHFromServices) + msg.value <= type(uint96).max && ETHFromServices == old(ETHFromServices) + msg.value;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         // Reentrancy guard
@@ -267,6 +272,10 @@ contract Treasury is IErrorsTokenomics {
         // TODO shall the contract continue receiving ETH when paused?
         // Accumulate received donation from services
         uint256 donationETH = ETHFromServices + msg.value;
+        // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible
+        if (donationETH > type(uint96).max) {
+            revert Overflow(donationETH, type(uint96).max);
+        }
         ETHFromServices = uint96(donationETH);
         emit DonateToServicesETH(msg.sender, msg.value);
 
@@ -281,8 +290,9 @@ contract Treasury is IErrorsTokenomics {
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
     /// @return success True if the transfer is successful.
-    ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
+    ///#if_succeeds {:msg "we do not touch the balance of developers"} old(ETHFromServices) == ETHFromServices;
     ///#if_succeeds {:msg "updated ETHOwned"} token == ETH_TOKEN_ADDRESS ==> ETHOwned == old(ETHOwned) - tokenAmount;
+    ///#if_succeeds {:msg "updated token reserves"} token != ETH_TOKEN_ADDRESS ==> mapTokenReserves[token] == old(mapTokenReserves[token]) - tokenAmount;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2; 
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success) {
         // Check for the contract ownership
@@ -302,12 +312,12 @@ contract Treasury is IErrorsTokenomics {
 
         // All the LP tokens must go under the bonding condition
         if (token == ETH_TOKEN_ADDRESS) {
-            uint96 amountOwned = ETHOwned;
+            uint256 amountOwned = ETHOwned;
             // Check if treasury has enough amount of owned ETH
-            if ((amountOwned + 1) > tokenAmount) {
+            if (amountOwned >= tokenAmount) {
                 // This branch is used to transfer ETH to a specified address
-                amountOwned -= uint96(tokenAmount);
-                ETHOwned = amountOwned;
+                amountOwned -= tokenAmount;
+                ETHOwned = uint96(amountOwned);
                 emit Withdraw(address(0), tokenAmount);
                 // Send ETH to the specified address
                 (success, ) = to.call{value: tokenAmount}("");
@@ -325,7 +335,7 @@ contract Treasury is IErrorsTokenomics {
             }
             // Decrease the global LP token record
             uint256 reserves = mapTokenReserves[token];
-            if ((reserves + 1) > tokenAmount) {
+            if (reserves >= tokenAmount) {
                 reserves -= tokenAmount;
                 mapTokenReserves[token] = reserves;
 
@@ -354,6 +364,7 @@ contract Treasury is IErrorsTokenomics {
     /// @return success True if the function execution is successful.
     ///#if_succeeds {:msg "we do not touch the owners balance"} old(ETHOwned) == ETHOwned;
     ///#if_succeeds {:msg "updated ETHFromServices"} accountRewards > 0 && ETHFromServices >= accountRewards ==> ETHFromServices == old(ETHFromServices) - accountRewards;
+    ///#if_succeeds {:msg "updated OLAS balances"} accountTopUps > 0 ==> IToken(olas).balanceOf(account) == old(IToken(olas).balanceOf(account)) + accountTopUps;
     ///#if_succeeds {:msg "unpaused"} paused == 1; 
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success)
@@ -370,7 +381,7 @@ contract Treasury is IErrorsTokenomics {
 
         uint256 amountETHFromServices = ETHFromServices;
         // Send ETH rewards, if any
-        if (accountRewards > 0 && (amountETHFromServices + 1) > accountRewards) {
+        if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
             amountETHFromServices -= accountRewards;
             ETHFromServices = uint96(amountETHFromServices);
             (success, ) = account.call{value: accountRewards}("");
@@ -432,7 +443,7 @@ contract Treasury is IErrorsTokenomics {
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
     ///#if_succeeds {:msg "we do not touch the total eth balance"} old(address(this).balance) == address(this).balance;
-    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices + ETHOwned) == ETHFromServices + ETHOwned;
     ///#if_succeeds {:msg "unpaused"} paused == 1;
     function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success) {
         // Check if the contract is paused
@@ -468,8 +479,10 @@ contract Treasury is IErrorsTokenomics {
 
     /// @dev Drains slashed funds from the service registry.
     /// @return amount Drained amount.
-    ///#if_succeeds {:msg "correct update total eth balance"} old(address(this).balance) == address(this).balance-amount;
-    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices+ETHOwned) == ETHFromServices+ETHOwned-amount;
+    ///#if_succeeds {:msg "correct update total eth balance"} old(address(this).balance) == address(this).balance - amount;
+    ///#if_succeeds {:msg "conservation law"} old(ETHFromServices + ETHOwned) == ETHFromServices + ETHOwned - amount;
+    ///if_succeeds {:msg "slashed funds check"} IServiceRegistry(ITokenomics(tokenomics).serviceRegistry()).slashedFunds() >= minAcceptedETH
+    ///==> old(IServiceRegistry(ITokenomics(tokenomics).serviceRegistry()).slashedFunds()) == amount;
     function drainServiceSlashedFunds() external returns (uint256 amount) {
         // Check for the contract ownership
         if (msg.sender != owner) {

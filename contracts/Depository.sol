@@ -66,6 +66,10 @@ contract Depository is IErrorsTokenomics {
         uint32 expiry;
     }
 
+    // TODO finalize the value
+    // Minimum bond vesting value
+    uint256 public constant MIN_VESTING = 1 weeks;
+    
     // Owner address
     address public owner;
     // Individual bond counter
@@ -168,9 +172,9 @@ contract Depository is IErrorsTokenomics {
     /// @return expiry Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
     ///#if_succeeds {:msg "token is valid"} mapBondProducts[productId].token != address(0);
-    ///#if_succeeds {:msg "input supply is non-zero"} old(mapBondProducts[productId].supply) > 0 && mapBondProducts[productId].supply < type(uint96).max;
-    ///#if_succeeds {:msg "expiry is non-zero"} mapBondProducts[productId].expiry > 0 && mapBondProducts[productId].expiry < type(uint32).max;
-    ///#if_succeeds {:msg "bond Id"} bondCounter == old(bondCounter) + 1 && bondCounter < type(uint32).max;
+    ///#if_succeeds {:msg "input supply is non-zero"} old(mapBondProducts[productId].supply) > 0 && mapBondProducts[productId].supply <= type(uint96).max;
+    ///#if_succeeds {:msg "expiry is non-zero"} mapBondProducts[productId].expiry > 0 && mapBondProducts[productId].expiry <= type(uint32).max;
+    ///#if_succeeds {:msg "bond Id"} bondCounter == old(bondCounter) + 1 && bondCounter <= type(uint32).max;
     function deposit(uint256 productId, uint256 tokenAmount) external
         returns (uint256 payout, uint256 expiry, uint256 bondId)
     {
@@ -258,6 +262,9 @@ contract Depository is IErrorsTokenomics {
             }
         }
 
+        // Check that all the bond products are closed
+        /// #assert forall (uint k in bondIds) mapBondProducts[mapUserBonds[bondIds[k]].productId].expiry == 0;
+
         // Check for the non-zero payout
         if (payout == 0) {
             revert ZeroValue();
@@ -272,6 +279,7 @@ contract Depository is IErrorsTokenomics {
     /// @param matured Flag to record matured bonds only or all of them.
     /// @return bondIds Pending bond Ids.
     /// @return payout Cumulative expected OLAS payout.
+    ///#if_succeeds {:msg "matured bonds"} matured == true ==> forall (uint k in bondIds) block.timestamp >= mapUserBonds[bondIds[k]].maturity;
     function getPendingBonds(address account, bool matured) external view
         returns (uint256[] memory bondIds, uint256 payout)
     {
@@ -326,7 +334,7 @@ contract Depository is IErrorsTokenomics {
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
-    ///#if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter + 1);
+    ///#if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter) + 1;
     ///#if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp;
     function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
@@ -334,14 +342,29 @@ contract Depository is IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // TODO have a minimum vesting time the bond program should last for
         // Check for the pool liquidity as the LP price being greater than zero
         if (priceLP == 0) {
             revert ZeroValue();
         }
 
+        // Check the supply limit value
+        if (supply > type(uint96).max) {
+            revert Overflow(supply, type(uint96).max);
+        }
+
+        // Check the vesting minimum limit value
+        if (vesting < MIN_VESTING) {
+            revert Overflow(MIN_VESTING, vesting);
+        }
+
+        // Check for the expiration time overflow
+        uint256 expiry = block.timestamp + vesting;
+        if (expiry > type(uint32).max) {
+            revert Overflow(expiry, type(uint32).max);
+        }
+        
         // Check if the LP token is enabled
-        if (!ITreasury(treasury).isEnabled(token)) {
+        if (token == address(0) || !ITreasury(treasury).isEnabled(token)) {
             revert UnauthorizedToken(token);
         }
 
@@ -350,15 +373,10 @@ contract Depository is IErrorsTokenomics {
             revert AmountLowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
         }
 
-        // Check for the expiration time overflow
-        uint256 expiry = block.timestamp + vesting;
-        if (expiry > type(uint32).max) {
-            revert Overflow(expiry, type(uint32).max);
-        }
-
         // Push newly created bond product into the list of products
         productId = productCounter;
         mapBondProducts[productId] = Product(priceLP, token, uint96(supply), uint32(expiry));
+        // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply);
     }
@@ -367,7 +385,7 @@ contract Depository is IErrorsTokenomics {
     /// @notice This will terminate the program regardless of the expiration time.
     /// @param productId Product Id.
     ///#if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
-    ///#if_succeeds {:msg "success closed"} mapBondProducts[productId].expiry == 0 || mapBondProducts[productId].supply == 0;
+    ///#if_succeeds {:msg "success closed"} mapBondProducts[productId].expiry == 0 && mapBondProducts[productId].supply == 0;
     function close(uint256 productId) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -379,7 +397,7 @@ contract Depository is IErrorsTokenomics {
             revert ProductClosed(productId);
         }
 
-        uint96 supply = mapBondProducts[productId].supply;
+        uint256 supply = mapBondProducts[productId].supply;
         // Refund unused OLAS supply from the program if not used completely
         if (supply > 0) {
             ITokenomics(tokenomics).refundFromBondProgram(supply);
