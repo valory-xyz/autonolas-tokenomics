@@ -364,7 +364,7 @@ contract Depository is IErrorsTokenomics {
         }
         
         // Check if the LP token is enabled
-        if (token == address(0) || !ITreasury(treasury).isEnabled(token)) {
+        if (!ITreasury(treasury).isEnabled(token)) {
             revert UnauthorizedToken(token);
         }
 

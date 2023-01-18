@@ -408,6 +408,12 @@ contract Treasury is IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check for the zero address token
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Authorize the token
         if (!mapEnabledTokens[token]) {
             mapEnabledTokens[token] = true;
             emit EnableToken(token);

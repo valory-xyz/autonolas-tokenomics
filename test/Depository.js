@@ -283,6 +283,25 @@ describe("Depository LP", async () => {
             ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
         });
 
+        it("Should fail when creating a product with a supply bigger than uint96.max", async () => {
+            await expect(
+                depository.create(pairODAI.address, defaultPriceLP, maxUint96 + "0", vesting)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+        });
+
+        it("Should fail when creating a product with a vesting time less than the minimum one", async () => {
+            const lessThanMinVesting = Number(await depository.MIN_VESTING()) - 1;
+            await expect(
+                depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, lessThanMinVesting)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+        });
+
+        it("Should fail when creating a product with a zero token address", async () => {
+            await expect(
+                depository.create(AddressZero, defaultPriceLP, supplyProductOLAS, vesting)
+            ).to.be.revertedWithCustomError(depository, "UnauthorizedToken");
+        });
+
         it("Should return IDs of all products", async () => {
             // Create a second bond
             const priceLP = await depository.getCurrentPriceLP(pairODAI.address);

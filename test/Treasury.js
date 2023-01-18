@@ -10,6 +10,7 @@ describe("Treasury", async () => {
     const defaultDeposit = "1" + "0".repeat(22);
     const ETHAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
     const AddressZero = "0x" + "0".repeat(40);
+    const moreThanMaxUint96 = "79228162514264337593543950337";
 
     let signers;
     let deployer;
@@ -149,6 +150,12 @@ describe("Treasury", async () => {
             await treasury.connect(deployer).changeMinAcceptedETH(regDepositFromServices);
             expect(await treasury.minAcceptedETH()).to.equal(regDepositFromServices);
         });
+
+        it("Should fail when trying to enable a zero address token", async () => {
+            await expect(
+                treasury.enableToken(AddressZero)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
+        });
     });
 
     context("Deposits LP tokens for OLAS", async function () {
@@ -243,6 +250,11 @@ describe("Treasury", async () => {
                 deployer.sendTransaction({to: treasury.address, value: 100})
             ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
 
+            // Try to send more than uint96.max ETH to treasury
+            await expect(
+                deployer.sendTransaction({to: treasury.address, value: moreThanMaxUint96})
+            ).to.be.revertedWithCustomError(treasury, "Overflow");
+
             // Send ETH to treasury
             const amount = ethers.utils.parseEther("10");
             await deployer.sendTransaction({to: treasury.address, value: amount});
@@ -297,6 +309,11 @@ describe("Treasury", async () => {
 
     context("Account for rewards", async function () {
         it("Start new epoch and account for treasury rewards", async () => {
+            // Try to deposit more ETH than uint96.max
+            await expect(
+                treasury.connect(deployer).depositServiceDonationsETH([1], [moreThanMaxUint96], {value: moreThanMaxUint96})
+            ).to.be.revertedWithCustomError(treasury, "Overflow");
+
             // Deposit ETH for protocol-owned services
             await treasury.connect(deployer).depositServiceDonationsETH([1], [regDepositFromServices], {value: regDepositFromServices});
 
