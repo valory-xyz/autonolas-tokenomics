@@ -134,9 +134,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event DispenserUpdated(address indexed dispenser);
     event EpochLengthUpdated(uint256 epochLen);
     event EffectiveBondUpdated(uint256 effectiveBond);
-    event TokenomicsParametersUpdated(uint256 devsPerCapital, uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
-    event IncentiveFractionsUpdated(uint256 rewardComponentFraction, uint256 rewardAgentFraction,
-        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
+    event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 epsilonRate,
+        uint256 epochLen, uint256 veOLASThreshold, uint256 componentWeight, uint256 agentWeight);
+    event TokenomicsParametersUpdated(uint256 indexed epochNumber);
+    event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
+        uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
+    event IncentiveFractionsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
@@ -189,15 +192,23 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // Current year number
     // This number is enough for the next 255 years
     uint8 public currentYear;
-    // maxBond-related parameter change locker
-    uint8 public lockMaxBond;
+    // Tokenomics parameters change request flag
+    uint8 public tokenomicsParametersUpdated;
+    // Incentive fractions change request flag
+    uint8 public incentiveFractionsUpdated;
     // Reentrancy lock
     uint8 internal _locked;
 
     // Component Registry
     address public componentRegistry;
+    // Epoch length in seconds that will be set in the next epoch
+    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
+    uint32 public nextEpochLen;
     // Agent Registry
     address public agentRegistry;
+    // veOLAS threshold for top-ups that will be set in the next epoch
+    // This number cannot be practically bigger than the number of OLAS tokens
+    uint96 public nextVeOLASThreshold;
     // Service Registry
     address public serviceRegistry;
 
@@ -284,7 +295,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         _locked = 1;
         epsilonRate = 1e17;
         veOLASThreshold = 5_000e18;
-        lockMaxBond = 1;
+        tokenomicsParametersUpdated = 1;
+        incentiveFractionsUpdated = 1;
 
         // Check that the epoch length has at least a practical minimal value
         // TODO Decide on the final minimal value
@@ -466,36 +478,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         emit DonatorBlacklistUpdated(_donatorBlacklist);
     }
 
-    /// @dev Checks if the maxBond update is within allowed limits of the effectiveBond, and adjusts maxBond and effectiveBond.
-    /// @param nextMaxBond Proposed next epoch maxBond.
-    function _adjustMaxBond(uint256 nextMaxBond) internal {
-        uint256 curMaxBond = maxBond;
-        uint256 curEffectiveBond = effectiveBond;
-        // If the new epochLen is shorter than the current one, the current maxBond is bigger than the proposed nextMaxBond
-        if (curMaxBond > nextMaxBond) {
-            // Get the difference of the maxBond
-            uint256 delta = curMaxBond - nextMaxBond;
-            // Update the value for the effectiveBond if there is room for it
-            if (curEffectiveBond > delta) {
-                curEffectiveBond -= delta;
-            } else {
-                // Otherwise effectiveBond cannot be reduced further, and the current epochLen cannot be shortened
-                revert RejectMaxBondAdjustment(curEffectiveBond, delta);
-            }
-        } else {
-            // The new epochLen is longer than the current one, and thus we must add the difference to the effectiveBond
-            curEffectiveBond += nextMaxBond - curMaxBond;
-        }
-        // Update maxBond and effectiveBond based on their calculations
-        maxBond = uint96(nextMaxBond);
-        effectiveBond = uint96(curEffectiveBond);
-    }
-
     /// @dev Changes tokenomics parameters.
     /// @notice Parameter values are not updated for those that are passed as zero.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
+    /// @param _componentWeight Component weight for code unit calculations.
+    /// @param _agentWeight Agent weight for code unit calculations.
     ///#if_succeeds {:msg "ep is correct endTime"} epochCounter > 1
     ///==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
     ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen) ==> epochLen == _epochLen;
@@ -510,7 +499,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 _devsPerCapital,
         uint256 _epsilonRate,
         uint256 _epochLen,
-        uint256 _veOLASThreshold
+        uint256 _veOLASThreshold,
+        uint256 _componentWeight,
+        uint256 _agentWeight
     ) external
     {
         // Check for the contract ownership
@@ -518,15 +509,18 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        uint256 eCounter = epochCounter;
+        // devsPerCapital is the part of the IDF calculation and thus its change will be accounted for in the next epoch
         if (uint32(_devsPerCapital) > 0) {
-            mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital = uint32(_devsPerCapital);
+            mapEpochTokenomics[eCounter].epochPoint.devsPerCapital = uint32(_devsPerCapital);
         } else {
             // This is done in order not to pass incorrect parameters into the event
-            _devsPerCapital = mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital;
+            _devsPerCapital = mapEpochTokenomics[eCounter].epochPoint.devsPerCapital;
         }
 
         // Check the epsilonRate value for idf to fit in its size
         // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
+        // epsilonRate is the part of the IDF calculation and thus its change will be accounted for in the next epoch
         if (_epsilonRate > 0 && _epsilonRate <= 17e18) {
             epsilonRate = uint64(_epsilonRate);
         } else {
@@ -534,44 +528,37 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Check for the epochLen value to change
-        uint256 oldEpochLen = epochLen;
-        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && oldEpochLen != _epochLen) {
-            // Check if the year change is ongoing in the current epoch, and thus maxBond cannot be changed
-            if (lockMaxBond == 2) {
-                revert MaxBondUpdateLocked();
-            }
-
-            // Check if the bigger proposed length of the epoch end time results in a scenario when the year changes
-            if (_epochLen > oldEpochLen) {
-                // End time of the last epoch
-                uint256 lastEpochEndTime = mapEpochTokenomics[epochCounter - 1].epochPoint.endTime;
-                // Actual year of the time when the epoch is going to finish with the proposed epoch length
-                uint256 numYears = (lastEpochEndTime + _epochLen - timeLaunch) / ONE_YEAR;
-                // Check if the year is going to change
-                if (numYears > currentYear) {
-                    revert MaxBondUpdateLocked();
-                }
-            }
-
-            // Calculate next maxBond based on the proposed epochLen
-            uint256 nextMaxBond = (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
-            // Adjust maxBond and effectiveBond, if they are within the allowed limits
-            _adjustMaxBond(nextMaxBond);
-
-            // Update the epochLen
-            epochLen = uint32(_epochLen);
-            emit EpochLengthUpdated(_epochLen);
+        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH) {
+            nextEpochLen = uint32(_epochLen);
         } else {
-            _epochLen = epochLen;
+            revert Overflow(MIN_EPOCH_LENGTH, _epochLen);
         }
 
+        // Adjust veOLAS threshold for the next epoch
         if (uint96(_veOLASThreshold) > 0) {
-            veOLASThreshold = uint96(_veOLASThreshold);
+            nextVeOLASThreshold = uint96(_veOLASThreshold);
         } else {
             _veOLASThreshold = veOLASThreshold;
         }
 
-        emit TokenomicsParametersUpdated(_devsPerCapital, _epsilonRate, _epochLen, _veOLASThreshold);
+        // Adjust unit weights
+        // componentWeight is the part of the IDF calculation and thus its change will be accounted for in the next epoch
+        if (uint8(_componentWeight) > 0) {
+            mapEpochTokenomics[eCounter].unitPoints[0].unitWeight = uint8(_componentWeight);
+        } else {
+            _componentWeight = mapEpochTokenomics[eCounter].unitPoints[0].unitWeight;
+        }
+        // agentWeight is the part of the IDF calculation and thus its change will be accounted for in the next epoch
+        if (uint8(_agentWeight) > 0) {
+            mapEpochTokenomics[eCounter].unitPoints[1].unitWeight = uint8(_agentWeight);
+        } else {
+            _agentWeight = mapEpochTokenomics[eCounter].unitPoints[1].unitWeight;
+        }
+
+        // Set the flag that tokenomics parameters are requested to be updated
+        tokenomicsParametersUpdated = 2;
+        emit TokenomicsParametersUpdateRequested(eCounter + 1, _devsPerCapital, _epsilonRate, _epochLen,
+            _veOLASThreshold, _componentWeight, _agentWeight);
     }
 
     /// @dev Sets incentive parameter fractions.
@@ -607,34 +594,23 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
         }
 
-        TokenomicsPoint storage tp = mapEpochTokenomics[epochCounter];
+        // All the adjustments will be accounted for in the next epoch
+        uint256 eCounter = epochCounter + 1;
+        TokenomicsPoint storage tp = mapEpochTokenomics[eCounter];
         // 0 stands for components and 1 for agents
         tp.unitPoints[0].rewardUnitFraction = uint8(_rewardComponentFraction);
         tp.unitPoints[1].rewardUnitFraction = uint8(_rewardAgentFraction);
         // Rewards are always distributed in full: the leftovers will be allocated to treasury
         tp.epochPoint.rewardTreasuryFraction = uint8(100 - _rewardComponentFraction - _rewardAgentFraction);
 
-        // Check if the maxBondFraction changes
-        uint256 oldMaxBondFraction = tp.epochPoint.maxBondFraction;
-        if (oldMaxBondFraction != _maxBondFraction) {
-            // Epoch with the year change is ongoing, and maxBond cannot be changed
-            if (lockMaxBond == 2) {
-                revert MaxBondUpdateLocked();
-            }
-
-            // Calculate next maxBond based on the proposed maxBondFraction
-            uint256 nextMaxBond = (inflationPerSecond * _maxBondFraction * epochLen) / 100;
-            // Adjust maxBond and effectiveBond, if they are within the allowed limits
-            _adjustMaxBond(nextMaxBond);
-
-            // Update the maxBondFraction
-            tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
-        }
+        tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
         tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
         tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
 
-        emit IncentiveFractionsUpdated(_rewardComponentFraction, _rewardAgentFraction, _maxBondFraction,
-            _topUpComponentFraction, _topUpAgentFraction);
+        // Set the flag that incentive fractions are requested to be updated
+        incentiveFractionsUpdated = 2;
+        emit IncentiveFractionsUpdateRequested(eCounter, _rewardComponentFraction, _rewardAgentFraction,
+            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -904,17 +880,18 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // The actual inflation per epoch considering that it is settled not in the exact epochLen time, but a bit later
         uint256 inflationPerEpoch;
+        // Record the current inflation per second
+        uint256 curInflationPerSecond = inflationPerSecond;
         // Get the maxBond that was credited to effectiveBond during this settled epoch
         // If the year changes, the maxBond for the next epoch is updated in the condition below and will be used
         // later when the effectiveBond is updated for the next epoch
         uint256 curMaxBond = maxBond;
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / ONE_YEAR;
-        // There amounts for the yearly inflation change from year to year, so if the year changes in the middle
+        // Amounts for the yearly inflation change from year to year, so if the year changes in the middle
         // of the epoch, it is necessary to adjust the epoch inflation numbers to account for the year change
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
-            uint256 curInflationPerSecond = inflationPerSecond;
             // End of the year timestamp
             uint256 yearEndTime = timeLaunch + numYears * ONE_YEAR;
             // Initial inflation per epoch during the end of the year minus previous epoch timestamp
@@ -929,7 +906,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             inflationPerSecond = uint96(curInflationPerSecond);
             currentYear = uint8(numYears);
             // maxBond lock is released and can be changed starting from the new epoch
-            lockMaxBond = 1;
+            //lockMaxBond = 1;
         } else {
             inflationPerEpoch = inflationPerSecond * diffNumSeconds;
         }
@@ -951,6 +928,50 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             effectiveBond = uint96(incentives[4]);
         }
 
+        // Get the tokenomics point of the next epoch
+        TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter + 1];
+        // TODO unit weights and devsPerCapital move to just contract state variables
+        // Copy unit weights to the next epoch point
+        for (uint256 i = 0; i < 2; ++i) {
+            nextPoint.unitPoints[i].unitWeight = tp.unitPoints[i].unitWeight;
+        }
+        nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
+        // Update incentive fractions for the next epoch
+        if (incentiveFractionsUpdated == 2) {
+            // The update has been already performed by the changeIncentiveFractions() function call
+            incentiveFractionsUpdated = 1;
+            // Confirm the change of incentive fractions
+            emit IncentiveFractionsUpdated(eCounter + 1);
+        } else {
+            // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
+            for (uint256 i = 0; i < 2; ++i) {
+                nextPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
+                nextPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
+            }
+            nextPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
+            nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
+        }
+        // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
+        if (tokenomicsParametersUpdated == 2) {
+            // Update epoch length and set the next value back to zero
+            curEpochLen = nextEpochLen;
+            nextEpochLen = 0;
+            epochLen = uint32(curEpochLen);
+            // Update veOLAS threshold and set the next value back to zero
+            veOLASThreshold = nextVeOLASThreshold;
+            nextVeOLASThreshold = 0;
+
+            // Recalculate maxBond for the next epoch
+            maxBond = uint96(curInflationPerSecond * curEpochLen * nextPoint.epochPoint.maxBondFraction) / 100;
+
+            // Set the tokenomics parameters flag back to unchanged
+            tokenomicsParametersUpdated = 1;
+            // Confirm the change of tokenomics parameters
+            emit TokenomicsParametersUpdated(eCounter + 1);
+        }
+        // Record settled epoch timestamp
+        tp.epochPoint.endTime = uint32(block.timestamp);
+        
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year will change
@@ -958,7 +979,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Account for the year change to adjust the max bond
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
-            uint256 curInflationPerSecond = inflationPerSecond;
             // End of the year timestamp
             uint256 yearEndTime = timeLaunch + numYears * ONE_YEAR;
             // Calculate the  max bond value until the end of the year
@@ -966,13 +986,14 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Recalculate the inflation per second based on the new inflation for the current year
             curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR;
             // Add the remainder of max bond amount for the next epoch based on a new inflation per second ratio
-            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
+            curMaxBond += ((block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond * nextPoint.epochPoint.maxBondFraction) / 100;
+            // Update state maxBond value
             maxBond = uint96(curMaxBond);
             // maxBond lock is set and cannot be changed until the next epoch with the year change passes
-            lockMaxBond = 2;
+            //lockMaxBond = 2;
         } else {
-            // This assignment is done again to account for the maxBond value that could change if we are currently
-            // in the epoch with a changing year
+            // This assignment is done again to account for the maxBond value that could have changed if we are currently
+            // in the epoch with a changing year, or because the maxBondFraction has changed
             curMaxBond = maxBond;
         }
         // Update effectiveBond with the current or updated maxBond value
@@ -1014,9 +1035,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // 1 + fKD in the system where 1e18 is equal to a whole unit (18 decimals)
             idf += uint64(fKD);
         }
-
-        // Record settled epoch timestamp
-        tp.epochPoint.endTime = uint32(block.timestamp);
+        // Update the IDF value for the next epoch
+        nextPoint.epochPoint.idf = idf;
 
         // Cumulative incentives
         uint256 accountRewards = incentives[2] + incentives[3];
@@ -1034,24 +1054,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Emit settled epoch written to the last economics point
             emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps);
             // Start new epoch
-            eCounter++;
-            epochCounter = uint32(eCounter);
+            epochCounter = uint32(eCounter + 1);
         } else {
             // If the treasury rebalance was not executed correctly, the new epoch does not start
             revert TreasuryRebalanceFailed(eCounter);
         }
-
-        // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
-        TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter];
-        for (uint256 i = 0; i < 2; ++i) {
-            nextPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
-            nextPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
-            nextPoint.unitPoints[i].unitWeight = tp.unitPoints[i].unitWeight;
-        }
-        nextPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
-        nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
-        nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
-        nextPoint.epochPoint.idf = idf;
 
         return true;
     }
