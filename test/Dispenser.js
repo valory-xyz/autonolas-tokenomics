@@ -482,6 +482,10 @@ describe("Dispenser", async () => {
 
             // Change the component and agent fractions to zero
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 40, 40, 20);
+            // Changes will take place in the next epoch, need to move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch
+            await tokenomics.connect(deployer).checkpoint();
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -575,6 +579,10 @@ describe("Dispenser", async () => {
 
             // Change the component fractions to zero
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 100, 40, 0, 60);
+            // Changes will take place in the next epoch, need to move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch
+            await tokenomics.connect(deployer).checkpoint();
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -668,6 +676,10 @@ describe("Dispenser", async () => {
 
             // Change the component and agent to-up fractions to zero
             await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 100, 0, 0);
+            // Changes will take place in the next epoch, need to move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch
+            await tokenomics.connect(deployer).checkpoint();
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
@@ -762,7 +774,7 @@ describe("Dispenser", async () => {
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
-            // Change the fractions such that rewards and top-ups are now zero
+            // Change the fractions such that rewards and top-ups are now zero. However, they will be updated for the next epoch only
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
@@ -770,11 +782,11 @@ describe("Dispenser", async () => {
             await tokenomics.connect(deployer).checkpoint();
 
             // Get the last settled epoch counter
-            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            let ep = await tokenomics.getEpochPoint(lastPoint);
             // Get the unit points of the last epoch
-            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
             const percentFraction = ethers.BigNumber.from(100);
             let rewards = [
@@ -789,8 +801,8 @@ describe("Dispenser", async () => {
                 ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction)
             ];
             let accountTopUps = topUps[1].add(topUps[2]);
-            expect(accountRewards).to.equal(0);
-            expect(accountTopUps).to.equal(0);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
 
             // Check for the incentive balances such that their pending relative incentives are not zero
             let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
@@ -809,6 +821,46 @@ describe("Dispenser", async () => {
             // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
             expect(Math.abs(Number(accountRewards.sub(checkedReward)))).to.lessThan(delta);
             expect(Math.abs(Number(accountTopUps.sub(checkedTopUp)))).to.lessThan(delta);
+
+            // Claim rewards and top-ups
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+
+            // Check the OLAS balance after receiving incentives
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(balance).to.lessThanOrEqual(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
+
+            // Send donations to services for the next epoch where all the fractions are zero
+            await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
+                {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get the last settled epoch counter
+            lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            ep = await tokenomics.getEpochPoint(lastPoint);
+            // Get the unit points of the last epoch
+            up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            rewards = [
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
+            ];
+            accountRewards = rewards[0].add(rewards[1]);
+            // Calculate top-ups based on the points information
+            topUps = [
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction)
+            ];
+            accountTopUps = topUps[1].add(topUps[2]);
+            expect(accountRewards).to.equal(0);
+            expect(accountTopUps).to.equal(0);
 
             // Try to claim rewards and top-ups for owners which are essentially zero as all the fractions were set to zero
             await expect(
@@ -837,6 +889,10 @@ describe("Dispenser", async () => {
 
             // Change the fractions such that rewards and top-ups are not zero
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            // Changes will take place in the next epoch, need to move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch
+            await tokenomics.connect(deployer).checkpoint();
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],

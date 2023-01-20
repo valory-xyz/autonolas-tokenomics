@@ -232,32 +232,58 @@ describe("Tokenomics", async () => {
         });
 
         it("Changing tokenomics parameters", async function () {
-            const cutEpochLen = epochLen * 2;
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            const lessThanMinEpochLen = Number(await tokenomics.MIN_EPOCH_LENGTH()) - 1;
             // Trying to change tokenomics parameters from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, cutEpochLen, 10)
+                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, epochLen * 2, 10, 10, 10)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
-            await tokenomics.changeTokenomicsParameters(10, 10, cutEpochLen, 10);
+            // Trying to set epoch length smaller than the minimum allowed value
+            await tokenomics.changeTokenomicsParameters(10, 10, lessThanMinEpochLen, 10, 10, 10);
+            // Move one epoch in time and finish the epoch
+            await helpers.time.increase(epochLen + 100);
+            await tokenomics.checkpoint();
+            // Make sure the epoch lenght didn't change
+            expect(await tokenomics.epochLen()).to.equal(epochLen);
+
+            // Change epoch length to a bigger number
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen * 2, 10, 10, 10);
+            // The change will take effect in the next epoch
+            expect(await tokenomics.epochLen()).to.equal(epochLen);
+            // Move one epoch in time and finish the epoch
+            await helpers.time.increase(epochLen + 100);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.epochLen()).to.equal(epochLen * 2);
+
             // Change epoch len to a smaller value
-            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10, 10, 10);
+            // The change will take effect in the next epoch
+            expect(await tokenomics.epochLen()).to.equal(epochLen * 2);
+            // Move one epoch in time and finish the epoch
+            await helpers.time.increase(epochLen * 2 + 100);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.epochLen()).to.equal(epochLen);
+
             // Leave the epoch length untouched
-            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10, 10, 10);
             // And then change back to the bigger one
-            await tokenomics.changeTokenomicsParameters(10, 10, epochLen + 100, 10);
-            // Try to set the epochLen to a time where it fails due to effectiveBond going below zero
-            // since all the current effectiveBond is already reserved
-            await tokenomics.reserveAmountForBondProgram(await tokenomics.effectiveBond());
-            await expect(
-                tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10)
-            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen + 100, 10, 10, 10);
+            // The change will take effect in the next epoch
+            expect(await tokenomics.epochLen()).to.equal(epochLen);
+            // Move one epoch in time and finish the epoch
+            await helpers.time.increase(epochLen + 100);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
 
             // Trying to set epsilonRate bigger than 17e18
-            await tokenomics.changeTokenomicsParameters(10, "171"+"0".repeat(17), 10, 10);
+            await tokenomics.changeTokenomicsParameters(0, "171"+"0".repeat(17), 0, 0, 0, 0);
             expect(await tokenomics.epsilonRate()).to.equal(10);
 
             // Trying to set all zeros
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, 0, 0, 0, 0);
             // Check that parameters were not changed
             expect(await tokenomics.epsilonRate()).to.equal(10);
             expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
@@ -268,6 +294,12 @@ describe("Tokenomics", async () => {
             // Get the epoch point of the current epoch
             const ep = await tokenomics.getEpochPoint(curPoint);
             expect(await ep.devsPerCapital).to.equal(10);
+            const up = [await tokenomics.getUnitPoint(curPoint, 0), await tokenomics.getUnitPoint(curPoint, 1)];
+            expect(up[0].unitWeight).to.equal(10);
+            expect(up[1].unitWeight).to.equal(10);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
         });
 
         it("Changing reward fractions", async function () {
@@ -380,13 +412,16 @@ describe("Tokenomics", async () => {
     context("Tokenomics calculation", async function () {
         it("Checkpoint without any revenues", async () => {
             // Skip the number of blocks within the epoch
+            const epochCounter = await tokenomics.epochCounter();
             await ethers.provider.send("evm_mine");
             await tokenomics.connect(deployer).checkpoint();
+            let updatedEpochCounter = await tokenomics.epochCounter();
+            expect(updatedEpochCounter).to.equal(epochCounter);
 
             // Try to run checkpoint while the epoch length is not yet reached
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10);
             await tokenomics.connect(deployer).checkpoint();
-
+            updatedEpochCounter = await tokenomics.epochCounter();
+            expect(updatedEpochCounter).to.equal(epochCounter);
         });
 
         it("Checkpoint with revenues", async () => {
@@ -418,6 +453,9 @@ describe("Tokenomics", async () => {
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
             // Change tokenomics factors such that all the rewards are given to the treasury
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30);
+            // Move more than one epoch in time and move to the next epoch
+            await helpers.time.increase(epochLen + 10);
+            await tokenomics.checkpoint();
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -443,8 +481,7 @@ describe("Tokenomics", async () => {
             await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, 10);
-            await helpers.time.increase(10);
+            await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
 
             // Get IDF
@@ -571,64 +608,89 @@ describe("Tokenomics", async () => {
         });
 
         it("Changing maxBond values", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            const initEffectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            const initMaxBond = initEffectiveBond;
+            const initMaxBondFraction = (await tokenomics.mapEpochTokenomics(await tokenomics.epochCounter())).maxBondFraction;
+            console.log(initMaxBondFraction);
+            console.log("initMaxBond", Number(initMaxBond));
+
             // Changing maxBond fraction to 100%
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
-            const initEffectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
-            // Changing the epoch length to 10
-            let epochLenFactor = 10;
-            let newEpochLen = epochLen * epochLenFactor;
-            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
 
-            let effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
-            // Verify that the effectiveBond increased by a factor of epochLenFactor
-            expect(initEffectiveBond.mul(epochLenFactor)).to.equal(effectiveBond);
+            // Check that the next maxBond has been updated correctly in comparison with the initial one
+            const nextMaxBondFraction = (await tokenomics.mapEpochTokenomics(await tokenomics.epochCounter())).maxBondFraction;
+            expect(nextMaxBondFraction).to.equal(100);
+            const nextMaxBond = ethers.BigNumber.from(await tokenomics.maxBond());
+            console.log("nextMaxBond", Number(nextMaxBond));
+            expect((nextMaxBond.div(nextMaxBondFraction)).mul(initMaxBondFraction)).to.equal(initMaxBond);
 
-            // Reserve half of the effectiveBond
-            const halfEffectiveBond = effectiveBond.div(2);
-            await tokenomics.connect(deployer).reserveAmountForBondProgram(halfEffectiveBond);
+            //            const nextEffectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            //            // Changing the epoch length to 10
+            //            let epochLenFactor = 10;
+            //            let newEpochLen = epochLen * epochLenFactor;
+            //            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0, 0, 0);
+            //            // Increase the time and change the epoch
+            //            await helpers.time.increase(epochLen + 100);
+            //            await tokenomics.checkpoint();
+            //
+            //            let effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            //            // Verify that the effectiveBond increased by a factor of epochLenFactor
+            //            expect(initEffectiveBond.add(initEffectiveBond.mul(epochLenFactor))).to.equal(effectiveBond);
+            //            return;
+            //
+            //            // Reserve half of the effectiveBond
+            //            const halfEffectiveBond = effectiveBond.div(2);
+            //            await tokenomics.connect(deployer).reserveAmountForBondProgram(halfEffectiveBond);
+            //
+            //            // Check that the epoch length cannot be reduced by a half or more
+            //            newEpochLen = newEpochLen / 2;
+            //            await expect(
+            //                tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0, 0, 0)
+            //            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+            //
+            //            // Check in a static call that the change on a bigger value is fine
+            //            await tokenomics.connect(deployer).callStatic.changeTokenomicsParameters(0, 0, newEpochLen + 1, 0, 0, 0);
+            //
+            //            // Check that the maxBond fraction cannot be reduced by a half or more
+            //            await expect(
+            //                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 50, 0, 0)
+            //            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+            //
+            //            // Check in a static call that the change on a bigger maxBond fraction value is fine
+            //            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 51, 0, 0);
+            //
+            //            // Check that the reserve amount can go maximum to the effectiveBond == 0
+            //            let result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond);
+            //            expect(result).to.equal(true);
+            //            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond.add(1));
+            //            expect(result).to.equal(false);
+            //
+            //            // Increase the epoch length by 10 (was x1, then x10, then x5 (not executed), now will be x15)
+            //            newEpochLen += epochLen * 10;
+            //            await tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0, 0, 0);
+            //
+            //            // Now we should be able to reserve of the amount of the effectiveBond, since we increased by half of the original
+            //            // Since we reserved half, we can now go no lower than one third
+            //            // EffectiveBond was 100, we reserved 50, it became 100 - 50 = 50. We then added 50 more. The effectiveBond is 100.
+            //            // The total effectiveBond if we returned the reserved one would be 150. So we can reduce the effectiveBond
+            //            // by a maximum of 100 out of 150, which is 66%.
+            //            await expect(
+            //                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 33, 0, 0)
+            //            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
+            //            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 34, 0, 0);
+            //
+            //            // Since 50 was reserved, the maximum we can reserve now is 100 (out of 150), or the full effectiveBond
+            //            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond);
+            //            expect(result).to.equal(true);
+            //            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond.add(1));
+            //            expect(result).to.equal(false);
 
-            // Check that the epoch length cannot be reduced by a half or more
-            newEpochLen = newEpochLen / 2;
-            await expect(
-                tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0)
-            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
-
-            // Check in a static call that the change on a bigger value is fine
-            await tokenomics.connect(deployer).callStatic.changeTokenomicsParameters(0, 0, newEpochLen + 1, 0);
-
-            // Check that the maxBond fraction cannot be reduced by a half or more
-            await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 50, 0, 0)
-            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
-
-            // Check in a static call that the change on a bigger maxBond fraction value is fine
-            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 51, 0, 0);
-
-            // Check that the reserve amount can go maximum to the effectiveBond == 0
-            let result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond);
-            expect(result).to.equal(true);
-            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(halfEffectiveBond.add(1));
-            expect(result).to.equal(false);
-
-            // Increase the epoch length by 10 (was x1, then x10, then x5 (not executed), now will be x15)
-            newEpochLen += epochLen * 10;
-            await tokenomics.connect(deployer).changeTokenomicsParameters(0, 0, newEpochLen, 0);
-
-            // Now we should be able to reserve of the amount of the effectiveBond, since we increased by half of the original
-            // Since we reserved half, we can now go no lower than one third
-            // EffectiveBond was 100, we reserved 50, it became 100 - 50 = 50. We then added 50 more. The effectiveBond is 100.
-            // The total effectiveBond if we returned the reserved one would be 150. So we can reduce the effectiveBond
-            // by a maximum of 100 out of 150, which is 66%.
-            await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 33, 0, 0)
-            ).to.be.revertedWithCustomError(tokenomics, "RejectMaxBondAdjustment");
-            await tokenomics.connect(deployer).callStatic.changeIncentiveFractions(0, 0, 34, 0, 0);
-
-            // Since 50 was reserved, the maximum we can reserve now is 100 (out of 150), or the full effectiveBond
-            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond);
-            expect(result).to.equal(true);
-            result = await tokenomics.connect(deployer).callStatic.reserveAmountForBondProgram(effectiveBond.add(1));
-            expect(result).to.equal(false);
+            snapshot.restore();
         });
     });
 
@@ -666,10 +728,16 @@ describe("Tokenomics", async () => {
             let timeEpochBeforeYearChange = yearChangeTime - epochLen - epochLen / 2;
             await helpers.time.increaseTo(timeEpochBeforeYearChange);
             await tokenomics.checkpoint();
+
+            let snapshotInternal = await helpers.takeSnapshot();
             // Try to change the epoch length now such that the next epoch will immediately have the year change
-            await expect(
-                tokenomics.changeTokenomicsParameters(1, 1, 2 * epochLen, 1)
-            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+            await tokenomics.changeTokenomicsParameters(0, 0, 2 * epochLen, 0, 0, 0);
+            // Move to the end of epoch and check the updated epoch length
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.epochLen()).to.equal(2 * epochLen);
+            // Restore the state of the blockchain back to the time half of the epoch before one epoch left for the current year
+            snapshotInternal.restore();
 
             // Get to the time of the half epoch length before the year change
             // Meaning that the year does not change yet during the current epoch, but it will during the next one
@@ -678,21 +746,14 @@ describe("Tokenomics", async () => {
             await tokenomics.checkpoint();
 
             // The maxBond lock flag must be set to true, now try to change the epochLen
-            await expect(
-                tokenomics.changeTokenomicsParameters(1, 1, epochLen + 100, 1)
-            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+            await tokenomics.changeTokenomicsParameters(0, 0, epochLen + 100, 0, 0, 0);
             // Try to change the maxBondFraction as well
-            await expect(
-                tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0)
-            ).to.be.revertedWithCustomError(tokenomics, "MaxBondUpdateLocked");
+            await tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0);
 
             // Now skip one epoch
             await helpers.time.increaseTo(timeEpochBeforeYearChange + epochLen);
             await tokenomics.checkpoint();
-
-            // Change parameters now
-            await tokenomics.changeTokenomicsParameters(1, 1, epochLen, 1);
-            await tokenomics.changeIncentiveFractions(30, 40, 50, 50, 0);
+            expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

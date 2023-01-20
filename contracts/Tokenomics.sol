@@ -301,7 +301,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check that the epoch length has at least a practical minimal value
         // TODO Decide on the final minimal value
         if (uint32(_epochLen) < MIN_EPOCH_LENGTH) {
-            revert AmountLowerThan(_epochLen, MIN_EPOCH_LENGTH);
+            revert Overflow(MIN_EPOCH_LENGTH, _epochLen);
         }
 
         // Assign other passed variables
@@ -531,7 +531,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         if (uint32(_epochLen) >= MIN_EPOCH_LENGTH) {
             nextEpochLen = uint32(_epochLen);
         } else {
-            revert Overflow(MIN_EPOCH_LENGTH, _epochLen);
+            _epochLen = epochLen;
         }
 
         // Adjust veOLAS threshold for the next epoch
@@ -938,6 +938,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
         // Update incentive fractions for the next epoch
         if (incentiveFractionsUpdated == 2) {
+            // Recalculate maxBond for the next epoch
+            maxBond = uint96(curInflationPerSecond * curEpochLen * nextPoint.epochPoint.maxBondFraction) / 100;
             // The update has been already performed by the changeIncentiveFractions() function call
             incentiveFractionsUpdated = 1;
             // Confirm the change of incentive fractions
@@ -954,15 +956,19 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
         if (tokenomicsParametersUpdated == 2) {
             // Update epoch length and set the next value back to zero
-            curEpochLen = nextEpochLen;
-            nextEpochLen = 0;
-            epochLen = uint32(curEpochLen);
-            // Update veOLAS threshold and set the next value back to zero
-            veOLASThreshold = nextVeOLASThreshold;
-            nextVeOLASThreshold = 0;
+            if (nextEpochLen > 0) {
+                curEpochLen = nextEpochLen;
+                epochLen = uint32(curEpochLen);
+                nextEpochLen = 0;
 
-            // Recalculate maxBond for the next epoch
-            maxBond = uint96(curInflationPerSecond * curEpochLen * nextPoint.epochPoint.maxBondFraction) / 100;
+                // Recalculate maxBond for the next epoch
+                maxBond = uint96(curInflationPerSecond * curEpochLen * nextPoint.epochPoint.maxBondFraction) / 100;
+            }
+            // Update veOLAS threshold and set the next value back to zero
+            if (nextVeOLASThreshold > 0) {
+                veOLASThreshold = nextVeOLASThreshold;
+                nextVeOLASThreshold = 0;
+            }
 
             // Set the tokenomics parameters flag back to unchanged
             tokenomicsParametersUpdated = 1;
