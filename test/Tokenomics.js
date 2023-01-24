@@ -607,7 +607,7 @@ describe("Tokenomics", async () => {
             expect(topUp).to.greaterThan(0);
         });
 
-        it("Changing maxBond values", async function () {
+        it.only("Changing maxBond values", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -654,7 +654,6 @@ describe("Tokenomics", async () => {
             expect((nextMaxBond.div(nextMaxBondFraction).div(2)).mul(initMaxBondFraction)).to.equal(initMaxBond);
             // Restore the state of the blockchain back to before changing maxBond-related parameters
             snapshotInternal.restore();
-            return;
 
             // Move to the epoch before changing the year
             // OLAS starting time
@@ -686,15 +685,15 @@ describe("Tokenomics", async () => {
 
             snapshotInternal.restore();
 
-//            let snapshotInternal = await helpers.takeSnapshot();
-//            // Try to change the epoch length now such that the next epoch will immediately have the year change
-//            await tokenomics.changeTokenomicsParameters(0, 0, 2 * epochLen, 0, 0, 0);
-//            // Move to the end of epoch and check the updated epoch length
-//            await helpers.time.increase(epochLen);
-//            await tokenomics.checkpoint();
-//            expect(await tokenomics.epochLen()).to.equal(2 * epochLen);
-//            // Restore the state of the blockchain back to the time half of the epoch before one epoch left for the current year
-//            snapshotInternal.restore();
+            //            let snapshotInternal = await helpers.takeSnapshot();
+            //            // Try to change the epoch length now such that the next epoch will immediately have the year change
+            //            await tokenomics.changeTokenomicsParameters(0, 0, 2 * epochLen, 0, 0, 0);
+            //            // Move to the end of epoch and check the updated epoch length
+            //            await helpers.time.increase(epochLen);
+            //            await tokenomics.checkpoint();
+            //            expect(await tokenomics.epochLen()).to.equal(2 * epochLen);
+            //            // Restore the state of the blockchain back to the time half of the epoch before one epoch left for the current year
+            //            snapshotInternal.restore();
 
             //            const nextEffectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
             //            // Changing the epoch length to 10

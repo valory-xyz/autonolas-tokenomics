@@ -700,8 +700,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 numServices = serviceIds.length;
         // Loop over service Ids to calculate their partial UCFu-s
         for (uint256 i = 0; i < numServices; ++i) {
-            uint96 amount = uint96(amounts[i]);
-
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
             // If both component and agent owner top-up fractions are zero, there is no need to call external contract
             // functions to check each service owner veOLAS balance
@@ -721,10 +719,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 if (numServiceUnits == 0) {
                     revert ServiceNeverDeployed(serviceIds[i]);
                 }
-                // The amount has to be adjusted for the number of units in the service
-                amount /= uint96(numServiceUnits);
                 // Record amounts data only if at least one incentive unit fraction is not zero
                 if (incentiveFlags[unitType] || incentiveFlags[unitType + 2]) {
+                    // The amount has to be adjusted for the number of units in the service
+                    uint96 amount = uint96(amounts[i] / numServiceUnits);
                     // Accumulate amounts for each unit Id
                     for (uint256 j = 0; j < numServiceUnits; ++j) {
                         // Get the last epoch number the incentives were accumulated for
