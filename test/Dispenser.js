@@ -153,7 +153,7 @@ describe("Dispenser", async () => {
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
             let ep = await tokenomics.getEpochPoint(lastPoint);
-            expect(ep.devsPerCapital).to.greaterThan(0);
+            expect(await tokenomics.devsPerCapital()).to.greaterThan(0);
             expect(ep.idf).to.greaterThan(0);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];

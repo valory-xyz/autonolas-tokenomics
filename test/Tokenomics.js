@@ -289,14 +289,10 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
             expect(await tokenomics.veOLASThreshold()).to.equal(10);
 
-            // Get the current epoch counter
-            const curPoint = Number(await tokenomics.epochCounter());
-            // Get the epoch point of the current epoch
-            const ep = await tokenomics.getEpochPoint(curPoint);
-            expect(await ep.devsPerCapital).to.equal(10);
-            const up = [await tokenomics.getUnitPoint(curPoint, 0), await tokenomics.getUnitPoint(curPoint, 1)];
-            expect(up[0].unitWeight).to.equal(10);
-            expect(up[1].unitWeight).to.equal(10);
+            // Check other tokenomics parameters
+            expect(await tokenomics.devsPerCapital()).to.equal(10);
+            expect(await tokenomics.componentWeight()).to.equal(10);
+            expect(await tokenomics.agentWeight()).to.equal(10);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
