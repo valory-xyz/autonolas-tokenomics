@@ -295,7 +295,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check that the epoch length has at least a practical minimal value
         // TODO Decide on the final minimal value
         if (uint32(_epochLen) < MIN_EPOCH_LENGTH) {
-            revert Overflow(MIN_EPOCH_LENGTH, _epochLen);
+            revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
 
         // Assign other passed variables
