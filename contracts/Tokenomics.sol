@@ -85,6 +85,7 @@ struct EpochPoint {
     // maxBondFraction + topUpComponentFraction + topUpAgentFraction = 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     uint8 maxBondFraction;
+    uint96 sumUnitTopUpsOLAS;
 }
 
 // Structure for tokenomics point
@@ -672,8 +673,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
             totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
-            uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
-            //uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].epochPoint.sumUnitTopUpsOLAS * 100;
+//            uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
+            uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].epochPoint.sumUnitTopUpsOLAS * 100;
             totalIncentives = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumUnitIncentives;
             mapUnitIncentives[unitType][unitId].topUp = uint96(totalIncentives);
             // Setting pending top-up to zero
@@ -771,9 +772,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                 }
             }
             // TODO Explore this path of spending less gas for the OLAS top-ups computation
-//            if (topUpEligible) {
-//                mapEpochTokenomics[curEpoch].epochPoint.sumUnitTopUpsOLAS += uint96(amounts[i]);
-//            }
+            if (topUpEligible) {
+                mapEpochTokenomics[curEpoch].epochPoint.sumUnitTopUpsOLAS += uint96(amounts[i]);
+            }
         }
     }
 
@@ -1245,7 +1246,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                     // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
                     totalIncentives *= mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS;
                     totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
-                    uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
+//                    uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].sumUnitTopUpsOLAS * 100;
+                    uint256 sumUnitIncentives = mapEpochTokenomics[lastEpoch].epochPoint.sumUnitTopUpsOLAS * 100;
                     // Accumulate to the final top-up for the last epoch
                     topUp += totalIncentives / sumUnitIncentives;
                 }
