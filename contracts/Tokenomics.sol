@@ -481,14 +481,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _agentWeight Agent weight for code unit calculations.
     ///#if_succeeds {:msg "ep is correct endTime"} epochCounter > 1
     ///==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
-    ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen) ==> epochLen == _epochLen;
+    ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen) ==> nextEpochLen == _epochLen;
     ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 && _devsPerCapital <= type(uint32).max ==> devsPerCapital == _devsPerCapital;
     ///#if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
-    ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen)
-    ///==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
-    ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
-    ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
-    ///#if_succeeds {:msg "veOLASThreshold"} _veOLASThreshold > 0 && _veOLASThreshold <= type(uint96).max ==> veOLASThreshold == _veOLASThreshold;
+    ///#if_succeeds {:msg "veOLASThreshold"} _veOLASThreshold > 0 && _veOLASThreshold <= type(uint96).max ==> nextVeOLASThreshold == _veOLASThreshold;
     function changeTokenomicsParameters(
         uint256 _devsPerCapital,
         uint256 _epsilonRate,
@@ -561,10 +557,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
-    ///#if_succeeds {:msg "maxBond"} old(mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction != _maxBondFraction)
-    ///==> maxBond == (inflationPerSecond * _maxBondFraction * epochLen) / 100;
-    ///#if_succeeds {:msg "new effectiveBond with curMaxBond > nextMaxBond"} old(maxBond) > maxBond ==> effectiveBond == old(effectiveBond) - (old(maxBond) - maxBond);
-    ///#if_succeeds {:msg "new effectiveBond with curMaxBond < nextMaxBond"} maxBond > old(maxBond) ==> effectiveBond == old(effectiveBond) + (maxBond - old(maxBond));
+    ///#if_succeeds {:msg "maxBond"} mapEpochTokenomics[epochCounter + 1].epochPoint.maxBondFraction == _maxBondFraction;
     function changeIncentiveFractions(
         uint256 _rewardComponentFraction,
         uint256 _rewardAgentFraction,

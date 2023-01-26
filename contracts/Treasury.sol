@@ -105,7 +105,8 @@ contract Treasury is IErrorsTokenomics {
 
     /// @dev Receives ETH.
     ///#if_succeeds {:msg "we do not touch the balance of developers" } old(ETHFromServices) == ETHFromServices;
-    ///#if_succeeds {:msg "conservation law"} old(ETHOwned) + msg.value <= type(uint96).max ==> address(this).balance == ETHFromServices+ETHOwned;
+    ///#if_succeeds {:msg "conservation law"} old(ETHOwned) + msg.value + old(ETHFromServices) <= type(uint96).max && ETHOwned == old(ETHOwned) + msg.value
+    ///==> address(this).balance == ETHFromServices + ETHOwned;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
@@ -116,7 +117,7 @@ contract Treasury is IErrorsTokenomics {
         uint256 amount = ETHOwned;
         amount += msg.value;
         // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible
-        if (amount > type(uint96).max) {
+        if (amount + ETHFromServices > type(uint96).max) {
             revert Overflow(amount, type(uint96).max);
         }
         ETHOwned = uint96(amount);
@@ -235,7 +236,8 @@ contract Treasury is IErrorsTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
     ///#if_succeeds {:msg "we do not touch the owners balance"} old(ETHOwned) == ETHOwned;
-    ///#if_succeeds {:msg "updated ETHFromServices"} old(ETHFromServices) + msg.value <= type(uint96).max && ETHFromServices == old(ETHFromServices) + msg.value;
+    ///#if_succeeds {:msg "updated ETHFromServices"} old(ETHFromServices) + msg.value + old(ETHOwned) <= type(uint96).max && ETHFromServices == old(ETHFromServices) + msg.value
+    ///==> address(this).balance == ETHFromServices + ETHOwned;
     ///#if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
         // Reentrancy guard
@@ -273,7 +275,7 @@ contract Treasury is IErrorsTokenomics {
         // Accumulate received donation from services
         uint256 donationETH = ETHFromServices + msg.value;
         // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible
-        if (donationETH > type(uint96).max) {
+        if (donationETH + ETHOwned > type(uint96).max) {
             revert Overflow(donationETH, type(uint96).max);
         }
         ETHFromServices = uint96(donationETH);
