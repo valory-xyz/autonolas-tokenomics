@@ -283,6 +283,12 @@ describe("Depository LP", async () => {
             ).to.be.revertedWithCustomError(depository, "LowerThan");
         });
 
+        it("Should fail when creating a product with a zero supply", async () => {
+            await expect(
+                depository.create(pairODAI.address, defaultPriceLP, 0, vesting)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
+        });
+
         it("Should fail when creating a product with a supply bigger than uint96.max", async () => {
             await expect(
                 depository.create(pairODAI.address, defaultPriceLP, maxUint96 + "0", vesting)
@@ -717,6 +723,13 @@ describe("Depository LP", async () => {
             await expect(
                 depository.connect(deployer).deposit(bid, amount)
             ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
+        });
+
+        it("Should fail a deposit with the priceLP * tokenAmount overflow", async () => {
+            await expect(
+                // maxUint96 + maxUint96 in string will give a value of more than max of uint192
+                depository.connect(deployer).deposit(bid, maxUint96 + maxUint96)
+            ).to.be.revertedWithCustomError(treasury, "Overflow");
         });
     });
 

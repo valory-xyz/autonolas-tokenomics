@@ -16,6 +16,8 @@ abstract contract TokenomicsConstants {
     uint256 public constant ONE_YEAR = 1 days * 365;
     // Minimum epoch length
     uint256 public constant MIN_EPOCH_LENGTH = 1 weeks;
+    // Minimum fixed point tokenomics parameters
+    uint256 public constant MIN_PARAM_VALUE = 1e14;
 
     /// @dev Gets an inflation cap for a specific year.
     /// @param numYears Number of years passed from the launch date.
