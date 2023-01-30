@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+import {mulDiv} from "@prb/math/src/Core.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/IUniswapV2Pair.sol";
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
 
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.
@@ -38,7 +44,13 @@ contract GenericBondCalculator {
         // or 2* r0/sqrt(r0) * 10^18 => 87 bit + 60 bit = 147 bit (if LP is unbalanced);
         // tokenAmount is of the order of sqrt(r0*r1) ~ 104 bit (if balanced) or sqrt(96) ~ 10 bit (if max unbalanced);
         // overall: 64 + 53 + 104 = 221 < 256 - regular case if LP is balanced, and 64 + 147 + 10 = 221 < 256 if unbalanced
-        uint256 amountDF = (ITokenomics(tokenomics).getLastIDF() * priceLP * tokenAmount) / 1e36;
+        uint256 totalTokenValue = mulDiv(priceLP, tokenAmount, 1);
+        // Check for the cumulative LP tokens value limit
+        if (totalTokenValue > type(uint192).max) {
+            revert Overflow(totalTokenValue, type(uint192).max);
+        }
+        // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
+        uint256 amountDF = mulDiv(ITokenomics(tokenomics).getLastIDF(), totalTokenValue, 1e36);
         amountOLAS = amountDF;
     }
 

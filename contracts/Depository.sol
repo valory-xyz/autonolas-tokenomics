@@ -192,12 +192,6 @@ contract Depository is IErrorsTokenomics {
         // Get the bonding product
         Product storage product = mapBondProducts[productId];
 
-        uint256 priceLP = product.priceLP;
-        // Check for the cumulative LP tokens price limit
-        if (priceLP * tokenAmount > type(uint192).max) {
-            revert Overflow(priceLP * tokenAmount, type(uint192).max);
-        }
-
         // Get the LP token address
         address token = product.token;
 
@@ -210,7 +204,7 @@ contract Depository is IErrorsTokenomics {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
-        payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, priceLP);
+        payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
         if (payout > product.supply) {
