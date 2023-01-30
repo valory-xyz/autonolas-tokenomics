@@ -44,13 +44,16 @@ contract GenericBondCalculator {
         // or 2* r0/sqrt(r0) * 10^18 => 87 bit + 60 bit = 147 bit (if LP is unbalanced);
         // tokenAmount is of the order of sqrt(r0*r1) ~ 104 bit (if balanced) or sqrt(96) ~ 10 bit (if max unbalanced);
         // overall: 64 + 53 + 104 = 221 < 256 - regular case if LP is balanced, and 64 + 147 + 10 = 221 < 256 if unbalanced
+        // mulDiv will correctly fit the total amount up to the value of max uint256, i.e., max of priceLP and max of tokenAmount,
+        // however their multiplication can not be bigger than the max of uint192
         uint256 totalTokenValue = mulDiv(priceLP, tokenAmount, 1);
         // Check for the cumulative LP tokens value limit
         if (totalTokenValue > type(uint192).max) {
             revert Overflow(totalTokenValue, type(uint192).max);
         }
         // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
-        uint256 amountDF = mulDiv(ITokenomics(tokenomics).getLastIDF(), totalTokenValue, 1e36);
+        // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
+        uint256 amountDF = ITokenomics(tokenomics).getLastIDF() * totalTokenValue / 1e36;
         amountOLAS = amountDF;
     }
 

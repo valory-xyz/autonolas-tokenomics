@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
 import "../Dispenser.sol";
@@ -132,9 +131,19 @@ contract TestTokenomics {
 
     /// @dev Donate to services, call checkpoint and claim incentives.
     function fullTokenomicsRun(uint256 amount0, uint256 amount1) external {
+        require(amount0 + amount1 < address(this).balance);
         (serviceAmounts[0], serviceAmounts[1]) = (amount0, amount1);
         treasury.depositServiceDonationsETH{value: serviceAmounts[0] + serviceAmounts[1]}(serviceIds, serviceAmounts);
-        tokenomics.checkpoint();
+
+        // Checkpoint only if we move to the next epoch
+        uint256 eCounter = tokenomics.epochCounter() - 1;
+        EpochPoint memory tPoint = tokenomics.getEpochPoint(eCounter);
+        uint256 lastEndTime = tPoint.endTime;
+        uint256 eLength = tokenomics.epochLen();
+        if (block.timestamp > (lastEndTime + eLength)) {
+            tokenomics.checkpoint();
+        }
+
         // Define the types of units to claim rewards and top-ups for
         (unitTypes[0], unitTypes[1]) = (0, 1);
         // Define unit Ids to claim rewards and top-ups for
@@ -143,6 +152,7 @@ contract TestTokenomics {
         if (reward + topUp > 0) {
             dispenser.claimOwnerIncentives(unitTypes, unitIds);
         }
+
         (unitIds[0], unitIds[1]) = (2, 2);
         (reward, topUp) = tokenomics.getOwnerIncentives(address(this), unitTypes, unitIds);
         if (reward + topUp > 0) {
@@ -151,20 +161,47 @@ contract TestTokenomics {
     }
 
     /// @dev Create bond prodict with the specified LP token.
-    function createBondProduct(uint256 supply, uint256 vestingTime) external {
-        productId = depository.create(pair, priceLP, supply, vestingTime);
+    function createBondProduct(uint256 supply) external {
+        productId = depository.create(pair, priceLP, supply, vesting);
+    }
+
+    /// @dev Deposit LP token to the bond product with the max of uint96 tokenAmount.
+    function depositBond96Id0(uint96 tokenAmount) external {
+        if (tokenAmount < ZuniswapV2Pair(pair).balanceOf(address(this))) {
+            depository.deposit(0, tokenAmount);
+        }
     }
 
     /// @dev Deposit LP token to the bond product with the max of uint96 tokenAmount.
     function depositBond96(uint96 tokenAmount) external {
+        if (tokenAmount < ZuniswapV2Pair(pair).balanceOf(address(this))) {
+            depository.deposit(productId, tokenAmount);
+        }
+    }
+
+    /// @dev Deposit LP token to the bond product.
+    function depositBond256Id0(uint256 tokenAmount) external {
         depository.deposit(0, tokenAmount);
-        depository.deposit(productId, tokenAmount);
     }
 
     /// @dev Deposit LP token to the bond product.
     function depositBond256(uint256 tokenAmount) external {
-        depository.deposit(0, tokenAmount);
         depository.deposit(productId, tokenAmount);
+    }
+
+    /// @dev Redeem OLAS from the bond program.
+    function redeemBond() external {
+        // Go through all the products
+        for (uint256 i = 0; i < productId; ++i) {
+            (, , , uint256 expiry) = depository.mapBondProducts(i);
+            // If the product expired, there have to be bonds to redeem
+            if (block.timestamp > expiry) {
+                (uint256[] memory bondIds, ) = depository.getPendingBonds(address(this), true);
+                if (bondIds.length > 0) {
+                    depository.redeem(bondIds);
+                }
+            }
+        }
     }
 
     /// @dev Close the last created bond program.
@@ -174,11 +211,13 @@ contract TestTokenomics {
 
     /// @dev Withdraw LP tokens.
     function withdrawLPToken(uint256 tokenAmount) external {
+        require(tokenAmount < 1_000);
         treasury.withdraw(address(0), tokenAmount, pair);
     }
 
     /// @dev Withdraw ETH.
     function withdrawETH(uint256 tokenAmount) external {
+        require(tokenAmount < 100_000);
         treasury.withdraw(address(0), tokenAmount, treasury.ETH_TOKEN_ADDRESS());
     }
 }
