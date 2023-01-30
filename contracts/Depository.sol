@@ -269,9 +269,6 @@ contract Depository is IErrorsTokenomics {
             }
         }
 
-        // Check that all the bond products are closed
-        /// #assert forall (uint k in bondIds) mapBondProducts[mapUserBonds[bondIds[k]].productId].expiry == 0;
-
         // Check for the non-zero payout
         if (payout == 0) {
             revert ZeroValue();
@@ -290,6 +287,11 @@ contract Depository is IErrorsTokenomics {
     function getPendingBonds(address account, bool matured) external view
         returns (uint256[] memory bondIds, uint256 payout)
     {
+        // Check the address
+        if (account == address(0)) {
+            revert ZeroAddress();
+        }
+
         uint256 numAccountBonds;
         // Calculate the number of pending bonds
         uint256 numBonds = bondCounter;

@@ -753,6 +753,11 @@ describe("Depository LP", async () => {
                 depository.connect(bob).redeem([])
             ).to.be.revertedWithCustomError(depository, "ZeroValue");
 
+            // Try to get pending bonds for the zero address
+            await expect(
+                depository.getPendingBonds(AddressZero, false)
+            ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
             // Deposit LP tokens
             let amount = (await pairODAI.balanceOf(bob.address));
             let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(bid, amount);
