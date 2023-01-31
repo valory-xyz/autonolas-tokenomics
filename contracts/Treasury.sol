@@ -413,51 +413,6 @@ contract Treasury is IErrorsTokenomics {
         }
     }
 
-    /// @dev Enables a token to be exchanged for OLAS.
-    /// @param token Token address.
-    function enableToken(address token) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the zero address token
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Authorize the token
-        if (!mapEnabledTokens[token]) {
-            mapEnabledTokens[token] = true;
-            emit EnableToken(token);
-        }
-    }
-
-    /// @dev Disables a token from the ability to exchange for OLAS.
-    /// @param token Token address.
-    function disableToken(address token) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        if (mapEnabledTokens[token]) {
-            // The reserves of a token must be zero in order to disable it
-            if (mapTokenReserves[token] > 0) {
-                revert NonZeroValue();
-            }
-            mapEnabledTokens[token] = false;
-            emit DisableToken(token);
-        }
-    }
-
-    /// @dev Gets information about token being enabled for bonding.
-    /// @param token Token address.
-    /// @return enabled True if token is enabled.
-    function isEnabled(address token) external view returns (bool enabled) {
-        enabled = mapEnabledTokens[token];
-    }
-
     /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
     /// @param treasuryRewards Treasury rewards.
     /// @return success True, if the function execution is successful.
@@ -519,6 +474,51 @@ contract Treasury is IErrorsTokenomics {
 
         // Call the service registry drain function
         amount = IServiceRegistry(serviceRegistry).drain();
+    }
+
+    /// @dev Enables a token to be exchanged for OLAS.
+    /// @param token Token address.
+    function enableToken(address token) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address token
+        if (token == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Authorize the token
+        if (!mapEnabledTokens[token]) {
+            mapEnabledTokens[token] = true;
+            emit EnableToken(token);
+        }
+    }
+
+    /// @dev Disables a token from the ability to exchange for OLAS.
+    /// @param token Token address.
+    function disableToken(address token) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (mapEnabledTokens[token]) {
+            // The reserves of a token must be zero in order to disable it
+            if (mapTokenReserves[token] > 0) {
+                revert NonZeroValue();
+            }
+            mapEnabledTokens[token] = false;
+            emit DisableToken(token);
+        }
+    }
+
+    /// @dev Gets information about token being enabled for bonding.
+    /// @param token Token address.
+    /// @return enabled True if token is enabled.
+    function isEnabled(address token) external view returns (bool enabled) {
+        enabled = mapEnabledTokens[token];
     }
 
     /// @dev Pauses the contract.

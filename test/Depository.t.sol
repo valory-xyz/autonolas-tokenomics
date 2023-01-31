@@ -133,7 +133,7 @@ contract DepositoryTest is BaseSetup {
         vm.prank(deployer);
         depository.deposit(0, bamount);
         // Check the size of pending bond array
-        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, false);
+        (uint256[] memory bondIds, ) = depository.getBonds(deployer, false);
         assertEq(bondIds.length, 1);
         (uint256 payout, ) = depository.getBondStatus(0);
         // The default IDF without any incentivized coefficient or epsilon rate is 1
@@ -152,7 +152,7 @@ contract DepositoryTest is BaseSetup {
 
         // Increase time such that the vesting is complete
         vm.warp(block.timestamp + vesting + 60);
-        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, true);
+        (uint256[] memory bondIds, ) = depository.getBonds(deployer, true);
         // Redeem the bond
         vm.prank(deployer);
         depository.redeem(bondIds);

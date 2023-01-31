@@ -194,7 +194,7 @@ contract TestTokenomics {
 
     /// @dev Redeem OLAS from the bond program.
     function redeemBond() external {
-        (uint256[] memory bondIds, ) = depository.getPendingBonds(address(this), true);
+        (uint256[] memory bondIds, ) = depository.getBonds(address(this), true);
         depository.redeem(bondIds);
     }
 
