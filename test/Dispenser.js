@@ -152,7 +152,7 @@ describe("Dispenser", async () => {
             // Get tokenomcis parameters from the previous epoch
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            let ep = await tokenomics.getEpochPoint(lastPoint);
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
             expect(await tokenomics.devsPerCapital()).to.greaterThan(0);
             expect(ep.idf).to.greaterThan(0);
             // Get the unit points of the last epoch
@@ -185,7 +185,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            ep = await tokenomics.getEpochPoint(lastPoint);
+            ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -206,10 +206,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.greaterThan(0);
 
             // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
 
@@ -279,7 +279,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            let ep = await tokenomics.getEpochPoint(lastPoint);
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
 
@@ -330,7 +330,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            ep = await tokenomics.getEpochPoint(lastPoint);
+            ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -419,7 +419,7 @@ describe("Dispenser", async () => {
                 // Get the last settled epoch counter
                 let lastPoint = Number(await tokenomics.epochCounter()) - 1;
                 // Get the epoch point of the last epoch
-                let ep = await tokenomics.getEpochPoint(lastPoint);
+                let ep = await tokenomics.mapEpochTokenomics(lastPoint);
                 // Get the unit points of the last epoch
                 let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
                 // Calculate top-ups based on the points information
@@ -434,7 +434,7 @@ describe("Dispenser", async () => {
 
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            let ep = await tokenomics.getEpochPoint(lastPoint);
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -498,7 +498,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -519,10 +519,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.greaterThan(0);
 
             // Check for the incentive balances of component and agent such that their pending rewards are zero
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.equal(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.equal(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
 
@@ -595,7 +595,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -616,10 +616,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.greaterThan(0);
 
             // Check for the incentive balances such that pending relative incentives are zero for components
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.equal(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.equal(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
 
@@ -692,7 +692,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -713,10 +713,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.equal(0);
 
             // Check for the incentive balances of component and agent such that their pending relative top-ups are zero
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.equal(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.equal(0);
 
@@ -784,7 +784,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             let lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            let ep = await tokenomics.getEpochPoint(lastPoint);
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -805,10 +805,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.greaterThan(0);
 
             // Check for the incentive balances such that their pending relative incentives are not zero
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
 
@@ -843,7 +843,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            ep = await tokenomics.getEpochPoint(lastPoint);
+            ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -905,7 +905,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information
@@ -926,10 +926,10 @@ describe("Dispenser", async () => {
             expect(accountTopUps).to.equal(0);
 
             // Check for the incentive balances such that their pending relative incentives are not zero
-            let incentiveBalances = await tokenomics.getIncentiveBalances(0, 1);
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
             expect(Number(incentiveBalances.pendingRelativeReward)).to.equal(0);
             expect(Number(incentiveBalances.pendingRelativeTopUp)).to.equal(0);
-            incentiveBalances = await tokenomics.getIncentiveBalances(1, 1);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
             expect(incentiveBalances.pendingRelativeReward).to.equal(0);
             expect(incentiveBalances.pendingRelativeTopUp).to.equal(0);
 
@@ -978,7 +978,7 @@ describe("Dispenser", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information

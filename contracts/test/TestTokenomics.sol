@@ -140,7 +140,7 @@ contract TestTokenomics {
 
         // Checkpoint only if we move to the next epoch
         uint256 eCounter = tokenomics.epochCounter() - 1;
-        EpochPoint memory tPoint = tokenomics.getEpochPoint(eCounter);
+        EpochPoint memory tPoint = tokenomics.mapEpochTokenomics(eCounter);
         uint256 lastEndTime = tPoint.endTime;
         uint256 eLength = tokenomics.epochLen();
         if (block.timestamp > (lastEndTime + eLength)) {
