@@ -138,7 +138,7 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
         });
 
-        it("Should fail when the epoch length is smaller than the minimum required", async function () {
+        it("Should fail when the epoch length is smaller than the minimum required or bigger than one year", async function () {
             // Deploy master tokenomics contract
             const tokenomicsMaster = await tokenomicsFactory.deploy();
             await tokenomicsMaster.deployed();
@@ -147,6 +147,13 @@ describe("Tokenomics", async () => {
             const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
             proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
                 [olas.address, treasury.address, deployer.address, deployer.address, ve.address, 0,
+                    componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, treasury.address, deployer.address, deployer.address, ve.address, oneYear + 1,
                     componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
             await expect(
                 TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
@@ -243,6 +250,8 @@ describe("Tokenomics", async () => {
 
             // Trying to set epoch length smaller than the minimum allowed value
             await tokenomics.changeTokenomicsParameters(10, 10, lessThanMinEpochLen, 10, 10, 10);
+            // Trying to set epoch length bigger than one year
+            await tokenomics.changeTokenomicsParameters(10, 10, oneYear + 1, 10, 10, 10);
             // Move one epoch in time and finish the epoch
             await helpers.time.increase(epochLen + 100);
             await tokenomics.checkpoint();

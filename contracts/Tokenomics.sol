@@ -301,6 +301,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
 
+        // Check that the epoch length is not bigger than one year
+        if (uint32(_epochLen) > ONE_YEAR) {
+            revert Overflow(_epochLen, ONE_YEAR);
+        }
+
         // Assign other passed variables
         olas = _olas;
         treasury = _treasury;
@@ -522,7 +527,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Check for the epochLen value to change
-        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH) {
+        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= ONE_YEAR) {
             nextEpochLen = uint32(_epochLen);
         } else {
             _epochLen = epochLen;
