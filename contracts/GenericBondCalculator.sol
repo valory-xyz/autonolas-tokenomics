@@ -39,10 +39,10 @@ contract GenericBondCalculator {
         returns (uint256 amountOLAS)
     {
         // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
-        // The resulting amountDF can not overflow by the following calculations: idf = 64 bit;
-        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bit (if LP is balanced)
-        // or 2* r0/sqrt(r0) * 10^18 => 87 bit + 60 bit = 147 bit (if LP is unbalanced);
-        // tokenAmount is of the order of sqrt(r0*r1) ~ 104 bit (if balanced) or sqrt(96) ~ 10 bit (if max unbalanced);
+        // The resulting amountDF can not overflow by the following calculations: idf = 64 bits;
+        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
+        // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced);
+        // tokenAmount is of the order of sqrt(r0*r1) ~ 104 bits (if balanced) or sqrt(96) ~ 10 bits (if max unbalanced);
         // overall: 64 + 53 + 104 = 221 < 256 - regular case if LP is balanced, and 64 + 147 + 10 = 221 < 256 if unbalanced
         // mulDiv will correctly fit the total amount up to the value of max uint256, i.e., max of priceLP and max of tokenAmount,
         // however their multiplication can not be bigger than the max of uint192

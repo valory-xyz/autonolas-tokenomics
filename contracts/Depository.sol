@@ -54,8 +54,8 @@ contract Depository is IErrorsTokenomics {
     // The size of the struct is 224 + 32 + 160 + 96 = 512 bits (2 full slots)
     struct Product {
         // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
-        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bit (if LP is balanced)
-        // or 2* r0/sqrt(r0) * 10^18 => 87 bit + 60 bit = 147 bit (if LP is unbalanced)
+        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
+        // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
         uint224 priceLP;
         // Product expiry time (initialization time + vesting time)
         // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
