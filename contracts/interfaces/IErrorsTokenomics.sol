@@ -102,14 +102,6 @@ interface IErrorsTokenomics {
     /// @dev Caught reentrancy violation.
     error ReentrancyGuard();
 
-    /// @dev maxBond parameter is locked and cannot be updated.
-    error MaxBondUpdateLocked();
-
-    /// @dev Rejects the max bond adjustment.
-    /// @param maxBondAmount Max bond amount available at the moment.
-    /// @param delta Delta bond amount to be subtracted from the maxBondAmount.
-    error RejectMaxBondAdjustment(uint256 maxBondAmount, uint256 delta);
-
     /// @dev Failure of treasury re-balance during the reward allocation.
     /// @param epochNumber Epoch number.
     error TreasuryRebalanceFailed(uint256 epochNumber);

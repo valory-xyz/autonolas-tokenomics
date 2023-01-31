@@ -74,10 +74,10 @@ contract Depository is IErrorsTokenomics {
     address public owner;
     // Individual bond counter
     // We assume that the number of bonds will not be bigger than the number of seconds
-    uint32 bondCounter;
+    uint32 public bondCounter;
     // Bond product counter
     // We assume that the number of products will not be bigger than the number of seconds
-    uint32 productCounter;
+    uint32 public productCounter;
     // Reentrancy lock
     uint8 internal _locked;
 
