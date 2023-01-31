@@ -39,7 +39,7 @@ import "./interfaces/IVotingEscrow.sol";
 */
 
 // Structure for component / agent point with tokenomics-related statistics
-// The size of the struct is 96 + 32 + 8 * 3 = 152 bits (1 full slot)
+// The size of the struct is 96 + 32 + 8 * 2 = 144 bits (1 full slot)
 struct UnitPoint {
     // Summation of all the relative OLAS top-ups accumulated by each component / agent in a service
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
@@ -53,14 +53,10 @@ struct UnitPoint {
     // Top-up component / agent fraction
     // This number cannot be practically bigger than 100 as the summation with other fractions gives at most 100 (%)
     uint8 topUpUnitFraction;
-    // Unit weight for code unit calculations
-    // This number is related to the component / agent reward fraction
-    // We assume this number will not be practically bigger than 255
-    uint8 unitWeight;
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 3 + 8 * 2 = 256 + 112 (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 full slots)
 struct EpochPoint {
     // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -73,9 +69,6 @@ struct EpochPoint {
     // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
     // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
     uint64 idf;
-    // Number of valuable devs can be paid per units of capital per epoch
-    // This number cannot be practically bigger than the total number of supported units
-    uint32 devsPerCapital;
     // Number of new owners
     // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
     uint32 numNewOwners;
@@ -170,13 +163,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     // Dispenser contract address
     address public dispenser;
-    // Default epsilon rate that contributes to the interest rate: 10% or 0.1
-    // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
-    // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
-    uint64 public epsilonRate;
-    // Epoch length in seconds
-    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
-    uint32 public epochLen;
 
     // Voting Escrow address
     address public ve;
@@ -196,9 +182,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     // Component Registry
     address public componentRegistry;
-    // Epoch length in seconds that will be set in the next epoch
+    // Default epsilon rate that contributes to the interest rate: 10% or 0.1
+    // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
+    // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
+    uint64 public epsilonRate;
+    // Epoch length in seconds
     // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
-    uint32 public nextEpochLen;
+    uint32 public epochLen;
     // Agent Registry
     address public agentRegistry;
     // veOLAS threshold for top-ups that will be set in the next epoch
@@ -206,6 +196,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     uint96 public nextVeOLASThreshold;
     // Service Registry
     address public serviceRegistry;
+    // Component and agent weights for code unit calculations
+    // These numbers are in fixed point format and related to component / agent reward fraction
+    // We assume these numbers will not be practically bigger
+    uint96 public componentWeight;
+    uint96 public agentWeight;
+    // Number of valuable devs can be paid per units of capital per epoch in fixed point format
+    // We assume this number will not be practically bigger
+    uint96 public devsPerCapital;
+    // Epoch length in seconds that will be set in the next epoch
+    // By design, the epoch length cannot be practically bigger than one year, or 31_536_000 seconds
+    uint32 public nextEpochLen;
 
 
     // Map of service Ids and their amounts in current epoch
@@ -294,7 +295,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check that the epoch length has at least a practical minimal value
         // TODO Decide on the final minimal value
         if (uint32(_epochLen) < MIN_EPOCH_LENGTH) {
-            revert Overflow(MIN_EPOCH_LENGTH, _epochLen);
+            revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
 
         // Assign other passed variables
@@ -333,7 +334,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         TokenomicsPoint storage tp = mapEpochTokenomics[1];
 
         // Setting initial parameters and ratios
-        tp.epochPoint.devsPerCapital = 1;
+        devsPerCapital = 1e18;
         tp.epochPoint.idf = 1e18;
 
         // Reward fractions
@@ -348,8 +349,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Initially we consider 1 unit of code as either 2 agents or 1 component.
         // E.g. if we have 2 profitable components and 2 profitable agents, this means there are (2x2 + 2x1) / 3 = 2
         // units of code. Note that usually these weights are related to unit fractions.
-        tp.unitPoints[0].unitWeight = 1;
-        tp.unitPoints[1].unitWeight = 2;
+        componentWeight = 1e18;
+        agentWeight = 2e18;
 
         // Top-up fractions
         uint256 _maxBondFraction = 49;
@@ -481,7 +482,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     ///#if_succeeds {:msg "ep is correct endTime"} epochCounter > 1
     ///==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
     ///#if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen) ==> epochLen == _epochLen;
-    ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 && _devsPerCapital <= type(uint32).max ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital == _devsPerCapital;
+    ///#if_succeeds {:msg "devsPerCapital"} _devsPerCapital > 0 && _devsPerCapital <= type(uint32).max ==> devsPerCapital == _devsPerCapital;
     ///#if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
     ///#if_succeeds {:msg "maxBond"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= type(uint32).max && epochLen != _epochLen)
     ///==> maxBond == (inflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction * _epochLen) / 100;
@@ -504,11 +505,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         uint256 eCounter = epochCounter;
         // devsPerCapital is the part of the IDF calculation and thus its change will be accounted for in the next epoch
-        if (uint32(_devsPerCapital) > 0) {
-            mapEpochTokenomics[eCounter].epochPoint.devsPerCapital = uint32(_devsPerCapital);
+        if (uint96(_devsPerCapital) > 0) {
+            devsPerCapital = uint96(_devsPerCapital);
         } else {
             // This is done in order not to pass incorrect parameters into the event
-            _devsPerCapital = mapEpochTokenomics[eCounter].epochPoint.devsPerCapital;
+            _devsPerCapital = devsPerCapital;
         }
 
         // Check the epsilonRate value for idf to fit in its size
@@ -536,16 +537,16 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Adjust unit weights
         // componentWeight is the part of the IDF calculation and thus its change will be accounted for in the next epoch
-        if (uint8(_componentWeight) > 0) {
-            mapEpochTokenomics[eCounter].unitPoints[0].unitWeight = uint8(_componentWeight);
+        if (uint96(_componentWeight) > 0) {
+            componentWeight = uint96(_componentWeight);
         } else {
-            _componentWeight = mapEpochTokenomics[eCounter].unitPoints[0].unitWeight;
+            _componentWeight = componentWeight;
         }
         // agentWeight is the part of the IDF calculation and thus its change will be accounted for in the next epoch
-        if (uint8(_agentWeight) > 0) {
-            mapEpochTokenomics[eCounter].unitPoints[1].unitWeight = uint8(_agentWeight);
+        if (uint96(_agentWeight) > 0) {
+            agentWeight = uint96(_agentWeight);
         } else {
-            _agentWeight = mapEpochTokenomics[eCounter].unitPoints[1].unitWeight;
+            _agentWeight = agentWeight;
         }
 
         // Set the flag that tokenomics parameters are requested to be updated (1st bit is set to one)
@@ -672,7 +673,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             totalIncentives *= mapEpochTokenomics[epochNum].epochPoint.totalTopUpsOLAS;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
             uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].unitPoints[unitType].sumUnitTopUpsOLAS * 100;
-            //uint256 sumUnitIncentives = mapEpochTokenomics[epochNum].epochPoint.sumUnitTopUpsOLAS * 100;
             totalIncentives = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumUnitIncentives;
             mapUnitIncentives[unitType][unitId].topUp = uint96(totalIncentives);
             // Setting pending top-up to zero
@@ -769,10 +769,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                     }
                 }
             }
-            // TODO Explore this path of spending less gas for the OLAS top-ups computation
-//            if (topUpEligible) {
-//                mapEpochTokenomics[curEpoch].epochPoint.sumUnitTopUpsOLAS += uint96(amounts[i]);
-//            }
         }
     }
 
@@ -833,9 +829,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     ///$result == true && (block.timestamp - timeLaunch) / ONE_YEAR == old(currentYear)
     ///==> old((inflationPerSecond * (block.timestamp - mapEpochTokenomics[epochCounter - 1].epochPoint.endTime) * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100) >= old(maxBond);
     ///#if_succeeds {:msg "idf check"} $result == true ==> mapEpochTokenomics[epochCounter].epochPoint.idf >= 1e18 && mapEpochTokenomics[epochCounter].epochPoint.idf <= 18e18;
-    ///#if_succeeds {:msg "devsPerCapital check"} $result == true ==> mapEpochTokenomics[epochCounter].epochPoint.devsPerCapital > 0;
-    ///#if_succeeds {:msg "unit weight check for components"} $result == true ==> mapEpochTokenomics[epochCounter].unitPoints[0].unitWeight > 0;
-    ///#if_succeeds {:msg "unit weight check for agents"} $result == true ==> mapEpochTokenomics[epochCounter].unitPoints[1].unitWeight > 0;
+    ///#if_succeeds {:msg "devsPerCapital check"} $result == true ==> devsPerCapital > 0;
+    ///#if_succeeds {:msg "unit weight check for components"} $result == true ==> componentWeight > 0;
+    ///#if_succeeds {:msg "unit weight check for agents"} $result == true ==> agentWeight > 0;
     ///#if_succeeds {:msg "sum of reward fractions must result in 100"} $result == true
     ///==> mapEpochTokenomics[epochCounter].unitPoints[0].rewardUnitFraction + mapEpochTokenomics[epochCounter].unitPoints[1].rewardUnitFraction + mapEpochTokenomics[epochCounter].epochPoint.rewardTreasuryFraction == 100;
     function checkpoint() external returns (bool) {
@@ -924,12 +920,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Get the tokenomics point of the next epoch
         TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter + 1];
-        // TODO unit weights and devsPerCapital move to just contract state variables
-        // Copy unit weights to the next epoch point
-        for (uint256 i = 0; i < 2; ++i) {
-            nextPoint.unitPoints[i].unitWeight = tp.unitPoints[i].unitWeight;
-        }
-        nextPoint.epochPoint.devsPerCapital = tp.epochPoint.devsPerCapital;
         // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
         // Check if the second bit is set to one
         if (tokenomicsParametersUpdated & 0x02 == 0x02) {
@@ -1006,24 +996,24 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Calculate IDF from epsilon rate and f(K,D)
             // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
             // (weightComponent * weightAgent) will be divided by when assigning to another variable
-            uint256 codeUnits = (tp.unitPoints[1].unitWeight * tp.unitPoints[0].numNewUnits +
-            tp.unitPoints[0].unitWeight * tp.unitPoints[1].numNewUnits);
+            UD60x18 codeUnits = UD60x18.wrap(agentWeight).mul(toUD60x18(tp.unitPoints[0].numNewUnits));
+            codeUnits = codeUnits.add(UD60x18.wrap(componentWeight).mul(toUD60x18(tp.unitPoints[1].numNewUnits)));
             // f(K(e), D(e)) = d * k * K(e) + d * D(e)
             // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
             UD60x18 fp1 = UD60x18.wrap(incentives[1]);
             // Convert (codeUnits * devsPerCapital)
-            UD60x18 fp2 = toUD60x18(codeUnits * tp.epochPoint.devsPerCapital);
+            UD60x18 fp2 = codeUnits.mul(UD60x18.wrap(devsPerCapital));
             // fp1 == codeUnits * devsPerCapital * treasuryRewards
             fp1 = fp1.mul(fp2);
             // fp2 = codeUnits * newOwners
-            fp2 = toUD60x18(codeUnits * tp.epochPoint.numNewOwners);
+            fp2 = codeUnits.mul(UD60x18.wrap(tp.epochPoint.numNewOwners));
             // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
             UD60x18 fp = fp1.add(fp2);
             // fp = fp / 100 - calculate the final value in fixed point
             // 0 for components and 1 for agents
             // Reserved a divider of (weightComponent * weightAgent) from the codeUnits
-            fp = fp.div(wrap(100 * tp.unitPoints[0].unitWeight * tp.unitPoints[1].unitWeight));
+            fp = fp.div(UD60x18.wrap(100e18).mul(UD60x18.wrap(componentWeight)).mul(UD60x18.wrap(agentWeight)));
             // fKD in the state that is comparable with epsilon rate
             uint256 fKD = UD60x18.unwrap(fp);
 

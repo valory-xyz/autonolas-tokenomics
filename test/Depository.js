@@ -280,7 +280,7 @@ describe("Depository LP", async () => {
         it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
             await expect(
                 depository.create(pairODAI.address, defaultPriceLP, maxUint96, vesting)
-            ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(depository, "LowerThan");
         });
 
         it("Should fail when creating a product with a supply bigger than uint96.max", async () => {
@@ -293,7 +293,7 @@ describe("Depository LP", async () => {
             const lessThanMinVesting = Number(await depository.MIN_VESTING()) - 1;
             await expect(
                 depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, lessThanMinVesting)
-            ).to.be.revertedWithCustomError(depository, "Overflow");
+            ).to.be.revertedWithCustomError(depository, "LowerThan");
         });
 
         it("Should fail when creating a product with a zero token address", async () => {

@@ -71,10 +71,10 @@ interface IErrorsTokenomics {
     /// @param actual Actual supply left.
     error ProductSupplyLow(address tokenAddress, uint256 productId, uint256 requested, uint256 actual);
 
-    /// @dev Incorrect amount received / provided.
-    /// @param provided Provided amount is lower.
-    /// @param expected Expected amount.
-    error AmountLowerThan(uint256 provided, uint256 expected);
+    /// @dev Received lower value than the expected one.
+    /// @param provided Provided value is lower.
+    /// @param expected Expected value.
+    error LowerThan(uint256 provided, uint256 expected);
 
     /// @dev Wrong amount received / provided.
     /// @param provided Provided amount.

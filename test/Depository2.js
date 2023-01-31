@@ -268,7 +268,7 @@ describe("Depository LP 2", async () => {
         it("Should fail when creating a product with a bigger amount than the allowed bond", async () => {
             await expect(
                 depository.create(pairODAI.address, defaultPriceLP, maxUint96, vesting)
-            ).to.be.revertedWithCustomError(depository, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(depository, "LowerThan");
         });
 
         it("Should return IDs of all products", async () => {

@@ -110,7 +110,7 @@ contract Treasury is IErrorsTokenomics {
     receive() external payable {
         // TODO shall the contract continue receiving ETH when paused?
         if (msg.value < minAcceptedETH) {
-            revert AmountLowerThan(msg.value, minAcceptedETH);
+            revert LowerThan(msg.value, minAcceptedETH);
         }
 
         uint256 amount = ETHOwned;
@@ -247,7 +247,7 @@ contract Treasury is IErrorsTokenomics {
         // Check that the amount donated has at least a practical minimal value
         // TODO Decide on the final minimal value
         if (msg.value < minAcceptedETH) {
-            revert AmountLowerThan(msg.value, minAcceptedETH);
+            revert LowerThan(msg.value, minAcceptedETH);
         }
 
         // Check for the same length of arrays
@@ -326,7 +326,7 @@ contract Treasury is IErrorsTokenomics {
                 }
             } else {
                 // Insufficient amount of treasury owned ETH
-                revert AmountLowerThan(tokenAmount, amountOwned);
+                revert LowerThan(tokenAmount, amountOwned);
             }
         } else {
             // Only approved token reserves can be used for redemptions
@@ -349,7 +349,7 @@ contract Treasury is IErrorsTokenomics {
                 }
             }  else {
                 // Insufficient amount of LP tokens
-                revert AmountLowerThan(tokenAmount, reserves);
+                revert LowerThan(tokenAmount, reserves);
             }
         }
     }
@@ -501,7 +501,7 @@ contract Treasury is IErrorsTokenomics {
         // Check if the amount of slashed funds are at least the minimum required amount to receive by the Treasury
         uint256 slashedFunds = IServiceRegistry(serviceRegistry).slashedFunds();
         if (slashedFunds < minAcceptedETH) {
-            revert AmountLowerThan(slashedFunds, minAcceptedETH);
+            revert LowerThan(slashedFunds, minAcceptedETH);
         }
 
         // Call the service registry drain function

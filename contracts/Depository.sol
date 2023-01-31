@@ -354,7 +354,7 @@ contract Depository is IErrorsTokenomics {
 
         // Check the vesting minimum limit value
         if (vesting < MIN_VESTING) {
-            revert Overflow(MIN_VESTING, vesting);
+            revert LowerThan(vesting, MIN_VESTING);
         }
 
         // Check for the expiration time overflow
@@ -370,7 +370,7 @@ contract Depository is IErrorsTokenomics {
 
         // Check if the bond amount is beyond the limits
         if (!ITokenomics(tokenomics).reserveAmountForBondProgram(supply)) {
-            revert AmountLowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
+            revert LowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
         }
 
         // Push newly created bond product into the list of products

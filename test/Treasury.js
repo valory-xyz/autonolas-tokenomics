@@ -196,7 +196,7 @@ describe("Treasury", async () => {
         it("Should fail when depositing a zero value", async () => {
             await expect(
                 treasury.connect(deployer).depositServiceDonationsETH([], [])
-            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(treasury, "LowerThan");
         });
 
         it("Should fail when input arrays do not match", async () => {
@@ -248,7 +248,7 @@ describe("Treasury", async () => {
             // Try to send insufficient ETH to treasury
             await expect(
                 deployer.sendTransaction({to: treasury.address, value: 100})
-            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(treasury, "LowerThan");
 
             // Try to send more than uint96.max ETH to treasury
             await expect(
@@ -286,12 +286,12 @@ describe("Treasury", async () => {
             // Try to withdraw more ETH amount than treasury owns
             await expect(
                 treasury.withdraw(deployer.address, amount, ETHAddress)
-            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(treasury, "LowerThan");
 
             // Try to withdraw other tokens that do not have balance
             await expect(
                 treasury.withdraw(deployer.address, amount, dai.address)
-            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(treasury, "LowerThan");
         });
 
         it("Should fail when transferring a token that fails to be transferred", async () => {
@@ -392,7 +392,7 @@ describe("Treasury", async () => {
             // which will be lower than the minimum accepted amount by the Treasury
             await expect(
                 treasury.connect(deployer).callStatic.drainServiceSlashedFunds()
-            ).to.be.revertedWithCustomError(treasury, "AmountLowerThan");
+            ).to.be.revertedWithCustomError(treasury, "LowerThan");
         });
 
         it("Drain slashed funds from the service registry", async () => {
