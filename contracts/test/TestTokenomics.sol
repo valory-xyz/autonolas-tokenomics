@@ -41,7 +41,7 @@ contract TestTokenomics {
     uint256 internal minAmountDAI = 5_00 ether;
     uint256 internal supplyProductOLAS =  2_000 ether;
     uint256 internal defaultPriceLP = 2 ether;
-    uint256 internal vesting = 1 weeks;
+    uint256 internal vesting = 2 weeks;
     uint256 internal initialLiquidity;
     address internal pair;
     uint256 public priceLP;
@@ -126,12 +126,15 @@ contract TestTokenomics {
 
         // Create the first bond product
         productId = depository.create(pair, priceLP, supplyProductOLAS, vesting);
+
+        // Deposit to one bond
+        (, , bondId) = depository.deposit(productId, 1_000 ether);
     }
 
 
     /// @dev Donate to services, call checkpoint and claim incentives.
     function fullTokenomicsRun(uint256 amount0, uint256 amount1) external {
-        require(amount0 + amount1 < address(this).balance);
+        require(amount0 + amount1 < address(this).balance, "test balance is low");
         (serviceAmounts[0], serviceAmounts[1]) = (amount0, amount1);
         treasury.depositServiceDonationsETH{value: serviceAmounts[0] + serviceAmounts[1]}(serviceIds, serviceAmounts);
 
@@ -191,21 +194,12 @@ contract TestTokenomics {
 
     /// @dev Redeem OLAS from the bond program.
     function redeemBond() external {
-        // Go through all the products
-        for (uint256 i = 0; i < productId; ++i) {
-            (, , , uint256 expiry) = depository.mapBondProducts(i);
-            // If the product expired, there have to be bonds to redeem
-            if (block.timestamp > expiry) {
-                (uint256[] memory bondIds, ) = depository.getPendingBonds(address(this), true);
-                if (bondIds.length > 0) {
-                    depository.redeem(bondIds);
-                }
-            }
-        }
+        (uint256[] memory bondIds, ) = depository.getPendingBonds(address(this), true);
+        depository.redeem(bondIds);
     }
 
-    /// @dev Close the last created bond program.
-    function closeBondProgram() external {
+    /// @dev Close inactive bond programs.
+    function closeInactiveBondPrograms() external {
         uint256[] memory inactiveProducts = depository.getProducts(false);
         depository.close(inactiveProducts);
     }
