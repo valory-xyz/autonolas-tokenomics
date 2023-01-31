@@ -207,12 +207,13 @@ contract Depository is IErrorsTokenomics {
         payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
-        if (payout > product.supply) {
-            revert ProductSupplyLow(token, uint32(productId), payout, product.supply);
+        uint256 supply = product.supply;
+        if (payout > supply) {
+            revert ProductSupplyLow(token, productId, payout, supply);
         }
 
         // Decrease the supply for the amount of payout
-        uint256 supply = product.supply - payout;
+        supply -= payout;
         product.supply = uint96(supply);
 
         // Create and add a new bond, update the bond counter
@@ -250,14 +251,12 @@ contract Depository is IErrorsTokenomics {
                 revert OwnerOnly(msg.sender, mapUserBonds[bondIds[i]].account);
             }
 
-            // Delete the Bond struct and release the gas
+            // Get the productId for its status check
             uint256 productId = mapUserBonds[bondIds[i]].productId;
-            delete mapUserBonds[bondIds[i]];
-            payout += pay;
 
             // Close the program if it was not yet closed
             if (mapBondProducts[productId].expiry > 0) {
-                uint96 supply = mapBondProducts[productId].supply;
+                uint256 supply = mapBondProducts[productId].supply;
                 // Refund unused OLAS supply from the program if not used completely
                 if (supply > 0) {
                     ITokenomics(tokenomics).refundFromBondProgram(supply);
@@ -267,6 +266,10 @@ contract Depository is IErrorsTokenomics {
 
                 emit CloseProduct(token, productId);
             }
+            // Increase the payout
+            payout += pay;
+            // Delete the Bond struct and release the gas
+            delete mapUserBonds[bondIds[i]];
         }
 
         // Check for the non-zero payout
@@ -283,7 +286,8 @@ contract Depository is IErrorsTokenomics {
     /// @param matured Flag to record matured bonds only or all of them.
     /// @return bondIds Pending bond Ids.
     /// @return payout Cumulative expected OLAS payout.
-    /// #if_succeeds {:msg "matured bonds"} matured == true ==> forall (uint k in bondIds) block.timestamp >= mapUserBonds[bondIds[k]].maturity;
+    /// #if_succeeds {:msg "matured bonds"} matured == true ==> forall (uint k in bondIds)
+    /// mapUserBonds[bondIds[k]].account == account && block.timestamp >= mapUserBonds[bondIds[k]].maturity;
     function getPendingBonds(address account, bool matured) external view
         returns (uint256[] memory bondIds, uint256 payout)
     {
@@ -395,31 +399,34 @@ contract Depository is IErrorsTokenomics {
         emit CreateProduct(token, productId, supply);
     }
 
-    /// @dev Close a bonding product.
+    /// @dev Close bonding products.
     /// @notice This will terminate the program regardless of the expiration time.
-    /// @param productId Product Id.
+    /// @param productIds Set of product Ids.
     /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
-    /// #if_succeeds {:msg "success closed"} mapBondProducts[productId].expiry == 0 && mapBondProducts[productId].supply == 0;
-    function close(uint256 productId) external {
+    /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].expiry == 0 && mapBondProducts[productIds[k]].supply == 0;
+    function close(uint256[] memory productIds) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check if the product is still open
-        if (mapBondProducts[productId].expiry == 0) {
-            revert ProductClosed(productId);
-        }
+        for (uint256 i = 0; i < productIds.length; ++i) {
+            uint256 productId = productIds[i];
+            // Check if the product is still open
+            if (mapBondProducts[productId].expiry == 0) {
+                revert ProductClosed(productId);
+            }
 
-        uint256 supply = mapBondProducts[productId].supply;
-        // Refund unused OLAS supply from the program if not used completely
-        if (supply > 0) {
-            ITokenomics(tokenomics).refundFromBondProgram(supply);
+            uint256 supply = mapBondProducts[productId].supply;
+            // Refund unused OLAS supply from the program if not used completely
+            if (supply > 0) {
+                ITokenomics(tokenomics).refundFromBondProgram(supply);
+            }
+            address token = mapBondProducts[productId].token;
+            delete mapBondProducts[productId];
+
+            emit CloseProduct(token, productId);
         }
-        address token = mapBondProducts[productId].token;
-        delete mapBondProducts[productId];
-        
-        emit CloseProduct(token, productId);
     }
 
     /// @dev Gets activity information about a given product.
@@ -430,21 +437,31 @@ contract Depository is IErrorsTokenomics {
     }
 
     /// @dev Gets an array of all active product Ids for a specific token.
+    /// @param active Flag to select active or inactive products.
     /// @return productIds Active product Ids.
-    function getActiveProducts() external view returns (uint256[] memory productIds) {
+    function getProducts(bool active) external view returns (uint256[] memory productIds) {
         // Calculate the number of active products
         uint256 numProducts = productCounter;
         bool[] memory positions = new bool[](numProducts);
-        uint256 numActive;
-        for (uint256 i = 0; i < numProducts; i++) {
-            if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
-                positions[i] = true;
-                ++numActive;
+        uint256 numSelectedProducts;
+        if (active) {
+            for (uint256 i = 0; i < numProducts; i++) {
+                if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
+                    positions[i] = true;
+                    ++numSelectedProducts;
+                }
+            }
+        } else {
+            for (uint256 i = 0; i < numProducts; i++) {
+                if (mapBondProducts[i].token != address(0) && mapBondProducts[i].expiry <= block.timestamp) {
+                    positions[i] = true;
+                    ++numSelectedProducts;
+                }
             }
         }
 
         // Form the active products index array
-        productIds = new uint256[](numActive);
+        productIds = new uint256[](numSelectedProducts);
         uint256 numPos;
         for (uint256 i = 0; i < numProducts; i++) {
             if (positions[i]) {

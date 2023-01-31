@@ -206,7 +206,8 @@ contract TestTokenomics {
 
     /// @dev Close the last created bond program.
     function closeBondProgram() external {
-        depository.close(productId);
+        uint256[] memory inactiveProducts = depository.getProducts(false);
+        depository.close(inactiveProducts);
     }
 
     /// @dev Withdraw LP tokens.

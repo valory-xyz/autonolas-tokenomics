@@ -157,7 +157,8 @@ contract DepositoryTest is BaseSetup {
         vm.prank(deployer);
         depository.redeem(bondIds);
         // Try to close the already closed bond program
+        uint256[] memory productsToClose = new uint256[](1);
         vm.expectRevert();
-        depository.close(0);
+        depository.close(productsToClose);
     }
 }

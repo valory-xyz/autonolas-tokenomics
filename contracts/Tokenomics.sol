@@ -504,7 +504,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        uint256 eCounter = epochCounter;
         // devsPerCapital is the part of the IDF calculation and thus its change will be accounted for in the next epoch
         if (uint72(_devsPerCapital) > MIN_PARAM_VALUE) {
             devsPerCapital = uint72(_devsPerCapital);
@@ -552,7 +551,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Set the flag that tokenomics parameters are requested to be updated (1st bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x01;
-        emit TokenomicsParametersUpdateRequested(eCounter + 1, _devsPerCapital, _epsilonRate, _epochLen,
+        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _epsilonRate, _epochLen,
             _veOLASThreshold, _componentWeight, _agentWeight);
     }
 
@@ -815,7 +814,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Get the current epoch
         uint256 curEpoch = epochCounter;
         // Increase the total service donation balance per epoch
-        donationETH = mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH + donationETH;
+        donationETH += mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH;
         mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
 
         // Track service donations
