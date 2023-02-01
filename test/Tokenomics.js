@@ -138,7 +138,7 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
         });
 
-        it("Should fail when the epoch length is smaller than the minimum required", async function () {
+        it("Should fail when the epoch length is smaller than the minimum required or bigger than one year", async function () {
             // Deploy master tokenomics contract
             const tokenomicsMaster = await tokenomicsFactory.deploy();
             await tokenomicsMaster.deployed();
@@ -147,6 +147,13 @@ describe("Tokenomics", async () => {
             const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
             proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
                 [olas.address, treasury.address, deployer.address, deployer.address, ve.address, 0,
+                    componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
+            await expect(
+                TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
+            ).to.be.reverted;
+
+            proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+                [olas.address, treasury.address, deployer.address, deployer.address, ve.address, oneYear + 1,
                     componentRegistry.address, agentRegistry.address, serviceRegistry.address, donatorBlacklist.address]);
             await expect(
                 TokenomicsProxy.deploy(tokenomicsMaster.address, proxyData)
@@ -243,6 +250,8 @@ describe("Tokenomics", async () => {
 
             // Trying to set epoch length smaller than the minimum allowed value
             await tokenomics.changeTokenomicsParameters(10, 10, lessThanMinEpochLen, 10, 10, 10);
+            // Trying to set epoch length bigger than one year
+            await tokenomics.changeTokenomicsParameters(10, 10, oneYear + 1, 10, 10, 10);
             // Move one epoch in time and finish the epoch
             await helpers.time.increase(epochLen + 100);
             await tokenomics.checkpoint();
@@ -269,8 +278,9 @@ describe("Tokenomics", async () => {
 
             // Leave the epoch length untouched
             await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10, 10, 10);
-            // And then change back to the bigger one
-            await tokenomics.changeTokenomicsParameters(10, 10, epochLen + 100, 10, 10, 10);
+            // And then change back to the bigger one and change other parameters
+            const genericParam = "1" + "0".repeat(17);
+            await tokenomics.changeTokenomicsParameters(genericParam, 10, epochLen + 100, 10, genericParam, genericParam);
             // The change will take effect in the next epoch
             expect(await tokenomics.epochLen()).to.equal(epochLen);
             // Move one epoch in time and finish the epoch
@@ -290,9 +300,9 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.veOLASThreshold()).to.equal(10);
 
             // Check other tokenomics parameters
-            expect(await tokenomics.devsPerCapital()).to.equal(10);
-            expect(await tokenomics.componentWeight()).to.equal(10);
-            expect(await tokenomics.agentWeight()).to.equal(10);
+            expect(await tokenomics.devsPerCapital()).to.equal(genericParam);
+            expect(await tokenomics.componentWeight()).to.equal(genericParam);
+            expect(await tokenomics.agentWeight()).to.equal(genericParam);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
@@ -342,6 +352,12 @@ describe("Tokenomics", async () => {
             await expect(
                 tokenomics.connect(signers[1]).refundFromBondProgram(0)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
+        });
+
+        it("Should fail when trying to refund unrealistically big number from the bond program", async function () {
+            await expect(
+                tokenomics.refundFromBondProgram(maxUint96)
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
         });
 
         it("Should fail when calling treasury-owned functions by other addresses", async function () {
@@ -418,6 +434,19 @@ describe("Tokenomics", async () => {
             await tokenomics.connect(deployer).checkpoint();
             updatedEpochCounter = await tokenomics.epochCounter();
             expect(updatedEpochCounter).to.equal(epochCounter);
+        });
+
+        it("Checkpoint for the epoch length longer than a year", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Skip the number of blocks within the epoch
+            await helpers.time.increase(oneYear);
+            const result = await tokenomics.callStatic.checkpoint();
+            expect(result).to.equal(false);
+
+            // Restore a previous state of blockchain
+            snapshot.restore();
         });
 
         it("Checkpoint with revenues", async () => {

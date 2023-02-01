@@ -146,6 +146,11 @@ describe("Treasury", async () => {
                 treasury.connect(deployer).changeMinAcceptedETH(0)
             ).to.be.revertedWithCustomError(treasury, "ZeroValue");
 
+            // Trying to change the value to bigger than max uint96
+            await expect(
+                treasury.connect(deployer).changeMinAcceptedETH(moreThanMaxUint96)
+            ).to.be.revertedWithCustomError(treasury, "Overflow");
+
             // Changing the min accepted ETH amount
             await treasury.connect(deployer).changeMinAcceptedETH(regDepositFromServices);
             expect(await treasury.minAcceptedETH()).to.equal(regDepositFromServices);
