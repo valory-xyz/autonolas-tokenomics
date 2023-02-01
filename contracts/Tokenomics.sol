@@ -75,14 +75,12 @@ struct EpochPoint {
     // Epoch end timestamp
     // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
     uint32 endTime;
-    // Parameters for rewards (in percentage)
+    // Parameters for rewards and top-ups (in percentage)
     // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
-    // treasuryFraction (set to zero by default) + rewardComponentFraction + rewardAgentFraction = 100%
+    // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
     // Treasury fraction
     uint8 rewardTreasuryFraction;
-    // Parameters for top-ups (in percentage)
-    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
-    // maxBondFraction + topUpComponentFraction + topUpAgentFraction = 100%
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     uint8 maxBondFraction;
 }
@@ -163,9 +161,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     // Dispenser contract address
     address public dispenser;
-
-    // Voting Escrow address
-    address public ve;
     // Global epoch counter
     // This number cannot be practically bigger than the number of blocks
     uint32 public epochCounter;
@@ -204,7 +199,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     uint72 public componentWeight;
 
     uint72 public agentWeight;
-    // Number of valuable devs can be paid per units of capital per epoch in fixed point format
+    // Voting Escrow address
+    address public ve;
+
+    // Number of valuable devs that can be paid per units of capital per epoch in fixed point format
     // We assume this number will not be practically bigger than 4,722 of its integer-part (with 18 digits of fractional-part)
     uint72 public devsPerCapital;
     // Epoch length in seconds that will be set in the next epoch
@@ -236,8 +234,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     {}
 
     /// @dev Tokenomics initializer.
-    /// @notice To avoid circular dependency, the contract with its role sets its own address to address(this).
-    /// @notice Tokenomics contract must be initialized no later than one year from the launch of the OLAS contract.
+    /// @notice Tokenomics contract must be initialized no later than one year from the launch of the OLAS token contract.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _depository Depository address.
@@ -306,7 +303,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert Overflow(_epochLen, ONE_YEAR);
         }
 
-        // Assign other passed variables
+        // Assign other input variables
         olas = _olas;
         treasury = _treasury;
         depository = _depository;
@@ -329,7 +326,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 zeroYearSecondsLeft = uint32(_timeLaunch + ONE_YEAR - block.timestamp);
         // Calculating initial inflation per second: (mintable OLAS from getInflationForYear(0)) / (seconds left in a year)
         // Note that we lose precision here dividing by the number of seconds right away, but to avoid complex calculations
-        // later we consider it is less error-prone to sacrifice at most 6 insignificant digits (or 1e-12) of OLAS per year
+        // later we consider it less error-prone and sacrifice at most 6 insignificant digits (or 1e-12) of OLAS per year
         uint256 _inflationPerSecond = getInflationForYear(0) / zeroYearSecondsLeft;
         inflationPerSecond = uint96(_inflationPerSecond);
         timeLaunch = uint32(_timeLaunch);
@@ -341,7 +338,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         epochCounter = 1;
         TokenomicsPoint storage tp = mapEpochTokenomics[1];
 
-        // Setting initial parameters and ratios
+        // Setting initial parameters and fractions
         devsPerCapital = 1e18;
         tp.epochPoint.idf = 1e18;
 
@@ -382,7 +379,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     /// @dev Changes the tokenomics implementation contract address.
-    /// @notice Make sure the implementation contract has a function for implementation changing.
+    /// @notice Make sure the implementation contract has a function to change the implementation.
     /// @param implementation Tokenomics implementation contract address.
     /// #if_succeeds {:msg "new implementation"} implementation == tokenomicsImplementation();
     function changeTokenomicsImplementation(address implementation) external {
@@ -481,7 +478,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     /// @dev Changes tokenomics parameters.
-    /// @notice Parameter values are not updated for those that are passed as zero.
+    /// @notice Parameter values are not updated for those that are passed as zero or out of defined bounds.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
@@ -623,7 +620,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Effective bond must be bigger than the requested amount
         uint256 eBond = effectiveBond;
         if (eBond >= amount) {
-            // The value of effective bond is then adjusted to the amount that is now reserved for bonding
+            // The effective bond value is adjusted with the amount that is reserved for bonding
             // The unrealized part of the bonding amount will be returned when the bonding program is closed
             eBond -= amount;
             effectiveBond = uint96(eBond);
@@ -642,8 +639,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         uint256 eBond = effectiveBond + amount;
-        // This scenario is not realistically possible, only if not close the bonding program
-        // when the effectiveBond value is close to uint96 max
+        // This scenario is not realistically possible. It is only possible when closing the bonding program
+        // with the effectiveBond value close to uint96 max
         if (eBond > type(uint96).max) {
             revert Overflow(eBond, type(uint96).max);
         }
@@ -656,7 +653,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param unitType Unit type (component / agent).
     /// @param unitId Unit Id.
     function _finalizeIncentivesForUnitId(uint256 epochNum, uint256 unitType, uint256 unitId) internal {
-        // Get the overall amount of component rewards for the component's last epoch
+        // Gets the overall amount of unit rewards for the unit's last epoch
         // The pendingRelativeReward can be zero if the rewardUnitFraction was zero in the first place
         // Note that if the rewardUnitFraction is set to zero at the end of epoch, the whole pending reward will be zero
         // reward = (pendingRelativeReward * rewardUnitFraction) / 100
@@ -705,7 +702,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Get the number of services
         uint256 numServices = serviceIds.length;
-        // Loop over service Ids to calculate their partial UCFu-s
+        // Loop over service Ids to calculate their partial contributions
         for (uint256 i = 0; i < numServices; ++i) {
             // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
             // If both component and agent owner top-up fractions are zero, there is no need to call external contract
@@ -738,8 +735,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
                         if (lastEpoch == 0) {
                             mapUnitIncentives[unitType][serviceUnitIds[j]].lastEpoch = uint32(curEpoch);
                         } else if (lastEpoch < curEpoch) {
-                            // Finalize component rewards and top-ups if there were pending ones from the previous epoch
-                            // Pending rewards are getting finalized during the next epoch the component / agent
+                            // Finalize unit rewards and top-ups if there were pending ones from the previous epoch
+                            // Pending incentives are getting finalized during the next epoch the component / agent
                             // receives donations. If this is not the case before claiming incentives, the finalization
                             // happens in the accountOwnerIncentives() where the incentives are issued
                             _finalizeIncentivesForUnitId(lastEpoch, unitType, serviceUnitIds[j]);
@@ -881,7 +878,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data with a new checkpoint.
     /// @notice Note that even though there is no hard cap for how long a specific epoch can last, it is practically
-    ///         not realistic not to call a checkpoint for longer than a year.
+    ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.
     /// @return True if the function execution is successful.
     /// #if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
     /// #if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear) + 1;
@@ -937,7 +934,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Current year
         uint256 numYears = (block.timestamp - timeLaunch) / ONE_YEAR;
         // Amounts for the yearly inflation change from year to year, so if the year changes in the middle
-        // of the epoch, it is necessary to adjust the epoch inflation numbers to account for the year change
+        // of the epoch, it is necessary to adjust epoch inflation numbers to account for the year change
         if (numYears > currentYear) {
             // Calculate remainder of inflation for the passing year
             // End of the year timestamp
@@ -972,7 +969,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // It is given the value of the maxBond for the next epoch as a credit
         // The difference between recalculated max bond per epoch and maxBond value must be reflected in effectiveBond,
         // since the epoch checkpoint delay was not accounted for initially
-        // This has to always be true, or incentives[4] == curMaxBond if the epoch is settled exactly at the epochLen time
+        // This has to be always true, or incentives[4] == curMaxBond if the epoch is settled exactly at the epochLen time
         if (incentives[4] > curMaxBond) {
             // Adjust the effectiveBond
             incentives[4] = effectiveBond + incentives[4] - curMaxBond;
@@ -1019,11 +1016,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
-        // the actual year will change
+        // the actual year changes
         numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR;
         // Account for the year change to adjust the max bond
         if (numYears > currentYear) {
-            // Calculate remainder of inflation for the passing year
+            // Calculate the inflation remainder for the passing year
             // End of the year timestamp
             uint256 yearEndTime = timeLaunch + numYears * ONE_YEAR;
             // Calculate the inflation per epoch value until the end of the year
@@ -1144,7 +1141,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         for (uint256 i = 0; i < unitIds.length; ++i) {
             // Get the last epoch number the incentives were accumulated for
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
-            // Finalize component rewards and top-ups if there were pending ones from the previous epoch
+            // Finalize unit rewards and top-ups if there were pending ones from the previous epoch
             // The finalization is needed when the trackServiceDonations() function did not take care of it
             // since between last epoch the donations were received and this current epoch there were no more donations
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
@@ -1216,7 +1213,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Calculate rewards and top-ups if there were pending ones from the previous epoch
             if (lastEpoch > 0 && lastEpoch < curEpoch) {
-                // Get the overall amount of component rewards for the component's last epoch
+                // Get the overall amount of unit rewards for the component's last epoch
                 // reward = (pendingRelativeReward * rewardUnitFraction) / 100
                 uint256 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeReward;
                 if (totalIncentives > 0) {
