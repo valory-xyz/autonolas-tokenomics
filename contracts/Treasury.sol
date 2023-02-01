@@ -116,7 +116,7 @@ contract Treasury is IErrorsTokenomics {
 
         uint256 amount = ETHOwned;
         amount += msg.value;
-        // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible
+        // Check for the overflow values, specifically when fuzzing, since practically these amounts are not realistic
         if (amount + ETHFromServices > type(uint96).max) {
             revert Overflow(amount, type(uint96).max);
         }
@@ -191,7 +191,7 @@ contract Treasury is IErrorsTokenomics {
         emit MinAcceptedETHUpdated(_minAcceptedETH);
     }
 
-    /// @dev Allows the depository to deposit an asset for OLAS.
+    /// @dev Allows the depository to deposit LP tokens for OLAS.
     /// @notice Only depository contract can call this function.
     /// @param account Account address making a deposit of LP tokens for OLAS.
     /// @param tokenAmount Token amount to get OLAS for.
@@ -217,13 +217,13 @@ contract Treasury is IErrorsTokenomics {
         uint256 reserves = mapTokenReserves[token] + tokenAmount;
         mapTokenReserves[token] = reserves;
 
-        // Uniswap allowance implementation does not revert with the accurate message, check before the transfer is engaged
+        // Uniswap allowance implementation does not revert with the accurate message, need to check before the transfer is engaged
         if (IToken(token).allowance(account, address(this)) < tokenAmount) {
             revert InsufficientAllowance(IToken(token).allowance((account), address(this)), tokenAmount);
         }
 
         // Transfer tokens from account to treasury and add to the token treasury reserves
-        // We assume that LP tokens enabled in the protocol are safe as they are enabled via governance
+        // We assume that authorized LP tokens in the protocol are safe as they are enabled via the governance
         // UniswapV2ERC20 realization has a standard transferFrom() function that returns a boolean value
         bool success = IToken(token).transferFrom(account, address(this), tokenAmount);
         if (!success) {
@@ -295,7 +295,7 @@ contract Treasury is IErrorsTokenomics {
         _locked = 1;
     }
 
-    /// @dev Allows owner to transfer tokens from reserves to a specified address.
+    /// @dev Allows owner to transfer tokens from treasury reserves to a specified address.
     /// @param to Address to transfer funds to.
     /// @param tokenAmount Token amount to get reserves from.
     /// @param token Token or ETH address.
@@ -321,7 +321,7 @@ contract Treasury is IErrorsTokenomics {
             revert ZeroValue();
         }
 
-        // All the LP tokens must go under the bonding condition
+        // ETH address is taken separately, and all the LP tokens must be validated with corresponding token reserves
         if (token == ETH_TOKEN_ADDRESS) {
             uint256 amountOwned = ETHOwned;
             // Check if treasury has enough amount of owned ETH
@@ -344,14 +344,14 @@ contract Treasury is IErrorsTokenomics {
             if (!mapEnabledTokens[token]) {
                 revert UnauthorizedToken(token);
             }
-            // Decrease the global LP token record
+            // Decrease the global LP token reserves record
             uint256 reserves = mapTokenReserves[token];
             if (reserves >= tokenAmount) {
                 reserves -= tokenAmount;
                 mapTokenReserves[token] = reserves;
 
                 emit Withdraw(token, tokenAmount);
-                // Transfer LP token
+                // Transfer LP tokens
                 // We assume that LP tokens enabled in the protocol are safe by default
                 // UniswapV2ERC20 realization has a standard transfer() function
                 success = IToken(token).transfer(to, tokenAmount);
@@ -476,7 +476,7 @@ contract Treasury is IErrorsTokenomics {
         amount = IServiceRegistry(serviceRegistry).drain();
     }
 
-    /// @dev Enables a token to be exchanged for OLAS.
+    /// @dev Enables an LP token to be bonded for OLAS.
     /// @param token Token address.
     function enableToken(address token) external {
         // Check for the contract ownership
@@ -496,7 +496,7 @@ contract Treasury is IErrorsTokenomics {
         }
     }
 
-    /// @dev Disables a token from the ability to exchange for OLAS.
+    /// @dev Disables an LP token from the ability to bond for OLAS.
     /// @param token Token address.
     function disableToken(address token) external {
         // Check for the contract ownership

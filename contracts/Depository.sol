@@ -25,7 +25,7 @@ import "./interfaces/ITreasury.sol";
 * In conclusion, this contract is only safe to use until 2106.
 */
 
-// The size of the struct is 160 + 96 + 32 * 2 + 8 = 328 bits (2 full slots)
+// The size of the struct is 160 + 96 + 32 * 2 = 320 bits (2 full slots)
 struct Bond {
     // Account address
     address account;
@@ -227,8 +227,8 @@ contract Depository is IErrorsTokenomics {
         emit CreateProduct(token, productId, supply);
     }
 
-    /// @dev Close bonding products.
-    /// @notice This will terminate the program regardless of the expiration time.
+    /// @dev Closes bonding products.
+    /// @notice This will terminate programs regardless of their vesting time.
     /// @param productIds Set of product Ids.
     /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
     /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].expiry == 0 && mapBondProducts[productIds[k]].supply == 0;
@@ -246,7 +246,7 @@ contract Depository is IErrorsTokenomics {
             }
 
             uint256 supply = mapBondProducts[productId].supply;
-            // Refund unused OLAS supply from the program if not used completely
+            // Refund unused OLAS supply from the program if it was not used by the product completely
             if (supply > 0) {
                 ITokenomics(tokenomics).refundFromBondProgram(supply);
             }
@@ -315,7 +315,7 @@ contract Depository is IErrorsTokenomics {
         emit CreateBond(token, productId, payout, tokenAmount);
     }
 
-    /// @dev Redeem account bonds.
+    /// @dev Redeems account bonds.
     /// @param bondIds Bond Ids to redeem.
     /// @return payout Total payout sent in OLAS tokens.
     /// #if_succeeds {:msg "payout > 0"} payout > 0;
