@@ -1,15 +1,15 @@
 pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
-import "zuniswapv2/ZuniswapV2Factory.sol";
-import "zuniswapv2/ZuniswapV2Router.sol";
-import "zuniswapv2/ZuniswapV2Pair.sol";
+import {ZuniswapV2Factory} from "zuniswapv2/ZuniswapV2Factory.sol";
+import {ZuniswapV2Router} from "zuniswapv2/ZuniswapV2Router.sol";
+import {ZuniswapV2Pair} from "zuniswapv2/ZuniswapV2Pair.sol";
 import "./utils/Utils.sol";
 import "../contracts/Depository.sol";
 import "../contracts/GenericBondCalculator.sol";
 import "../contracts/test/MockTokenomics.sol";
 import "../contracts/Treasury.sol";
-import "../lib/zuniswapv2/lib/solmate/src/test/utils/mocks/MockERC20.sol";
+import {MockERC20} from "../lib/zuniswapv2/lib/solmate/src/test/utils/mocks/MockERC20.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
@@ -133,7 +133,7 @@ contract DepositoryTest is BaseSetup {
         vm.prank(deployer);
         depository.deposit(0, bamount);
         // Check the size of pending bond array
-        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, false);
+        (uint256[] memory bondIds, ) = depository.getBonds(deployer, false);
         assertEq(bondIds.length, 1);
         (uint256 payout, ) = depository.getBondStatus(0);
         // The default IDF without any incentivized coefficient or epsilon rate is 1
@@ -152,7 +152,7 @@ contract DepositoryTest is BaseSetup {
 
         // Increase time such that the vesting is complete
         vm.warp(block.timestamp + vesting + 60);
-        (uint256[] memory bondIds, ) = depository.getPendingBonds(deployer, true);
+        (uint256[] memory bondIds, ) = depository.getBonds(deployer, true);
         // Redeem the bond
         vm.prank(deployer);
         depository.redeem(bondIds);

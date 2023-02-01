@@ -25,6 +25,37 @@ import "./interfaces/ITreasury.sol";
 * In conclusion, this contract is only safe to use until 2106.
 */
 
+// The size of the struct is 160 + 96 + 32 * 2 + 8 = 328 bits (2 full slots)
+struct Bond {
+    // Account address
+    address account;
+    // OLAS remaining to be paid out
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 payout;
+    // Bond maturity time
+    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
+    uint32 maturity;
+    // Product Id of a bond
+    // We assume that the number of products will not be bigger than the number of seconds
+    uint32 productId;
+}
+
+// The size of the struct is 224 + 32 + 160 + 96 = 512 bits (2 full slots)
+struct Product {
+    // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
+    // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
+    // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
+    uint224 priceLP;
+    // Product expiry time (initialization time + vesting time)
+    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
+    uint32 expiry;
+    // Token to accept as a payment
+    address token;
+    // Supply of remaining OLAS tokens
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 supply;
+}
+
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -35,37 +66,6 @@ contract Depository is IErrorsTokenomics {
     event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
     event CreateProduct(address indexed token, uint256 productId, uint256 supply);
     event CloseProduct(address indexed token, uint256 productId);
-
-    // The size of the struct is 160 + 96 + 32 * 2 + 8 = 328 bits (2 full slots)
-    struct Bond {
-        // Account address
-        address account;
-        // OLAS remaining to be paid out
-        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-        uint96 payout;
-        // Bond maturity time
-        // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
-        uint32 maturity;
-        // Product Id of a bond
-        // We assume that the number of products will not be bigger than the number of seconds
-        uint32 productId;
-    }
-
-    // The size of the struct is 224 + 32 + 160 + 96 = 512 bits (2 full slots)
-    struct Product {
-        // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
-        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
-        // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
-        uint224 priceLP;
-        // Product expiry time (initialization time + vesting time)
-        // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
-        uint32 expiry;
-        // Token to accept as a payment
-        address token;
-        // Supply of remaining OLAS tokens
-        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-        uint96 supply;
-    }
 
     // TODO finalize the value and also define the value of MAX_VESTING
     // Minimum bond vesting value
@@ -166,6 +166,94 @@ contract Depository is IErrorsTokenomics {
 
         if (_bondCalculator != address(0)) {
             bondCalculator = _bondCalculator;
+        }
+    }
+
+    /// @dev Creates a new bond product.
+    /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
+    /// @param priceLP LP token price with 18 additional decimals.
+    /// @param supply Supply in OLAS tokens.
+    /// @param vesting Vesting period (in seconds).
+    /// @return productId New bond product Id.
+    /// #if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter) + 1;
+    /// #if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry == block.timestamp + vesting;
+    function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the pool liquidity as the LP price being greater than zero
+        if (priceLP == 0) {
+            revert ZeroValue();
+        }
+
+        // Check that the supply is greater than zero
+        if (supply == 0) {
+            revert ZeroValue();
+        }
+
+        // Check the supply limit value
+        if (supply > type(uint96).max) {
+            revert Overflow(supply, type(uint96).max);
+        }
+
+        // Check the vesting minimum limit value
+        if (vesting < MIN_VESTING) {
+            revert LowerThan(vesting, MIN_VESTING);
+        }
+
+        // Check for the expiration time overflow
+        uint256 expiry = block.timestamp + vesting;
+        if (expiry > type(uint32).max) {
+            revert Overflow(expiry, type(uint32).max);
+        }
+
+        // Check if the LP token is enabled
+        if (!ITreasury(treasury).isEnabled(token)) {
+            revert UnauthorizedToken(token);
+        }
+
+        // Check if the bond amount is beyond the limits
+        if (!ITokenomics(tokenomics).reserveAmountForBondProgram(supply)) {
+            revert LowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
+        }
+
+        // Push newly created bond product into the list of products
+        productId = productCounter;
+        mapBondProducts[productId] = Product(uint224(priceLP), uint32(expiry), token, uint96(supply));
+        // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
+        productCounter = uint32(productId + 1);
+        emit CreateProduct(token, productId, supply);
+    }
+
+    /// @dev Close bonding products.
+    /// @notice This will terminate the program regardless of the expiration time.
+    /// @param productIds Set of product Ids.
+    /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
+    /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].expiry == 0 && mapBondProducts[productIds[k]].supply == 0;
+    function close(uint256[] memory productIds) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        for (uint256 i = 0; i < productIds.length; ++i) {
+            uint256 productId = productIds[i];
+            // Check if the product is still open
+            if (mapBondProducts[productId].expiry == 0) {
+                revert ProductClosed(productId);
+            }
+
+            uint256 supply = mapBondProducts[productId].supply;
+            // Refund unused OLAS supply from the program if not used completely
+            if (supply > 0) {
+                ITokenomics(tokenomics).refundFromBondProgram(supply);
+            }
+            address token = mapBondProducts[productId].token;
+            delete mapBondProducts[productId];
+
+            emit CloseProduct(token, productId);
         }
     }
 
@@ -281,14 +369,57 @@ contract Depository is IErrorsTokenomics {
         IToken(olas).transfer(msg.sender, payout);
     }
 
-    /// @dev Gets bond Ids of all pending bonds for the account address.
+    /// @dev Gets an array of all active product Ids for a specific token.
+    /// @param active Flag to select active or inactive products.
+    /// @return productIds Active product Ids.
+    function getProducts(bool active) external view returns (uint256[] memory productIds) {
+        // Calculate the number of active products
+        uint256 numProducts = productCounter;
+        bool[] memory positions = new bool[](numProducts);
+        uint256 numSelectedProducts;
+        if (active) {
+            for (uint256 i = 0; i < numProducts; i++) {
+                if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
+                    positions[i] = true;
+                    ++numSelectedProducts;
+                }
+            }
+        } else {
+            for (uint256 i = 0; i < numProducts; i++) {
+                if (mapBondProducts[i].token != address(0) && mapBondProducts[i].expiry <= block.timestamp) {
+                    positions[i] = true;
+                    ++numSelectedProducts;
+                }
+            }
+        }
+
+        // Form the active products index array
+        productIds = new uint256[](numSelectedProducts);
+        uint256 numPos;
+        for (uint256 i = 0; i < numProducts; i++) {
+            if (positions[i]) {
+                productIds[numPos] = i;
+                ++numPos;
+            }
+        }
+        return productIds;
+    }
+
+    /// @dev Gets activity information about a given product.
+    /// @param productId Product Id.
+    /// @return status True if the product is active.
+    function isActiveProduct(uint256 productId) external view returns (bool status) {
+        status = (mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp);
+    }
+
+    /// @dev Gets bond Ids for the account address.
     /// @param account Account address to query bonds for.
-    /// @param matured Flag to record matured bonds only or all of them.
-    /// @return bondIds Pending bond Ids.
+    /// @param matured Flag to get matured bonds only or all of them.
+    /// @return bondIds Bond Ids.
     /// @return payout Cumulative expected OLAS payout.
     /// #if_succeeds {:msg "matured bonds"} matured == true ==> forall (uint k in bondIds)
     /// mapUserBonds[bondIds[k]].account == account && block.timestamp >= mapUserBonds[bondIds[k]].maturity;
-    function getPendingBonds(address account, bool matured) external view
+    function getBonds(address account, bool matured) external view
         returns (uint256[] memory bondIds, uint256 payout)
     {
         // Check the address
@@ -339,137 +470,6 @@ contract Depository is IErrorsTokenomics {
         if (payout > 0) {
             matured = block.timestamp >= mapUserBonds[bondId].maturity;
         }
-    }
-
-    /// @dev Creates a new bond product.
-    /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
-    /// @param priceLP LP token price with 18 additional decimals.
-    /// @param supply Supply in OLAS tokens.
-    /// @param vesting Vesting period (in seconds).
-    /// @return productId New bond product Id.
-    /// #if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter) + 1;
-    /// #if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry == block.timestamp + vesting;
-    function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the pool liquidity as the LP price being greater than zero
-        if (priceLP == 0) {
-            revert ZeroValue();
-        }
-
-        // Check that the supply is greater than zero
-        if (supply == 0) {
-            revert ZeroValue();
-        }
-
-        // Check the supply limit value
-        if (supply > type(uint96).max) {
-            revert Overflow(supply, type(uint96).max);
-        }
-
-        // Check the vesting minimum limit value
-        if (vesting < MIN_VESTING) {
-            revert LowerThan(vesting, MIN_VESTING);
-        }
-
-        // Check for the expiration time overflow
-        uint256 expiry = block.timestamp + vesting;
-        if (expiry > type(uint32).max) {
-            revert Overflow(expiry, type(uint32).max);
-        }
-        
-        // Check if the LP token is enabled
-        if (!ITreasury(treasury).isEnabled(token)) {
-            revert UnauthorizedToken(token);
-        }
-
-        // Check if the bond amount is beyond the limits
-        if (!ITokenomics(tokenomics).reserveAmountForBondProgram(supply)) {
-            revert LowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
-        }
-
-        // Push newly created bond product into the list of products
-        productId = productCounter;
-        mapBondProducts[productId] = Product(uint224(priceLP), uint32(expiry), token, uint96(supply));
-        // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
-        productCounter = uint32(productId + 1);
-        emit CreateProduct(token, productId, supply);
-    }
-
-    /// @dev Close bonding products.
-    /// @notice This will terminate the program regardless of the expiration time.
-    /// @param productIds Set of product Ids.
-    /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
-    /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].expiry == 0 && mapBondProducts[productIds[k]].supply == 0;
-    function close(uint256[] memory productIds) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        for (uint256 i = 0; i < productIds.length; ++i) {
-            uint256 productId = productIds[i];
-            // Check if the product is still open
-            if (mapBondProducts[productId].expiry == 0) {
-                revert ProductClosed(productId);
-            }
-
-            uint256 supply = mapBondProducts[productId].supply;
-            // Refund unused OLAS supply from the program if not used completely
-            if (supply > 0) {
-                ITokenomics(tokenomics).refundFromBondProgram(supply);
-            }
-            address token = mapBondProducts[productId].token;
-            delete mapBondProducts[productId];
-
-            emit CloseProduct(token, productId);
-        }
-    }
-
-    /// @dev Gets activity information about a given product.
-    /// @param productId Product Id.
-    /// @return status True if the product is active.
-    function isActiveProduct(uint256 productId) external view returns (bool status) {
-        status = (mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp);
-    }
-
-    /// @dev Gets an array of all active product Ids for a specific token.
-    /// @param active Flag to select active or inactive products.
-    /// @return productIds Active product Ids.
-    function getProducts(bool active) external view returns (uint256[] memory productIds) {
-        // Calculate the number of active products
-        uint256 numProducts = productCounter;
-        bool[] memory positions = new bool[](numProducts);
-        uint256 numSelectedProducts;
-        if (active) {
-            for (uint256 i = 0; i < numProducts; i++) {
-                if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
-                    positions[i] = true;
-                    ++numSelectedProducts;
-                }
-            }
-        } else {
-            for (uint256 i = 0; i < numProducts; i++) {
-                if (mapBondProducts[i].token != address(0) && mapBondProducts[i].expiry <= block.timestamp) {
-                    positions[i] = true;
-                    ++numSelectedProducts;
-                }
-            }
-        }
-
-        // Form the active products index array
-        productIds = new uint256[](numSelectedProducts);
-        uint256 numPos;
-        for (uint256 i = 0; i < numProducts; i++) {
-            if (positions[i]) {
-                productIds[numPos] = i;
-                ++numPos;
-            }
-        }
-        return productIds;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.

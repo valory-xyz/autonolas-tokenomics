@@ -436,7 +436,7 @@ describe("Depository LP 2", async () => {
 
             const bamount = (await pairODAI.balanceOf(bob.address));
             await depository.connect(bob).deposit(productId, bamount);
-            expect(Array(await depository.callStatic.getPendingBonds(bob.address, false)).length).to.equal(1);
+            expect(Array(await depository.callStatic.getBonds(bob.address, false)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
             // The default IDF without any incentivized coefficient or epsilon rate is 1
             // 1250 * 1.0 = 1250 * e18 =  1.25 * e21
@@ -493,19 +493,19 @@ describe("Depository LP 2", async () => {
             // Increase the time to a half vesting
             await helpers.time.increase(vesting / 2);
             // Check for the matured pending bond which is not yet ready
-            let pendingBonds = await depository.callStatic.getPendingBonds(bob.address, true);
+            let pendingBonds = await depository.callStatic.getBonds(bob.address, true);
             expect(pendingBonds.bondIds).to.deep.equal([]);
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
             // Check for the matured pending bond
-            pendingBonds = await depository.callStatic.getPendingBonds(bob.address, true);
+            pendingBonds = await depository.callStatic.getBonds(bob.address, true);
             expect(pendingBonds.bondIds[0]).to.equal(0);
             await depository.connect(bob).redeem([0]);
             const bobBalance = Number(await olas.balanceOf(bob.address));
             expect(bobBalance).to.greaterThanOrEqual(Number(expectedPayout));
             expect(bobBalance).to.lessThan(Number(expectedPayout * 1.0001));
             // Check for all pending bonds after the redeem (must be none left)
-            pendingBonds = await depository.callStatic.getPendingBonds(bob.address, false);
+            pendingBonds = await depository.callStatic.getBonds(bob.address, false);
             expect(pendingBonds.bondIds).to.deep.equal([]);
             expect(pendingBonds.payout).to.equal(0);
         });
@@ -636,7 +636,7 @@ describe("Depository LP 2", async () => {
             ).to.be.revertedWithCustomError(depository, "OwnerOnly");
 
             // Get all redeemable (matured) bonds for bob
-            let bondsToRedeem = await depository.callStatic.getPendingBonds(bob.address, true);
+            let bondsToRedeem = await depository.callStatic.getBonds(bob.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(2);
             expect(bondsToRedeem.bondIds[0]).to.equal(0);
             expect(bondsToRedeem.bondIds[1]).to.equal(2);
@@ -661,7 +661,7 @@ describe("Depository LP 2", async () => {
             expect(activeProducts).to.deep.equal([]);
 
             // Try to get redeemable (matured) bonds for bob once again
-            bondsToRedeem = await depository.callStatic.getPendingBonds(bob.address, true);
+            bondsToRedeem = await depository.callStatic.getBonds(bob.address, true);
             expect(bondsToRedeem.bondIds).to.deep.equal([]);
             expect(bondsToRedeem.payout).to.equal(0);
 
@@ -674,7 +674,7 @@ describe("Depository LP 2", async () => {
             ).to.be.revertedWithCustomError(depository, "BondNotRedeemable");
 
             // Get matured pending bonds for alice
-            bondsToRedeem = await depository.callStatic.getPendingBonds(alice.address, true);
+            bondsToRedeem = await depository.callStatic.getBonds(alice.address, true);
             expect(bondsToRedeem.bondIds.length).to.equal(1);
             expect(bondsToRedeem.bondIds[0]).to.equal(1);
 

@@ -605,7 +605,7 @@ describe("Tokenomics", async () => {
             // Get the last settled epoch counter
             const lastPoint = Number(await tokenomics.epochCounter()) - 1;
             // Get the epoch point of the last epoch
-            const ep = await tokenomics.getEpochPoint(lastPoint);
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
             // Calculate rewards based on the points information

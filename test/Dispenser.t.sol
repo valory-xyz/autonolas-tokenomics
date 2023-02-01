@@ -124,7 +124,7 @@ contract DispenserTest is BaseSetup {
         uint256 lastPoint = tokenomics.epochCounter() - 1;
         assertEq(lastPoint, 1);
         // Get the epoch point of the last epoch
-        EpochPoint memory ep = tokenomics.getEpochPoint(lastPoint);
+        EpochPoint memory ep = tokenomics.mapEpochTokenomics(lastPoint);
         // Get the unit points of the last epoch
         UnitPoint memory up0 = tokenomics.getUnitPoint(lastPoint, 0);
         UnitPoint memory up1 = tokenomics.getUnitPoint(lastPoint, 1);
@@ -143,12 +143,12 @@ contract DispenserTest is BaseSetup {
         assertGt(accountTopUps, 0);
 
         // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
-        IncentiveBalances memory incentiveBalances = tokenomics.getIncentiveBalances(0, 1);
-        assertGt(incentiveBalances.pendingRelativeReward, 0);
-        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
-        incentiveBalances = tokenomics.getIncentiveBalances(1, 1);
-        assertGt(incentiveBalances.pendingRelativeReward, 0);
-        assertGt(incentiveBalances.pendingRelativeTopUp, 0);
+        (, uint256 pendingRelativeReward, , uint256 pendingRelativeTopUp, ) = tokenomics.mapUnitIncentives(0, 1);
+        assertGt(pendingRelativeReward, 0);
+        assertGt(pendingRelativeTopUp, 0);
+        (, pendingRelativeReward, , pendingRelativeTopUp, ) = tokenomics.mapUnitIncentives(1, 1);
+        assertGt(pendingRelativeReward, 0);
+        assertGt(pendingRelativeTopUp, 0);
 
         // Define the types of units to claim rewards and top-ups for
         (unitTypes[0], unitTypes[1]) = (0, 1);
@@ -211,7 +211,7 @@ contract DispenserTest is BaseSetup {
             lastPoint = tokenomics.epochCounter() - 1;
 
             // Get the epoch point of the last epoch
-            EpochPoint memory ep = tokenomics.getEpochPoint(lastPoint);
+            EpochPoint memory ep = tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             UnitPoint[] memory up = new UnitPoint[](2);
             (up[0], up[1]) = (tokenomics.getUnitPoint(lastPoint, 0), tokenomics.getUnitPoint(lastPoint, 1));
@@ -294,7 +294,7 @@ contract DispenserTest is BaseSetup {
             uint256 lastPoint = tokenomics.epochCounter() - 1;
 
             // Get the epoch point of the last epoch
-            EpochPoint memory ep = tokenomics.getEpochPoint(lastPoint);
+            EpochPoint memory ep = tokenomics.mapEpochTokenomics(lastPoint);
             // Get the unit points of the last epoch
             UnitPoint[] memory up = new UnitPoint[](2);
             (up[0], up[1]) = (tokenomics.getUnitPoint(lastPoint, 0), tokenomics.getUnitPoint(lastPoint, 1));
