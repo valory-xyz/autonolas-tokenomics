@@ -1095,7 +1095,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
     function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
-    returns (uint256 reward, uint256 topUp)
+        returns (uint256 reward, uint256 topUp)
     {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
