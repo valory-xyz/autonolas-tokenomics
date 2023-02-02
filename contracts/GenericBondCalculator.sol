@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.18;
 
 import {mulDiv} from "@prb/math/src/Core.sol";
 import "./interfaces/ITokenomics.sol";
