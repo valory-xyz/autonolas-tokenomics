@@ -63,9 +63,11 @@ contract Depository is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
-    event CreateBond(address indexed token, uint256 productId, uint256 amountOLAS, uint256 tokenAmount);
-    event CreateProduct(address indexed token, uint256 productId, uint256 supply);
-    event CloseProduct(address indexed token, uint256 productId);
+    event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
+        uint256 amountOLAS, uint256 tokenAmount, uint256 expiry);
+    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
+    event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP, uint256 expiry);
+    event CloseProduct(address indexed token, uint256 indexed productId);
 
     // TODO finalize the value and also define the value of MAX_VESTING
     // Minimum bond vesting value
@@ -224,7 +226,7 @@ contract Depository is IErrorsTokenomics {
         mapBondProducts[productId] = Product(uint224(priceLP), uint32(expiry), token, uint96(supply));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
-        emit CreateProduct(token, productId, supply);
+        emit CreateProduct(token, productId, supply, priceLP, expiry);
     }
 
     /// @dev Closes bonding products.
@@ -312,7 +314,7 @@ contract Depository is IErrorsTokenomics {
         // Deposit that token amount to mint OLAS tokens in exchange
         ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
 
-        emit CreateBond(token, productId, payout, tokenAmount);
+        emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, expiry);
     }
 
     /// @dev Redeems account bonds.
@@ -323,7 +325,7 @@ contract Depository is IErrorsTokenomics {
     /// #if_succeeds {:msg "accounts deleted"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].account == address(0);
     /// #if_succeeds {:msg "payouts are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].payout == 0;
     /// #if_succeeds {:msg "maturities are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].maturity == 0;
-    function redeem(uint256[] memory bondIds) public returns (uint256 payout) {
+    function redeem(uint256[] memory bondIds) external returns (uint256 payout) {
         for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
             uint256 pay = mapUserBonds[bondIds[i]].payout;
@@ -358,6 +360,7 @@ contract Depository is IErrorsTokenomics {
             payout += pay;
             // Delete the Bond struct and release the gas
             delete mapUserBonds[bondIds[i]];
+            emit RedeemBond(productId, msg.sender, bondIds[i]);
         }
 
         // Check for the non-zero payout
@@ -369,9 +372,9 @@ contract Depository is IErrorsTokenomics {
         IToken(olas).transfer(msg.sender, payout);
     }
 
-    /// @dev Gets an array of all active product Ids for a specific token.
+    /// @dev Gets an array of active or inactive (but not deleted) product Ids for a specific token.
     /// @param active Flag to select active or inactive products.
-    /// @return productIds Active product Ids.
+    /// @return productIds Product Ids.
     function getProducts(bool active) external view returns (uint256[] memory productIds) {
         // Calculate the number of active products
         uint256 numProducts = productCounter;

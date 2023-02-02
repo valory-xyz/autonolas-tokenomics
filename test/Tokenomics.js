@@ -929,6 +929,11 @@ describe("Tokenomics", async () => {
                 tokenomics.connect(signers[1]).changeTokenomicsImplementation(tokenomicsMaster2.address)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
+            // Try to change for the zero address
+            await expect(
+                tokenomics.changeTokenomicsImplementation(AddressZero)
+            ).to.be.revertedWithCustomError(tokenomics, "ZeroAddress");
+
             // Change the tokenomics implementation
             await tokenomics.connect(deployer).changeTokenomicsImplementation(tokenomicsMaster2.address);
             const newTokenomics = await tokenomics.tokenomicsImplementation();
