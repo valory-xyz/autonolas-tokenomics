@@ -123,8 +123,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event EpochLengthUpdated(uint256 epochLen);
     event EffectiveBondUpdated(uint256 effectiveBond);
     event IDFUpdated(uint256 idf);
-    event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 epsilonRate,
-        uint256 epochLen, uint256 veOLASThreshold, uint256 componentWeight, uint256 agentWeight);
+    event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 codePerDev,
+        uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold, uint256 componentWeight, uint256 agentWeight);
     event TokenomicsParametersUpdated(uint256 indexed epochNumber);
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
         uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
@@ -171,6 +171,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // Current year number
     // This number is enough for the next 255 years
     uint8 public currentYear;
+    // Number of units of useful code that can be built by a developer during one epoch
+    // This number cannot be practically bigger than 255
+    uint8 public codePerDev;
     // Tokenomics parameters change request flag
     bytes1 public tokenomicsParametersUpdated;
     // Reentrancy lock
@@ -290,6 +293,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Initialize storage variables
         owner = msg.sender;
         _locked = 1;
+        // TODO Decide on the final value of epsilonRate
         epsilonRate = 1e17;
         veOLASThreshold = 5_000e18;
 
@@ -357,6 +361,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // units of code. Note that usually these weights are related to unit fractions.
         componentWeight = 1e18;
         agentWeight = 2e18;
+        // We assume that during one epoch the developer can contribute with a one piece of code (1 component or 2 agents)
+        codePerDev = 1;
 
         // Top-up fractions
         uint256 _maxBondFraction = 49;
@@ -486,6 +492,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @dev Changes tokenomics parameters.
     /// @notice Parameter values are not updated for those that are passed as zero or out of defined bounds.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
+    /// @param _codePerDev Number of units of useful code that can be built by a developer during one epoch.
     /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
     /// @param _componentWeight Component weight for code unit calculations.
@@ -500,6 +507,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// #if_succeeds {:msg "agentWeight"} _agentWeight > MIN_PARAM_VALUE && _agentWeight <= type(uint72).max ==> agentWeight == _agentWeight;
     function changeTokenomicsParameters(
         uint256 _devsPerCapital,
+        uint256 _codePerDev,
         uint256 _epsilonRate,
         uint256 _epochLen,
         uint256 _veOLASThreshold,
@@ -518,6 +526,14 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         } else {
             // This is done in order not to pass incorrect parameters into the event
             _devsPerCapital = devsPerCapital;
+        }
+
+        // devsPerCapital is the part of the IDF calculation and thus its change will be accounted for in the next epoch
+        if (uint8(_codePerDev) > 0) {
+            codePerDev = uint8(_codePerDev);
+        } else {
+            // This is done in order not to pass incorrect parameters into the event
+            _codePerDev = codePerDev;
         }
 
         // Check the epsilonRate value for idf to fit in its size
@@ -559,7 +575,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Set the flag that tokenomics parameters are requested to be updated (1st bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x01;
-        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _epsilonRate, _epochLen,
+        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _codePerDev, _epsilonRate, _epochLen,
             _veOLASThreshold, _componentWeight, _agentWeight);
     }
 
@@ -831,45 +847,29 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Gets the inverse discount factor value.
     /// @param treasuryRewards Treasury rewards.
-    /// @param numNewComponents Number of new components registered during the epoch.
-    /// @param numNewAgents Number of new agents registered during the epoch.
     /// @param numNewOwners Number of new owners of components / agents registered during the epoch.
     /// @return idf IDF value.
     function _calculateIDF(
         uint256 treasuryRewards,
-        uint256 numNewComponents,
-        uint256 numNewAgents,
         uint256 numNewOwners
     ) internal view returns (uint256 idf) {
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
-        // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0.
+        // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
         // Calculate IDF from epsilon rate and f(K,D)
-        // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
-        // (weightComponent * weightAgent) will be divided by when assigning to another variable
-        UD60x18 fpComponentWeight = UD60x18.wrap(componentWeight);
-        UD60x18 fpAgentWeight = UD60x18.wrap(agentWeight);
-        UD60x18 fpNumNewComponents= toUD60x18(numNewComponents);
-        UD60x18 fpNumNewAgents= toUD60x18(numNewAgents);
-        UD60x18 codeUnits = fpAgentWeight.mul(fpNumNewComponents);
-        codeUnits = codeUnits.add(fpComponentWeight.mul(fpNumNewAgents));
+        // unitCode (codePerDev) is the estimated value of codeUnits
+        UD60x18 unitCode = toUD60x18(codePerDev);
         // f(K(e), D(e)) = d * k * K(e) + d * D(e)
-        // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
+        // fKD = unitCode * devsPerCapital * treasuryRewards + unitCode * newOwners;
         // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
-        UD60x18 fp1 = UD60x18.wrap(treasuryRewards);
+        UD60x18 fp = UD60x18.wrap(treasuryRewards);
         // Convert (codeUnits * devsPerCapital)
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
-        UD60x18 fp2 = codeUnits.mul(fpDevsPerCapital);
-        // fp1 == codeUnits * devsPerCapital * treasuryRewards
-        fp1 = fp1.mul(fp2);
-        // fp2 = codeUnits * newOwners
-        UD60x18 fpNumNewOwners = UD60x18.wrap(numNewOwners);
-        fp2 = codeUnits.mul(fpNumNewOwners);
-        // fp = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
-        UD60x18 fp = fp1.add(fp2);
+        fp = fp.mul(fpDevsPerCapital);
+        UD60x18 fpNumNewOwners = toUD60x18(numNewOwners);
+        fp = fp.add(fpNumNewOwners);
+        fp = fp.mul(unitCode);
         // fp = fp / 100 - calculate the final value in fixed point
-        // Reserved a divider of (weightComponent * weightAgent) from the codeUnits
-        UD60x18 denominator = UD60x18.wrap(100e18).mul(fpComponentWeight).mul(fpAgentWeight);
-        fp = fp.div(denominator);
+        fp = fp.div(UD60x18.wrap(100e18));
         // fKD in the state that is comparable with epsilon rate
         uint256 fKD = UD60x18.unwrap(fp);
 
@@ -1056,8 +1056,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Update the IDF value for the next epoch or assign a default one if there are no ETH donations
         if (incentives[0] > 0) {
             // Calculate IDF based on the incoming donations
-            uint256 idf = _calculateIDF(incentives[1], tp.unitPoints[0].numNewUnits, tp.unitPoints[1].numNewUnits,
-                tp.epochPoint.numNewOwners);
+            uint256 idf = _calculateIDF(incentives[1], tp.epochPoint.numNewOwners);
             nextEpochPoint.epochPoint.idf = uint64(idf);
             emit IDFUpdated(idf);
         } else {
@@ -1246,6 +1245,27 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             reward += mapUnitIncentives[unitTypes[i]][unitIds[i]].reward;
             // Accumulate total top-ups to finalized ones
             topUp += mapUnitIncentives[unitTypes[i]][unitIds[i]].topUp;
+        }
+    }
+
+    /// @dev Gets the code units value based on the number of new components and agents.
+    /// @param epoch Epoch number.
+    /// @return codeUnits Code units value.
+    function getCodeUnits(uint256 epoch) external view returns (uint256 codeUnits) {
+        uint256 numNewComponents = mapEpochTokenomics[epoch].unitPoints[0].numNewUnits;
+        uint256 numNewAgents = mapEpochTokenomics[epoch].unitPoints[1].numNewUnits;
+        // Check for the valid component and agent data
+        if (numNewComponents > 0 && numNewAgents > 0) {
+            // codeUnits = (weightAgent * numComponents + weightComponent * numAgents) / (weightComponent * weightAgent)
+            UD60x18 fpComponentWeight = UD60x18.wrap(componentWeight);
+            UD60x18 fpAgentWeight = UD60x18.wrap(agentWeight);
+            UD60x18 fpNumNewComponents= toUD60x18(numNewComponents);
+            UD60x18 fpNumNewAgents= toUD60x18(numNewAgents);
+            UD60x18 fpCodeUnits = fpAgentWeight.mul(fpNumNewComponents);
+            fpCodeUnits = fpCodeUnits.add(fpComponentWeight.mul(fpNumNewAgents));
+            UD60x18 denominator = fpComponentWeight.mul(fpAgentWeight);
+            fpCodeUnits = fpCodeUnits.div(denominator);
+            codeUnits = UD60x18.unwrap(fpCodeUnits);
         }
     }
 
