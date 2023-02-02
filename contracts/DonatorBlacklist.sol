@@ -49,6 +49,7 @@ contract DonatorBlacklist {
     }
 
     /// @dev Controls donators blacklisting statuses.
+    /// @notice Donator is considered blacklisted if its status is set to true.
     /// @param accounts Set of account addresses.
     /// @param statuses Set blacklisting statuses.
     /// @return success True, if the function executed successfully.

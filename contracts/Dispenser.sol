@@ -5,20 +5,21 @@ import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
-/// @title Dispenser - Smart contract for incentives
+/// @title Dispenser - Smart contract for distributing incentives
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Dispenser is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
+    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
 
     // Owner address
     address public owner;
     // Reentrancy lock
     uint8 internal _locked;
 
-    // Tkenomics contract address
+    // Tokenomics contract address
     address public tokenomics;
     // Treasury contract address
     address public treasury;
@@ -101,6 +102,8 @@ contract Dispenser is IErrorsTokenomics {
         if (!success) {
             revert ClaimIncentivesFailed(msg.sender, reward, topUp);
         }
+
+        emit IncentivesClaimed(msg.sender, reward, topUp);
 
         _locked = 1;
     }

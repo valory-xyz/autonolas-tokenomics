@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "@prb/math/src/UD60x18.sol";
 
-/// @title Dispenser - Smart contract with tokenomics constants
+/// @title TokenomicsConstants - Smart contract with tokenomics constants
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract TokenomicsConstants {

@@ -112,7 +112,7 @@ struct IncentiveBalances {
     uint32 lastEpoch;
 }
 
-/// @title Tokenomics - Smart contract for store/interface for key tokenomics params
+/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
@@ -122,6 +122,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event DispenserUpdated(address indexed dispenser);
     event EpochLengthUpdated(uint256 epochLen);
     event EffectiveBondUpdated(uint256 effectiveBond);
+    event IDFUpdated(uint256 idf);
     event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 epsilonRate,
         uint256 epochLen, uint256 veOLASThreshold, uint256 componentWeight, uint256 agentWeight);
     event TokenomicsParametersUpdated(uint256 indexed epochNumber);
@@ -386,6 +387,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (implementation == address(0)) {
+            revert ZeroAddress();
         }
 
         // Store the implementation address under the designated storage slot
@@ -877,7 +883,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data with a new checkpoint.
-    /// @notice Note that even though there is no hard cap for how long a specific epoch can last, it is practically
+    /// @notice Note that even though a specific epoch can last longer than the epochLen, it is practically
     ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.
     /// @return True if the function execution is successful.
     /// #if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
@@ -977,7 +983,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Get the tokenomics point of the next epoch
-        TokenomicsPoint storage nextPoint = mapEpochTokenomics[eCounter + 1];
+        TokenomicsPoint storage nextEpochPoint = mapEpochTokenomics[eCounter + 1];
         // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
         // Check if the second bit is set to one
         if (tokenomicsParametersUpdated & 0x02 == 0x02) {
@@ -986,11 +992,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         } else {
             // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
             for (uint256 i = 0; i < 2; ++i) {
-                nextPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
-                nextPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
+                nextEpochPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
+                nextEpochPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
             }
-            nextPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
-            nextPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
+            nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
+            nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
         }
         // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
         // Check if the second bit is set to one
@@ -1030,14 +1036,14 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Add the remainder of the inflation for the next epoch based on a new inflation per second ratio
             inflationPerEpoch += (block.timestamp + curEpochLen - yearEndTime) * curInflationPerSecond;
             // Calculate the max bond value
-            curMaxBond = (inflationPerEpoch * nextPoint.epochPoint.maxBondFraction) / 100;
+            curMaxBond = (inflationPerEpoch * nextEpochPoint.epochPoint.maxBondFraction) / 100;
             // Update state maxBond value
             maxBond = uint96(curMaxBond);
             // Reset the tokenomics parameters update flag
             tokenomicsParametersUpdated = 0;
         } else if (tokenomicsParametersUpdated > 0) {
             // Since tokenomics parameters have been updated, maxBond has to be recalculated
-            curMaxBond = (curEpochLen * curInflationPerSecond * nextPoint.epochPoint.maxBondFraction) / 100;
+            curMaxBond = (curEpochLen * curInflationPerSecond * nextEpochPoint.epochPoint.maxBondFraction) / 100;
             // Update state maxBond value
             maxBond = uint96(curMaxBond);
             // Reset the tokenomics parameters update flag
@@ -1050,11 +1056,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Update the IDF value for the next epoch or assign a default one if there are no ETH donations
         if (incentives[0] > 0) {
             // Calculate IDF based on the incoming donations
-            nextPoint.epochPoint.idf = uint64(_calculateIDF(incentives[1], tp.unitPoints[0].numNewUnits,
-                    tp.unitPoints[1].numNewUnits, tp.epochPoint.numNewOwners));
+            uint256 idf = _calculateIDF(incentives[1], tp.unitPoints[0].numNewUnits, tp.unitPoints[1].numNewUnits,
+                tp.epochPoint.numNewOwners);
+            nextEpochPoint.epochPoint.idf = uint64(idf);
+            emit IDFUpdated(idf);
         } else {
             // Assign a default IDF value
-            nextPoint.epochPoint.idf = 1e18;
+            nextEpochPoint.epochPoint.idf = 1e18;
         }
 
         // Cumulative incentives

@@ -42,11 +42,10 @@ contract Treasury is IErrorsTokenomics {
     event DepositoryUpdated(address indexed depository);
     event DispenserUpdated(address indexed dispenser);
     event DepositTokenFromAccount(address indexed account, address indexed token, uint256 tokenAmount, uint256 olasAmount);
-    event DonateToServicesETH(address indexed sender, uint256 donation);
-    event Withdraw(address indexed token, uint256 tokenAmount);
+    event DonateToServicesETH(address indexed sender, uint256[] serviceIds, uint256[] amounts, uint256 donation);
+    event Withdraw(address indexed token, address indexed to, uint256 tokenAmount);
     event EnableToken(address indexed token);
     event DisableToken(address indexed token);
-    event TransferToDispenserOLAS(uint256 amount);
     event ReceiveETH(address indexed sender, uint256 amount);
     event UpdateTreasuryBalances(uint256 ETHOwned, uint256 ETHFromServices);
     event PauseTreasury();
@@ -287,7 +286,7 @@ contract Treasury is IErrorsTokenomics {
             revert Overflow(donationETH, type(uint96).max);
         }
         ETHFromServices = uint96(donationETH);
-        emit DonateToServicesETH(msg.sender, msg.value);
+        emit DonateToServicesETH(msg.sender, serviceIds, amounts, msg.value);
 
         // Track service donations on the Tokenomics side
         ITokenomics(tokenomics).trackServiceDonations(msg.sender, serviceIds, amounts, msg.value);
@@ -329,7 +328,7 @@ contract Treasury is IErrorsTokenomics {
                 // This branch is used to transfer ETH to a specified address
                 amountOwned -= tokenAmount;
                 ETHOwned = uint96(amountOwned);
-                emit Withdraw(ETH_TOKEN_ADDRESS, tokenAmount);
+                emit Withdraw(ETH_TOKEN_ADDRESS, to, tokenAmount);
                 // Send ETH to the specified address
                 (success, ) = to.call{value: tokenAmount}("");
                 if (!success) {
@@ -350,7 +349,7 @@ contract Treasury is IErrorsTokenomics {
                 reserves -= tokenAmount;
                 mapTokenReserves[token] = reserves;
 
-                emit Withdraw(token, tokenAmount);
+                emit Withdraw(token, to, tokenAmount);
                 // Transfer LP tokens
                 // We assume that LP tokens enabled in the protocol are safe by default
                 // UniswapV2ERC20 realization has a standard transfer() function
@@ -397,6 +396,7 @@ contract Treasury is IErrorsTokenomics {
         if (accountRewards > 0 && amountETHFromServices >= accountRewards) {
             amountETHFromServices -= accountRewards;
             ETHFromServices = uint96(amountETHFromServices);
+            emit Withdraw(ETH_TOKEN_ADDRESS, account, accountRewards);
             (success, ) = account.call{value: accountRewards}("");
             if (!success) {
                 revert TransferFailed(address(0), address(this), account, accountRewards);
@@ -409,7 +409,7 @@ contract Treasury is IErrorsTokenomics {
             // thus the the mint does not break the inflation schedule
             IOLAS(olas).mint(account, accountTopUps);
             success = true;
-            emit TransferToDispenserOLAS(accountTopUps);
+            emit Withdraw(olas, account, accountTopUps);
         }
     }
 
