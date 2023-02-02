@@ -15,18 +15,6 @@ const accounts = {
 };
 
 module.exports = {
-    gasReporter: {
-        enabled: true
-    },
-    networks: {
-        local: {
-            url: "http://localhost:8545",
-        },
-        hardhat: {
-            allowUnlimitedContractSize: true,
-            accounts
-        },
-    },
     solidity: {
         compilers: [
             {
@@ -45,5 +33,17 @@ module.exports = {
                 version: "0.6.6", // uniswap
             }
         ]
+    },
+    networks: {
+        local: {
+            url: "http://localhost:8545",
+        },
+        hardhat: {
+            allowUnlimitedContractSize: true,
+            accounts
+        },
+    },
+    gasReporter: {
+        enabled: true
     }
 };
