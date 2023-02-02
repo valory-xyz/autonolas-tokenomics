@@ -24,6 +24,7 @@ The Tokenomics contract is deployed via the proxy contract, such that it is poss
 - Auxiliary contracts:
   - [DonatorBlacklist](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/DonatorBlacklist.sol)
   - [GenericBondCalculator](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/GenericBondCalculator.sol)
+  - [TokenomicsConstants](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/TokenomicsConstants.sol)
 
 ## Development
 
