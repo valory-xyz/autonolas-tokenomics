@@ -828,13 +828,14 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
         // Calculate IDF from epsilon rate and f(K,D)
+        // f(K(e), D(e)) = d * k * K(e) + d * D(e),
+        // where d corresponds to codePerDev and k corresponds to devPerCapital
         // codeUnits (codePerDev) is the estimated value of the code produced by a single developer for epoch
         UD60x18 codeUnits = UD60x18.wrap(codePerDev);
-        // f(K(e), D(e)) = d * k * K(e) + d * D(e)
-        // fKD = unitCode * devsPerCapital * treasuryRewards + unitCode * newOwners;
+        // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
         // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
         UD60x18 fp = UD60x18.wrap(treasuryRewards);
-        // Convert (codeUnits * devsPerCapital)
+        // Convert devsPerCapital
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
         fp = fp.mul(fpDevsPerCapital);
         UD60x18 fpNumNewOwners = toUD60x18(numNewOwners);
