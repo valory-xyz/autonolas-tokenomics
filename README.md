@@ -9,7 +9,7 @@ A graphical overview is available here:
 ![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v3.png?raw=true)
 
 An overview of the Autonolas tokenomics model, a high-level description of smart contacts, and a full set of smart contract
-specifications are provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_Tokenomics.pdf?raw=true).
+specifications are provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf?raw=true).
 
 The Depository and Treasury contracts are inspired by OlympusDAO concepts. The Tokenomics contract implements the brunt of the reward logic
 for component and agent owners, and the logic that regulates the discount factor for bonds.
