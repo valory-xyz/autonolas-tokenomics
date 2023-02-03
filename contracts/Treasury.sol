@@ -108,7 +108,6 @@ contract Treasury is IErrorsTokenomics {
     /// ==> address(this).balance == ETHFromServices + ETHOwned;
     /// #if_succeeds {:msg "any paused"} paused == 1 || paused == 2;
     receive() external payable {
-        // TODO shall the contract continue receiving ETH when paused?
         if (msg.value < minAcceptedETH) {
             revert LowerThan(msg.value, minAcceptedETH);
         }
@@ -201,7 +200,6 @@ contract Treasury is IErrorsTokenomics {
     /// #if_succeeds {:msg "OLAS balances"} IToken(olas).balanceOf(msg.sender) == old(IToken(olas).balanceOf(msg.sender)) + olasMintAmount;
     /// #if_succeeds {:msg "OLAS supply"} IToken(olas).totalSupply() == old(IToken(olas).totalSupply()) + olasMintAmount;
     function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external {
-        // TODO shall the contract continue receiving LP / minting OLAS when paused?
         // Check for the depository access
         if (depository != msg.sender) {
             revert ManagerOnly(msg.sender, depository);
@@ -254,7 +252,6 @@ contract Treasury is IErrorsTokenomics {
         _locked = 2;
 
         // Check that the amount donated has at least a practical minimal value
-        // TODO Decide on the final minimal value
         if (msg.value < minAcceptedETH) {
             revert LowerThan(msg.value, minAcceptedETH);
         }
@@ -278,7 +275,6 @@ contract Treasury is IErrorsTokenomics {
             revert WrongAmount(msg.value, totalAmount);
         }
 
-        // TODO shall the contract continue receiving ETH when paused?
         // Accumulate received donation from services
         uint256 donationETH = ETHFromServices + msg.value;
         // Check for the overflow values, specifically when fuzzing, since realistically these amounts are assumed to be not possible

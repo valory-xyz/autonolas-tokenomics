@@ -286,12 +286,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Initialize storage variables
         owner = msg.sender;
         _locked = 1;
-        // TODO Decide on the final value of epsilonRate
         epsilonRate = 1e17;
         veOLASThreshold = 5_000e18;
 
         // Check that the epoch length has at least a practical minimal value
-        // TODO Decide on the final minimal value
         if (uint32(_epochLen) < MIN_EPOCH_LENGTH) {
             revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
@@ -352,7 +350,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Initially we consider 1 unit of code as either 2 agents or 1 component.
         // E.g. if we have 2 profitable components and 2 profitable agents, this means there are (2 x 2.0 + 2 x 1.0) / 3 = 2
         // units of code.
-        // We assume that during one epoch the developer can contribute with a one piece of code (1 component or 2 agents)
+        // We assume that during one epoch the developer can contribute with one piece of code (1 component or 2 agents)
         codePerDev = 1e18;
 
         // Top-up fractions
@@ -854,7 +852,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         idf = 1e18 + fKD;
     }
 
-    // TODO Figure out how to call checkpoint automatically, i.e. with a keeper
     /// @dev Record global data with a new checkpoint.
     /// @notice Note that even though a specific epoch can last longer than the epochLen, it is practically
     ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.

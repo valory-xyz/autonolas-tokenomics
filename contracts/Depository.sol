@@ -69,7 +69,6 @@ contract Depository is IErrorsTokenomics {
     event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP, uint256 expiry);
     event CloseProduct(address indexed token, uint256 indexed productId);
 
-    // TODO finalize the value and also define the value of MAX_VESTING
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 weeks;
     
