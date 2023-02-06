@@ -25,7 +25,7 @@ import "./interfaces/ITreasury.sol";
 * In conclusion, this contract is only safe to use until 2106.
 */
 
-// The size of the struct is 160 + 96 + 32 * 2 = 320 bits (2 full slots)
+// The size of the struct is 160 + 96 + 32 * 2 = 256 + 64 (2 slots)
 struct Bond {
     // Account address
     address account;
@@ -40,7 +40,7 @@ struct Bond {
     uint32 productId;
 }
 
-// The size of the struct is 160 + 32 + 160 + 96 = 448 bits (2 full slots)
+// The size of the struct is 160 + 32 + 160 + 96 = 256 + 192 (2 slots)
 struct Product {
     // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)

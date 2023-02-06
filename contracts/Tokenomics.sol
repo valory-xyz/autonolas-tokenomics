@@ -39,7 +39,7 @@ import "./interfaces/IVotingEscrow.sol";
 */
 
 // Structure for component / agent point with tokenomics-related statistics
-// The size of the struct is 96 + 32 + 8 * 2 = 144 bits (1 full slot)
+// The size of the struct is 96 + 32 + 8 * 2 = 144 (1 slot)
 struct UnitPoint {
     // Summation of all the relative OLAS top-ups accumulated by each component / agent in a service
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
@@ -56,7 +56,7 @@ struct UnitPoint {
 }
 
 // Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 full slots)
+// The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 slots)
 struct EpochPoint {
     // Total amount of ETH donations accrued by the protocol during one epoch
     // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
@@ -86,7 +86,7 @@ struct EpochPoint {
 }
 
 // Structure for tokenomics point
-// The size of the struct is 256 * 2 + 256 * 2 = 256 * 4 (4 full slots)
+// The size of the struct is 256 * 2 + 256 * 2 = 256 * 4 (4 slots)
 struct TokenomicsPoint {
     // Two unit points in a representation of mapping and not on array to save on gas
     // One unit point is for component (key = 0) and one is for agent (key = 1)
