@@ -40,7 +40,7 @@ struct Bond {
     uint32 productId;
 }
 
-// The size of the struct is 224 + 32 + 160 + 96 = 512 bits (2 full slots)
+// The size of the struct is 160 + 32 + 160 + 96 = 448 bits (2 full slots)
 struct Product {
     // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
