@@ -5,7 +5,7 @@ import "../Dispenser.sol";
 import "../Depository.sol";
 import "../Tokenomics.sol";
 import "../Treasury.sol";
-import "../GenericBondCalculator.sol";
+import {GenericBondCalculator} from "../GenericBondCalculator.sol";
 import "./ERC20Token.sol";
 import "./MockRegistry.sol";
 import "./MockVE.sol";

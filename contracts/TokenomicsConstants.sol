@@ -67,7 +67,6 @@ abstract contract TokenomicsConstants {
         // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
-            // TODO study if it's cheaper to allocate new uint256[](10)
             uint88[10] memory inflationAmounts = [
                 22_113_000_0e17,
                 79_548_885_0e17,

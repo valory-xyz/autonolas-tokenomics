@@ -31,6 +31,12 @@ contract Dispenser is IErrorsTokenomics {
     {
         owner = msg.sender;
         _locked = 1;
+
+        // Check for at least one zero contract address
+        if (_tokenomics == address(0) || _treasury == address(0)) {
+            revert ZeroAddress();
+        }
+
         tokenomics = _tokenomics;
         treasury = _treasury;
     }

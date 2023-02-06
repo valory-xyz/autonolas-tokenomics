@@ -45,7 +45,7 @@ struct Product {
     // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
     // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
-    uint224 priceLP;
+    uint160 priceLP;
     // Product expiry time (initialization time + vesting time)
     // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
     uint32 expiry;
@@ -63,6 +63,7 @@ contract Depository is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
+    event BondCalculatorUpdated(address indexed _bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
         uint256 amountOLAS, uint256 tokenAmount, uint256 expiry);
     event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
@@ -167,6 +168,7 @@ contract Depository is IErrorsTokenomics {
 
         if (_bondCalculator != address(0)) {
             bondCalculator = _bondCalculator;
+            emit BondCalculatorUpdated(_bondCalculator);
         }
     }
 
@@ -187,6 +189,11 @@ contract Depository is IErrorsTokenomics {
         // Check for the pool liquidity as the LP price being greater than zero
         if (priceLP == 0) {
             revert ZeroValue();
+        }
+
+        // Check the priceLP limit value
+        if (priceLP > type(uint160).max) {
+            revert Overflow(priceLP, type(uint160).max);
         }
 
         // Check that the supply is greater than zero
@@ -222,7 +229,7 @@ contract Depository is IErrorsTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint224(priceLP), uint32(expiry), token, uint96(supply));
+        mapBondProducts[productId] = Product(uint160(priceLP), uint32(expiry), token, uint96(supply));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply, priceLP, expiry);
@@ -395,7 +402,7 @@ contract Depository is IErrorsTokenomics {
             }
         }
 
-        // Form the active products index array
+        // Form active or inactive products index array
         productIds = new uint256[](numSelectedProducts);
         uint256 numPos;
         for (uint256 i = 0; i < numProducts; i++) {

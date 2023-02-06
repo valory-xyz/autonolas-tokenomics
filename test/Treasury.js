@@ -54,7 +54,8 @@ describe("Treasury", async () => {
         tokenomics = await tokenomicsFactory.deploy();
         serviceRegistry = await serviceRegistryFactory.deploy();
         // Depository and dispenser addresses are irrelevant in these tests, so we are using a deployer's address
-        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address,
+            {value: ethers.utils.parseEther("1")});
 
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
         attacker = await Attacker.deploy(AddressZero, treasury.address);
@@ -161,6 +162,22 @@ describe("Treasury", async () => {
                 treasury.enableToken(AddressZero)
             ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
         });
+
+        it("Should fail if deploying a contract with a zero address", async function () {
+            const Treasury = await ethers.getContractFactory("Treasury");
+            await expect(
+                Treasury.deploy(AddressZero, deployer.address, deployer.address, deployer.address)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
+            await expect(
+                Treasury.deploy(deployer.address, AddressZero, deployer.address, deployer.address)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
+            await expect(
+                Treasury.deploy(deployer.address, deployer.address, AddressZero, deployer.address)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
+            await expect(
+                Treasury.deploy(deployer.address, deployer.address, deployer.address, AddressZero)
+            ).to.be.revertedWithCustomError(treasury, "ZeroAddress");
+        });
     });
 
     context("Deposits LP tokens for OLAS", async function () {
@@ -261,11 +278,13 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "Overflow");
 
             // Send ETH to treasury
+            const initBalance = ethers.BigNumber.from(await ethers.provider.getBalance(treasury.address));
             const amount = ethers.utils.parseEther("10");
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Check the ETH balance of the treasury
-            expect(await treasury.ETHOwned()).to.equal(amount);
+            const finalBalance = initBalance.add(ethers.BigNumber.from(amount));
+            expect(await treasury.ETHOwned()).to.equal(finalBalance);
 
             // Try to withdraw to the treasury address itself
             await expect(
@@ -289,13 +308,15 @@ describe("Treasury", async () => {
             ).to.be.revertedWithCustomError(treasury, "ZeroValue");
 
             // Try to withdraw more ETH amount than treasury owns
+            let moreThanAmount = await treasury.ETHOwned() + "1";
             await expect(
-                treasury.withdraw(deployer.address, amount, ETHAddress)
+                treasury.withdraw(deployer.address, moreThanAmount, ETHAddress)
             ).to.be.revertedWithCustomError(treasury, "LowerThan");
 
             // Try to withdraw other tokens that do not have balance
+            moreThanAmount = await treasury.mapTokenReserves(dai.address) + "1";
             await expect(
-                treasury.withdraw(deployer.address, amount, dai.address)
+                treasury.withdraw(deployer.address, moreThanAmount, dai.address)
             ).to.be.revertedWithCustomError(treasury, "LowerThan");
         });
 

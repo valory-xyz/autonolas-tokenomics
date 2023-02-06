@@ -10,6 +10,9 @@ import "./interfaces/IUniswapV2Pair.sol";
 /// @param max Maximum possible value.
 error Overflow(uint256 provided, uint256 max);
 
+/// @dev Provided zero address.
+error ZeroAddress();
+
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.
 /// @author AL
@@ -24,6 +27,11 @@ contract GenericBondCalculator {
     /// @param _olas OLAS contract address.
     /// @param _tokenomics Tokenomics contract address.
     constructor(address _olas, address _tokenomics) {
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0)) {
+            revert ZeroAddress();
+        }
+
         olas = _olas;
         tokenomics = _tokenomics;
     }
