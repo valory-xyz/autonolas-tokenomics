@@ -19,9 +19,9 @@ error ZeroAddress();
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract GenericBondCalculator {
     // OLAS contract address
-    address immutable olas;
+    address public immutable olas;
     // Tokenomics contract address
-    address immutable tokenomics;
+    address public immutable tokenomics;
 
     /// @dev Generic Bond Calcolator constructor
     /// @param _olas OLAS contract address.

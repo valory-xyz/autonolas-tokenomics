@@ -35,7 +35,7 @@ contract TestTokenomics {
     uint256[] internal unitIds;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint256 epochLen = 1 weeks;
+    uint256 internal epochLen = 1 weeks;
     uint256 internal amountOLAS = 5_000_000 ether;
     uint256 internal amountDAI = 5_000_000 ether;
     uint256 internal minAmountOLAS = 5_00 ether;
@@ -75,7 +75,7 @@ contract TestTokenomics {
         router = ZuniswapV2Router(_router);
     }
 
-    receive() payable external {
+    receive() external payable {
     }
 
     function setUp() external {
