@@ -10,10 +10,19 @@ error ZeroTokenomicsAddress();
 /// @dev Zero tokenomics initialization data.
 error ZeroTokenomicsData();
 
+/*
+* This is a proxy contract for tokenomics.
+* Proxy implementation is created based on the Universal Upgradeable Proxy Standard (UUPS) EIP-1822.
+* The implementation address must be located in a unique storage slot of the proxy contract.
+* The upgrade logic must be located in the implementation contract.
+* Special tokenomics implementation address slot is produced by hashing the "PROXY_TOKENOMICS" string in order to make
+* the slot unique.
+* The fallback() implementation for all the delegatecall-s is inspired by the Gnosis Safe set of contracts.
+*/
+
 /// @title TokenomicsProxy - Smart contract for tokenomics proxy
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-/// Seems like it is impossible to annotate the rule by the scribble command like: sload(PROXY_TOKENOMICS) != address(0)
 contract TokenomicsProxy {
     // Code position in storage is keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;

@@ -35,6 +35,7 @@ describe("Depository LP", async () => {
     let supplyProductOLAS =  "2" + "0".repeat(3) + decimals;
     let pseudoFlashLoan = "2"  + "0".repeat(2) + decimals;
     const maxUint96 = "79228162514264337593543950335";
+    const maxUint160 = "1461501637330902918203684832716283019655932542976";
     const maxUint32 = "4294967295";
 
     let vesting = oneWeek;
@@ -70,7 +71,7 @@ describe("Depository LP", async () => {
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
             deployer.address, epochLen, deployer.address, deployer.address, deployer.address, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, AddressZero);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeIncentiveFractions(66, 34, 100, 0, 0);
 
@@ -242,6 +243,16 @@ describe("Depository LP", async () => {
             await depository.connect(deployer).changeBondCalculator(account.address);
             expect(await depository.bondCalculator()).to.equal(account.address);
         });
+
+        it("Should fail if any of bond calculator input addresses is a zero address", async function () {
+            const GenericBondCalculator = await ethers.getContractFactory("GenericBondCalculator");
+            await expect(
+                GenericBondCalculator.deploy(AddressZero, tokenomics.address)
+            ).to.be.revertedWithCustomError(genericBondCalculator, "ZeroAddress");
+            await expect(
+                GenericBondCalculator.deploy(olas.address, AddressZero)
+            ).to.be.revertedWithCustomError(genericBondCalculator, "ZeroAddress");
+        });
     });
 
     context("Bond products", async function () {
@@ -292,6 +303,12 @@ describe("Depository LP", async () => {
         it("Should fail when creating a product with a supply bigger than uint96.max", async () => {
             await expect(
                 depository.create(pairODAI.address, defaultPriceLP, maxUint96 + "0", vesting)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+        });
+
+        it("Should fail when creating a product with priceLP bigger than uint160.max", async () => {
+            await expect(
+                depository.create(pairODAI.address, maxUint160 + "0", supplyProductOLAS, vesting)
             ).to.be.revertedWithCustomError(depository, "Overflow");
         });
 

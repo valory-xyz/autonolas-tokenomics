@@ -83,4 +83,5 @@ The tokenomics contracts were inspired and based on the following sources:
 - [Uniswap Labs](https://github.com/Uniswap/v2-core);
 - [OpenZeppelin](https://github.com/OpenZeppelin/openzeppelin-contracts);
 - [PaulRBerg](https://github.com/paulrberg/prb-math);
-- [Jeiwan](https://github.com/Jeiwan/zuniswapv2).
+- [Jeiwan](https://github.com/Jeiwan/zuniswapv2);
+- [Safe Ecosystem](https://github.com/safe-global/safe-contracts).

@@ -95,11 +95,21 @@ contract Treasury is IErrorsTokenomics {
     constructor(address _olas, address _tokenomics, address _depository, address _dispenser) payable {
         owner = msg.sender;
         _locked = 1;
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _depository == address(0) || _dispenser == address(0)) {
+            revert ZeroAddress();
+        }
+
         olas = _olas;
         tokenomics = _tokenomics;
         depository = _depository;
         dispenser = _dispenser;
-        ETHOwned = uint96(msg.value);
+
+        // Assign an initial contract address ETH balance
+        // If msg.value is passed in the constructor, it is already accounted for in the address balance
+        // This way the balance also accounts for possible transfers before the contract was created
+        ETHOwned = uint96(address(this).balance);
     }
 
     /// @dev Receives ETH.

@@ -70,7 +70,7 @@ describe("Depository LP 2", async () => {
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
             deployer.address, epochLen, deployer.address, deployer.address, deployer.address, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
-        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, AddressZero);
+        treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeIncentiveFractions(66, 34, 100, 0, 0);
 

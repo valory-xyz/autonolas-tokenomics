@@ -128,6 +128,16 @@ describe("Dispenser", async () => {
                 dispenser.connect(deployer).changeOwner(account.address)
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
         });
+
+        it("Should fail if deploying a dispenser with a zero address", async function () {
+            const Dispenser = await ethers.getContractFactory("Dispenser");
+            await expect(
+                Dispenser.deploy(AddressZero, deployer.address)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            await expect(
+                Dispenser.deploy(deployer.address, AddressZero)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+        });
     });
 
     context("Get incentives", async function () {
