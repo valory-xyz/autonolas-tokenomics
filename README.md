@@ -78,6 +78,14 @@ The PR process is managed by github workflows, where the code undergoes several 
 - running linters;
 - running tests.
 
+## Deployment
+The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
+The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/scripts/deployment).
+
+The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/abis).
+
+For testing purposes, the hardhat node deployment script is located [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/deploy).
+
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
 - [Uniswap Labs](https://github.com/Uniswap/v2-core);
