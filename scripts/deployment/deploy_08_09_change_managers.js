@@ -37,6 +37,9 @@ async function main() {
     const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).changeManagers()");
     let result = await tokenomicsProxy.connect(EOA).changeManagers(treasuryAddress, depositoryAddress, dispenserAddress);
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 60000));
+    }
     // Transaction details
     console.log("Contract address:", tokenomicsProxyAddress);
     console.log("Transaction:", result.hash);
@@ -46,6 +49,9 @@ async function main() {
     const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
     console.log("You are signing the following transaction: Treasury.connect(EOA).changeManagers()");
     result = await treasury.connect(EOA).changeManagers(AddressZero, depositoryAddress, dispenserAddress);
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 60000));
+    }
     // Transaction details
     console.log("Contract address:", treasuryAddress);
     console.log("Transaction:", result.hash);

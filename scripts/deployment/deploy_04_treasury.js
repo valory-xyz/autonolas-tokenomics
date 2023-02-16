@@ -36,6 +36,10 @@ async function main() {
     console.log("You are signing the following transaction: Treasury.connect(EOA).deploy()");
     const treasury = await Treasury.connect(EOA).deploy(olasAddress, tokenomicsProxyAddress, timelockAddress, timelockAddress);
     const result = await treasury.deployed();
+    // If on goerli, wait a minute for the transaction completion
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 60000));
+    }
 
     // Transaction details
     console.log("Contract deployment: Treasury");

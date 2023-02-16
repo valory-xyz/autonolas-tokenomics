@@ -19,23 +19,25 @@ command as described in the [main readme](https://github.com/valory-xyz/autonola
 
 Create a `globals.json` file in the root folder, or copy it from the file with pre-defined parameters (i.e., `scripts/deployment/globals_goerli.json` for the goerli testnet).
 
+Make sure to export the required API keys in the following variables: `ALCHEMY_API_KEY` and `ETHERSCAN_API_KEY`.
+
 Parameters of the `globals.json` file:
-- `contractVerification`: a flag for verifying contracts in deployment scripts (`true`) or skipping it (`false`);
-- `useLedger`: a flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
-- `derivationPath`: a string with the derivation path;
-- `providerName`: a network type (see `hardhat.config.js` for the network configurations);
-- `olasAddress`: an OLAS contract address deployed during the `autonolas-governance` deployment.
-- `timelockAddress`: a Timelock contract address deployed during the `autonolas-governance` deployment.
-- `veOLASAddress`: a veOLAS contract address deployed during the `autonolas-governance` deployment.
-- `componentRegistryAddress`: a ComponentRegistry contract address deployed during the `autonolas-registries` deployment.
-- `agentRegistryAddress`: an AomponentRegistry contract address deployed during the `autonolas-registries` deployment.
-- `serviceRegistryAddress`: a ServiceRegistry contract address deployed during the `autonolas-registries` deployment.
+- `contractVerification`: flag for verifying contracts in deployment scripts (`true`) or skipping it (`false`);
+- `useLedger`: flag whether to use the hardware wallet (`true`) or proceed with the seed-phrase accounts (`false`);
+- `derivationPath`: string with the derivation path;
+- `providerName`: network type (see `hardhat.config.js` for the network configurations);
+- `olasAddress`: OLAS contract address deployed during the `autonolas-governance` deployment.
+- `timelockAddress`: Timelock contract address deployed during the `autonolas-governance` deployment.
+- `veOLASAddress`: veOLAS contract address deployed during the `autonolas-governance` deployment.
+- `componentRegistryAddress`: ComponentRegistry contract address deployed during the `autonolas-registries` deployment.
+- `agentRegistryAddress`: AgentRegistry contract address deployed during the `autonolas-registries` deployment.
+- `serviceRegistryAddress`: ServiceRegistry contract address deployed during the `autonolas-registries` deployment.
 
 Other values in the `JSON` file are related to the tokenomics. The deployed contract addresses will be added / updated during the scripts run.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
 - `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/deployment.md).
-- `deploy_10_13_change_ownerships.js` will complete steps 10 to 13.
+- `deploy_10_14_change_ownerships.js` will complete steps 10 to 14.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
 

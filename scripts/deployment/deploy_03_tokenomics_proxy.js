@@ -48,6 +48,10 @@ async function main() {
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).deploy()");
     const tokenomicsProxy = await TokenomicsProxy.connect(EOA).deploy(tokenomicsAddress, proxyData);
     const result = await tokenomicsProxy.deployed();
+    // If on goerli, wait a minute for the transaction completion
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 60000));
+    }
 
     // Transaction details
     console.log("Contract deployment: TokenomicsProxy");
