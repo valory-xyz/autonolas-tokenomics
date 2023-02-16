@@ -34,7 +34,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("10. EOA to transfer ownership rights of TokenomicsProxy to Timelock");
-    const tokenomicsProxy = await ethers.getContractAt("TokenomicsProxy", tokenomicsProxyAddress);
+    const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).changeOwner()");
     let result = await tokenomicsProxy.connect(EOA).changeOwner(timelockAddress);
     // Transaction details

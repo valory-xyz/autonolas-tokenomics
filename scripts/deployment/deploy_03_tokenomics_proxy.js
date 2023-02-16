@@ -34,11 +34,11 @@ async function main() {
     const serviceRegistryAddress = parsedData.serviceRegistryAddress;
     const epochLen = parsedData.epochLen;
     const donatorBlacklistAddress = parsedData.donatorBlacklistAddress;
-    const tokenomicsMasterAddress = parsedData.tokenomicsMasterAddress;
+    const tokenomicsAddress = parsedData.tokenomicsAddress;
 
     // Assemble the tokenomics proxy data
-    const tokenomicsMaster = await ethers.getContractAt("Tokenomics", tokenomicsMasterAddress);
-    const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
+    const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsAddress);
+    const proxyData = tokenomics.interface.encodeFunctionData("initializeTokenomics",
         [olasAddress, timelockAddress, timelockAddress, timelockAddress, veOLASAddress, epochLen,
             componentRegistryAddress, agentRegistryAddress, serviceRegistryAddress, donatorBlacklistAddress]);
 
@@ -46,7 +46,7 @@ async function main() {
     console.log("3. EOA to deploy TokenomicsProxy");
     const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).deploy()");
-    const tokenomicsProxy = await TokenomicsProxy.connect(EOA).deploy(tokenomicsMasterAddress, proxyData);
+    const tokenomicsProxy = await TokenomicsProxy.connect(EOA).deploy(tokenomicsAddress, proxyData);
     const result = await tokenomicsProxy.deployed();
 
     // Transaction details

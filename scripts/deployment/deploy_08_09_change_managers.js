@@ -34,7 +34,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("8. EOA to change managers for TokenomicsProxy");
-    const tokenomicsProxy = await ethers.getContractAt("TokenomicsProxy", tokenomicsProxyAddress);
+    const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).changeManagers()");
     let result = await tokenomicsProxy.connect(EOA).changeManagers(treasuryAddress, depositoryAddress, dispenserAddress);
     // Transaction details
