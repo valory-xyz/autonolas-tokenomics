@@ -1,3 +1,5 @@
+/*global process*/
+
 require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
@@ -14,6 +16,13 @@ const accounts = {
     accountsBalance: "100000000000000000000000000000",
 };
 
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+let GOERLI_MNEMONIC = process.env.GOERLI_MNEMONIC;
+if (!GOERLI_MNEMONIC) {
+    GOERLI_MNEMONIC = accounts.mnemonic;
+}
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
+
 module.exports = {
     solidity: {
         compilers: [
@@ -22,7 +31,7 @@ module.exports = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 3000,
+                        runs: 5000,
                     },
                 },
             },
@@ -35,6 +44,21 @@ module.exports = {
         ]
     },
     networks: {
+        mainnet: {
+            url: "https://eth-mainnet.g.alchemy.com/v2/" + ALCHEMY_API_KEY,
+            chainId: 1,
+        },
+        goerli: {
+            url: "https://eth-goerli.alchemyapi.io/v2/" + ALCHEMY_API_KEY,
+            chainId: 5,
+            accounts: {
+                mnemonic: GOERLI_MNEMONIC,
+                path: "m/44'/60'/0'/0",
+                initialIndex: 0,
+                count: 20,
+                passphrase: "",
+            },
+        },
         local: {
             url: "http://localhost:8545",
         },
@@ -42,6 +66,9 @@ module.exports = {
             allowUnlimitedContractSize: true,
             accounts
         },
+    },
+    etherscan: {
+        apiKey: ETHERSCAN_API_KEY
     },
     gasReporter: {
         enabled: true
