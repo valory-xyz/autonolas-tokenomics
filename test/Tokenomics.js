@@ -22,6 +22,7 @@ describe("Tokenomics", async () => {
     let tokenomicsFactory;
     let ve;
     let attacker;
+    let flAttacker;
     const epochLen = oneMonth;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
