@@ -8,7 +8,6 @@ describe("Tokenomics", async () => {
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
     const oneYear = 86400 * 365;
-    const oneWeek = 86400 * 7;
     const oneMonth = 86400 * 30;
 
     let signers;

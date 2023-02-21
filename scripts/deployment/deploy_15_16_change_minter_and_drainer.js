@@ -45,12 +45,12 @@ async function main() {
     // Transaction signing and execution
     console.log("15-16. EOA to initiate a proposal for Timelock to transfer the minter role of OLAS to the Treasury and ServiceRegistry to transfer the drainer role to the Treasury");
     console.log("You are signing the following transaction: GovernorOLAS.connect(EOA).propose()");
-    const result = await governor.connect(EOA).["propose(address[],uint256[],bytes[],string)"](pAddresses, pValues, pCallData, pDescription);
+    const result = await governor.connect(EOA)["propose(address[],uint256[],bytes[],string)"](pAddresses, pValues, pCallData, pDescription);
     if (providerName === "goerli") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
-    console.log("Contract address:", donatorBlacklistAddress);
+    console.log("Contract address:", governorAddress);
     console.log("Transaction:", result.hash);
 }
 

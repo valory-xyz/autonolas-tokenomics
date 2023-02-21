@@ -6,7 +6,6 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers");
 describe("Dispenser", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
-    const oneWeek = 86400 * 7;
     const oneMonth = 86400 * 30;
 
     let signers;
