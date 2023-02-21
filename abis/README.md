@@ -1,2 +1,2 @@
 # Autonolas tokenomics ABIs
-These ABIs were obtained with 5000 optimization passes.
+These ABIs were obtained with 4000 optimization passes.

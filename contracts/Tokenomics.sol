@@ -207,6 +207,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // We assume this number will not be practically bigger than 4,722 of its integer-part (with 18 digits of fractional-part)
     uint72 public devsPerCapital;
 
+    // Blacklist contract address
+    address public donatorBlacklist;
+    // Last donation block number to prevent the flash loan attack
+    // This number cannot be practically bigger than the number of seconds
+    uint32 public lastDonationBlockNumber;
+
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
@@ -221,9 +227,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     mapping(address => bool) public mapNewOwners;
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
-
-    // Blacklist contract address
-    address public donatorBlacklist;
 
     /// @dev Tokenomics constructor.
     constructor()
@@ -770,6 +773,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @notice Donating to services must not be followed by the checkpoint in the same block.
     /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
@@ -813,6 +817,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Track service donations
         _trackServiceDonations(serviceIds, amounts, curEpoch);
+
+        // Set the current block number
+        lastDonationBlockNumber = uint32(block.number);
     }
 
     /// @dev Gets the inverse discount factor value.
@@ -855,6 +862,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @dev Record global data with a new checkpoint.
     /// @notice Note that even though a specific epoch can last longer than the epochLen, it is practically
     ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.
+    /// @notice Checkpoint must not be called in the same block with the service donation.
     /// @return True if the function execution is successful.
     /// #if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
     /// #if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear) + 1;
@@ -876,6 +884,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check if there is any address in the PROXY_TOKENOMICS address slot
         if (implementation == address(0)) {
             revert DelegatecallOnly();
+        }
+
+        // Check the last donation block number to avoid the possibility of a flash loan attack
+        if (lastDonationBlockNumber == block.number) {
+            revert SameBlockNumberViolation();
         }
 
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
