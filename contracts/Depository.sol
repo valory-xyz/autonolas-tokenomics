@@ -71,7 +71,7 @@ contract Depository is IErrorsTokenomics {
     event CloseProduct(address indexed token, uint256 indexed productId);
 
     // Minimum bond vesting value
-    uint256 public constant MIN_VESTING = 1 weeks;
+    uint256 public constant MIN_VESTING = 1 days;
     
     // Owner address
     address public owner;

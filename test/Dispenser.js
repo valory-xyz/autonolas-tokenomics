@@ -7,6 +7,7 @@ describe("Dispenser", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
     const oneWeek = 86400 * 7;
+    const oneMonth = 86400 * 30;
 
     let signers;
     let deployer;
@@ -19,7 +20,7 @@ describe("Dispenser", async () => {
     let componentRegistry;
     let agentRegistry;
     let attacker;
-    const epochLen = oneWeek;
+    const epochLen = oneMonth;
     const regDepositFromServices = "1" + "0".repeat(21);
     const twoRegDepositFromServices = "2" + "0".repeat(21);
     const delta = 100;

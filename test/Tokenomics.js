@@ -9,6 +9,7 @@ describe("Tokenomics", async () => {
     const maxUint96 = "79228162514264337593543950335";
     const oneYear = 86400 * 365;
     const oneWeek = 86400 * 7;
+    const oneMonth = 86400 * 30;
 
     let signers;
     let deployer;
@@ -22,7 +23,7 @@ describe("Tokenomics", async () => {
     let tokenomicsFactory;
     let ve;
     let attacker;
-    const epochLen = oneWeek;
+    const epochLen = oneMonth;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
