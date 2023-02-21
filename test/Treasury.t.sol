@@ -1,10 +1,10 @@
 pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
-import "./utils/Utils.sol";
+import {Test} from "forge-std/Test.sol";
+import {Utils} from "./utils/Utils.sol";
 import "../contracts/Tokenomics.sol";
-import "../contracts/Treasury.sol";
-import "../contracts/test/ERC20Token.sol";
+import {Treasury} from "../contracts/Treasury.sol";
+import {ERC20Token} from "../contracts/test/ERC20Token.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;

@@ -61,8 +61,7 @@ contract GenericBondCalculator {
         }
         // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
         // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
-        uint256 amountDF = ITokenomics(tokenomics).getLastIDF() * totalTokenValue / 1e36;
-        amountOLAS = amountDF;
+        amountOLAS = ITokenomics(tokenomics).getLastIDF() * totalTokenValue / 1e36;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.

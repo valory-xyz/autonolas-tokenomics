@@ -29,6 +29,7 @@ contract TokenomicsProxy {
 
     /// @dev TokenomicsProxy constructor.
     /// @param tokenomics Tokenomics implementation address.
+    /// @param tokenomicsData Tokenomics initialization data.
     constructor(address tokenomics, bytes memory tokenomicsData) {
         // Check for the zero address, since the delegatecall works even with the zero one
         if (tokenomics == address(0)) {
