@@ -125,5 +125,5 @@ interface IErrorsTokenomics {
     error Paused();
 
     /// @dev Caught an operation that is not supposed to happen in the same block.
-    error SameBlockViolation();
+    error SameBlockNumberViolation();
 }

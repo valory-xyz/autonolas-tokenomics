@@ -25,8 +25,8 @@ contract ReentrancyAttacker {
     bool public attackOnDepositETHFromServices;
     bool public transferStatus;
 
-    address dispenser;
-    address treasury;
+    address public dispenser;
+    address public treasury;
 
     constructor(address _dispenser, address _treasury) {
         dispenser = _dispenser;

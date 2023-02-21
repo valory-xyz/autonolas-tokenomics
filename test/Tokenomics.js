@@ -59,6 +59,10 @@ describe("Tokenomics", async () => {
         attacker = await Attacker.deploy(AddressZero, treasury.address);
         await attacker.deployed();
 
+        const FlashLoanAttacker = await ethers.getContractFactory("FlashLoanAttacker");
+        flAttacker = await FlashLoanAttacker.deploy();
+        await flAttacker.deployed();
+
         // Voting Escrow mock
         const VE = await ethers.getContractFactory("MockVE");
         ve = await VE.deploy();
@@ -787,6 +791,26 @@ describe("Tokenomics", async () => {
             expect(manualMaxBond).to.greaterThan(updatedMaxBond);
 
             snapshot.restore();
+        });
+    });
+
+    context("Flash loan attack", async function () {
+        it("Attack via deposit and checkpoint", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+
+            // Try to perform the attack
+            await expect(
+                // Send the revenues to services
+                flAttacker.connect(deployer).flashLoanAttackTokenomics(tokenomics.address, treasury.address, 1,
+                    {value: twoRegDepositFromServices})
+            ).to.be.revertedWithCustomError(tokenomics, "SameBlockNumberViolation");
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
         });
     });
 

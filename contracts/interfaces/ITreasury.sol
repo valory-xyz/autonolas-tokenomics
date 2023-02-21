@@ -20,10 +20,6 @@ interface ITreasury {
     /// @return enabled True is token is enabled.
     function isEnabled(address token) external view returns (bool enabled);
 
-    /// @dev Check if the token is UniswapV2Pair.
-    /// @param token Address of a token.
-    function checkPair(address token) external returns (bool);
-
     /// @dev Withdraws ETH and / or OLAS amounts to the requested account address.
     /// @notice Only dispenser contract can call this function.
     /// @notice Reentrancy guard is on a dispenser side.

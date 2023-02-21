@@ -61,7 +61,7 @@ describe("Depository LP 2", async () => {
         depositoryFactory = await ethers.getContractFactory("Depository");
         treasuryFactory = await ethers.getContractFactory("Treasury");
         tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
-        attackDepositFactory = await ethers.getContractFactory("AttackDeposit");
+        attackDepositFactory = await ethers.getContractFactory("DepositAttacker");
 
         dai = await erc20Token.deploy();
         olas = await olasFactory.deploy();

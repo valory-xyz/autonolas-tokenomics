@@ -886,7 +886,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Check the last donation block number to avoid the possibility of a flash loan attack
         if (lastDonationBlockNumber == block.number) {
-            revert SameBlockViolation();
+            revert SameBlockNumberViolation();
         }
 
         // New point can be calculated only if we passed the number of blocks equal to the epoch length

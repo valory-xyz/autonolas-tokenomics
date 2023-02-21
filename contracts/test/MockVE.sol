@@ -4,9 +4,9 @@ pragma solidity ^0.8.18;
 /// @dev Mocking contract of voting escrow.
 contract MockVE {
     address[] public accounts;
-    uint256 balance = 50 ether;
-    uint256 supply = 100 ether;
-    uint256 weightedBalance = 10_000 ether;
+    uint256 public balance = 50 ether;
+    uint256 public supply = 100 ether;
+    uint256 public weightedBalance = 10_000 ether;
 
     /// @dev Simulates a lock for the specified account.
     function createLock(address account) external {

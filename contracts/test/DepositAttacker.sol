@@ -28,8 +28,8 @@ interface IZRouter {
     ) external returns (uint[] memory amounts);
 }
 
-/// @title AttackDeposit - Smart contract for proof attack to Depository.deposit
-contract AttackDeposit {
+/// @title DepositAttacker - Smart contract to prove that the deposit attack via price manipulation is not possible
+contract DepositAttacker {
     uint256 public constant LARGE_APPROVAL = 1_000_000 * 1e18;
     
     constructor() {}
