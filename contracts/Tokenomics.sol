@@ -287,7 +287,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         owner = msg.sender;
         _locked = 1;
         epsilonRate = 1e17;
-        veOLASThreshold = 5_000e18;
+        veOLASThreshold = 10_000e18;
 
         // Check that the epoch length has at least a practical minimal value
         if (uint32(_epochLen) < MIN_EPOCH_LENGTH) {
@@ -342,8 +342,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // 0 stands for components and 1 for agents
         // The initial target is to distribute around 2/3 of incentives reserved to fund owners of the code
         // for components royalties and 1/3 for agents royalties
-        tp.unitPoints[0].rewardUnitFraction = 66;
-        tp.unitPoints[1].rewardUnitFraction = 34;
+        tp.unitPoints[0].rewardUnitFraction = 83;
+        tp.unitPoints[1].rewardUnitFraction = 17;
         // tp.epochPoint.rewardTreasuryFraction is essentially equal to zero
 
         // We consider a unit of code as n agents or m components.
@@ -354,10 +354,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         codePerDev = 1e18;
 
         // Top-up fractions
-        uint256 _maxBondFraction = 49;
+        uint256 _maxBondFraction = 50;
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
-        tp.unitPoints[0].topUpUnitFraction = 34;
-        tp.unitPoints[1].topUpUnitFraction = 17;
+        tp.unitPoints[0].topUpUnitFraction = 41;
+        tp.unitPoints[1].topUpUnitFraction = 9;
 
         // Calculate initial effectiveBond based on the maxBond during the first epoch
         // maxBond = inflationPerSecond * epochLen * maxBondFraction / 100
@@ -702,7 +702,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             bool topUpEligible;
             if (incentiveFlags[2] || incentiveFlags[3]) {
                 address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
-                topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) > veOLASThreshold ? true : false;
+                topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold ? true : false;
             }
 
             // Loop over component and agent Ids

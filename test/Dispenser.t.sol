@@ -31,7 +31,7 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint256 epochLen = 1 weeks;
+    uint256 epochLen = 30 days;
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -188,7 +188,7 @@ contract DispenserTest is BaseSetup {
         (unitIds[0], unitIds[1]) = (1, 1);
 
         // Run for more than 2 years (more than 52 weeks in a year)
-        uint256 endTime = 54 weeks;
+        uint256 endTime = 250 weeks;
         uint256 lastPoint = tokenomics.epochCounter() - 1;
         uint256 effectiveBond = tokenomics.effectiveBond();
         for (uint256 i = 0; i < endTime; i += epochLen) {

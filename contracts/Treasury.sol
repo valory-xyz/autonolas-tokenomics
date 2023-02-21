@@ -70,7 +70,7 @@ contract Treasury is IErrorsTokenomics {
     // Tkenomics contract address
     address public tokenomics;
     // Minimum accepted donation value
-    uint96 public minAcceptedETH = 5e16;
+    uint96 public minAcceptedETH = 0.065 ether;
 
     // Depository contract address
     address public depository;

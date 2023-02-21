@@ -8,7 +8,7 @@ describe("Tokenomics", async () => {
     const AddressZero = "0x" + "0".repeat(40);
     const maxUint96 = "79228162514264337593543950335";
     const oneYear = 86400 * 365;
-    const oneWeek = 86400 * 7;
+    const oneMonth = 86400 * 30;
 
     let signers;
     let deployer;
@@ -22,7 +22,7 @@ describe("Tokenomics", async () => {
     let tokenomicsFactory;
     let ve;
     let attacker;
-    const epochLen = oneWeek;
+    const epochLen = oneMonth;
     const regDepositFromServices = "1" + "0".repeat(25);
     const twoRegDepositFromServices = "2" + "0".repeat(25);
     const E18 = 10**18;
@@ -226,16 +226,37 @@ describe("Tokenomics", async () => {
 
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
-            expect(fiveYearSupplyCap).to.equal("8718353429" + "0".repeat(17));
+            expect(fiveYearSupplyCap).to.equal("82823328297" + "0".repeat(16));
 
             const elevenYearSupplyCap = await tokenomics.getSupplyCapForYear(11);
             expect(elevenYearSupplyCap).to.equal("10404" + "0".repeat(23));
 
             const fiveYearInflationAmount = await tokenomics.getInflationForYear(5);
-            expect(fiveYearInflationAmount).to.equal("488771339" + "0".repeat(17));
+            expect(fiveYearInflationAmount).to.equal("5719340697" + "0".repeat(16));
 
             const elevenYearInflationAmount = await tokenomics.getInflationForYear(11);
             expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
+        });
+
+        it("Check inflation numbers", async function () {
+            const initInflation = ethers.BigNumber.from("5265" + "0".repeat(23));
+            let totalInflation = initInflation;
+            // Check the inflation increase
+            for (let i = 0; i < 10; i++) {
+                totalInflation = totalInflation.add(ethers.BigNumber.from(await tokenomics.getInflationForYear(i)));
+            }
+
+            // The overall inflation for 10 years must be equal to 1^27 OLAS
+            expect(totalInflation).to.equal("1" + "0".repeat(27));
+
+            // Get the zero year inflation check
+            let diff = ethers.BigNumber.from(await tokenomics.getSupplyCapForYear(0)).sub(ethers.BigNumber.from(initInflation));
+            expect(diff).to.equal(await tokenomics.getInflationForYear(0));
+            // Calculate inflation for each year as the different of supplies
+            for (let i = 1; i < 10; i++) {
+                diff = ethers.BigNumber.from(await tokenomics.getSupplyCapForYear(i)).sub(ethers.BigNumber.from(await tokenomics.getSupplyCapForYear(i - 1)));
+                expect(diff).to.equal(await tokenomics.getInflationForYear(i));
+            }
         });
 
         it("Changing tokenomics parameters", async function () {
