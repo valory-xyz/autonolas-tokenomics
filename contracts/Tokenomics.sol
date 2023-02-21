@@ -207,6 +207,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // We assume this number will not be practically bigger than 4,722 of its integer-part (with 18 digits of fractional-part)
     uint72 public devsPerCapital;
 
+    // Blacklist contract address
+    address public donatorBlacklist;
+    // Last donation block number to prevent the flash loan attack
+    // This number cannot be practically bigger than the number of seconds
+    uint32 public lastDonationBlockNumber;
+
     // Map of service Ids and their amounts in current epoch
     mapping(uint256 => uint256) public mapServiceAmounts;
     // Mapping of owner of component / agent address => reward amount (in ETH)
@@ -221,9 +227,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     mapping(address => bool) public mapNewOwners;
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
-
-    // Blacklist contract address
-    address public donatorBlacklist;
 
     /// @dev Tokenomics constructor.
     constructor()
@@ -813,6 +816,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Track service donations
         _trackServiceDonations(serviceIds, amounts, curEpoch);
+
+        // Set the current block number
+        lastDonationBlockNumber = uint32(block.number);
     }
 
     /// @dev Gets the inverse discount factor value.
@@ -876,6 +882,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Check if there is any address in the PROXY_TOKENOMICS address slot
         if (implementation == address(0)) {
             revert DelegatecallOnly();
+        }
+
+        // Check the last donation block number to avoid the possibility of a flash loan attack
+        if (lastDonationBlockNumber == block.number) {
+            revert SameBlockViolation();
         }
 
         // New point can be calculated only if we passed the number of blocks equal to the epoch length
