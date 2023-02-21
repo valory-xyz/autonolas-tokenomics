@@ -773,6 +773,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Tracks the deposited ETH service donations during the current epoch.
     /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @notice Donating to services must not be followed by the checkpoint in the same block.
     /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
@@ -861,6 +862,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @dev Record global data with a new checkpoint.
     /// @notice Note that even though a specific epoch can last longer than the epochLen, it is practically
     ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.
+    /// @notice Checkpoint must not be called in the same block with the service donation.
     /// @return True if the function execution is successful.
     /// #if_succeeds {:msg "epochCounter can only increase"} $result == true ==> epochCounter == old(epochCounter) + 1;
     /// #if_succeeds {:msg "two events will never happen at the same time"} $result == true && (block.timestamp - timeLaunch) / ONE_YEAR > old(currentYear) ==> currentYear == old(currentYear) + 1;
