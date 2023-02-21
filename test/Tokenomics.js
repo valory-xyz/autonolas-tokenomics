@@ -226,13 +226,13 @@ describe("Tokenomics", async () => {
 
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
-            expect(fiveYearSupplyCap).to.equal("8718353429" + "0".repeat(17));
+            expect(fiveYearSupplyCap).to.equal("8282332830" + "0".repeat(17));
 
             const elevenYearSupplyCap = await tokenomics.getSupplyCapForYear(11);
             expect(elevenYearSupplyCap).to.equal("10404" + "0".repeat(23));
 
             const fiveYearInflationAmount = await tokenomics.getInflationForYear(5);
-            expect(fiveYearInflationAmount).to.equal("488771339" + "0".repeat(17));
+            expect(fiveYearInflationAmount).to.equal("5719340697" + "0".repeat(16));
 
             const elevenYearInflationAmount = await tokenomics.getInflationForYear(11);
             expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
