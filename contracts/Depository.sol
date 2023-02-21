@@ -81,8 +81,6 @@ contract Depository is IErrorsTokenomics {
     // Bond product counter
     // We assume that the number of products will not be bigger than the number of seconds
     uint32 public productCounter;
-    // Reentrancy lock
-    uint8 internal _locked;
 
     // OLAS token address
     address public olas;
@@ -105,7 +103,6 @@ contract Depository is IErrorsTokenomics {
     constructor(address _olas, address _tokenomics, address _treasury, address _bondCalculator)
     {
         owner = msg.sender;
-        _locked = 1;
 
         // Check for at least one zero contract address
         if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) || _bondCalculator == address(0)) {

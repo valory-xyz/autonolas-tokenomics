@@ -1,14 +1,14 @@
 pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
-import "./utils/Utils.sol";
-import "../contracts/Dispenser.sol";
+import {Test} from "forge-std/Test.sol";
+import {Utils} from "./utils/Utils.sol";
+import {Dispenser} from "../contracts/Dispenser.sol";
 import "../contracts/Tokenomics.sol";
-import "../contracts/TokenomicsProxy.sol";
-import "../contracts/Treasury.sol";
-import "../contracts/test/ERC20Token.sol";
-import "../contracts/test/MockRegistry.sol";
-import "../contracts/test/MockVE.sol";
+import {TokenomicsProxy} from "../contracts/TokenomicsProxy.sol";
+import {Treasury} from "../contracts/Treasury.sol";
+import {ERC20Token} from "../contracts/test/ERC20Token.sol";
+import {MockRegistry} from "../contracts/test/MockRegistry.sol";
+import {MockVE} from "../contracts/test/MockVE.sol";
 
 contract BaseSetup is Test {
     Utils internal utils;
