@@ -1,10 +1,13 @@
 /*global process*/
 
-require("@nomicfoundation/hardhat-toolbox");
-require("@nomicfoundation/hardhat-chai-matchers");
-require("@nomiclabs/hardhat-ethers");
+require("hardhat-deploy");
+require("hardhat-deploy-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-tracer");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-ethers");
+require("@nomiclabs/hardhat-etherscan");
+require("@nomicfoundation/hardhat-toolbox");
 // storage layout tool
 // require('hardhat-storage-layout');
 
@@ -27,7 +30,7 @@ module.exports = {
     solidity: {
         compilers: [
             {
-                version: "0.8.18",
+                version: "0.8.19",
                 settings: {
                     optimizer: {
                         enabled: true,
@@ -60,7 +63,7 @@ module.exports = {
             },
         },
         local: {
-            url: "http://localhost:8545",
+            url: "http://localhost:8545"
         },
         hardhat: {
             allowUnlimitedContractSize: true,
