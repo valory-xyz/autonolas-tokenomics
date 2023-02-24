@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 /// @dev Generic token interface for IERC20 and IERC721 tokens.
 interface IToken {
