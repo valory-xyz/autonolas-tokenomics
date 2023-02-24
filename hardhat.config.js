@@ -1,6 +1,6 @@
 /*global process*/
 
-require("hardhat-deploy");
+//require("hardhat-deploy");
 require("hardhat-deploy-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-tracer");
@@ -63,7 +63,7 @@ module.exports = {
             },
         },
         local: {
-            url: "http://localhost:8545"
+            url: "http://localhost:8545",
         },
         hardhat: {
             allowUnlimitedContractSize: true,
