@@ -12,7 +12,7 @@ yarn install
 ```
 command and compiled with the
 ```
-npx hardhat compile
+npm run compile
 ```
 command as described in the [main readme](https://github.com/valory-xyz/autonolas-registries/blob/main/README.md).
 
