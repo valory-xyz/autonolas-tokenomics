@@ -1,10 +1,13 @@
 /*global process*/
 
-require("@nomicfoundation/hardhat-toolbox");
-require("@nomicfoundation/hardhat-chai-matchers");
-require("@nomiclabs/hardhat-ethers");
+//require("hardhat-deploy");
+require("hardhat-deploy-ethers");
 require("hardhat-gas-reporter");
 require("hardhat-tracer");
+require("@nomicfoundation/hardhat-chai-matchers");
+require("@nomiclabs/hardhat-ethers");
+require("@nomiclabs/hardhat-etherscan");
+require("@nomicfoundation/hardhat-toolbox");
 // storage layout tool
 // require('hardhat-storage-layout');
 
