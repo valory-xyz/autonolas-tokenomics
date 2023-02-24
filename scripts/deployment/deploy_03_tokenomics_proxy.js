@@ -42,6 +42,9 @@ async function main() {
         [olasAddress, timelockAddress, timelockAddress, timelockAddress, veOLASAddress, epochLen,
             componentRegistryAddress, agentRegistryAddress, serviceRegistryAddress, donatorBlacklistAddress]);
 
+    // Writing the proxyData to a separate file
+    fs.writeFileSync("proxyData.txt", proxyData);
+
     // Transaction signing and execution
     console.log("3. EOA to deploy TokenomicsProxy");
     const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
@@ -67,9 +70,6 @@ async function main() {
     // Writing updated parameters back to the JSON file
     parsedData.tokenomicsProxyAddress = tokenomicsProxy.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
-
-    // Writing the proxyData to a separate file
-    fs.writeFileSync("proxyData.txt", proxyData);
 }
 
 main()
