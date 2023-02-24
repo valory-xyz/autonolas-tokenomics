@@ -31,15 +31,19 @@ async function main() {
     const serviceRegistryAddress = parsedData.serviceRegistryAddress;
     const treasuryAddress = parsedData.treasuryAddress;
 
-    const olas = await ethers.getContractAt("OLAS", olasAddress);
-    const governor = await ethers.getContractAt("GovernorOLAS", governorAddress);
-    const serviceRegistry = await ethers.getContractAt("ServiceRegistry", serviceRegistryAddress);
+    // Get the GovernorOLAS instance via its ABI
+    const GovernorOLASJSON = "scripts/deployment/GovernorOLAS.json";
+    let contractFromJSON = fs.readFileSync(GovernorOLASJSON, "utf8");
+    let contract = JSON.parse(contractFromJSON);
+    const GovernorOLASABI = contract["abi"];
+    const governor = await ethers.getContractAt(GovernorOLASABI, governorAddress);
 
     // Preparing a proposal
     const pAddresses = [olasAddress, serviceRegistryAddress];
     const pValues = [0, 0];
-    const pCallData = [olas.interface.encodeFunctionData("changeMinter", [treasuryAddress]),
-        serviceRegistry.interface.encodeFunctionData("changeDrainer", [treasuryAddress])];
+    // [olas.interface.encodeFunctionData("changeMinter", [treasuryAddress]), serviceRegistry.interface.encodeFunctionData("changeDrainer", [treasuryAddress])]
+    const pCallData = ["0x2c4d4d18" + "0".repeat(24) + treasuryAddress.replace("0x", ""),
+        "0x10c6aa19" + "0".repeat(24) + treasuryAddress.replace("0x", "")];
     const pDescription = "OLAS minter, service registry drainer";
 
     // Transaction signing and execution
