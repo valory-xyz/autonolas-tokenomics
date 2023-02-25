@@ -86,6 +86,9 @@ The finalized contract ABIs for deployment and their number of optimization pass
 
 For testing purposes, the hardhat node deployment script is located [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/deploy).
 
+## Deployed Protocol
+The list of addresses can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/mainnet_addresses.json).
+
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
 - [Uniswap Labs](https://github.com/Uniswap/v2-core);
