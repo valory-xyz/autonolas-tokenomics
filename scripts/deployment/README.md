@@ -16,7 +16,7 @@ command and compiled with the
 ```
 npm run compile
 ```
-command as described in the [main readme](https://github.com/valory-xyz/autonolas-registries/blob/main/README.md).
+command as described in the [main readme](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/README.md).
 
 
 Create a `globals.json` file in the root folder, or copy it from the file with pre-defined parameters (i.e., `scripts/deployment/globals_goerli.json` for the goerli testnet).
@@ -38,7 +38,7 @@ Parameters of the `globals.json` file:
 Other values in the `JSON` file are related to the tokenomics. The deployed contract addresses will be added / updated during the scripts run.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
-- `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-registries/blob/main/docs/deployment.md).
+- `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment.md).
 - `deploy_10_14_change_ownerships.js` will complete steps 10 to 14.
 
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
