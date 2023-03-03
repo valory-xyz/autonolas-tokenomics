@@ -37,7 +37,7 @@ async function main() {
     console.log("10. EOA to transfer ownership rights of DonatorBlacklist to Timelock");
     const donatorBlacklist = await ethers.getContractAt("DonatorBlacklist", donatorBlacklistAddress);
     console.log("You are signing the following transaction: DonatorBlacklist.connect(EOA).changeOwner()");
-    let result = await donatorBlacklist.connect(EOA).changeOwner(donatorBlacklistAddress);
+    let result = await donatorBlacklist.connect(EOA).changeOwner(timelockAddress);
     if (providerName === "goerli") {
         await new Promise(r => setTimeout(r, 60000));
     }
