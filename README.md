@@ -6,7 +6,7 @@ This repository contains the tokenomics part of onchain-protocol contracts.
 
 A graphical overview is available here:
 
-![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v3.png?raw=true)
+![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v4.png?raw=true)
 
 An overview of the Autonolas tokenomics model, a high-level description of smart contacts, and a full set of smart contract
 specifications are provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf?raw=true).
@@ -66,7 +66,7 @@ forge test --hh -vv
 
 ### Audits
 The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-A list of known vulnerabilities can be found here: [Vulnerabilities list 1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_1.pdf).
+A list of known vulnerabilities can be found here: [Vulnerabilities list 1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_1.pdf?raw=true).
 
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
@@ -88,6 +88,9 @@ For testing purposes, the hardhat node deployment script is located [here](https
 
 ## Deployed Protocol
 The list of addresses can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/mainnet_addresses.json).
+
+## LP Token Guide
+In order to enable OLAS-based LP tokens, it is advised to check with the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/LP_token_guide.md). 
 
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
