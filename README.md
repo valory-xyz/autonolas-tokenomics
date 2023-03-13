@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains the tokenomics part of onchain-protocol contracts.
+This repository contains the Autonolas tokenomics part of onchain-protocol contracts.
 
 A graphical overview is available here:
 
@@ -46,9 +46,9 @@ yarn install
 The contracts, deploy scripts, regular scripts and tests are located in the following folders respectively:
 ```
 contracts
+scripts
 test
 ```
-The tests are logically separated into unit and integration ones.
 
 ### Compile the code and run
 Compile the code:
