@@ -24,6 +24,6 @@ That LP token has the following address: `0xa478c2975ab1ea89e8196811f51a7b7ade33
     - `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`.
   - The output will be the LP token address. In this example, this is the following address: `0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11`.
   - If the address match with the given original LP-token address (in this example, `0xa478c2975ab1ea89e8196811f51a7b7ade33eb11`), everything is correct.
-- https://etherscan.io/address/0xa478c2975ab1ea89e8196811f51a7b7ade33eb11#internaltx
+- In correctly created LP token, the first internal transaction must be originated by the UniswapV2Factory address: https://etherscan.io/address/0xa478c2975ab1ea89e8196811f51a7b7ade33eb11#internaltx.
 - Optionally, the followign link works for well-known LP tokens: https://v2.info.uniswap.org/pair/0xa478c2975ab1ea89e8196811f51a7b7ade33eb11.
   However, the absence of requested token information does not mean there is something wrong with the token. In that case just use the verification described above.
