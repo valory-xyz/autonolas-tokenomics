@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains the Autonolas tokenomics part of onchain-protocol contracts.
+This repository contains the tokenomics part of Autonolas onchain-protocol contracts.
 
 A graphical overview is available here:
 
@@ -90,7 +90,7 @@ For testing purposes, the hardhat node deployment script is located [here](https
 The list of addresses can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/mainnet_addresses.json).
 
 ## LP Token Guide
-In order to enable OLAS-based LP tokens, it is advised to check with the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/LP_token_guide.md). 
+It is advised to check the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/LP_token_guide.md) before enabling OLAS-based LP tokens. 
 
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
