@@ -17,3 +17,9 @@ bc7d82cd5223fb407285ce1e859aac63943d9605:contracts/GenericTokenomics.sol.origina
 4da95ed2b2b5169a267e16c8b1c047430b6da223:audits/internal/analysis/contracts/Tokenomics-flatten.sol:generic-api-key:1502
 2b471f2503adf1247e8ccc257a617c5e4c845bd5:contracts/TokenomicsProxy.sol:generic-api-key:14
 1b427edfe370acb8f164071d5bd94991095f73f2:contracts/GenericTokenomics.sol:generic-api-key:26
+bcbe009f486ebc2e8ada80592a4af337b3727e21:docs/mainnet_addresses.json:generic-api-key:2
+bcbe009f486ebc2e8ada80592a4af337b3727e21:docs/mainnet_addresses.json:generic-api-key:2
+e7bcdfbf30699b8eb89a5da158067668a542eac4:scripts/deployment/globals_mainnet.json:generic-api-key:2
+e7bcdfbf30699b8eb89a5da158067668a542eac4:scripts/deployment/globals_mainnet.json:generic-api-key:2
+bd34a1f7b2416a46893a74dcd82dea6f7ca921e9:scripts/deployment/globals_goerli.json:generic-api-key:2
+bd34a1f7b2416a46893a74dcd82dea6f7ca921e9:scripts/deployment/globals_goerli.json:generic-api-key:2
