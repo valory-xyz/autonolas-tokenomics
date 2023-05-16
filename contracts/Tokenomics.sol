@@ -711,6 +711,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Loop over component and agent Ids
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
+                // TODO getUnitIdsOfService() function must change if registries are going to be Merkle-based
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceRegistry(serviceRegistry).
                     getUnitIdsOfService(IServiceRegistry.UnitType(unitType), serviceIds[i]);
                 // Service has to be deployed at least once to be able to receive donations,
@@ -843,7 +844,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Convert devsPerCapital
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
         fp = fp.mul(fpDevsPerCapital);
-        UD60x18 fpNumNewOwners = toUD60x18(numNewOwners);
+        UD60x18 fpNumNewOwners = ud60x18(numNewOwners);
         fp = fp.add(fpNumNewOwners);
         fp = fp.mul(codeUnits);
         // fp = fp / 100 - calculate the final value in fixed point

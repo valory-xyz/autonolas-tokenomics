@@ -45,12 +45,14 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^4.8.3",
+    "@openzeppelin/merkle-tree": "^1.0.4",
     "@anders-t/ethers-ledger": "^1.0.4",
     "@ethersproject/contracts": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
     "@ethersproject/solidity": "^5.7.0",
     "@ethersproject/wallet": "^5.7.0",
-    "@prb/math": "^3.3.0",
+    "@prb/math": "^4.0.0",
     "@uniswap/lib": "^4.0.1-alpha",
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",

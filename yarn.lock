@@ -728,10 +728,20 @@
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.1.2.tgz"
   integrity sha512-KYRCASVTv6aeUi1tsF8/vpyR7zpfs3FUzy2Jqm+MU+LmUKhQ0y2FpfwqkCcxSg2ua4GALJd8k2R76WxwZGbQpA==
 
+"@noble/hashes@1.2.0", "@noble/hashes@~1.2.0":
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-1.2.0.tgz#a3150eeb09cc7ab207ebf6d7b9ad311a9bdbed12"
+  integrity sha512-FZfhjEDbT5GRswV3C6uvLPHMiVD6lQBmpoX5+eSiPaMTXte/IKqI5dykDxzZB/WBeK/CDuQRBWarPdi3FNY2zQ==
+
 "@noble/secp256k1@1.6.3", "@noble/secp256k1@~1.6.0":
   version "1.6.3"
   resolved "https://registry.npmjs.org/@noble/secp256k1/-/secp256k1-1.6.3.tgz"
   integrity sha512-T04e4iTurVy7I8Sw4+c5OSN9/RkPlo1uKxAomtxQNLq8j1uPAqnsqG1bqvY3Jv7c13gyr6dui0zmh/I3+f/JaQ==
+
+"@noble/secp256k1@1.7.1", "@noble/secp256k1@~1.7.0":
+  version "1.7.1"
+  resolved "https://registry.yarnpkg.com/@noble/secp256k1/-/secp256k1-1.7.1.tgz#b251c70f824ce3ca7f8dc3df08d58f005cc0507c"
+  integrity sha512-hOUk6AyBFmqVrv7k5WAw/LpszxVbj9gGN4JRkIX52fdFAj1UA61KXmZDvqVEm+pOyec3+fIeZB02LYa/pWOArw==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -996,15 +1006,23 @@
     table "^6.8.0"
     undici "^5.14.0"
 
-"@openzeppelin/contracts@^4.7.3":
-  version "4.7.3"
-  resolved "https://registry.npmjs.org/@openzeppelin/contracts/-/contracts-4.7.3.tgz"
-  integrity sha512-dGRS0agJzu8ybo44pCIf3xBaPQN/65AIXNgK8+4gzKd5kbvlqyxryUYVLJv7fK98Seyd2hDZzVEHSWAh0Bt1Yw==
+"@openzeppelin/contracts@^4.8.3":
+  version "4.8.3"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.8.3.tgz#cbef3146bfc570849405f59cba18235da95a252a"
+  integrity sha512-bQHV8R9Me8IaJoJ2vPG4rXcL7seB7YVuskr4f+f5RyOStSZetwzkWtoqDMl5erkBJy0lDRUnIR2WIkPiC0GJlg==
 
-"@prb/math@^3.3.0":
-  version "3.3.0"
-  resolved "https://registry.yarnpkg.com/@prb/math/-/math-3.3.0.tgz#d1680b967f9dc77162e867649e93d7785df77022"
-  integrity sha512-NlWr/LqCsz/4HZTBlYkp5UCjMrArejSp2gtmJf54McG1aYWRXQO9UmbRmyhQxSOSwlLw34tJsROFFLns8R9JHg==
+"@openzeppelin/merkle-tree@^1.0.4":
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/@openzeppelin/merkle-tree/-/merkle-tree-1.0.4.tgz#9019c2990ffdb56fca232c210d1e1132cbd68924"
+  integrity sha512-gNMYRgIn7mkPWpE2sBGfE12fFM5pfbGrDr0leaMdCkmFyccQlqWYL4p0FedcVqN6X0ETJGTa+UKF1fUWAzv9VQ==
+  dependencies:
+    "@ethersproject/abi" "^5.7.0"
+    ethereum-cryptography "^1.1.2"
+
+"@prb/math@^4.0.0":
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/@prb/math/-/math-4.0.0.tgz#9b3a2cf5231c3e188515a6f17eb304f0c324d7de"
+  integrity sha512-zGOMIn3EMSxh2yo64uKly4xtwVvbUvsKAand4JFzDRFAPEzqBWJe1/Qf23o992ZR7xeA502L17rSTcOscfRO2Q==
 
 "@scure/base@~1.1.0":
   version "1.1.1"
@@ -1020,12 +1038,29 @@
     "@noble/secp256k1" "~1.6.0"
     "@scure/base" "~1.1.0"
 
+"@scure/bip32@1.1.5":
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/@scure/bip32/-/bip32-1.1.5.tgz#d2ccae16dcc2e75bc1d75f5ef3c66a338d1ba300"
+  integrity sha512-XyNh1rB0SkEqd3tXcXMi+Xe1fvg+kUIcoRIEujP1Jgv7DqW2r9lg3Ah0NkFaCs9sTkQAQA8kw7xiRXzENi9Rtw==
+  dependencies:
+    "@noble/hashes" "~1.2.0"
+    "@noble/secp256k1" "~1.7.0"
+    "@scure/base" "~1.1.0"
+
 "@scure/bip39@1.1.0":
   version "1.1.0"
   resolved "https://registry.npmjs.org/@scure/bip39/-/bip39-1.1.0.tgz"
   integrity sha512-pwrPOS16VeTKg98dYXQyIjJEcWfz7/1YJIwxUEPFfQPtc86Ym/1sVgQ2RLoD43AazMk2l/unK4ITySSpW2+82w==
   dependencies:
     "@noble/hashes" "~1.1.1"
+    "@scure/base" "~1.1.0"
+
+"@scure/bip39@1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@scure/bip39/-/bip39-1.1.1.tgz#b54557b2e86214319405db819c4b6a370cf340c5"
+  integrity sha512-t+wDck2rVkh65Hmv280fYdVdY25J9YeEUIgn2LG1WM6gxFkGzcksoDiUkWVpVp3Oex9xGC68JU2dSbUfwZ2jPg==
+  dependencies:
+    "@noble/hashes" "~1.2.0"
     "@scure/base" "~1.1.0"
 
 "@sentry/core@5.30.0":
@@ -2677,6 +2712,16 @@ ethereum-cryptography@^1.0.3:
     "@noble/secp256k1" "1.6.3"
     "@scure/bip32" "1.1.0"
     "@scure/bip39" "1.1.0"
+
+ethereum-cryptography@^1.1.2:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/ethereum-cryptography/-/ethereum-cryptography-1.2.0.tgz#5ccfa183e85fdaf9f9b299a79430c044268c9b3a"
+  integrity sha512-6yFQC9b5ug6/17CQpCyE3k9eKBMdhyVjzUy1WkiuY/E4vj/SXDBbCw8QEIaXqf0Mf2SnY6RmpDcwlUmBSS0EJw==
+  dependencies:
+    "@noble/hashes" "1.2.0"
+    "@noble/secp256k1" "1.7.1"
+    "@scure/bip32" "1.1.5"
+    "@scure/bip39" "1.1.1"
 
 ethereumjs-abi@^0.6.8:
   version "0.6.8"
