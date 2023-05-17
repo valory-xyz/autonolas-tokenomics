@@ -20,7 +20,8 @@ struct MultiProof {
 
 struct RoundInfo {
     bytes32 merkleRoot;
-    uint256 amount;
+    uint96 amount;
+    uint32 epochId;
 }
 
 /// @title MockTokenomicsMerkle - Smart contract for mocking the tokenomics based on Merkle proofs
@@ -28,7 +29,8 @@ contract MockTokenomicsMerkle {
     event Donation(address indexed sender, uint256 amount, uint256 indexed rountId, bytes32 merkleRoot, bytes32 hashIPFS);
     event Claim(address indexed sender, uint256 roundId, uint256[] unitIds, uint256[] amounts);
 
-    uint256 public roundCounter;
+    uint32 public roundCounter;
+    uint32 public epochCounter;
     mapping(uint256 => RoundInfo) public mapRoundInfo;
     mapping(uint256 => uint256) public mapUnitAmounts;
     mapping(uint256 => mapping(uint256 => bool)) public mapClaimedRoundUnits;
@@ -38,7 +40,7 @@ contract MockTokenomicsMerkle {
 
     function donate(bytes32 merkleRoot, bytes32 hashIPFS) external payable returns (uint256 roundId) {
         roundId = roundCounter;
-        mapRoundInfo[roundId] = RoundInfo(merkleRoot, msg.value);
+        mapRoundInfo[roundId] = RoundInfo(merkleRoot, msg.value, epochCounter);
         roundCounter = roundId + 1;
 
         emit Donation(msg.sender, msg.value, roundId, merkleRoot, hashIPFS);
@@ -97,5 +99,9 @@ contract MockTokenomicsMerkle {
         }
 
         emit Claim(msg.sender, roundId, unitIds, amounts);
+    }
+
+    function checkpoint() external {
+        epochCounter++;
     }
 }
