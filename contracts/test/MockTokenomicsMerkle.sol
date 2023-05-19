@@ -32,7 +32,6 @@ contract MockTokenomicsMerkle {
     uint32 public roundCounter;
     uint32 public epochCounter;
     mapping(uint256 => RoundInfo) public mapRoundInfo;
-    mapping(uint256 => uint256) public mapUnitAmounts;
     mapping(uint256 => mapping(uint256 => bool)) public mapClaimedRoundUnits;
     
     receive() external payable {
@@ -40,8 +39,8 @@ contract MockTokenomicsMerkle {
 
     function donate(bytes32 merkleRoot, bytes32 hashIPFS) external payable returns (uint256 roundId) {
         roundId = roundCounter;
-        mapRoundInfo[roundId] = RoundInfo(merkleRoot, msg.value, epochCounter);
-        roundCounter = roundId + 1;
+        mapRoundInfo[roundId] = RoundInfo(merkleRoot, uint96(msg.value), epochCounter);
+        roundCounter = uint32(roundId + 1);
 
         emit Donation(msg.sender, msg.value, roundId, merkleRoot, hashIPFS);
     }
@@ -93,7 +92,7 @@ contract MockTokenomicsMerkle {
                 amount -= amounts[i];
                 mapClaimedRoundUnits[roundId][unitIds[i]] = true;
             }
-            mapRoundInfo[roundId].amount = amount;
+            mapRoundInfo[roundId].amount = uint96(amount);
         } else {
             revert ClaimProofFailed(roundId);
         }
