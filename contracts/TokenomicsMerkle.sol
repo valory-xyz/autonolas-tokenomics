@@ -1184,19 +1184,8 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         }
     }
 
-    /// @dev Gets component / agent owner incentives and clears the balances.
-    /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
-    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
-    /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
-    /// @param account Account address.
-    /// @param roundIds Set of round Ids the account is claiming incentives for.
-    /// @param unitTypes 2D set of unit types (component / agent).
-    /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
-    /// @param amounts 2D set of claimed amounts.
-    /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
-    /// @return reward Reward amount.
-    /// @return topUp Top-up amount.
-    function calculateOwnerIncentivesWithProofs(
+    /// @dev Checks the input data.
+    function _checkOwnerInsentivesInput(
         address account,
         uint256[] memory roundIds,
         uint256[] memory serviceIds,
@@ -1204,17 +1193,11 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         uint256[][] memory unitIds,
         uint256[][] memory amounts,
         MultiProof[] calldata multiProofs
-    ) external returns (uint256 reward, uint256 topUp)
-    {
-        // Check for the dispenser access
-        if (dispenser != msg.sender) {
-            revert ManagerOnly(msg.sender, dispenser);
-        }
-
+    ) internal {
         // Check array lengths
         uint256 numRounds = roundIds.length;
         if (numRounds != serviceIds.length || numRounds != unitTypes.length || numRounds != unitIds.length ||
-            numRounds != amounts.length || numRounds != multiProofs.length) {
+        numRounds != amounts.length || numRounds != multiProofs.length) {
             revert WrongArrayLength(unitTypes.length, unitIds.length);
         }
 
@@ -1228,7 +1211,6 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
             registriesSupply[i] = IToken(registries[i]).totalSupply();
         }
 
-        // Check the input data
         for (uint256 r = 0; r < numRounds; ++r) {
             uint256[] memory lastIds = new uint256[](2);
             for (uint256 i = 0; i < unitIds.length; ++i) {
@@ -1264,12 +1246,42 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                 }
             }
         }
+    }
+
+    /// @dev Gets component / agent owner incentives and clears the balances.
+    /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
+    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
+    /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
+    /// @param account Account address.
+    /// @param roundIds Set of round Ids the account is claiming incentives for.
+    /// @param unitTypes 2D set of unit types (component / agent).
+    /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
+    /// @param amounts 2D set of claimed amounts.
+    /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
+    /// @return reward Reward amount.
+    /// @return topUp Top-up amount.
+    function calculateOwnerIncentivesWithProofs(
+        address account,
+        uint256[] memory roundIds,
+        uint256[] memory serviceIds,
+        uint256[][] memory unitTypes,
+        uint256[][] memory unitIds,
+        uint256[][] memory amounts,
+        MultiProof[] calldata multiProofs
+    ) external returns (uint256 reward, uint256 topUp)
+    {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, dispenser);
+        }
+
+        _checkOwnerInsentivesInput(account, roundIds, serviceIds, unitTypes, unitIds, amounts, multiProofs);
 
         // Get the current epoch counter
         uint256 curEpoch = epochCounter;
 
         // Traverse round Ids and verify units and their reward amounts
-        for (uint256 r = 0; r < numRounds; ++r) {
+        for (uint256 r = 0; r < roundIds.length; ++r) {
             RoundInfo memory rInfo = mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]];
             // Check for the epoch validity
             if (curEpoch == rInfo.epochId) {
