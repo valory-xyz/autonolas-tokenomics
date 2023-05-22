@@ -846,7 +846,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Convert devsPerCapital
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
         fp = fp.mul(fpDevsPerCapital);
-        UD60x18 fpNumNewOwners = UD60x18.wrap(numNewOwners);
+        UD60x18 fpNumNewOwners = convert(numNewOwners);
         fp = fp.add(fpNumNewOwners);
         fp = fp.mul(codeUnits);
         // fp = fp / 100 - calculate the final value in fixed point
