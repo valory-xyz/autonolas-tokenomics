@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {mulDiv} from "@prb/math/src/Core.sol";
+import {mulDiv} from "@prb/math/src/Common.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 

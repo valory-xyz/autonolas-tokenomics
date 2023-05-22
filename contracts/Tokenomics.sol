@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
@@ -680,10 +680,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     /// @dev Records service donations into corresponding data structures.
+    /// @param donator Donator account address.
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    function _trackServiceDonations(uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal {
+    function _trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
@@ -699,18 +700,20 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 numServices = serviceIds.length;
         // Loop over service Ids to calculate their partial contributions
         for (uint256 i = 0; i < numServices; ++i) {
-            // Check if the service owner stakes enough OLAS for its components / agents to get a top-up
+            // Check if the service owner or donator stakes enough OLAS for its components / agents to get a top-up
             // If both component and agent owner top-up fractions are zero, there is no need to call external contract
             // functions to check each service owner veOLAS balance
             bool topUpEligible;
             if (incentiveFlags[2] || incentiveFlags[3]) {
                 address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
-                topUpEligible = IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold ? true : false;
+                topUpEligible = (IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold  ||
+                    IVotingEscrow(ve).getVotes(donator) >= veOLASThreshold) ? true : false;
             }
 
             // Loop over component and agent Ids
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
+                // TODO getUnitIdsOfService() function must change if registries are going to be Merkle-based
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceRegistry(serviceRegistry).
                     getUnitIdsOfService(IServiceRegistry.UnitType(unitType), serviceIds[i]);
                 // Service has to be deployed at least once to be able to receive donations,
@@ -816,7 +819,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
 
         // Track service donations
-        _trackServiceDonations(serviceIds, amounts, curEpoch);
+        _trackServiceDonations(donator, serviceIds, amounts, curEpoch);
 
         // Set the current block number
         lastDonationBlockNumber = uint32(block.number);
@@ -843,7 +846,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Convert devsPerCapital
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
         fp = fp.mul(fpDevsPerCapital);
-        UD60x18 fpNumNewOwners = toUD60x18(numNewOwners);
+        UD60x18 fpNumNewOwners = UD60x18.wrap(numNewOwners);
         fp = fp.add(fpNumNewOwners);
         fp = fp.mul(codeUnits);
         // fp = fp / 100 - calculate the final value in fixed point
