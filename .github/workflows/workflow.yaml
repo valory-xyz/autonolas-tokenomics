@@ -45,21 +45,20 @@ jobs:
       - name: Run hardhat tests
         run: ./node_modules/.bin/hardhat test
 
-      # Compile the code and run foundry tests
-      - name: Run foundry tests
-        run: forge test --hh -vvv
-
       # Run hardhat coverage and upload codecov report
       - name: Solidity coverage summary
         run: ./node_modules/.bin/hardhat coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./coverage
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+
+      # Compile the code and run foundry tests
+      - name: Run foundry tests
+        run: forge test --hh -vvv
 
   scan:
     name: gitleaks
