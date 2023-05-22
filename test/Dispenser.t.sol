@@ -104,6 +104,10 @@ contract DispenserTest is BaseSetup {
         assertEq(reward, 0);
         assertEq(topUp, 0);
 
+        // Lock OLAS balances with Voting Escrow
+        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        ve.createLock(deployer);
+
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
         componentRegistry.changeUnitOwner(1, deployer);
@@ -178,6 +182,10 @@ contract DispenserTest is BaseSetup {
         // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
+
+        // Lock OLAS balances with Voting Escrow
+        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        ve.createLock(deployer);
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
@@ -266,6 +274,10 @@ contract DispenserTest is BaseSetup {
         // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
+
+        // Lock OLAS balances with Voting Escrow
+        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        ve.createLock(deployer);
 
         // Change the first service owner to the deployer (same for components and agents)
         serviceRegistry.changeUnitOwner(1, deployer);
