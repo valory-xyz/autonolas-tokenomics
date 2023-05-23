@@ -15,6 +15,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Get a specific Node.js version such that hardhat does not hang periodically
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.15.0"
+
       # Install modules
       - name: Install modules
         run: yarn install
@@ -40,10 +45,6 @@ jobs:
       - name: Run hardhat tests
         run: ./node_modules/.bin/hardhat test
 
-      # Compile the code and run foundry tests
-      - name: Run foundry tests
-        run: forge test --hh -vvv
-
       # Run hardhat coverage and upload codecov report
       - name: Solidity coverage summary
         run: ./node_modules/.bin/hardhat coverage
@@ -55,6 +56,10 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
+
+      # Compile the code and run foundry tests
+      - name: Run foundry tests
+        run: forge test --hh -vvv
 
   scan:
     name: gitleaks

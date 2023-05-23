@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import "@prb/math/src/UD60x18.sol";
 
@@ -8,7 +8,7 @@ import "@prb/math/src/UD60x18.sol";
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
-    string public constant VERSION = "1.0.0";
+    string public constant VERSION = "1.0.1";
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;

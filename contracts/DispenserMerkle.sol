@@ -21,8 +21,7 @@ interface ITokenomicsMerkle {
     /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
     /// @param amounts 2D set of claimed amounts.
     /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
-    /// @return reward Reward amount.
-    /// @return topUp Top-up amount.
+    /// @return incentives Reward and topUp amounts.
     function calculateOwnerIncentivesWithProofs(
         address account,
         uint256[] memory roundIds,
@@ -31,7 +30,7 @@ interface ITokenomicsMerkle {
         uint256[][] memory unitIds,
         uint256[][] memory amounts,
         MultiProof[] calldata multiProofs
-    ) external returns (uint256 reward, uint256 topUp);
+    ) external returns (uint256[] memory incentives);
 }
 
 /// @title Dispenser - Smart contract for distributing incentives
@@ -131,8 +130,10 @@ contract DispenserMerkle is IErrorsTokenomics {
         _locked = 2;
 
         // Calculate incentives
-        (reward, topUp) = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender, roundIds, serviceIds,
-            unitTypes, unitIds, amounts, multiProofs);
+        uint256[] memory incentives = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender,
+            roundIds, serviceIds, unitTypes, unitIds, amounts, multiProofs);
+        reward = incentives[0];
+        topUp = incentives[1];
 
         bool success;
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0

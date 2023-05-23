@@ -879,7 +879,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         // Convert devsPerCapital
         UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
         fp = fp.mul(fpDevsPerCapital);
-        UD60x18 fpNumNewOwners = ud60x18(numNewOwners);
+        UD60x18 fpNumNewOwners = convert(numNewOwners);
         fp = fp.add(fpNumNewOwners);
         fp = fp.mul(codeUnits);
         // fp = fp / 100 - calculate the final value in fixed point
@@ -1193,11 +1193,11 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         uint256[][] memory unitIds,
         uint256[][] memory amounts,
         MultiProof[] calldata multiProofs
-    ) internal {
+    ) internal view {
         // Check array lengths
-        uint256 numRounds = roundIds.length;
-        if (numRounds != serviceIds.length || numRounds != unitTypes.length || numRounds != unitIds.length ||
-        numRounds != amounts.length || numRounds != multiProofs.length) {
+        if (roundIds.length != serviceIds.length || roundIds.length != unitTypes.length ||
+            roundIds.length != unitIds.length || roundIds.length != amounts.length ||
+            roundIds.length != multiProofs.length) {
             revert WrongArrayLength(unitTypes.length, unitIds.length);
         }
 
@@ -1211,7 +1211,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
             registriesSupply[i] = IToken(registries[i]).totalSupply();
         }
 
-        for (uint256 r = 0; r < numRounds; ++r) {
+        for (uint256 r = 0; r < roundIds.length; ++r) {
             uint256[] memory lastIds = new uint256[](2);
             for (uint256 i = 0; i < unitIds.length; ++i) {
                 // Check for the unit type to be component / agent only
@@ -1258,8 +1258,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
     /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
     /// @param amounts 2D set of claimed amounts.
     /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
-    /// @return reward Reward amount.
-    /// @return topUp Top-up amount.
+    /// @return incentives Reward and topUp amounts.
     function calculateOwnerIncentivesWithProofs(
         address account,
         uint256[] memory roundIds,
@@ -1268,7 +1267,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         uint256[][] memory unitIds,
         uint256[][] memory amounts,
         MultiProof[] calldata multiProofs
-    ) external returns (uint256 reward, uint256 topUp)
+    ) external returns (uint256[] memory incentives)
     {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
@@ -1277,15 +1276,19 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
         _checkOwnerInsentivesInput(account, roundIds, serviceIds, unitTypes, unitIds, amounts, multiProofs);
 
+        // Allocate incentives array
+        incentives = new uint256[](2);
+
         // Get the current epoch counter
-        uint256 curEpoch = epochCounter;
+        // TODO Stack too deep
+        //uint256 curEpoch = epochCounter;
 
         // Traverse round Ids and verify units and their reward amounts
         for (uint256 r = 0; r < roundIds.length; ++r) {
             RoundInfo memory rInfo = mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]];
             // Check for the epoch validity
-            if (curEpoch == rInfo.epochId) {
-                revert EpochNotSettled(curEpoch);
+            if (epochCounter == rInfo.epochId) {
+                revert EpochNotSettled(epochCounter);
             }
 
             // Construct Merkle tree leaves for the verification
@@ -1293,31 +1296,30 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
             for (uint256 i = 0; i < unitIds[r].length; ++i) {
                 leaves[i] = keccak256(
                     abi.encode(
-                        keccak256(abi.encode(unitTypes[r][i], unitIds[i], amounts[i]))
+                        keccak256(abi.encode(unitTypes[r][i], unitIds[r][i], amounts[r][i]))
                     )
                 );
             }
 
-            bool valid = MerkleProof.multiProofVerifyCalldata(multiProofs[r].merkleProof, multiProofs[r].proofFlags,
-                rInfo.merkleRoot, leaves);
-
-            if (valid) {
-                for (uint256 i = 0; i < unitIds[r].length; ++i) {
-                    // Check for the balance left
-                    if (amounts[r][i] > rInfo.amount) {
-                        revert InsufficientBalance(amounts[r][i], rInfo.amount);
-                    }
-                    rInfo.amount -= uint96(amounts[r][i]);
-                    uint256 unitIdWithType = unitIds[r][i];
-                    // unitId takes the second 32 bits
-                    unitIdWithType |= uint256(unitTypes[r][i]) << 32;
-                    mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]] = true;
-                    reward += amounts[r][i];
-                }
-                mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]].amount = rInfo.amount;
-            } else {
+            // Check for the Merkle tree proofs validity
+            if (!MerkleProof.multiProofVerifyCalldata(multiProofs[r].merkleProof, multiProofs[r].proofFlags,
+                rInfo.merkleRoot, leaves)) {
                 revert ClaimProofFailed(roundIds[r]);
             }
+
+            for (uint256 i = 0; i < unitIds[r].length; ++i) {
+                // Check for the balance left
+                if (amounts[r][i] > rInfo.amount) {
+                    revert InsufficientBalance(amounts[r][i], rInfo.amount);
+                }
+                rInfo.amount -= uint96(amounts[r][i]);
+                uint256 unitIdWithType = unitIds[r][i];
+                // unitId takes the second 32 bits
+                unitIdWithType |= uint256(unitTypes[r][i]) << 32;
+                mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]] = true;
+                incentives[0] += amounts[r][i];
+            }
+            mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]].amount = rInfo.amount;
 
             // TODO Add calculation for OLAS
         }
