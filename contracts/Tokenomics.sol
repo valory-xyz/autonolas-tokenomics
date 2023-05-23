@@ -713,7 +713,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Loop over component and agent Ids
             for (uint256 unitType = 0; unitType < 2; ++unitType) {
                 // Get the number and set of units in the service
-                // TODO getUnitIdsOfService() function must change if registries are going to be Merkle-based
                 (uint256 numServiceUnits, uint32[] memory serviceUnitIds) = IServiceRegistry(serviceRegistry).
                     getUnitIdsOfService(IServiceRegistry.UnitType(unitType), serviceIds[i]);
                 // Service has to be deployed at least once to be able to receive donations,
