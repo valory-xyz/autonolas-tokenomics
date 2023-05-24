@@ -125,8 +125,8 @@ contract DispenserMerkle is IErrorsTokenomics {
         _locked = 2;
 
         // Calculate incentives
-        (reward, topUp) = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender,
-            roundIds, serviceIds, claims, multiProofs);
+        (reward, topUp) = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender, roundIds,
+            serviceIds, claims, multiProofs);
 
         bool success;
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0

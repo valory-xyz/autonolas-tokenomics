@@ -150,13 +150,13 @@ describe("Dispenser Merkle", async () => {
 
             // Try to claim empty incentives
             await expect(
-                dispenser.connect(deployer).claimOwnerIncentives([], [], [[]], [[]], [[]], [])
+                dispenser.connect(deployer).claimOwnerIncentives([], [], [[[]]], [])
             ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
 
             // Try to claim incentives for non-existent components
             const zeroMultiProof = {merkleProof: [Bytes32Zero], proofFlags: [false]};
             await expect(
-                dispenser.connect(deployer).claimOwnerIncentives([0], [0], [[0]], [[0]], [[0]], [zeroMultiProof])
+                dispenser.connect(deployer).claimOwnerIncentives([0], [0], [[[0, 0, 0]]], [zeroMultiProof])
             ).to.be.revertedWithCustomError(dispenser, "WrongUnitId");
 
             // Skip the number of seconds for 2 epochs
@@ -231,16 +231,19 @@ describe("Dispenser Merkle", async () => {
             // Claim incentives
             const roundIds = [0, 0];
             const serviceIds = [1, 2];
-            const unitTypes = [[donations[0][0][0], donations[0][1][0]], [donations[1][0][0], donations[1][1][0]]];
-            const unitIds = [[donations[0][0][1], donations[0][1][1]], [donations[1][0][1], donations[1][1][1]]];
-            const amounts = [[donations[0][0][2], donations[0][1][2]], [donations[1][0][2], donations[1][1][2]]];
+            // Each claim consists of a triplet: [unitType, unitId, amount]
+            const claims = [
+                [[donations[0][0][0], donations[0][0][1], donations[0][0][2]],
+                [donations[0][1][0], donations[0][1][1], donations[0][1][2]]],
+                [[donations[1][0][0], donations[1][0][1], donations[1][0][2]],
+                [donations[1][1][0], donations[1][1][1], donations[1][1][2]]]
+            ];
             const proofStructs = [merkleTrees[0].getMultiProof(donations[0]), merkleTrees[1].getMultiProof(donations[1])];
             const multiProofs = [{merkleProof: proofStructs[0].proof, proofFlags: proofStructs[0].proofFlags},
                 {merkleProof: proofStructs[1].proof, proofFlags: proofStructs[1].proofFlags}];
 
             // Simulate claiming rewards and top-ups for owners and check their correctness
-            const incentives = await dispenser.callStatic.claimOwnerIncentives(roundIds, serviceIds, unitTypes, unitIds,
-                amounts, multiProofs);
+            const incentives = await dispenser.callStatic.claimOwnerIncentives(roundIds, serviceIds, claims, multiProofs);
 
             expect(incentives[0]).to.equal(totalAmount);
             return;
