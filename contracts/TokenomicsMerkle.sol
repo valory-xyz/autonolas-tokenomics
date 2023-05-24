@@ -251,12 +251,10 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
 
     uint32 roundCounter;
-    // Map of service Id => (map of round Id => round info)
-    // TODO combine serviceId and roundId in a pair
-    mapping(uint256 => mapping(uint256 => RoundInfo)) public mapServiceIdRoundInfo;
-    // Map of (unit Id, unit Type) => (map of round Id => claimed)
-    // TODO combine into a triplet: unitId, unitType, roundId
-    mapping(uint256 => mapping(uint256 => bool)) public mapClaimedUnitIdRounds;
+    // Map of (service Id, round Id) => round info
+    mapping(uint256 => RoundInfo) public mapServiceIdRoundInfo;
+    // Map of (round Id, unit Id, unit Type) => claimed flag
+    mapping(uint256 => bool) public mapClaimedUnitIdRounds;
 
     /// @dev Tokenomics constructor.
     constructor()
@@ -854,12 +852,16 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         uint32 eCounter = epochCounter;
         roundId = roundCounter;
         for (uint256 i = 0; i < numServices; ++i) {
+            // Create a pair from service Id and round Id
+            // serviceId takes first 32 bits
+            uint256 serviceIdRoundId = serviceIds[i];
+            // roundId takes second 32 bits
+            serviceIdRoundId |= roundId << 32;
             // Check for the same service during the same round Id donation
-            // TODO combine serviceId and roundId in a pair
-            if (mapServiceIdRoundInfo[serviceIds[i]][roundId].epochId > 0) {
+            if (mapServiceIdRoundInfo[serviceIdRoundId].epochId > 0) {
                 revert AlreadyDonated(roundId, serviceIds[i]);
             }
-            mapServiceIdRoundInfo[serviceIds[i]][roundId] = RoundInfo(serviceMerkleRoots[i], uint96(amounts[i]), eCounter);
+            mapServiceIdRoundInfo[serviceIdRoundId] = RoundInfo(serviceMerkleRoots[i], uint96(amounts[i]), eCounter);
         }
         roundCounter = uint32(roundId + 1);
 
@@ -1238,11 +1240,13 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                 }
 
                 // Check for the claimed round
-                // TODO need to create a (unitId, unitType) pair
-                uint256 unitIdWithType = claims[r][i][1];
-                // unitId takes the second 32 bits
-                unitIdWithType |= uint256(claims[r][i][0]) << 32;
-                if (mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]]) {
+                // roundId takes first 32 bits
+                uint256 roundIdUnitTypeId = roundIds[r];
+                // unitType takes the second 32 bits
+                roundIdUnitTypeId |= claims[r][i][0] << 32;
+                // unitId takes the third 32 bits
+                roundIdUnitTypeId |= claims[r][i][1] << 64;
+                if (mapClaimedUnitIdRounds[roundIdUnitTypeId]) {
                     revert AlreadyClaimed(roundIds[r], claims[r][i][0], claims[r][i][1]);
                 }
 
@@ -1285,7 +1289,13 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
         // Traverse round Ids and verify units and their reward amounts
         for (uint256 r = 0; r < roundIds.length; ++r) {
-            RoundInfo memory rInfo = mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]];
+            // Create a pair from service Id and round Id
+            // serviceId takes first 32 bits
+            uint256 serviceIdRoundId = serviceIds[r];
+            // roundId takes second 32 bits
+            serviceIdRoundId |= roundIds[r] << 32;
+            // Get the round info
+            RoundInfo memory rInfo = mapServiceIdRoundInfo[serviceIdRoundId];
             // Check for the epoch validity
             if (curEpoch == rInfo.epochId) {
                 revert EpochNotSettled(curEpoch);
@@ -1313,13 +1323,17 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                     revert InsufficientBalance(claims[r][i][2], rInfo.amount);
                 }
                 rInfo.amount -= uint96(claims[r][i][2]);
-                uint256 unitIdWithType = claims[r][i][1];
-                // unitId takes the second 32 bits
-                unitIdWithType |= uint256(claims[r][i][0]) << 32;
-                mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]] = true;
+                // Create a triplet from round Id, unit Type and unit Id
+                // roundId takes first 32 bits
+                uint256 roundIdUnitTypeId = roundIds[r];
+                // unitType takes the second 32 bits
+                roundIdUnitTypeId |= claims[r][i][0] << 32;
+                // unitId takes the third 32 bits
+                roundIdUnitTypeId |= claims[r][i][1] << 64;
+                mapClaimedUnitIdRounds[roundIdUnitTypeId] = true;
                 reward += claims[r][i][2];
             }
-            mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]].amount = rInfo.amount;
+            mapServiceIdRoundInfo[serviceIdRoundId].amount = rInfo.amount;
 
             // TODO Add calculation for OLAS
         }
