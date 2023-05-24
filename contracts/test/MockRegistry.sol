@@ -10,19 +10,22 @@ contract MockRegistry {
         Agent
     }
 
-    uint256 public constant SPECIAL_CASE_ID = 100;
+    uint256 public constant NON_DEPLOYED_SERVICE_ID = 100;
+    uint256 public constant MORE_UNITS_SERVICE_ID = 101;
+    uint256 public constant MORE_NUM_UNITS = 30;
     address[] public accounts;
 
     constructor() {
-        accounts.push(address(1));
-        accounts.push(address(2));
+        for (uint256 i = 1; i <= MORE_NUM_UNITS; ++i) {
+            accounts.push(address(uint160(i)));
+        }
     }
 
     /// @dev Checks if the service Id exists.
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) external pure returns (bool) {
-        if (serviceId > 0 && serviceId < 3 || serviceId == SPECIAL_CASE_ID) {
+        if (serviceId > 0 && serviceId < 50 || serviceId == NON_DEPLOYED_SERVICE_ID || serviceId == MORE_UNITS_SERVICE_ID) {
             return true;
         }
         return false;
@@ -36,13 +39,19 @@ contract MockRegistry {
     function getUnitIdsOfService(UnitType, uint256 serviceId) external pure
         returns (uint256 numUnitIds, uint32[] memory unitIds)
     {
-        unitIds = new uint32[](1);
-        unitIds[0] = 1;
         numUnitIds = 1;
+        unitIds = new uint32[](numUnitIds);
+        unitIds[0] = 1;
 
         // A special case to check the scenario when there are no unit Ids in the service
-        if (serviceId == SPECIAL_CASE_ID) {
+        if (serviceId == NON_DEPLOYED_SERVICE_ID) {
             numUnitIds = 0;
+        } else if (serviceId == MORE_UNITS_SERVICE_ID) {
+            numUnitIds = MORE_NUM_UNITS;
+            unitIds = new uint32[](numUnitIds);
+            for (uint32 i = 0; i < numUnitIds; ++i) {
+                unitIds[i] = i + 1;
+            }
         }
     }
 
@@ -51,7 +60,7 @@ contract MockRegistry {
     /// @return account Token Id owner address.
     function ownerOf(uint256 tokenId) external view returns (address account) {
         // Return a default owner of a special case
-        if (tokenId == SPECIAL_CASE_ID) {
+        if (tokenId == NON_DEPLOYED_SERVICE_ID || tokenId == MORE_UNITS_SERVICE_ID) {
             account = accounts[0];
         } else {
             account = accounts[tokenId - 1];

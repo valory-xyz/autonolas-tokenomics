@@ -260,6 +260,58 @@ describe("Dispenser", async () => {
             await snapshot.restore();
         });
 
+        it("Donate incentives for the service with a bigger number of units (gas estimation)", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
+            await ve.createLock(deployer.address);
+
+            // Change the first service owner to the deployer (same for components and agents)
+            const numUnits = 30;
+            await serviceRegistry.changeUnitOwner(1, deployer.address);
+            for (let i = 1; i <= numUnits; i++) {
+                await componentRegistry.changeUnitOwner(i, deployer.address);
+                await agentRegistry.changeUnitOwner(i, deployer.address);
+            }
+
+            // Send donations to services
+            const serviceId = await serviceRegistry.MORE_UNITS_SERVICE_ID();
+            await treasury.connect(deployer).depositServiceDonationsETH([serviceId], [regDepositFromServices], {value: regDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get the last settled epoch counter
+            let lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
+            // Get the unit points of the last epoch
+            let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const percentFraction = ethers.BigNumber.from(100);
+            let rewards = [
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
+            ];
+            let accountRewards = rewards[0].add(rewards[1]);
+            // Calculate top-ups based on the points information
+            let topUps = [
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction)
+            ];
+            let accountTopUps = topUps[1].add(topUps[2]);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
         it("Claim incentives for unit owners when donator and service owner are different accounts", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
