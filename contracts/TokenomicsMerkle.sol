@@ -11,6 +11,8 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
 
+error AlreadyDonated(uint256 roundId, uint256 serviceId);
+
 error AlreadyClaimed(uint256 roundId, uint256 unitType, uint256 unitId);
 
 error EpochNotSettled(uint256 curEpoch);
@@ -250,8 +252,10 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
     uint32 roundCounter;
     // Map of service Id => (map of round Id => round info)
+    // TODO combine serviceId and roundId in a pair
     mapping(uint256 => mapping(uint256 => RoundInfo)) public mapServiceIdRoundInfo;
     // Map of (unit Id, unit Type) => (map of round Id => claimed)
+    // TODO combine into a triplet: unitId, unitType, roundId
     mapping(uint256 => mapping(uint256 => bool)) public mapClaimedUnitIdRounds;
 
     /// @dev Tokenomics constructor.
@@ -850,6 +854,11 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         uint32 eCounter = epochCounter;
         roundId = roundCounter;
         for (uint256 i = 0; i < numServices; ++i) {
+            // Check for the same service during the same round Id donation
+            // TODO combine serviceId and roundId in a pair
+            if (mapServiceIdRoundInfo[serviceIds[i]][roundId].epochId > 0) {
+                revert AlreadyDonated(roundId, serviceIds[i]);
+            }
             mapServiceIdRoundInfo[serviceIds[i]][roundId] = RoundInfo(serviceMerkleRoots[i], uint96(amounts[i]), eCounter);
         }
         roundCounter = uint32(roundId + 1);
@@ -1189,16 +1198,13 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         address account,
         uint256[] memory roundIds,
         uint256[] memory serviceIds,
-        uint256[][] memory unitTypes,
-        uint256[][] memory unitIds,
-        uint256[][] memory amounts,
+        uint256[][][] memory claims,
         MultiProof[] calldata multiProofs
     ) internal view {
         // Check array lengths
-        if (roundIds.length != serviceIds.length || roundIds.length != unitTypes.length ||
-            roundIds.length != unitIds.length || roundIds.length != amounts.length ||
+        if (roundIds.length != serviceIds.length || roundIds.length != claims.length ||
             roundIds.length != multiProofs.length) {
-            revert WrongArrayLength(unitTypes.length, unitIds.length);
+            revert WrongArrayLength(roundIds.length, serviceIds.length);
         }
 
         // Component / agent registry addresses
@@ -1213,35 +1219,35 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
         for (uint256 r = 0; r < roundIds.length; ++r) {
             uint256[] memory lastIds = new uint256[](2);
-            for (uint256 i = 0; i < unitIds.length; ++i) {
+            for (uint256 i = 0; i < claims.length; ++i) {
                 // Check for the unit type to be component / agent only
-                if (unitTypes[r][i] > 1) {
-                    revert Overflow(unitTypes[r][i], 1);
+                if (claims[r][i][0] > 1) {
+                    revert Overflow(claims[r][i][0], 1);
                 }
 
                 // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
-                if (unitIds[r][i] <= lastIds[unitTypes[r][i]] || unitIds[r][i] > registriesSupply[unitTypes[r][i]]) {
-                    revert WrongUnitId(unitIds[r][i], unitTypes[r][i]);
+                if (claims[r][i][1] <= lastIds[claims[r][i][0]] || claims[r][i][1] > registriesSupply[claims[r][i][0]]) {
+                    revert WrongUnitId(claims[r][i][1], claims[r][i][0]);
                 }
-                lastIds[unitTypes[r][i]] = unitIds[r][i];
+                lastIds[claims[r][i][0]] = claims[r][i][1];
 
                 // Check the component / agent Id ownership
-                address unitOwner = IToken(registries[unitTypes[r][i]]).ownerOf(unitIds[r][i]);
+                address unitOwner = IToken(registries[claims[r][i][0]]).ownerOf(claims[r][i][1]);
                 if (unitOwner != account) {
                     revert OwnerOnly(unitOwner, account);
                 }
 
                 // Check for the claimed round
                 // TODO need to create a (unitId, unitType) pair
-                uint256 unitIdWithType = unitIds[r][i];
+                uint256 unitIdWithType = claims[r][i][1];
                 // unitId takes the second 32 bits
-                unitIdWithType |= uint256(unitTypes[r][i]) << 32;
+                unitIdWithType |= uint256(claims[r][i][0]) << 32;
                 if (mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]]) {
-                    revert AlreadyClaimed(roundIds[r], unitTypes[r][i], unitIds[r][i]);
+                    revert AlreadyClaimed(roundIds[r], claims[r][i][0], claims[r][i][1]);
                 }
 
                 // Check for the zero amount
-                if (amounts[r][i] == 0) {
+                if (claims[r][i][2] == 0) {
                     revert ZeroValue();
                 }
             }
@@ -1250,53 +1256,47 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
     /// @dev Gets component / agent owner incentives and clears the balances.
     /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
-    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
+    /// @notice The claim happens only for provided Claims with corresponding `unitIds` belonging to the `account`.
     /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
     /// @param account Account address.
     /// @param roundIds Set of round Ids the account is claiming incentives for.
-    /// @param unitTypes 2D set of unit types (component / agent).
-    /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
-    /// @param amounts 2D set of claimed amounts.
+    /// @param serviceIds Set of service Ids corresponding to round Ids the account is claiming incentives for.
+    /// @param claims 2D set of claim triplets: [unit types (component / agent), corresponding unit Ids and amounts].
     /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
-    /// @return incentives Reward and topUp amounts.
+    /// @return reward Reward amount in ETH.
+    /// @return topUp Top-up amount in OLAS.
     function calculateOwnerIncentivesWithProofs(
         address account,
         uint256[] memory roundIds,
         uint256[] memory serviceIds,
-        uint256[][] memory unitTypes,
-        uint256[][] memory unitIds,
-        uint256[][] memory amounts,
+        uint256[][][] memory claims,
         MultiProof[] calldata multiProofs
-    ) external returns (uint256[] memory incentives)
+    ) external returns (uint256 reward, uint256 topUp)
     {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
             revert ManagerOnly(msg.sender, dispenser);
         }
 
-        _checkOwnerInsentivesInput(account, roundIds, serviceIds, unitTypes, unitIds, amounts, multiProofs);
-
-        // Allocate incentives array
-        incentives = new uint256[](2);
+        _checkOwnerInsentivesInput(account, roundIds, serviceIds, claims, multiProofs);
 
         // Get the current epoch counter
-        // TODO Stack too deep
-        //uint256 curEpoch = epochCounter;
+        uint256 curEpoch = epochCounter;
 
         // Traverse round Ids and verify units and their reward amounts
         for (uint256 r = 0; r < roundIds.length; ++r) {
             RoundInfo memory rInfo = mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]];
             // Check for the epoch validity
-            if (epochCounter == rInfo.epochId) {
-                revert EpochNotSettled(epochCounter);
+            if (curEpoch == rInfo.epochId) {
+                revert EpochNotSettled(curEpoch);
             }
 
             // Construct Merkle tree leaves for the verification
-            bytes32[] memory leaves = new bytes32[](unitIds[r].length);
-            for (uint256 i = 0; i < unitIds[r].length; ++i) {
+            bytes32[] memory leaves = new bytes32[](claims[r].length);
+            for (uint256 i = 0; i < claims[r].length; ++i) {
                 leaves[i] = keccak256(
                     abi.encode(
-                        keccak256(abi.encode(unitTypes[r][i], unitIds[r][i], amounts[r][i]))
+                        keccak256(abi.encode(claims[r][i][0], claims[r][i][1], claims[r][i][2]))
                     )
                 );
             }
@@ -1307,17 +1307,17 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                 revert ClaimProofFailed(roundIds[r]);
             }
 
-            for (uint256 i = 0; i < unitIds[r].length; ++i) {
+            for (uint256 i = 0; i < claims[r].length; ++i) {
                 // Check for the balance left
-                if (amounts[r][i] > rInfo.amount) {
-                    revert InsufficientBalance(amounts[r][i], rInfo.amount);
+                if (claims[r][i][2] > rInfo.amount) {
+                    revert InsufficientBalance(claims[r][i][2], rInfo.amount);
                 }
-                rInfo.amount -= uint96(amounts[r][i]);
-                uint256 unitIdWithType = unitIds[r][i];
+                rInfo.amount -= uint96(claims[r][i][2]);
+                uint256 unitIdWithType = claims[r][i][1];
                 // unitId takes the second 32 bits
-                unitIdWithType |= uint256(unitTypes[r][i]) << 32;
+                unitIdWithType |= uint256(claims[r][i][0]) << 32;
                 mapClaimedUnitIdRounds[unitIdWithType][roundIds[r]] = true;
-                incentives[0] += amounts[r][i];
+                reward += claims[r][i][2];
             }
             mapServiceIdRoundInfo[serviceIds[r]][roundIds[r]].amount = rInfo.amount;
 

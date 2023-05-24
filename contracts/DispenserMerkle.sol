@@ -13,24 +13,22 @@ struct MultiProof {
 interface ITokenomicsMerkle {
     /// @dev Gets component / agent owner incentives and clears the balances.
     /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
-    /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
+    /// @notice The claim happens only for provided Claims with corresponding `unitIds` belonging to the `account`.
     /// @notice Component and agent Ids must be provided in the ascending order and must not repeat.
     /// @param account Account address.
     /// @param roundIds Set of round Ids the account is claiming incentives for.
-    /// @param unitTypes 2D set of unit types (component / agent).
-    /// @param unitIds 2D set of corresponding unit Ids where account is the owner.
-    /// @param amounts 2D set of claimed amounts.
+    /// @param serviceIds Set of service Ids corresponding to round Ids the account is claiming incentives for.
+    /// @param claims 2D set of claim triplets: [unit types (component / agent), corresponding unit Ids and amounts].
     /// @param multiProofs Set of multi proofs corresponding to a specific round Id for Merkle tree verifications.
-    /// @return incentives Reward and topUp amounts.
+    /// @return reward Reward amount in ETH.
+    /// @return topUp Top-up amount in OLAS.
     function calculateOwnerIncentivesWithProofs(
         address account,
         uint256[] memory roundIds,
         uint256[] memory serviceIds,
-        uint256[][] memory unitTypes,
-        uint256[][] memory unitIds,
-        uint256[][] memory amounts,
+        uint256[][][] memory claims,
         MultiProof[] calldata multiProofs
-    ) external returns (uint256[] memory incentives);
+    ) external returns (uint256 reward, uint256 topUp);
 }
 
 /// @title Dispenser - Smart contract for distributing incentives
@@ -110,16 +108,13 @@ contract DispenserMerkle is IErrorsTokenomics {
     /// @dev Claims incentives for the owner of components / agents.
     /// @notice `msg.sender` must be the owner of components / agents they are passing, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `msg.sender` were provided, they will be untouched and keep accumulating.
-    /// @param unitTypes Set of unit types (component / agent).
-    /// @param unitIds Set of corresponding unit Ids where account is the owner.
+    /// @param claims 2D set of claim triplets: [unit types (component / agent), corresponding unit Ids and amounts].
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
     function claimOwnerIncentives(
         uint256[] memory roundIds,
         uint256[] memory serviceIds,
-        uint256[][] memory unitTypes,
-        uint256[][] memory unitIds,
-        uint256[][] memory amounts,
+        uint256[][][] memory claims,
         MultiProof[] calldata multiProofs
     ) external returns (uint256 reward, uint256 topUp)
     {
@@ -130,10 +125,8 @@ contract DispenserMerkle is IErrorsTokenomics {
         _locked = 2;
 
         // Calculate incentives
-        uint256[] memory incentives = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender,
-            roundIds, serviceIds, unitTypes, unitIds, amounts, multiProofs);
-        reward = incentives[0];
-        topUp = incentives[1];
+        (reward, topUp) = ITokenomicsMerkle(tokenomics).calculateOwnerIncentivesWithProofs(msg.sender,
+            roundIds, serviceIds, claims, multiProofs);
 
         bool success;
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0
