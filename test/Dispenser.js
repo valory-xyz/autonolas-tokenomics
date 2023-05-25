@@ -177,6 +177,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});          
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)
@@ -186,6 +188,125 @@ describe("Dispenser", async () => {
 
             // Send donations to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
+                {value: twoRegDepositFromServices});
+            // Move more than one epoch in time
+            await helpers.time.increase(epochLen + 10);
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get the last settled epoch counter
+            lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            ep = await tokenomics.mapEpochTokenomics(lastPoint);
+            // Get the unit points of the last epoch
+            up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const percentFraction = ethers.BigNumber.from(100);
+            let rewards = [
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
+            ];
+            let accountRewards = rewards[0].add(rewards[1]);
+            // Calculate top-ups based on the points information
+            let topUps = [
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction)
+            ];
+            let accountTopUps = topUps[1].add(topUps[2]);
+            expect(accountRewards).to.greaterThan(0);
+            expect(accountTopUps).to.greaterThan(0);
+
+            // Check for the incentive balances of component and agent such that their pending relative incentives are non-zero
+            let incentiveBalances = await tokenomics.mapUnitIncentives(0, 1);
+            expect(Number(incentiveBalances.pendingRelativeReward)).to.greaterThan(0);
+            expect(Number(incentiveBalances.pendingRelativeTopUp)).to.greaterThan(0);
+            incentiveBalances = await tokenomics.mapUnitIncentives(1, 1);
+            expect(incentiveBalances.pendingRelativeReward).to.greaterThan(0);
+            expect(incentiveBalances.pendingRelativeTopUp).to.greaterThan(0);
+
+            // Get deployer incentives information
+            const result = await tokenomics.getOwnerIncentives(deployer.address, [0, 1], [1, 1]);
+            // Get accumulated rewards and top-ups
+            const checkedReward = ethers.BigNumber.from(result.reward);
+            const checkedTopUp = ethers.BigNumber.from(result.topUp);
+            // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
+            // Theoretical values must always be bigger than calculated ones (since round-off error is due to flooring)
+            expect(Math.abs(Number(accountRewards.sub(checkedReward)))).to.lessThan(delta);
+            expect(Math.abs(Number(accountTopUps.sub(checkedTopUp)))).to.lessThan(delta);
+
+            // Simulate claiming rewards and top-ups for owners and check their correctness
+            const claimedOwnerIncentives = await dispenser.connect(deployer).callStatic.claimOwnerIncentives([0, 1], [1, 1]);
+            // Get accumulated rewards and top-ups
+            let claimedReward = ethers.BigNumber.from(claimedOwnerIncentives.reward);
+            let claimedTopUp = ethers.BigNumber.from(claimedOwnerIncentives.topUp);
+            // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
+            expect(claimedReward).to.lessThanOrEqual(accountRewards);
+            expect(Math.abs(Number(accountRewards.sub(claimedReward)))).to.lessThan(delta);
+            expect(claimedTopUp).to.lessThanOrEqual(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(claimedTopUp)))).to.lessThan(delta);
+
+            // Claim rewards and top-ups
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+            await dispenser.connect(deployer).claimOwnerIncentives([0, 1], [1, 1]);
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+
+            // Check the OLAS balance after receiving incentives
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(balance).to.lessThanOrEqual(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Claim incentives for unit owners when donator and service owner are different accounts", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Try to claim empty incentives
+            await expect(
+                dispenser.connect(deployer).claimOwnerIncentives([], [])
+            ).to.be.revertedWithCustomError(dispenser, "ClaimIncentivesFailed");
+
+            // Try to claim incentives for non-existent components
+            await expect(
+                dispenser.connect(deployer).claimOwnerIncentives([0], [0])
+            ).to.be.revertedWithCustomError(dispenser, "WrongUnitId");
+
+            // Skip the number of seconds for 2 epochs
+            await helpers.time.increase(epochLen + 10);
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Get tokenomcis parameters from the previous epoch
+            let lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            let ep = await tokenomics.mapEpochTokenomics(lastPoint);
+            expect(await tokenomics.devsPerCapital()).to.greaterThan(0);
+            expect(ep.idf).to.greaterThan(0);
+            // Get the unit points of the last epoch
+            let up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            expect(up[0].rewardUnitFraction + up[1].rewardUnitFraction + ep.rewardTreasuryFraction).to.equal(100);
+
+            await helpers.time.increase(epochLen + 10);
+            await tokenomics.connect(deployer).checkpoint();
+
+            // Send ETH to treasury
+            const amount = ethers.utils.parseEther("1000");
+            await deployer.sendTransaction({to: treasury.address, value: amount});
+
+            // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
+            await ve.createLock(signers[1].address);
+
+            // Change the first service owner to the deployer (same for components and agents)
+            await serviceRegistry.changeUnitOwner(1, deployer.address);
+            await componentRegistry.changeUnitOwner(1, deployer.address);
+            await agentRegistry.changeUnitOwner(1, deployer.address);
+
+            // Send donations to services
+            await treasury.connect(signers[1]).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
@@ -271,12 +392,8 @@ describe("Dispenser", async () => {
             const amount = ethers.utils.parseEther("1000");
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
-            // Lock OLAS balances with Voting Escrow
-            await ve.createLock(deployer.address);
-
             // EPOCH 1 with donations
             // Consider the scenario when no service owners lock enough OLAS for component / agent owners to claim top-ups
-            await ve.setWeightedBalance(0);
 
             // Increase the time to the length of the epoch
             await helpers.time.increase(epochLen + 10);
@@ -327,7 +444,8 @@ describe("Dispenser", async () => {
             // EPOCH 2 with donations and top-ups
             // Return the ability for the service owner to have enough veOLAS for the owner top-ups
             const minWeightedBalance = await tokenomics.veOLASThreshold();
-            await ve.setWeightedBalance(minWeightedBalance.toString() + "1");
+            await ve.setWeightedBalance(minWeightedBalance.toString());
+            await ve.createLock(deployer.address);
 
             // Increase the time to more than the length of the epoch
             await helpers.time.increase(epochLen + 3);
@@ -409,6 +527,8 @@ describe("Dispenser", async () => {
             await tokenomics.connect(deployer).checkpoint();
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             let totalAccountTopUps = ethers.BigNumber.from(0);
@@ -483,6 +603,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)
@@ -580,6 +702,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)
@@ -677,6 +801,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)
@@ -774,6 +900,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)
@@ -890,6 +1018,8 @@ describe("Dispenser", async () => {
             await deployer.sendTransaction({to: treasury.address, value: amount});
 
             // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
             // Change the first service owner to the deployer (same for components and agents)

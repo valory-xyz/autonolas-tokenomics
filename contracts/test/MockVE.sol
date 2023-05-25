@@ -3,14 +3,14 @@ pragma solidity ^0.8.18;
 
 /// @dev Mocking contract of voting escrow.
 contract MockVE {
-    address[] public accounts;
     uint256 public balance = 50 ether;
     uint256 public supply = 100 ether;
     uint256 public weightedBalance = 10_000 ether;
+    mapping(address => uint256) public accountWeightedBalances;
 
     /// @dev Simulates a lock for the specified account.
     function createLock(address account) external {
-        accounts.push(account);
+        accountWeightedBalances[account] = weightedBalance;
     }
 
     /// @dev Gets the account balance at a specific block number.
@@ -24,8 +24,8 @@ contract MockVE {
     }
 
     /// @dev Gets weighted account balance.
-    function getVotes(address) external view returns (uint256) {
-        return weightedBalance;
+    function getVotes(address account) external view returns (uint256) {
+        return accountWeightedBalances[account];
     }
 
     /// @dev Sets the new balance.
