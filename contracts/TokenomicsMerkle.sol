@@ -10,7 +10,6 @@ import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
-import "hardhat/console.sol";
 
 error AlreadyDonated(uint256 roundId, uint256 serviceId);
 
