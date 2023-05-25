@@ -912,14 +912,6 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.8.3.tgz#cbef3146bfc570849405f59cba18235da95a252a"
   integrity sha512-bQHV8R9Me8IaJoJ2vPG4rXcL7seB7YVuskr4f+f5RyOStSZetwzkWtoqDMl5erkBJy0lDRUnIR2WIkPiC0GJlg==
 
-"@openzeppelin/merkle-tree@^1.0.4":
-  version "1.0.4"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/merkle-tree/-/merkle-tree-1.0.4.tgz#9019c2990ffdb56fca232c210d1e1132cbd68924"
-  integrity sha512-gNMYRgIn7mkPWpE2sBGfE12fFM5pfbGrDr0leaMdCkmFyccQlqWYL4p0FedcVqN6X0ETJGTa+UKF1fUWAzv9VQ==
-  dependencies:
-    "@ethersproject/abi" "^5.7.0"
-    ethereum-cryptography "^1.1.2"
-
 "@prb/math@^4.0.0":
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/@prb/math/-/math-4.0.0.tgz#9b3a2cf5231c3e188515a6f17eb304f0c324d7de"
@@ -2607,7 +2599,7 @@ ethereum-cryptography@0.1.3, ethereum-cryptography@^0.1.3:
     secp256k1 "^4.0.1"
     setimmediate "^1.0.5"
 
-ethereum-cryptography@^1.0.3, ethereum-cryptography@^1.1.2:
+ethereum-cryptography@^1.0.3:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/ethereum-cryptography/-/ethereum-cryptography-1.2.0.tgz#5ccfa183e85fdaf9f9b299a79430c044268c9b3a"
   integrity sha512-6yFQC9b5ug6/17CQpCyE3k9eKBMdhyVjzUy1WkiuY/E4vj/SXDBbCw8QEIaXqf0Mf2SnY6RmpDcwlUmBSS0EJw==
@@ -3336,14 +3328,15 @@ hardhat-storage-layout@^0.1.7:
   dependencies:
     console-table-printer "^2.9.0"
 
-hardhat-tracer@^1.2.1:
-  version "1.3.0"
-  resolved "https://registry.yarnpkg.com/hardhat-tracer/-/hardhat-tracer-1.3.0.tgz#273d8aeca57283f597f2eaef2c8acdd0162f3672"
-  integrity sha512-mUYuRJWlxCwY4R2urCpNM4ecVSq/iMLiVP9YZKlfXyv4R8T+4HAcTfumilUOXHGe6wHI+8Ki2EaTon3KgzATDA==
+hardhat-tracer@^2.0.0:
+  version "2.3.2"
+  resolved "https://registry.yarnpkg.com/hardhat-tracer/-/hardhat-tracer-2.3.2.tgz#c972a82974d4db0fbe99d9b809b9c462a79d36a6"
+  integrity sha512-Sw//tVU/Qyng5rKULONIuYpr4yEobjfh5seIaRT8gYXKDo22eUllTMlJEV2ejsZ92X2x+PSWy1/H27aejV31/w==
   dependencies:
+    chalk "^4.1.2"
     ethers "^5.6.1"
 
-hardhat@^2.12.7:
+hardhat@^2.14.0:
   version "2.14.0"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.14.0.tgz#b60c74861494aeb1b50803cf04cc47865a42b87a"
   integrity sha512-73jsInY4zZahMSVFurSK+5TNCJTXMv+vemvGia0Ac34Mm19fYp6vEPVGF3sucbumszsYxiTT2TbS8Ii2dsDSoQ==
