@@ -249,19 +249,18 @@ describe("Dispenser Merkle", async () => {
             // Check if they match with what was written to the tokenomics point with owner reward and top-up fractions
             expect(claimedReward).to.equal(accountRewards);
             expect(Math.abs(Number(accountRewards.sub(claimedReward)))).to.lessThan(delta);
-            //expect(claimedTopUp).to.equal(accountTopUps);
-            //expect(Math.abs(Number(accountTopUps.sub(claimedTopUp)))).to.lessThan(delta);
+            expect(claimedTopUp).to.equal(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(claimedTopUp)))).to.lessThan(delta);
 
             // Claim rewards and top-ups
             const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
-            await dispenser.callStatic.claimOwnerIncentives(roundIds, serviceIds, claims, multiProofs);
+            await dispenser.claimOwnerIncentives(roundIds, serviceIds, claims, multiProofs);
             const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
 
             // Check the OLAS balance after receiving incentives
             const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
-            expect(balance).to.lessThanOrEqual(accountTopUps);
-            //expect(balance).to.equal(accountTopUps);
-            //expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
+            expect(balance).to.equal(accountTopUps);
+            expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

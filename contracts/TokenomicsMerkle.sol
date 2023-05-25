@@ -10,6 +10,7 @@ import "./interfaces/IServiceRegistry.sol";
 import "./interfaces/IToken.sol";
 import "./interfaces/ITreasury.sol";
 import "./interfaces/IVotingEscrow.sol";
+import "hardhat/console.sol";
 
 error AlreadyDonated(uint256 roundId, uint256 serviceId);
 
@@ -127,6 +128,7 @@ struct RoundInfo {
     bytes32 merkleRoot;
     uint96 amount;
     uint32 epochId;
+    bool topUpEligible;
 }
 
 struct MultiProof {
@@ -828,8 +830,8 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
 
         // Check if the donator blacklist is enabled, and the status of the donator address
         // TODO Stack too deep
-        //address bList = donatorBlacklist;
-        if (donatorBlacklist != address(0) && IDonatorBlacklist(donatorBlacklist).isDonatorBlacklisted(donator)) {
+        address bList = donatorBlacklist;
+        if (bList != address(0) && IDonatorBlacklist(bList).isDonatorBlacklisted(donator)) {
             revert DonatorBlacklisted(donator);
         }
 
@@ -847,14 +849,6 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         // Increase the total service donation balance per epoch
         donationETH += mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH;
         mapEpochTokenomics[curEpoch].epochPoint.totalDonationsETH = uint96(donationETH);
-
-        // Check all the unit fractions and identify those that need accounting of incentives
-        bool[] memory incentiveFlags = new bool[](4);
-        incentiveFlags[0] = (mapEpochTokenomics[curEpoch].unitPoints[0].rewardUnitFraction > 0);
-        incentiveFlags[1] = (mapEpochTokenomics[curEpoch].unitPoints[1].rewardUnitFraction > 0);
-        incentiveFlags[2] = (mapEpochTokenomics[curEpoch].unitPoints[0].topUpUnitFraction > 0);
-        incentiveFlags[3] = (mapEpochTokenomics[curEpoch].unitPoints[1].topUpUnitFraction > 0);
-        // TODO What to do with incentiveFlags[0] == 0 || incentiveFlags[1] == 0?
 
         // Get the treasury fraction
         uint256 rewardTreasuryFraction = mapEpochTokenomics[curEpoch].epochPoint.rewardTreasuryFraction;
@@ -877,28 +871,26 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
             if (rewardTreasuryFraction > 0) {
                 amounts[i] = (amounts[i] * 100 - amounts[i] * rewardTreasuryFraction) / 100;
             }
-            mapServiceIdRoundInfo[serviceIdRoundId] = RoundInfo(serviceMerkleRoots[i], uint96(amounts[i]), epochCounter);
 
-            // TODO Record the info whether the service is eligible for top-ups in this round
             // Check if the service owner or donator stakes enough OLAS for its components / agents to get a top-up
             // If both component and agent owner top-up fractions are zero, there is no need to call external contract
             // functions to check each service owner veOLAS balance
             bool topUpEligible;
-            if (incentiveFlags[2] || incentiveFlags[3]) {
+            // Check the unit top-up fractions, and if at least one is non-zero, check for the top-up eligibility
+            if (mapEpochTokenomics[curEpoch].unitPoints[0].topUpUnitFraction > 0 ||
+                mapEpochTokenomics[curEpoch].unitPoints[1].topUpUnitFraction > 0) {
                 address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
                 topUpEligible = (IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold  ||
-                IVotingEscrow(ve).getVotes(donator) >= veOLASThreshold) ? true : false;
+                    IVotingEscrow(ve).getVotes(donator) >= veOLASThreshold) ? true : false;
             }
-            // TODO: What happens if incentiveFlags[2] == 0 or incentiveFlags[3] == 0
+            // Record top-up eligibility in the component field (could be agent one, it does not matter)
             if (topUpEligible) {
-                // TODO: It seems like we can record the amounts[i] in just a single field and figures it out later via corresponding fractions
-                if (incentiveFlags[2]) {
                     mapEpochTokenomics[curEpoch].unitPoints[0].sumUnitTopUpsOLAS += uint96(amounts[i]);
-                }
-                if (incentiveFlags[3]) {
-                    mapEpochTokenomics[curEpoch].unitPoints[1].sumUnitTopUpsOLAS += uint96(amounts[i]);
-                }
             }
+
+            // Record the (service Id, round Id) data
+            mapServiceIdRoundInfo[serviceIdRoundId] = RoundInfo(serviceMerkleRoots[i], uint96(amounts[i]), epochCounter,
+                topUpEligible);
         }
         roundCounter = uint32(roundId + 1);
 
@@ -1356,6 +1348,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                 revert ClaimProofFailed(roundIds[r]);
             }
 
+            //uint256[] memory topUps = new uint256[](2);
             for (uint256 i = 0; i < claims[r].length; ++i) {
                 // Adjust amount with the treasury fraction, if not zero
                 if (rewardTreasuryFraction > 0) {
@@ -1376,11 +1369,14 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                 mapClaimedUnitIdRounds[roundIdUnitTypeId] = true;
                 reward += claims[r][i][2];
 
-                // Calculate OLAS topUps based on the rewards
-                // TODO Get the info whether the service is eligible for top-ups
-                topUp += (mapEpochTokenomics[rInfo.epochId].epochPoint.totalTopUpsOLAS * claims[r][i][2] *
-                    mapEpochTokenomics[rInfo.epochId].unitPoints[claims[r][i][0]].topUpUnitFraction) /
-                    (mapEpochTokenomics[rInfo.epochId].unitPoints[claims[r][i][0]].sumUnitTopUpsOLAS * 100);
+                // Calculate OLAS topUps based on the reward amount
+                if (rInfo.topUpEligible) {
+                    //topUps[claims[r][i][0]] += claims[r][i][2];
+                    // TODO Converge on number of rounds - maybe calculate number of rounds for each distinctive epoch (rInfo.epochId)
+                    topUp += (mapEpochTokenomics[rInfo.epochId].epochPoint.totalTopUpsOLAS * claims[r][i][2] *
+                        mapEpochTokenomics[rInfo.epochId].unitPoints[claims[r][i][0]].topUpUnitFraction) /
+                        (mapEpochTokenomics[rInfo.epochId].unitPoints[0].sumUnitTopUpsOLAS * 100 / roundIds.length);
+                }
             }
             mapServiceIdRoundInfo[serviceIdRoundId].amount = rInfo.amount;
         }
