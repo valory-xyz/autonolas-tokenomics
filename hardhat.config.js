@@ -12,11 +12,8 @@ require("@nomicfoundation/hardhat-toolbox");
 
 const ALCHEMY_API_KEY_MAINNET = process.env.ALCHEMY_API_KEY_MAINNET;
 const ALCHEMY_API_KEY_GOERLI = process.env.ALCHEMY_API_KEY_GOERLI;
-let TESTNET_MNEMONIC = process.env.TESTNET_MNEMONIC;
-if (!TESTNET_MNEMONIC) {
-    TESTNET_MNEMONIC = accounts.mnemonic;
-}
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
+let TESTNET_MNEMONIC = process.env.TESTNET_MNEMONIC;
 
 const accounts = {
     mnemonic: TESTNET_MNEMONIC,
