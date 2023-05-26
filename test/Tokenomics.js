@@ -431,7 +431,7 @@ describe("Tokenomics", async () => {
             await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [3], [regDepositFromServices], 0)
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [53], [regDepositFromServices], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
@@ -526,9 +526,8 @@ describe("Tokenomics", async () => {
         it("Get IDF based on the epsilonRate", async () => {
             // Skip the number of blocks within the epoch
             await ethers.provider.send("evm_mine");
-            const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
-            await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Start new epoch and calculate tokenomics parameters and rewards
             await helpers.time.increase(epochLen + 10);
@@ -579,12 +578,12 @@ describe("Tokenomics", async () => {
                 tokenomics.connect(deployer).getOwnerIncentives(deployer.address, [0], [0])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
-            // Try to get and claim owner rewards with non-existent components bigget than the total supply
+            // Try to get and claim owner rewards with non-existent components biggest than the total supply
             await expect(
-                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [3, 4])
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [53, 54])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
             await expect(
-                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [3, 4])
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [53, 54])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
             // Try to get incentives with the incorrect unit order
@@ -616,9 +615,8 @@ describe("Tokenomics", async () => {
                     {value: regDepositFromServices})
             ).to.be.revertedWithCustomError(tokenomics, "ServiceNeverDeployed");
 
-            const accounts = await serviceRegistry.getUnitOwners();
             // Send the revenues to services
-            await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
+            await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
@@ -649,6 +647,7 @@ describe("Tokenomics", async () => {
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
+            const accounts = await serviceRegistry.getUnitOwners();
             // Get owner rewards (mock registry has agent and component with Id 1)
             await tokenomics.getOwnerIncentives(accounts[0], [0, 1], [1, 1]);
 

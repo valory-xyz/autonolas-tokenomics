@@ -144,7 +144,7 @@ describe("Dispenser Merkle", async () => {
     });
 
     context("Get incentives", async function () {
-        it.only("Claim incentives for unit owners", async () => {
+        it("Claim incentives for unit owners", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
