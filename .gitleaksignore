@@ -32,3 +32,4 @@ bd34a1f7b2416a46893a74dcd82dea6f7ca921e9:scripts/deployment/globals_goerli.json:
 2627a3524a18633e2b77681c693aba07d02db3f4:scripts/deployment/globals_goerli.json:generic-api-key:1
 4f9103645430eb4589251cee5ff918cf98eac107:docs/mainnet_addresses.json:generic-api-key:2
 931d318aab3a67ec95515d8ea4dbf4d90ff01e81:scripts/deployment/globals_mainnet.json:generic-api-key:2
+a6e71ee718e3575f8cba6841b284a1aa93148b80:docs/mainnet_addresses.json:generic-api-key:2
