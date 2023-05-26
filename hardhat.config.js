@@ -24,7 +24,7 @@ const accounts = {
 
 if (!TESTNET_MNEMONIC) {
     accounts.mnemonic = "test test test test test test test test test test test junk";
-    accounts.accountsBalance = "100000000000000000000000000";
+    accounts.accountsBalance = "100000000000000000000000000000";
 }
 
 module.exports = {
