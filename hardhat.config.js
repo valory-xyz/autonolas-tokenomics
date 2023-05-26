@@ -8,16 +8,7 @@ require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
 require("@nomiclabs/hardhat-etherscan");
 require("@nomicfoundation/hardhat-toolbox");
-// storage layout tool
 // require('hardhat-storage-layout');
-
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
-const accounts = {
-    mnemonic: "test test test test test test test test test test test junk",
-    accountsBalance: "100000000000000000000000000000",
-};
 
 const ALCHEMY_API_KEY_MAINNET = process.env.ALCHEMY_API_KEY_MAINNET;
 const ALCHEMY_API_KEY_GOERLI = process.env.ALCHEMY_API_KEY_GOERLI;
@@ -26,6 +17,18 @@ if (!TESTNET_MNEMONIC) {
     TESTNET_MNEMONIC = accounts.mnemonic;
 }
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
+
+const accounts = {
+    mnemonic: TESTNET_MNEMONIC,
+    path: "m/44'/60'/0'/0",
+    initialIndex: 0,
+    count: 20,
+};
+
+if (!TESTNET_MNEMONIC) {
+    accounts.mnemonic = "test test test test test test test test test test test junk";
+    accounts.accountsBalance = "100000000000000000000000000";
+}
 
 module.exports = {
     solidity: {
@@ -50,18 +53,13 @@ module.exports = {
     networks: {
         mainnet: {
             url: "https://eth-mainnet.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MAINNET,
+            accounts,
             chainId: 1,
         },
         goerli: {
             url: "https://eth-goerli.alchemyapi.io/v2/" + ALCHEMY_API_KEY_GOERLI,
+            accounts,
             chainId: 5,
-            accounts: {
-                mnemonic: TESTNET_MNEMONIC,
-                path: "m/44'/60'/0'/0",
-                initialIndex: 0,
-                count: 20,
-                passphrase: "",
-            },
         },
         local: {
             url: "http://localhost:8545",
