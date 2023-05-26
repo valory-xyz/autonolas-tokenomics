@@ -31,25 +31,26 @@ async function main() {
     console.log("You are signing the following transaction: Tokenomics.connect(EOA).deploy()");
     const tokenomics = await Tokenomics.connect(EOA).deploy();
     const result = await tokenomics.deployed();
-    // If on goerli, wait a minute for the transaction completion
-    if (providerName === "goerli") {
-        await new Promise(r => setTimeout(r, 60000));
-    }
 
     // Transaction details
     console.log("Contract deployment: Tokenomics");
     console.log("Contract address:", tokenomics.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
+    // If on goerli, wait a minute for the transaction completion
+    if (providerName === "goerli") {
+        await new Promise(r => setTimeout(r, 60000));
+    }
+
+    // Writing updated parameters back to the JSON file
+    parsedData.tokenomicsTwoAddress = tokenomics.address;
+    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
         execSync("npx hardhat verify --network " + providerName + " " + tokenomics.address, { encoding: "utf-8" });
     }
-
-    // Writing updated parameters back to the JSON file
-    parsedData.tokenomicsAddress = tokenomics.address;
-    fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 }
 
 main()
