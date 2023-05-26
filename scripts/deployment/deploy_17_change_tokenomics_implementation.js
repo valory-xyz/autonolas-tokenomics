@@ -31,7 +31,7 @@ async function main() {
     const tokenomicsTwoAddress = parsedData.tokenomicsTwoAddress;
 
     // Get the GovernorOLAS instance via its ABI
-    const GovernorOLASJSON = "scripts/deployment/GovernorOLAS.json";
+    const GovernorOLASJSON = "abis/aux/GovernorOLAS.json";
     let contractFromJSON = fs.readFileSync(GovernorOLASJSON, "utf8");
     let contract = JSON.parse(contractFromJSON);
     const GovernorOLASABI = contract["abi"];
