@@ -1374,7 +1374,7 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
                     // TODO Converge on number of rounds - maybe calculate number of rounds for each distinctive epoch (rInfo.epochId)
                     topUp += (mapEpochTokenomics[rInfo.epochId].epochPoint.totalTopUpsOLAS * claims[r][i][2] *
                         mapEpochTokenomics[rInfo.epochId].unitPoints[claims[r][i][0]].topUpUnitFraction) /
-                        (mapEpochTokenomics[rInfo.epochId].unitPoints[0].sumUnitTopUpsOLAS * 100 / roundIds.length);
+                        (mapEpochTokenomics[rInfo.epochId].unitPoints[0].sumUnitTopUpsOLAS * 100 / 2);
                 }
             }
             mapServiceIdRoundInfo[serviceIdRoundId].amount = rInfo.amount;

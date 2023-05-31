@@ -7,7 +7,6 @@ const { StandardMerkleTree } = require("@openzeppelin/merkle-tree");
 describe("Dispenser Merkle", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
-    const Bytes32Zero = "0x" + "0".repeat(64);
     const defaultHashIPSF = "0x" + "5".repeat(64);
     const oneMonth = 86400 * 30;
 
@@ -154,7 +153,7 @@ describe("Dispenser Merkle", async () => {
             ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
 
             // Try to claim incentives for non-existent components
-            const zeroMultiProof = {merkleProof: [Bytes32Zero], proofFlags: [false]};
+            const zeroMultiProof = {merkleProof: [], proofFlags: [false]};
             await expect(
                 dispenser.connect(deployer).claimOwnerIncentives([0], [0], [[[0, 0, 0]]], [zeroMultiProof])
             ).to.be.revertedWithCustomError(dispenser, "WrongUnitId");
@@ -230,14 +229,10 @@ describe("Dispenser Merkle", async () => {
             // Claim incentives
             const roundIds = [0, 0];
             const serviceIds = [1, 2];
-            // Each claim consists of a triplet: [unitType, unitId, amount]
-            const claims = [
-                [[donations[0][0][0], donations[0][0][1], donations[0][0][2]],
-                    [donations[0][1][0], donations[0][1][1], donations[0][1][2]]],
-                [[donations[1][0][0], donations[1][0][1], donations[1][0][2]],
-                    [donations[1][1][0], donations[1][1][1], donations[1][1][2]]]
-            ];
+            // Get the Merkle proofs
             const proofStructs = [merkleTrees[0].getMultiProof(donations[0]), merkleTrees[1].getMultiProof(donations[1])];
+            // Each claim consists of a triplet: [unitType, unitId, amount]
+            const claims = [proofStructs[0].leaves, proofStructs[1].leaves];
             const multiProofs = [{merkleProof: proofStructs[0].proof, proofFlags: proofStructs[0].proofFlags},
                 {merkleProof: proofStructs[1].proof, proofFlags: proofStructs[1].proofFlags}];
 
@@ -260,7 +255,7 @@ describe("Dispenser Merkle", async () => {
             // Check the OLAS balance after receiving incentives
             const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
             expect(balance).to.equal(accountTopUps);
-            expect(Math.abs(Number(accountTopUps.sub(balance)))).to.lessThan(delta);
+            expect(accountTopUps.sub(balance)).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
@@ -275,9 +270,10 @@ describe("Dispenser Merkle", async () => {
             await ve.setWeightedBalance(minWeightedBalance.toString());
             await ve.createLock(deployer.address);
 
-            // Change the first service owner to the deployer (same for components and agents)
-            const numUnits = 30;
-            await serviceRegistry.changeUnitOwner(1, deployer.address);
+            // Change the service Id owner to the deployer (same for components and agents)
+            const serviceId = await serviceRegistry.NUM_UNITS(); // 30
+            await serviceRegistry.changeUnitOwner(serviceId, deployer.address);
+            const numUnits = await serviceRegistry.NUM_UNITS();
             for (let i = 1; i <= numUnits; i++) {
                 await componentRegistry.changeUnitOwner(i, deployer.address);
                 await agentRegistry.changeUnitOwner(i, deployer.address);
@@ -286,16 +282,15 @@ describe("Dispenser Merkle", async () => {
             // Create a donation Merkle tree
             // We have 2 services, each of them has 1 component and 1 agent
             // Divide donations between components and agents equally
-            const amount = ethers.BigNumber.from(regDepositFromServices).div(numUnits);
+            const amount = ethers.BigNumber.from(regDepositFromServices).div(2 * numUnits);
             const donations = new Array();
             for (let i = 1; i <= numUnits; i++) {
-                donations.push([0, 1, amount]);
-                donations.push([1, 1, amount]);
+                donations.push([0, i, amount]);
+                donations.push([1, i, amount]);
             }
             const merkleTree = StandardMerkleTree.of(donations, ["uint256", "uint256", "uint256"]);
 
             // Send donations to services
-            const serviceId = await serviceRegistry.MORE_UNITS_SERVICE_ID();
             await treasury.connect(deployer).depositServiceDonationsETH([serviceId], [regDepositFromServices],
                 [merkleTree.root], [defaultHashIPSF], {value: regDepositFromServices});
 
@@ -326,6 +321,22 @@ describe("Dispenser Merkle", async () => {
             let accountTopUps = topUps[1].add(topUps[2]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
+
+            // Claim incentives
+            const roundIds = [0];
+            const serviceIds = [serviceId];
+            const proofStructs = merkleTree.getMultiProof(donations);
+            const claims = [proofStructs.leaves];
+            const multiProofs = {merkleProof: proofStructs.proof, proofFlags: proofStructs.proofFlags};
+
+            // Claim rewards and top-ups
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+            await dispenser.claimOwnerIncentives(roundIds, serviceIds, claims, [multiProofs]);
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+
+            // Check the OLAS balance after receiving incentives
+            const balance = balanceAfterTopUps.sub(balanceBeforeTopUps);
+            expect(accountTopUps.sub(balance)).to.lessThan(delta * 100);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

@@ -4,18 +4,11 @@ const { expect } = require("chai");
 const { StandardMerkleTree } = require("@openzeppelin/merkle-tree");
 
 describe("Tokenomics Merkle", async () => {
-    const AddressZero = "0x" + "0".repeat(40);
     const defaultHashIPSF = "0x" + "0".repeat(64);
-
-    let signers;
-    let deployer;
     let tokenomicsMerkle;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
-        signers = await ethers.getSigners();
-        deployer = signers[0];
-
         const TokenomicsMerkle = await ethers.getContractFactory("MockTokenomicsMerkle");
         tokenomicsMerkle = await TokenomicsMerkle.deploy();
         await tokenomicsMerkle.deployed();
@@ -55,10 +48,6 @@ describe("Tokenomics Merkle", async () => {
             const merkleTree = StandardMerkleTree.of(donate, ["uint256", "uint256"]);
 
             // Make a donation
-            let donationAmount = 0;
-            for (let i = 0; i < donate.length; i++) {
-                donationAmount += donate[i][1];
-            }
             const roundId = await tokenomicsMerkle.callStatic.donate(merkleTree.root, defaultHashIPSF, {value: 1});
             await tokenomicsMerkle.donate(merkleTree.root, defaultHashIPSF, {value: 1});
 

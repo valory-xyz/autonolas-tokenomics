@@ -278,7 +278,7 @@ describe("Dispenser", async () => {
             }
 
             // Send donations to services
-            const serviceId = await serviceRegistry.MORE_UNITS_SERVICE_ID();
+            const serviceId = await serviceRegistry.NUM_UNITS();
             await treasury.connect(deployer).depositServiceDonationsETH([serviceId], [regDepositFromServices], {value: regDepositFromServices});
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
@@ -307,6 +307,21 @@ describe("Dispenser", async () => {
             let accountTopUps = topUps[1].add(topUps[2]);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
+
+            // Claim rewards and top-ups
+            const unitTypes = new Array();
+            const unitIds = new Array();
+            for (let i = 1; i <= numUnits; i++) {
+                unitTypes.push(0);
+                unitTypes.push(1);
+                unitIds.push(i);
+                unitIds.push(i);
+            }
+            const balanceBeforeTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+            await dispenser.connect(deployer).claimOwnerIncentives(unitTypes, unitIds);
+            const balanceAfterTopUps = ethers.BigNumber.from(await olas.balanceOf(deployer.address));
+            // Compare the balances
+            expect(balanceAfterTopUps.sub(accountTopUps).sub(balanceBeforeTopUps)).to.lessThan(delta);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
