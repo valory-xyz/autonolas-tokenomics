@@ -341,5 +341,37 @@ describe("Dispenser Merkle", async () => {
             // Restore to the state of the snapshot
             await snapshot.restore();
         });
+
+        it("Donate incentives for multiple services (gas estimation)", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Lock OLAS balances with Voting Escrow
+            const minWeightedBalance = await tokenomics.veOLASThreshold();
+            await ve.setWeightedBalance(minWeightedBalance.toString());
+            await ve.createLock(deployer.address);
+
+            // The number of services is 50
+            const numServices = 50;
+            const serviceIds = new Array();
+            for (let i = 1; i <= numServices; i++) {
+                serviceIds.push(i);
+            }
+
+            // Create a donation Merkle tree
+            // We have 2 services, each of them has 1 component and 1 agent
+            // Divide donations between components and agents equally
+            const amount = ethers.BigNumber.from(regDepositFromServices);
+            const merkleTreeRoots = new Array(numServices).fill(defaultHashIPSF);
+            const hashesIPFS = new Array(numServices).fill(defaultHashIPSF);
+            const amounts = new Array(numServices).fill(amount);
+
+            // Send donations to services
+            await treasury.connect(deployer).depositServiceDonationsETH(serviceIds, amounts,
+                merkleTreeRoots, hashesIPFS, {value: amount.mul(numServices)});
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
     });
 });

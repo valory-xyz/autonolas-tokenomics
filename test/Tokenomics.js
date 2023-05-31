@@ -431,7 +431,7 @@ describe("Tokenomics", async () => {
             await tokenomics.changeManagers(deployer.address, AddressZero, AddressZero);
 
             await expect(
-                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [53], [regDepositFromServices], 0)
+                tokenomics.connect(deployer).trackServiceDonations(deployer.address, [103], [regDepositFromServices], 0)
             ).to.be.revertedWithCustomError(tokenomics, "ServiceDoesNotExist");
         });
 
@@ -580,10 +580,10 @@ describe("Tokenomics", async () => {
 
             // Try to get and claim owner rewards with non-existent components biggest than the total supply
             await expect(
-                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [53, 54])
+                tokenomics.getOwnerIncentives(deployer.address, [0, 0], [103, 104])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
             await expect(
-                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [53, 54])
+                tokenomics.connect(deployer).accountOwnerIncentives(deployer.address, [0, 0], [103, 104])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
             // Try to get incentives with the incorrect unit order

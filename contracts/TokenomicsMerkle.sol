@@ -1248,18 +1248,16 @@ contract TokenomicsMerkle is TokenomicsConstants, IErrorsTokenomics {
         }
 
         for (uint256 r = 0; r < roundIds.length; ++r) {
-            uint256[] memory lastIds = new uint256[](2);
             for (uint256 i = 0; i < claims.length; ++i) {
                 // Check for the unit type to be component / agent only
                 if (claims[r][i][0] > 1) {
                     revert Overflow(claims[r][i][0], 1);
                 }
 
-                // Check that the unit Ids are in ascending order, not repeating, and no bigger than registries total supply
-                if (claims[r][i][1] <= lastIds[claims[r][i][0]] || claims[r][i][1] > registriesSupply[claims[r][i][0]]) {
+                // Check for the unit existence
+                if (claims[r][i][1] == 0 || claims[r][i][1] > registriesSupply[claims[r][i][0]]) {
                     revert WrongUnitId(claims[r][i][1], claims[r][i][0]);
                 }
-                lastIds[claims[r][i][0]] = claims[r][i][1];
 
                 // Check the component / agent Id ownership
                 address unitOwner = IToken(registries[claims[r][i][0]]).ownerOf(claims[r][i][1]);

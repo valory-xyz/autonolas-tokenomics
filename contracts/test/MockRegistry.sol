@@ -11,7 +11,7 @@ contract MockRegistry {
     }
 
     uint256 public constant NON_DEPLOYED_SERVICE_ID = 100;
-    uint256 public constant NUM_UNITS = 30;
+    uint256 public constant NUM_UNITS = 99;
     address[] public accounts;
 
     constructor() {
@@ -24,7 +24,7 @@ contract MockRegistry {
     /// @param serviceId Service Id.
     /// @return true if the service exists, false otherwise.
     function exists(uint256 serviceId) external pure returns (bool) {
-        if (serviceId > 0 && serviceId < 50 || serviceId == NON_DEPLOYED_SERVICE_ID) {
+        if (serviceId > 0 && serviceId <= NUM_UNITS || serviceId == NON_DEPLOYED_SERVICE_ID) {
             return true;
         }
         return false;
