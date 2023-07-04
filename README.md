@@ -66,7 +66,7 @@ forge test --hh -vv
 
 ### Audits
 The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-A list of known vulnerabilities can be found here: [Vulnerabilities list 1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_1.pdf?raw=true).
+A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf?raw=true).
 
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
