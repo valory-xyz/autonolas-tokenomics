@@ -669,7 +669,7 @@ describe("Tokenomics", async () => {
                 regDepositFromServices], {value: twoRegDepositFromServices});
 
             // Get to the time of one and a half the epoch length before the year change (1.5 epoch length)
-            await helpers.time.increase(oneYear - epochLen - epochLen / 2);
+            await helpers.time.increase(oneYear - epochLen / 2);
 
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.changeManagers(treasury.address, AddressZero, AddressZero);
