@@ -646,6 +646,8 @@ describe("Tokenomics", async () => {
                 (Number(ep.totalTopUpsOLAS) * Number(up[1].topUpUnitFraction)) / 100
             ];
             const accountTopUps = topUps[1] + topUps[2];
+            console.log(accountRewards);
+            console.log(accountTopUps);
             expect(accountRewards).to.greaterThan(0);
             expect(accountTopUps).to.greaterThan(0);
 
@@ -655,6 +657,51 @@ describe("Tokenomics", async () => {
             // Get the top-up number per epoch
             const topUp = await tokenomics.getInflationPerEpoch();
             expect(topUp).to.greaterThan(0);
+        });
+
+        it("Calculate incentives in the epoch next to the year changing one", async () => {
+            // Take a snapshot of the current state of the blockchain
+            let snapshot = await helpers.takeSnapshot();
+
+            const accounts = await serviceRegistry.getUnitOwners();
+            // Send the revenues to services
+            await treasury.connect(deployer).depositServiceDonationsETH(accounts, [regDepositFromServices,
+                regDepositFromServices], {value: twoRegDepositFromServices});
+
+            // Get to the time of one and a half the epoch length before the year change (1.5 epoch length)
+            await helpers.time.increase(oneYear - epochLen - epochLen / 2);
+
+            // Start new epoch and calculate tokenomics parameters and rewards
+            await tokenomics.changeManagers(treasury.address, AddressZero, AddressZero);
+            const tx = await tokenomics.connect(deployer).checkpoint();
+            const result = await tx.wait();
+
+            // Get the last settled epoch counter
+            const lastPoint = Number(await tokenomics.epochCounter()) - 1;
+            // Get the epoch point of the last epoch
+            const ep = await tokenomics.mapEpochTokenomics(lastPoint);
+            // Get the unit points of the last epoch
+            const up = [await tokenomics.getUnitPoint(lastPoint, 0), await tokenomics.getUnitPoint(lastPoint, 1)];
+            // Calculate rewards based on the points information
+            const percentFraction = ethers.BigNumber.from(100);
+            const rewards = [
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[0].rewardUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalDonationsETH).mul(ethers.BigNumber.from(up[1].rewardUnitFraction)).div(percentFraction)
+            ];
+            const accountRewards = rewards[0].add(rewards[1]);
+            // Calculate top-ups based on the points information
+            const topUps = [
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(ep.maxBondFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[0].topUpUnitFraction)).div(percentFraction),
+                ethers.BigNumber.from(ep.totalTopUpsOLAS).mul(ethers.BigNumber.from(up[1].topUpUnitFraction)).div(percentFraction)
+            ];
+            const accountTopUps = topUps[1].add(topUps[2]);
+
+            expect(result.events[1].args.accountRewards).to.equal(accountRewards);
+            expect(result.events[1].args.accountTopUps).to.equal(accountTopUps);
+
+            // Restore the state of the blockchain back to the very beginning of this test
+            snapshot.restore();
         });
 
         it("Changing maxBond values", async function () {
