@@ -37,7 +37,10 @@ async function main() {
     console.log("19. Calculate LP price for the bonding product");
 
     const numETH = 50;
-    const priceETH = 1889.72;
+    const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+    const data = await response.json();
+    const priceETH = data.ethereum.usd;
+    console.log("ETH price in USD:", priceETH);
     const priceOLAS = 0.05;
     // Number of OLAS
     const numOLAS = (numETH * priceETH) / priceOLAS;
@@ -49,10 +52,6 @@ async function main() {
     const vesting = 3600 * 24 * 30;
     const token = parsedData.OLAS_ETH_PairAddress;
     let priceLP = ethers.BigNumber.from("1000");//ethers.BigNumber.from(await depository.getCurrentPriceLP(token));
-
-    // REMOVE THESE TWO LINES
-    let tryPriceLP = (ethers.BigNumber.from("10861016691542481539455500").mul(ethers.BigNumber.from("1" + "0".repeat(18)))).div(ethers.BigNumber.from("9626349529876556621"));
-    priceLP = tryPriceLP;
 
     // Final price LP
     priceLP = priceLP.add(priceLP.div(ethers.BigNumber.from(2)));
