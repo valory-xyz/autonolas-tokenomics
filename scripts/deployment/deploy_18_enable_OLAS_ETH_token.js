@@ -32,11 +32,11 @@ async function main() {
     const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
 
     // Proposal preparation
-    console.log("18. Enable OLAS-USDC pair token by calling `enableToken(OLAS_USDC_PairAddress)`");
+    console.log("18. Enable OLAS-USDC pair token by calling `enableToken(OLAS_ETH_PairAddress)`");
     const targets = [treasuryAddress];
     const values = [0];
-    const callDatas = [treasury.interface.encodeFunctionData("enableToken", [parsedData.OLAS_USDC_PairAddress])];
-    const description = "Enable OLAS-USDC pair";
+    const callDatas = [treasury.interface.encodeFunctionData("enableToken", [parsedData.OLAS_ETH_PairAddress])];
+    const description = "Enable OLAS-ETH pair";
 
     // Proposal details
     console.log("targets:", targets);
