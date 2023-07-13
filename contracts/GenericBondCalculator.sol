@@ -86,7 +86,7 @@ contract GenericBondCalculator {
                 }
                 // Calculate the LP price based on reserves and totalSupply ratio multiplied by 1e18
                 // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
-                    priceLP = (reserve1 * 1e18) / totalSupply;
+                priceLP = (reserve1 * 1e18) / totalSupply;
             }
         }
     }
