@@ -31,8 +31,8 @@ async function main() {
     //wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const treasuryJSON = "artifacts/contracts/Treasury.sol/Treasury.json";
-    contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
+    let contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
+    let parsedFile = JSON.parse(contractFromJSON);
     let abi = parsedFile["abi"];
 
     // Treasury contract instance
@@ -40,8 +40,8 @@ async function main() {
     console.log(treasury.address);
 
     // Enable token
-//    await treasury.connect(signer).enableToken(token);
-//    console.log(await treasury.isEnabled(token));
+    //await treasury.connect(signer).enableToken(token);
+    //console.log(await treasury.isEnabled(token));
 
     const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
     contractFromJSON = fs.readFileSync(depositoryJSON, "utf8");
@@ -53,8 +53,8 @@ async function main() {
     console.log(depository.address);
 
     // Create a bonding product
-//    const vesting = 3600 * 24 * 7;
-//    await depository.connect(signer).create(token, "229846666583294163442", "1" + "0".repeat(24), vesting);
+    //const vesting = 3600 * 24 * 7;
+    //await depository.connect(signer).create(token, "229846666583294163442", "1" + "0".repeat(24), vesting);
 
     console.log(await depository.isActiveProduct(0));
 }
