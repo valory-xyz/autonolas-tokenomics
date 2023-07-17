@@ -98,7 +98,7 @@ async function main() {
     for (let i = 0; i < 5; i++) {
         priceLP = ethers.BigNumber.from(pricesLP[i]);
         finalPricesLP[i] = priceLP.add(priceLP.div(ethers.BigNumber.from(2)));
-        //console.log("finalPricesLP:", finalPricesLP[i]);
+        console.log("finalPricesLP:", finalPricesLP[i]);
     }
 
     //console.log("supply", supply);
