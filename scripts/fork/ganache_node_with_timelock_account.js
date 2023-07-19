@@ -6,10 +6,12 @@ async function main() {
     // To run ganache fork with the timelock being the signer, use the following command:
     // ganache-cli --fork node_URL --chain.chainId=100000 --gasPrice 20000000000 --gasLimit 1600000000 --deterministic --database.dbPath ganache_data -u 0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE
 
+    let initBlockNumber;
     const URL = "http://127.0.0.1:8545";
     const provider = new ethers.providers.JsonRpcProvider(URL);
     await provider.getBlockNumber().then((result) => {
-        console.log("Current fork block number: " + result);
+        initBlockNumber = result;
+        console.log("Current fork block number: " + initBlockNumber);
     });
 
     const fs = require("fs");
@@ -54,10 +56,36 @@ async function main() {
     const depository = new ethers.Contract(depositoryAddress, abi, signer);
     //console.log(depository.address);
 
-    // Create a bonding product
+    // Create 5 bonding products
     const vesting = 3600 * 24 * 7;
     //await depository.connect(signer).create(tokenAddress, "229846666583294163442", "1" + "0".repeat(24), vesting);
+    //await depository.connect(signer).create(tokenAddress, "201788328124398469593", "1" + "0".repeat(24), vesting);
+    //await depository.connect(signer).create(tokenAddress, "178406379408652058052", "3" + "0".repeat(23), vesting);
+    //await depository.connect(signer).create(tokenAddress, "159700820436054928818", "3" + "0".repeat(23), vesting);
+    //await depository.connect(signer).create(tokenAddress, "150348040949756364202", "3" + "0".repeat(23), vesting);
     //console.log(await depository.isActiveProduct(0));
+
+    const eventName = "CreateProduct";
+    const eventFilter = depository.filters[eventName]();
+    const curBlock = await provider.getBlock("latest");
+    const curBlockNumber = curBlock.number;
+    const filter = new Array;
+    const productId = 0;
+    filter.push(eventFilter.topics[0]);
+    filter.push("0x" + "0".repeat(24) + tokenAddress.slice(2));
+    filter.push(ethers.utils.hexZeroPad(ethers.utils.hexlify(productId), 32));
+
+    const logs = await provider.getLogs({
+        fromBlock: curBlockNumber - 10, // Starting block number to search for the event (You can adjust this)
+        toBlock: curBlockNumber, // Ending block number to search for the event
+        address: depository.address,
+        topics: filter,
+    });
+
+    const blockNumber = logs[0].blockNumber;
+    const block = await provider.getBlock(blockNumber);
+    const timestamp = block.timestamp;
+    //console.log(timestamp);
 
     // Get the Uniswap Router contract
     const uniswapRouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
@@ -110,16 +138,16 @@ async function main() {
     const pair = new ethers.Contract(tokenAddress, abi, signer);
     const tokenBalance = Number(await pair.balanceOf(to));
     const totalSupply = Number(await pair.totalSupply());
-    console.log("Our share", (tokenBalance * 1.0 / totalSupply));
+    //console.log("Our share", (tokenBalance * 1.0 / totalSupply));
 
     // Approve LP token for treasury
-    //await pair.approve(treasuryAddress, ethers.constants.MaxUint256);
+    //await pair.connect(wallet).approve(treasuryAddress, ethers.constants.MaxUint256);
 
     // Deposit for the bond
     //await depository.connect(wallet).deposit(0, "5" + "0".repeat(19));
 
     // Get the current nonce
-    //console.log(await provider.getTransactionCount(to));
+    console.log(await provider.getTransactionCount(to));
 }
 
 main()

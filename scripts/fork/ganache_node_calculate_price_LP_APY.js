@@ -68,7 +68,6 @@ async function main() {
 
     const res = await pair.getReserves();
     const resOLAS = ethers.BigNumber.from(res._reserve0);
-    const resETH = ethers.BigNumber.from(res._reserve1);
     const totalSupply = ethers.BigNumber.from(await pair.totalSupply());
 
     // Get the product with a specific Id
@@ -82,13 +81,16 @@ async function main() {
     const profitDenominator = ethers.BigNumber.from(3).mul(resOLAS);
     console.log("profitDenominator", profitDenominator.toString());
 
-    const profit = Number(profitNumerator) * 1.0 / Number(profitDenominator);
+    const profit = Number(profitNumerator) * 1.0 / Number(profitDenominator) - 1;
     console.log("profit", profit);
 
     const oneYear = 3600 * 24 * 365;
     const n = oneYear / vesting;
-    const APY = Math.pow(profit, n) - 1;
-    console.log(APY);
+    console.log(n);
+    //const APY = Math.pow(profit, n) - 1;
+    const APY = (1 + profit / n) ** n - 1;
+    const roundAPY = Math.round(APY * 100, 2);
+    console.log(roundAPY);
 
     //const pricesLP = ["153231111055529442295", "134525552082932313062", "118937586272434705368", "106467213624036619212", "100232027299837576135"];
     //const finalPricesLP = new Array(5);
