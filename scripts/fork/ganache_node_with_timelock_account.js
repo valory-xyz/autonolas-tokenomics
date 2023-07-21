@@ -32,7 +32,7 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    //wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
+    wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const treasuryJSON = "artifacts/contracts/Treasury.sol/Treasury.json";
     let contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
@@ -138,7 +138,7 @@ async function main() {
     const pair = new ethers.Contract(tokenAddress, abi, signer);
     const tokenBalance = Number(await pair.balanceOf(to));
     const totalSupply = Number(await pair.totalSupply());
-    //console.log("Our share", (tokenBalance * 1.0 / totalSupply));
+    console.log("Our share", (tokenBalance * 1.0 / totalSupply));
 
     // Approve LP token for treasury
     //await pair.connect(wallet).approve(treasuryAddress, ethers.constants.MaxUint256);
