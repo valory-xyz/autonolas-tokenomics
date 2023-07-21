@@ -1004,6 +1004,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
 
+        // Cumulative incentives
+        uint256 accountRewards = incentives[2] + incentives[3];
+        // Owner top-ups: epoch incentives for component owners funded with the inflation
+        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
+        // Owner top-ups: epoch incentives for agent owners funded with the inflation
+        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
+        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
+        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
+        // This amount will appear in the EpochSettled event, and thus can be tracked historically
+        uint256 accountTopUps = incentives[5] + incentives[6];
+
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year changes
@@ -1047,17 +1058,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Assign a default IDF value
             nextEpochPoint.epochPoint.idf = 1e18;
         }
-
-        // Cumulative incentives
-        uint256 accountRewards = incentives[2] + incentives[3];
-        // Owner top-ups: epoch incentives for component owners funded with the inflation
-        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
-        // Owner top-ups: epoch incentives for agent owners funded with the inflation
-        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
-        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
-        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
-        // This amount will appear in the EpochSettled event, and thus can be tracked historically
-        uint256 accountTopUps = incentives[5] + incentives[6];
 
         // Treasury contract rebalances ETH funds depending on the treasury rewards
         if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {
