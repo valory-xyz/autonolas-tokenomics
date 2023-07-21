@@ -16,12 +16,8 @@ async function main() {
     let parsedData = JSON.parse(dataFromJSON);
 
     // Get all the necessary contract addresses
-    const timelockAddress = parsedData.timelockAddress;
-    const treasuryAddress = parsedData.treasuryAddress;
     const depositoryAddress = parsedData.depositoryAddress;
     const tokenAddress = parsedData.OLAS_ETH_PairAddress;
-    const olasAddress = parsedData.olasAddress;
-    const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
     // EOA address
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
@@ -30,9 +26,9 @@ async function main() {
     console.log("EOA is:", deployer);
 
     const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
-    contractFromJSON = fs.readFileSync(depositoryJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
-    abi = parsedFile["abi"];
+    const contractFromJSON = fs.readFileSync(depositoryJSON, "utf8");
+    const parsedFile = JSON.parse(contractFromJSON);
+    const abi = parsedFile["abi"];
 
     // Depository contract instance
     const depository = new ethers.Contract(depositoryAddress, abi, provider);
