@@ -63,7 +63,7 @@ module.exports = {
         },
         hardhat: {
             allowUnlimitedContractSize: true,
-            accounts
+            accounts,
         },
     },
     etherscan: {

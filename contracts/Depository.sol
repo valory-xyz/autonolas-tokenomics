@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/IGenericBondCalculator.sol";
@@ -46,9 +46,9 @@ struct Product {
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
     // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
     uint160 priceLP;
-    // Product expiry time (initialization time + vesting time)
+    // Bond vesting time
     // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
-    uint32 expiry;
+    uint32 vesting;
     // Token to accept as a payment
     address token;
     // Supply of remaining OLAS tokens
@@ -65,10 +65,11 @@ contract Depository is IErrorsTokenomics {
     event TreasuryUpdated(address indexed treasury);
     event BondCalculatorUpdated(address indexed _bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
-        uint256 amountOLAS, uint256 tokenAmount, uint256 expiry);
-    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
-    event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP, uint256 expiry);
-    event CloseProduct(address indexed token, uint256 indexed productId);
+        uint256 amountOLAS, uint256 tokenAmount, uint256 maturity, uint256 startTime);
+    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId, uint256 redeemTime);
+    event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP,
+        uint256 vesting, uint256 startTime);
+    event CloseProduct(address indexed token, uint256 indexed productId, uint256 closeTime);
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
@@ -176,7 +177,7 @@ contract Depository is IErrorsTokenomics {
     /// @param vesting Vesting period (in seconds).
     /// @return productId New bond product Id.
     /// #if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter) + 1;
-    /// #if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry == block.timestamp + vesting;
+    /// #if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].vesting == vesting;
     function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -208,10 +209,11 @@ contract Depository is IErrorsTokenomics {
             revert LowerThan(vesting, MIN_VESTING);
         }
 
-        // Check for the expiration time overflow
-        uint256 expiry = block.timestamp + vesting;
-        if (expiry > type(uint32).max) {
-            revert Overflow(expiry, type(uint32).max);
+        // Check for the maturity time overflow for the current timestamp considering that the product will be live
+        // for at least MIN_VESTING time
+        uint256 maturity = block.timestamp + MIN_VESTING + vesting;
+        if (maturity > type(uint32).max) {
+            revert Overflow(maturity, type(uint32).max);
         }
 
         // Check if the LP token is enabled
@@ -226,18 +228,19 @@ contract Depository is IErrorsTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint160(priceLP), uint32(expiry), token, uint96(supply));
+        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
-        emit CreateProduct(token, productId, supply, priceLP, expiry);
+        emit CreateProduct(token, productId, supply, priceLP, vesting, block.timestamp);
     }
 
     /// @dev Closes bonding products.
     /// @notice This will terminate programs regardless of their vesting time.
     /// @param productIds Set of product Ids.
+    /// @return numClosedProducts Number of closed products.
     /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
-    /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].expiry == 0 && mapBondProducts[productIds[k]].supply == 0;
-    function close(uint256[] memory productIds) external {
+    /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].vesting == 0 && mapBondProducts[productIds[k]].supply == 0;
+    function close(uint256[] memory productIds) external returns (uint256 numClosedProducts) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -246,19 +249,20 @@ contract Depository is IErrorsTokenomics {
         for (uint256 i = 0; i < productIds.length; ++i) {
             uint256 productId = productIds[i];
             // Check if the product is still open
-            if (mapBondProducts[productId].expiry == 0) {
-                revert ProductClosed(productId);
+            if (mapBondProducts[productId].vesting == 0) {
+                continue;
             }
 
             uint256 supply = mapBondProducts[productId].supply;
-            // Refund unused OLAS supply from the program if it was not used by the product completely
+            // Refund unused OLAS supply from the product if it was not used by the product completely
             if (supply > 0) {
                 ITokenomics(tokenomics).refundFromBondProgram(supply);
             }
             address token = mapBondProducts[productId].token;
             delete mapBondProducts[productId];
 
-            emit CloseProduct(token, productId);
+            numClosedProducts++;
+            emit CloseProduct(token, productId, block.timestamp);
         }
     }
 
@@ -266,16 +270,16 @@ contract Depository is IErrorsTokenomics {
     /// @param productId Product Id.
     /// @param tokenAmount Token amount to deposit for the bond.
     /// @return payout The amount of OLAS tokens due.
-    /// @return expiry Timestamp for payout redemption.
+    /// @return maturity Timestamp for payout redemption.
     /// @return bondId Id of a newly created bond.
     /// #if_succeeds {:msg "token is valid"} mapBondProducts[productId].token != address(0);
     /// #if_succeeds {:msg "input supply is non-zero"} old(mapBondProducts[productId].supply) > 0 && mapBondProducts[productId].supply <= type(uint96).max;
-    /// #if_succeeds {:msg "expiry is non-zero"} mapBondProducts[productId].expiry > 0 && mapBondProducts[productId].expiry <= type(uint32).max;
+    /// #if_succeeds {:msg "vesting is non-zero"} mapBondProducts[productId].vesting > 0 && mapBondProducts[productId].vesting + block.timestamp <= type(uint32).max;
     /// #if_succeeds {:msg "bond Id"} bondCounter == old(bondCounter) + 1 && bondCounter <= type(uint32).max;
     /// #if_succeeds {:msg "payout"} old(mapBondProducts[productId].supply) == mapBondProducts[productId].supply + payout;
     /// #if_succeeds {:msg "OLAS balances"} IToken(mapBondProducts[productId].token).balanceOf(treasury) == old(IToken(mapBondProducts[productId].token).balanceOf(treasury)) + tokenAmount;
     function deposit(uint256 productId, uint256 tokenAmount) external
-        returns (uint256 payout, uint256 expiry, uint256 bondId)
+        returns (uint256 payout, uint256 maturity, uint256 bondId)
     {
         // Check the token amount
         if (tokenAmount == 0) {
@@ -288,13 +292,19 @@ contract Depository is IErrorsTokenomics {
         // Get the LP token address
         address token = product.token;
 
-        // Check for the product expiry
-        // Note that if the token or productId are invalid, the expiry will be zero by default and revert the function
-        expiry = product.expiry;
-        if (expiry < block.timestamp) {
-            revert ProductExpired(token, productId, product.expiry, block.timestamp);
+        // Check for the product vesting time
+        // Note that if the token or productId are invalid, the vesting will be zero by default and result in revert
+        uint256 vesting = product.vesting;
+        if (vesting == 0) {
+            revert ProductExpired(token, productId, vesting, block.timestamp);
         }
 
+        maturity = vesting + block.timestamp;
+        // Check for the time limits
+        if (maturity > type(uint32).max) {
+            revert Overflow(maturity, type(uint32).max);
+        }
+        
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
         payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
@@ -311,13 +321,19 @@ contract Depository is IErrorsTokenomics {
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
-        mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(expiry), uint32(productId));
+        mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(maturity), uint32(productId));
         bondCounter = uint32(bondId + 1);
 
         // Deposit that token amount to mint OLAS tokens in exchange
         ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
 
-        emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, expiry);
+        // Close the product if the supply becomes zero
+        if (supply == 0) {
+            delete mapBondProducts[productId];
+            emit CloseProduct(token, productId, block.timestamp);
+        }
+
+        emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, maturity, block.timestamp);
     }
 
     /// @dev Redeems account bonds.
@@ -344,58 +360,39 @@ contract Depository is IErrorsTokenomics {
                 revert OwnerOnly(msg.sender, mapUserBonds[bondIds[i]].account);
             }
 
-            // Get the productId for its status check
-            uint256 productId = mapUserBonds[bondIds[i]].productId;
-
-            // Close the program if it was not yet closed
-            if (mapBondProducts[productId].expiry > 0) {
-                uint256 supply = mapBondProducts[productId].supply;
-                // Refund unused OLAS supply from the program if not used completely
-                if (supply > 0) {
-                    ITokenomics(tokenomics).refundFromBondProgram(supply);
-                }
-                address token = mapBondProducts[productId].token;
-                delete mapBondProducts[productId];
-
-                emit CloseProduct(token, productId);
-            }
             // Increase the payout
             payout += pay;
+
+            // Get the productId
+            uint256 productId = mapUserBonds[bondIds[i]].productId;
+
             // Delete the Bond struct and release the gas
             delete mapUserBonds[bondIds[i]];
-            emit RedeemBond(productId, msg.sender, bondIds[i]);
+            emit RedeemBond(productId, msg.sender, bondIds[i], block.timestamp);
         }
 
         // Check for the non-zero payout
         if (payout == 0) {
             revert ZeroValue();
         }
+
         // No reentrancy risk here since it's the last operation, and originated from the OLAS token
         // No need to check for the return value, since it either reverts or returns true, see the ERC20 implementation
         IToken(olas).transfer(msg.sender, payout);
     }
 
-    /// @dev Gets an array of active or inactive (but not deleted) product Ids for a specific token.
-    /// @param active Flag to select active or inactive products.
+    /// @dev Gets an array of active product Ids for a specific token.
     /// @return productIds Product Ids.
-    function getProducts(bool active) external view returns (uint256[] memory productIds) {
+    function getProducts() external view returns (uint256[] memory productIds) {
         // Calculate the number of active products
         uint256 numProducts = productCounter;
         bool[] memory positions = new bool[](numProducts);
         uint256 numSelectedProducts;
-        if (active) {
-            for (uint256 i = 0; i < numProducts; i++) {
-                if (mapBondProducts[i].supply > 0 && mapBondProducts[i].expiry > block.timestamp) {
-                    positions[i] = true;
-                    ++numSelectedProducts;
-                }
-            }
-        } else {
-            for (uint256 i = 0; i < numProducts; i++) {
-                if (mapBondProducts[i].token != address(0) && mapBondProducts[i].expiry <= block.timestamp) {
-                    positions[i] = true;
-                    ++numSelectedProducts;
-                }
+        // Product is always active if supply is not zero
+        for (uint256 i = 0; i < numProducts; i++) {
+            if (mapBondProducts[i].supply > 0) {
+                positions[i] = true;
+                ++numSelectedProducts;
             }
         }
 
@@ -415,7 +412,7 @@ contract Depository is IErrorsTokenomics {
     /// @param productId Product Id.
     /// @return status True if the product is active.
     function isActiveProduct(uint256 productId) external view returns (bool status) {
-        status = (mapBondProducts[productId].supply > 0 && mapBondProducts[productId].expiry > block.timestamp);
+        status = (mapBondProducts[productId].supply > 0);
     }
 
     /// @dev Gets bond Ids for the account address.
