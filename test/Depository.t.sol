@@ -159,5 +159,7 @@ contract DepositoryTest is BaseSetup {
         // Close products
         uint256[] memory productsToClose = new uint256[](1);
         depository.close(productsToClose);
+        // Try closing again and not revert
+        depository.close(productsToClose);
     }
 }
