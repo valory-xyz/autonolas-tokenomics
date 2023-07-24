@@ -249,20 +249,18 @@ contract Depository is IErrorsTokenomics {
         for (uint256 i = 0; i < productIds.length; ++i) {
             uint256 productId = productIds[i];
             // Check if the product is still open
-            if (mapBondProducts[productId].vesting == 0) {
-                continue;
-            }
+            if (mapBondProducts[productId].vesting > 0) {
+                uint256 supply = mapBondProducts[productId].supply;
+                // Refund unused OLAS supply from the product if it was not used by the product completely
+                if (supply > 0) {
+                    ITokenomics(tokenomics).refundFromBondProgram(supply);
+                }
+                address token = mapBondProducts[productId].token;
+                delete mapBondProducts[productId];
 
-            uint256 supply = mapBondProducts[productId].supply;
-            // Refund unused OLAS supply from the product if it was not used by the product completely
-            if (supply > 0) {
-                ITokenomics(tokenomics).refundFromBondProgram(supply);
+                numClosedProducts++;
+                emit CloseProduct(token, productId, block.timestamp);
             }
-            address token = mapBondProducts[productId].token;
-            delete mapBondProducts[productId];
-
-            numClosedProducts++;
-            emit CloseProduct(token, productId, block.timestamp);
         }
     }
 
