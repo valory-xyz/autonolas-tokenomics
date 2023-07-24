@@ -314,6 +314,40 @@ describe("Depository LP", async () => {
             ).to.be.revertedWithCustomError(depository, "LowerThan");
         });
 
+        it("Should fail when creating a product with a vesting time close to the uint32.max", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            const maxVesting = await depository.MAX_VESTING();
+            // Move time close to uint32.max
+            await helpers.time.increaseTo(Number(maxUint32));
+
+            await expect(
+                depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, maxVesting)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Should fail when creating a bond with a vesting time past the uint32.max", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            const maxVesting = await depository.MAX_VESTING();
+            await depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, maxVesting);
+
+            // Move time close to uint32.max
+            await helpers.time.increaseTo(Number(maxUint32));
+
+            await expect(
+                depository.connect(bob).deposit(productId, 1)
+            ).to.be.revertedWithCustomError(depository, "Overflow");
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
         it("Should fail when creating a product with a zero token address", async () => {
             await expect(
                 depository.create(AddressZero, defaultPriceLP, supplyProductOLAS, vesting)
