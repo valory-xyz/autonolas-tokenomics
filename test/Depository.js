@@ -1,5 +1,5 @@
 /*global describe, beforeEach, it, context*/
-const { ethers, network } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -39,8 +39,6 @@ describe("Depository LP", async () => {
     const maxUint32 = "4294967295";
 
     let vesting = oneWeek;
-    let timeToConclusion = 60 * 60 * 24;
-    let conclusion;
 
     let productId = 0;
     let first;
@@ -166,9 +164,6 @@ describe("Depository LP", async () => {
         await treasury.enableToken(pairODAI.address);
         const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
         await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
-
-        const block = await ethers.provider.getBlock("latest");
-        conclusion = block.timestamp + timeToConclusion;
     });
 
     context("Initialization", async function () {
@@ -350,7 +345,6 @@ describe("Depository LP", async () => {
         });
 
         it("Should fail when the vesting time is too big", async () => {
-            const product = await depository.mapBondProducts(productId);
             const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
             await expect(
                 depository.create(pairODAI.address, priceLP, supplyProductOLAS, maxUint32 + "0")
