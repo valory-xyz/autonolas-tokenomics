@@ -73,6 +73,8 @@ contract Depository is IErrorsTokenomics {
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
+    // Maximum bond vesting value
+    uint256 public constant MAX_VESTING = 4 * 365 days;
     
     // Owner address
     address public owner;
@@ -209,9 +211,13 @@ contract Depository is IErrorsTokenomics {
             revert LowerThan(vesting, MIN_VESTING);
         }
 
-        // Check for the maturity time overflow for the current timestamp considering that the product will be live
-        // for at least MIN_VESTING time
-        uint256 maturity = block.timestamp + MIN_VESTING + vesting;
+        // Check the vesting maximum limit value
+        if (vesting > MAX_VESTING) {
+            revert Overflow(vesting, MAX_VESTING);
+        }
+
+        // Check for the maturity time overflow for the current timestamp
+        uint256 maturity = block.timestamp + vesting;
         if (maturity > type(uint32).max) {
             revert Overflow(maturity, type(uint32).max);
         }
