@@ -65,11 +65,11 @@ contract Depository is IErrorsTokenomics {
     event TreasuryUpdated(address indexed treasury);
     event BondCalculatorUpdated(address indexed _bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
-        uint256 amountOLAS, uint256 tokenAmount, uint256 maturity, uint256 startTime);
-    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId, uint256 redeemTime);
+        uint256 amountOLAS, uint256 tokenAmount, uint256 maturity);
+    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
     event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP,
-        uint256 vesting, uint256 startTime);
-    event CloseProduct(address indexed token, uint256 indexed productId, uint256 closeTime);
+        uint256 vesting);
+    event CloseProduct(address indexed token, uint256 indexed productId);
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
@@ -237,7 +237,7 @@ contract Depository is IErrorsTokenomics {
         mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
-        emit CreateProduct(token, productId, supply, priceLP, vesting, block.timestamp);
+        emit CreateProduct(token, productId, supply, priceLP, vesting);
     }
 
     /// @dev Closes bonding products.
@@ -264,7 +264,7 @@ contract Depository is IErrorsTokenomics {
                 delete mapBondProducts[productId];
 
                 numClosedProducts++;
-                emit CloseProduct(token, productId, block.timestamp);
+                emit CloseProduct(token, productId);
             }
         }
     }
@@ -333,10 +333,10 @@ contract Depository is IErrorsTokenomics {
         // Close the product if the supply becomes zero
         if (supply == 0) {
             delete mapBondProducts[productId];
-            emit CloseProduct(token, productId, block.timestamp);
+            emit CloseProduct(token, productId);
         }
 
-        emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, maturity, block.timestamp);
+        emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, maturity);
     }
 
     /// @dev Redeems account bonds.
@@ -371,7 +371,7 @@ contract Depository is IErrorsTokenomics {
 
             // Delete the Bond struct and release the gas
             delete mapUserBonds[bondIds[i]];
-            emit RedeemBond(productId, msg.sender, bondIds[i], block.timestamp);
+            emit RedeemBond(productId, msg.sender, bondIds[i]);
         }
 
         // Check for the non-zero payout
