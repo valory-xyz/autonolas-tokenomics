@@ -1,0 +1,67 @@
+INFO:Printers:
+Contract IGenericBondCalculator
++---------------------+-------------------+
+|       Function      | require or assert |
++---------------------+-------------------+
+| calculatePayoutOLAS |                   |
+|  getCurrentPriceLP  |                   |
++---------------------+-------------------+
+INFO:Printers:
+Contract IToken
++--------------+-------------------+
+|   Function   | require or assert |
++--------------+-------------------+
+|  balanceOf   |                   |
+|   ownerOf    |                   |
+| totalSupply  |                   |
+|   transfer   |                   |
+|  allowance   |                   |
+|   approve    |                   |
+| transferFrom |                   |
++--------------+-------------------+
+INFO:Printers:
+Contract ITokenomics
++-----------------------------+-------------------+
+|           Function          | require or assert |
++-----------------------------+-------------------+
+|        effectiveBond        |                   |
+|          checkpoint         |                   |
+|    trackServiceDonations    |                   |
+| reserveAmountForBondProgram |                   |
+|    refundFromBondProgram    |                   |
+|    accountOwnerIncentives   |                   |
+|          getLastIDF         |                   |
+|       serviceRegistry       |                   |
++-----------------------------+-------------------+
+INFO:Printers:
+Contract ITreasury
++----------------------------+-------------------+
+|          Function          | require or assert |
++----------------------------+-------------------+
+|    depositTokenForOLAS     |                   |
+| depositServiceDonationsETH |                   |
+|         isEnabled          |                   |
+|     withdrawToAccount      |                   |
+|     rebalanceTreasury      |                   |
++----------------------------+-------------------+
+INFO:Printers:
+Contract Depository
++-------------------------------------+-------------------+
+|               Function              | require or assert |
++-------------------------------------+-------------------+
+|             constructor             |                   |
+|             changeOwner             |                   |
+|            changeManagers           |                   |
+|         changeBondCalculator        |                   |
+|                create               |                   |
+|                close                |                   |
+|               deposit               |                   |
+|                redeem               |                   |
+|             getProducts             |                   |
+|           isActiveProduct           |                   |
+|               getBonds              |                   |
+|            getBondStatus            |                   |
+|          getCurrentPriceLP          |                   |
+| slitherConstructorConstantVariables |                   |
++-------------------------------------+-------------------+
+INFO:Slither:. analyzed (6 contracts)

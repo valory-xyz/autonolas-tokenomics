@@ -1,0 +1,3 @@
+INFO:Printers:Inheritance Graph: ./Depository.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (6 contracts)
