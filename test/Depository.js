@@ -905,7 +905,7 @@ describe("Depository LP", async () => {
 
             // The product is still open, let's close it
             expect(await depository.isActiveProduct(productId)).to.equal(true);
-            await depository.close([0]);
+            await depository.close([productId]);
             expect(await depository.isActiveProduct(productId)).to.equal(false);
 
             // Now change the depository contract address
@@ -918,9 +918,9 @@ describe("Depository LP", async () => {
 
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
-            const balanceBefore = await olas.balanceOf(bob.address);
 
             // Redeem the bond and check the OLAS balance
+            const balanceBefore = await olas.balanceOf(bob.address);
             await depository.connect(bob).redeem([productId]);
             const balanceAfter = await olas.balanceOf(bob.address);
 
