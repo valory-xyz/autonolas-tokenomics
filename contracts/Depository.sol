@@ -73,6 +73,8 @@ contract Depository is IErrorsTokenomics {
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
+    // Depository version number
+    string public constant VERSION = "1.0.1";
     
     // Owner address
     address public owner;
@@ -84,7 +86,7 @@ contract Depository is IErrorsTokenomics {
     uint32 public productCounter;
 
     // OLAS token address
-    address public olas;
+    address public immutable olas;
     // Tkenomics contract address
     address public tokenomics;
     // Treasury contract address

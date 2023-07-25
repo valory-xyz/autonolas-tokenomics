@@ -79,6 +79,7 @@ Running 3 tests for test/Dispenser.t.sol:DispenserTest
 [PASS] testIncentivesLoopEvenOdd(uint64,uint64) (runs: 256, μ: 5990193, ~: 5990193)
 Test result: ok. 3 passed; 0 failed; finished in 14.42s
 ```
+[x] fixed
 
 ### Security issues.
 #### Instrumental analysis
@@ -88,8 +89,9 @@ All automatic warnings are listed in the following file, concerns of which we ad
 All false positives. <br>
 
 Minor issue: <br>
-- address public olas can be made a constant. you may not do it. <br>
+- address public OLAS can be made a constant. you may not do it. <br>
 - Add version. To distinguish between contracts explicitly. <br>
+[x] fixed
 
 #### Notes
 ```bash
@@ -104,4 +106,5 @@ ParserError: Source file requires different compiler version (current compiler i
 This tool requires a non-trivial hack to work with multiple and modern versions of Solidity.
 It is proposed to use forge or echidna.
 ```
+[x] Ran foundry tests in this repository and [autonolas-v1](https://github.com/valory-xyz/autonolas-v1).
 
