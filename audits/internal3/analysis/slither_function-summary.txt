@@ -1,0 +1,137 @@
+INFO:Printers:
+Contract IErrorsTokenomics
+Contract vars: []
+Inheritance:: []
+ 
++----------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+| Function | Visibility | Modifiers | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++----------+------------+-----------+------+-------+----------------+----------------+-----------------------+
++----------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Printers:
+Contract IGenericBondCalculator
+Contract vars: []
+Inheritance:: []
+ 
++--------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|               Function               | Visibility | Modifiers | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++--------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+| calculatePayoutOLAS(uint256,uint256) |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|      getCurrentPriceLP(address)      |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
++--------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Printers:
+Contract IToken
+Contract vars: []
+Inheritance:: []
+ 
++---------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|                Function               | Visibility | Modifiers | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++---------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|           balanceOf(address)          |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|            ownerOf(uint256)           |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|             totalSupply()             |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|       transfer(address,uint256)       |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|       allowance(address,address)      |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|        approve(address,uint256)       |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+| transferFrom(address,address,uint256) |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
++---------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Printers:
+Contract ITokenomics
+Contract vars: []
+Inheritance:: []
+ 
++------------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|                          Function                          | Visibility | Modifiers | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++------------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|                      effectiveBond()                       |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|                        checkpoint()                        |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+| trackServiceDonations(address,uint256[],uint256[],uint256) |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|            reserveAmountForBondProgram(uint256)            |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|               refundFromBondProgram(uint256)               |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|    accountOwnerIncentives(address,uint256[],uint256[])     |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|                        getLastIDF()                        |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|                     serviceRegistry()                      |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
++------------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Printers:
+Contract ITreasury
+Contract vars: []
+Inheritance:: []
+ 
++------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+|                       Function                       | Visibility | Modifiers | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+| depositTokenForOLAS(address,uint256,address,uint256) |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|   depositServiceDonationsETH(uint256[],uint256[])    |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|                  isEnabled(address)                  |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|      withdrawToAccount(address,uint256,uint256)      |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
+|              rebalanceTreasury(uint256)              |  external  |     []    |  []  |   []  |       []       |       []       |           2           |
++------------------------------------------------------+------------+-----------+------+-------+----------------+----------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Printers:
+Contract Depository
+Contract vars: ['MIN_VESTING', 'owner', 'bondCounter', 'productCounter', 'olas', 'tokenomics', 'treasury', 'bondCalculator', 'mapUserBonds', 'mapBondProducts']
+Inheritance:: ['IErrorsTokenomics']
+ 
++----------------------------------------------+------------+-----------+---------------------------------------+---------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+|                   Function                   | Visibility | Modifiers |                  Read                 |                 Write                 |                                         Internal Calls                                         |                                                                                External Calls                                                                               | Cyclomatic Complexity |
++----------------------------------------------+------------+-----------+---------------------------------------+---------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+| constructor(address,address,address,address) |   public   |     []    |             ['msg.sender']            |       ['bondCalculator', 'olas']      |                                    ['revert ZeroAddress()']                                    |                                                                                      []                                                                                     |           2           |
+|                                              |            |           |                                       |        ['owner', 'tokenomics']        |                                                                                                |                                                                                                                                                                             |                       |
+|                                              |            |           |                                       |              ['treasury']             |                                                                                                |                                                                                                                                                                             |                       |
+|             changeOwner(address)             |  external  |     []    |        ['msg.sender', 'owner']        |               ['owner']               |                 ['revert OwnerOnly(address,address)', 'revert ZeroAddress()']                  |                                                                                      []                                                                                     |           3           |
+|       changeManagers(address,address)        |  external  |     []    |        ['msg.sender', 'owner']        |       ['tokenomics', 'treasury']      |                             ['revert OwnerOnly(address,address)']                              |                                                                                      []                                                                                     |           4           |
+|        changeBondCalculator(address)         |  external  |     []    |        ['msg.sender', 'owner']        |           ['bondCalculator']          |                             ['revert OwnerOnly(address,address)']                              |                                                                                      []                                                                                     |           3           |
+|   create(address,uint256,uint256,uint256)    |  external  |     []    |   ['MIN_VESTING', 'block.timestamp']  | ['mapBondProducts', 'productCounter'] |           ['revert LowerThan(uint256,uint256)', 'revert Overflow(uint256,uint256)']            |                                  ['ITokenomics(tokenomics).effectiveBond()', 'ITokenomics(tokenomics).reserveAmountForBondProgram(supply)']                                 |           10          |
+|                                              |            |           |        ['msg.sender', 'owner']        |                                       |           ['revert OwnerOnly(address,address)', 'revert UnauthorizedToken(address)']           |                                                                   ['ITreasury(treasury).isEnabled(token)']                                                                  |                       |
+|                                              |            |           |    ['productCounter', 'tokenomics']   |                                       |                                     ['revert ZeroValue()']                                     |                                                                                                                                                                             |                       |
+|                                              |            |           |              ['treasury']             |                                       |                                                                                                |                                                                                                                                                                             |                       |
+|               close(uint256[])               |  external  |     []    |   ['mapBondProducts', 'msg.sender']   |          ['mapBondProducts']          |                             ['revert OwnerOnly(address,address)']                              |                                             ['ITokenomics(tokenomics).refundFromBondProgram(supply)', 'new bool[](numProducts)']                                            |           6           |
+|                                              |            |           |        ['owner', 'tokenomics']        |                                       |                                                                                                |                                                                     ['new uint256[](numClosedProducts)']                                                                    |                       |
+|           deposit(uint256,uint256)           |  external  |     []    | ['block.timestamp', 'bondCalculator'] |   ['bondCounter', 'mapBondProducts']  | ['revert Overflow(uint256,uint256)', 'revert ProductExpired(address,uint256,uint256,uint256)'] | ['IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount,product.priceLP)', 'ITreasury(treasury).depositTokenForOLAS(msg.sender,tokenAmount,token,payout)'] |           6           |
+|                                              |            |           |   ['bondCounter', 'mapBondProducts']  |            ['mapUserBonds']           |       ['revert ProductSupplyLow(address,uint256,uint256,uint256)', 'revert ZeroValue()']       |                                                                                                                                                                             |                       |
+|                                              |            |           |       ['msg.sender', 'treasury']      |                                       |                                                                                                |                                                                                                                                                                             |                       |
+|              redeem(uint256[])               |  external  |     []    |  ['block.timestamp', 'mapUserBonds']  |            ['mapUserBonds']           |           ['revert BondNotRedeemable(uint256)', 'revert OwnerOnly(address,address)']           |                                                                 ['IToken(olas).transfer(msg.sender,payout)']                                                                |           5           |
+|                                              |            |           |         ['msg.sender', 'olas']        |                                       |                                     ['revert ZeroValue()']                                     |                                                                                                                                                                             |                       |
+|              getProducts(bool)               |  external  |     []    | ['mapBondProducts', 'productCounter'] |                   []                  |                                               []                                               |                                                      ['new bool[](numProducts)', 'new uint256[](numSelectedProducts)']                                                      |           5           |
+|           isActiveProduct(uint256)           |  external  |     []    |          ['mapBondProducts']          |                   []                  |                                               []                                               |                                                                                      []                                                                                     |           1           |
+|            getBonds(address,bool)            |  external  |     []    |   ['block.timestamp', 'bondCounter']  |                   []                  |                                    ['revert ZeroAddress()']                                    |                                                          ['new bool[](numBonds)', 'new uint256[](numAccountBonds)']                                                         |           7           |
+|                                              |            |           |            ['mapUserBonds']           |                                       |                                                                                                |                                                                                                                                                                             |                       |
+|            getBondStatus(uint256)            |  external  |     []    |  ['block.timestamp', 'mapUserBonds']  |                   []                  |                                               []                                               |                                                                                      []                                                                                     |           2           |
+|          getCurrentPriceLP(address)          |  external  |     []    |           ['bondCalculator']          |                   []                  |                                               []                                               |                                                     ['IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token)']                                                     |           1           |
+|    slitherConstructorConstantVariables()     |  internal  |     []    |                   []                  |            ['MIN_VESTING']            |                                               []                                               |                                                                                      []                                                                                     |           1           |
++----------------------------------------------+------------+-----------+---------------------------------------+---------------------------------------+------------------------------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------------+
+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+| Modifiers | Visibility | Read | Write | Internal Calls | External Calls | Cyclomatic Complexity |
++-----------+------------+------+-------+----------------+----------------+-----------------------+
++-----------+------------+------+-------+----------------+----------------+-----------------------+
+
+INFO:Slither:. analyzed (6 contracts)

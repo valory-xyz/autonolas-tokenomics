@@ -1,0 +1,8 @@
+INFO:Printers:Call Graph: ./Depository.sol.all_contracts.call-graph.dot
+Call Graph: ./Depository.sol.IGenericBondCalculator.call-graph.dot
+Call Graph: ./Depository.sol.IToken.call-graph.dot
+Call Graph: ./Depository.sol.ITokenomics.call-graph.dot
+Call Graph: ./Depository.sol.ITreasury.call-graph.dot
+Call Graph: ./Depository.sol.Depository.call-graph.dot
+
+INFO:Slither:. analyzed (6 contracts)

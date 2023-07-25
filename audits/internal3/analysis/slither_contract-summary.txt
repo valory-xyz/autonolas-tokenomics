@@ -1,0 +1,54 @@
+INFO:Printers:
++ Contract IErrorsTokenomics
+
++ Contract IGenericBondCalculator (Most derived contract)
+  - From IGenericBondCalculator
+    - calculatePayoutOLAS(uint256,uint256) (external)
+    - getCurrentPriceLP(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - ownerOf(uint256) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - accountOwnerIncentives(address,uint256[],uint256[]) (external)
+    - checkpoint() (external)
+    - effectiveBond() (external)
+    - getLastIDF() (external)
+    - refundFromBondProgram(uint256) (external)
+    - reserveAmountForBondProgram(uint256) (external)
+    - serviceRegistry() (external)
+    - trackServiceDonations(address,uint256[],uint256[],uint256) (external)
+
++ Contract ITreasury (Most derived contract)
+  - From ITreasury
+    - depositServiceDonationsETH(uint256[],uint256[]) (external)
+    - depositTokenForOLAS(address,uint256,address,uint256) (external)
+    - isEnabled(address) (external)
+    - rebalanceTreasury(uint256) (external)
+    - withdrawToAccount(address,uint256,uint256) (external)
+
++ Contract Depository (Most derived contract)
+  - From Depository
+    - changeBondCalculator(address) (external)
+    - changeManagers(address,address) (external)
+    - changeOwner(address) (external)
+    - close(uint256[]) (external)
+    - constructor(address,address,address,address) (public)
+    - create(address,uint256,uint256,uint256) (external)
+    - deposit(uint256,uint256) (external)
+    - getBondStatus(uint256) (external)
+    - getBonds(address,bool) (external)
+    - getCurrentPriceLP(address) (external)
+    - getProducts(bool) (external)
+    - isActiveProduct(uint256) (external)
+    - redeem(uint256[]) (external)
+
+INFO:Slither:. analyzed (6 contracts)

@@ -1,0 +1,133 @@
+Depository.redeem(uint256[]) (Depository.sol#644-679) ignores return value by IToken(olas).transfer(msg.sender,payout) (Depository.sol#678)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+-- No reentrancy risk
+
+IToken (Depository.sol#160-199) has incorrect ERC721 function interface:IToken.approve(address,uint256) (Depository.sol#191)
+IToken (Depository.sol#160-199) has incorrect ERC721 function interface:IToken.transferFrom(address,address,uint256) (Depository.sol#198)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-erc721-interface
+-- False positive
+
+Depository.getBonds(address,bool) (Depository.sol#723-762) uses a dangerous strict equality:
+	- mapUserBonds[i].account == account (Depository.sol#739)
+-- False positive
+
+Depository.redeem(uint256[]) (Depository.sol#644-679) uses a dangerous strict equality:
+	- pay == 0 || ! matured (Depository.sol#651)
+-- False positive
+
+Depository.redeem(uint256[]) (Depository.sol#644-679) uses a dangerous strict equality:
+	- payout == 0 (Depository.sol#672)
+-- False positive
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Reentrancy in Depository.close(uint256[]) (Depository.sol#527-564):
+	External calls:
+	- ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository.sol#545)
+	State variables written after the call(s):
+	- delete mapBondProducts[productId] (Depository.sol#547)
+	Depository.mapBondProducts (Depository.sol#383) can be used in cross function reentrancies:
+	- Depository.close(uint256[]) (Depository.sol#527-564)
+	- Depository.create(address,uint256,uint256,uint256) (Depository.sol#466-519)
+	- Depository.deposit(uint256,uint256) (Depository.sol#578-634)
+	- Depository.getProducts(bool) (Depository.sol#684-707)
+	- Depository.isActiveProduct(uint256) (Depository.sol#712-714)
+	- Depository.mapBondProducts (Depository.sol#383)
+-- False positive
+
+Reentrancy in Depository.deposit(uint256,uint256) (Depository.sol#578-634):
+	External calls:
+	- ITreasury(treasury).depositTokenForOLAS(msg.sender,tokenAmount,token,payout) (Depository.sol#625)
+	State variables written after the call(s):
+	- delete mapBondProducts[productId] (Depository.sol#629)
+	Depository.mapBondProducts (Depository.sol#383) can be used in cross function reentrancies:
+	- Depository.close(uint256[]) (Depository.sol#527-564)
+	- Depository.create(address,uint256,uint256,uint256) (Depository.sol#466-519)
+	- Depository.deposit(uint256,uint256) (Depository.sol#578-634)
+	- Depository.getProducts(bool) (Depository.sol#684-707)
+	- Depository.isActiveProduct(uint256) (Depository.sol#712-714)
+	- Depository.mapBondProducts (Depository.sol#383)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+-- False positive, while we only used trusted tokens
+
+Depository.getBonds(address,bool).numAccountBonds (Depository.sol#731) is a local variable never initialized
+Depository.getBonds(address,bool).numPos (Depository.sol#755) is a local variable never initialized
+Depository.close(uint256[]).numClosedProducts (Depository.sol#536) is a local variable never initialized
+Depository.getProducts(bool).numPos (Depository.sol#700) is a local variable never initialized
+Depository.getProducts(bool).numSelectedProducts (Depository.sol#688) is a local variable never initialized
+Depository.close(uint256[]).numPos (Depository.sol#557) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+-- False positive, all must be zero by default
+
+Depository.close(uint256[]) (Depository.sol#527-564) has external calls inside a loop: ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository.sol#545)
+-- False positive, ok by design
+
+Reentrancy in Depository.create(address,uint256,uint256,uint256) (Depository.sol#466-519):
+	External calls:
+	- ! ITokenomics(tokenomics).reserveAmountForBondProgram(supply) (Depository.sol#509)
+	State variables written after the call(s):
+	- mapBondProducts[productId] = Product(uint160(priceLP),uint32(vesting),token,uint96(supply)) (Depository.sol#515)
+	- productCounter = uint32(productId + 1) (Depository.sol#517)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+-- False positive
+
+Reentrancy in Depository.close(uint256[]) (Depository.sol#527-564):
+	External calls:
+	- ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository.sol#545)
+	Event emitted after the call(s):
+	- CloseProduct(token,productId,supply) (Depository.sol#551)
+-- False positive
+
+Reentrancy in Depository.create(address,uint256,uint256,uint256) (Depository.sol#466-519):
+	External calls:
+	- ! ITokenomics(tokenomics).reserveAmountForBondProgram(supply) (Depository.sol#509)
+	Event emitted after the call(s):
+	- CreateProduct(token,productId,supply,priceLP,vesting) (Depository.sol#518)
+-- False positive
+
+Reentrancy in Depository.deposit(uint256,uint256) (Depository.sol#578-634):
+	External calls:
+	- ITreasury(treasury).depositTokenForOLAS(msg.sender,tokenAmount,token,payout) (Depository.sol#625)
+	Event emitted after the call(s):
+	- CloseProduct(token,productId,supply) (Depository.sol#630)
+	- CreateBond(token,productId,msg.sender,bondId,payout,tokenAmount,maturity) (Depository.sol#633)
+-- False positive
+
+Depository.create(address,uint256,uint256,uint256) (Depository.sol#466-519) uses timestamp for comparisons
+	Dangerous comparisons:
+	- maturity > type()(uint32).max (Depository.sol#499)
+-- False positive
+
+Depository.deposit(uint256,uint256) (Depository.sol#578-634) uses timestamp for comparisons
+	Dangerous comparisons:
+	- maturity > type()(uint32).max (Depository.sol#601)
+-- False positive
+
+Depository.redeem(uint256[]) (Depository.sol#644-679) uses timestamp for comparisons
+	Dangerous comparisons:
+	- matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity (Depository.sol#648)
+	- pay == 0 || ! matured (Depository.sol#651)
+	- mapUserBonds[bondIds[i]].account != msg.sender (Depository.sol#656)
+	- payout == 0 (Depository.sol#672)
+-- False positive
+
+Depository.getBonds(address,bool) (Depository.sol#723-762) uses timestamp for comparisons
+	Dangerous comparisons:
+	- mapUserBonds[i].account == account (Depository.sol#739)
+	- ! matured || block.timestamp >= mapUserBonds[i].maturity (Depository.sol#741-743)
+-- False positive
+
+Depository.getBondStatus(uint256) (Depository.sol#768-774) uses timestamp for comparisons
+	Dangerous comparisons:
+	- payout > 0 (Depository.sol#771)
+	- matured = block.timestamp >= mapUserBonds[bondId].maturity (Depository.sol#772)
+-- False positive
+
+Depository.close(uint256[]) (Depository.sol#527-564) has costly operations inside a loop:
+	- delete mapBondProducts[productId] (Depository.sol#547)
+-- False positive, ok by design
+
+Depository.redeem(uint256[]) (Depository.sol#644-679) has costly operations inside a loop:
+	- delete mapUserBonds[bondIds[i]] (Depository.sol#667)
+-- False positive, ok by design
+
+Depository.olas (Depository.sol#372) should be immutable 

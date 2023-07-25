@@ -1,0 +1,27 @@
+INFO:Printers:
+##########################
+####### Depository #######
+##########################
+
+## Constructor Call Sequence
+	- Depository
+
+## Constructor Definitions
+
+### Depository
+
+     constructor(address _olas, address _tokenomics, address _treasury, address _bondCalculator)
+    {
+        owner = msg.sender;
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) || _bondCalculator == address(0)) {
+            revert ZeroAddress();
+        }
+        olas = _olas;
+        tokenomics = _tokenomics;
+        treasury = _treasury;
+        bondCalculator = _bondCalculator;
+    }
+
+INFO:Slither:. analyzed (6 contracts)
