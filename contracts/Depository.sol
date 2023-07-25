@@ -63,7 +63,7 @@ contract Depository is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
-    event BondCalculatorUpdated(address indexed _bondCalculator);
+    event BondCalculatorUpdated(address indexed bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
         uint256 amountOLAS, uint256 tokenAmount, uint256 maturity);
     event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
@@ -313,7 +313,7 @@ contract Depository is IErrorsTokenomics {
             revert ProductExpired(token, productId, vesting, block.timestamp);
         }
 
-        maturity = vesting + block.timestamp;
+        maturity = block.timestamp + vesting;
         // Check for the time limits
         if (maturity > type(uint32).max) {
             revert Overflow(maturity, type(uint32).max);
@@ -359,7 +359,7 @@ contract Depository is IErrorsTokenomics {
     /// #if_succeeds {:msg "payouts are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].payout == 0;
     /// #if_succeeds {:msg "maturities are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].maturity == 0;
     function redeem(uint256[] memory bondIds) external returns (uint256 payout) {
-        for (uint256 i = 0; i < bondIds.length; i++) {
+        for (uint256 i = 0; i < bondIds.length; ++i) {
             // Get the amount to pay and the maturity status
             uint256 pay = mapUserBonds[bondIds[i]].payout;
             bool matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity;
@@ -404,7 +404,7 @@ contract Depository is IErrorsTokenomics {
         bool[] memory positions = new bool[](numProducts);
         uint256 numSelectedProducts;
         // Traverse to find requested products
-        for (uint256 i = 0; i < numProducts; i++) {
+        for (uint256 i = 0; i < numProducts; ++i) {
             // Product is always active if its supply is not zero, and inactive otherwise
             if ((active && mapBondProducts[i].supply > 0) || (!active && mapBondProducts[i].supply == 0)) {
                 positions[i] = true;
@@ -415,7 +415,7 @@ contract Depository is IErrorsTokenomics {
         // Form active or inactive products index array
         productIds = new uint256[](numSelectedProducts);
         uint256 numPos;
-        for (uint256 i = 0; i < numProducts; i++) {
+        for (uint256 i = 0; i < numProducts; ++i) {
             if (positions[i]) {
                 productIds[numPos] = i;
                 ++numPos;
@@ -450,7 +450,7 @@ contract Depository is IErrorsTokenomics {
         uint256 numBonds = bondCounter;
         bool[] memory positions = new bool[](numBonds);
         // Record the bond number if it belongs to the account address and was not yet redeemed
-        for (uint256 i = 0; i < numBonds; i++) {
+        for (uint256 i = 0; i < numBonds; ++i) {
             // Check if the bond belongs to the account
             // If not and the address is zero, the bond was redeemed or never existed
             if (mapUserBonds[i].account == account) {
@@ -470,7 +470,7 @@ contract Depository is IErrorsTokenomics {
         // Form pending bonds index array
         bondIds = new uint256[](numAccountBonds);
         uint256 numPos;
-        for (uint256 i = 0; i < numBonds; i++) {
+        for (uint256 i = 0; i < numBonds; ++i) {
             if (positions[i]) {
                 bondIds[numPos] = i;
                 ++numPos;
