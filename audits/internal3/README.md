@@ -91,8 +91,8 @@ All automatic warnings are listed in the following file, concerns of which we ad
 All false positives. <br>
 
 Minor issue: <br>
-- address public olas can be made a constant. you may not do it.
-- Add version. To distinguish between contracts explicitly.
+- address public olas can be made a constant. you may not do it. <br>
+- Add version. To distinguish between contracts explicitly. <br>
 
 #### Notes
 ```bash
