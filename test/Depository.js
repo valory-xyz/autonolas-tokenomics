@@ -857,7 +857,7 @@ describe("Depository LP", async () => {
 
             // Try to close the bond product again
             const closedProductIds = await depository.callStatic.close([productId]);
-            expect(closedProductIds).to.deep.equal([]);;
+            expect(closedProductIds).to.deep.equal([]);
             product = await depository.mapBondProducts(productId);
             expect(Number(product.supply)).to.equal(0);
         });
@@ -1103,6 +1103,29 @@ describe("Depository LP", async () => {
             const closedProductIds = await depository.callStatic.close([productId]);
             expect(closedProductIds[0]).to.equal(0);
             await depository.close([productId]);
+        });
+
+        it("Create several bond products, close some of them", async () => {
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+            for (let i = 0; i < 4; i++) {
+                await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
+            }
+
+            // Close 0, 2, 4
+            await depository.close([0, 2, 4]);
+
+            // Get active products
+            const activeProducts = await depository.getProducts(true);
+            expect(activeProducts.length).to.equal(2);
+            expect(activeProducts[0]).to.equal(1);
+            expect(activeProducts[1]).to.equal(3);
+
+            // Get inactive products
+            const inactiveProducts = await depository.getProducts(false);
+            expect(inactiveProducts.length).to.equal(3);
+            expect(inactiveProducts[0]).to.equal(0);
+            expect(inactiveProducts[1]).to.equal(2);
+            expect(inactiveProducts[2]).to.equal(4);
         });
     });
 
