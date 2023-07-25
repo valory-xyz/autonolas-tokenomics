@@ -20,9 +20,6 @@ Generated png file /home/andrey/valory/autonolas-tokenomics/audits/internal3/ana
 New `Depository` does not depend on the previous implementation of the `Depository` and does not "share" a common storage. <br>
 OK.
 
-### Security issues.
-No issue.
-
 ### Test issue
 ```bash
 foundryup: installed - forge 0.2.0 (114e69d 2023-07-25T11:33:13.343757341Z)
