@@ -69,7 +69,7 @@ contract Depository is IErrorsTokenomics {
     event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
     event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP,
         uint256 vesting);
-    event CloseProduct(address indexed token, uint256 indexed productId);
+    event CloseProduct(address indexed token, uint256 indexed productId, uint256 supply);
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
@@ -264,7 +264,7 @@ contract Depository is IErrorsTokenomics {
                 delete mapBondProducts[productId];
 
                 numClosedProducts++;
-                emit CloseProduct(token, productId);
+                emit CloseProduct(token, productId, supply);
             }
         }
     }
@@ -333,7 +333,7 @@ contract Depository is IErrorsTokenomics {
         // Close the product if the supply becomes zero
         if (supply == 0) {
             delete mapBondProducts[productId];
-            emit CloseProduct(token, productId);
+            emit CloseProduct(token, productId, supply);
         }
 
         emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, maturity);
