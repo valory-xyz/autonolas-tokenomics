@@ -73,8 +73,6 @@ contract Depository is IErrorsTokenomics {
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
-    // Maximum bond vesting value
-    uint256 public constant MAX_VESTING = 4 * 365 days;
     
     // Owner address
     address public owner;
@@ -211,11 +209,6 @@ contract Depository is IErrorsTokenomics {
             revert LowerThan(vesting, MIN_VESTING);
         }
 
-        // Check the vesting maximum limit value
-        if (vesting > MAX_VESTING) {
-            revert Overflow(vesting, MAX_VESTING);
-        }
-
         // Check for the maturity time overflow for the current timestamp
         uint256 maturity = block.timestamp + vesting;
         if (maturity > type(uint32).max) {
@@ -243,16 +236,21 @@ contract Depository is IErrorsTokenomics {
     /// @dev Closes bonding products.
     /// @notice This will terminate programs regardless of their vesting time.
     /// @param productIds Set of product Ids.
-    /// @return numClosedProducts Number of closed products.
+    /// @return closedProductIds Set of closed product Ids.
     /// #if_succeeds {:msg "productCounter not touched"} productCounter == old(productCounter);
     /// #if_succeeds {:msg "success closed"} forall (uint k in productIds) mapBondProducts[productIds[k]].vesting == 0 && mapBondProducts[productIds[k]].supply == 0;
-    function close(uint256[] memory productIds) external returns (uint256 numClosedProducts) {
+    function close(uint256[] memory productIds) external returns (uint256[] memory closedProductIds) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        for (uint256 i = 0; i < productIds.length; ++i) {
+        // Calculate the number of closed products
+        uint256 numProducts = productIds.length;
+        bool[] memory positions = new bool[](numProducts);
+        uint256 numClosedProducts;
+        // Traverse to close all possible products
+        for (uint256 i = 0; i < numProducts; ++i) {
             uint256 productId = productIds[i];
             // Check if the product is still open by getting its supply amount
             uint256 supply = mapBondProducts[productId].supply;
@@ -263,8 +261,19 @@ contract Depository is IErrorsTokenomics {
                 address token = mapBondProducts[productId].token;
                 delete mapBondProducts[productId];
 
-                numClosedProducts++;
+                positions[i] = true;
+                ++numClosedProducts;
                 emit CloseProduct(token, productId, supply);
+            }
+        }
+
+        // Get indexes of closed products
+        closedProductIds = new uint256[](numClosedProducts);
+        uint256 numPos;
+        for (uint256 i = 0; i < numProducts; ++i) {
+            if (positions[i] ) {
+                closedProductIds[numPos] = productIds[i];
+                ++numPos;
             }
         }
     }
@@ -384,16 +393,18 @@ contract Depository is IErrorsTokenomics {
         IToken(olas).transfer(msg.sender, payout);
     }
 
-    /// @dev Gets an array of active product Ids for a specific token.
+    /// @dev Gets an array of active or inactive product Ids.
+    /// @param active Flag to select active or inactive products.
     /// @return productIds Product Ids.
-    function getProducts() external view returns (uint256[] memory productIds) {
-        // Calculate the number of active products
+    function getProducts(bool active) external view returns (uint256[] memory productIds) {
+        // Calculate the number of existing products
         uint256 numProducts = productCounter;
         bool[] memory positions = new bool[](numProducts);
         uint256 numSelectedProducts;
-        // Product is always active if supply is not zero
+        // Traverse to find requested products
         for (uint256 i = 0; i < numProducts; i++) {
-            if (mapBondProducts[i].supply > 0) {
+            // Product is always active if its supply is not zero, and inactive otherwise
+            if ((active && mapBondProducts[i].supply > 0) || (!active && mapBondProducts[i].supply == 0)) {
                 positions[i] = true;
                 ++numSelectedProducts;
             }
@@ -408,7 +419,6 @@ contract Depository is IErrorsTokenomics {
                 ++numPos;
             }
         }
-        return productIds;
     }
 
     /// @dev Gets activity information about a given product.

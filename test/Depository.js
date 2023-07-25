@@ -318,30 +318,12 @@ describe("Depository LP", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
-            const maxVesting = await depository.MAX_VESTING();
+            const minVesting = Number(await depository.MIN_VESTING());
             // Move time close to uint32.max
             await helpers.time.increaseTo(Number(maxUint32));
 
             await expect(
-                depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, maxVesting)
-            ).to.be.revertedWithCustomError(depository, "Overflow");
-
-            // Restore to the state of the snapshot
-            await snapshot.restore();
-        });
-
-        it("Should fail when creating a bond with a vesting time past the uint32.max", async () => {
-            // Take a snapshot of the current state of the blockchain
-            const snapshot = await helpers.takeSnapshot();
-
-            const maxVesting = await depository.MAX_VESTING();
-            await depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, maxVesting);
-
-            // Move time close to uint32.max
-            await helpers.time.increaseTo(Number(maxUint32));
-
-            await expect(
-                depository.connect(bob).deposit(productId, 1)
+                depository.create(pairODAI.address, defaultPriceLP, supplyProductOLAS, minVesting)
             ).to.be.revertedWithCustomError(depository, "Overflow");
 
             // Restore to the state of the snapshot
@@ -852,8 +834,8 @@ describe("Depository LP", async () => {
             await depository.close([productId]);
 
             // Try to close the bond product again
-            const numClosedProducts = await depository.callStatic.close([productId]);
-            expect(numClosedProducts).to.equal(0);
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds.length).to.equal(0);
             product = await depository.mapBondProducts(productId);
             expect(Number(product.supply)).to.equal(0);
         });
@@ -885,8 +867,8 @@ describe("Depository LP", async () => {
             // Redeem the bond
             await depository.connect(bob).redeem([0]);
             // Try to close the already closed bond product
-            const numClosedProducts = await depository.callStatic.close([productId]);
-            expect(numClosedProducts).to.equal(0);
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds.length).to.equal(0);
         });
 
         it("Create a bond product, deposit, then close the product right away and try to redeem after", async () => {
@@ -1054,8 +1036,8 @@ describe("Depository LP", async () => {
             await depository.connect(alice).redeem([1]);
 
             // Close the bond product
-            const numClosedProducts = await depository.callStatic.close([productId]);
-            expect(numClosedProducts).to.equal(1);
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds[0]).to.equal(0);
             await depository.close([productId]);
         });
     });
