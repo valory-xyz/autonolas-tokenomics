@@ -1,0 +1,41 @@
+INFO:Printers:
+IGenericBondCalculator:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+IToken:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ITokenomics:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+ITreasury:
++------+------+------+--------+
+| Name | Type | Slot | Offset |
++------+------+------+--------+
++------+------+------+--------+
+
+Depository:
++----------------------------+-----------------------------+------+--------+
+|            Name            |             Type            | Slot | Offset |
++----------------------------+-----------------------------+------+--------+
+|      Depository.owner      |           address           |  0   |   0    |
+|   Depository.bondCounter   |            uint32           |  0   |   20   |
+| Depository.productCounter  |            uint32           |  0   |   24   |
+|      Depository.olas       |           address           |  1   |   0    |
+|   Depository.tokenomics    |           address           |  2   |   0    |
+|    Depository.treasury     |           address           |  3   |   0    |
+| Depository.bondCalculator  |           address           |  4   |   0    |
+|  Depository.mapUserBonds   |   mapping(uint256 => Bond)  |  5   |   0    |
+| Depository.mapBondProducts | mapping(uint256 => Product) |  6   |   0    |
++----------------------------+-----------------------------+------+--------+
+
+INFO:Slither:. analyzed (6 contracts)

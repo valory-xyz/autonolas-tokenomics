@@ -1,11 +1,296 @@
+// The following code is from flattening this file: Depository.sol
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.15;
 
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IGenericBondCalculator.sol";
-import "./interfaces/IToken.sol";
-import "./interfaces/ITokenomics.sol";
-import "./interfaces/ITreasury.sol";
+// The following code is from flattening this import statement in: Depository.sol
+// import "./interfaces/IErrorsTokenomics.sol";
+// The following code is from flattening this file: /home/andrey/valory/autonolas-tokenomics/contracts/interfaces/IErrorsTokenomics.sol
+
+/// @dev Errors.
+interface IErrorsTokenomics {
+    /// @dev Only `manager` has a privilege, but the `sender` was provided.
+    /// @param sender Sender address.
+    /// @param manager Required sender address as a manager.
+    error ManagerOnly(address sender, address manager);
+
+    /// @dev Only `owner` has a privilege, but the `sender` was provided.
+    /// @param sender Sender address.
+    /// @param owner Required sender address as an owner.
+    error OwnerOnly(address sender, address owner);
+
+    /// @dev Provided zero address.
+    error ZeroAddress();
+
+    /// @dev Wrong length of two arrays.
+    /// @param numValues1 Number of values in a first array.
+    /// @param numValues2 Number of values in a second array.
+    error WrongArrayLength(uint256 numValues1, uint256 numValues2);
+
+    /// @dev Service Id does not exist in registry records.
+    /// @param serviceId Service Id.
+    error ServiceDoesNotExist(uint256 serviceId);
+
+    /// @dev Zero value when it has to be different from zero.
+    error ZeroValue();
+
+    /// @dev Non-zero value when it has to be zero.
+    error NonZeroValue();
+
+    /// @dev Value overflow.
+    /// @param provided Overflow value.
+    /// @param max Maximum possible value.
+    error Overflow(uint256 provided, uint256 max);
+
+    /// @dev Service was never deployed.
+    /// @param serviceId Service Id.
+    error ServiceNeverDeployed(uint256 serviceId);
+
+    /// @dev Token is disabled or not whitelisted.
+    /// @param tokenAddress Address of a token.
+    error UnauthorizedToken(address tokenAddress);
+
+    /// @dev Provided token address is incorrect.
+    /// @param provided Provided token address.
+    /// @param expected Expected token address.
+    error WrongTokenAddress(address provided, address expected);
+
+    /// @dev Bond is not redeemable (does not exist or not matured).
+    /// @param bondId Bond Id.
+    error BondNotRedeemable(uint256 bondId);
+
+    /// @dev The product is expired.
+    /// @param tokenAddress Address of a token.
+    /// @param productId Product Id.
+    /// @param deadline The program expiry time.
+    /// @param curTime Current timestamp.
+    error ProductExpired(address tokenAddress, uint256 productId, uint256 deadline, uint256 curTime);
+
+    /// @dev The product is already closed.
+    /// @param productId Product Id.
+    error ProductClosed(uint256 productId);
+
+    /// @dev The product supply is low for the requested payout.
+    /// @param tokenAddress Address of a token.
+    /// @param productId Product Id.
+    /// @param requested Requested payout.
+    /// @param actual Actual supply left.
+    error ProductSupplyLow(address tokenAddress, uint256 productId, uint256 requested, uint256 actual);
+
+    /// @dev Received lower value than the expected one.
+    /// @param provided Provided value is lower.
+    /// @param expected Expected value.
+    error LowerThan(uint256 provided, uint256 expected);
+
+    /// @dev Wrong amount received / provided.
+    /// @param provided Provided amount.
+    /// @param expected Expected amount.
+    error WrongAmount(uint256 provided, uint256 expected);
+
+    /// @dev Insufficient token allowance.
+    /// @param provided Provided amount.
+    /// @param expected Minimum expected amount.
+    error InsufficientAllowance(uint256 provided, uint256 expected);
+
+    /// @dev Failure of a transfer.
+    /// @param token Address of a token.
+    /// @param from Address `from`.
+    /// @param to Address `to`.
+    /// @param amount Token amount.
+    error TransferFailed(address token, address from, address to, uint256 amount);
+
+    /// @dev Incentives claim has failed.
+    /// @param account Account address.
+    /// @param reward Reward amount.
+    /// @param topUp Top-up amount.
+    error ClaimIncentivesFailed(address account, uint256 reward, uint256 topUp);
+
+    /// @dev Caught reentrancy violation.
+    error ReentrancyGuard();
+
+    /// @dev Failure of treasury re-balance during the reward allocation.
+    /// @param epochNumber Epoch number.
+    error TreasuryRebalanceFailed(uint256 epochNumber);
+
+    /// @dev Operation with a wrong component / agent Id.
+    /// @param unitId Component / agent Id.
+    /// @param unitType Type of the unit (component / agent).
+    error WrongUnitId(uint256 unitId, uint256 unitType);
+
+    /// @dev The donator address is blacklisted.
+    /// @param account Donator account address.
+    error DonatorBlacklisted(address account);
+
+    /// @dev The contract is already initialized.
+    error AlreadyInitialized();
+
+    /// @dev The contract has to be delegate-called via proxy.
+    error DelegatecallOnly();
+
+    /// @dev The contract is paused.
+    error Paused();
+
+    /// @dev Caught an operation that is not supposed to happen in the same block.
+    error SameBlockNumberViolation();
+}
+
+// The following code is from flattening this import statement in: Depository.sol
+// import "./interfaces/IGenericBondCalculator.sol";
+// The following code is from flattening this file: /home/andrey/valory/autonolas-tokenomics/contracts/interfaces/IGenericBondCalculator.sol
+
+/// @dev Interface for generic bond calculator.
+interface IGenericBondCalculator {
+    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
+    /// @param tokenAmount LP token amount.
+    /// @param priceLP LP token price.
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP) external view
+        returns (uint256 amountOLAS);
+
+    /// @dev Get reserveX/reserveY at the time of product creation.
+    /// @param token Token address.
+    /// @return priceLP Resulting reserve ratio.
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
+}
+
+// The following code is from flattening this import statement in: Depository.sol
+// import "./interfaces/IToken.sol";
+// The following code is from flattening this file: /home/andrey/valory/autonolas-tokenomics/contracts/interfaces/IToken.sol
+
+/// @dev Generic token interface for IERC20 and IERC721 tokens.
+interface IToken {
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
+
+    /// @dev Gets the owner of the token Id.
+    /// @param tokenId Token Id.
+    /// @return Token Id owner address.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
+    /// @dev Gets the total amount of tokens stored by the contract.
+    /// @return Amount of tokens.
+    function totalSupply() external view returns (uint256);
+
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /// @dev Gets remaining number of tokens that the `spender` can transfer on behalf of `owner`.
+    /// @param owner Token owner.
+    /// @param spender Account address that is able to transfer tokens on behalf of the owner.
+    /// @return Token amount allowed to be transferred.
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
+    /// @param amount Token amount.
+    /// @return True if the function execution is successful.
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    /// @dev Transfers the token amount that was previously approved up until the maximum allowance.
+    /// @param from Account address to transfer from.
+    /// @param to Account address to transfer to.
+    /// @param amount Amount to transfer to.
+    /// @return True if the function execution is successful.
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+}
+
+// The following code is from flattening this import statement in: Depository.sol
+// import "./interfaces/ITokenomics.sol";
+// The following code is from flattening this file: /home/andrey/valory/autonolas-tokenomics/contracts/interfaces/ITokenomics.sol
+
+/// @dev Interface for tokenomics management.
+interface ITokenomics {
+    /// @dev Gets effective bond (bond left).
+    /// @return Effective bond.
+    function effectiveBond() external pure returns (uint256);
+
+    /// @dev Record global data to the checkpoint
+    function checkpoint() external returns (bool);
+
+    /// @dev Tracks the deposited ETH service donations during the current epoch.
+    /// @notice This function is only called by the treasury where the validity of arrays and values has been performed.
+    /// @param donator Donator account address.
+    /// @param serviceIds Set of service Ids.
+    /// @param amounts Correspondent set of ETH amounts provided by services.
+    /// @param donationETH Overall service donation amount in ETH.
+    function trackServiceDonations(
+        address donator,
+        uint256[] memory serviceIds,
+        uint256[] memory amounts,
+        uint256 donationETH
+    ) external;
+
+    /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
+    /// @notice Programs exceeding the limit in the epoch are not allowed.
+    /// @param amount Requested amount for the bond program.
+    /// @return True if effective bond threshold is not reached.
+    function reserveAmountForBondProgram(uint256 amount) external returns(bool);
+
+    /// @dev Refunds unused bond program amount.
+    /// @param amount Amount to be refunded from the bond program.
+    function refundFromBondProgram(uint256 amount) external;
+
+    /// @dev Gets component / agent owner incentives and clears the balances.
+    /// @param account Account address.
+    /// @param unitTypes Set of unit types (component / agent).
+    /// @param unitIds Set of corresponding unit Ids where account is the owner.
+    /// @return reward Reward amount.
+    /// @return topUp Top-up amount.
+    function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
+        returns (uint256 reward, uint256 topUp);
+
+    /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256 idf);
+
+    /// @dev Gets the service registry contract address
+    /// @return Service registry contract address;
+    function serviceRegistry() external view returns (address);
+}
+
+// The following code is from flattening this import statement in: Depository.sol
+// import "./interfaces/ITreasury.sol";
+// The following code is from flattening this file: /home/andrey/valory/autonolas-tokenomics/contracts/interfaces/ITreasury.sol
+
+/// @dev Interface for treasury management.
+interface ITreasury {
+    /// @dev Allows approved address to deposit an asset for OLAS.
+    /// @param account Account address making a deposit of LP tokens for OLAS.
+    /// @param tokenAmount Token amount to get OLAS for.
+    /// @param token Token address.
+    /// @param olaMintAmount Amount of OLAS token issued.
+    function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olaMintAmount) external;
+
+    /// @dev Deposits service donations in ETH.
+    /// @param serviceIds Set of service Ids.
+    /// @param amounts Set of corresponding amounts deposited on behalf of each service Id.
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable;
+
+    /// @dev Gets information about token being enabled.
+    /// @param token Token address.
+    /// @return enabled True is token is enabled.
+    function isEnabled(address token) external view returns (bool enabled);
+
+    /// @dev Withdraws ETH and / or OLAS amounts to the requested account address.
+    /// @notice Only dispenser contract can call this function.
+    /// @notice Reentrancy guard is on a dispenser side.
+    /// @notice Zero account address is not possible, since the dispenser contract interacts with msg.sender.
+    /// @param account Account address.
+    /// @param accountRewards Amount of account rewards.
+    /// @param accountTopUps Amount of account top-ups.
+    /// @return success True if the function execution is successful.
+    function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external returns (bool success);
+
+    /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
+    /// @param treasuryRewards Treasury rewards.
+    /// @return success True, if the function execution is successful.
+    function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success);
+}
+
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
@@ -63,7 +348,7 @@ contract Depository is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
-    event BondCalculatorUpdated(address indexed bondCalculator);
+    event BondCalculatorUpdated(address indexed _bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
         uint256 amountOLAS, uint256 tokenAmount, uint256 maturity);
     event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
@@ -73,8 +358,6 @@ contract Depository is IErrorsTokenomics {
 
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
-    // Depository version number
-    string public constant VERSION = "1.0.1";
     
     // Owner address
     address public owner;
@@ -86,7 +369,7 @@ contract Depository is IErrorsTokenomics {
     uint32 public productCounter;
 
     // OLAS token address
-    address public immutable olas;
+    address public olas;
     // Tkenomics contract address
     address public tokenomics;
     // Treasury contract address
@@ -313,7 +596,7 @@ contract Depository is IErrorsTokenomics {
             revert ProductExpired(token, productId, vesting, block.timestamp);
         }
 
-        maturity = block.timestamp + vesting;
+        maturity = vesting + block.timestamp;
         // Check for the time limits
         if (maturity > type(uint32).max) {
             revert Overflow(maturity, type(uint32).max);
@@ -359,7 +642,7 @@ contract Depository is IErrorsTokenomics {
     /// #if_succeeds {:msg "payouts are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].payout == 0;
     /// #if_succeeds {:msg "maturities are zeroed"} forall (uint k in bondIds) mapUserBonds[bondIds[k]].maturity == 0;
     function redeem(uint256[] memory bondIds) external returns (uint256 payout) {
-        for (uint256 i = 0; i < bondIds.length; ++i) {
+        for (uint256 i = 0; i < bondIds.length; i++) {
             // Get the amount to pay and the maturity status
             uint256 pay = mapUserBonds[bondIds[i]].payout;
             bool matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity;
@@ -404,7 +687,7 @@ contract Depository is IErrorsTokenomics {
         bool[] memory positions = new bool[](numProducts);
         uint256 numSelectedProducts;
         // Traverse to find requested products
-        for (uint256 i = 0; i < numProducts; ++i) {
+        for (uint256 i = 0; i < numProducts; i++) {
             // Product is always active if its supply is not zero, and inactive otherwise
             if ((active && mapBondProducts[i].supply > 0) || (!active && mapBondProducts[i].supply == 0)) {
                 positions[i] = true;
@@ -415,7 +698,7 @@ contract Depository is IErrorsTokenomics {
         // Form active or inactive products index array
         productIds = new uint256[](numSelectedProducts);
         uint256 numPos;
-        for (uint256 i = 0; i < numProducts; ++i) {
+        for (uint256 i = 0; i < numProducts; i++) {
             if (positions[i]) {
                 productIds[numPos] = i;
                 ++numPos;
@@ -450,7 +733,7 @@ contract Depository is IErrorsTokenomics {
         uint256 numBonds = bondCounter;
         bool[] memory positions = new bool[](numBonds);
         // Record the bond number if it belongs to the account address and was not yet redeemed
-        for (uint256 i = 0; i < numBonds; ++i) {
+        for (uint256 i = 0; i < numBonds; i++) {
             // Check if the bond belongs to the account
             // If not and the address is zero, the bond was redeemed or never existed
             if (mapUserBonds[i].account == account) {
@@ -470,7 +753,7 @@ contract Depository is IErrorsTokenomics {
         // Form pending bonds index array
         bondIds = new uint256[](numAccountBonds);
         uint256 numPos;
-        for (uint256 i = 0; i < numBonds; ++i) {
+        for (uint256 i = 0; i < numBonds; i++) {
             if (positions[i]) {
                 bondIds[numPos] = i;
                 ++numPos;
@@ -497,3 +780,6 @@ contract Depository is IErrorsTokenomics {
         return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
 }
+
+
+

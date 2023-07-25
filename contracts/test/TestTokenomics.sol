@@ -199,12 +199,6 @@ contract TestTokenomics {
         depository.redeem(bondIds);
     }
 
-    /// @dev Close inactive bond programs.
-    function closeInactiveBondPrograms() external {
-        uint256[] memory inactiveProducts = depository.getProducts(false);
-        depository.close(inactiveProducts);
-    }
-
     /// @dev Withdraw LP tokens.
     function withdrawLPToken(uint256 tokenAmount) external {
         require(tokenAmount < 1_000);

@@ -1,0 +1,25 @@
+INFO:Printers:
+Compiled with solc
+Number of lines: 785 (+ 0 in dependencies, + 0 in tests)
+Number of assembly lines: 0
+Number of contracts: 6 (+ 0 in dependencies, + 0 tests) 
+
+Number of optimization issues: 1
+Number of informational issues: 7
+Number of low issues: 10
+Number of medium issues: 13
+Number of high issues: 1
+ERCs: ERC20
+
++------------------------+-------------+-------+--------------------+--------------+--------------------+
+|          Name          | # functions |  ERCS |     ERC20 info     | Complex code |      Features      |
++------------------------+-------------+-------+--------------------+--------------+--------------------+
+| IGenericBondCalculator |      2      |       |                    |      No      |                    |
+|         IToken         |      7      | ERC20 |     No Minting     |      No      |                    |
+|                        |             |       | Approve Race Cond. |              |                    |
+|                        |             |       |                    |              |                    |
+|      ITokenomics       |      8      |       |                    |      No      |                    |
+|       ITreasury        |      5      |       |                    |      No      |    Receive ETH     |
+|       Depository       |      14     |       |                    |     Yes      | Tokens interaction |
++------------------------+-------------+-------+--------------------+--------------+--------------------+
+INFO:Slither:. analyzed (6 contracts)

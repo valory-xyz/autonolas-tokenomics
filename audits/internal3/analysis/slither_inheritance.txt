@@ -1,0 +1,33 @@
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IErrorsTokenomics
+
++ IGenericBondCalculator
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ Depository
+ -> IErrorsTokenomics
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IErrorsTokenomics
+ -> Depository
+
++ IGenericBondCalculator
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ Depository
+
+INFO:Slither:. analyzed (6 contracts)

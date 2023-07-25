@@ -1,5 +1,5 @@
 /*global describe, beforeEach, it, context*/
-const { ethers, network } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -38,8 +38,6 @@ describe("Depository LP 2", async () => {
     const maxUint32 = "4294967295";
 
     let vesting = oneWeek;
-    let timeToConclusion = 60 * 60 * 24;
-    let conclusion;
 
     var productId = 0;
     let first;
@@ -171,9 +169,6 @@ describe("Depository LP 2", async () => {
         await treasury.enableToken(pairODAI.address);
         const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
         await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
-
-        const block = await ethers.provider.getBlock("latest");
-        conclusion = block.timestamp + timeToConclusion;
     });
 
     context("Initialization", async function () {
@@ -295,13 +290,11 @@ describe("Depository LP 2", async () => {
             expect(Number(first)).to.equal(1);
         });
 
-        it("The program should expire in a specified amount of time", async () => {
-            const product = await depository.mapBondProducts(productId);
-            // timestamps are a bit inaccurate with tests
-            var upperBound = conclusion * 1.0033;
-            var lowerBound = conclusion * 0.9967;
-            expect(Number(product.expiry)).to.be.greaterThan(lowerBound);
-            expect(Number(product.expiry)).to.be.lessThan(upperBound);
+        it("Should fail when the vesting time is too big", async () => {
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+            await expect(
+                depository.create(pairODAI.address, priceLP, supplyProductOLAS, maxUint32 + "0")
+            ).to.be.revertedWithCustomError(depository, "Overflow");
         });
 
         it("Should fail when there is no liquidity in the LP token pool", async () => {
@@ -400,7 +393,7 @@ describe("Depository LP 2", async () => {
             expect(Number(priceLP)).to.greaterThan(0);
         });
 
-        it("Crate several programs", async () => {
+        it("Crate several products", async () => {
             // Create a second product, the first one is already created
             const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
             await depository.create(pairODAI.address, priceLP, supplyProductOLAS, vesting);
@@ -412,20 +405,20 @@ describe("Depository LP 2", async () => {
             expect(await depository.isActiveProduct(productId + 1)).to.equal(true);
             expect(await depository.isActiveProduct(productId + 2)).to.equal(true);
 
-            // Get active bond programs
-            let activePrograms = await depository.getProducts(true);
-            expect(activePrograms.length).to.equal(3);
-            for (let i = 0; i < activePrograms.length; i++) {
-                expect(activePrograms[i]).to.equal(productId + i);
+            // Get active bond products
+            let activeProducts = await depository.getProducts(true);
+            expect(activeProducts.length).to.equal(3);
+            for (let i = 0; i < activeProducts.length; i++) {
+                expect(activeProducts[i]).to.equal(productId + i);
             }
 
-            // Close the first program
+            // Close the first product
             await depository.close([productId + 1]);
-            // Check for active programs
-            activePrograms = await depository.getProducts(true);
-            expect(activePrograms.length).to.equal(2);
-            expect(activePrograms[0]).to.equal(productId);
-            expect(activePrograms[1]).to.equal(productId + 2);
+            // Check for active products
+            activeProducts = await depository.getProducts(true);
+            expect(activeProducts.length).to.equal(2);
+            expect(activeProducts[0]).to.equal(productId);
+            expect(activeProducts[1]).to.equal(productId + 2);
         });
     });
 
@@ -443,11 +436,22 @@ describe("Depository LP 2", async () => {
             expect(Number(res.payout)).to.equal(1.25e+21);
         });
 
-        it("Should not allow to deposit after the bonding product is expired", async () => {
-            const bamount = (await pairODAI.balanceOf(bob.address));
-            await network.provider.send("evm_increaseTime", [vesting+60]);
+        it("Should not allow to deposit after the bonding product supply is depleted", async () => {
+            // Send all remaining LPs to bob
+            const balance = await pairODAI.balanceOf(deployer.address);
+            await pairODAI.connect(deployer).transfer(bob.address, balance);
+
+            // Get price LP
+            const priceLP = await depository.getCurrentPriceLP(pairODAI.address);
+
+            // Get the amount of LP to scoop all the product supply
+            const product = await depository.mapBondProducts(0);
+            const e18 = ethers.BigNumber.from("1" + decimals);
+            const numLP = (ethers.BigNumber.from(product.supply).mul(e18)).div(priceLP);
+            await depository.connect(bob).deposit(productId, numLP);
+
             await expect(
-                depository.connect(bob).deposit(productId, bamount)
+                depository.connect(bob).deposit(productId, 1)
             ).to.be.revertedWithCustomError(depository, "ProductExpired");
         });
 
@@ -522,9 +526,8 @@ describe("Depository LP 2", async () => {
             await depository.close([productId]);
 
             // Try to close the bond product again
-            await expect(
-                depository.close([productId])
-            ).to.be.revertedWithCustomError(depository, "ProductClosed");
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds).to.deep.equal([]);
             product = await depository.mapBondProducts(productId);
             expect(Number(product.supply)).to.equal(0);
         });
@@ -541,21 +544,23 @@ describe("Depository LP 2", async () => {
 
         it("Create a bond product, deposit, then close via redeem", async () => {
             // Transfer more LP tokens to Bob
-            const amountTo = new ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
+            const amountTo = ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
             await pairODAI.connect(deployer).transfer(bob.address, amountTo);
 
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
             await depository.connect(bob).deposit(productId, bamount);
 
+            // The product is now closed as its supply has been depleted
+            expect(await depository.isActiveProduct(productId)).to.equal(false);
+
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
             // Redeem the bond
             await depository.connect(bob).redeem([0]);
-            // Try to close the already closed bond program
-            await expect(
-                depository.close([productId])
-            ).to.be.revertedWithCustomError(depository, "ProductClosed");
+            // Try to close the already closed bond product
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds).to.deep.equal([]);
         });
 
         it("Create a bond product, deposit, then close the product right away and try to redeem after", async () => {
@@ -570,7 +575,7 @@ describe("Depository LP 2", async () => {
             let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount);
             await depository.connect(bob).deposit(productId, bamount);
 
-            // Close the program right away
+            // Close the product right away
             await depository.close([productId]);
 
             // Increase time such that the vesting is complete
@@ -583,7 +588,7 @@ describe("Depository LP 2", async () => {
         });
 
         it("Manipulate with different bonds", async () => {
-            // Make two deposits for the same program
+            // Make two deposits for the same product
             const amount = ethers.BigNumber.from(await pairODAI.balanceOf(bob.address)).div(4);
             const deviation = ethers.BigNumber.from(await pairODAI.balanceOf(bob.address)).div(20);
             const amounts = [amount.add(deviation), amount, amount.add(deviation).add(deviation)];
@@ -592,7 +597,7 @@ describe("Depository LP 2", async () => {
             await depository.connect(bob).deposit(productId, amounts[0]);
             // Transfer LP tokens from bob to alice
             await pairODAI.connect(bob).transfer(alice.address, amount);
-            // Deposit from alice to the same program (bondId == 1)
+            // Deposit from alice to the same product (bondId == 1)
             await depository.connect(alice).deposit(productId, amounts[1]);
             // Deposit to another bond for bob (bondId == 2)
             await depository.connect(bob).deposit(productId, amounts[2]);
@@ -655,10 +660,8 @@ describe("Depository LP 2", async () => {
             expect(bondStatus.payout).to.equal(0);
             expect(bondStatus.matured).to.equal(false);
 
-            // Check that the bond product is not active
-            expect(await depository.isActiveProduct(productId)).to.equal(false);
-            activeProducts = await depository.getProducts(true);
-            expect(activeProducts).to.deep.equal([]);
+            // Check that the bond product is still active
+            expect(await depository.isActiveProduct(productId)).to.equal(true);
 
             // Try to get redeemable (matured) bonds for bob once again
             bondsToRedeem = await depository.callStatic.getBonds(bob.address, true);
@@ -681,10 +684,10 @@ describe("Depository LP 2", async () => {
             // Redeem alice bonds
             await depository.connect(alice).redeem([1]);
 
-            // Try to close the already closed bond program
-            await expect(
-                depository.close([productId])
-            ).to.be.revertedWithCustomError(depository, "ProductClosed");
+            // Close the bond product
+            const closedProductIds = await depository.callStatic.close([productId]);
+            expect(closedProductIds[0]).to.equal(0);
+            await depository.close([productId]);
         });
     });
 

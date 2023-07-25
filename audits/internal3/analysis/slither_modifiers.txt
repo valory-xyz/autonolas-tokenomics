@@ -1,0 +1,67 @@
+INFO:Printers:
+Contract IGenericBondCalculator
++---------------------+-----------+
+|       Function      | Modifiers |
++---------------------+-----------+
+| calculatePayoutOLAS |     []    |
+|  getCurrentPriceLP  |     []    |
++---------------------+-----------+
+INFO:Printers:
+Contract IToken
++--------------+-----------+
+|   Function   | Modifiers |
++--------------+-----------+
+|  balanceOf   |     []    |
+|   ownerOf    |     []    |
+| totalSupply  |     []    |
+|   transfer   |     []    |
+|  allowance   |     []    |
+|   approve    |     []    |
+| transferFrom |     []    |
++--------------+-----------+
+INFO:Printers:
+Contract ITokenomics
++-----------------------------+-----------+
+|           Function          | Modifiers |
++-----------------------------+-----------+
+|        effectiveBond        |     []    |
+|          checkpoint         |     []    |
+|    trackServiceDonations    |     []    |
+| reserveAmountForBondProgram |     []    |
+|    refundFromBondProgram    |     []    |
+|    accountOwnerIncentives   |     []    |
+|          getLastIDF         |     []    |
+|       serviceRegistry       |     []    |
++-----------------------------+-----------+
+INFO:Printers:
+Contract ITreasury
++----------------------------+-----------+
+|          Function          | Modifiers |
++----------------------------+-----------+
+|    depositTokenForOLAS     |     []    |
+| depositServiceDonationsETH |     []    |
+|         isEnabled          |     []    |
+|     withdrawToAccount      |     []    |
+|     rebalanceTreasury      |     []    |
++----------------------------+-----------+
+INFO:Printers:
+Contract Depository
++-------------------------------------+-----------+
+|               Function              | Modifiers |
++-------------------------------------+-----------+
+|             constructor             |     []    |
+|             changeOwner             |     []    |
+|            changeManagers           |     []    |
+|         changeBondCalculator        |     []    |
+|                create               |     []    |
+|                close                |     []    |
+|               deposit               |     []    |
+|                redeem               |     []    |
+|             getProducts             |     []    |
+|           isActiveProduct           |     []    |
+|               getBonds              |     []    |
+|            getBondStatus            |     []    |
+|          getCurrentPriceLP          |     []    |
+| slitherConstructorConstantVariables |     []    |
++-------------------------------------+-----------+
+INFO:Slither:. analyzed (6 contracts)

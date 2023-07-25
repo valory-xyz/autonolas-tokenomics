@@ -1,0 +1,74 @@
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+-------------------------+--------------------------+
+| Function | State variables written | Conditions on msg.sender |
++----------+-------------------------+--------------------------+
++----------+-------------------------+--------------------------+
+
+Contract IGenericBondCalculator
++---------------------+-------------------------+--------------------------+
+|       Function      | State variables written | Conditions on msg.sender |
++---------------------+-------------------------+--------------------------+
+| calculatePayoutOLAS |            []           |            []            |
+|  getCurrentPriceLP  |            []           |            []            |
++---------------------+-------------------------+--------------------------+
+
+Contract IToken
++--------------+-------------------------+--------------------------+
+|   Function   | State variables written | Conditions on msg.sender |
++--------------+-------------------------+--------------------------+
+|  balanceOf   |            []           |            []            |
+|   ownerOf    |            []           |            []            |
+| totalSupply  |            []           |            []            |
+|   transfer   |            []           |            []            |
+|  allowance   |            []           |            []            |
+|   approve    |            []           |            []            |
+| transferFrom |            []           |            []            |
++--------------+-------------------------+--------------------------+
+
+Contract ITokenomics
++-----------------------------+-------------------------+--------------------------+
+|           Function          | State variables written | Conditions on msg.sender |
++-----------------------------+-------------------------+--------------------------+
+|        effectiveBond        |            []           |            []            |
+|          checkpoint         |            []           |            []            |
+|    trackServiceDonations    |            []           |            []            |
+| reserveAmountForBondProgram |            []           |            []            |
+|    refundFromBondProgram    |            []           |            []            |
+|    accountOwnerIncentives   |            []           |            []            |
+|          getLastIDF         |            []           |            []            |
+|       serviceRegistry       |            []           |            []            |
++-----------------------------+-------------------------+--------------------------+
+
+Contract ITreasury
++----------------------------+-------------------------+--------------------------+
+|          Function          | State variables written | Conditions on msg.sender |
++----------------------------+-------------------------+--------------------------+
+|    depositTokenForOLAS     |            []           |            []            |
+| depositServiceDonationsETH |            []           |            []            |
+|         isEnabled          |            []           |            []            |
+|     withdrawToAccount      |            []           |            []            |
+|     rebalanceTreasury      |            []           |            []            |
++----------------------------+-------------------------+--------------------------+
+
+Contract Depository
++-------------------------------------+---------------------------------------------------------------+----------------------------------------------------+
+|               Function              |                    State variables written                    |              Conditions on msg.sender              |
++-------------------------------------+---------------------------------------------------------------+----------------------------------------------------+
+|             constructor             | ['bondCalculator', 'olas', 'owner', 'tokenomics', 'treasury'] |                         []                         |
+|             changeOwner             |                           ['owner']                           |              ['msg.sender != owner']               |
+|            changeManagers           |                   ['tokenomics', 'treasury']                  |              ['msg.sender != owner']               |
+|         changeBondCalculator        |                       ['bondCalculator']                      |              ['msg.sender != owner']               |
+|                create               |             ['mapBondProducts', 'productCounter']             |              ['msg.sender != owner']               |
+|                close                |                      ['mapBondProducts']                      |              ['msg.sender != owner']               |
+|               deposit               |       ['bondCounter', 'mapBondProducts', 'mapUserBonds']      |                         []                         |
+|                redeem               |                        ['mapUserBonds']                       | ['mapUserBonds[bondIds[i]].account != msg.sender'] |
+|             getProducts             |                               []                              |                         []                         |
+|           isActiveProduct           |                               []                              |                         []                         |
+|               getBonds              |                               []                              |                         []                         |
+|            getBondStatus            |                               []                              |                         []                         |
+|          getCurrentPriceLP          |                               []                              |                         []                         |
+| slitherConstructorConstantVariables |                        ['MIN_VESTING']                        |                         []                         |
++-------------------------------------+---------------------------------------------------------------+----------------------------------------------------+
+
+INFO:Slither:. analyzed (6 contracts)

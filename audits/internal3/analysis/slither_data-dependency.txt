@@ -1,0 +1,951 @@
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Contract IGenericBondCalculator
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function calculatePayoutOLAS(uint256,uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+| tokenAmount |      []      |
+|   priceLP   |      []      |
+|  amountOLAS |      []      |
++-------------+--------------+
+Function getCurrentPriceLP(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| priceLP  |      []      |
++----------+--------------+
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Contract IGenericBondCalculator
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function calculatePayoutOLAS(uint256,uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+| tokenAmount |      []      |
+|   priceLP   |      []      |
+|  amountOLAS |      []      |
++-------------+--------------+
+Function getCurrentPriceLP(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| priceLP  |      []      |
++----------+--------------+
+Contract IToken
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function balanceOf(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| account  |      []      |
+|          |      []      |
++----------+--------------+
+Function ownerOf(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| tokenId  |      []      |
+|          |      []      |
++----------+--------------+
+Function totalSupply()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function transfer(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function allowance(address,address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  owner   |      []      |
+| spender  |      []      |
+|          |      []      |
++----------+--------------+
+Function approve(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| spender  |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function transferFrom(address,address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   from   |      []      |
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Contract IGenericBondCalculator
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function calculatePayoutOLAS(uint256,uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+| tokenAmount |      []      |
+|   priceLP   |      []      |
+|  amountOLAS |      []      |
++-------------+--------------+
+Function getCurrentPriceLP(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| priceLP  |      []      |
++----------+--------------+
+Contract IToken
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function balanceOf(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| account  |      []      |
+|          |      []      |
++----------+--------------+
+Function ownerOf(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| tokenId  |      []      |
+|          |      []      |
++----------+--------------+
+Function totalSupply()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function transfer(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function allowance(address,address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  owner   |      []      |
+| spender  |      []      |
+|          |      []      |
++----------+--------------+
+Function approve(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| spender  |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function transferFrom(address,address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   from   |      []      |
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Contract ITokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function effectiveBond()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function checkpoint()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function trackServiceDonations(address,uint256[],uint256[],uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+|   donator   |      []      |
+|  serviceIds |      []      |
+|   amounts   |      []      |
+| donationETH |      []      |
++-------------+--------------+
+Function reserveAmountForBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function refundFromBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
++----------+--------------+
+Function accountOwnerIncentives(address,uint256[],uint256[])
++-----------+--------------+
+|  Variable | Dependencies |
++-----------+--------------+
+|  account  |      []      |
+| unitTypes |      []      |
+|  unitIds  |      []      |
+|   reward  |      []      |
+|   topUp   |      []      |
++-----------+--------------+
+Function getLastIDF()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   idf    |      []      |
++----------+--------------+
+Function serviceRegistry()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Contract IGenericBondCalculator
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function calculatePayoutOLAS(uint256,uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+| tokenAmount |      []      |
+|   priceLP   |      []      |
+|  amountOLAS |      []      |
++-------------+--------------+
+Function getCurrentPriceLP(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| priceLP  |      []      |
++----------+--------------+
+Contract IToken
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function balanceOf(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| account  |      []      |
+|          |      []      |
++----------+--------------+
+Function ownerOf(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| tokenId  |      []      |
+|          |      []      |
++----------+--------------+
+Function totalSupply()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function transfer(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function allowance(address,address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  owner   |      []      |
+| spender  |      []      |
+|          |      []      |
++----------+--------------+
+Function approve(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| spender  |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function transferFrom(address,address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   from   |      []      |
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Contract ITokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function effectiveBond()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function checkpoint()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function trackServiceDonations(address,uint256[],uint256[],uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+|   donator   |      []      |
+|  serviceIds |      []      |
+|   amounts   |      []      |
+| donationETH |      []      |
++-------------+--------------+
+Function reserveAmountForBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function refundFromBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
++----------+--------------+
+Function accountOwnerIncentives(address,uint256[],uint256[])
++-----------+--------------+
+|  Variable | Dependencies |
++-----------+--------------+
+|  account  |      []      |
+| unitTypes |      []      |
+|  unitIds  |      []      |
+|   reward  |      []      |
+|   topUp   |      []      |
++-----------+--------------+
+Function getLastIDF()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   idf    |      []      |
++----------+--------------+
+Function serviceRegistry()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Contract ITreasury
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function depositTokenForOLAS(address,uint256,address,uint256)
++---------------+--------------+
+|    Variable   | Dependencies |
++---------------+--------------+
+|    account    |      []      |
+|  tokenAmount  |      []      |
+|     token     |      []      |
+| olaMintAmount |      []      |
++---------------+--------------+
+Function depositServiceDonationsETH(uint256[],uint256[])
++------------+--------------+
+|  Variable  | Dependencies |
++------------+--------------+
+| serviceIds |      []      |
+|  amounts   |      []      |
++------------+--------------+
+Function isEnabled(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| enabled  |      []      |
++----------+--------------+
+Function withdrawToAccount(address,uint256,uint256)
++----------------+--------------+
+|    Variable    | Dependencies |
++----------------+--------------+
+|    account     |      []      |
+| accountRewards |      []      |
+| accountTopUps  |      []      |
+|    success     |      []      |
++----------------+--------------+
+Function rebalanceTreasury(uint256)
++-----------------+--------------+
+|     Variable    | Dependencies |
++-----------------+--------------+
+| treasuryRewards |      []      |
+|     success     |      []      |
++-----------------+--------------+
+INFO:Printers:
+Contract IErrorsTokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Contract IGenericBondCalculator
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function calculatePayoutOLAS(uint256,uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+| tokenAmount |      []      |
+|   priceLP   |      []      |
+|  amountOLAS |      []      |
++-------------+--------------+
+Function getCurrentPriceLP(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| priceLP  |      []      |
++----------+--------------+
+Contract IToken
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function balanceOf(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| account  |      []      |
+|          |      []      |
++----------+--------------+
+Function ownerOf(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| tokenId  |      []      |
+|          |      []      |
++----------+--------------+
+Function totalSupply()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function transfer(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function allowance(address,address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  owner   |      []      |
+| spender  |      []      |
+|          |      []      |
++----------+--------------+
+Function approve(address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+| spender  |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function transferFrom(address,address,uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   from   |      []      |
+|    to    |      []      |
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Contract ITokenomics
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function effectiveBond()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function checkpoint()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Function trackServiceDonations(address,uint256[],uint256[],uint256)
++-------------+--------------+
+|   Variable  | Dependencies |
++-------------+--------------+
+|   donator   |      []      |
+|  serviceIds |      []      |
+|   amounts   |      []      |
+| donationETH |      []      |
++-------------+--------------+
+Function reserveAmountForBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
+|          |      []      |
++----------+--------------+
+Function refundFromBondProgram(uint256)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  amount  |      []      |
++----------+--------------+
+Function accountOwnerIncentives(address,uint256[],uint256[])
++-----------+--------------+
+|  Variable | Dependencies |
++-----------+--------------+
+|  account  |      []      |
+| unitTypes |      []      |
+|  unitIds  |      []      |
+|   reward  |      []      |
+|   topUp   |      []      |
++-----------+--------------+
+Function getLastIDF()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|   idf    |      []      |
++----------+--------------+
+Function serviceRegistry()
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|          |      []      |
++----------+--------------+
+Contract ITreasury
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
++----------+--------------+
+
+Function depositTokenForOLAS(address,uint256,address,uint256)
++---------------+--------------+
+|    Variable   | Dependencies |
++---------------+--------------+
+|    account    |      []      |
+|  tokenAmount  |      []      |
+|     token     |      []      |
+| olaMintAmount |      []      |
++---------------+--------------+
+Function depositServiceDonationsETH(uint256[],uint256[])
++------------+--------------+
+|  Variable  | Dependencies |
++------------+--------------+
+| serviceIds |      []      |
+|  amounts   |      []      |
++------------+--------------+
+Function isEnabled(address)
++----------+--------------+
+| Variable | Dependencies |
++----------+--------------+
+|  token   |      []      |
+| enabled  |      []      |
++----------+--------------+
+Function withdrawToAccount(address,uint256,uint256)
++----------------+--------------+
+|    Variable    | Dependencies |
++----------------+--------------+
+|    account     |      []      |
+| accountRewards |      []      |
+| accountTopUps  |      []      |
+|    success     |      []      |
++----------------+--------------+
+Function rebalanceTreasury(uint256)
++-----------------+--------------+
+|     Variable    | Dependencies |
++-----------------+--------------+
+| treasuryRewards |      []      |
+|     success     |      []      |
++-----------------+--------------+
+Contract Depository
++-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|     Variable    |                                                                          Dependencies                                                                          |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+|   MIN_VESTING   |                                                                        ['MIN_VESTING']                                                                         |
+|      owner      |                                                              ['msg.sender', 'newOwner', 'owner']                                                               |
+|   bondCounter   |                                                                   ['bondCounter', 'bondId']                                                                    |
+|  productCounter |                                                                ['productCounter', 'productId']                                                                 |
+|       olas      |                                                                       ['_olas', 'olas']                                                                        |
+|    tokenomics   |                                                                 ['_tokenomics', 'tokenomics']                                                                  |
+|     treasury    |                                                                   ['_treasury', 'treasury']                                                                    |
+|  bondCalculator |                                                             ['_bondCalculator', 'bondCalculator']                                                              |
+|   mapUserBonds  | ['_bondCalculator', 'block.timestamp', 'bondCalculator', 'mapUserBonds', 'maturity', 'msg.sender', 'payout', 'product', 'productId', 'tokenAmount', 'vesting'] |
+| mapBondProducts |             ['_bondCalculator', 'bondCalculator', 'mapBondProducts', 'payout', 'priceLP', 'product', 'supply', 'token', 'tokenAmount', 'vesting']              |
++-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Function constructor(address,address,address,address)
++----------------------------+---------------------+
+|          Variable          |     Dependencies    |
++----------------------------+---------------------+
+|           _olas            |          []         |
+|        _tokenomics         |          []         |
+|         _treasury          |          []         |
+|      _bondCalculator       |          []         |
+|   Depository.MIN_VESTING   |          []         |
+|      Depository.owner      |    ['msg.sender']   |
+|   Depository.bondCounter   |          []         |
+| Depository.productCounter  |          []         |
+|      Depository.olas       |      ['_olas']      |
+|   Depository.tokenomics    |   ['_tokenomics']   |
+|    Depository.treasury     |    ['_treasury']    |
+| Depository.bondCalculator  | ['_bondCalculator'] |
+|  Depository.mapUserBonds   |          []         |
+| Depository.mapBondProducts |          []         |
++----------------------------+---------------------+
+Function changeOwner(address)
++----------------------------+-----------------------+
+|          Variable          |      Dependencies     |
++----------------------------+-----------------------+
+|          newOwner          |           []          |
+|   Depository.MIN_VESTING   |           []          |
+|      Depository.owner      | ['newOwner', 'owner'] |
+|   Depository.bondCounter   |           []          |
+| Depository.productCounter  |           []          |
+|      Depository.olas       |           []          |
+|   Depository.tokenomics    |           []          |
+|    Depository.treasury     |           []          |
+| Depository.bondCalculator  |           []          |
+|  Depository.mapUserBonds   |           []          |
+| Depository.mapBondProducts |           []          |
++----------------------------+-----------------------+
+Function changeManagers(address,address)
++----------------------------+-----------------+
+|          Variable          |   Dependencies  |
++----------------------------+-----------------+
+|        _tokenomics         |        []       |
+|         _treasury          |        []       |
+|   Depository.MIN_VESTING   |        []       |
+|      Depository.owner      |    ['owner']    |
+|   Depository.bondCounter   |        []       |
+| Depository.productCounter  |        []       |
+|      Depository.olas       |        []       |
+|   Depository.tokenomics    | ['_tokenomics'] |
+|    Depository.treasury     |  ['_treasury']  |
+| Depository.bondCalculator  |        []       |
+|  Depository.mapUserBonds   |        []       |
+| Depository.mapBondProducts |        []       |
++----------------------------+-----------------+
+Function changeBondCalculator(address)
++----------------------------+---------------------+
+|          Variable          |     Dependencies    |
++----------------------------+---------------------+
+|      _bondCalculator       |          []         |
+|   Depository.MIN_VESTING   |          []         |
+|      Depository.owner      |      ['owner']      |
+|   Depository.bondCounter   |          []         |
+| Depository.productCounter  |          []         |
+|      Depository.olas       |          []         |
+|   Depository.tokenomics    |          []         |
+|    Depository.treasury     |          []         |
+| Depository.bondCalculator  | ['_bondCalculator'] |
+|  Depository.mapUserBonds   |          []         |
+| Depository.mapBondProducts |          []         |
++----------------------------+---------------------+
+Function create(address,uint256,uint256,uint256)
++----------------------------+--------------------------------------------------------------+
+|          Variable          |                         Dependencies                         |
++----------------------------+--------------------------------------------------------------+
+|           token            |                              []                              |
+|          priceLP           |                              []                              |
+|           supply           |                              []                              |
+|          vesting           |                              []                              |
+|         productId          |                      ['productCounter']                      |
+|          maturity          |                ['block.timestamp', 'vesting']                |
+|   Depository.MIN_VESTING   |                       ['MIN_VESTING']                        |
+|      Depository.owner      |                          ['owner']                           |
+|   Depository.bondCounter   |                              []                              |
+| Depository.productCounter  |               ['productCounter', 'productId']                |
+|      Depository.olas       |                              []                              |
+|   Depository.tokenomics    |                        ['tokenomics']                        |
+|    Depository.treasury     |                         ['treasury']                         |
+| Depository.bondCalculator  |                              []                              |
+|  Depository.mapUserBonds   |                              []                              |
+| Depository.mapBondProducts | ['mapBondProducts', 'priceLP', 'supply', 'token', 'vesting'] |
++----------------------------+--------------------------------------------------------------+
+Function close(uint256[])
++----------------------------+---------------------------------------------------------+
+|          Variable          |                       Dependencies                      |
++----------------------------+---------------------------------------------------------+
+|         productIds         |                      ['productIds']                     |
+|      closedProductIds      | ['closedProductIds', 'numClosedProducts', 'productIds'] |
+|        numProducts         |                      ['productIds']                     |
+|         positions          |        ['numProducts', 'positions', 'productIds']       |
+|     numClosedProducts      |                  ['numClosedProducts']                  |
+|             i              |                          ['i']                          |
+|         productId          |                      ['productIds']                     |
+|           supply           |                   ['mapBondProducts']                   |
+|           token            |                   ['mapBondProducts']                   |
+|           numPos           |                        ['numPos']                       |
+|         i_scope_0          |                      ['i_scope_0']                      |
+|   Depository.MIN_VESTING   |                            []                           |
+|      Depository.owner      |                        ['owner']                        |
+|   Depository.bondCounter   |                            []                           |
+| Depository.productCounter  |                            []                           |
+|      Depository.olas       |                            []                           |
+|   Depository.tokenomics    |                      ['tokenomics']                     |
+|    Depository.treasury     |                            []                           |
+| Depository.bondCalculator  |                            []                           |
+|  Depository.mapUserBonds   |                            []                           |
+| Depository.mapBondProducts |                   ['mapBondProducts']                   |
++----------------------------+---------------------------------------------------------+
+Function deposit(uint256,uint256)
++----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+|          Variable          |                                                                 Dependencies                                                                |
++----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+|         productId          |                                                                      []                                                                     |
+|        tokenAmount         |                                                                      []                                                                     |
+|           payout           |                                                 ['bondCalculator', 'product', 'tokenAmount']                                                |
+|          maturity          |                                                  ['block.timestamp', 'product', 'vesting']                                                  |
+|           bondId           |                                                               ['bondCounter']                                                               |
+|          product           |                                       ['bondCalculator', 'payout', 'product', 'supply', 'tokenAmount']                                      |
+|           token            |                                                                 ['product']                                                                 |
+|          vesting           |                                                                 ['product']                                                                 |
+|           supply           |                                       ['bondCalculator', 'payout', 'product', 'supply', 'tokenAmount']                                      |
+|   Depository.MIN_VESTING   |                                                                      []                                                                     |
+|      Depository.owner      |                                                                      []                                                                     |
+|   Depository.bondCounter   |                                                          ['bondCounter', 'bondId']                                                          |
+| Depository.productCounter  |                                                                      []                                                                     |
+|      Depository.olas       |                                                                      []                                                                     |
+|   Depository.tokenomics    |                                                                      []                                                                     |
+|    Depository.treasury     |                                                                 ['treasury']                                                                |
+| Depository.bondCalculator  |                                                              ['bondCalculator']                                                             |
+|  Depository.mapUserBonds   | ['block.timestamp', 'bondCalculator', 'mapUserBonds', 'maturity', 'msg.sender', 'payout', 'product', 'productId', 'tokenAmount', 'vesting'] |
+| Depository.mapBondProducts |                             ['bondCalculator', 'mapBondProducts', 'payout', 'product', 'supply', 'tokenAmount']                             |
++----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+Function redeem(uint256[])
++----------------------------+-------------------------------------+
+|          Variable          |             Dependencies            |
++----------------------------+-------------------------------------+
+|          bondIds           |             ['bondIds']             |
+|           payout           |  ['mapUserBonds', 'pay', 'payout']  |
+|             i              |                ['i']                |
+|            pay             |           ['mapUserBonds']          |
+|          matured           | ['block.timestamp', 'mapUserBonds'] |
+|         productId          |           ['mapUserBonds']          |
+|   Depository.MIN_VESTING   |                  []                 |
+|      Depository.owner      |                  []                 |
+|   Depository.bondCounter   |                  []                 |
+| Depository.productCounter  |                  []                 |
+|      Depository.olas       |               ['olas']              |
+|   Depository.tokenomics    |                  []                 |
+|    Depository.treasury     |                  []                 |
+| Depository.bondCalculator  |                  []                 |
+|  Depository.mapUserBonds   |           ['mapUserBonds']          |
+| Depository.mapBondProducts |                  []                 |
++----------------------------+-------------------------------------+
+Function getProducts(bool)
++----------------------------+----------------------------------------------------+
+|          Variable          |                    Dependencies                    |
++----------------------------+----------------------------------------------------+
+|           active           |                         []                         |
+|         productIds         | ['i_scope_0', 'numSelectedProducts', 'productIds'] |
+|        numProducts         |                 ['productCounter']                 |
+|         positions          |   ['numProducts', 'positions', 'productCounter']   |
+|    numSelectedProducts     |              ['numSelectedProducts']               |
+|             i              |                       ['i']                        |
+|           numPos           |                     ['numPos']                     |
+|         i_scope_0          |                   ['i_scope_0']                    |
+|   Depository.MIN_VESTING   |                         []                         |
+|      Depository.owner      |                         []                         |
+|   Depository.bondCounter   |                         []                         |
+| Depository.productCounter  |                 ['productCounter']                 |
+|      Depository.olas       |                         []                         |
+|   Depository.tokenomics    |                         []                         |
+|    Depository.treasury     |                         []                         |
+| Depository.bondCalculator  |                         []                         |
+|  Depository.mapUserBonds   |                         []                         |
+| Depository.mapBondProducts |                ['mapBondProducts']                 |
++----------------------------+----------------------------------------------------+
+Function isActiveProduct(uint256)
++----------------------------+---------------------+
+|          Variable          |     Dependencies    |
++----------------------------+---------------------+
+|         productId          |          []         |
+|           status           | ['mapBondProducts'] |
+|   Depository.MIN_VESTING   |          []         |
+|      Depository.owner      |          []         |
+|   Depository.bondCounter   |          []         |
+| Depository.productCounter  |          []         |
+|      Depository.olas       |          []         |
+|   Depository.tokenomics    |          []         |
+|    Depository.treasury     |          []         |
+| Depository.bondCalculator  |          []         |
+|  Depository.mapUserBonds   |          []         |
+| Depository.mapBondProducts | ['mapBondProducts'] |
++----------------------------+---------------------+
+Function getBonds(address,bool)
++----------------------------+---------------------------------------------+
+|          Variable          |                 Dependencies                |
++----------------------------+---------------------------------------------+
+|          account           |                      []                     |
+|          matured           |                      []                     |
+|          bondIds           | ['bondIds', 'i_scope_0', 'numAccountBonds'] |
+|           payout           |          ['mapUserBonds', 'payout']         |
+|      numAccountBonds       |             ['numAccountBonds']             |
+|          numBonds          |               ['bondCounter']               |
+|         positions          |   ['bondCounter', 'numBonds', 'positions']  |
+|             i              |                    ['i']                    |
+|           numPos           |                  ['numPos']                 |
+|         i_scope_0          |                ['i_scope_0']                |
+|   Depository.MIN_VESTING   |                      []                     |
+|      Depository.owner      |                      []                     |
+|   Depository.bondCounter   |               ['bondCounter']               |
+| Depository.productCounter  |                      []                     |
+|      Depository.olas       |                      []                     |
+|   Depository.tokenomics    |                      []                     |
+|    Depository.treasury     |                      []                     |
+| Depository.bondCalculator  |                      []                     |
+|  Depository.mapUserBonds   |               ['mapUserBonds']              |
+| Depository.mapBondProducts |                      []                     |
++----------------------------+---------------------------------------------+
+Function getBondStatus(uint256)
++----------------------------+-------------------------------------+
+|          Variable          |             Dependencies            |
++----------------------------+-------------------------------------+
+|           bondId           |                  []                 |
+|           payout           |           ['mapUserBonds']          |
+|          matured           | ['block.timestamp', 'mapUserBonds'] |
+|   Depository.MIN_VESTING   |                  []                 |
+|      Depository.owner      |                  []                 |
+|   Depository.bondCounter   |                  []                 |
+| Depository.productCounter  |                  []                 |
+|      Depository.olas       |                  []                 |
+|   Depository.tokenomics    |                  []                 |
+|    Depository.treasury     |                  []                 |
+| Depository.bondCalculator  |                  []                 |
+|  Depository.mapUserBonds   |           ['mapUserBonds']          |
+| Depository.mapBondProducts |                  []                 |
++----------------------------+-------------------------------------+
+Function getCurrentPriceLP(address)
++----------------------------+--------------------+
+|          Variable          |    Dependencies    |
++----------------------------+--------------------+
+|           token            |         []         |
+|          priceLP           |         []         |
+|   Depository.MIN_VESTING   |         []         |
+|      Depository.owner      |         []         |
+|   Depository.bondCounter   |         []         |
+| Depository.productCounter  |         []         |
+|      Depository.olas       |         []         |
+|   Depository.tokenomics    |         []         |
+|    Depository.treasury     |         []         |
+| Depository.bondCalculator  | ['bondCalculator'] |
+|  Depository.mapUserBonds   |         []         |
+| Depository.mapBondProducts |         []         |
++----------------------------+--------------------+
+Function slitherConstructorConstantVariables()
++----------------------------+--------------+
+|          Variable          | Dependencies |
++----------------------------+--------------+
+|   Depository.MIN_VESTING   |      []      |
+|      Depository.owner      |      []      |
+|   Depository.bondCounter   |      []      |
+| Depository.productCounter  |      []      |
+|      Depository.olas       |      []      |
+|   Depository.tokenomics    |      []      |
+|    Depository.treasury     |      []      |
+| Depository.bondCalculator  |      []      |
+|  Depository.mapUserBonds   |      []      |
+| Depository.mapBondProducts |      []      |
++----------------------------+--------------+
+INFO:Slither:. analyzed (6 contracts)
