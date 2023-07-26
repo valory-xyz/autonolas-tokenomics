@@ -108,3 +108,8 @@ It is proposed to use forge or echidna.
 ```
 [x] Ran foundry tests in this repository and [autonolas-v1](https://github.com/valory-xyz/autonolas-v1).
 
+
+### Update 26-07-23.
+Update between `b512b7c8728cbf98472ee622c0f72689fc6d9851` - `05d3af5bd557b735bd626b96d6c89e048b781b37` added no bugs in codebase. <br>
+All fixes did not change the code execution logic and are equivalent. <br>
+
