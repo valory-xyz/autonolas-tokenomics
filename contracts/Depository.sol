@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IGenericBondCalculator.sol";
-import "./interfaces/IToken.sol";
-import "./interfaces/ITokenomics.sol";
-import "./interfaces/ITreasury.sol";
+import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
+import {IGenericBondCalculator} from "./interfaces/IGenericBondCalculator.sol";
+import {IToken} from "./interfaces/IToken.sol";
+import {ITokenomics} from "./interfaces/ITokenomics.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
@@ -249,34 +249,30 @@ contract Depository is IErrorsTokenomics {
 
         // Calculate the number of closed products
         uint256 numProducts = productIds.length;
-        bool[] memory positions = new bool[](numProducts);
+        uint256[] memory ids = new uint256[](numProducts);
         uint256 numClosedProducts;
         // Traverse to close all possible products
         for (uint256 i = 0; i < numProducts; ++i) {
             uint256 productId = productIds[i];
             // Check if the product is still open by getting its supply amount
             uint256 supply = mapBondProducts[productId].supply;
-            // The supply is greater than zero only if the product is active, otherwise it is instantly closed
+            // The supply is greater than zero only if the product is active, otherwise it is already closed
             if (supply > 0) {
                 // Refund unused OLAS supply from the product if it was not used by the product completely
                 ITokenomics(tokenomics).refundFromBondProgram(supply);
                 address token = mapBondProducts[productId].token;
                 delete mapBondProducts[productId];
 
-                positions[i] = true;
+                ids[numClosedProducts] = productIds[i];
                 ++numClosedProducts;
                 emit CloseProduct(token, productId, supply);
             }
         }
 
-        // Get indexes of closed products
+        // Get the correct array size of closed product Ids
         closedProductIds = new uint256[](numClosedProducts);
-        uint256 numPos;
-        for (uint256 i = 0; i < numProducts; ++i) {
-            if (positions[i] ) {
-                closedProductIds[numPos] = productIds[i];
-                ++numPos;
-            }
+        for (uint256 i = 0; i < numClosedProducts; ++i) {
+            closedProductIds[i] = ids[i];
         }
     }
 
@@ -303,28 +299,27 @@ contract Depository is IErrorsTokenomics {
         // Get the bonding product
         Product storage product = mapBondProducts[productId];
 
-        // Get the LP token address
-        address token = product.token;
-
-        // Check for the product vesting time
-        // Note that if the token or productId are invalid, the vesting will be zero by default and result in revert
-        uint256 vesting = product.vesting;
-        if (vesting == 0) {
-            revert ProductExpired(token, productId, vesting, block.timestamp);
+        // Check for the product supply, which is zero if the product was closed or never existed
+        uint256 supply = product.supply;
+        if (supply == 0) {
+            revert ProductClosed(productId);
         }
 
-        maturity = block.timestamp + vesting;
+        // Calculate the bond maturity based on its vesting time
+        maturity = block.timestamp + product.vesting;
         // Check for the time limits
         if (maturity > type(uint32).max) {
             revert Overflow(maturity, type(uint32).max);
         }
-        
+
+        // Get the LP token address
+        address token = product.token;
+
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
         payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
 
         // Check for the sufficient supply
-        uint256 supply = product.supply;
         if (payout > supply) {
             revert ProductSupplyLow(token, productId, payout, supply);
         }
