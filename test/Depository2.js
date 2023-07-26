@@ -452,7 +452,7 @@ describe("Depository LP 2", async () => {
 
             await expect(
                 depository.connect(bob).deposit(productId, 1)
-            ).to.be.revertedWithCustomError(depository, "ProductExpired");
+            ).to.be.revertedWithCustomError(depository, "ProductClosed");
         });
 
         it("Should not allow a deposit with insufficient allowance", async () => {

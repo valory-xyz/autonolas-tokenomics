@@ -764,7 +764,7 @@ describe("Depository LP", async () => {
             // Trying to supply more to the depleted product
             await expect(
                 depository.connect(bob).deposit(productId, 1)
-            ).to.be.revertedWithCustomError(depository, "ProductExpired");
+            ).to.be.revertedWithCustomError(depository, "ProductClosed");
         });
 
         it("Should not allow a deposit with insufficient allowance", async () => {
@@ -983,7 +983,7 @@ describe("Depository LP", async () => {
             for (let i = 0; i < 2; i++) {
                 await expect(
                     depository.connect(bob).deposit(i, 10)
-                ).to.be.revertedWithCustomError(depository, "ProductExpired");
+                ).to.be.revertedWithCustomError(depository, "ProductClosed");
             }
             // Create bond
             let bamount = (await pairODAI.balanceOf(bob.address));
