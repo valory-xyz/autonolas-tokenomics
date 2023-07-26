@@ -39,3 +39,6 @@ d927b043d311f6e6eb6e493191570fc7d23fdac4:scripts/deployment/globals_mainnet.json
 68dbff14f38b10b253877590dda968c8f970a018:scripts/deployment/globals_mainnet.json:generic-api-key:2
 68dbff14f38b10b253877590dda968c8f970a018:scripts/deployment/globals_goerli.json:generic-api-key:2
 68dbff14f38b10b253877590dda968c8f970a018:docs/mainnet_addresses.json:generic-api-key:2
+bcaa5720b7442c5f38ea191652c0cafa484a7f41:scripts/deployment/globals_mainnet.json:generic-api-key:2
+bcaa5720b7442c5f38ea191652c0cafa484a7f41:scripts/deployment/globals_goerli.json:generic-api-key:2
+bcaa5720b7442c5f38ea191652c0cafa484a7f41:docs/mainnet_addresses.json:generic-api-key:2
