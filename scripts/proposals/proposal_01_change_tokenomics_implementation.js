@@ -40,7 +40,7 @@ async function main() {
     const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
 
     // Proposal preparation
-    console.log("17. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsTwo)`");
+    console.log("Proposal 1. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsTwo)`");
     const targets = [tokenomicsProxyAddress];
     const values = [0];
     const callDatas = [tokenomicsProxy.interface.encodeFunctionData("changeTokenomicsImplementation", [tokenomicsTwoAddress])];

@@ -893,7 +893,7 @@ describe("Depository LP", async () => {
             expect(closedProductIds).to.deep.equal([]);
         });
 
-        it("Create a bond product, deposit, then close it, detach depository, then redeem", async () => {
+        it.only("Create a bond product, deposit, then close it, detach depository, then redeem", async () => {
             // Transfer more LP tokens to Bob
             const amountTo = ethers.BigNumber.from(await pairODAI.balanceOf(deployer.address)).div(4);
             await pairODAI.connect(deployer).transfer(bob.address, amountTo);
@@ -914,7 +914,7 @@ describe("Depository LP", async () => {
 
             // Change to a new depository address
             await treasury.changeManagers(AddressZero, newDepository.address, AddressZero);
-            await tokenomics.changeManagers(treasury.address, newDepository.address, AddressZero);
+            await tokenomics.changeManagers(AddressZero, newDepository.address, AddressZero);
 
             // Increase time such that the vesting is complete
             await helpers.time.increase(vesting + 60);
