@@ -32,7 +32,7 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
+    //wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const treasuryJSON = "artifacts/contracts/Treasury.sol/Treasury.json";
     let contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
@@ -47,7 +47,9 @@ async function main() {
     //await treasury.connect(signer).enableToken(tokenAddress);
     //console.log(await treasury.isEnabled(tokenAddress));
 
-    const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
+    // Change to this contract ABI when the new depository contract is set by tokenomics and treasury
+    //const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
+    const depositoryJSON = "abis/0.8.18/Depository.json";
     contractFromJSON = fs.readFileSync(depositoryJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
     abi = parsedFile["abi"];
