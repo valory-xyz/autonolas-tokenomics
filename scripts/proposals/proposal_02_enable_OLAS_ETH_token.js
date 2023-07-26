@@ -26,25 +26,17 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
-    const governorTwoAddress = parsedData.governorTwoAddress;
-    const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    const tokenomicsTwoAddress = parsedData.tokenomicsTwoAddress;
+    const treasuryAddress = parsedData.treasuryAddress;
 
-    // Get the GovernorOLAS instance via its ABI
-    const GovernorOLASJSON = "abis/aux/GovernorOLAS.json";
-    let contractFromJSON = fs.readFileSync(GovernorOLASJSON, "utf8");
-    let contract = JSON.parse(contractFromJSON);
-    const GovernorOLASABI = contract["abi"];
-    const governor = await ethers.getContractAt(GovernorOLASABI, governorTwoAddress);
-
-    const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
+    // Get the treasury instance
+    const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
 
     // Proposal preparation
-    console.log("17. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsTwo)`");
-    const targets = [tokenomicsProxyAddress];
+    console.log("Proposal 2. Enable OLAS-USDC pair token by calling `enableToken(OLAS_ETH_PairAddress)`");
+    const targets = [treasuryAddress];
     const values = [0];
-    const callDatas = [tokenomicsProxy.interface.encodeFunctionData("changeTokenomicsImplementation", [tokenomicsTwoAddress])];
-    const description = "Change Tokenomics implementation to the version 1.0.1";
+    const callDatas = [treasury.interface.encodeFunctionData("enableToken", [parsedData.OLAS_ETH_PairAddress])];
+    const description = "Enable OLAS-ETH pair";
 
     // Proposal details
     console.log("targets:", targets);

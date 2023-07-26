@@ -579,7 +579,7 @@ describe("Tokenomics", async () => {
                 tokenomics.connect(deployer).getOwnerIncentives(deployer.address, [0], [0])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
-            // Try to get and claim owner rewards with non-existent components bigget than the total supply
+            // Try to get and claim owner rewards with non-existent components biggest than the total supply
             await expect(
                 tokenomics.getOwnerIncentives(deployer.address, [0, 0], [3, 4])
             ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
