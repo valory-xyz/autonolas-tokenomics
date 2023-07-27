@@ -2,6 +2,7 @@
 
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
+const { fetch } = require("cross-fetch");
 
 async function main() {
     const fs = require("fs");
@@ -47,10 +48,11 @@ async function main() {
     let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(tokenAddress));
 
     // Pool supply from the ETH-OLAS contract
-    const totalSupply = await pair.totalSupply();
+    let totalSupply = await pair.totalSupply();
     const reserves = await pair.getReserves();
-    const reservesOLAS = reserves._reserve0;
-    const reservesETH = reserves._reserve1;
+    let reservesOLAS = reserves._reserve0;
+    let reservesETH = reserves._reserve1;
+    const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
 
     // Get the OLAS current price
     const olasPerETH = reservesOLAS.div(reservesETH);
@@ -62,10 +64,51 @@ async function main() {
 
     // Add liquidity
     //const liquidity = Math.min(amount0.mul(totalSupply) / reservesOLAS, amount1.mul(totalSupply) / reservesETH);
+    // add liqudity 1ETH and derivated OLAS as amount0Out = 1ETH * reservesOLAS/reservesETH
+    console.log("addLiqudity 2ETH and derivated OLAS based on current reserves");
+    const e36 = e18.mul(ethers.BigNumber.from(2));
+    const liquidity = e36.mul(totalSupply).div(reservesETH);
+    priceLP = (reservesOLAS.mul(e18)).div(totalSupply);
+    console.log("before priceLP", priceLP);
+    console.log("before totalSupply",totalSupply/10**18);
+    console.log("before reservesETH",reservesETH/10**18);
+    console.log("before reservesOLAS",reservesOLAS/10**18);
+    totalSupply = totalSupply.add(liquidity);
+    let newReservesETH = reservesETH.add(e36);
+    let newReservesOLAS = reservesOLAS.add(e36.mul(reservesOLAS).div(reservesETH));
+    priceLP = (newReservesOLAS.mul(e18)).div(totalSupply);
+    console.log("New totalSupply",totalSupply/10**18);
+    console.log("new LP tokens",liquidity/10**18);
+    console.log("newReservesETH",newReservesETH/10**18);
+    console.log("newReservesOLAS",newReservesOLAS/10**18);
+    console.log("priceLP", priceLP);
+    // fixed after addLiqudity
+    reservesETH = newReservesETH;
+    reservesOLAS = newReservesOLAS;
+    console.log("----------");
 
-    let newReservesETH = reservesETH;
-    let newReservesOLAS = reservesOLAS;
-    const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
+    // removeLiqidity
+    console.log("removeLiqidity",liquidity);
+    const removedOLAS = liquidity.mul(reservesOLAS).div(totalSupply);
+    const removedETH = liquidity.mul(reservesETH).div(totalSupply);
+    console.log("before totalSupply",totalSupply/10**18);
+    totalSupply = totalSupply.sub(liquidity);
+    newReservesETH = reservesETH.sub(removedETH);
+    newReservesOLAS = reservesOLAS.sub(removedOLAS);
+    priceLP = (newReservesOLAS.mul(e18)).div(totalSupply);
+    console.log("New totalSupply",totalSupply/10**18);
+    console.log("new LP tokens",liquidity/10**18);
+    console.log("newReservesETH",newReservesETH/10**18);
+    console.log("newReservesOLAS",newReservesOLAS/10**18);
+    console.log("priceLP",priceLP);
+    // fixed after addLiqudity
+    reservesETH = newReservesETH;
+    reservesOLAS = newReservesOLAS;
+    console.log("----------");
+
+    // swap
+    newReservesETH = reservesETH;
+    newReservesOLAS = reservesOLAS;
     let priceCompare;
 
     // We need to iteratively swap by adding 1 ETH into the pool each time such that the price of OLAS increases
