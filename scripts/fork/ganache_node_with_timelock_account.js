@@ -78,8 +78,8 @@ async function main() {
     filter.push(ethers.utils.hexZeroPad(ethers.utils.hexlify(productId), 32));
 
     const logs = await provider.getLogs({
-        fromBlock: curBlockNumber - 10, // Starting block number to search for the event (You can adjust this)
-        toBlock: curBlockNumber, // Ending block number to search for the event
+        fromBlock: curBlockNumber - 10,
+        toBlock: curBlockNumber,
         address: depository.address,
         topics: filter,
     });
@@ -162,7 +162,7 @@ async function main() {
     tokenBalance = tokenBalance.div(ethers.BigNumber.from(2));
     console.log(tokenBalance);
 
-
+    // Remove liquidity
     await router.connect(wallet).removeLiquidity(wethAddress, olasAddress, tokenBalance, 0, 0, to, deadline);
 
     reserves = await pair.getReserves();
@@ -178,22 +178,22 @@ async function main() {
 
     /*
     node scripts/fork/ganache_node_with_timelock_account.js
-Current fork block number: 17784307
-1691064650
-OLAS balance: 1.0629334248726272e+22
-WETH balance: 1000000000000000000
-priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
-Our share 0.00356481863355418
-priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
-addLiqidity not moved priceLP = reservesOLAS/totalSupply
-BigNumber { _hex: '0x015c195520dc3c6cc1', _isBigNumber: true }
-priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
-removeLiqidity not moved priceLP = reservesOLAS/totalSupply
-2925
+    Current fork block number: 17784307
+        1691064650
+        OLAS balance: 1.0629334248726272e+22
+        WETH balance: 1000000000000000000
+        priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
+        Our share 0.00356481863355418
+        priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
+        addLiqidity not moved priceLP = reservesOLAS/totalSupply
+        BigNumber { _hex: '0x015c195520dc3c6cc1', _isBigNumber: true }
+        priceLP BigNumber { _hex: '0x05b819057dd47a6b2f', _isBigNumber: true }
+        removeLiqidity not moved priceLP = reservesOLAS/totalSupply
+        2925
     */
 
     // Approve LP token for treasury
-    await pair.connect(wallet).approve(treasuryAddress, ethers.constants.MaxUint256);
+    //await pair.connect(wallet).approve(treasuryAddress, ethers.constants.MaxUint256);
 
     // Deposit for the bond
     //await depository.connect(wallet).deposit(0, "5" + "0".repeat(19));
