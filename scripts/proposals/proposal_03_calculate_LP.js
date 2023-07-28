@@ -27,12 +27,12 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
-    const depositoryAddress = parsedData.depositoryAddress;
+    const depositoryTwoAddress = parsedData.depositoryTwoAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const tokenAddress = parsedData.OLAS_ETH_PairAddress;
 
     // Get the depository instance
-    const depository = await ethers.getContractAt("Depository", depositoryAddress);
+    const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
     const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
 
@@ -243,7 +243,7 @@ async function main() {
     const vestings = [vesting];
 
     const numPrices = pricesLP.length;
-    const targets = new Array(numPrices).fill(depositoryAddress);
+    const targets = new Array(numPrices).fill(depositoryTwoAddress);
     const values = new Array(numPrices).fill(0);
     const callDatas = new Array(numPrices);
     for (let i = 0; i < numPrices; i++) {
