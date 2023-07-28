@@ -2,6 +2,7 @@
 
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
+const { fetch } = require("cross-fetch");
 
 async function main() {
     const fs = require("fs");
@@ -26,89 +27,227 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
-    const depositoryAddress = parsedData.depositoryAddress;
+    const depositoryTwoAddress = parsedData.depositoryTwoAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
+    const tokenAddress = parsedData.OLAS_ETH_PairAddress;
 
     // Get the depository instance
-    const depository = await ethers.getContractAt("Depository", depositoryAddress);
+    const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
     const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
+    const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
 
     // Proposal preparation
     console.log("Proposal 3. Calculate LP price for the bonding product");
 
-    const numETH = 50;
+    // Fetch the ETH price
     const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
     const data = await response.json();
     let priceETH = data.ethereum.usd;
-    console.log("ETH price in USD:", priceETH);
-    let priceOLAS = 0.0742;
-    // Number of OLAS
-    const numOLAS = (numETH * priceETH) / priceOLAS;
-    console.log("Number of OLAS:", numOLAS);
+    console.log("Current ETH price:", priceETH);
 
-    // Supply is the half of the effective bond
-    const supply = ethers.BigNumber.from(await tokenomics.effectiveBond()).div(ethers.BigNumber.from(2));
-    // Vesting is 7 days
-    const vesting = 3600 * 24 * 7;
-    const token = parsedData.OLAS_ETH_PairAddress;
-    // Current LP price
-    let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(token));
+    // Pool supply from the ETH-OLAS contract
+    let totalSupply = await pair.totalSupply();
+    const reserves = await pair.getReserves();
+    let reservesOLAS = reserves._reserve0;
+    let reservesETH = reserves._reserve1;
+    const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
 
-    // Original pool supply from the ETH-OLAS contract
-    const totalSupply = ethers.BigNumber.from("7973314868986424268666");
-    // Price of ETH (in cents)
-    priceETH = ethers.BigNumber.from(189000);
-    // Desired price of OLAS (in cents)
-    priceOLAS = ethers.BigNumber.from(10);
-    // Initial reserves
-    const reservesETH = ethers.BigNumber.from("50" + "0".repeat(18));
-    const reservesOLAS = ethers.BigNumber.from("1271475" + "0".repeat(18));
+    // Get the OLAS current price
+    const olasPerETH = reservesOLAS.div(reservesETH);
+    let priceOLAS = priceETH / Number(olasPerETH);
+    console.log("Current OLAS price:", priceOLAS);
 
+    // Convert prices in cents
+    priceETH = ethers.BigNumber.from(Math.floor(priceETH * 100));
+    priceOLAS = ethers.BigNumber.from(Math.floor(priceOLAS * 100));
+
+    // Get current LP price
+    let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(tokenAddress));
+    console.log("Initial priceLP", priceLP.toString());
+
+    // Estimate the average ETH amount of swaps the last number of days
+    const numDays = 7;
+    console.log("Last number of days:", numDays);
+    const numBlocksBack = Math.floor((3600 * 24 * numDays) / 12);
+
+    // Get events
+    const eventName = "Swap";
+    const eventFilter = pair.filters[eventName]();
+    let block = await provider.getBlock("latest");
+    const curBlockNumber = block.number;
+
+    const events = await provider.getLogs({
+        fromBlock: curBlockNumber - numBlocksBack,
+        toBlock: curBlockNumber,
+        address: pair.address,
+        topics: eventFilter.topics,
+    });
+
+    // Parse events and get tradable OLAS and ETH
+    let amountOLAS = ethers.BigNumber.from(0);
+    let numEventsOLAS = 0;
+    let amountETH = ethers.BigNumber.from(0);
+    let numEventsETH = 0;
+    for (let i = 0; i < events.length; i++) {
+        const uint256SizeInBytes = 32;
+        const uint256Count = 4;
+        const uint256DataArray = [];
+
+        const data = events[i].data.slice(2);
+        for (let i = 0; i < uint256Count; i++) {
+            const startIndex = i * uint256SizeInBytes * 2; // 2 hex characters per byte
+            const endIndex = startIndex + uint256SizeInBytes * 2;
+            const uint256Data = data.substring(startIndex, endIndex);
+            uint256DataArray.push(uint256Data);
+        }
+        const amount0In = ethers.BigNumber.from("0x" + uint256DataArray[0]);
+        const amount1In = ethers.BigNumber.from("0x" + uint256DataArray[1]);
+        const amount0Out = ethers.BigNumber.from("0x" + uint256DataArray[2]);
+        const amount1Out = ethers.BigNumber.from("0x" + uint256DataArray[3]);
+
+        if (amount0In.eq(0)) {
+            amountETH = amountETH.add(amount1In);
+            numEventsETH++;
+        } else {
+            amountOLAS = amountOLAS.add(amount0In);
+            numEventsOLAS++;
+        }
+    }
+    if (numEventsETH == 0) {
+        numEventsETH = 1;
+    }
+    if (numEventsOLAS == 0) {
+        numEventsOLAS = 1;
+    }
+    //console.log("amountOLAS", amountOLAS.toString());
+    //console.log("amountETH", amountETH.toString());
+    const avgAmountOLAS = amountOLAS.div(ethers.BigNumber.from(numEventsOLAS));
+    const avgAmountETH = amountETH.div(ethers.BigNumber.from(numEventsETH));
+    const avgAmountOLASNum = Number(amountOLAS.div(e18)) / numEventsOLAS;
+    const e5 = ethers.BigNumber.from("1" + "0".repeat(5));
+    // Since OLAS is approx 5 digits of ETH, make 5 digits more precision for ETH
+    const avgAmountETHNum = Number(amountETH.mul(e5).div(e18)) / (Number(e5) * numEventsETH);
+    console.log("Average OLAS amount per swap:", avgAmountOLASNum);
+    console.log("Average ETH amount per swap:", avgAmountETHNum);
+    // Convert OLAS to ETH
+    const numEvents = ethers.BigNumber.from(events.length);
+    const allAmountETH = amountETH.add(amountOLAS.div(olasPerETH));
+    const allAvgAmountETH = allAmountETH.div(numEvents);
+    //console.log("Overall amountETH", Number(allAmountETH) / Number(e18));
+
+    // Record current reserves
     let newReservesETH = reservesETH;
     let newReservesOLAS = reservesOLAS;
-    const addETH = ethers.BigNumber.from("1" + "0".repeat(18));
+
+    // Swap to get upper bound prices
     let priceCompare;
+    let targetPrice = Number(priceOLAS);
+    let pcStep = 20;
+    let targetPcStep = Math.floor((targetPrice * pcStep) / 100);
+    let totalPriceIncrease = 200;
+    const pricesOLASIncrease = new Array();
+    const pricesLPIncrease = new Array();
 
-    // We need to iteratively swap by adding 1 ETH into the pool each time such that the price of OLAS increases
-    // to the desired value. 19 iterations for 0.16, 17 for 0.14, 13 for 0.12, 8 for 0.1, 2 for 0.08
-    for (let i = 0; i < 2; i++) {
-        const amountInWithFee = addETH.mul(ethers.BigNumber.from(997));
-        const numerator = amountInWithFee.mul(reservesOLAS);
-        const denominator = reservesETH.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
-        const res = numerator.div(denominator);
+    // We need to iteratively swap by adding average ETH into the pool each time such that the price of OLAS increases
+    // to the desired value.
+    const condition = true;
+    while (condition) {
+        targetPrice += targetPcStep;
+        pricesOLASIncrease.push(targetPrice);
+        while (condition) {
+            //console.log("targetPrice", targetPrice);
+            const amountInWithFee = avgAmountETH.mul(ethers.BigNumber.from(997));
+            const numerator = amountInWithFee.mul(reservesOLAS);
+            const denominator = reservesETH.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
+            const res = numerator.div(denominator);
 
-        newReservesETH = newReservesETH.add(addETH);
-        newReservesOLAS = newReservesOLAS.sub(res);
+            newReservesETH = newReservesETH.add(avgAmountETH);
+            newReservesOLAS = newReservesOLAS.sub(res);
 
-        // This price must match the requested priceOLAS
-        priceCompare = (newReservesETH.mul(priceETH)).div(newReservesOLAS);
+            // This price must match the requested priceOLAS
+            priceCompare = Number((newReservesETH.mul(priceETH)).div(newReservesOLAS));
+            if (priceCompare >= targetPrice) {
+                break;
+            }
+        }
+        priceLP = (newReservesOLAS.mul(e18)).div(totalSupply).mul(ethers.BigNumber.from(2));
+        pricesLPIncrease.push(priceLP);
+
+        // Decrease the total price increase as we reached the new price, and break when we found all prices
+        totalPriceIncrease -= pcStep;
+        if (totalPriceIncrease == 0) {
+            break;
+        }
     }
-    priceLP = (newReservesOLAS.mul(addETH)).div(totalSupply);
-    //console.log("newReservesETH", newReservesETH);
-    //console.log("newReservesOLAS", newReservesOLAS);
-    //console.log("priceCompare", priceCompare);
-    //console.log("priceLP", priceLP);
-
-    // Price LP for OLAS price of 8, 10, 12, 14, 16 cents
-    const pricesLP = ["153231111055529442295", "134525552082932313062", "118937586272434705368", "106467213624036619212", "100232027299837576135"];
-    const supplies = ["1000000" + "0".repeat(18), "1000000" + "0".repeat(18), "300000" + "0".repeat(18), "300000" + "0".repeat(18), "300000" + "0".repeat(18)];
-
-    // Final price LP
-    const finalPricesLP = new Array(5);
-    for (let i = 0; i < 5; i++) {
-        priceLP = ethers.BigNumber.from(pricesLP[i]);
-        finalPricesLP[i] = priceLP.add(priceLP.div(ethers.BigNumber.from(2)));
-        console.log("finalPricesLP:", finalPricesLP[i]);
+    console.log("\n======= OLAS price increases =======");
+    for (let i = 0; i < pricesOLASIncrease.length; i++) {
+        console.log("OLAS price " + pricesOLASIncrease[i] + " (cents): priceLP " + pricesLPIncrease[i].toString());
     }
 
-    //console.log("supply", supply);
-    //console.log("pricesLP", pricesLP);
+    // Set back current reserves
+    newReservesETH = reservesETH;
+    newReservesOLAS = reservesOLAS;
 
-    const targets = new Array(5).fill(depositoryAddress);
-    const values = new Array(5).fill(0);
-    const callDatas = new Array(5);
-    for (let i = 0; i < 5; i++) {
-        callDatas[i] = depository.interface.encodeFunctionData("create", [token, finalPricesLP[i], supplies[i], vesting]);
+    // Swap to get lower bound prices
+    targetPrice = Number(priceOLAS);
+    pcStep = 20;
+    targetPcStep = Math.floor((targetPrice * pcStep) / 100);
+    let totalPriceDecrease = 80;
+    const pricesOLASDecrease = new Array();
+    const pricesLPDecrease = new Array();
+
+    // We need to iteratively swap by adding average ETH into the pool each time such that the price of OLAS increases
+    // to the desired value.
+    while (condition) {
+        targetPrice -= targetPcStep;
+        pricesOLASDecrease.push(targetPrice);
+        while (condition) {
+            //console.log("targetPrice", targetPrice);
+            const amountInWithFee = avgAmountOLAS.mul(ethers.BigNumber.from(997));
+            const numerator = amountInWithFee.mul(reservesETH);
+            const denominator = reservesOLAS.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
+            const res = numerator.div(denominator);
+
+            newReservesOLAS = newReservesOLAS.add(avgAmountOLAS);
+            newReservesETH = newReservesETH.sub(res);
+
+            // This price must match the requested priceOLAS
+            priceCompare = Number((newReservesETH.mul(priceETH)).div(newReservesOLAS));
+            if (priceCompare <= targetPrice) {
+                break;
+            }
+        }
+        priceLP = (newReservesOLAS.mul(e18)).div(totalSupply).mul(ethers.BigNumber.from(2));
+        pricesLPDecrease.push(priceLP);
+
+        // Decrease the total price increase as we reached the new price, and break when we found all prices
+        totalPriceDecrease -= pcStep;
+        if (totalPriceDecrease == 0) {
+            break;
+        }
+    }
+    console.log("\n======= OLAS price decreases =======");
+    for (let i = 0; i < pricesOLASDecrease.length; i++) {
+        console.log("OLAS price " + pricesOLASDecrease[i] + " (cents): priceLP " + pricesLPDecrease[i].toString());
+    }
+    console.log("\n");
+
+    // Get effective bond
+    const effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
+    // Vesting is 7 days
+    const vesting = 3600 * 24 * 7;
+
+    // Price LP for OLAS price of corresponding prices
+    const pricesLP = [pricesOLASIncrease[0]];
+    const supplies = ["1000000" + "0".repeat(18)];
+    const vestings = [vesting];
+
+    const numPrices = pricesLP.length;
+    const targets = new Array(numPrices).fill(depositoryTwoAddress);
+    const values = new Array(numPrices).fill(0);
+    const callDatas = new Array(numPrices);
+    for (let i = 0; i < numPrices; i++) {
+        callDatas[i] = depository.interface.encodeFunctionData("create", [tokenAddress, pricesLP[i], supplies[i], vestings[i]]);
     }
     const description = "Create OLAS-ETH bonding product";
 
