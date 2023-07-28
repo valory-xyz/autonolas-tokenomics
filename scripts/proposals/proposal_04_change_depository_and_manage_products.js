@@ -47,7 +47,7 @@ async function main() {
     // Proposal preparation
     console.log("Proposal 4. Change depository address in tokenomics and treasury, close old products and create new ones");
     const targets = [depositoryAddress, tokenomicsProxyAddress, treasuryAddress];
-    const values = [0];
+    const values = [0, 0, 0];
     const callDatas = [
         oldDepository.interface.encodeFunctionData("close", [[2, 3, 4, 5, 6, 7, 8, 9]]),
         tokenomics.interface.encodeFunctionData("changeManagers", [AddressZero, depositoryTwoAddress, AddressZero]),
@@ -55,17 +55,18 @@ async function main() {
     ];
 
     // Additional products to create with depository contract
-    const pricesLPs = ["153231111055529442295", "134525552082932313062", "118937586272434705368", "106467213624036619212", "100232027299837576135"];
-    const supplies = ["1000000" + "0".repeat(18), "1000000" + "0".repeat(18), "300000" + "0".repeat(18), "300000" + "0".repeat(18), "300000" + "0".repeat(18)];
     const vesting = 3600 * 24 * 7;
+    const pricesLPs = ["153231111055529442295"];
+    const supplies = ["10000" + "0".repeat(18)];
+    const vestings = [vesting];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < pricesLPs.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
-        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLPs[i], supplies[i], vesting]));
+        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLPs[i], supplies[i], vestings[i]]));
     }
 
-    const description = "Change depository address in tokenomics and treasury, close old products and create new ones";
+    const description = "Change Depository address in Tokenomics and Treasury, close old products, create new ones";
 
     // Proposal details
     console.log("targets:", targets);
