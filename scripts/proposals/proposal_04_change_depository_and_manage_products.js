@@ -56,14 +56,13 @@ async function main() {
 
     // Additional products to create with depository contract
     const vesting = 3600 * 24 * 7;
-    const pricesLPs = ["153231111055529442295"];
-    const supplies = ["10000" + "0".repeat(18)];
-    const vestings = [vesting];
+    const pricesLP = ["248552225555891292658","239199446069592728050","229846666583294163442","220493887096995598809","211141107610697034201"];
+    const supplies = ["200000000000000000000000","300000000000000000000000","400000000000000000000000","400000000000000000000000","500000000000000000000000"];
 
-    for (let i = 0; i < pricesLPs.length; i++) {
+    for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
-        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLPs[i], supplies[i], vestings[i]]));
+        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLP[i], supplies[i], vesting]));
     }
 
     const description = "Change Depository address in Tokenomics and Treasury, close old products, create new ones";
