@@ -4,6 +4,8 @@ pragma solidity ^0.8.18;
 import {mulDiv} from "@prb/math/src/Common.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/IUniswapV2Pair.sol";
+import "@prb/math/src/UD60x18.sol";
+
 
 /// @dev Value overflow.
 /// @param provided Overflow value.
@@ -12,6 +14,7 @@ error Overflow(uint256 provided, uint256 max);
 
 /// @dev Provided zero address.
 error ZeroAddress();
+
 
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.
@@ -36,6 +39,80 @@ contract GenericBondCalculator {
         tokenomics = _tokenomics;
     }
 
+    /// @dev to init TWAP
+    /// ToDo + spec
+    function priceCumulativeLast(address token) external view returns (uint256 price0Cumulative, uint32 blockTimestampLast) {
+        uint256 totalSupply = IUniswapV2Pair(token).totalSupply();
+        if (totalSupply > 0) {
+            address token0 = IUniswapV2Pair(token).token0();
+            address token1 = IUniswapV2Pair(token).token1();
+            if (token0 == olas || token1 == olas) {
+                (,, blockTimestampLast) = IUniswapV2Pair(token).getReserves();
+                price0Cumulative = IUniswapV2Pair(token).price0CumulativeLast();
+                uint256 price1Cumulative = IUniswapV2Pair(token).price1CumulativeLast();
+                if (token1 == olas) {
+                    price0Cumulative = price1Cumulative;
+                }
+            }
+        }
+    }
+
+    /// @dev currentCumulativePrices  per token at time t in deposit
+    /// @dev ToDO: natspec
+    function currentCumulativePrices(address token) external view returns (uint256 price0Cumulative) {
+        uint256 totalSupply = IUniswapV2Pair(token).totalSupply();
+        if (totalSupply > 0) {
+            address token0 = IUniswapV2Pair(token).token0();
+            address token1 = IUniswapV2Pair(token).token1();
+            if (token0 == olas || token1 == olas) {
+                price0Cumulative = IUniswapV2Pair(token).price0CumulativeLast();
+                uint256 price1Cumulative = IUniswapV2Pair(token).price1CumulativeLast();
+                // adjust priceXCumulative
+                (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(token).getReserves();
+                uint32 timeElapsed = uint32(block.timestamp - blockTimestampLast);
+                if(timeElapsed > 0) {
+                    // Adjusted ??? price0Cumulative, ToDo: re-thinking later, triple check pls!!
+                    // re-check blockTimestampLast under flash loan attack
+                    // price0Cumulative += uint(FixedPoint.fraction(reserve1, reserve0)._x) * timeElapsed;
+                    // price1Cumulative += uint(FixedPoint.fraction(reserve0, reserve1)._x) * timeElapsed;
+                    // optimized calculation later. 
+                    UD60x18 numerator = convert(reserve1);
+                    UD60x18 denominator = convert(reserve0);
+                    price0Cumulative += UD60x18.unwrap(numerator.div(denominator)) * timeElapsed;
+                    price1Cumulative += UD60x18.unwrap(denominator.div(numerator)) * timeElapsed;
+                }
+                if (token1 == olas) {
+                    price0Cumulative = price1Cumulative;
+                }
+            }    
+        }
+    }
+
+    /// @dev ToDO: natspec
+    function calcPrice0Average(uint256 price0Cumulative, uint256 price0CumulativeLast, uint32 timeElapsed) external pure returns (uint256 price0Average){
+        // ToDO: re-write by @prb/math/src/UD60x18 - done
+        //price0Average = FixedPoint.uq112x112(uint224((price0Cumulative - price0CumulativeLast) / timeElapsed));
+        UD60x18 numerator = convert(price0Cumulative - price0CumulativeLast);
+        UD60x18 denominator = convert(timeElapsed);
+        price0Average = UD60x18.unwrap(numerator.div(denominator));
+    }
+
+    /// @dev ToDO: natspec
+    function priceInBlock(address token) external view returns(uint256 price0) {
+        address token0 = IUniswapV2Pair(token).token0();
+        address token1 = IUniswapV2Pair(token).token1();
+        (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(token).getReserves();
+        if (token0 == olas || token1 == olas) {
+            UD60x18 numerator = convert(reserve1);
+            UD60x18 denominator = convert(reserve0);             
+            price0 = UD60x18.unwrap(numerator.div(denominator));
+            uint256 price1 = UD60x18.unwrap(denominator.div(numerator));
+            if (token1 == olas) {
+                price0 = price1;
+            }
+        }
+    }
+    
     /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
     /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
     /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
@@ -84,9 +161,11 @@ contract GenericBondCalculator {
                 if (token0 == olas) {
                     reserve1 = reserve0;
                 }
-                // Calculate the LP price based on reserves and totalSupply ratio multiplied by 1e18
+                // Calculate the LP price based on reserves and totalSupply ratio multipliend by (2*9975/10000) multiplied by 1e18 
                 // Inspired by: https://github.com/curvefi/curve-contract/blob/master/contracts/pool-templates/base/SwapTemplateBase.vy#L262
-                priceLP = (reserve1 * 1e18) / totalSupply;
+                // first element in Tylor series
+                // maybe just 2?!
+                priceLP = (reserve1 * 1e18 * 2 * 9975) / (10000 * totalSupply);
             }
         }
     }

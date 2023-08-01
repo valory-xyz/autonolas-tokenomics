@@ -54,6 +54,15 @@ struct Product {
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
+    // (2^64 - 1) / 10^18 > 18, however averagePrice in range [ averagePrice - averagePrice*slippage/10^18,  averagePrice + averagePrice*slippage/10^18], thus we limit slippage by 17 with 18 decimals at most
+    uint64 slippage;
+}
+
+// ToDo: fixing comments and optimization
+struct TWAP {
+    // price = reserveOLAS/reserveY in pair OLAS-Y
+    uint256 priceCumulativeLast;
+    uint32 blockTimestampLast;
 }
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -98,6 +107,9 @@ contract Depository is IErrorsTokenomics {
     mapping(uint256 => Bond) public mapUserBonds;
     // Mapping of product Id => bond product instance
     mapping(uint256 => Product) public mapBondProducts;
+
+    // Mapping of token => TWAP instance
+    mapping(address => TWAP) public mapTWAPs;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
@@ -174,26 +186,16 @@ contract Depository is IErrorsTokenomics {
 
     /// @dev Creates a new bond product.
     /// @param token LP token to be deposited for pairs like OLAS-DAI, OLAS-ETH, etc.
-    /// @param priceLP LP token price with 18 additional decimals.
     /// @param supply Supply in OLAS tokens.
     /// @param vesting Vesting period (in seconds).
+    /// @param slippage slippage borders
     /// @return productId New bond product Id.
     /// #if_succeeds {:msg "productCounter increases"} productCounter == old(productCounter) + 1;
     /// #if_succeeds {:msg "isActive"} mapBondProducts[productId].supply > 0 && mapBondProducts[productId].vesting == vesting;
-    function create(address token, uint256 priceLP, uint256 supply, uint256 vesting) external returns (uint256 productId) {
+    function create(address token, uint256 supply, uint256 vesting, uint256 slippage) external returns (uint256 productId) {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check for the pool liquidity as the LP price being greater than zero
-        if (priceLP == 0) {
-            revert ZeroValue();
-        }
-
-        // Check the priceLP limit value
-        if (priceLP > type(uint160).max) {
-            revert Overflow(priceLP, type(uint160).max);
         }
 
         // Check that the supply is greater than zero
@@ -217,6 +219,10 @@ contract Depository is IErrorsTokenomics {
             revert Overflow(maturity, type(uint32).max);
         }
 
+        if(slippage > type(uint64).max) {
+            revert Overflow(slippage, type(uint64).max);
+        }
+
         // Check if the LP token is enabled
         if (!ITreasury(treasury).isEnabled(token)) {
             revert UnauthorizedToken(token);
@@ -227,9 +233,29 @@ contract Depository is IErrorsTokenomics {
             revert LowerThan(ITokenomics(tokenomics).effectiveBond(), supply);
         }
 
+        // priceLP FYI, for compatible
+        uint256 priceLP = IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
+        if (priceLP == 0) {
+            revert ZeroValue();
+        }
+
+        // Check the priceLP limit value. ??!! 
+        if (priceLP > type(uint160).max) {
+            revert Overflow(priceLP, type(uint160).max);
+        }
+
+
+        // init TWAP if zero
+        uint256 price0CumulativeLast;
+        uint32 blockTimestampLast;
+        if(mapTWAPs[token].blockTimestampLast == 0) {
+            (price0CumulativeLast, blockTimestampLast) = IGenericBondCalculator(bondCalculator).priceCumulativeLast(token);
+            mapTWAPs[token] = TWAP(price0CumulativeLast, blockTimestampLast);
+        }
+
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply));
+        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply), uint64(slippage));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply, priceLP, vesting);
@@ -314,6 +340,33 @@ contract Depository is IErrorsTokenomics {
 
         // Get the LP token address
         address token = product.token;
+
+        // TWAP section BEGIN
+        //uint256 price0CumulativeLast = mapTWAPs[token].priceCumulativeLast;
+        //uint256 price0Cumulative = IGenericBondCalculator(bondCalculator).currentCumulativePrices(token);
+        //uint32 blockTimestampLast = mapTWAPs[token].blockTimestampLast;
+        // double check logic timeElapsed never zero?
+        // stack too deep
+        {
+            uint32 timeElapsed = uint32(block.timestamp - mapTWAPs[token].blockTimestampLast); // overflow is desired
+            // ToDO: re-write to prb-math    
+            uint256 price0Average = IGenericBondCalculator(bondCalculator).calcPrice0Average(IGenericBondCalculator(bondCalculator).currentCumulativePrices(token),  mapTWAPs[token].priceCumulativeLast, timeElapsed);
+            // update TWAP
+            mapTWAPs[token].priceCumulativeLast = IGenericBondCalculator(bondCalculator).currentCumulativePrices(token);
+            mapTWAPs[token].blockTimestampLast = uint32(block.timestamp);
+            // ToDo: optimized later, double check logic!
+            uint256 price0AverageMax = price0Average + price0Average * product.slippage/10**18;
+            uint256 price0AverageMin =  price0Average - price0Average * product.slippage/10**18;
+            uint256 price0 = IGenericBondCalculator(bondCalculator).priceInBlock(token); 
+            if(price0 < price0AverageMin || price0 > price0AverageMax) {
+                // ToDo: Fixing revert. flash loan attack in block.
+                revert Overflow(price0,price0Average);
+            }
+        }
+        // TWAP section END
+
+        // dynamic update
+        product.priceLP = uint160(IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token));
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created

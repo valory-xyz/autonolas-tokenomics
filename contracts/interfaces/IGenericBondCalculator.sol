@@ -14,4 +14,10 @@ interface IGenericBondCalculator {
     /// @param token Token address.
     /// @return priceLP Resulting reserve ratio.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
+
+    /// @dev ToDO: natspec
+    function priceCumulativeLast(address token) external view returns (uint256 price0Cumulative, uint32 blockTimestampLast);
+    function currentCumulativePrices(address token) external view returns (uint256 price0Cumulative);
+    function calcPrice0Average(uint256 price0Cumulative, uint256 price0CumulativeLast, uint32 timeElapsed) external view returns (uint256 price0Average);
+    function priceInBlock(address token) external view returns(uint256 price0);
 }
