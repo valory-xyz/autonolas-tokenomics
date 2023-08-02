@@ -15,9 +15,28 @@ interface IGenericBondCalculator {
     /// @return priceLP Resulting reserve ratio.
     function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
 
-    /// @dev ToDO: natspec
-    function priceCumulativeLast(address token) external view returns (uint256 price0Cumulative, uint32 blockTimestampLast);
-    function currentCumulativePrices(address token) external view returns (uint256 price0Cumulative);
-    function calcPrice0Average(uint256 price0Cumulative, uint256 price0CumulativeLast, uint32 timeElapsed) external view returns (uint256 price0Average);
-    function priceInBlock(address token) external view returns(uint256 price0);
+
+    /// @dev Gets last cumulative price and block timestamp from the OLAS-contained LP.
+    /// @param token LP token address.
+    /// @return priceCumulative OLAS cumulative price.
+    /// @return btsLast Last block timestamp.
+    function priceCumulativeLast(address token) external view returns (uint256 priceCumulative, uint256 btsLast);
+
+    /// @dev Gets current cumulative price of LP token.
+    /// @param token LP token address.
+    /// @return priceCumulative Current cumulative price.
+    function priceCumulativeCurrent(address token) external view returns (uint256 priceCumulative);
+
+    /// @dev Gets average price.
+    /// @param priceCurrent Current cumulative price.
+    /// @param priceLast Last cumulative price.
+    /// @param timeElapsed Elapsed time.
+    /// @return priceAvg Average price.
+    function priceAverage(uint256 priceCurrent, uint256 priceLast, uint256 timeElapsed)
+        external pure returns (uint256 priceAvg);
+
+    /// @dev Gets price in the current block.
+    /// @param token LP token address.
+    /// @return price Price in the current block.
+    function priceNow(address token) external view returns(uint256 price);
 }

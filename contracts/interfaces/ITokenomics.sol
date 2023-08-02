@@ -49,4 +49,12 @@ interface ITokenomics {
     /// @dev Gets the service registry contract address
     /// @return Service registry contract address;
     function serviceRegistry() external view returns (address);
+
+    /// @dev Gets Tokenomics epoch counter.
+    /// @return Epoch counter.
+    function epochCounter() external view returns (uint256);
+
+    /// @dev Gets inverse discount factor with the multiple of 1e18 of the specified epoch.
+    /// @return idf Discount factor with the multiple of 1e18.
+    function getIDF(uint256 epoch) external view returns (uint256 idf);
 }

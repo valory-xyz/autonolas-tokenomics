@@ -40,12 +40,16 @@ struct Bond {
     uint32 productId;
 }
 
-// The size of the struct is 160 + 32 + 160 + 96 = 256 + 192 (2 slots)
+// The size of the struct is 160 + 32 + 64 + 160 + 96 = 256 + 256 (2 slots)
 struct Product {
     // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
     // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
     uint160 priceLP;
+    // TODO Check on slippage numbers
+    // (2^64 - 1) / 10^18 > 18, however averagePrice is in range [averagePrice - (averagePrice * slippage) / 10^18,
+    // averagePrice + averagePrice * slippage / 10^18], thus we limit slippage by 17 with 18 decimals at most
+    uint64 slippage;
     // Bond vesting time
     // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
     uint32 vesting;
@@ -54,15 +58,16 @@ struct Product {
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
-    // (2^64 - 1) / 10^18 > 18, however averagePrice in range [ averagePrice - averagePrice*slippage/10^18,  averagePrice + averagePrice*slippage/10^18], thus we limit slippage by 17 with 18 decimals at most
-    uint64 slippage;
 }
 
-// ToDo: fixing comments and optimization
+// The size of the struct is 224 + 32 = 256 (1 slot)
 struct TWAP {
-    // price = reserveOLAS/reserveY in pair OLAS-Y
-    uint256 priceCumulativeLast;
-    uint32 blockTimestampLast;
+    // Last cumulative price
+    // This number cannot be practically bigger than uint224, since all the reserves are in uint112
+    uint224 priceCumulativeLast;
+    // Last block timestamp
+    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
+    uint32 btsLast;
 }
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -244,18 +249,17 @@ contract Depository is IErrorsTokenomics {
             revert Overflow(priceLP, type(uint160).max);
         }
 
-
+        // TODO: Figure out if this should be kept here
         // init TWAP if zero
-        uint256 price0CumulativeLast;
-        uint32 blockTimestampLast;
-        if(mapTWAPs[token].blockTimestampLast == 0) {
-            (price0CumulativeLast, blockTimestampLast) = IGenericBondCalculator(bondCalculator).priceCumulativeLast(token);
-            mapTWAPs[token] = TWAP(price0CumulativeLast, blockTimestampLast);
+        if (mapTWAPs[token].btsLast == 0) {
+            (uint256 priceCumulativeLast, uint256 btsLast) =
+                IGenericBondCalculator(bondCalculator).priceCumulativeLast(token);
+            mapTWAPs[token] = TWAP(uint224(priceCumulativeLast), uint32(btsLast));
         }
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply), uint64(slippage));
+        mapBondProducts[productId] = Product(uint160(priceLP), uint64(slippage), uint32(vesting), token, uint96(supply));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply, priceLP, vesting);
@@ -341,31 +345,30 @@ contract Depository is IErrorsTokenomics {
         // Get the LP token address
         address token = product.token;
 
-        // TWAP section BEGIN
-        //uint256 price0CumulativeLast = mapTWAPs[token].priceCumulativeLast;
-        //uint256 price0Cumulative = IGenericBondCalculator(bondCalculator).currentCumulativePrices(token);
-        //uint32 blockTimestampLast = mapTWAPs[token].blockTimestampLast;
-        // double check logic timeElapsed never zero?
-        // stack too deep
+        // TWAP calculation
+        // TODO: double check logic timeElapsed never zero?
         {
-            uint32 timeElapsed = uint32(block.timestamp - mapTWAPs[token].blockTimestampLast); // overflow is desired
-            // ToDO: re-write to prb-math    
-            uint256 price0Average = IGenericBondCalculator(bondCalculator).calcPrice0Average(IGenericBondCalculator(bondCalculator).currentCumulativePrices(token),  mapTWAPs[token].priceCumulativeLast, timeElapsed);
-            // update TWAP
-            mapTWAPs[token].priceCumulativeLast = IGenericBondCalculator(bondCalculator).currentCumulativePrices(token);
-            mapTWAPs[token].blockTimestampLast = uint32(block.timestamp);
-            // ToDo: optimized later, double check logic!
-            uint256 price0AverageMax = price0Average + price0Average * product.slippage/10**18;
-            uint256 price0AverageMin =  price0Average - price0Average * product.slippage/10**18;
-            uint256 price0 = IGenericBondCalculator(bondCalculator).priceInBlock(token); 
-            if(price0 < price0AverageMin || price0 > price0AverageMax) {
+            TWAP storage twap = mapTWAPs[token];
+            // Get the current cumulative price
+            uint256 priceCumulativeCurrent = IGenericBondCalculator(bondCalculator).priceCumulativeCurrent(token);
+            // Get the average price
+            uint256 priceAverage = IGenericBondCalculator(bondCalculator).
+                priceAverage(priceCumulativeCurrent, twap.priceCumulativeLast, block.timestamp - twap.btsLast);
+
+            // Update TWAP values
+            twap.priceCumulativeLast = uint224(priceCumulativeCurrent);
+            twap.btsLast = uint32(block.timestamp);
+            // ToDo: Check the slippage logic
+            uint256 priceAverageMax = priceAverage + (priceAverage * product.slippage) / 1e18;
+            uint256 priceAverageMin =  priceAverage - (priceAverage * product.slippage) / 1e18;
+            uint256 price = IGenericBondCalculator(bondCalculator).priceNow(token);
+            if (price < priceAverageMin || price > priceAverageMax) {
                 // ToDo: Fixing revert. flash loan attack in block.
-                revert Overflow(price0,price0Average);
+                revert Overflow(price, priceAverage);
             }
         }
-        // TWAP section END
 
-        // dynamic update
+        // Get the current LP price
         product.priceLP = uint160(IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token));
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
