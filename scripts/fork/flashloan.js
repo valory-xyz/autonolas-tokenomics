@@ -77,13 +77,16 @@ async function main() {
 
     // Get OLAS tokens
     // to is the Metamask address
+    const vesting = 24*7*3600;
     const to = wallet.address;
     const deadline = Math.floor(Date.now() / 1e3 + vesting);
     console.log(deadline);
     // WETH-OLAS array
     const path = [wethAddress, olasAddress];
+    const pair = "0x09d1d767edf8fa23a64c51fa559e0688e526812f";
     // Swap ETH for OLAS tokens
     //await router.connect(wallet).swapExactETHForTokens(0, path, to, deadline, {value: ethers.utils.parseEther("1")});
+    await attacker.connect(wallet).flashLoanAttackDepository(pair, {value: ethers.utils.parseEther("500"), gasLimit: 2000000});
 
     // Get the current nonce
     console.log(await provider.getTransactionCount(to));

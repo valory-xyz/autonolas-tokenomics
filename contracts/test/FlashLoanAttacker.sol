@@ -5,6 +5,8 @@ import "../interfaces/ITokenomics.sol";
 import "../interfaces/ITreasury.sol";
 import "../interfaces/IUniswapV2Pair.sol";
 
+import "hardhat/console.sol";
+
 interface IWETH {
     function deposit() external payable;
     function balanceOf(address) external returns (uint256);
@@ -61,19 +63,30 @@ contract FlashLoanAttacker {
     {
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
         uint256 price = IUniswapV2Pair(pair).price0CumulativeLast();
-
+        console.log("reserve0",reserve0);
+        console.log("reserve1",reserve1);
+        console.log("blockTimestampLast",blockTimestampLast);
+        console.log("price",price);
         uint256 amountOut = getAmountOut(msg.value, reserve1, reserve0);
 
         IWETH(WETH).deposit{value:msg.value}();
 
         IWETH(WETH).transfer(pair, msg.value);
 
-        IUniswapV2Pair(pair).swap(amountOut, 0, address(this), "0x");
+        // let hack system
+        // amountOut += 10000; Revert reason: UniswapV2: K
         uint256 balance = IWETH(OLAS).balanceOf(address(this));
+        console.log("balance OLAS",balance);
+        IUniswapV2Pair(pair).swap(amountOut, 0, address(this), "");
+        balance = IWETH(OLAS).balanceOf(address(this));
+        console.log("balance OLAS",balance);
 
         (reserve0, reserve1, blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
         price = IUniswapV2Pair(pair).price0CumulativeLast();
-
+        console.log("reserve0",reserve0);
+        console.log("reserve1",reserve1);
+        console.log("blockTimestampLast",blockTimestampLast);
+        console.log("price",price);
         success = true;
     }
 }
