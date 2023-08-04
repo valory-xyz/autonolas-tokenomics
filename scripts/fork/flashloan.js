@@ -32,13 +32,14 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    //wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
+    wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const treasuryJSON = "artifacts/contracts/Treasury.sol/Treasury.json";
     let contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);
     let abi = parsedFile["abi"];
 
+    
     // Treasury contract instance
     const treasury = new ethers.Contract(treasuryAddress, abi, signer);
     //console.log(treasury.address);
@@ -86,7 +87,7 @@ async function main() {
     const pair = "0x09d1d767edf8fa23a64c51fa559e0688e526812f";
     // Swap ETH for OLAS tokens
     //await router.connect(wallet).swapExactETHForTokens(0, path, to, deadline, {value: ethers.utils.parseEther("1")});
-    await attacker.connect(wallet).flashLoanAttackDepository(pair, {value: ethers.utils.parseEther("500"), gasLimit: 2000000});
+    await attacker.connect(wallet).flashLoanAttackDepository(pair, {value: ethers.utils.parseEther("1000000"), gasLimit: 2000000});
 
     // Get the current nonce
     console.log(await provider.getTransactionCount(to));

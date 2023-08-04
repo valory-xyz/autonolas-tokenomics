@@ -62,11 +62,13 @@ contract FlashLoanAttacker {
     function flashLoanAttackDepository(address pair) external payable returns (bool success)
     {
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
-        uint256 price = IUniswapV2Pair(pair).price0CumulativeLast();
-        console.log("reserve0",reserve0);
-        console.log("reserve1",reserve1);
-        console.log("blockTimestampLast",blockTimestampLast);
-        console.log("price",price);
+        uint256 price0 = IUniswapV2Pair(pair).price0CumulativeLast();
+        uint256 price1 = IUniswapV2Pair(pair).price1CumulativeLast();
+        console.log("reserve0 before",reserve0);
+        console.log("reserve1 before",reserve1);
+        console.log("blockTimestampLast before",blockTimestampLast);
+        console.log("price0 before",price0);
+        console.log("price1 before",price1);
         uint256 amountOut = getAmountOut(msg.value, reserve1, reserve0);
 
         IWETH(WETH).deposit{value:msg.value}();
@@ -82,11 +84,13 @@ contract FlashLoanAttacker {
         console.log("balance OLAS",balance);
 
         (reserve0, reserve1, blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
-        price = IUniswapV2Pair(pair).price0CumulativeLast();
-        console.log("reserve0",reserve0);
-        console.log("reserve1",reserve1);
-        console.log("blockTimestampLast",blockTimestampLast);
-        console.log("price",price);
+        price0 = IUniswapV2Pair(pair).price0CumulativeLast();
+        price1 = IUniswapV2Pair(pair).price1CumulativeLast();
+        console.log("reserve0 after",reserve0);
+        console.log("reserve1 after",reserve1);
+        console.log("blockTimestampLast after",blockTimestampLast);
+        console.log("price0 after",price0);
+        console.log("price1 after",price1);
         success = true;
     }
 }
