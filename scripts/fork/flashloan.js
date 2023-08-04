@@ -32,7 +32,7 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
+    await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const treasuryJSON = "artifacts/contracts/Treasury.sol/Treasury.json";
     let contractFromJSON = fs.readFileSync(treasuryJSON, "utf8");
@@ -75,7 +75,9 @@ async function main() {
     const olas = new ethers.Contract(olasAddress, abi, signer);
 
     // Send 1 million OLAS to the attacker contract
-    await olas.transfer(attacker.address, "5" + "0".repeat(26));
+    await olas.connect(signer).transfer(attacker.address, "5" + "0".repeat(25));
+    //const x = await olas.balanceOf(timelockAddress);
+    //console.log(x);
 
     // Get the Uniswap Router contract
     const uniswapRouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
