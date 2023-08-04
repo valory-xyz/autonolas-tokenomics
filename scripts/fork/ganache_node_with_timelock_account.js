@@ -22,7 +22,8 @@ async function main() {
     // Get all the necessary contract addresses
     const timelockAddress = parsedData.timelockAddress;
     const treasuryAddress = parsedData.treasuryAddress;
-    const depositoryAddress = parsedData.depositoryAddress;
+    const depositoryTwoAddress = parsedData.depositoryTwoAddress;
+    const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const tokenAddress = parsedData.OLAS_ETH_PairAddress;
     const olasAddress = parsedData.olasAddress;
     const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
@@ -48,23 +49,33 @@ async function main() {
     //console.log(await treasury.isEnabled(tokenAddress));
 
     // Change to this contract ABI when the new depository contract is set by tokenomics and treasury
-    //const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
-    const depositoryJSON = "abis/0.8.18/Depository.json";
+    const depositoryJSON = "artifacts/contracts/Depository.sol/Depository.json";
     contractFromJSON = fs.readFileSync(depositoryJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
     abi = parsedFile["abi"];
 
     // Depository contract instance
-    const depository = new ethers.Contract(depositoryAddress, abi, signer);
+    const depository = new ethers.Contract(depositoryTwoAddress, abi, signer);
     //console.log(depository.address);
+
+    const tokenomicsJSON = "artifacts/contracts/Tokenomics.sol/Tokenomics.json";
+    contractFromJSON = fs.readFileSync(tokenomicsJSON, "utf8");
+    parsedFile = JSON.parse(contractFromJSON);
+    abi = parsedFile["abi"];
+    const tokenomics = new ethers.Contract(tokenomicsProxyAddress, abi, signer);
+
+    // Change depository address in Tokenomics and Treasury
+    //const AddressZero = "0x" + "0".repeat(40);
+    //await tokenomics.connect(signer).changeManagers(AddressZero, depositoryTwoAddress, AddressZero);
+    //await treasury.connect(signer).changeManagers(AddressZero, depositoryTwoAddress, AddressZero);
 
     // Create 5 bonding products
     const vesting = 3600 * 24 * 7;
-    //await depository.connect(signer).create(tokenAddress, "229846666583294163442", "1" + "0".repeat(24), vesting);
-    //await depository.connect(signer).create(tokenAddress, "201788328124398469593", "1" + "0".repeat(24), vesting);
-    //await depository.connect(signer).create(tokenAddress, "178406379408652058052", "3" + "0".repeat(23), vesting);
-    //await depository.connect(signer).create(tokenAddress, "159700820436054928818", "3" + "0".repeat(23), vesting);
-    //await depository.connect(signer).create(tokenAddress, "150348040949756364202", "3" + "0".repeat(23), vesting);
+    //await depository.connect(signer).create(tokenAddress, "229846666583294163442", "1" + "0".repeat(22), vesting);
+    //await depository.connect(signer).create(tokenAddress, "201788328124398469593", "1" + "0".repeat(22), vesting);
+    //await depository.connect(signer).create(tokenAddress, "178406379408652058052", "3" + "0".repeat(22), vesting);
+    //await depository.connect(signer).create(tokenAddress, "159700820436054928818", "3" + "0".repeat(22), vesting);
+    //await depository.connect(signer).create(tokenAddress, "150348040949756364202", "3" + "0".repeat(22), vesting);
     //console.log(await depository.isActiveProduct(0));
 
     const eventName = "CreateProduct";

@@ -59,7 +59,7 @@ contract FlashLoanAttacker {
         amountOut = numerator / denominator;
     }
 
-    function flashLoanAttackDepository(address pair) external payable returns (bool success)
+    function flashLoanAttackETHDepository(address pair) external payable returns (bool success)
     {
         (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
         uint256 price0 = IUniswapV2Pair(pair).price0CumulativeLast();
@@ -74,6 +74,40 @@ contract FlashLoanAttacker {
         IWETH(WETH).deposit{value:msg.value}();
 
         IWETH(WETH).transfer(pair, msg.value);
+
+        // let hack system
+        // amountOut += 10000; Revert reason: UniswapV2: K
+        uint256 balance = IWETH(OLAS).balanceOf(address(this));
+        console.log("balance OLAS",balance);
+        IUniswapV2Pair(pair).swap(amountOut, 0, address(this), "");
+        balance = IWETH(OLAS).balanceOf(address(this));
+        console.log("balance OLAS",balance);
+
+        (reserve0, reserve1, blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
+        price0 = IUniswapV2Pair(pair).price0CumulativeLast();
+        price1 = IUniswapV2Pair(pair).price1CumulativeLast();
+        console.log("reserve0 after",reserve0);
+        console.log("reserve1 after",reserve1);
+        console.log("blockTimestampLast after",blockTimestampLast);
+        console.log("price0 after",price0);
+        console.log("price1 after",price1);
+        success = true;
+    }
+
+    function flashLoanAttackOLASDepository(address pair) external returns (bool success)
+    {
+        (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
+        uint256 price0 = IUniswapV2Pair(pair).price0CumulativeLast();
+        uint256 price1 = IUniswapV2Pair(pair).price1CumulativeLast();
+        console.log("reserve0 before",reserve0);
+        console.log("reserve1 before",reserve1);
+        console.log("blockTimestampLast before",blockTimestampLast);
+        console.log("price0 before",price0);
+        console.log("price1 before",price1);
+        // Assume we have a 1 million OLAS balance
+        uint256 amountOut = getAmountOut(1_000_000 ether, reserve0, reserve1);
+
+        IWETH(WETH).transfer(pair, 1_000_000 ether);
 
         // let hack system
         // amountOut += 10000; Revert reason: UniswapV2: K

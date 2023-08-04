@@ -39,7 +39,6 @@ async function main() {
     let parsedFile = JSON.parse(contractFromJSON);
     let abi = parsedFile["abi"];
 
-    
     // Treasury contract instance
     const treasury = new ethers.Contract(treasuryAddress, abi, signer);
     //console.log(treasury.address);
@@ -68,6 +67,16 @@ async function main() {
     const attacker = await factory.connect(wallet).deploy();
     await attacker.deployed();
 
+    // Get the OLAS contract
+    const olasJSON = "abis/test/OLAS.json";
+    contractFromJSON = fs.readFileSync(olasJSON, "utf8");
+    parsedFile = JSON.parse(contractFromJSON);
+    abi = parsedFile["abi"];
+    const olas = new ethers.Contract(olasAddress, abi, signer);
+
+    // Send 1 million OLAS to the attacker contract
+    await olas.transfer(attacker.address, "5" + "0".repeat(26));
+
     // Get the Uniswap Router contract
     const uniswapRouterAddress = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D";
     const uniswapRouterJSON = "artifacts/@uniswap/v2-periphery/contracts/UniswapV2Router02.sol/UniswapV2Router02.json";
@@ -87,7 +96,8 @@ async function main() {
     const pair = "0x09d1d767edf8fa23a64c51fa559e0688e526812f";
     // Swap ETH for OLAS tokens
     //await router.connect(wallet).swapExactETHForTokens(0, path, to, deadline, {value: ethers.utils.parseEther("1")});
-    await attacker.connect(wallet).flashLoanAttackDepository(pair, {value: ethers.utils.parseEther("1000000"), gasLimit: 2000000});
+    //await attacker.connect(wallet).flashLoanAttackETHDepository(pair, {value: ethers.utils.parseEther("1000000"), gasLimit: 2000000});
+    await attacker.connect(wallet).flashLoanAttackOLASDepository(pair, {gasLimit: 2000000});
 
     // Get the current nonce
     console.log(await provider.getTransactionCount(to));
