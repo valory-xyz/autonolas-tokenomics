@@ -66,8 +66,8 @@ async function main() {
     console.log("Initial priceLP", priceLP.toString());
 
     // Estimate the average ETH amount of swaps the last number of days
-    const numDays = 7;
-    console.log("Last number of days:", numDays);
+    const numDays = 2;
+    console.log("Last number of days to compute the average swap volume:", numDays);
     const numBlocksBack = Math.floor((3600 * 24 * numDays) / 12);
 
     // Get events
@@ -234,13 +234,13 @@ async function main() {
 
     // Get effective bond
     const effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
-    // Vesting is 7 days
-    const vesting = 3600 * 24 * 7;
+    // One day time
+    const oneDay = 3600 * 24;
 
     // Price LP for OLAS price of corresponding prices
     const pricesLP = [pricesOLASIncrease[0]];
-    const supplies = ["1000000" + "0".repeat(18)];
-    const vestings = [vesting];
+    const supplies = ["100000" + "0".repeat(18)];
+    const vestings = [28 * oneDay];
 
     const numPrices = pricesLP.length;
     const targets = new Array(numPrices).fill(depositoryTwoAddress);
