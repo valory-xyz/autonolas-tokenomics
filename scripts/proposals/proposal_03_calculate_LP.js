@@ -9,22 +9,8 @@ async function main() {
     const globalsFile = "globals.json";
     const dataFromJSON = fs.readFileSync(globalsFile, "utf8");
     let parsedData = JSON.parse(dataFromJSON);
-    const useLedger = parsedData.useLedger;
-    const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    let EOA;
-
     const provider = await ethers.providers.getDefaultProvider(providerName);
-    const signers = await ethers.getSigners();
-
-    if (useLedger) {
-        EOA = new LedgerSigner(provider, derivationPath);
-    } else {
-        EOA = signers[0];
-    }
-    // EOA address
-    const deployer = await EOA.getAddress();
-    console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
     const depositoryTwoAddress = parsedData.depositoryTwoAddress;
@@ -62,12 +48,12 @@ async function main() {
     priceOLAS = ethers.BigNumber.from(Math.floor(priceOLAS * 100));
 
     // Get current LP price
-    let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(tokenAddress));
+    let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(tokenAddress)).mul(2);
     console.log("Initial priceLP", priceLP.toString());
 
     // Estimate the average ETH amount of swaps the last number of days
     const numDays = 7;
-    console.log("Last number of days:", numDays);
+    console.log("Last number of days to compute the average swap volume:", numDays);
     const numBlocksBack = Math.floor((3600 * 24 * numDays) / 12);
 
     // Get events
@@ -142,9 +128,8 @@ async function main() {
     // Swap to get upper bound prices
     let priceCompare;
     let targetPrice = Number(priceOLAS);
-    let pcStep = 20;
-    let targetPcStep = Math.floor((targetPrice * pcStep) / 100);
-    let totalPriceIncrease = 200;
+    let pcStep = 5;
+    let numSteps = 10;
     const pricesOLASIncrease = new Array();
     const pricesLPIncrease = new Array();
 
@@ -152,7 +137,7 @@ async function main() {
     // to the desired value.
     const condition = true;
     while (condition) {
-        targetPrice += targetPcStep;
+        targetPrice += pcStep;
         pricesOLASIncrease.push(targetPrice);
         while (condition) {
             //console.log("targetPrice", targetPrice);
@@ -174,8 +159,8 @@ async function main() {
         pricesLPIncrease.push(priceLP);
 
         // Decrease the total price increase as we reached the new price, and break when we found all prices
-        totalPriceIncrease -= pcStep;
-        if (totalPriceIncrease == 0) {
+        numSteps -= 1;
+        if (numSteps == 0) {
             break;
         }
     }
@@ -190,16 +175,15 @@ async function main() {
 
     // Swap to get lower bound prices
     targetPrice = Number(priceOLAS);
-    pcStep = 20;
-    targetPcStep = Math.floor((targetPrice * pcStep) / 100);
-    let totalPriceDecrease = 80;
+    pcStep = 5;
+    numSteps = 10;
     const pricesOLASDecrease = new Array();
     const pricesLPDecrease = new Array();
 
     // We need to iteratively swap by adding average ETH into the pool each time such that the price of OLAS increases
     // to the desired value.
     while (condition) {
-        targetPrice -= targetPcStep;
+        targetPrice -= pcStep;
         pricesOLASDecrease.push(targetPrice);
         while (condition) {
             //console.log("targetPrice", targetPrice);
@@ -221,8 +205,8 @@ async function main() {
         pricesLPDecrease.push(priceLP);
 
         // Decrease the total price increase as we reached the new price, and break when we found all prices
-        totalPriceDecrease -= pcStep;
-        if (totalPriceDecrease == 0) {
+        numSteps -= 1;
+        if (numSteps == 0 || targetPrice <= pcStep) {
             break;
         }
     }
@@ -234,13 +218,13 @@ async function main() {
 
     // Get effective bond
     const effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
-    // Vesting is 7 days
-    const vesting = 3600 * 24 * 7;
+    // One day time
+    const oneDay = 3600 * 24;
 
     // Price LP for OLAS price of corresponding prices
     const pricesLP = [pricesOLASIncrease[0]];
-    const supplies = ["1000000" + "0".repeat(18)];
-    const vestings = [vesting];
+    const supplies = ["100000" + "0".repeat(18)];
+    const vestings = [28 * oneDay];
 
     const numPrices = pricesLP.length;
     const targets = new Array(numPrices).fill(depositoryTwoAddress);
