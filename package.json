@@ -57,6 +57,7 @@
     "canonical-weth": "^1.4.0",
     "cross-fetch": "^4.0.0",
     "eth-permit": "^0.2.3",
+    "ethereum-sources-downloader": "^0.1.19",
     "node-fetch": "^3.3.2",
     "scribble-generator": "^1.1.0",
     "solhint": "^3.4.0"

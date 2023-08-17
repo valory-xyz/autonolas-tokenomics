@@ -1,0 +1,84 @@
+[
+  {
+    "name": "mainnet",
+    "chainId": "1",
+    "contracts": [
+      {
+        "name": "DonatorBlacklist",
+        "artifact": "abis/0.8.18/DonatorBlacklist.json",
+        "address": "0xE85791B18F5df42163092Acc5C9da1c479AFEa9d"
+      },
+      {
+        "name": "Tokenomics",
+        "artifact": "abis/0.8.20/Tokenomics.json",
+        "address": "0xD599ED4a5c45Fa66AA3C474b00701Fd452a2C30e"
+      },
+      {
+        "name": "TokenomicsProxy",
+        "artifact": "abis/0.8.18/TokenomicsProxy.json",
+        "address": "0xc096362fa6f4A4B1a9ea68b1043416f3381ce300"
+      },
+      {
+        "name": "Treasury",
+        "artifact": "abis/0.8.18/Treasury.json",
+        "address": "0xa0DA53447C0f6C4987964d8463da7e6628B30f82"
+      },
+      {
+        "name": "GenericBondCalculator",
+        "artifact": "abis/0.8.18/GenericBondCalculator.json",
+        "address": "0x1521918961bDBC9Ed4C67a7103D5999e4130E6CB"
+      },
+      {
+        "name": "Dispenser",
+        "artifact": "abis/0.8.18/Dispenser.json",
+        "address": "0xeED0000fE94d7cfeF4Dc0CA86a223f0F603A61B8"
+      },
+      {
+        "name": "Depository",
+        "artifact": "abis/0.8.20/Depository.json",
+        "address": "0xff8697d8d2998d6aa2e09b405795c6f4beeb0c81"
+      }
+    ]
+  },
+  {
+    "name": "goerli",
+    "chainId": "5",
+    "contracts": [
+      {
+        "name": "DonatorBlacklist",
+        "artifact": "abis/0.8.18/DonatorBlacklist.json",
+        "address": "0xeB49bE5DF00F74bd240DE4535DDe6Bc89CEfb994"
+      },
+      {
+        "name": "Tokenomics",
+        "artifact": "abis/0.8.20/Tokenomics.json",
+        "address": "0x93Cd3f6DcE64d67f4420939865A00aC89776D4b5"
+      },
+      {
+        "name": "TokenomicsProxy",
+        "artifact": "abis/0.8.18/TokenomicsProxy.json",
+        "address": "0x10100e74b7F706222F8A7C0be9FC7Ae1717Ad8B2"
+      },
+      {
+        "name": "Treasury",
+        "artifact": "abis/0.8.18/Treasury.json",
+        "address": "0x7bedCA17D29e53C8062d10902a6219F8d1E3B9B5"
+      },
+      {
+        "name": "GenericBondCalculator",
+        "artifact": "abis/0.8.18/GenericBondCalculator.json",
+        "address": "0x77290FF625fc576f465D0256F6a12Ce4480a5b8a"
+      },
+      {
+        "name": "Dispenser",
+        "artifact": "abis/0.8.18/Dispenser.json",
+        "address": "0xeDd71796B90eaCc56B074C39BAC90ED2Ca6D93Ee"
+      },
+      {
+        "name": "Depository",
+        "artifact": "abis/0.8.20/Depository.json",
+        "address": "0x5FDc466f4A7547c876eF40CD30fFA2A89F1EcDE7"
+      }
+    ]
+  }
+]
