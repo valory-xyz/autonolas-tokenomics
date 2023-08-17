@@ -33,18 +33,21 @@ async function main() {
     const values = [0, 0];
     const callDatas = [
         depository.interface.encodeFunctionData("close", [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]),
-        tokenomics.interface.encodeFunctionData("changeIncentiveFractions", [83, 17, 95, 4, 1])
+        tokenomics.interface.encodeFunctionData("changeIncentiveFractions", [83, 17, 90, 8, 2])
     ];
 
     // Additional products to create with depository contract
-    const vesting = 3600 * 24 * 7;
-    const pricesLP = ["248552225555891292658","239199446069592728050","229846666583294163442","220493887096995598809","211141107610697034201"];
-    const supplies = ["200000000000000000000000","300000000000000000000000","400000000000000000000000","400000000000000000000000","500000000000000000000000"];
+    const oneDay = 3600 * 24;
+    const pricesLP = ["185491475634516176834","171739930293108999394","159606213815396784008","149090326201379530672",
+        "140504866934837734890", "133345477624551759418", "125737933372879003894", "119271520758957161698", "113565862570202595056"];
+    const supplies = ["100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18),
+        "100000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18)];
+    const vestings = [28 * oneDay, 28 * oneDay, 21 * oneDay, 21 * oneDay, 14 * oneDay, 14 * oneDay, 7 * oneDay, 7 * oneDay, 7 * oneDay]
 
     for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
-        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLP[i], supplies[i], vesting]));
+        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
     }
 
     const description = "Change tokenomics top-up and bonding fractions, close old products and create new ones";
