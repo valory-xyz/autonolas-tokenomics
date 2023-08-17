@@ -42,7 +42,7 @@ async function main() {
         "140504866934837734890", "133345477624551759418", "125737933372879003894", "119271520758957161698", "113565862570202595056"];
     const supplies = ["100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18),
         "100000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18), "150000" + "0".repeat(18)];
-    const vestings = [28 * oneDay, 28 * oneDay, 21 * oneDay, 21 * oneDay, 14 * oneDay, 14 * oneDay, 7 * oneDay, 7 * oneDay, 7 * oneDay]
+    const vestings = [28 * oneDay, 28 * oneDay, 21 * oneDay, 21 * oneDay, 14 * oneDay, 14 * oneDay, 7 * oneDay, 7 * oneDay, 7 * oneDay];
 
     for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
