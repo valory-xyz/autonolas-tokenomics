@@ -980,11 +980,6 @@
     table "^6.8.0"
     undici "^5.14.0"
 
-"@openzeppelin/contracts@^4.8.3":
-  version "4.9.3"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.9.3.tgz#00d7a8cf35a475b160b3f0293a6403c511099364"
-  integrity sha512-He3LieZ1pP2TNt5JbkPA4PNT9WC3gOTOlDcFGJW4Le4QKqwmiNJCRt44APfxMxvq7OugU/cqYuPcSBzOw38DAg==
-
 "@prb/math@^4.0.0":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@prb/math/-/math-4.0.1.tgz#bc90277f4f1c085c973f502455bf12c2b3b67666"
@@ -5497,9 +5492,9 @@ solc@0.7.3:
     tmp "0.0.33"
 
 solhint@^3.4.0:
-  version "3.6.1"
-  resolved "https://registry.yarnpkg.com/solhint/-/solhint-3.6.1.tgz#005b44ad31016e1821e99d2e99b8176c59fa3ebd"
-  integrity sha512-pS7Pl11Ujiew9XWaLDH0U+AFc6iK1RtLV0YETSpjHZXjUaNYi32mY+pi8Ap9vqmNfWodWKtG0bVQpatq84mL4g==
+  version "3.6.2"
+  resolved "https://registry.yarnpkg.com/solhint/-/solhint-3.6.2.tgz#2b2acbec8fdc37b2c68206a71ba89c7f519943fe"
+  integrity sha512-85EeLbmkcPwD+3JR7aEMKsVC9YrRSxd4qkXuMzrlf7+z2Eqdfm1wHWq1ffTuo5aDhoZxp2I9yF3QkxZOxOL7aQ==
   dependencies:
     "@solidity-parser/parser" "^0.16.0"
     ajv "^6.12.6"
