@@ -87,7 +87,13 @@ The finalized contract ABIs for deployment and their number of optimization pass
 For testing purposes, the hardhat node deployment script is located [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/deploy).
 
 ## Deployed Protocol
-The list of addresses can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/mainnet_addresses.json).
+The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/configuration.json).
+
+In order to test the protocol setup on all the deployed chains, the audit script is implemented. Make sure to export
+required API keys for corresponding chains (see the script for more information). The audit script can be run as follows:
+```
+node scripts/audit_chains/audit_contracts_setup.js
+```
 
 ## LP Token Guide
 It is advised to check the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/LP_token_guide.md) before enabling OLAS-based LP tokens. 
