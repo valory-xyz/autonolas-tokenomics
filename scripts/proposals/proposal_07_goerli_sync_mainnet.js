@@ -51,12 +51,12 @@ async function main() {
     console.log("TokenomicsProxy to change Depository calling changeManagers(0x, depositoryTwo, 0x)");
     targets.push(tokenomicsProxyAddress);
     values.push(0);
-    callDatas.push(tokenomicsProxy.interface.encodeFunctionData("changeManagers", [AddressZero, depositoryTwoAddress, AddressZero]))
+    callDatas.push(tokenomicsProxy.interface.encodeFunctionData("changeManagers", [AddressZero, depositoryTwoAddress, AddressZero]));
 
     console.log("Treasury to change Depository calling changeManagers(0x, depositoryTwo, 0x)");
     targets.push(treasuryAddress);
     values.push(0);
-    callDatas.push(treasury.interface.encodeFunctionData("changeManagers", [AddressZero, depositoryTwoAddress, AddressZero]))
+    callDatas.push(treasury.interface.encodeFunctionData("changeManagers", [AddressZero, depositoryTwoAddress, AddressZero]));
 
     const description = "Sync goerli with mainnet";
 
