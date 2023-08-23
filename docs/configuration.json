@@ -47,7 +47,7 @@
       {
         "name": "DonatorBlacklist",
         "artifact": "abis/0.8.18/DonatorBlacklist.json",
-        "address": "0xeB49bE5DF00F74bd240DE4535DDe6Bc89CEfb994"
+        "address": "0x1E11f1224e32Fe0f65FF7D13aD4b053B83bD09FA"
       },
       {
         "name": "Tokenomics",
