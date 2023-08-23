@@ -122,6 +122,13 @@ async function checkTokenomicsProxy(chainId, provider, globalsInstance, configCo
     // Check dispenser
     const dispenser = await tokenomics.dispenser();
     customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
+
+    // Check tokenomics implementation address
+    const implementationHash = await tokenomics.PROXY_TOKENOMICS();
+    const implementation = await provider.getStorageAt(tokenomics.address, implementationHash);
+    // Need to extract address size of bytes from the storage return value
+    customExpect("0x" + implementation.slice(-40), globalsInstance["tokenomicsTwoAddress"].toLowerCase(),
+        log + ", function: PROXY_TOKENOMICS()");
 }
 
 // Check Treasury: chain Id, provider, parsed globals, configuration contracts, contract name
