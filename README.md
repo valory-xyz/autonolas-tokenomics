@@ -6,7 +6,7 @@ This repository contains the tokenomics part of Autonolas onchain-protocol contr
 
 A graphical overview is available here:
 
-![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v4.png?raw=true)
+![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png?raw=true)
 
 An overview of the Autonolas tokenomics model, a high-level description of smart contacts, and a full set of smart contract
 specifications are provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf?raw=true).
