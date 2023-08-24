@@ -22,7 +22,7 @@ The format is based on [Common Changelog](https://common-changelog.org).
 
 ### Changed
 
-- Updated and deployed `Tokenomics` contract v1.0.1 that accounts for the donator veOLAS balance as well ([#97](https://github.com/valory-xyz/autonolas-tokenomics/pull/69))
+- Updated and deployed `TokenomicsConstants` and `Tokenomics` contracts v1.0.1 that account for the donator veOLAS balance to enable OLAS top-ups ([#97](https://github.com/valory-xyz/autonolas-tokenomics/pull/69))
   with the subsequent internal audit ([audit2](https://github.com/valory-xyz/autonolas-tokenomics/tree/main/audits/internal2))
 - Bump `prb-math` package dependency to v4.0.0
 - Updated documentation
