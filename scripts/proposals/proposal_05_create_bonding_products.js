@@ -23,22 +23,28 @@ async function main() {
     // Get contract instances
     const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
 
+    console.log("Proposal 5. Close old products and create new ones");
+    const targets = [depositoryTwoAddress];
+    const values = [0];
+    const callDatas = [depository.interface.encodeFunctionData("close", [[10, 11, 12, 13, 14, 15, 16, 17, 18]])];
+
     // Additional products to create with depository contract
     const oneDay = 3600 * 24;
-    const vestings = [8 * oneDay, 10 * oneDay, 12 * oneDay, 14 * oneDay, 14 * oneDay];
-    const pricesLP = ["295316122987384115698", "285963343501085551090", "276610564014786986482", "267257784528488421874", "257905005042189857266"];
-    const supplies = ["100000000000000000000000","150000000000000000000000","200000000000000000000000","200000000000000000000000","200000000000000000000000"];
+    const vestings = [28 * oneDay, 28 * oneDay, 21 * oneDay, 21 * oneDay, 14 * oneDay, 14 * oneDay, 14 * oneDay, 14 * oneDay, 7 * oneDay, 7 * oneDay, 7 * oneDay];
+    const pricesLP = ["94581006194509583366", "90281999952533219560", "86251681600680378492", "82490051138951060162",
+        "78997108567345264570", "76116346119503688058", "73187112785010524266", "70453161672816904726",
+        "68109775005222373690", "65766388337627842656", "63618283892332855874"];
+    const supplies = ["70000" + "0".repeat(18), "70000" + "0".repeat(18), "80000" + "0".repeat(18), "80000" + "0".repeat(18),
+        "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18),
+        "100000" + "0".repeat(18), "100000" + "0".repeat(18)];
 
-    const targets = new Array();
-    const values = new Array();
-    const callDatas = new Array();
     for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
         callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
     }
 
-    const description = "Create new bonding products";
+    const description = "Close old products and create new ones";
 
     // Proposal details
     console.log("targets:", targets);

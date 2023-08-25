@@ -28,7 +28,7 @@ async function main() {
     const AddressZero = "0x" + "0".repeat(40);
 
     // Proposal preparation
-    console.log("Proposal 5. Change tokenomics top-up and bonding fractions, close old products and create new ones");
+    console.log("Proposal 6. Change tokenomics top-up and bonding fractions, close old products and create new ones");
     const targets = [depositoryTwoAddress, tokenomicsProxyAddress];
     const values = [0, 0];
     const callDatas = [
