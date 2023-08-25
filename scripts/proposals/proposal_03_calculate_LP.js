@@ -1,7 +1,6 @@
 /*global process*/
 
 const { ethers } = require("hardhat");
-const { LedgerSigner } = require("@anders-t/ethers-ledger");
 const { fetch } = require("cross-fetch");
 
 async function main() {
@@ -128,8 +127,10 @@ async function main() {
     // Swap to get upper bound prices
     let priceCompare;
     let targetPrice = Number(priceOLAS);
+    let firstStep = 3;
+    let firstStepUsed = false;
     let pcStep = 5;
-    let numSteps = 10;
+    let numSteps = 20;
     const pricesOLASIncrease = new Array();
     const pricesLPIncrease = new Array();
 
@@ -137,7 +138,12 @@ async function main() {
     // to the desired value.
     const condition = true;
     while (condition) {
-        targetPrice += pcStep;
+        if (!firstStepUsed) {
+            targetPrice += firstStep;
+            firstStepUsed = true;
+        } else {
+            targetPrice += pcStep;
+        }
         pricesOLASIncrease.push(targetPrice);
         while (condition) {
             //console.log("targetPrice", targetPrice);
@@ -175,7 +181,8 @@ async function main() {
 
     // Swap to get lower bound prices
     targetPrice = Number(priceOLAS);
-    pcStep = 5;
+    firstStep = pcStep - firstStep;
+    firstStepUsed = false;
     numSteps = 10;
     const pricesOLASDecrease = new Array();
     const pricesLPDecrease = new Array();
@@ -183,7 +190,12 @@ async function main() {
     // We need to iteratively swap by adding average ETH into the pool each time such that the price of OLAS increases
     // to the desired value.
     while (condition) {
-        targetPrice -= pcStep;
+        if (!firstStepUsed) {
+            targetPrice -= firstStep;
+            firstStepUsed = true;
+        } else {
+            targetPrice -= pcStep;
+        }
         pricesOLASDecrease.push(targetPrice);
         while (condition) {
             //console.log("targetPrice", targetPrice);
