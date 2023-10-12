@@ -74,12 +74,15 @@ async function main() {
     let block = await provider.getBlock("latest");
     const curBlockNumber = block.number;
 
-    const events = await provider.getLogs({
-        fromBlock: 30418493,//curBlockNumber - numBlocksBack,
-        toBlock: 30418495,//curBlockNumber,
+    const providerRPC = new ethers.providers.JsonRpcProvider('https://rpc.gnosischain.com');
+    const events = await providerRPC.getLogs({
+        fromBlock: 30418400,//curBlockNumber - numBlocksBack,
+        toBlock: 30418500,//curBlockNumber,
         address: vault.address,
-        topics: eventFilter.topics,
+        topics: [ethers.utils.id('Swap(bytes32,address,address,uint256,uint256)'), poolId],
     });
+    console.log(ethers.utils.id('Swap(bytes32,address,address,uint256,uint256)'));
+    //console.log(events);
 
     // Parse events and get tradable OLAS and ETH
     let amountOLAS = ethers.BigNumber.from(0);
