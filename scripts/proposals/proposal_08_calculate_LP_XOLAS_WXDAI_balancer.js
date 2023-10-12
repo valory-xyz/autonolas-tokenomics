@@ -15,14 +15,14 @@ async function main() {
     const globalsFile = "globals.json";
     const dataFromJSON = fs.readFileSync(globalsFile, "utf8");
     let parsedData = JSON.parse(dataFromJSON);
-    const providerName = parsedData.providerName;
-    const provider = await ethers.providers.getDefaultProvider(providerName);
+    const gnosisURL = "https://rpc.gnosischain.com";
+    const provider = new ethers.providers.JsonRpcProvider(gnosisURL);
 
     // 50OLAS-50WXDAI pool Id
-    const poolId ="0x79c872ed3acb3fc5770dd8a0cd9cd5db3b3ac985000200000000000000000067";
+    const poolId = parsedData.XOLAS_WXDAI_PoolId;
 
     // Swap contract tracking
-    const vaultAddress = "0xba12222222228d8ba445958a75a0704d566bf2c8";
+    const vaultAddress = parsedData.vaultAddress;
     const vaultJSON = "abis/aux/Vault.json";
     const contractFromJSON = fs.readFileSync(vaultJSON, "utf8");
     const abi = JSON.parse(contractFromJSON);
@@ -66,7 +66,7 @@ async function main() {
     // Estimate the average ETH amount of swaps the last number of days
     const numDays = 1;
     console.log("Last number of days to compute the average swap volume:", numDays);
-    const numBlocksBack = 100;//Math.floor((3600 * 24 * numDays) / 12);
+    const numBlocksBack = 200;//Math.floor((3600 * 24 * numDays) / 12);
 
     // Get events
     const eventName = "Swap";
@@ -76,19 +76,18 @@ async function main() {
 
     const providerRPC = new ethers.providers.JsonRpcProvider('https://rpc.gnosischain.com');
     const events = await providerRPC.getLogs({
-        fromBlock: 30418400,//curBlockNumber - numBlocksBack,
-        toBlock: 30418500,//curBlockNumber,
+        fromBlock: curBlockNumber - numBlocksBack,
+        toBlock: curBlockNumber,
         address: vault.address,
         topics: [ethers.utils.id('Swap(bytes32,address,address,uint256,uint256)'), poolId],
     });
-    console.log(ethers.utils.id('Swap(bytes32,address,address,uint256,uint256)'));
-    //console.log(events);
+    // Swap (index_topic_1 bytes32 poolId, index_topic_2 address tokenIn, index_topic_3 address tokenOut, uint256 amountIn, uint256 amountOut)
 
     // Parse events and get tradable OLAS and ETH
     let amountOLAS = ethers.BigNumber.from(0);
     let numEventsOLAS = 0;
-    let amountETH = ethers.BigNumber.from(0);
-    let numEventsETH = 0;
+    let amountDAI = ethers.BigNumber.from(0);
+    let numEventsDAI = 0;
     for (let i = 0; i < events.length; i++) {
         const uint256SizeInBytes = 32;
         const uint256Count = 2;
@@ -103,43 +102,40 @@ async function main() {
         }
         const amountIn = ethers.BigNumber.from("0x" + uint256DataArray[0]);
         const amountOut = ethers.BigNumber.from("0x" + uint256DataArray[1]);
-    // Swap (index_topic_1 bytes32 poolId, index_topic_2 address tokenIn, index_topic_3 address tokenOut, uint256 amountIn, uint256 amountOut)
 
-//        if (amountIn.eq(0)) {
-//            amountETH = amountETH.add(amount1In);
-//            numEventsETH++;
-//        } else {
-//            amountOLAS = amountOLAS.add(amountIn);
-//            numEventsOLAS++;
-//        }
+        if (amountIn.eq(0)) {
+            amountDAI = amountDAI.add(amountIn);
+            numEventsDAI++;
+        } else {
+            amountOLAS = amountOLAS.add(amountOut);
+            numEventsOLAS++;
+        }
         console.log(events[i]);
-        console.log(events[i].topics[1]);
-        //break;
     }
 
     return;
 
-    if (numEventsETH == 0) {
-        numEventsETH = 1;
+    if (numEventsDAI == 0) {
+        numEventsDAI = 1;
     }
     if (numEventsOLAS == 0) {
         numEventsOLAS = 1;
     }
     //console.log("amountOLAS", amountOLAS.toString());
-    //console.log("amountETH", amountETH.toString());
+    //console.log("amountDAI", amountDAI.toString());
     const avgAmountOLAS = amountOLAS.div(ethers.BigNumber.from(numEventsOLAS));
-    const avgAmountETH = amountETH.div(ethers.BigNumber.from(numEventsETH));
+    const avgAmountETH = amountDAI.div(ethers.BigNumber.from(numEventsDAI));
     const avgAmountOLASNum = Number(amountOLAS.div(e18)) / numEventsOLAS;
     const e5 = ethers.BigNumber.from("1" + "0".repeat(5));
     // Since OLAS is approx 5 digits of ETH, make 5 digits more precision for ETH
-    const avgAmountETHNum = Number(amountETH.mul(e5).div(e18)) / (Number(e5) * numEventsETH);
+    const avgAmountETHNum = Number(amountDAI.mul(e5).div(e18)) / (Number(e5) * numEventsDAI);
     console.log("Average OLAS amount per swap:", avgAmountOLASNum);
     console.log("Average ETH amount per swap:", avgAmountETHNum);
     // Convert OLAS to ETH
     const numEvents = ethers.BigNumber.from(events.length);
-    const allAmountETH = amountETH.add(amountOLAS.div(olasPerETH));
+    const allAmountETH = amountDAI.add(amountOLAS.div(olasPerETH));
     const allAvgAmountETH = allAmountETH.div(numEvents);
-    //console.log("Overall amountETH", Number(allAmountETH) / Number(e18));
+    //console.log("Overall amountDAI", Number(allAmountETH) / Number(e18));
 
     // Record current reserves
     let newReservesETH = reservesETH;
