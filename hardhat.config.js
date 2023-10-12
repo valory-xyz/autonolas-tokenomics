@@ -58,6 +58,11 @@ module.exports = {
             accounts,
             chainId: 5,
         },
+	gnosis: {
+            url: "https://rpc.gnosischain.com",
+            accounts: accounts,
+            chainId: 100,
+        },
         local: {
             url: "http://localhost:8545",
         },

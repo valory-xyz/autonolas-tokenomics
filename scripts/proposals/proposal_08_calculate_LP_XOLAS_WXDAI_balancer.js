@@ -3,6 +3,15 @@
 const { ethers } = require("hardhat");
 const { fetch } = require("cross-fetch");
 
+const { BalancerSDK } =  require('@balancer-labs/sdk');
+
+const balancer = new BalancerSDK({
+  network: 100, // gnosis
+  rpcUrl: 'https://rpc.gnosischain.com',
+});
+
+
+
 async function main() {
     const fs = require("fs");
     const globalsFile = "globals.json";
@@ -12,14 +21,22 @@ async function main() {
     const provider = await ethers.providers.getDefaultProvider(providerName);
 
     // Get all the necessary contract addresses
-    const depositoryTwoAddress = parsedData.depositoryTwoAddress;
-    const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    const tokenAddress = parsedData.OLAS_ETH_PairAddress;
+    //const depositoryTwoAddress = parsedData.depositoryTwoAddress;
+    //const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
+    //const tokenAddress = parsedData.OLAS_ETH_PairAddress;
 
     // Get the depository instance
-    const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
-    const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
-    const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
+    //const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
+    //const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
+    //const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
+
+    // 50OLAS-50WXDAI pool
+    const poolId ="0x79c872ed3acb3fc5770dd8a0cd9cd5db3b3ac985000200000000000000000067";
+
+    // Get the SDK pool with service methods
+    const pool = await balancer.pools.find(poolId);
+    console.log(pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
+    return;
 
     // Proposal preparation
     console.log("Proposal 3. Calculate LP price for the bonding product");
