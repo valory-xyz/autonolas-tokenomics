@@ -2,14 +2,12 @@
 
 const { ethers } = require("hardhat");
 const { fetch } = require("cross-fetch");
-
 const { BalancerSDK } =  require('@balancer-labs/sdk');
 
 const balancer = new BalancerSDK({
-  network: 100, // gnosis
-  rpcUrl: 'https://rpc.gnosischain.com',
+    network: 100, // gnosis
+    rpcUrl: 'https://rpc.gnosischain.com',
 });
-
 
 
 async function main() {
@@ -25,43 +23,47 @@ async function main() {
     //const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     //const tokenAddress = parsedData.OLAS_ETH_PairAddress;
 
+    // 50OLAS-50WXDAI pool
+    const poolId ="0x79c872ed3acb3fc5770dd8a0cd9cd5db3b3ac985000200000000000000000067";
+   
+
     // Get the depository instance
     //const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
     //const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     //const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
+    // for swap tracking
+    const vault = "0xba12222222228d8ba445958a75a0704d566bf2c8";
+    // Swap (index_topic_1 bytes32 poolId, index_topic_2 address tokenIn, index_topic_3 address tokenOut, uint256 amountIn, uint256 amountOut)
 
-    // 50OLAS-50WXDAI pool
-    const poolId ="0x79c872ed3acb3fc5770dd8a0cd9cd5db3b3ac985000200000000000000000067";
 
     // Get the SDK pool with service methods
     const pool = await balancer.pools.find(poolId);
+    const tokenAddress = pool.address;
+    const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
+
     const fee = pool.swapFee;
     let x = pool.tokens[1].balance/pool.tokens[0].balance;
+    // address: '0xce11e14225575945b8e6dc0d4f2dd4c570f79d9f' token[0] OLAS
+    // address: '0xe91d153e0b41518a2ce8dd3d7944fa863463a97d' token[1] WXDAI
     x = x / (1 - fee);
+    // console.log(pool);
     console.log(x);
     console.log(pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
-    return;
 
     // Proposal preparation
     console.log("Proposal 3. Calculate LP price for the bonding product");
 
-    // Fetch the ETH price
-    const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-    const data = await response.json();
-    let priceETH = data.ethereum.usd;
-    console.log("Current ETH price:", priceETH);
-
     // Pool supply from the ETH-OLAS contract
     let totalSupply = await pair.totalSupply();
-    const reserves = await pair.getReserves();
-    let reservesOLAS = reserves._reserve0;
-    let reservesETH = reserves._reserve1;
+    let totalSupplyHuman = pool.totalShares;
+
+    let reservesOLAS = pool.tokens[1].balance;
+    let reservesWXSAI = pool.tokens[0].balance;
     const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
 
     // Get the OLAS current price
-    const olasPerETH = reservesOLAS.div(reservesETH);
-    let priceOLAS = priceETH / Number(olasPerETH);
-    console.log("Current OLAS price:", priceOLAS);
+    console.log("Current OLAS price:", pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
+    return;
 
     // Convert prices in cents
     priceETH = ethers.BigNumber.from(Math.floor(priceETH * 100));
