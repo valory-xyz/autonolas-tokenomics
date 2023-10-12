@@ -35,6 +35,10 @@ async function main() {
 
     // Get the SDK pool with service methods
     const pool = await balancer.pools.find(poolId);
+    const fee = pool.swapFee;
+    let x = pool.tokens[1].balance/pool.tokens[0].balance;
+    x = x / (1 - fee);
+    console.log(x);
     console.log(pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
     return;
 
