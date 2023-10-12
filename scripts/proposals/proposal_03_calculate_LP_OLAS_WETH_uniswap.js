@@ -127,7 +127,7 @@ async function main() {
     // Swap to get upper bound prices
     let priceCompare;
     let targetPrice = Number(priceOLAS);
-    let firstStep = 3;
+    let firstStep = 4;
     let firstStepUsed = false;
     let pcStep = 5;
     let numSteps = 20;
