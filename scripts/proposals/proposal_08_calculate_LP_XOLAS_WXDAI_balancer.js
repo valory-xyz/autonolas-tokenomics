@@ -18,23 +18,15 @@ async function main() {
     const providerName = parsedData.providerName;
     const provider = await ethers.providers.getDefaultProvider(providerName);
 
-    // Get all the necessary contract addresses
-    //const depositoryTwoAddress = parsedData.depositoryTwoAddress;
-    //const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    //const tokenAddress = parsedData.OLAS_ETH_PairAddress;
-
-    // 50OLAS-50WXDAI pool
+    // 50OLAS-50WXDAI pool Id
     const poolId ="0x79c872ed3acb3fc5770dd8a0cd9cd5db3b3ac985000200000000000000000067";
-   
 
-    // Get the depository instance
-    //const depository = await ethers.getContractAt("Depository", depositoryTwoAddress);
-    //const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
-    //const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
-    // for swap tracking
-    const vault = "0xba12222222228d8ba445958a75a0704d566bf2c8";
-    // Swap (index_topic_1 bytes32 poolId, index_topic_2 address tokenIn, index_topic_3 address tokenOut, uint256 amountIn, uint256 amountOut)
-
+    // Swap contract tracking
+    const vaultAddress = "0xba12222222228d8ba445958a75a0704d566bf2c8";
+    const vaultJSON = "abis/aux/Vault.json";
+    const contractFromJSON = fs.readFileSync(vaultJSON, "utf8");
+    const abi = JSON.parse(contractFromJSON);
+    const vault = await ethers.getContractAt(abi, vaultAddress);
 
     // Get the SDK pool with service methods
     const pool = await balancer.pools.find(poolId);
@@ -42,52 +34,50 @@ async function main() {
     const pair = await ethers.getContractAt("UniswapV2Pair", tokenAddress);
 
     const fee = pool.swapFee;
-    let x = pool.tokens[1].balance/pool.tokens[0].balance;
+    let x = pool.tokens[1].balance / pool.tokens[0].balance;
     // address: '0xce11e14225575945b8e6dc0d4f2dd4c570f79d9f' token[0] OLAS
     // address: '0xe91d153e0b41518a2ce8dd3d7944fa863463a97d' token[1] WXDAI
     x = x / (1 - fee);
     // console.log(pool);
-    console.log(x);
-    console.log(pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
+    //console.log(x);
+    //console.log(pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
 
     // Proposal preparation
-    console.log("Proposal 3. Calculate LP price for the bonding product");
+    console.log("Proposal 8. Calculate LP price for the bonding product on gnosis balancer");
 
     // Pool supply from the ETH-OLAS contract
     let totalSupply = await pair.totalSupply();
-    let totalSupplyHuman = pool.totalShares;
+    let totalSupplyRational = pool.totalShares;
 
-    let reservesOLAS = pool.tokens[1].balance;
-    let reservesWXSAI = pool.tokens[0].balance;
-    const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
+    let reservesXOLAS = pool.tokens[0].balance;
+    let reservesWXDAI = pool.tokens[1].balance;
+    //const e18 = ethers.BigNumber.from("1" + "0".repeat(18));
 
-    // Get the OLAS current price
-    console.log("Current OLAS price:", pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address));
-    return;
-
-    // Convert prices in cents
-    priceETH = ethers.BigNumber.from(Math.floor(priceETH * 100));
-    priceOLAS = ethers.BigNumber.from(Math.floor(priceOLAS * 100));
+    // Current XOLAS price
+    const priceXOLAS = pool.calcSpotPrice(pool.tokens[1].address, pool.tokens[0].address);
+    console.log("Current OLAS price:", priceXOLAS);
+    console.log("XOLAS reserves (rational)", reservesXOLAS);
+    console.log("Total supply (rational)", totalSupplyRational);
 
     // Get current LP price
-    let priceLP = ethers.BigNumber.from(await depository.getCurrentPriceLP(tokenAddress)).mul(2);
-    console.log("Initial priceLP", priceLP.toString());
+    let priceLP = (reservesXOLAS * 10**18 * 2) / totalSupplyRational;
+    console.log("Initial priceLP", priceLP);
 
     // Estimate the average ETH amount of swaps the last number of days
-    const numDays = 7;
+    const numDays = 1;
     console.log("Last number of days to compute the average swap volume:", numDays);
-    const numBlocksBack = Math.floor((3600 * 24 * numDays) / 12);
+    const numBlocksBack = 100;//Math.floor((3600 * 24 * numDays) / 12);
 
     // Get events
     const eventName = "Swap";
-    const eventFilter = pair.filters[eventName]();
+    const eventFilter = vault.filters[eventName]();
     let block = await provider.getBlock("latest");
     const curBlockNumber = block.number;
 
     const events = await provider.getLogs({
-        fromBlock: curBlockNumber - numBlocksBack,
-        toBlock: curBlockNumber,
-        address: pair.address,
+        fromBlock: 30418493,//curBlockNumber - numBlocksBack,
+        toBlock: 30418495,//curBlockNumber,
+        address: vault.address,
         topics: eventFilter.topics,
     });
 
@@ -98,7 +88,7 @@ async function main() {
     let numEventsETH = 0;
     for (let i = 0; i < events.length; i++) {
         const uint256SizeInBytes = 32;
-        const uint256Count = 4;
+        const uint256Count = 2;
         const uint256DataArray = [];
 
         const data = events[i].data.slice(2);
@@ -108,19 +98,24 @@ async function main() {
             const uint256Data = data.substring(startIndex, endIndex);
             uint256DataArray.push(uint256Data);
         }
-        const amount0In = ethers.BigNumber.from("0x" + uint256DataArray[0]);
-        const amount1In = ethers.BigNumber.from("0x" + uint256DataArray[1]);
-        const amount0Out = ethers.BigNumber.from("0x" + uint256DataArray[2]);
-        const amount1Out = ethers.BigNumber.from("0x" + uint256DataArray[3]);
+        const amountIn = ethers.BigNumber.from("0x" + uint256DataArray[0]);
+        const amountOut = ethers.BigNumber.from("0x" + uint256DataArray[1]);
+    // Swap (index_topic_1 bytes32 poolId, index_topic_2 address tokenIn, index_topic_3 address tokenOut, uint256 amountIn, uint256 amountOut)
 
-        if (amount0In.eq(0)) {
-            amountETH = amountETH.add(amount1In);
-            numEventsETH++;
-        } else {
-            amountOLAS = amountOLAS.add(amount0In);
-            numEventsOLAS++;
-        }
+//        if (amountIn.eq(0)) {
+//            amountETH = amountETH.add(amount1In);
+//            numEventsETH++;
+//        } else {
+//            amountOLAS = amountOLAS.add(amountIn);
+//            numEventsOLAS++;
+//        }
+        console.log(events[i]);
+        console.log(events[i].topics[1]);
+        //break;
     }
+
+    return;
+
     if (numEventsETH == 0) {
         numEventsETH = 1;
     }
@@ -145,11 +140,11 @@ async function main() {
 
     // Record current reserves
     let newReservesETH = reservesETH;
-    let newReservesOLAS = reservesOLAS;
+    let newReservesOLAS = reservesXOLAS;
 
     // Swap to get upper bound prices
     let priceCompare;
-    let targetPrice = Number(priceOLAS);
+    let targetPrice = Number(priceXOLAS);
     let firstStep = 4;
     let firstStepUsed = false;
     let pcStep = 5;
@@ -171,14 +166,14 @@ async function main() {
         while (condition) {
             //console.log("targetPrice", targetPrice);
             const amountInWithFee = avgAmountETH.mul(ethers.BigNumber.from(997));
-            const numerator = amountInWithFee.mul(reservesOLAS);
+            const numerator = amountInWithFee.mul(reservesXOLAS);
             const denominator = reservesETH.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
             const res = numerator.div(denominator);
 
             newReservesETH = newReservesETH.add(avgAmountETH);
             newReservesOLAS = newReservesOLAS.sub(res);
 
-            // This price must match the requested priceOLAS
+            // This price must match the requested priceXOLAS
             priceCompare = Number((newReservesETH.mul(priceETH)).div(newReservesOLAS));
             if (priceCompare >= targetPrice) {
                 break;
@@ -200,10 +195,10 @@ async function main() {
 
     // Set back current reserves
     newReservesETH = reservesETH;
-    newReservesOLAS = reservesOLAS;
+    newReservesOLAS = reservesXOLAS;
 
     // Swap to get lower bound prices
-    targetPrice = Number(priceOLAS);
+    targetPrice = Number(priceXOLAS);
     firstStep = pcStep - firstStep;
     firstStepUsed = false;
     numSteps = 10;
@@ -224,13 +219,13 @@ async function main() {
             //console.log("targetPrice", targetPrice);
             const amountInWithFee = avgAmountOLAS.mul(ethers.BigNumber.from(997));
             const numerator = amountInWithFee.mul(reservesETH);
-            const denominator = reservesOLAS.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
+            const denominator = reservesXOLAS.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
             const res = numerator.div(denominator);
 
             newReservesOLAS = newReservesOLAS.add(avgAmountOLAS);
             newReservesETH = newReservesETH.sub(res);
 
-            // This price must match the requested priceOLAS
+            // This price must match the requested priceXOLAS
             priceCompare = Number((newReservesETH.mul(priceETH)).div(newReservesOLAS));
             if (priceCompare <= targetPrice) {
                 break;
@@ -250,31 +245,6 @@ async function main() {
         console.log("OLAS price " + pricesOLASDecrease[i] + " (cents): priceLP " + pricesLPDecrease[i].toString());
     }
     console.log("\n");
-
-    // Get effective bond
-    const effectiveBond = ethers.BigNumber.from(await tokenomics.effectiveBond());
-    // One day time
-    const oneDay = 3600 * 24;
-
-    // Price LP for OLAS price of corresponding prices
-    const pricesLP = [pricesOLASIncrease[0]];
-    const supplies = ["100000" + "0".repeat(18)];
-    const vestings = [28 * oneDay];
-
-    const numPrices = pricesLP.length;
-    const targets = new Array(numPrices).fill(depositoryTwoAddress);
-    const values = new Array(numPrices).fill(0);
-    const callDatas = new Array(numPrices);
-    for (let i = 0; i < numPrices; i++) {
-        callDatas[i] = depository.interface.encodeFunctionData("create", [tokenAddress, pricesLP[i], supplies[i], vestings[i]]);
-    }
-    const description = "Create OLAS-ETH bonding product";
-
-    // Proposal details
-    console.log("targets:", targets);
-    console.log("values:", values);
-    console.log("call datas:", callDatas);
-    console.log("description:", description);
 }
 
 main()

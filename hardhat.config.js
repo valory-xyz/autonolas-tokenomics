@@ -58,7 +58,7 @@ module.exports = {
             accounts,
             chainId: 5,
         },
-	gnosis: {
+	    gnosis: {
             url: "https://rpc.gnosischain.com",
             accounts: accounts,
             chainId: 100,
