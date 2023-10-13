@@ -26,22 +26,18 @@ async function main() {
     console.log("Proposal 5. Close old products and create new ones");
     const targets = [depositoryTwoAddress];
     const values = [0];
-    const callDatas = [depository.interface.encodeFunctionData("close", [[10, 11, 12, 13, 14, 15, 16, 17, 18]])];
+    const callDatas = [depository.interface.encodeFunctionData("close", [[30,31]])];
 
     // Additional products to create with depository contract
     const oneDay = 3600 * 24;
-    const vestings = [28 * oneDay, 28 * oneDay, 21 * oneDay, 21 * oneDay, 14 * oneDay, 14 * oneDay, 14 * oneDay, 14 * oneDay, 7 * oneDay, 7 * oneDay, 7 * oneDay];
-    const pricesLP = ["94581006194509583366", "90281999952533219560", "86251681600680378492", "82490051138951060162",
-        "78997108567345264570", "76116346119503688058", "73187112785010524266", "70453161672816904726",
-        "68109775005222373690", "65766388337627842656", "63618283892332855874"];
-    const supplies = ["70000" + "0".repeat(18), "70000" + "0".repeat(18), "80000" + "0".repeat(18), "80000" + "0".repeat(18),
-        "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18), "100000" + "0".repeat(18),
-        "100000" + "0".repeat(18), "100000" + "0".repeat(18)];
+    const vestings = [90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay, 90*oneDay, 45*oneDay];
+    const pricesLP = ["1417088700721071600", "1417088700721071600", "1350257832250301000", "1350257832250301000", "1294565441857992000", "1294565441857992000", "1240009805859382000", "1240009805859382000", "1194546033276477200", "1194546033276477200", "1152293641444225400", "1152293641444225400", "1117165357297200300", "1117165357297200300", "1084112585527601800", "1084112585527601800", "1052956742336489100", "1052956742336489100"];
+    const supplies = ["27500" + "0".repeat(18), "27500" + "0".repeat(18), "65000" + "0".repeat(18), "65000" + "0".repeat(18),"125000" + "0".repeat(18), "125000" + "0".repeat(18), "180000" + "0".repeat(18), "180000" + "0".repeat(18), "200000" + "0".repeat(18),"200000" + "0".repeat(18), "180000" + "0".repeat(18), "180000" + "0".repeat(18), "125000" + "0".repeat(18), "125000" + "0".repeat(18), "65000" + "0".repeat(18), "65000" + "0".repeat(18), "27500" + "0".repeat(18), "27500" + "0".repeat(18)];
 
     for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
-        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_ETH_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
+        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.XOLAS_WXDAI_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
     }
 
     const description = "Close old products and create new ones";

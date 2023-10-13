@@ -127,7 +127,7 @@ async function main() {
     // Swap to get upper bound prices
     let priceCompare;
     let targetPrice = Number(priceOLAS);
-    let firstStep = 3;
+    let firstStep = 4;
     let firstStepUsed = false;
     let pcStep = 5;
     let numSteps = 20;
@@ -148,8 +148,8 @@ async function main() {
         while (condition) {
             //console.log("targetPrice", targetPrice);
             const amountInWithFee = avgAmountETH.mul(ethers.BigNumber.from(997));
-            const numerator = amountInWithFee.mul(reservesOLAS);
-            const denominator = reservesETH.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
+            const numerator = amountInWithFee.mul(newReservesOLAS);
+            const denominator = newReservesETH.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
             const res = numerator.div(denominator);
 
             newReservesETH = newReservesETH.add(avgAmountETH);
@@ -200,8 +200,8 @@ async function main() {
         while (condition) {
             //console.log("targetPrice", targetPrice);
             const amountInWithFee = avgAmountOLAS.mul(ethers.BigNumber.from(997));
-            const numerator = amountInWithFee.mul(reservesETH);
-            const denominator = reservesOLAS.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
+            const numerator = amountInWithFee.mul(newReservesOLAS);
+            const denominator = newReservesOLAS.mul(ethers.BigNumber.from(1000)).add(amountInWithFee);
             const res = numerator.div(denominator);
 
             newReservesOLAS = newReservesOLAS.add(avgAmountOLAS);
