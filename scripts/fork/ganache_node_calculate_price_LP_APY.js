@@ -20,7 +20,7 @@ async function main() {
     // Get all the necessary contract addresses
     const timelockAddress = parsedData.timelockAddress;
     const treasuryAddress = parsedData.treasuryAddress;
-    const depositoryAddress = parsedData.depositoryAddress;
+    const depositoryAddress = parsedData.depositoryTwoAddress;
     const tokenAddress = parsedData.OLAS_ETH_PairAddress;
     const olasAddress = parsedData.olasAddress;
     const wethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
