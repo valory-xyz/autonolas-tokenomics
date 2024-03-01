@@ -17,7 +17,7 @@ async function main() {
     });
 
     // 50OLAS-50DAI pool Id
-    const poolId = parsedData.XOLAS_WXDAI_PoolId;
+    const poolId = parsedData.OLAS_WXDAI_PoolId;
 
     // Swap contract tracking
     const vaultAddress = parsedData.vaultAddress;

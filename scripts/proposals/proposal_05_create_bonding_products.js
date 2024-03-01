@@ -37,7 +37,7 @@ async function main() {
     for (let i = 0; i < pricesLP.length; i++) {
         targets.push(depositoryTwoAddress);
         values.push(0);
-        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.XOLAS_WXDAI_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
+        callDatas.push(depository.interface.encodeFunctionData("create", [parsedData.OLAS_WXDAI_PairAddress, pricesLP[i], supplies[i], vestings[i]]));
     }
 
     const description = "Close old products and create new ones";

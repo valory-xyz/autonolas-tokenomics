@@ -30,8 +30,8 @@ The Tokenomics contract is deployed via the proxy contract, such that it is poss
 
 ### Prerequisites
 - This repository follows the standard [`Hardhat`](https://hardhat.org/tutorial/) development process.
-- The code is written on Solidity `0.8.18`.
-- The standard versions of Node.js along with Yarn are required to proceed further (confirmed to work with Yarn `1.22.19` and npm `8.13.2` and node `v18.6.0`);
+- The code is written on Solidity starting from version `0.8.18`.
+- The standard versions of Node.js along with Yarn are required to proceed further (confirmed to work with Yarn `1.22.19` and npm `10.1.0` and node `v18.6.0`);
 - [`Foundry`](https://book.getfoundry.sh/) is required to run the foundry tests.
 
 ### Install the dependencies
@@ -96,7 +96,17 @@ node scripts/audit_chains/audit_contracts_setup.js
 ```
 
 ## LP Token Guide
-It is advised to check the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/LP_token_guide.md) before enabling OLAS-based LP tokens. 
+It is advised to check the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_guide.md) before enabling OLAS-based LP tokens. 
+
+## LP Token List
+OLAS-based LP tokens eligible for bonding come from various chains. At a minimum, after [OLAS](https://github.com/valory-xyz/autonolas-governance/blob/main/docs/olas_bridging.md)
+has been bridged to a specific chain, the `OLAS-XCHAIN_TOKEN` LP token is created to provide the liquidity on that chain.
+
+In order to participate in bonding with LPs from different chains, the LP owner needs to transfer LP tokens to the ETH mainnet
+and deposit via a [Depository](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Depository.sol) contract
+directly, or by using the [Bonding UI](https://tokenomics.olas.network/bonding-products).
+
+For more information about bonding enabled LP tokens and bridging see [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_bridging.md)
 
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
