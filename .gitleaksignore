@@ -66,3 +66,9 @@ a6051cf7ad8ee63d9b230f38b1d11153e7799137:scripts/deployment/globals_goerli.json:
 9bcfc8f72a4e86c3ab805f95e784252b9a5b63d2:scripts/deployment/globals_goerli.json:generic-api-key:1
 abf859641c14531777e357547bbfadb79871c1c4:scripts/deployment/globals_mainnet.json:generic-api-key:1
 abf859641c14531777e357547bbfadb79871c1c4:scripts/deployment/globals_mainnet.json:generic-api-key:2
+197bb349f84d8a2ac281cbf289eecce3f6aaae4e:docs/lp_token_guide.md:generic-api-key:11
+197bb349f84d8a2ac281cbf289eecce3f6aaae4e:docs/lp_token_guide.md:generic-api-key:12
+589884fb0252f32bd714d08567f933c92763e9c6:docs/lp_token_guide.md:generic-api-key:11
+589884fb0252f32bd714d08567f933c92763e9c6:docs/lp_token_guide.md:generic-api-key:12
+076a8dd267f19419edbd339d15d8b9673bef6083:docs/lp_token_guide.md:generic-api-key:11
+076a8dd267f19419edbd339d15d8b9673bef6083:docs/lp_token_guide.md:generic-api-key:12
