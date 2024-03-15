@@ -5,6 +5,47 @@ import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
+// Structure for epoch point with tokenomics-related statistics during each epoch
+// The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 slots)
+struct EpochPoint {
+    // Total amount of ETH donations accrued by the protocol during one epoch
+    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+    uint96 totalDonationsETH;
+    // Amount of OLAS intended to fund top-ups for the epoch based on the inflation schedule
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 totalTopUpsOLAS;
+    // Inverse of the discount factor
+    // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
+    // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
+    // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
+    uint64 idf;
+    // Number of new owners
+    // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
+    uint32 numNewOwners;
+    // Epoch end timestamp
+    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+    uint32 endTime;
+    // Parameters for rewards and top-ups (in percentage)
+    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
+    // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
+    // Treasury fraction
+    uint8 rewardTreasuryFraction;
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
+    // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
+    uint8 maxBondFraction;
+}
+
+interface IVoteWeighting {
+    function stakingTargetCheckpoint(uint256 stakingTarget) external;
+    function stakingTargetRelativeWeigh(uint256 stakingTarget, uint256 time) external;
+}
+
+interface ITokenomicsInfo {
+    function epochCounter() external returns (uint32);
+    // TODO Create a better getter in Tokenomics
+    function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory ep);
+}
+
 /// @title Dispenser - Smart contract for distributing incentives
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -23,6 +64,11 @@ contract Dispenser is IErrorsTokenomics {
     address public tokenomics;
     // Treasury contract address
     address public treasury;
+    // Service staking weighting threshold
+    uint256 serviceStakingWeightingThreshold;
+
+    // Mapping for last claimed service staking epochs
+    mapping(uint256 => uint256) public lastClaimedStakingServiceEpoch;
 
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
@@ -112,5 +158,46 @@ contract Dispenser is IErrorsTokenomics {
         emit IncentivesClaimed(msg.sender, reward, topUp);
 
         _locked = 1;
+    }
+
+    function claimServiceStakingIncentives(uint256[] memory stakingTargets) {
+        // Traverse all staking targets
+        for (uint256 i = 0; i < stakingTargets.length; ++i) {
+            stakingTargetCheckpoint(stakingTargets[i]);
+
+            uint256 eCounter = ITokenomicsInfo(tokenomics).epochCounter();
+            // TODO: Write initial lastClaimedEpoch when the staking contract is added for voting
+            uint256 lastClaimedEpoch = lastClaimedStakingServiceEpoch[stakingTargets[i]];
+            // Shall not claim in the same epoch
+            if (eCounter == lastClaimedEpoch) {
+                revert();
+            }
+            // TODO: check the math
+            uint256 stakingWeight;
+            for (j = lastClaimedEpoch; j < eCounter; ++j) {
+                EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
+                uint256 endTime = ep.endTime;
+
+                // Get the staking weight for each epoch
+                // TODO math from where we need to get the weight - endTime or endTime + WEEEK
+                stakingWeight += stakingTargetRelativeWeight(stakingTargets[i], endTime);
+            }
+
+            // Calculate relative staking weight for all the claimed epochs
+            stakingWeight /= (eCounter - lastClaimedEpoch);
+            // Check for the staking weighting threshold
+            if (stakingWeight < serviceStakingWeightingThreshold) {
+                revert();
+            }
+
+            // Write current epoch counter to start claiming with the next time
+            lastClaimedStakingServiceEpoch[stakingTargets[i]] = eCounter;
+
+            // Mint tokens to the staking target dispenser
+            ITreasury(treasury).withdrawToAccount(targetDispenser, 0, topUp);
+        }
+
+        // Engage target dispenser with all the staking service targets
+        ITargetDispenser(targetDispenser).distribute(stakingTargets);
     }
 }

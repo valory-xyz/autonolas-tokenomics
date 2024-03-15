@@ -1232,6 +1232,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
     }
 
+    // TODO: recalculate the inflation per epoch to correctly reflect the state at any time
     /// @dev Gets inflation per last epoch.
     /// @return inflationPerEpoch Inflation value.
     function getInflationPerEpoch() external view returns (uint256 inflationPerEpoch) {
