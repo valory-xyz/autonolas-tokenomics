@@ -112,6 +112,17 @@ struct IncentiveBalances {
     uint32 lastEpoch;
 }
 
+// Struct for service staking epoch info
+struct ServiceStakingPoint {
+    // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 totalServiceStakingOLAS;
+    // Service staking fraction
+    // This number cannot be practically bigger than 100 as it sums up to 100% with others
+    // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
+    uint8 serviceStakingFraction;
+}
+
 /// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -227,6 +238,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     mapping(address => bool) public mapNewOwners;
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
+
+    // TODO: maxServiceStaking for each epoch?
+    // effectiveServiceStaking
+    // This number cannot be practically bigger than the inflation remainder of OLAS
+    uint96 public effectiveServiceStaking;
+    // Mapping of epoch => service staking point
+    mapping(uint256 => ServiceStakingPoint) public mapEpochServiceStakingPoints;
 
     /// @dev Tokenomics constructor.
     constructor()
@@ -950,6 +968,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         tp.epochPoint.totalTopUpsOLAS = uint96(inflationPerEpoch);
         incentives[4] = (inflationPerEpoch * tp.epochPoint.maxBondFraction) / 100;
 
+        // TODO: make sure to account for additional time after the epoch ends like incentives[4], plus cross-year
+        // Service staking funding
+        mapEpochServiceStakingPoints[eCounter].totalServiceStakingOLAS = (inflationPerEpoch *
+            mapEpochServiceStakingPoints[eCounter].serviceStakingFraction) / 100;
+
         // Get the maxBond that was credited to effectiveBond during this settled epoch
         // If the year changes, the maxBond for the next epoch is updated in the condition below and will be used
         // later when the effectiveBond is updated for the next epoch
@@ -1004,6 +1027,17 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
 
+        // Cumulative incentives
+        uint256 accountRewards = incentives[2] + incentives[3];
+        // Owner top-ups: epoch incentives for component owners funded with the inflation
+        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
+        // Owner top-ups: epoch incentives for agent owners funded with the inflation
+        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
+        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
+        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
+        // This amount will appear in the EpochSettled event, and thus can be tracked historically
+        uint256 accountTopUps = incentives[5] + incentives[6];
+
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
         // the actual year changes
@@ -1047,17 +1081,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Assign a default IDF value
             nextEpochPoint.epochPoint.idf = 1e18;
         }
-
-        // Cumulative incentives
-        uint256 accountRewards = incentives[2] + incentives[3];
-        // Owner top-ups: epoch incentives for component owners funded with the inflation
-        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
-        // Owner top-ups: epoch incentives for agent owners funded with the inflation
-        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
-        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
-        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
-        // This amount will appear in the EpochSettled event, and thus can be tracked historically
-        uint256 accountTopUps = incentives[5] + incentives[6];
 
         // Treasury contract rebalances ETH funds depending on the treasury rewards
         if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {

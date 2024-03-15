@@ -35,6 +35,17 @@ struct EpochPoint {
     uint8 maxBondFraction;
 }
 
+// Struct for service staking epoch info
+struct ServiceStakingPoint {
+    // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 totalServiceStakingOLAS;
+    // Service staking fraction
+    // This number cannot be practically bigger than 100 as it sums up to 100% with others
+    // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
+    uint8 serviceStakingFraction;
+}
+
 interface IVoteWeighting {
     function stakingTargetCheckpoint(uint256 stakingTarget) external;
     function stakingTargetRelativeWeigh(uint256 stakingTarget, uint256 time) external;
@@ -43,7 +54,8 @@ interface IVoteWeighting {
 interface ITokenomicsInfo {
     function epochCounter() external returns (uint32);
     // TODO Create a better getter in Tokenomics
-    function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory ep);
+    function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory);
+    function mapEpochServiceStakingPoints(uint256 eCounter) external returns (ServiceStakingPoint memory);
 }
 
 interface ITargetDispenser {
@@ -58,6 +70,7 @@ contract Dispenser is IErrorsTokenomics {
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
+    event ServiceStakingIncentivesClaimed(address indexed account, uint256 serviceStakingAmount);
 
     // Owner address
     address public owner;
@@ -167,7 +180,14 @@ contract Dispenser is IErrorsTokenomics {
     }
 
     function claimServiceStakingIncentives(uint256[] memory stakingTargets) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         uint256 weightingThreshold = serviceStakingWeightingThreshold;
+        uint256 totalStakingAmount;
 
         // Traverse all staking targets
         for (uint256 i = 0; i < stakingTargets.length; ++i) {
@@ -201,11 +221,20 @@ contract Dispenser is IErrorsTokenomics {
             // Write current epoch counter to start claiming with the next time
             lastClaimedStakingServiceEpoch[stakingTargets[i]] = eCounter;
 
-            // Mint tokens to the staking target dispenser
-            ITreasury(treasury).withdrawToAccount(targetDispenser, 0, topUp);
+            ServiceStakingPoint memory serviceStakingPoint = mapEpochServiceStakingPoints(eCounter);
+            totalStakingAmount += (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
         }
+
+        // Mint tokens to the staking target dispenser
+        ITreasury(treasury).withdrawToAccount(targetDispenser, 0, totalStakingAmount);
 
         // Engage target dispenser with all the staking service targets
         ITargetDispenser(targetDispenser).distribute(stakingTargets);
+
+        // TODO: Tokenomics - subrtract EffectiveSatking to the totalStakingAmount
+
+        emit ServiceStakingIncentivesClaimed(msg.sender, totalStakingAmount);
+
+        _locked = 1;
     }
 }
