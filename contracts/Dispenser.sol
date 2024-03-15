@@ -88,6 +88,8 @@ contract Dispenser is IErrorsTokenomics {
 
     // Mapping for last claimed service staking epochs
     mapping(uint256 => uint256) public lastClaimedStakingServiceEpoch;
+    // Mapping for target processors based on chain Ids
+    mapping(uint256 => address) public mapChainIdTargetProcessors;
 
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
@@ -179,6 +181,25 @@ contract Dispenser is IErrorsTokenomics {
         _locked = 1;
     }
 
+    function _distribute(uint256[] memory stakingTargets, uint256[] memory stakingAmounts) {
+        // Traverse all staking targets
+        for (uint256 i = 0; i < stakingTargets.length; ++i) {
+            // Unpack chain Id and target addresses
+            uint64 chainId;
+            address target;
+
+            if (chainId == 1) {
+                IOLAS(olas).approve(target, stakingAmounts[i]);
+                IServiceStaking(target).deposit(stakingAmounts[i]);
+            } else {
+                address targetProcessor = mapChainIdTargetProcessors[chainId];
+                IOLAS(olas).approve(targetProcessor, stakingAmounts[i]);
+                ITargetProcessor(targetProcessor).deposit(target, stakingAmounts[i]);
+            }
+        }
+    }
+
+    // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
     function claimServiceStakingIncentives(uint256[] memory stakingTargets) {
         // Reentrancy guard
         if (_locked > 1) {
@@ -188,6 +209,9 @@ contract Dispenser is IErrorsTokenomics {
 
         uint256 weightingThreshold = serviceStakingWeightingThreshold;
         uint256 totalStakingAmount;
+
+        // Allocate the array of staking amounts
+        uint256[] memory stakingAmounts = new uint256[](stakingTargets.length);
 
         // Traverse all staking targets
         for (uint256 i = 0; i < stakingTargets.length; ++i) {
@@ -222,14 +246,15 @@ contract Dispenser is IErrorsTokenomics {
             lastClaimedStakingServiceEpoch[stakingTargets[i]] = eCounter;
 
             ServiceStakingPoint memory serviceStakingPoint = mapEpochServiceStakingPoints(eCounter);
-            totalStakingAmount += (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+            stakingAmounts[i] = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+            totalStakingAmount += stakingAmounts[i];
         }
 
         // Mint tokens to the staking target dispenser
-        ITreasury(treasury).withdrawToAccount(targetDispenser, 0, totalStakingAmount);
+        ITreasury(treasury).withdrawToAccount(address(this), 0, totalStakingAmount);
 
-        // Engage target dispenser with all the staking service targets
-        ITargetDispenser(targetDispenser).distribute(stakingTargets);
+        // Dispense all the service staking targets
+        _distribute(stakingTargets, stakingAmounts);
 
         // TODO: Tokenomics - subrtract EffectiveSatking to the totalStakingAmount
 
