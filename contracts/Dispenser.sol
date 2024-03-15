@@ -46,6 +46,10 @@ interface ITokenomicsInfo {
     function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory ep);
 }
 
+interface ITargetDispenser {
+    function distribute(uint256[] memory stakingTargets) external;
+}
+
 /// @title Dispenser - Smart contract for distributing incentives
 /// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -64,8 +68,10 @@ contract Dispenser is IErrorsTokenomics {
     address public tokenomics;
     // Treasury contract address
     address public treasury;
+    //
+    address public targetDispenser;
     // Service staking weighting threshold
-    uint256 serviceStakingWeightingThreshold;
+    uint256 public serviceStakingWeightingThreshold;
 
     // Mapping for last claimed service staking epochs
     mapping(uint256 => uint256) public lastClaimedStakingServiceEpoch;
@@ -161,6 +167,8 @@ contract Dispenser is IErrorsTokenomics {
     }
 
     function claimServiceStakingIncentives(uint256[] memory stakingTargets) {
+        uint256 weightingThreshold = serviceStakingWeightingThreshold;
+
         // Traverse all staking targets
         for (uint256 i = 0; i < stakingTargets.length; ++i) {
             stakingTargetCheckpoint(stakingTargets[i]);
@@ -186,7 +194,7 @@ contract Dispenser is IErrorsTokenomics {
             // Calculate relative staking weight for all the claimed epochs
             stakingWeight /= (eCounter - lastClaimedEpoch);
             // Check for the staking weighting threshold
-            if (stakingWeight < serviceStakingWeightingThreshold) {
+            if (stakingWeight < weightingThreshold) {
                 revert();
             }
 
