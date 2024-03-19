@@ -117,6 +117,8 @@ struct ServiceStakingPoint {
     // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 totalServiceStakingOLAS;
+    // Service staking vote weighting threshold
+    uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
     // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
@@ -361,8 +363,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Reward fractions
         // 0 stands for components and 1 for agents
-        // The initial target is to distribute around 2/3 of incentives reserved to fund owners of the code
-        // for components royalties and 1/3 for agents royalties
         tp.unitPoints[0].rewardUnitFraction = 83;
         tp.unitPoints[1].rewardUnitFraction = 17;
         // tp.epochPoint.rewardTreasuryFraction is essentially equal to zero
@@ -969,6 +969,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         incentives[4] = (inflationPerEpoch * tp.epochPoint.maxBondFraction) / 100;
 
         // TODO: make sure to account for additional time after the epoch ends like incentives[4], plus cross-year
+        // TODO: Add from effective staking if there is a leftover
         // Service staking funding
         mapEpochServiceStakingPoints[eCounter].totalServiceStakingOLAS = (inflationPerEpoch *
             mapEpochServiceStakingPoints[eCounter].serviceStakingFraction) / 100;

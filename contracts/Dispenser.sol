@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.23;
 
 import "./interfaces/IErrorsTokenomics.sol";
 import "./interfaces/ITokenomics.sol";
@@ -40,6 +40,8 @@ struct ServiceStakingPoint {
     // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 totalServiceStakingOLAS;
+    // Service staking vote weighting threshold
+    uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
     // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
@@ -81,8 +83,8 @@ contract Dispenser is IErrorsTokenomics {
     address public tokenomics;
     // Treasury contract address
     address public treasury;
-    //
-    address public targetDispenser;
+    // Vote Weighting contract address
+    address public voteWeighting;
     // Service staking weighting threshold
     uint256 public serviceStakingWeightingThreshold;
 
@@ -181,7 +183,7 @@ contract Dispenser is IErrorsTokenomics {
         _locked = 1;
     }
 
-    function _distribute(uint256[] memory stakingTargets, uint256[] memory stakingAmounts) {
+    function _distribute(uint256[] memory stakingTargets, uint256[] memory stakingAmounts, bytes[] memory stakingTargetPayloads) {
         // Traverse all staking targets
         for (uint256 i = 0; i < stakingTargets.length; ++i) {
             // Unpack chain Id and target addresses
@@ -189,26 +191,37 @@ contract Dispenser is IErrorsTokenomics {
             address target;
 
             if (chainId == 1) {
+                // TODO Inject factory verification here
+                // Get hash of target.code, check if the hash is present in the registered factory
                 IOLAS(olas).approve(target, stakingAmounts[i]);
                 IServiceStaking(target).deposit(stakingAmounts[i]);
+                // stakingTargetPayloads[i] is ignored
             } else {
                 address targetProcessor = mapChainIdTargetProcessors[chainId];
+                // TODO: approve for l1 bridge mediator right away? Then delegatecall to the targetProcessor is needed
                 IOLAS(olas).approve(targetProcessor, stakingAmounts[i]);
-                ITargetProcessor(targetProcessor).deposit(target, stakingAmounts[i]);
+                // TODO Inject factory verification on the L2 side
+                // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
+                ITargetProcessor(targetProcessor).deposit(target, stakingAmounts[i], stakingTargetPayloads[i]);
             }
         }
     }
 
     // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
-    function claimServiceStakingIncentives(uint256[] memory stakingTargets) {
+    // TODO: We need to come up with the solution such that we are able to return unclaimed below threshold values back to effective staking.
+    function claimServiceStakingIncentives(uint256[] memory stakingTargets, bytes[] memory stakingTargetPayloads) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
+        // TODO: account for stakingTargetRelativeWeight from epoch point
         uint256 weightingThreshold = serviceStakingWeightingThreshold;
-        uint256 totalStakingAmount;
+        // Staking amount to send as a deposit
+        uint256 stakingAmountDeposit;
+        // Staking amount to return back to effective staking
+        uint256 stakingAmountReturn;
 
         // Allocate the array of staking amounts
         uint256[] memory stakingAmounts = new uint256[](stakingTargets.length);
@@ -224,41 +237,44 @@ contract Dispenser is IErrorsTokenomics {
             if (eCounter == lastClaimedEpoch) {
                 revert();
             }
+            
             // TODO: check the math
-            uint256 stakingWeight;
             for (j = lastClaimedEpoch; j < eCounter; ++j) {
+                // TODO: optimize not to read several times in a row same epoch info
+                // Get service staking info
+                ServiceStakingPoint memory serviceStakingPoint = mapEpochServiceStakingPoints(j);
+                
                 EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
                 uint256 endTime = ep.endTime;
-
+                
                 // Get the staking weight for each epoch
                 // TODO math from where we need to get the weight - endTime or endTime + WEEEK
-                stakingWeight += stakingTargetRelativeWeight(stakingTargets[i], endTime);
-            }
-
-            // Calculate relative staking weight for all the claimed epochs
-            stakingWeight /= (eCounter - lastClaimedEpoch);
-            // Check for the staking weighting threshold
-            if (stakingWeight < weightingThreshold) {
-                revert();
+                uint256 stakingWeight = IVoteWeighting(voteWeighting).stakingTargetRelativeWeight(stakingTargets[i], endTime);
+                
+                if (stakingWeight < serviceStakingPoint.serviceStakingWeightingThreshold) {
+                    stakingAmountReturn += (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                } else {
+                    stakingAmounts[i] += (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                    stakingAmountDeposit += stakingAmounts[i];
+                }
             }
 
             // Write current epoch counter to start claiming with the next time
             lastClaimedStakingServiceEpoch[stakingTargets[i]] = eCounter;
-
-            ServiceStakingPoint memory serviceStakingPoint = mapEpochServiceStakingPoints(eCounter);
-            stakingAmounts[i] = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
-            totalStakingAmount += stakingAmounts[i];
         }
 
         // Mint tokens to the staking target dispenser
-        ITreasury(treasury).withdrawToAccount(address(this), 0, totalStakingAmount);
+        ITreasury(treasury).withdrawToAccount(address(this), 0, stakingAmountDeposit);
 
         // Dispense all the service staking targets
-        _distribute(stakingTargets, stakingAmounts);
+        _distribute(stakingTargets, stakingAmounts, stakingTargetPayloads);
 
-        // TODO: Tokenomics - subrtract EffectiveSatking to the totalStakingAmount
+        // TODO: Tokenomics - subrtract EffectiveSatking to the stakingAmountDeposit - probably not needed as
+        //       EffectiveSatking probably should only account for returned staking amount. Or come up with another variable
+        // TODO: Tokenomics - return stakingAmountReturn into EffectiveSatking (or another additional variable tracking returns to redistribute further)
+        // ITokenomics(tokenomics).returnServiceStaking(stakingAmountReturn);
 
-        emit ServiceStakingIncentivesClaimed(msg.sender, totalStakingAmount);
+        emit ServiceStakingIncentivesClaimed(msg.sender, stakingAmountDeposit, stakingAmountReturn);
 
         _locked = 1;
     }
