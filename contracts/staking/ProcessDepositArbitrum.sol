@@ -31,23 +31,33 @@ interface L1ERC20Gateway {
     ) external payable returns (bytes memory res);
 }
 
+interface IWormhole {
+    function quoteEVMDeliveryPrice() external;
+    function sendPayloadToEvm() external payable;
+}
+
 contract ProcessDepositArbitrum {
+    uint256 public constant GAS_LIMIT = 2_000_000;
     address public immutable olas;
     address public immutable l1ERC20Gateway;
+    address public immutable l2TargetDispenser;
+    address public immutable wormholeRelayer;
+    uint256 public immutable wormholeTargetChain;
 
-    constructor(address _olas, address _l1ERC20Gateway) {
-        if (_olas == address(0) || _l1ERC20Gateway == address(0)) {
+    // TODO: nonce must start from 1 in order to be identified on L2 side (otherwise 0 is both nonce and not found)
+    mapping(address => uint256) public stakingContractNonces;
+
+    constructor(address _olas, address _l1ERC20Gateway, address _l2TargetDispenser) {
+        if (_olas == address(0) || _l1ERC20Gateway == address(0) || l2TargetDispenser == address(0)) {
             revert();
         }
         olas = _olas;
         l1ERC20Gateway = _l1ERC20Gateway;
+        l2TargetDispenser = _l2TargetDispenser;
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
-    function deposit(address target, uint256 amount, bytes memory payload) {
-        // Transfer OLAS tokens
-        IToken(olas).transferFrom(dispenser, address(this), amount);
-
+    function deposit(address target, uint256 amount, bytes memory payload) payable {
         // Decode the staking contract supplemental payload required for bridging tokens
         (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payload,
             (address, uint256, uint256, uint256));
@@ -55,13 +65,35 @@ contract ProcessDepositArbitrum {
         // Construct the data for L1ERC20Gateway consisting of 2 pieces:
         // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
         // bytes extraData: “0x”
-        bytes memory data = abi.encode(maxSubmissionCost, bytes(0));
+        bytes memory data = abi.encode(maxSubmissionCost, "0x");
 
-        // Approve OLAS for the gateway
-        IToken(olas).approve(l1ERC20Gateway, amount);
+        // Check the allowance
+        uint256 allowance = IOLAS(olas).allowance(msg.sender, l1ERC20Gateway);
+        if (amount > allowance) {
+            revert();
+        }
 
-        // Transfer OLAS to the staking contract across the bridge
-        L1ERC20Gateway(l1ERC20Gateway).outboundTransferCustomRefund(olas, refundTo, target, stakingAmount, maxGas,
+        // Transfer OLAS to the staking dispenser contract across the bridge
+        L1ERC20Gateway(l1ERC20Gateway).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, amount, maxGas,
             gasPriceBid, data);
+
+        // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
+        // Get a quote for the cost of gas for delivery
+        uint256 cost;
+        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(targetChain, 0, GAS_LIMIT);
+
+        uint256 transferNonce = stakingContractNonces[target];
+        // Send the message
+        IWormhole(wormholeRelayer).sendPayloadToEvm{value: cost}(
+            wormholeTargetChain,
+            l2TargetDispenser,
+            abi.encode(target, amount, transferNonce),
+            0,
+            GAS_LIMIT
+        );
+
+        // TODO: Make sure the sync is always performed on L2 for the case if the same staking contract is used
+        // twice or more in the same tx: maybe use block.timestamp
+        stakingContractNonces[target] = transferNonce + 1;
     }
 }

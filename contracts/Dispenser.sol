@@ -183,7 +183,11 @@ contract Dispenser is IErrorsTokenomics {
         _locked = 1;
     }
 
-    function _distribute(uint256[] memory stakingTargets, uint256[] memory stakingAmounts, bytes[] memory stakingTargetPayloads) {
+    function _distribute(
+        uint256[] memory stakingTargets,
+        uint256[] memory stakingAmounts,
+        bytes[] memory stakingTargetPayloads
+    ) internal payable {
         // Traverse all staking targets
         for (uint256 i = 0; i < stakingTargets.length; ++i) {
             // Unpack chain Id and target addresses
@@ -193,13 +197,15 @@ contract Dispenser is IErrorsTokenomics {
             if (chainId == 1) {
                 // TODO Inject factory verification here
                 // Get hash of target.code, check if the hash is present in the registered factory
-                IOLAS(olas).approve(target, stakingAmounts[i]);
+                // Check the allowance
+                uint256 allowance = IOLAS(olas).allowance(msg.sender, target);
+                if (stakingAmounts[i] > allowance) {
+                    revert();
+                }
                 IServiceStaking(target).deposit(stakingAmounts[i]);
                 // stakingTargetPayloads[i] is ignored
             } else {
                 address targetProcessor = mapChainIdTargetProcessors[chainId];
-                // TODO: approve for l1 bridge mediator right away? Then delegatecall to the targetProcessor is needed
-                IOLAS(olas).approve(targetProcessor, stakingAmounts[i]);
                 // TODO Inject factory verification on the L2 side
                 // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
                 ITargetProcessor(targetProcessor).deposit(target, stakingAmounts[i], stakingTargetPayloads[i]);
@@ -209,7 +215,7 @@ contract Dispenser is IErrorsTokenomics {
 
     // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
     // TODO: We need to come up with the solution such that we are able to return unclaimed below threshold values back to effective staking.
-    function claimServiceStakingIncentives(uint256[] memory stakingTargets, bytes[] memory stakingTargetPayloads) {
+    function claimServiceStakingIncentives(uint256[] memory stakingTargets, bytes[] memory stakingTargetPayloads) payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -278,4 +284,6 @@ contract Dispenser is IErrorsTokenomics {
 
         _locked = 1;
     }
+
+    // TODO: Function to whitelist L2 processors
 }
