@@ -74,6 +74,7 @@ contract Dispenser is IErrorsTokenomics {
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
     event ServiceStakingIncentivesClaimed(address indexed account, uint256 serviceStakingAmount);
     event SetTargetProcessorChainIds(address[] memory targetProcessors, uint256[] memory chainIds);
+    event WithheldAmountSynced(bytes32 indexed deliveryHash, uint256 sourceChainId, uint256 amount);
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
@@ -94,6 +95,12 @@ contract Dispenser is IErrorsTokenomics {
     mapping(uint256 => uint256) public lastClaimedStakingServiceEpoch;
     // Mapping for target processors based on chain Ids
     mapping(uint256 => address) public mapChainIdTargetProcessors;
+    // Mapping for withheld OLAS amounts on L2 chains
+    mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
+    // Map for mapping wormhole chain Ids and original chain Ids
+    mapping(uint256 => uint256) public mapWormholeToOriginalChainIds;
+    // Map for wormhole delivery hashes
+    mapping(bytes32 => bool) public mapDeliveryHashes;
 
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
@@ -255,6 +262,7 @@ contract Dispenser is IErrorsTokenomics {
             }
             
             // TODO: check the math
+            // TODO: Pre-sort by chain Id-s
             for (j = lastClaimedEpoch; j < eCounter; ++j) {
                 // TODO: optimize not to read several times in a row same epoch info
                 // Get service staking info
@@ -264,7 +272,7 @@ contract Dispenser is IErrorsTokenomics {
                 uint256 endTime = ep.endTime;
                 
                 // Get the staking weight for each epoch
-                // TODO math from where we need to get the weight - endTime or endTime + WEEEK
+                // TODO math from where we need to get the weight - endTime or endTime + WEEK
                 uint256 stakingWeight = IVoteWeighting(voteWeighting).stakingTargetRelativeWeight(stakingTargets[i],
                     stakingChainIds[i], endTime);
 
@@ -321,7 +329,8 @@ contract Dispenser is IErrorsTokenomics {
     /// @param chainIds Set of corresponding L2 chain Ids.
     function setTargetProcessorChainIds(
         address[] memory targetProcessors,
-        uint256[] memory chainIds
+        uint256[] memory chainIds,
+        uint256[] memory wormholeChainIds
     ) external {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -342,8 +351,53 @@ contract Dispenser is IErrorsTokenomics {
 
             // Note: targetProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
             mapChainIdTargetProcessors[chainIds[i]] = targetProcessors[i];
+
+            // TODO verify wormhole chain Ids
+            mapWormholeToOriginalChainIds[wormholeChainIds[i]] = chainIds[i];
         }
 
         emit SetTargetProcessorChainIds(targetProcessors, chainIds);
+    }
+
+    /// @dev Processes a message received from L1 Wormhole Relayer contract.
+    /// @notice The sender must be the source processor address.
+    /// @param data Bytes message sent from L1 Wormhole Relayer contract.
+    /// @param sourceAddress The (wormhole format) address on the sending chain which requested this delivery.
+    /// @param sourceChain The wormhole chain Id where this delivery was requested.
+    /// @param deliveryHash The VAA hash of the deliveryVAA.
+    function receiveWormholeMessages(
+        bytes memory data,
+        bytes[] memory,
+        bytes32 sourceAddress,
+        uint16 sourceChain,
+        bytes32 deliveryHash
+    ) external {
+        // Check L1 Wormhole Relayer address
+        if (msg.sender != wormholeRelayer) {
+            revert TargetRelayerOnly(msg.sender, wormholeRelayer);
+        }
+
+        // Check the delivery hash uniqueness
+        if (mapDeliveryHashes[deliveryHash]) {
+            revert AlreadyDelivered(deliveryHash);
+        }
+        mapDeliveryHashes[deliveryHash] = true;
+
+        uint256 sourceChainId = mapWormholeToOriginalChainIds[sourceChain];
+        address targetProcessor = mapChainIdTargetProcessors[sourceChainId];
+
+        address l2TargetDispenser = ITargetProcessor(targetProcessor).l2TargetDispenser();
+        address sourceSender = address(uint160(uint256(sourceAddress)));
+        if (l2TargetDispenser != sourceSender) {
+            revert WrongSourceProcessor(l2TargetDispenser, sourceSender);
+        }
+
+        // Process the data
+        (uint256 amount) = abi.decode(data, (uint256));
+
+        // Add to the withheld amount
+        mapChainIdWithheldAmounts[sourceChainId] += amount;
+
+        emit WithheldAmountSynced(deliveryHash, sourceChainId, amount);
     }
 }

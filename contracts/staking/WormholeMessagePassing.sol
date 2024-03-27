@@ -30,7 +30,7 @@ contract WormholeMessagePassing {
     function _sendMessage(address target, uint256 amount, uint256 transferNonce) internal payable {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
-        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(targetChain, 0, GAS_LIMIT);
+        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(wormholeTargetChain, 0, GAS_LIMIT);
 
         // Send the message
         IWormhole(wormholeRelayer).sendPayloadToEvm{value: cost}(

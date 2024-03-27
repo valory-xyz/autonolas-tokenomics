@@ -9,17 +9,44 @@ interface IServiceStaking {
     function rewardsPerSecond() external view returns (uint256);
 }
 
+interface IWormhole {
+    function quoteEVMDeliveryPrice(
+        uint16 targetChain,
+        uint256 receiverValue,
+        uint256 gasLimit
+    ) external returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused);
+
+    function sendPayloadToEvm(
+        // Chain ID in Wormhole format
+        uint16 targetChain,
+        // Contract Address on target chain we're sending a message to
+        address targetAddress,
+        // The payload, encoded as bytes
+        bytes memory payload,
+        // How much value to attach to the delivery transaction
+        uint256 receiverValue,
+        // The gas limit to set on the delivery transaction
+        uint256 gasLimit
+    ) external payable returns (
+        // Unique, incrementing ID, used to identify a message
+        uint64 sequence
+    );
+}
+
 contract TargetDispenserL2 {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
-    event ServiceStakingRefundedToOwner(address indexed owner, address indexed target, uint256 amount);
+    event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 localNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
     event MessageReceived(bytes32 indexed sourceMessageSender, bytes data, bytes32 deliveryHash, uint256 sourceChain);
+    event WithheldAmountSynced(uint256 indexed sequence, uint256 amount);
 
+    // Gas limit for sending a message to L1
+    uint256 public constant GAS_LIMIT = 100_000;
     // L2 Wormhole Relayer address that receives the message across the bridge from the source L1 network
     address public immutable wormholeRelayer;
     // Source processor chain Id
-    uint16 public immutable sourceGovernorChainId;
+    uint16 public immutable sourceChainId;
     // Proxy factory address
     address public immutable proxyFactory;
     // OLAS address
@@ -28,26 +55,32 @@ contract TargetDispenserL2 {
     address public immutable owner;
     // Source processor address on L1 that is authorized to propagate the transaction execution across the bridge
     bytes32 public immutable sourceProcessor;
+    // L1 dispenser address to sync withheld OLAS amounts
+    address public immutable sourceDispenser;
+    // Amount of OLAS withheld due to service staking target invalidity
+    uint256 public withheldAmount;
     // rewardsPerSecondLimit
     uint256 public rewardsPerSecondLimit;
     // Reentrancy lock
     uint8 internal _locked;
 
-    // Map of delivered hashes
+    // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
     // Nonces to sync with L2
     mapping(address => uint256) public stakingContractNonces;
     // Queueing hashes of (target, amount, nonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
-    constructor(address _proxyFactory, address _owner, address _sourceProcessor) {
-        if (_proxyFactory == address(0) || _owner == address(0) || _sourceProcessor == address(0)) {
+    constructor(address _proxyFactory, address _owner, address _sourceProcessor, address _sourceDispenser) {
+        if (_proxyFactory == address(0) || _owner == address(0) || _sourceProcessor == address(0) ||
+            _sourceDispenser == address(0)) {
             revert();
         }
 
         proxyFactory = _proxyFactory;
         owner = _owner;
         sourceProcessor = _sourceProcessor;
+        sourceDispenser = _sourceDispenser;
         _locked = 1;
     }
 
@@ -86,9 +119,9 @@ contract TargetDispenserL2 {
                     emit ServiceStakingTargetDeposited(target, amount);
 
                 } else {
-                    // Send the amount to the owner address (Timelock or bridge mediator)
-                    IOLAS(olas).transfer(owner, amount);
-                    emit ServiceStakingRefundedToOwner(owner, target, amount);
+                    // Withhold OLAS for further usage
+                    withheldAmount += amount;
+                    emit ServiceStakingAmountWithheld(target, amount);
                 }
                 stakingContractNonces[target] = localNonce + 1;
             } else {
@@ -130,9 +163,9 @@ contract TargetDispenserL2 {
                     IServiceStaking(target).deposit(amount);
                     emit ServiceStakingTargetDeposited(target, amount);
                 } else {
-                    // Send the amount to the owner address (Timelock or bridge mediator)
-                    IOLAS(olas).transfer(owner, amount);
-                    emit ServiceStakingRefundedToOwner(owner, target, amount);
+                    // Withhold OLAS for further usage
+                    withheldAmount += amount;
+                    emit ServiceStakingAmountWithheld(target, amount);
                 }
                 stakingContractNonces[target] = localNonce + 1;
                 stakingQueueingNonces[queueHash] = false;
@@ -144,7 +177,7 @@ contract TargetDispenserL2 {
         _locked = 1;
     }
 
-    function setServiceStakingLimits(uint256 rewardsPerSecondLimitParam) {
+    function setServiceStakingLimits(uint256 rewardsPerSecondLimitParam) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -155,16 +188,43 @@ contract TargetDispenserL2 {
         emit ServiceStakingParametersUpdated(rewardsPerSecondLimitParam);
     }
 
-    // TODO function drain() - no need as we send to the owner directly?
+    // TODO Finalize with the refunder (different ABI), if zero address - refunder is msg.sender
+    function syncWithheldTokens(address refunder) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        uint256 amount = withheldAmount;
+        if (amount == 0) {
+            revert ZeroValue();
+        }
+
+        // Zero the withheld amount
+        withheldAmount = 0;
+
+        // Get a quote for the cost of gas for delivery
+        uint256 cost;
+        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(sourceChain, 0, GAS_LIMIT);
+
+        // Send the message
+        uint256 sequence = IWormhole(wormholeRelayer).sendPayloadToEvm{value: msg.value}(
+            sourceChainId,
+            sourceDispenser,
+            abi.encode(amount),
+            0,
+            GAS_LIMIT
+        );
+
+        emit WithheldAmountSynced(sequence, amount);
+
+        _locked = 1;
+    }
 
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
-    /// @notice The sender must be the source processor address (Timelock).
-    /// @param data Bytes message sent from L2 Wormhole Relayer contract. The data must be encoded as a set of
-    ///        continuous transactions packed into a single buffer, where each transaction is composed as follows:
-    ///        - target address of 20 bytes (160 bits);
-    ///        - value of 12 bytes (96 bits), as a limit for all of Autonolas ecosystem contracts;
-    ///        - payload length of 4 bytes (32 bits), as 2^32 - 1 characters is more than enough to fill a whole block;
-    ///        - payload as bytes, with the length equal to the specified payload length.
+    /// @notice The sender must be the source processor address.
+    /// @param data Bytes message sent from L2 Wormhole Relayer contract.
     /// @param sourceAddress The (wormhole format) address on the sending chain which requested this delivery.
     /// @param sourceChain The wormhole chain Id where this delivery was requested.
     /// @param deliveryHash The VAA hash of the deliveryVAA.
@@ -212,4 +272,6 @@ contract TargetDispenserL2 {
         uint16 sourceChain,
         bytes32 deliveryHash
     ) internal virtual {}
+
+    receive() external payable {}
 }
