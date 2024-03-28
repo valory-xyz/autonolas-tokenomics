@@ -88,6 +88,8 @@ contract TargetDispenserL2 {
             return false;
         }
 
+        // TODO Blacklist possibility of implementations or targets?
+
         // Check for the staking parameters
         uint256 rewardsPerSecond = IServiceStaking(target).rewardsPerSecond();
         if (rewardsPerSecond > rewardsPerSecondLimit) {

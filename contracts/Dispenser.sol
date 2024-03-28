@@ -76,6 +76,13 @@ contract Dispenser is IErrorsTokenomics {
     event SetTargetProcessorChainIds(address[] memory targetProcessors, uint256[] memory chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount);
 
+    // TODO: correctly check pauses
+    enum Pauses {
+        Unpaused,
+        DevInsentivesPaused,
+        StakingInsentivesPaused,
+    }
+
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
 
