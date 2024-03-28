@@ -81,6 +81,7 @@ contract Dispenser is IErrorsTokenomics {
         Unpaused,
         DevInsentivesPaused,
         StakingInsentivesPaused,
+        Paused
     }
 
     // Maximum chain Id as per EVM specs
