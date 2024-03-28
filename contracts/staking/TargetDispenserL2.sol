@@ -55,8 +55,6 @@ contract TargetDispenserL2 {
     address public immutable owner;
     // Source processor address on L1 that is authorized to propagate the transaction execution across the bridge
     bytes32 public immutable sourceProcessor;
-    // L1 dispenser address to sync withheld OLAS amounts
-    address public immutable sourceDispenser;
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
     // rewardsPerSecondLimit
@@ -71,16 +69,14 @@ contract TargetDispenserL2 {
     // Queueing hashes of (target, amount, nonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
-    constructor(address _proxyFactory, address _owner, address _sourceProcessor, address _sourceDispenser) {
-        if (_proxyFactory == address(0) || _owner == address(0) || _sourceProcessor == address(0) ||
-            _sourceDispenser == address(0)) {
+    constructor(address _proxyFactory, address _owner, address _sourceProcessor) {
+        if (_proxyFactory == address(0) || _owner == address(0) || _sourceProcessor == address(0)) {
             revert();
         }
 
         proxyFactory = _proxyFactory;
         owner = _owner;
         sourceProcessor = _sourceProcessor;
-        sourceDispenser = _sourceDispenser;
         _locked = 1;
     }
 
@@ -211,7 +207,7 @@ contract TargetDispenserL2 {
         // Send the message
         uint256 sequence = IWormhole(wormholeRelayer).sendPayloadToEvm{value: msg.value}(
             sourceChainId,
-            sourceDispenser,
+            sourceProcessor,
             abi.encode(amount),
             0,
             GAS_LIMIT
@@ -272,6 +268,13 @@ contract TargetDispenserL2 {
         uint16 sourceChain,
         bytes32 deliveryHash
     ) internal virtual {}
+
+    function pause() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+    }
 
     receive() external payable {}
 }

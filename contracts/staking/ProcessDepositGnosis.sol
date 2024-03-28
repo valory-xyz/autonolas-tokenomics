@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./WormholeMessagePassing.sol";
-
 interface IOmniBridge {
     function relayTokens(address token, address receiver, uint256 value) external;
 }
@@ -30,16 +28,17 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
-    function deposit(address target, uint256 amount, bytes memory payload) payable {
+    function deposit(address target, uint256 stakingAmount, bytes memory payload, uint256 transferAmount) payable {
         // Approve tokens for the bridge contract
-        IOLAS(olas).approve(omniBridge, amount);
+        IOLAS(olas).approve(omniBridge, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IOmniBridge(omniBridge).relayTokens(olas, l2TargetDispenser, amount);
+        IOmniBridge(omniBridge).relayTokens(olas, l2TargetDispenser, transferAmount);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
         uint256 transferNonce = stakingContractNonces[target];
-        _sendMessage(target, amount, transferNonce);
+        // TODO Send message via a native bridge
+        //_sendMessage(target, stakingAmount, transferNonce);
 
         // TODO: Make sure the sync is always performed on L2 for the case if the same staking contract is used
         // twice or more in the same tx: maybe use block.timestamp
