@@ -9,9 +9,6 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
     address public immutable olas;
     address public immutable omniBridge;
 
-    // TODO: nonce must start from 1 in order to be identified on L2 side (otherwise 0 is both nonce and not found)
-    mapping(address => uint256) public stakingContractNonces;
-
     constructor(
         address _olas,
         address _omniBridge,
@@ -65,11 +62,7 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
         _depositTokens(payload, transferAmount);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
-        uint256 transferNonce = nonce;
         // TODO Send message via a native bridge
-        //_sendMessage(targets, stakingAmounts, transferNonce);
-
-        // TODO: Make sure no duplicated targets are under the same transfer nonce
-        nonce = transferNonce + 1;
+        //_sendMessage(targets, stakingAmounts);
     }
 }

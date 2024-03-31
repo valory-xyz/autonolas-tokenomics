@@ -37,9 +37,6 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
     address public immutable olas;
     address public immutable l1ERC20Gateway;
 
-    // Nonce to sync with L2
-    uint256 public nonce;
-
     constructor(
         address _olas,
         address _l1ERC20Gateway,
@@ -74,10 +71,6 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
             maxGas, gasPriceBid, data);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
-        uint256 transferNonce = nonce;
         _sendMessage(target, stakingAmount, transferNonce);
-
-        // TODO: Make sure no duplicated targets are under the same transfer nonce
-        nonce = transferNonce + 1;
     }
 }

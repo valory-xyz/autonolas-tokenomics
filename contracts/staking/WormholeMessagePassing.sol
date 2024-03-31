@@ -35,8 +35,7 @@ abstract contract WormholeMessagePassing {
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory amounts,
-        uint256 transferNonce
+        uint256[] memory amounts
     ) internal payable {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
@@ -46,7 +45,7 @@ abstract contract WormholeMessagePassing {
         IWormhole(wormholeRelayer).sendPayloadToEvm{value: cost}(
             wormholeTargetChainId,
             l2TargetDispenser,
-            abi.encode(targets, amounts, transferNonce),
+            abi.encode(targets, amounts),
             0,
             GAS_LIMIT
         );

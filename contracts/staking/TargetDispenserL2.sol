@@ -36,7 +36,7 @@ interface IWormhole {
 contract TargetDispenserL2 {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
-    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 localNonce);
+    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 currentNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
     event MessageReceived(bytes32 indexed sourceMessageSender, bytes data, bytes32 deliveryHash, uint256 sourceChain);
     event WithheldAmountSynced(uint256 indexed sequence, uint256 amount);
@@ -57,7 +57,7 @@ contract TargetDispenserL2 {
     bytes32 public immutable sourceProcessor;
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
-    // Nonce to sync with L1
+    // Nonce for each staking batch
     uint256 public nonce;
     // rewardsPerSecondLimit
     uint256 public rewardsPerSecondLimit;
@@ -101,11 +101,13 @@ contract TargetDispenserL2 {
 
     // Process the data
     function _processData(bytes memory data) internal {
-        (address[] memory targets, uint256[] memory amounts, uint256 transferNonce) = abi.decode(data,
+        (address[] memory targets, uint256[] memory amounts) = abi.decode(data,
             (address[], uint256[], uint256));
 
-        uint256 localNonce = nonce;
-        if (localNonce == transferNonce) {
+        uint256 currentNonce = nonce;
+        for (uint256 i = 0; i < targets.length; ++i) {
+            address target = targets[i];
+            uint256 amount = amounts[i];
             if (IOLAS(olas).balanceOf(address(this)) >= amount) {
 
                 // Check the target validity address and staking parameters
@@ -122,56 +124,46 @@ contract TargetDispenserL2 {
                     withheldAmount += amount;
                     emit ServiceStakingAmountWithheld(target, amount);
                 }
-                // TODO Adjust nonce increment accounting for multiple received targets
-                nonce = localNonce + 1;
             } else {
                 // Hash of target + amount + local nonce
-                bytes32 queueHash = keccak256(abi.encode(target, amount, localNonce));
+                bytes32 queueHash = keccak256(abi.encode(target, amount, currentNonce));
                 stakingQueueingNonces[queueHash] = true;
-                emit ServiceStakingRequestQueued(queueHash, target, amount, localNonce);
+                emit ServiceStakingRequestQueued(queueHash, target, amount, currentNonce);
             }
-        } else {
-            // Hash of target + amount + transfer nonce
-            bytes32 queueHash = keccak256(abi.encode(target, amount, transferNonce));
-            stakingQueueingNonces[queueHash] = true;
-            emit ServiceStakingRequestQueued(queueHash, target, amount, transferNonce);
         }
+        nonce = currentNonce + 1;
     }
 
-    function withdraw(address target, uint256 amount, uint256 transferNonce) external {
+    function withdraw(address target, uint256 amount, uint256 currentNonce) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
-
-        uint256 localNonce = nonce;
-        bytes32 queueHash = keccak256(abi.encode(target, amount, transferNonce));
+        
+        bytes32 queueHash = keccak256(abi.encode(target, amount, currentNonce));
         bool queued = stakingQueueingNonces[queueHash];
         if (!queued) {
             revert();
         }
 
-        if (localNonce == transferNonce) {
-            if (IOLAS(olas).balanceOf(address(this)) >= amount) {
-                // Check the target validity address and staking parameters
-                bool isValid = _checkServiceStakingTarget(target);
+        if (IOLAS(olas).balanceOf(address(this)) >= amount) {
+            // Check the target validity address and staking parameters
+            bool isValid = _checkServiceStakingTarget(target);
 
-                if (isValid) {
-                    // Approve and transfer OLAS to the service staking target
-                    IOLAS(olas).approve(target, amount);
-                    IServiceStaking(target).deposit(amount);
-                    emit ServiceStakingTargetDeposited(target, amount);
-                } else {
-                    // Withhold OLAS for further usage
-                    withheldAmount += amount;
-                    emit ServiceStakingAmountWithheld(target, amount);
-                }
-                nonce = localNonce + 1;
-                stakingQueueingNonces[queueHash] = false;
+            if (isValid) {
+                // Approve and transfer OLAS to the service staking target
+                IOLAS(olas).approve(target, amount);
+                IServiceStaking(target).deposit(amount);
+                emit ServiceStakingTargetDeposited(target, amount);
             } else {
-                revert();
+                // Withhold OLAS for further usage
+                withheldAmount += amount;
+                emit ServiceStakingAmountWithheld(target, amount);
             }
+            stakingQueueingNonces[queueHash] = false;
+        } else {
+            revert();
         }
 
         _locked = 1;
