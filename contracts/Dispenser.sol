@@ -60,7 +60,7 @@ interface ITokenomicsInfo {
     function mapEpochServiceStakingPoints(uint256 eCounter) external returns (ServiceStakingPoint memory);
 }
 
-interface ITargetDispenser {
+interface ITargetProcessor {
     function distribute(uint256[] memory stakingTargets) external;
 }
 
@@ -226,7 +226,7 @@ contract Dispenser is IErrorsTokenomics {
             IOLAS(olas).transfer(targetProcessor, transferAmount);
             // TODO Inject factory verification on the L2 side
             // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-            ITargetProcessor(targetProcessor).deposit(stakingTarget, stakingAmount, stakingPayload, transferAmount);
+            ITargetProcessor(targetProcessor).sendMessage(stakingTarget, stakingAmount, stakingPayload, transferAmount);
         }
     }
 
@@ -259,8 +259,8 @@ contract Dispenser is IErrorsTokenomics {
                 IOLAS(olas).transfer(targetProcessor, transferAmounts[i]);
                 // TODO Inject factory verification on the L2 side
                 // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-                ITargetProcessor(targetProcessor).depositBatch(stakingTargets[i], stakingAmounts[i], stakingPayloads[i],
-                    transferAmounts[i]);
+                ITargetProcessor(targetProcessor).sendMessageBatch(stakingTargets[i], stakingAmounts[i],
+                    stakingPayloads[i], transferAmounts[i]);
             }
         }
     }

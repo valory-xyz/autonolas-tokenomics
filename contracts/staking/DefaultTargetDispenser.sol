@@ -9,74 +9,65 @@ interface IServiceStaking {
     function rewardsPerSecond() external view returns (uint256);
 }
 
-interface IWormhole {
-    function quoteEVMDeliveryPrice(
-        uint16 targetChain,
-        uint256 receiverValue,
-        uint256 gasLimit
-    ) external returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused);
-
-    function sendPayloadToEvm(
-        // Chain ID in Wormhole format
-        uint16 targetChain,
-        // Contract Address on target chain we're sending a message to
-        address targetAddress,
-        // The payload, encoded as bytes
-        bytes memory payload,
-        // How much value to attach to the delivery transaction
-        uint256 receiverValue,
-        // The gas limit to set on the delivery transaction
-        uint256 gasLimit
-    ) external payable returns (
-        // Unique, incrementing ID, used to identify a message
-        uint64 sequence
-    );
-}
-
-contract TargetDispenserL2 {
+abstract contract DefaultTargetDispenser {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 currentNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
-    event MessageReceived(bytes32 indexed sourceMessageSender, bytes data, bytes32 deliveryHash, uint256 sourceChain);
+    event MessageReceived(address indexed messageSender, bytes data);
     event WithheldAmountSynced(uint256 indexed sequence, uint256 amount);
 
     // Gas limit for sending a message to L1
     uint256 public constant GAS_LIMIT = 100_000;
-    // L2 Wormhole Relayer address that receives the message across the bridge from the source L1 network
-    address public immutable wormholeRelayer;
-    // Source processor chain Id
-    uint16 public immutable sourceChainId;
-    // Proxy factory address
-    address public immutable proxyFactory;
     // OLAS address
     address public immutable olas;
+    // Proxy factory address
+    address public immutable proxyFactory;
     // Owner address (Timelock or bridge mediator)
     address public immutable owner;
+    // L2 Relayer address that receives the message across the bridge from the source L1 network
+    address public immutable l2Relayer;
     // Source processor address on L1 that is authorized to propagate the transaction execution across the bridge
-    bytes32 public immutable sourceProcessor;
+    address public immutable l1SourceProcessor;
+    // Source processor chain Id
+    uint256 public immutable l1SourceChainId;
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
     // Nonce for each staking batch
     uint256 public nonce;
     // rewardsPerSecondLimit
     uint256 public rewardsPerSecondLimit;
+    // Pause switcher
+    uint8 public paused;
     // Reentrancy lock
     uint8 internal _locked;
 
-    // Map for wormhole delivery hashes
-    mapping(bytes32 => bool) public mapDeliveryHashes;
     // Queueing hashes of (target, amount, nonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
-    constructor(address _proxyFactory, address _owner, address _sourceProcessor) {
-        if (_proxyFactory == address(0) || _owner == address(0) || _sourceProcessor == address(0)) {
+    constructor(
+        address _olas,
+        address _proxyFactory,
+        address _owner,
+        address _l2Relayer,
+        address _l1SourceProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
+            _l2Relayer == address(0) || _l1SourceProcessor == address(0)) {
+            revert();
+        }
+
+        if (_l1SourceChainId == 0) {
             revert();
         }
 
         proxyFactory = _proxyFactory;
         owner = _owner;
-        sourceProcessor = _sourceProcessor;
+        l2Relayer = _l2Relayer;
+        l1SourceProcessor = _l1SourceProcessor;
+        l1SourceChainId = _l1SourceChainId;
+        paused = 1;
         _locked = 1;
     }
 
@@ -132,6 +123,36 @@ contract TargetDispenserL2 {
             }
         }
         nonce = currentNonce + 1;
+    }
+
+    function _sendMessage() internal virtual;
+
+    function _receiveMessage(
+        address messageSender,
+        address sourceProcessor,
+        uint256 sourceChainId,
+        bytes memory data
+    ) internal virtual {
+        // Check L2 Relayer address
+        if (messageSender != l2Relayer) {
+            revert TargetRelayerOnly(messageSender, l2Relayer);
+        }
+
+        // Check the source chain Id
+        if (sourceChainId != l1SourceChainId) {
+            revert WrongSourceChainId(sourceChainId, l1SourceChainId);
+        }
+
+        // Check for the source processor address
+        if (sourceProcessor != l1SourceProcessor) {
+            revert SourceGovernorOnly32(sourceProcessor, l1SourceProcessor);
+        }
+
+        // Process the data
+        _processData(data);
+
+        // Emit received message
+        emit MessageReceived(l1SourceProcessor, l1SourceChainId, data);
     }
 
     function withdraw(address target, uint256 amount, uint256 currentNonce) external {
@@ -196,74 +217,12 @@ contract TargetDispenserL2 {
         // Zero the withheld amount
         withheldAmount = 0;
 
-        // Get a quote for the cost of gas for delivery
-        uint256 cost;
-        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(sourceChain, 0, GAS_LIMIT);
-
-        // Send the message
-        uint256 sequence = IWormhole(wormholeRelayer).sendPayloadToEvm{value: msg.value}(
-            sourceChainId,
-            sourceProcessor,
-            abi.encode(amount),
-            0,
-            GAS_LIMIT
-        );
+        _sendMessage();
 
         emit WithheldAmountSynced(sequence, amount);
 
         _locked = 1;
     }
-
-    /// @dev Processes a message received from L2 Wormhole Relayer contract.
-    /// @notice The sender must be the source processor address.
-    /// @param data Bytes message sent from L2 Wormhole Relayer contract.
-    /// @param sourceAddress The (wormhole format) address on the sending chain which requested this delivery.
-    /// @param sourceChain The wormhole chain Id where this delivery was requested.
-    /// @param deliveryHash The VAA hash of the deliveryVAA.
-    function receiveWormholeMessages(
-        bytes memory data,
-        bytes[] memory,
-        bytes32 sourceAddress,
-        uint16 sourceChain,
-        bytes32 deliveryHash
-    ) external {
-        // Check L2 Wormhole Relayer address
-        if (msg.sender != wormholeRelayer) {
-            revert TargetRelayerOnly(msg.sender, wormholeRelayer);
-        }
-
-        // Check the source chain Id
-        if (sourceChain != sourceGovernorChainId) {
-            revert WrongSourceChainId(sourceChain, sourceGovernorChainId);
-        }
-
-        // Check for the source processor address
-        bytes32 processor = sourceProcessor;
-        if (processor != sourceAddress) {
-            revert SourceGovernorOnly32(sourceAddress, processor);
-        }
-
-        // Check the delivery hash uniqueness
-        if (mapDeliveryHashes[deliveryHash]) {
-            revert AlreadyDelivered(deliveryHash);
-        }
-        mapDeliveryHashes[deliveryHash] = true;
-
-        // Process the data
-        _processData(data);
-
-        // Emit received message
-        emit MessageReceived(processor, data, deliveryHash, sourceChain);
-    }
-
-    // TODO: implement wormhole function that receives ERC20 with payload as well?
-    function receivePayloadAndTokens(
-        bytes memory payload,
-        TokenReceived[] memory receivedTokens,
-        bytes32 sourceAddress,
-        uint16 sourceChain,
-        bytes32 deliveryHash
-    ) internal virtual {}
 
     function pause() external {
         // Check for the contract ownership

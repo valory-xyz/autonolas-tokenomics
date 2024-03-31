@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./WormholeMessagePassing.sol";
+import "./WormholeTargetProcessor.sol";
 
 interface IL1ERC20Gateway {
     /**
@@ -33,7 +33,7 @@ interface IL1ERC20Gateway {
     ) external payable returns (bytes memory res);
 }
 
-contract ProcessDepositArbitrum is WormholeMessagePassing {
+contract ProcessDepositArbitrum is WormholeTargetProcessor {
     address public immutable olas;
     address public immutable l1ERC20Gateway;
 
@@ -53,7 +53,7 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
-    function deposit(address target, uint256 stakingAmount, bytes memory payload, uint256 transferAmount) payable {
+    function sendMessage(address target, uint256 stakingAmount, bytes memory payload, uint256 transferAmount) payable {
         // Decode the staking contract supplemental payload required for bridging tokens
         (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payload,
             (address, uint256, uint256, uint256));

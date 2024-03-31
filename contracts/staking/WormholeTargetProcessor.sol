@@ -1,34 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import "./DefaultTargetProcessor.sol";
+
 interface IWormhole {
     function quoteEVMDeliveryPrice() external;
     function sendPayloadToEvm() external payable;
 }
 
-abstract contract WormholeMessagePassing {
-    uint256 public constant GAS_LIMIT = 2_000_000;
-    address public immutable l1Dispenser;
-    address public immutable l2TargetDispenser;
-    address public immutable wormholeRelayer;
+abstract contract WormholeTargetProcessor is DefaultTargetProcessor {
     uint256 public immutable wormholeTargetChainId;
-    uint256 public immutable targetChainId;
 
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 
-    constructor(address _l1Dispenser, address _l2TargetDispenser, address _wormholeRelayer, uint256 _wormholeTargetChainId) {
-        if (_l1Dispenser == address(0) || _l2TargetDispenser == address(0) || _wormholeRelayer == address(0)) {
-            revert();
-        }
-
+    constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l2TargetDispenser,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId,
+        uint256 _wormholeTargetChainId
+    ) DefaultTargetProcessor(_olas, _l1Dispenser, _l2TargetDispenser, _l1MessageRelayer, _l1MessageRelayer) {
         if (_wormholeTargetChainId == 0) {
             revert();
         }
 
-        l1Dispenser = _l1Dispenser;
-        l2TargetDispenser = _l2TargetDispenser;
-        wormholeRelayer = _wormholeRelayer;
         wormholeTargetChainId = _wormholeTargetChainId;
     }
 
@@ -36,13 +33,13 @@ abstract contract WormholeMessagePassing {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory amounts
-    ) internal payable {
+    ) internal override payable {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
-        (cost, ) = IWormhole(wormholeRelayer).quoteEVMDeliveryPrice(wormholeTargetChainId, 0, GAS_LIMIT);
+        (cost, ) = IWormhole(l1MessageRelayer).quoteEVMDeliveryPrice(wormholeTargetChainId, 0, GAS_LIMIT);
 
         // Send the message
-        IWormhole(wormholeRelayer).sendPayloadToEvm{value: cost}(
+        IWormhole(l1MessageRelayer).sendPayloadToEvm{value: cost}(
             wormholeTargetChainId,
             l2TargetDispenser,
             abi.encode(targets, amounts),
@@ -64,11 +61,6 @@ abstract contract WormholeMessagePassing {
         uint16 sourceChain,
         bytes32 deliveryHash
     ) external {
-        // Check L1 Wormhole Relayer address
-        if (msg.sender != wormholeRelayer) {
-            revert TargetRelayerOnly(msg.sender, wormholeRelayer);
-        }
-
         if (sourceChain != wormholeTargetChainId) {
             revert();
         }
@@ -79,14 +71,7 @@ abstract contract WormholeMessagePassing {
         }
         mapDeliveryHashes[deliveryHash] = true;
 
-        address sourceSender = address(uint160(uint256(sourceAddress)));
-        if (l2TargetDispenser != sourceSender) {
-            revert WrongSourceProcessor(l2TargetDispenser, sourceSender);
-        }
-
-        // Process the data
-        (uint256 amount) = abi.decode(data, (uint256));
-
-        IDispenser(l1Dispenser).syncWithheldAmount(targetChainId, amount);
+        address messageSender = address(uint160(uint256(sourceAddress)));
+        _receiveMessage(msg.sender, messageSender, l2TargetChainId, data);
     }
 }
