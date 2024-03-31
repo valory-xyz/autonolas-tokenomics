@@ -3,11 +3,8 @@ pragma solidity ^0.8.23;
 
 import "./DefaultTargetProcessorL1.sol";
 
-interface IOmniBridge {
+interface IBridge {
     function relayTokens(address token, address receiver, uint256 value) external;
-}
-
-interface IAMB {
     function requireToPassMessage(address target, bytes data, uint256 maxGasLimit) external;
 }
 
@@ -34,13 +31,13 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         IOLAS(olas).approve(l1TokenRelayer, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IOmniBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
+        IBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
 
         // Assemble AMB data payload
         bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_FOREIGN, targets, stakingAmounts);
 
         // Send message to L2
-        IAMB(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
+        IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?

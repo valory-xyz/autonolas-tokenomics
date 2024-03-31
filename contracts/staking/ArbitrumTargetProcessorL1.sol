@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./WormholeTargetProcessor.sol";
+import "./WormholeTargetProcessorL1.sol";
 
-interface IL1ERC20Gateway {
+interface IBridge {
     /**
      * @notice Deposit ERC20 token from Ethereum into Arbitrum. If L2 side hasn't been deployed yet, includes name/symbol/decimals data for initial L2 deploy. Initiate by GatewayRouter.
      * @dev L2 address alias will not be applied to the following types of addresses on L1:
@@ -58,7 +58,7 @@ contract ArbitrumTargetProcessorL1 is WormholeTargetProcessorL1 {
         (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payload,
             (address, uint256, uint256, uint256));
 
-        // Construct the data for IL1ERC20Gateway consisting of 2 pieces:
+        // Construct the data for IBridge consisting of 2 pieces:
         // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
         // bytes extraData: “0x”
         bytes memory data = abi.encode(maxSubmissionCost, "0x");
@@ -67,7 +67,7 @@ contract ArbitrumTargetProcessorL1 is WormholeTargetProcessorL1 {
         IOLAS(olas).approve(omniBridge, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IL1ERC20Gateway(l1ERC20Gateway).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, transferAmount,
+        IBridge(l1ERC20Gateway).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, transferAmount,
             maxGas, gasPriceBid, data);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
