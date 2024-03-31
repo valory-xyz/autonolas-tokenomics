@@ -40,6 +40,21 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         uint256 _l1SourceChainId
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {}
 
+    function _sendMessage(uint256 amount) internal override payable {
+        // Get a quote for the cost of gas for delivery
+        uint256 cost;
+        (cost, ) = IWormhole(l2Relayer).quoteEVMDeliveryPrice(l1SourceChainId, 0, GAS_LIMIT);
+
+        // Send the message
+        IWormhole(l2Relayer).sendPayloadToEvm{value: cost}(
+            l1SourceChainId,
+            l1SourceProcessor,
+            abi.encode(amount),
+            0,
+            GAS_LIMIT
+        );
+    }
+
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
     /// @notice The sender must be the source processor address.
     /// @param data Bytes message sent from L2 Wormhole Relayer contract.

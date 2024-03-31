@@ -125,7 +125,7 @@ abstract contract DefaultTargetDispenserL2 {
         nonce = currentNonce + 1;
     }
 
-    function _sendMessage() internal virtual;
+    function _sendMessage(uint256 amount) internal virtual payable;
 
     function _receiveMessage(
         address messageSender,
@@ -217,7 +217,8 @@ abstract contract DefaultTargetDispenserL2 {
         // Zero the withheld amount
         withheldAmount = 0;
 
-        _sendMessage();
+        // Send a message to sync the withheld amount
+        _sendMessage(amount);
 
         emit WithheldAmountSynced(sequence, amount);
 
