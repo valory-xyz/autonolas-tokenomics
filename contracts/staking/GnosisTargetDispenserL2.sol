@@ -28,7 +28,13 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         address processor = IBridge(l2Relayer).messageSender();
 
         // Process the data
-        _receiveMessage(msg.sender, processor, uint256(sourceChainId), data);
+        _receiveMessage(msg.sender, processor, l1SourceChainId, data);
+    }
+
+    // TODO If the data is transferred together with the token
+    function onTokenBridged(address, uint256, bytes calldata data) external {
+        // Process the data
+        _receiveMessage(l2Relayer, l1SourceProcessor, l1SourceChainId, data);
     }
 
     function _sendMessage(uint256 amount) internal override {

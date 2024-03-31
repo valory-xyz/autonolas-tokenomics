@@ -43,6 +43,7 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
 
         // TODO Study relayTokensAndCall https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
+        // IBridge(l1MessageRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
