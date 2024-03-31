@@ -407,9 +407,14 @@ contract Dispenser is IErrorsTokenomics {
             }
             lastChainId = chainIds[i];
 
+            // Staking targets must not be an empty array
+            if (stakingTargets[i].length == 0) {
+                revert ZeroValue();
+            }
+
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             transferAmounts[i] = new uint256[](stakingTargets[i].length);
-            for (uint256 j = 0; j < stakingTargets.length; ++j) {
+            for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
                 // Staking amount to send as a deposit with, and the amount to return back to effective staking
                 (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainIds[i],
                     stakingTargets[i][j]);
@@ -420,7 +425,7 @@ contract Dispenser is IErrorsTokenomics {
 
             // Account for possible withheld OLAS amounts
             transferAmounts[i] = stakingAmounts[i];
-            uint256 withheldAmount = mapChainIdWithheldAmounts[chainId];
+            uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
             if (withheldAmount >= transferAmounts[i]) {
                 withheldAmount -= transferAmounts[i];
                 transferAmounts[i] = 0;
@@ -428,7 +433,7 @@ contract Dispenser is IErrorsTokenomics {
                 transferAmounts[i] -= withheldAmount;
                 withheldAmount = 0;
             }
-            mapChainIdWithheldAmounts[chainId] = withheldAmount;
+            mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
 
             // Add to the total staking amount
             totalStakingAmount += transferAmounts[i];
