@@ -37,8 +37,8 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
     address public immutable olas;
     address public immutable l1ERC20Gateway;
 
-    // TODO: nonce must start from 1 in order to be identified on L2 side (otherwise 0 is both nonce and not found)
-    mapping(address => uint256) public stakingContractNonces;
+    // Nonce to sync with L2
+    uint256 public nonce;
 
     constructor(
         address _olas,
@@ -74,11 +74,10 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
             maxGas, gasPriceBid, data);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
-        uint256 transferNonce = stakingContractNonces[target];
+        uint256 transferNonce = nonce;
         _sendMessage(target, stakingAmount, transferNonce);
 
-        // TODO: Make sure the sync is always performed on L2 for the case if the same staking contract is used
-        // twice or more in the same tx: maybe use block.timestamp
-        stakingContractNonces[target] = transferNonce + 1;
+        // TODO: Make sure no duplicated targets are under the same transfer nonce
+        nonce = transferNonce + 1;
     }
 }

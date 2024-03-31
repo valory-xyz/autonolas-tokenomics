@@ -65,12 +65,11 @@ contract ProcessDepositArbitrum is WormholeMessagePassing {
         _depositTokens(payload, transferAmount);
 
         // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
-        uint256 transferNonce = stakingContractNonces[target];
+        uint256 transferNonce = nonce;
         // TODO Send message via a native bridge
         //_sendMessage(targets, stakingAmounts, transferNonce);
 
-        // TODO: Make sure the sync is always performed on L2 for the case if the same staking contract is used
-        // twice or more in the same tx: maybe use block.timestamp
-        stakingContractNonces[target] = transferNonce + 1;
+        // TODO: Make sure no duplicated targets are under the same transfer nonce
+        nonce = transferNonce + 1;
     }
 }

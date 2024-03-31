@@ -100,11 +100,11 @@ contract Dispenser is IErrorsTokenomics {
     // Vote Weighting contract address
     address public voteWeighting;
 
-    // Mapping for last claimed service staking epochs
-    mapping(uint256 => uint256) public lastClaimedStakingServiceEpoch;
-    // Mapping for target processors based on chain Ids
+    // Mapping for (chainId | target) service staking pair => last claimed epochs
+    mapping(uint256 => uint256) public mapLastClaimedStakingServiceEpochs;
+    // Mapping for L2 chain Id => dedicated target processors
     mapping(uint256 => address) public mapChainIdTargetProcessors;
-    // Mapping for withheld OLAS amounts on L2 chains
+    // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
 
     /// @dev Dispenser constructor.
@@ -268,12 +268,28 @@ contract Dispenser is IErrorsTokenomics {
     function _calculateServiceStakingIncentives(
         uint256 chainId,
         address target
-    ) internal returns (uint256 totalStakingAmount, uint256 totalAmountReturn){
+    ) internal returns (uint256 totalStakingAmount, uint256 totalAmountReturn) {
+        // Check for the correct chain Id
+        if (chainId == 0 || chainId > MAX_CHAIN_ID) {
+            revert L2ChainIdNotSupported(chainId);
+        }
+
+        // Check for the zero address
+        if (target == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Checkpoint the vote wighting for a target on a specific chain Id
         IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
 
         uint256 eCounter = ITokenomicsInfo(tokenomics).epochCounter();
         // TODO: Write initial lastClaimedEpoch when the staking contract is added for voting
-        uint256 lastClaimedEpoch = lastClaimedStakingServiceEpoch[target];
+        // Push a pair of key defining variables into one key
+        // target occupies first 160 bits
+        uint256 targetChainId = uint256(uint160(nominee));
+        // chain Id occupies no more than next 64 bits
+        targetChainId |= chainId << 160;
+        uint256 lastClaimedEpoch = mapLastClaimedStakingServiceEpochs[targetChainId];
         // Shall not claim in the same epoch
         if (eCounter == lastClaimedEpoch) {
             revert();
@@ -312,7 +328,7 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         // Write current epoch counter to start claiming with the next time
-        lastClaimedStakingServiceEpoch[target] = eCounter;
+        mapLastClaimedStakingServiceEpochs[target] = eCounter;
     }
 
     // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
@@ -399,9 +415,10 @@ contract Dispenser is IErrorsTokenomics {
         uint256[][] memory transferAmounts = new uint256[][](chainIds.length);
 
         uint256 lastChainId;
+        address lastTarget;
         // Traverse all staking targets
         for (uint256 i = 0; i < chainIds.length; ++i) {
-            // Check that chain Ids are in strictly ascending order
+            // Check that chain Ids are strictly in ascending non-repeatable order
             if (lastChainId >= chainIds[i]) {
                 revert();
             }
@@ -415,6 +432,12 @@ contract Dispenser is IErrorsTokenomics {
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             transferAmounts[i] = new uint256[](stakingTargets[i].length);
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
+                // Enforce ascending non-repeatable order of targets
+                if (uint256(uint160(lastTarget)) >= uint256(uint160(stakingTargets[i][j]))) {
+                    revert();
+                }
+                lastTarget = stakingTargets[i][j];
+
                 // Staking amount to send as a deposit with, and the amount to return back to effective staking
                 (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainIds[i],
                     stakingTargets[i][j]);

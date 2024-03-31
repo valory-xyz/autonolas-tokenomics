@@ -57,6 +57,8 @@ contract TargetDispenserL2 {
     bytes32 public immutable sourceProcessor;
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
+    // Nonce to sync with L1
+    uint256 public nonce;
     // rewardsPerSecondLimit
     uint256 public rewardsPerSecondLimit;
     // Reentrancy lock
@@ -64,8 +66,6 @@ contract TargetDispenserL2 {
 
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
-    // Nonces to sync with L2
-    mapping(address => uint256) public stakingContractNonces;
     // Queueing hashes of (target, amount, nonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
@@ -101,9 +101,10 @@ contract TargetDispenserL2 {
 
     // Process the data
     function _processData(bytes memory data) internal {
-        (address target, uint256 amount, uint256 transferNonce) = abi.decode(data, (address, uint256, uint256));
+        (address[] memory targets, uint256[] memory amounts, uint256 transferNonce) = abi.decode(data,
+            (address[], uint256[], uint256));
 
-        uint256 localNonce = stakingContractNonces[target];
+        uint256 localNonce = nonce;
         if (localNonce == transferNonce) {
             if (IOLAS(olas).balanceOf(address(this)) >= amount) {
 
@@ -121,7 +122,8 @@ contract TargetDispenserL2 {
                     withheldAmount += amount;
                     emit ServiceStakingAmountWithheld(target, amount);
                 }
-                stakingContractNonces[target] = localNonce + 1;
+                // TODO Adjust nonce increment accounting for multiple received targets
+                nonce = localNonce + 1;
             } else {
                 // Hash of target + amount + local nonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, localNonce));
@@ -143,7 +145,7 @@ contract TargetDispenserL2 {
         }
         _locked = 2;
 
-        uint256 localNonce = stakingContractNonces[target];
+        uint256 localNonce = nonce;
         bytes32 queueHash = keccak256(abi.encode(target, amount, transferNonce));
         bool queued = stakingQueueingNonces[queueHash];
         if (!queued) {
@@ -165,7 +167,7 @@ contract TargetDispenserL2 {
                     withheldAmount += amount;
                     emit ServiceStakingAmountWithheld(target, amount);
                 }
-                stakingContractNonces[target] = localNonce + 1;
+                nonce = localNonce + 1;
                 stakingQueueingNonces[queueHash] = false;
             } else {
                 revert();
