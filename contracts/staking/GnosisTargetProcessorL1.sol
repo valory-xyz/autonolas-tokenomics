@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetProcessor.sol";
+import "./DefaultTargetProcessorL1.sol";
 
 interface IOmniBridge {
     function relayTokens(address token, address receiver, uint256 value) external;
@@ -11,7 +11,7 @@ interface IAMB {
     function requireToPassMessage(address target, bytes data, uint256 maxGasLimit) external;
 }
 
-contract ProcessDepositArbitrum is DefaultTargetProcessor {
+contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
     bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
 
@@ -21,7 +21,7 @@ contract ProcessDepositArbitrum is DefaultTargetProcessor {
         address _l2TargetDispenser,
         address _l1TokenRelayer,
         address _l1MessageRelayer
-    ) DefaultTargetProcessor(_olas, _l1Dispenser, _l2TargetDispenser, _l1TokenRelayer, _l1MessageRelayer) {}
+    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l2TargetDispenser, _l1TokenRelayer, _l1MessageRelayer) {}
 
     function _sendMessage(
         address[] memory targets,

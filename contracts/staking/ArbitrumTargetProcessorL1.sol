@@ -33,7 +33,7 @@ interface IL1ERC20Gateway {
     ) external payable returns (bytes memory res);
 }
 
-contract ProcessDepositArbitrum is WormholeTargetProcessor {
+contract ArbitrumTargetProcessorL1 is WormholeTargetProcessorL1 {
     address public immutable olas;
     address public immutable l1ERC20Gateway;
 

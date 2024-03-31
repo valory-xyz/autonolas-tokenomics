@@ -5,7 +5,7 @@ interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
 
-abstract contract DefaultTargetProcessor {
+abstract contract DefaultTargetProcessorL1 {
     uint256 public constant GAS_LIMIT = 2_000_000;
     address public immutable olas;
     address public immutable l1Dispenser;

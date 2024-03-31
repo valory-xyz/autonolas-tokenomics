@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetProcessor.sol";
+import "./DefaultTargetProcessorL1.sol";
 
 interface IWormhole {
     function quoteEVMDeliveryPrice() external;
     function sendPayloadToEvm() external payable;
 }
 
-abstract contract WormholeTargetProcessor is DefaultTargetProcessor {
+abstract contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1 {
     uint256 public immutable wormholeTargetChainId;
 
     // Map for wormhole delivery hashes
@@ -21,7 +21,7 @@ abstract contract WormholeTargetProcessor is DefaultTargetProcessor {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
         uint256 _wormholeTargetChainId
-    ) DefaultTargetProcessor(_olas, _l1Dispenser, _l2TargetDispenser, _l1MessageRelayer, _l1MessageRelayer) {
+    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l2TargetDispenser, _l1MessageRelayer, _l1MessageRelayer) {
         if (_wormholeTargetChainId == 0) {
             revert();
         }

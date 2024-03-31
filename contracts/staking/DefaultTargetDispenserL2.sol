@@ -9,7 +9,7 @@ interface IServiceStaking {
     function rewardsPerSecond() external view returns (uint256);
 }
 
-abstract contract DefaultTargetDispenser {
+abstract contract DefaultTargetDispenserL2 {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 currentNonce);

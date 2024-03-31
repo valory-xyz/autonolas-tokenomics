@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetDispenser.sol";
+import "./DefaultTargetDispenserL2.sol";
 
 interface IWormhole {
     function quoteEVMDeliveryPrice(
@@ -27,7 +27,7 @@ interface IWormhole {
     );
 }
 
-contract WormholeTargetDispenser is DefaultTargetDispenser {
+contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 
@@ -38,7 +38,7 @@ contract WormholeTargetDispenser is DefaultTargetDispenser {
         address _l2Relayer,
         address _l1SourceProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenser(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {}
 
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
     /// @notice The sender must be the source processor address.
