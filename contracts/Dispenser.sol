@@ -39,9 +39,12 @@ struct EpochPoint {
 struct ServiceStakingPoint {
     // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-    uint96 totalServiceStakingOLAS;
+    uint96 serviceStakingAmount;
+    // Max allowed service staking amount threshold
+    // This value is never bigger than the serviceStakingAmount
+    uint96 maxServiceStakingAmount;
     // Service staking vote weighting threshold
-    uint16 serviceStakingWeightingThreshold;
+    uint16 minServiceStakingWeight;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
     // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
@@ -167,7 +170,7 @@ contract Dispenser is IErrorsTokenomics {
         }
     }
 
-    function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) {
+    function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) external {
         // Check for the tokenomics
         if (msg.sender != tokenomics) {
             revert ManagerOnly(msg.sender, tokenomics);
@@ -322,28 +325,34 @@ contract Dispenser is IErrorsTokenomics {
 
             // Compare the staking weight
             uint256 stakingAmount;
-            if (stakingWeight < serviceStakingPoint.serviceStakingWeightingThreshold) {
+            uint256 returnAmount;
+            if (stakingWeight < serviceStakingPoint.minServiceStakingWeight) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
-                stakingAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
-                totalAmountReturn += stakingAmount;
-                // Adjust remaining service staking amounts
-                mapEpochRemainingServiceStakingAmounts[j] -= stakingAmount;
+                returnAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                totalAmountReturn += returnAmount;
             } else {
                 // Otherwise, allocate staking amount to corresponding contracts
                 stakingAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
-                if (stakingAmount > serviceStakingPoint.maxStakingAmount) {
-                    // Adjust the refund amount
-                    totalAmountReturn += stakingAmount - serviceStakingPoint.maxStakingAmount;
+                if (stakingAmount > serviceStakingPoint.maxServiceStakingAmount) {
+                    // Adjust the return amount
+                    returnAmount = stakingAmount - serviceStakingPoint.maxStakingAmount;
+                    totalAmountReturn += returnAmount;
                     // Adjust the staking amount
                     stakingAmount = serviceStakingPoint.maxStakingAmount;
                 }
                 totalStakingAmount += stakingAmount;
-                // Check that the claimed amounts are within the remaining service staking balances
-                uint256 remainingServiceStakingOLAS = mapEpochRemainingServiceStakingAmounts[j];
-                if (stakingAmount > remainingServiceStakingOLAS) {
-                    revert();
-                }
             }
+
+            // Adjust remaining service staking amounts
+            uint256 remainingServiceStakingAmount = mapEpochRemainingServiceStakingAmounts[j];
+            // Combine staking and return amounts as they both need to be subtracted from the remaining amount
+            stakingAmount += returnAmount;
+            // This must never happen as staking amounts are always correct within the calculated bounds
+            if (stakingAmount > remainingServiceStakingAmount) {
+                revert();
+            }
+            remainingServiceStakingAmount -= stakingAmount;
+            mapEpochRemainingServiceStakingAmounts[j] = remainingServiceStakingAmount;
         }
 
         // Write current epoch counter to start claiming with the next time

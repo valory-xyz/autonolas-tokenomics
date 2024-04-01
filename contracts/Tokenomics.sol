@@ -117,6 +117,10 @@ struct ServiceStakingPoint {
     // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 serviceStakingAmount;
+    // Max allowed service staking amount threshold
+    // This value is never bigger than the serviceStakingAmount
+    // TODO Make this amount possible to update
+    uint96 maxServiceStakingAmount;
     // Service staking vote weighting threshold
     uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
