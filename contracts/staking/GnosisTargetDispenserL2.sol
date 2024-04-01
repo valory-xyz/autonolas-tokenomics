@@ -33,6 +33,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
 
     // TODO If the data is transferred together with the token
     function onTokenBridged(address, uint256, bytes calldata data) external {
+        // TODO: also separate l2Relayer for token and messages? As l2Relayer now is for messages only
         // Process the data
         _receiveMessage(l2Relayer, l1SourceProcessor, l1SourceChainId, data);
     }

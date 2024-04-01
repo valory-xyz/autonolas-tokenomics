@@ -80,7 +80,7 @@ struct EpochPoint {
     // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
     // Treasury fraction
     uint8 rewardTreasuryFraction;
-    // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     uint8 maxBondFraction;
 }
@@ -116,13 +116,17 @@ struct IncentiveBalances {
 struct ServiceStakingPoint {
     // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-    uint96 totalServiceStakingOLAS;
+    uint96 serviceStakingAmount;
     // Service staking vote weighting threshold
     uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
-    // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
     uint8 serviceStakingFraction;
+}
+
+interface IDispenser {
+    function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) external;
 }
 
 /// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
@@ -134,19 +138,22 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event DepositoryUpdated(address indexed depository);
     event DispenserUpdated(address indexed dispenser);
     event EpochLengthUpdated(uint256 epochLen);
-    event EffectiveBondUpdated(uint256 effectiveBond);
+    event EffectiveBondUpdated(uint256 indexed epochNumber, uint256 effectiveBond);
+    event ServiceStakingRefunded(uint256 indexed epochNumber, uint256 amount);
     event IDFUpdated(uint256 idf);
     event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 codePerDev,
         uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event TokenomicsParametersUpdated(uint256 indexed epochNumber);
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
-        uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
+        uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
+        uint256 topUpAgentFraction, uint256 serviceStakingFraction);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
     event DonatorBlacklistUpdated(address indexed blacklist);
-    event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+    event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
+        uint256 accountTopUps, uint256 effectiveBond, uint256 serviceStakingAmount);
     event TokenomicsImplementationUpdated(address indexed implementation);
 
     // Owner address
@@ -582,7 +589,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 _rewardAgentFraction,
         uint256 _maxBondFraction,
         uint256 _topUpComponentFraction,
-        uint256 _topUpAgentFraction
+        uint256 _topUpAgentFraction,
+        uint256 _serviceStakingFraction
     ) external
     {
         // Check for the contract ownership
@@ -596,8 +604,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Same check for top-up fractions
-        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction > 100) {
-            revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
+        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _serviceStakingFraction;
+        if (sumTopUpFractions > 100) {
+            revert WrongAmount(sumTopUpFractions, 100);
         }
 
         // All the adjustments will be accounted for in the next epoch
@@ -612,11 +621,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
         tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
         tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
+        mapEpochServiceStakingPoints[eCounter].serviceStakingFraction = uint8(_serviceStakingFraction);
 
         // Set the flag that incentive fractions are requested to be updated (2nd bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x02;
         emit IncentiveFractionsUpdateRequested(eCounter, _rewardComponentFraction, _rewardAgentFraction,
-            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction);
+            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _serviceStakingFraction);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -638,7 +648,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             eBond -= amount;
             effectiveBond = uint96(eBond);
             success = true;
-            emit EffectiveBondUpdated(eBond);
+            emit EffectiveBondUpdated(epochCounter, eBond);
         }
     }
 
@@ -658,7 +668,13 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert Overflow(eBond, type(uint96).max);
         }
         effectiveBond = uint96(eBond);
-        emit EffectiveBondUpdated(eBond);
+        emit EffectiveBondUpdated(epochCounter, eBond);
+    }
+
+    function refundFromServiceStaking(uint256 amount) external {
+        uint256 eCounter = epochCounter;
+        mapEpochServiceStakingPoints[eCounter].serviceStakingAmount += uint96(amount);
+        emit ServiceStakingRefunded(eCounter, amount);
     }
 
     /// @dev Finalizes epoch incentives for a specified component / agent Id.
@@ -928,7 +944,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // 1: treasuryRewards, 2: componentRewards, 3: agentRewards
         // OLAS inflation is split between:
         // 4: maxBond, 5: component ownerTopUps, 6: agent ownerTopUps
-        uint256[] memory incentives = new uint256[](7);
+        // 7: serviceStakingOLAS
+        uint256[] memory incentives = new uint256[](8);
         incentives[0] = tp.epochPoint.totalDonationsETH;
         incentives[1] = (incentives[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
         // 0 stands for components and 1 for agents
@@ -968,12 +985,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         tp.epochPoint.totalTopUpsOLAS = uint96(inflationPerEpoch);
         incentives[4] = (inflationPerEpoch * tp.epochPoint.maxBondFraction) / 100;
 
-        // TODO: make sure to account for additional time after the epoch ends like incentives[4], plus cross-year
-        // TODO: Add from effective staking if there is a leftover
-        // Service staking funding
-        mapEpochServiceStakingPoints[eCounter].totalServiceStakingOLAS = (inflationPerEpoch *
-            mapEpochServiceStakingPoints[eCounter].serviceStakingFraction) / 100;
-
         // Get the maxBond that was credited to effectiveBond during this settled epoch
         // If the year changes, the maxBond for the next epoch is updated in the condition below and will be used
         // later when the effectiveBond is updated for the next epoch
@@ -1005,6 +1016,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             }
             nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
             nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
+            // Copy service staking parameters
+            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingWeightingThreshold =
+                mapEpochServiceStakingPoints[eCounter].serviceStakingWeightingThreshold;
+            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingFraction =
+                mapEpochServiceStakingPoints[eCounter].serviceStakingFraction;
         }
         // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
         // Check if the second bit is set to one
@@ -1038,6 +1054,15 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
         // This amount will appear in the EpochSettled event, and thus can be tracked historically
         uint256 accountTopUps = incentives[5] + incentives[6];
+
+        // Service staking funding
+        // Refunded amount during the epoch
+        incentives[7] = mapEpochServiceStakingPoints[eCounter].serviceStakingAmount;
+        // Adding service staking top-ups amount based on a current epoch inflation
+        incentives[7] += (inflationPerEpoch * mapEpochServiceStakingPoints[eCounter].serviceStakingFraction) / 100;
+        mapEpochServiceStakingPoints[eCounter].serviceStakingAmount = uint96(incentives[7]);
+        // Communicate the service staking OLAS amount for this epoch to the Dispenser
+        IDispenser(dispenser).setRemainingServiceStakingAmount(eCounter, incentives[7]);
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
@@ -1086,7 +1111,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // Treasury contract rebalances ETH funds depending on the treasury rewards
         if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {
             // Emit settled epoch written to the last economics point
-            emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps);
+            emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps, curMaxBond, incentives[7]);
             // Start new epoch
             epochCounter = uint32(eCounter + 1);
         } else {

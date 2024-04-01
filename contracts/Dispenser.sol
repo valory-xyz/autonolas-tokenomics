@@ -44,7 +44,7 @@ struct ServiceStakingPoint {
     uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
-    // treasuryFraction + rewardComponentFraction + rewardAgentFraction + serviceStakingFraction = 100%
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
     uint8 serviceStakingFraction;
 }
 
@@ -58,6 +58,7 @@ interface ITokenomicsInfo {
     // TODO Create a better getter in Tokenomics
     function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory);
     function mapEpochServiceStakingPoints(uint256 eCounter) external returns (ServiceStakingPoint memory);
+    function refundFromServiceStaking(uint256 amount) external;
 }
 
 interface ITargetProcessor {
@@ -102,6 +103,8 @@ contract Dispenser is IErrorsTokenomics {
 
     // Mapping for (chainId | target) service staking pair => last claimed epochs
     mapping(uint256 => uint256) public mapLastClaimedStakingServiceEpochs;
+    // Mapping for epoch => remaining service staking amount
+    mapping(uint256 => uint256) public mapEpochRemainingServiceStakingAmounts;
     // Mapping for L2 chain Id => dedicated target processors
     mapping(uint256 => address) public mapChainIdTargetProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
@@ -162,6 +165,14 @@ contract Dispenser is IErrorsTokenomics {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
         }
+    }
+
+    function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) {
+        // Check for the tokenomics
+        if (msg.sender != tokenomics) {
+            revert ManagerOnly(msg.sender, tokenomics);
+        }
+        mapEpochRemainingServiceStakingAmounts[epochNumber] = amount;
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -295,8 +306,7 @@ contract Dispenser is IErrorsTokenomics {
             revert();
         }
 
-        // TODO: check the math
-        // TODO: Pre-sort by chain Id-s
+        // TODO: Register lastClaimedEpoch for the first time? Here or via VoteWeighting?
         for (uint256 j = lastClaimedEpoch; j < eCounter; ++j) {
             // TODO: optimize not to read several times in a row same epoch info
             // Get service staking info
@@ -311,12 +321,16 @@ contract Dispenser is IErrorsTokenomics {
                 chainId, endTime);
 
             // Compare the staking weight
+            uint256 stakingAmount;
             if (stakingWeight < serviceStakingPoint.serviceStakingWeightingThreshold) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
-                totalAmountReturn += (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                stakingAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                totalAmountReturn += stakingAmount;
+                // Adjust remaining service staking amounts
+                mapEpochRemainingServiceStakingAmounts[j] -= stakingAmount;
             } else {
                 // Otherwise, allocate staking amount to corresponding contracts
-                uint256 stakingAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
+                stakingAmount = (serviceStakingPoint.totalServiceStakingOLAS * stakingWeight) / 1e18;
                 if (stakingAmount > serviceStakingPoint.maxStakingAmount) {
                     // Adjust the refund amount
                     totalAmountReturn += stakingAmount - serviceStakingPoint.maxStakingAmount;
@@ -324,6 +338,11 @@ contract Dispenser is IErrorsTokenomics {
                     stakingAmount = serviceStakingPoint.maxStakingAmount;
                 }
                 totalStakingAmount += stakingAmount;
+                // Check that the claimed amounts are within the remaining service staking balances
+                uint256 remainingServiceStakingOLAS = mapEpochRemainingServiceStakingAmounts[j];
+                if (stakingAmount > remainingServiceStakingOLAS) {
+                    revert();
+                }
             }
         }
 
@@ -372,10 +391,8 @@ contract Dispenser is IErrorsTokenomics {
         // Dispense to a service staking target
         _distribute(chainId, stakingTarget, stakingAmount, stakingPayload, transferAmount);
 
-        // TODO: Tokenomics - subtract EffectiveSatking to the totalStakingAmount - probably not needed as
-        // EffectiveStaking probably should only account for returned staking amount. Or come up with another variable
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-        // ITokenomics(tokenomics).returnServiceStaking(totalReturnAmount);
+        ITokenomicsInfo(tokenomics).refundFromServiceStaking(returnAmount);
 
         emit ServiceStakingIncentivesClaimed(msg.sender, stakingAmount, returnAmount);
 
@@ -471,10 +488,8 @@ contract Dispenser is IErrorsTokenomics {
         // Dispense all the service staking targets
         _distributeBatch(stakingTargets, stakingAmounts, stakingTargetPayloads, transferAmounts);
 
-        // TODO: Tokenomics - subtract EffectiveSatking to the totalStakingAmount - probably not needed as
-        // EffectiveStaking probably should only account for returned staking amount. Or come up with another variable
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-        // ITokenomics(tokenomics).returnServiceStaking(totalReturnAmount);
+        ITokenomicsInfo(tokenomics).refundFromServiceStaking(totalReturnAmount);
 
         emit ServiceStakingIncentivesClaimed(msg.sender, totalStakingAmount, totalReturnAmount);
 
