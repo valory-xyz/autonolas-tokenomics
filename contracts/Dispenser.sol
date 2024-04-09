@@ -310,6 +310,7 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         // TODO: Register lastClaimedEpoch for the first time? Here or via VoteWeighting?
+        // TODO: Define a maximum number of epochs to claim for
         for (uint256 j = lastClaimedEpoch; j < eCounter; ++j) {
             // TODO: optimize not to read several times in a row same epoch info
             // Get service staking info
@@ -401,7 +402,9 @@ contract Dispenser is IErrorsTokenomics {
         _distribute(chainId, stakingTarget, stakingAmount, stakingPayload, transferAmount);
 
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-        ITokenomicsInfo(tokenomics).refundFromServiceStaking(returnAmount);
+        if (returnAmount > 0) {
+            ITokenomicsInfo(tokenomics).refundFromServiceStaking(returnAmount);
+        }
 
         emit ServiceStakingIncentivesClaimed(msg.sender, stakingAmount, returnAmount);
 
@@ -440,9 +443,10 @@ contract Dispenser is IErrorsTokenomics {
         uint256[][] memory stakingAmounts = new uint256[][](chainIds.length);
         uint256[][] memory transferAmounts = new uint256[][](chainIds.length);
 
+        // TODO: derive the max number of numChains * numTargetsPerChain * numEpochs to claim => totalNumOfClaimedEpochs
         uint256 lastChainId;
         address lastTarget;
-        // Traverse all staking targets
+        // Traverse all chains
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Check that chain Ids are strictly in ascending non-repeatable order
             if (lastChainId >= chainIds[i]) {
@@ -457,6 +461,7 @@ contract Dispenser is IErrorsTokenomics {
 
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             transferAmounts[i] = new uint256[](stakingTargets[i].length);
+            // Traverse all staking targets
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
                 // Enforce ascending non-repeatable order of targets
                 if (uint256(uint160(lastTarget)) >= uint256(uint160(stakingTargets[i][j]))) {
@@ -498,7 +503,9 @@ contract Dispenser is IErrorsTokenomics {
         _distributeBatch(stakingTargets, stakingAmounts, stakingTargetPayloads, transferAmounts);
 
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-        ITokenomicsInfo(tokenomics).refundFromServiceStaking(totalReturnAmount);
+        if (totalReturnAmount > 0) {
+            ITokenomicsInfo(tokenomics).refundFromServiceStaking(totalReturnAmount);
+        }
 
         emit ServiceStakingIncentivesClaimed(msg.sender, totalStakingAmount, totalReturnAmount);
 
@@ -544,6 +551,18 @@ contract Dispenser is IErrorsTokenomics {
         // Check L1 Wormhole Relayer address
         if (msg.sender != targetProcessor) {
             revert TargetProcessorOnly(msg.sender, targetProcessor);
+        }
+
+        // Add to the withheld amount
+        mapChainIdWithheldAmounts[chainId] += amount;
+
+        emit WithheldAmountSynced(chainId, amount);
+    }
+
+    function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount) external {
+        // Check the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
         }
 
         // Add to the withheld amount

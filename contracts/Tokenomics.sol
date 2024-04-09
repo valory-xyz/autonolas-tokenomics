@@ -676,6 +676,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     }
 
     function refundFromServiceStaking(uint256 amount) external {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
         uint256 eCounter = epochCounter;
         mapEpochServiceStakingPoints[eCounter].serviceStakingAmount += uint96(amount);
         emit ServiceStakingRefunded(eCounter, amount);

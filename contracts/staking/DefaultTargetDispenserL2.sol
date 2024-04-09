@@ -190,6 +190,20 @@ abstract contract DefaultTargetDispenserL2 {
         _locked = 1;
     }
 
+    // 1. token fails, message fails: re-send OLAS to the contract (separate vote), call processDataMaintenance
+    // 2. token succeeds, message fails: call processDataMaintenance
+    // 3. token fails, message succeeds: re-send OLAS to the contract (separate vote)
+    // 4. message from L2 to L1 fails: call L1 syncMaintenance
+
+    function processDataMaintenance(bytes memory data) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        _processData(data);
+    }
+
     function setServiceStakingLimits(uint256 rewardsPerSecondLimitParam) external {
         // Check for the contract ownership
         if (msg.sender != owner) {

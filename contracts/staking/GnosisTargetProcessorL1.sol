@@ -29,6 +29,7 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         bytes[] memory,
         uint256 transferAmount
     ) internal override {
+        // TODO Check for the transferAmount > 0
         // Deposit OLAS
         // Approve tokens for the bridge contract
         IOLAS(olas).approve(l1TokenRelayer, transferAmount);
