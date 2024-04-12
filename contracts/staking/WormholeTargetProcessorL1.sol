@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import "./DefaultTargetProcessorL1.sol";
 import "wormhole-solidity-sdk/TokenBase.sol";
+import "../interfaces/IToken.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
 
@@ -51,9 +52,14 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         bytes[] memory,
         uint256 transferAmount
     ) internal override {
-        //
+        // Approve tokens for the token bridge contract
+        IToken(olas).approve(address(tokenBridge), transferAmount);
+
+        // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingAmounts);
 
+        // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
+        // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAddress);
 

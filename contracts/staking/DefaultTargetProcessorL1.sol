@@ -11,7 +11,7 @@ error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 
 abstract contract DefaultTargetProcessorL1 {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
-    event MessageReceived(uint256 indexed chainId, uint256 amount);
+    event MessageReceived(address indexed messageSender, uint256 indexed chainId, uint256 amount);
 
     uint256 public constant GAS_LIMIT = 2_000_000;
     address public immutable olas;
@@ -77,7 +77,7 @@ abstract contract DefaultTargetProcessorL1 {
 
         IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
 
-        emit MessageReceived(chainId, amount);
+        emit MessageReceived(l2Dispenser, chainId, amount);
     }
 
     function sendMessage(

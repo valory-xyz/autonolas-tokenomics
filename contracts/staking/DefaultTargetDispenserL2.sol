@@ -21,10 +21,12 @@ error ZeroValue();
 abstract contract DefaultTargetDispenserL2 {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
-    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 currentNonce);
+    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 batchNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
     event MessageReceived(address indexed messageSender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
+    event Paused();
+    event Unpaused();
 
     // Gas limit for sending a message to L1
     uint256 public constant GAS_LIMIT = 100_000;
@@ -84,10 +86,11 @@ abstract contract DefaultTargetDispenserL2 {
     function _processData(bytes memory data) internal {
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
-        uint256 currentNonce = stakingBatchNonce;
+        uint256 batchNonce = stakingBatchNonce;
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
+            // TODO Shall we account for paused here and just queue, if paused?
             if (IToken(olas).balanceOf(address(this)) >= amount) {
 
                 // Check the target validity address and staking parameters
@@ -105,13 +108,13 @@ abstract contract DefaultTargetDispenserL2 {
                     emit ServiceStakingAmountWithheld(target, amount);
                 }
             } else {
-                // Hash of target + amount + currentNonce
-                bytes32 queueHash = keccak256(abi.encode(target, amount, currentNonce));
+                // Hash of target + amount + batchNonce
+                bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
                 stakingQueueingNonces[queueHash] = true;
-                emit ServiceStakingRequestQueued(queueHash, target, amount, currentNonce);
+                emit ServiceStakingRequestQueued(queueHash, target, amount, batchNonce);
             }
         }
-        stakingBatchNonce = currentNonce + 1;
+        stakingBatchNonce = batchNonce + 1;
     }
 
     function _sendMessage(uint256 amount) internal virtual;
@@ -144,14 +147,18 @@ abstract contract DefaultTargetDispenserL2 {
         emit MessageReceived(l1SourceProcessor, l1SourceChainId, data);
     }
 
-    function resume(address target, uint256 amount, uint256 currentNonce) external {
+    function redeem(address target, uint256 amount, uint256 batchNonce) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
+
+        if (paused == 2) {
+            revert();
+        }
         
-        bytes32 queueHash = keccak256(abi.encode(target, amount, currentNonce));
+        bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
         bool queued = stakingQueueingNonces[queueHash];
         if (!queued) {
             revert();
@@ -205,7 +212,7 @@ abstract contract DefaultTargetDispenserL2 {
     }
 
     // TODO Finalize with the refunder (different ABI), if zero address - refunder is msg.sender
-    function syncWithheldTokens(address refunder) external payable {
+    function syncWithheldTokens(address refundAddress) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -233,6 +240,19 @@ abstract contract DefaultTargetDispenserL2 {
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
+
+        paused = 2;
+        emit Paused();
+    }
+
+    function unpause() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = 1;
+        emit Unpaused();
     }
 
     receive() external payable {}

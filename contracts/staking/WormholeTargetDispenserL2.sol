@@ -93,6 +93,8 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         }
         mapDeliveryHashes[deliveryHash] = true;
 
+        // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
+        // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L187
         if (receivedTokens.length != 1) {
             revert(); //"Expected 1 token transfers"
         }

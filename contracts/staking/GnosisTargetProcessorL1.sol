@@ -5,14 +5,15 @@ import "./DefaultTargetProcessorL1.sol";
 import "../interfaces/IToken.sol";
 
 interface IBridge {
-    function relayTokens(address token, address receiver, uint256 value) external;
-    function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
+    //function relayTokens(address token, address receiver, uint256 value) external;
+    //function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
+    function relayTokensAndCall(address token, address receiver, uint256 amount, bytes memory payload) external;
     function messageSender() external returns (address);
 }
 
 contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
-    bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
+    //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
 
     constructor(
         address _olas,
@@ -34,18 +35,17 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         IToken(olas).approve(l1TokenRelayer, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
+        //IBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
 
         // Assemble AMB data payload
-        bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_FOREIGN, targets, stakingAmounts);
+        //bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_FOREIGN, targets, stakingAmounts);
 
         // Send message to L2
-        IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
+        //IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
 
-        // TODO Study relayTokensAndCall https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
-        // TODO How much is the gas limit to call the data?
-        // bytes memory data = abi.encode(targets, stakingAmounts);
-        // IBridge(l1MessageRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
+        // Inspired by: https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
+        bytes memory data = abi.encode(targets, stakingAmounts);
+        IBridge(l1MessageRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
 
         emit MessageSent(0, targets, stakingAmounts, transferAmount);
     }
