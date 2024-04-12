@@ -122,6 +122,7 @@ struct ServiceStakingPoint {
     // TODO Make this amount possible to update
     uint96 maxServiceStakingAmount;
     // Service staking vote weighting threshold
+    // TODO Define number of decimals for the threshold (how many signs after the .)
     uint16 serviceStakingWeightingThreshold;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others

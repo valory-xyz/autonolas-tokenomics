@@ -3,6 +3,8 @@ pragma solidity ^0.8.23;
 
 import "./DefaultTargetDispenserL2.sol";
 
+error AlreadyDelivered(bytes32 deliveryHash);
+
 interface IWormhole {
     function quoteEVMDeliveryPrice(
         uint16 targetChain,
@@ -38,16 +40,20 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         address _l2Relayer,
         address _l1SourceProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {
+        if (_l1SourceChainId > type(uint16).max) {
+            revert();
+        }
+    }
 
-    function _sendMessage(uint256 amount) internal override payable {
+    function _sendMessage(uint256 amount) internal override {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
-        (cost, ) = IWormhole(l2Relayer).quoteEVMDeliveryPrice(l1SourceChainId, 0, GAS_LIMIT);
+        (cost, ) = IWormhole(l2Relayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
 
         // Send the message
         IWormhole(l2Relayer).sendPayloadToEvm{value: cost}(
-            l1SourceChainId,
+            uint16(l1SourceChainId),
             l1SourceProcessor,
             abi.encode(amount),
             0,
@@ -78,15 +84,15 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         address processor = address(uint160(uint256(sourceProcessor)));
 
         // Process the data
-        _receiveMessage(msg.sender, processor, uint256(sourceChainId), data);
+        _receiveMessage(msg.sender, processor, sourceChainId, data);
     }
 
     // TODO: implement wormhole function that receives ERC20 with payload as well?
-    function receivePayloadAndTokens(
-        bytes memory payload,
-        TokenReceived[] memory receivedTokens,
-        bytes32 sourceProcessor,
-        uint16 sourceChainId,
-        bytes32 deliveryHash
-    ) internal virtual {}
+//    function receivePayloadAndTokens(
+//        bytes memory payload,
+//        TokenReceived[] memory receivedTokens,
+//        bytes32 sourceProcessor,
+//        uint16 sourceChainId,
+//        bytes32 deliveryHash
+//    ) internal virtual {}
 }

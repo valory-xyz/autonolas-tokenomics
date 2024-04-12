@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./WormholeTargetProcessorL1.sol";
+import "./DefaultTargetProcessorL1.sol";
+import "../interfaces/IToken.sol";
 
 interface IBridge {
     /**
@@ -31,46 +32,48 @@ interface IBridge {
         uint256 _gasPriceBid,
         bytes calldata _data
     ) external payable returns (bytes memory res);
+
+    function sendMessage(address l2TargetDispenser, bytes memory data, uint256 gasLimit) external;
 }
 
-contract ArbitrumTargetProcessorL1 is WormholeTargetProcessorL1 {
-    address public immutable olas;
+contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
     address public immutable l1ERC20Gateway;
 
     constructor(
         address _olas,
-        address _l1ERC20Gateway,
-        address _l2TargetDispenser,
-        address _wormholeRelayer,
-        uint256 _wormholeTargetChain
-    ) WormholeMessagePassing(_l2TargetDispenser, _wormholeRelayer, _wormholeTargetChain) {
-        if (_olas == address(0) || _l1ERC20Gateway == address(0)) {
-            revert();
-        }
-
-        olas = _olas;
-        l1ERC20Gateway = _l1ERC20Gateway;
-    }
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
-    function sendMessage(address target, uint256 stakingAmount, bytes memory payload, uint256 transferAmount) payable {
+    function _sendMessage(
+        address[] memory targets,
+        uint256[] memory stakingAmounts,
+        bytes[] memory payloads,
+        uint256 transferAmount
+    ) internal override {
         // Decode the staking contract supplemental payload required for bridging tokens
-        (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payload,
+        (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payloads[0],
             (address, uint256, uint256, uint256));
 
         // Construct the data for IBridge consisting of 2 pieces:
         // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
         // bytes extraData: “0x”
-        bytes memory data = abi.encode(maxSubmissionCost, "0x");
+        bytes memory submissionCostData = abi.encode(maxSubmissionCost, "0x");
 
         // Approve tokens for the bridge contract
-        IOLAS(olas).approve(omniBridge, transferAmount);
+        IToken(olas).approve(l1TokenRelayer, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IBridge(l1ERC20Gateway).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, transferAmount,
-            maxGas, gasPriceBid, data);
+        IBridge(l1TokenRelayer).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, transferAmount,
+            maxGas, gasPriceBid, submissionCostData);
 
-        // Send a message to the staking dispenser contract to reflect the transferred OLAS amount
-        _sendMessage(target, stakingAmount, transferNonce);
+        // Assemble data payload
+        bytes memory data = abi.encode(targets, stakingAmounts);
+
+        // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
+        IBridge(l1MessageRelayer).sendMessage(l2TargetDispenser, data, GAS_LIMIT);
     }
 }

@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import "../interfaces/IToken.sol";
+
 interface IServiceStakingFactory {
-    function mapInstanceImplementations(address instance) external view returns (address);
+    function verifyInstance(address instance) external view returns (bool);
 }
 
 interface IServiceStaking {
-    function rewardsPerSecond() external view returns (uint256);
+    function deposit(uint256 amount) external;
 }
+
+error TargetRelayerOnly(address messageSender, address l2Relayer);
+error WrongSourceChainId(uint256 sourceChainId, uint256 l1SourceChainId);
+error SourceProcessorOnly(address sourceProcessor, address l1SourceProcessor);
+error ReentrancyGuard();
+error OwnerOnly(address sender, address owner);
+error ZeroValue();
 
 abstract contract DefaultTargetDispenserL2 {
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 currentNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
-    event MessageReceived(address indexed messageSender, bytes data);
-    event WithheldAmountSynced(uint256 indexed sequence, uint256 amount);
+    event MessageReceived(address indexed messageSender, uint256 chainId, bytes data);
+    event WithheldAmountSynced(address indexed sender, uint256 amount);
 
     // Gas limit for sending a message to L1
     uint256 public constant GAS_LIMIT = 100_000;
@@ -34,7 +43,7 @@ abstract contract DefaultTargetDispenserL2 {
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
     // Nonce for each staking batch
-    uint256 public nonce;
+    uint256 public stakingBatchNonce;
     // rewardsPerSecondLimit
     uint256 public rewardsPerSecondLimit;
     // Pause switcher
@@ -42,7 +51,7 @@ abstract contract DefaultTargetDispenserL2 {
     // Reentrancy lock
     uint8 internal _locked;
 
-    // Queueing hashes of (target, amount, nonce)
+    // Queueing hashes of (target, amount, stakingBatchNonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
     constructor(
@@ -71,42 +80,22 @@ abstract contract DefaultTargetDispenserL2 {
         _locked = 1;
     }
 
-    // TODO Provide a factory and OLAS amount verification, address checking, etc.
-    function _checkServiceStakingTarget(address target) internal view returns (bool) {
-        // Check for the proxy instance address
-        address implementation = IServiceStakingFactory(proxyFactory).mapInstanceImplementations(target);
-        if (implementation == address(0)) {
-            return false;
-        }
-
-        // TODO Blacklist possibility of implementations or targets?
-
-        // Check for the staking parameters
-        uint256 rewardsPerSecond = IServiceStaking(target).rewardsPerSecond();
-        if (rewardsPerSecond > rewardsPerSecondLimit) {
-            return false;
-        }
-
-        return true;
-    }
-
     // Process the data
     function _processData(bytes memory data) internal {
-        (address[] memory targets, uint256[] memory amounts) = abi.decode(data,
-            (address[], uint256[], uint256));
+        (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
-        uint256 currentNonce = nonce;
+        uint256 currentNonce = stakingBatchNonce;
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
-            if (IOLAS(olas).balanceOf(address(this)) >= amount) {
+            if (IToken(olas).balanceOf(address(this)) >= amount) {
 
                 // Check the target validity address and staking parameters
-                bool isValid = _checkServiceStakingTarget(target);
+                bool isValid = IServiceStakingFactory(proxyFactory).verifyInstance(target);
 
                 if (isValid) {
                     // Approve and transfer OLAS to the service staking target
-                    IOLAS(olas).approve(target, amount);
+                    IToken(olas).approve(target, amount);
                     IServiceStaking(target).deposit(amount);
                     emit ServiceStakingTargetDeposited(target, amount);
 
@@ -116,16 +105,16 @@ abstract contract DefaultTargetDispenserL2 {
                     emit ServiceStakingAmountWithheld(target, amount);
                 }
             } else {
-                // Hash of target + amount + local nonce
+                // Hash of target + amount + currentNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, currentNonce));
                 stakingQueueingNonces[queueHash] = true;
                 emit ServiceStakingRequestQueued(queueHash, target, amount, currentNonce);
             }
         }
-        nonce = currentNonce + 1;
+        stakingBatchNonce = currentNonce + 1;
     }
 
-    function _sendMessage(uint256 amount) internal virtual payable;
+    function _sendMessage(uint256 amount) internal virtual;
 
     function _receiveMessage(
         address messageSender,
@@ -145,7 +134,7 @@ abstract contract DefaultTargetDispenserL2 {
 
         // Check for the source processor address
         if (sourceProcessor != l1SourceProcessor) {
-            revert SourceGovernorOnly32(sourceProcessor, l1SourceProcessor);
+            revert SourceProcessorOnly(sourceProcessor, l1SourceProcessor);
         }
 
         // Process the data
@@ -155,7 +144,7 @@ abstract contract DefaultTargetDispenserL2 {
         emit MessageReceived(l1SourceProcessor, l1SourceChainId, data);
     }
 
-    function withdraw(address target, uint256 amount, uint256 currentNonce) external {
+    function resume(address target, uint256 amount, uint256 currentNonce) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -168,13 +157,13 @@ abstract contract DefaultTargetDispenserL2 {
             revert();
         }
 
-        if (IOLAS(olas).balanceOf(address(this)) >= amount) {
+        if (IToken(olas).balanceOf(address(this)) >= amount) {
             // Check the target validity address and staking parameters
-            bool isValid = _checkServiceStakingTarget(target);
+            bool isValid = IServiceStakingFactory(proxyFactory).verifyInstance(target);
 
             if (isValid) {
                 // Approve and transfer OLAS to the service staking target
-                IOLAS(olas).approve(target, amount);
+                IToken(olas).approve(target, amount);
                 IServiceStaking(target).deposit(amount);
                 emit ServiceStakingTargetDeposited(target, amount);
             } else {
@@ -234,7 +223,7 @@ abstract contract DefaultTargetDispenserL2 {
         // Send a message to sync the withheld amount
         _sendMessage(amount);
 
-        emit WithheldAmountSynced(sequence, amount);
+        emit WithheldAmountSynced(msg.sender, amount);
 
         _locked = 1;
     }

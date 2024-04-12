@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "../Dispenser.sol";
+import {Dispenser} from "../Dispenser.sol";
 import "../Depository.sol";
 import "../Tokenomics.sol";
 import "../Treasury.sol";
