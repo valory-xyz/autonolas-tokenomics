@@ -46,6 +46,8 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         // TODO How much is the gas limit to call the data?
         // bytes memory data = abi.encode(targets, stakingAmounts);
         // IBridge(l1MessageRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
+
+        emit MessageSent(0, targets, stakingAmounts, transferAmount);
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Foreign) contract.

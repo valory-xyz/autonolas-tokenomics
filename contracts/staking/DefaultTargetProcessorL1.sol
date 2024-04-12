@@ -10,6 +10,9 @@ error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
 error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 
 abstract contract DefaultTargetProcessorL1 {
+    event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
+    event MessageReceived(uint256 indexed chainId, uint256 amount);
+
     uint256 public constant GAS_LIMIT = 2_000_000;
     address public immutable olas;
     address public immutable l1Dispenser;
@@ -73,6 +76,8 @@ abstract contract DefaultTargetProcessorL1 {
         (uint256 amount) = abi.decode(data, (uint256));
 
         IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
+
+        emit MessageReceived(chainId, amount);
     }
 
     function sendMessage(

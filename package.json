@@ -60,6 +60,7 @@
     "ethereum-sources-downloader": "^0.1.19",
     "node-fetch": "^3.3.2",
     "scribble-generator": "^1.1.0",
-    "solhint": "^3.4.0"
+    "solhint": "^3.4.0",
+    "wormhole-solidity-sdk": "^0.0.4"
   }
 }

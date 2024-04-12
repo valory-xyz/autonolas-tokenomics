@@ -75,5 +75,7 @@ contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         IBridge(l1MessageRelayer).sendMessage(l2TargetDispenser, data, GAS_LIMIT);
+
+        emit MessageSent(0, targets, stakingAmounts, transferAmount);
     }
 }

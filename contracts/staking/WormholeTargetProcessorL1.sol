@@ -2,35 +2,14 @@
 pragma solidity ^0.8.23;
 
 import "./DefaultTargetProcessorL1.sol";
-
-interface IWormhole {
-    function quoteEVMDeliveryPrice(
-        uint16 targetChain,
-        uint256 receiverValue,
-        uint256 gasLimit
-    ) external returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused);
-
-    function sendPayloadToEvm(
-        // Chain ID in Wormhole format
-        uint16 targetChain,
-        // Contract Address on target chain we're sending a message to
-        address targetAddress,
-        // The payload, encoded as bytes
-        bytes memory payload,
-        // How much value to attach to the delivery transaction
-        uint256 receiverValue,
-        // The gas limit to set on the delivery transaction
-        uint256 gasLimit
-    ) external payable returns (
-        // Unique, incrementing ID, used to identify a message
-        uint64 sequence
-    );
-}
+import "wormhole-solidity-sdk/TokenBase.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
 
-abstract contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1 {
+contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
+    address public immutable refundAddress;
     uint256 public immutable wormholeTargetChainId;
+    uint256 public immutable refundChainId;
 
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
@@ -38,19 +17,31 @@ abstract contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1 {
     constructor(
         address _olas,
         address _l1Dispenser,
+        address _l1TokenRelayer,
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
-        uint256 _wormholeTargetChainId
-    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1MessageRelayer, _l1MessageRelayer, _l2TargetChainId) {
-        if (_wormholeTargetChainId == 0) {
+        address _wormholeCore,
+        address _refundAddress,
+        uint256 _wormholeTargetChainId,
+        uint256 _refundChainId
+    )
+        DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        TokenBase(_l1MessageRelayer, _l1TokenRelayer, _wormholeCore)
+    {
+        if (_wormholeCore == address(0) || refundAddress == address(0)) {
+            revert();
+        }
+        if (_wormholeTargetChainId == 0 || _refundChainId == 0) {
             revert();
         }
 
-        if (_wormholeTargetChainId > type(uint16).max) {
+        if (_wormholeTargetChainId > type(uint16).max || _refundChainId > type(uint16).max) {
             revert();
         }
 
+        refundAddress = _refundAddress;
         wormholeTargetChainId = _wormholeTargetChainId;
+        refundChainId = _refundChainId;
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
@@ -60,18 +51,13 @@ abstract contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1 {
         bytes[] memory,
         uint256 transferAmount
     ) internal override {
-        // Get a quote for the cost of gas for delivery
-        uint256 cost;
-        (cost, ) = IWormhole(l1MessageRelayer).quoteEVMDeliveryPrice(uint16(wormholeTargetChainId), 0, GAS_LIMIT);
+        //
+        bytes memory data = abi.encode(targets, stakingAmounts);
 
-        // Send the message
-        IWormhole(l1MessageRelayer).sendPayloadToEvm{value: cost}(
-            uint16(wormholeTargetChainId),
-            l2TargetDispenser,
-            abi.encode(targets, stakingAmounts),
-            0,
-            GAS_LIMIT
-        );
+        uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
+            GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAddress);
+
+        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
     /// @dev Processes a message received from L1 Wormhole Relayer contract.

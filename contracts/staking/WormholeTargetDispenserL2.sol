@@ -2,10 +2,11 @@
 pragma solidity ^0.8.23;
 
 import "./DefaultTargetDispenserL2.sol";
+import "wormhole-solidity-sdk/TokenBase.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
 
-interface IWormhole {
+interface IBridge {
     function quoteEVMDeliveryPrice(
         uint16 targetChain,
         uint256 receiverValue,
@@ -29,7 +30,7 @@ interface IWormhole {
     );
 }
 
-contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
+contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 
@@ -37,22 +38,33 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         address _olas,
         address _proxyFactory,
         address _owner,
-        address _l2Relayer,
+        address _l2MessageRelayer,
         address _l1SourceProcessor,
-        uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2Relayer, _l1SourceProcessor, _l1SourceChainId) {
+        uint256 _l1SourceChainId,
+        address _l2TokenRelayer,
+        address _wormholeCore
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1SourceProcessor, _l1SourceChainId)
+        TokenBase(_l2MessageRelayer, _l2TokenRelayer, _wormholeCore)
+    {
         if (_l1SourceChainId > type(uint16).max) {
             revert();
         }
+
+        if (_wormholeCore == address(0) || _l2TokenRelayer == address(0)) {
+            revert();
+        }
+
+        l1SourceChainId = _l1SourceChainId;
     }
 
     function _sendMessage(uint256 amount) internal override {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
-        (cost, ) = IWormhole(l2Relayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
+        (cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
 
         // Send the message
-        IWormhole(l2Relayer).sendPayloadToEvm{value: cost}(
+        IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(
             uint16(l1SourceChainId),
             l1SourceProcessor,
             abi.encode(amount),
@@ -60,25 +72,30 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
             GAS_LIMIT
         );
     }
-
+    
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
     /// @notice The sender must be the source processor address.
     /// @param data Bytes message sent from L2 Wormhole Relayer contract.
+    /// @param receivedTokens Tokens received on L2.
     /// @param sourceProcessor The (wormhole format) address on the sending chain which requested this delivery.
     /// @param sourceChainId The wormhole chain Id where this delivery was requested.
     /// @param deliveryHash The VAA hash of the deliveryVAA.
-    function receiveWormholeMessages(
+    function receivePayloadAndTokens(
         bytes memory data,
-        bytes[] memory,
+        TokenReceived[] memory receivedTokens,
         bytes32 sourceProcessor,
         uint16 sourceChainId,
         bytes32 deliveryHash
-    ) external {
+    ) internal override {
         // Check the delivery hash uniqueness
         if (mapDeliveryHashes[deliveryHash]) {
             revert AlreadyDelivered(deliveryHash);
         }
         mapDeliveryHashes[deliveryHash] = true;
+
+        if (receivedTokens.length != 1) {
+            revert(); //"Expected 1 token transfers"
+        }
 
         // Get the source processor address
         address processor = address(uint160(uint256(sourceProcessor)));
@@ -86,13 +103,4 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Process the data
         _receiveMessage(msg.sender, processor, sourceChainId, data);
     }
-
-    // TODO: implement wormhole function that receives ERC20 with payload as well?
-//    function receivePayloadAndTokens(
-//        bytes memory payload,
-//        TokenReceived[] memory receivedTokens,
-//        bytes32 sourceProcessor,
-//        uint16 sourceChainId,
-//        bytes32 deliveryHash
-//    ) internal virtual {}
 }

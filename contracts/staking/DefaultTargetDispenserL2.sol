@@ -11,7 +11,7 @@ interface IServiceStaking {
     function deposit(uint256 amount) external;
 }
 
-error TargetRelayerOnly(address messageSender, address l2Relayer);
+error TargetRelayerOnly(address messageSender, address l2MessageRelayer);
 error WrongSourceChainId(uint256 sourceChainId, uint256 l1SourceChainId);
 error SourceProcessorOnly(address sourceProcessor, address l1SourceProcessor);
 error ReentrancyGuard();
@@ -35,7 +35,7 @@ abstract contract DefaultTargetDispenserL2 {
     // Owner address (Timelock or bridge mediator)
     address public immutable owner;
     // L2 Relayer address that receives the message across the bridge from the source L1 network
-    address public immutable l2Relayer;
+    address public immutable l2MessageRelayer;
     // Source processor address on L1 that is authorized to propagate the transaction execution across the bridge
     address public immutable l1SourceProcessor;
     // Source processor chain Id
@@ -58,12 +58,12 @@ abstract contract DefaultTargetDispenserL2 {
         address _olas,
         address _proxyFactory,
         address _owner,
-        address _l2Relayer,
+        address _l2MessageRelayer,
         address _l1SourceProcessor,
         uint256 _l1SourceChainId
     ) {
         if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
-            _l2Relayer == address(0) || _l1SourceProcessor == address(0)) {
+            _l2MessageRelayer == address(0) || _l1SourceProcessor == address(0)) {
             revert();
         }
 
@@ -73,7 +73,7 @@ abstract contract DefaultTargetDispenserL2 {
 
         proxyFactory = _proxyFactory;
         owner = _owner;
-        l2Relayer = _l2Relayer;
+        l2MessageRelayer = _l2MessageRelayer;
         l1SourceProcessor = _l1SourceProcessor;
         l1SourceChainId = _l1SourceChainId;
         paused = 1;
@@ -123,8 +123,8 @@ abstract contract DefaultTargetDispenserL2 {
         bytes memory data
     ) internal virtual {
         // Check L2 Relayer address
-        if (messageSender != l2Relayer) {
-            revert TargetRelayerOnly(messageSender, l2Relayer);
+        if (messageSender != l2MessageRelayer) {
+            revert TargetRelayerOnly(messageSender, l2MessageRelayer);
         }
 
         // Check the source chain Id
