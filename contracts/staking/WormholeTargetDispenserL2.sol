@@ -72,7 +72,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             GAS_LIMIT
         );
 
-        emit MessageSent(sequence, msg.sender, amount);
+        emit MessageSent(sequence, msg.sender, l1SourceProcessor, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.

@@ -5,6 +5,7 @@ import "./DefaultTargetDispenserL2.sol";
 
 interface IBridge {
     // Source (Go) and interface: https://docs.arbitrum.io/build-decentralized-apps/precompiles/reference#arbsys
+    // Source for the possible utility contract: https://github.com/OffchainLabs/token-bridge-contracts/blob/b3894ecc8b6185b2d505c71c9a7851725f53df15/contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol#L30
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
     /**
      * @notice Send a transaction to L1
@@ -36,10 +37,11 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Assemble AMB data payload
         bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_HOME, amount);
 
+        // TODO Dow we need to supply any value?
         // Send message to L1
         uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1SourceProcessor, data);
 
-        emit MessageSent(sequence, msg.sender, amount);
+        emit MessageSent(sequence, msg.sender, l1SourceProcessor, amount);
     }
 
     /// @dev Processes a message received from the L1 source processor contract.

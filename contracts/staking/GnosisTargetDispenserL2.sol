@@ -29,7 +29,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         IBridge(l2MessageRelayer).requireToPassMessage(l1SourceProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(0, msg.sender, amount);
+        emit MessageSent(0, msg.sender, l1SourceProcessor, amount);
     }
 
 //    /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
