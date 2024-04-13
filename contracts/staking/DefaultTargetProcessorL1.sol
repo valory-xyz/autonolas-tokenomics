@@ -5,15 +5,10 @@ interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
-
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
-
 abstract contract DefaultTargetProcessorL1 {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
-    event MessageReceived(address indexed messageSender, uint256 indexed chainId, uint256 amount);
+    event MessageReceived(address indexed messageSender, uint256 indexed chainId, bytes data);
 
-    uint256 public constant GAS_LIMIT = 2_000_000;
     address public immutable olas;
     address public immutable l1Dispenser;
     address public immutable l1TokenRelayer;
@@ -53,31 +48,11 @@ abstract contract DefaultTargetProcessorL1 {
         uint256 transferAmount
     ) internal virtual;
 
-    function _receiveMessage(
-        address messageSender,
-        address l2Dispenser,
-        uint256 chainId,
-        bytes memory data
-    ) internal virtual {
-        // Check L1 Relayer address
-        if (messageSender != l1MessageRelayer) {
-            revert TargetRelayerOnly(messageSender, l1MessageRelayer);
-        }
-
-        if (l2Dispenser != l2TargetDispenser) {
-            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-        }
-        
-        if (l2TargetChainId != chainId) {
-            revert();
-        }
-
+    function _receiveMessage(bytes memory data) internal virtual {
         // Extract the amount of OLAS to sync
         (uint256 amount) = abi.decode(data, (uint256));
 
         IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
-
-        emit MessageReceived(l2Dispenser, chainId, amount);
     }
 
     function sendMessage(

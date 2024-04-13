@@ -5,6 +5,8 @@ import "./DefaultTargetProcessorL1.sol";
 import "wormhole-solidity-sdk/TokenBase.sol";
 import "../interfaces/IToken.sol";
 
+error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
+error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 error AlreadyDelivered(bytes32 deliveryHash);
 
 contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
@@ -46,7 +48,9 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override {
-        (address refundAccount, uint256 refundChainId) = abi.decode(bridgePayload, (address, uint256));
+        // TODO Do we need to check for the refund info validity or the bridge is going to revert this?
+        (address refundAccount, uint256 refundChainId, uint256 gasLimit) = abi.decode(bridgePayload,
+            (address, uint256, uint256));
 
         // Approve tokens for the token bridge contract
         IToken(olas).approve(address(tokenBridge), transferAmount);
@@ -57,7 +61,7 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
-            GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAccount);
+            gasLimit, olas, transferAmount, uint16(refundChainId), refundAccount);
 
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
@@ -75,6 +79,17 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         uint16 sourceChain,
         bytes32 deliveryHash
     ) external {
+        // Check L1 Relayer address
+        if (msg.sender != l1MessageRelayer) {
+            revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
+        }
+
+        // Get the L2 target dispenser address
+        address l2Dispenser = address(uint160(uint256(sourceAddress)));
+        if (l2Dispenser != l2TargetDispenser) {
+            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
+        }
+
         if (sourceChain != wormholeTargetChainId) {
             revert();
         }
@@ -85,7 +100,8 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         }
         mapDeliveryHashes[deliveryHash] = true;
 
-        address messageSender = address(uint160(uint256(sourceAddress)));
-        _receiveMessage(msg.sender, messageSender, l2TargetChainId, data);
+        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
+
+        _receiveMessage(data);
     }
 }

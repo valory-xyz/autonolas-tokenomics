@@ -23,6 +23,7 @@ abstract contract DefaultTargetDispenserL2 {
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 batchNonce);
     event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
+    event MessageSent(uint256 indexed sequence, address indexed messageSender, uint256 amount);
     event MessageReceived(address indexed messageSender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Paused();

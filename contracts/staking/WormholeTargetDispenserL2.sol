@@ -64,13 +64,15 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         (cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
 
         // Send the message
-        IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(
+        uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(
             uint16(l1SourceChainId),
             l1SourceProcessor,
             abi.encode(amount),
             0,
             GAS_LIMIT
         );
+
+        emit MessageSent(sequence, msg.sender, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.

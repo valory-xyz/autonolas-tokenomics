@@ -11,6 +11,10 @@ interface IBridge {
     function messageSender() external returns (address);
 }
 
+error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
+
+error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
+
 contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
     //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
@@ -41,6 +45,8 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         // Assemble AMB data payload
         //bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_FOREIGN, targets, stakingAmounts);
 
+        // Extract gas limit from the payload
+        // uint256 gasLimit = abi.decode(payload, (uint256));
         // Send message to L2
         //IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
 
@@ -54,10 +60,20 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
     /// @dev Processes a message received from the AMB Contract Proxy (Foreign) contract.
     /// @param data Bytes message sent from the AMB Contract Proxy (Foreign) contract.
     function processMessageFromHome(bytes memory data) external {
+        // Check L1 Relayer address
+        if (msg.sender != l1MessageRelayer) {
+            revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
+        }
+
         // Get the L2 target dispenser address
         address l2Dispenser = IBridge(l1MessageRelayer).messageSender();
+        if (l2Dispenser != l2TargetDispenser) {
+            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
+        }
+
+        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Process the data
-        _receiveMessage(msg.sender, l2Dispenser, l2TargetChainId, data);
+        _receiveMessage(data);
     }
 }
