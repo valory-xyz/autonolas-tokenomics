@@ -8,9 +8,7 @@ import "../interfaces/IToken.sol";
 error AlreadyDelivered(bytes32 deliveryHash);
 
 contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
-    address public immutable refundAddress;
     uint256 public immutable wormholeTargetChainId;
-    uint256 public immutable refundChainId;
 
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
@@ -22,36 +20,34 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
         address _wormholeCore,
-        address _refundAddress,
-        uint256 _wormholeTargetChainId,
-        uint256 _refundChainId
+        uint256 _wormholeTargetChainId
     )
         DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
         TokenBase(_l1MessageRelayer, _l1TokenRelayer, _wormholeCore)
     {
-        if (_wormholeCore == address(0) || refundAddress == address(0)) {
+        if (_wormholeCore == address(0)) {
             revert();
         }
-        if (_wormholeTargetChainId == 0 || _refundChainId == 0) {
-            revert();
-        }
-
-        if (_wormholeTargetChainId > type(uint16).max || _refundChainId > type(uint16).max) {
+        if (_wormholeTargetChainId == 0) {
             revert();
         }
 
-        refundAddress = _refundAddress;
+        if (_wormholeTargetChainId > type(uint16).max) {
+            revert();
+        }
+
         wormholeTargetChainId = _wormholeTargetChainId;
-        refundChainId = _refundChainId;
     }
 
     // TODO: We need to send to the target dispenser and supply with the staking contract target message?
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes[] memory,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override {
+        (address refundAccount, uint256 refundChainId) = abi.decode(bridgePayload, (address, uint256));
+
         // Approve tokens for the token bridge contract
         IToken(olas).approve(address(tokenBridge), transferAmount);
 
@@ -61,7 +57,7 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
-            GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAddress);
+            GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAccount);
 
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }

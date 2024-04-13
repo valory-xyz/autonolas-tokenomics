@@ -38,7 +38,8 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2 {
         _receiveMessage(l2MessageRelayer, l1SourceProcessor, l1SourceChainId, data);
     }
 
-    function _sendMessage(uint256 amount) internal override {
+    // TODO: where does the unspent gas go?
+    function _sendMessage(uint256 amount, address) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_HOME, amount);
 

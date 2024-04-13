@@ -66,8 +66,9 @@ interface ITokenomicsInfo {
 }
 
 interface ITargetProcessor {
-    function sendMessage(address target, uint256 stakingAmount, bytes memory payload, uint256 transferAmount) external;
-    function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory payloads,
+    function sendMessage(address target, uint256 stakingAmount, bytes memory bridgePayload,
+        uint256 transferAmount) external;
+    function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory bridgePayloads,
         uint256 transferAmount) external;
 }
 
@@ -241,7 +242,7 @@ contract Dispenser is IErrorsTokenomics {
         uint256 chainId,
         address stakingTarget,
         uint256 stakingAmount,
-        bytes memory stakingPayload,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal {
         if (chainId == 1) {
@@ -251,7 +252,7 @@ contract Dispenser is IErrorsTokenomics {
             // Approve the OLAS amount for the staking target
             IToken(olas).approve(stakingTarget, stakingAmount);
             IServiceStaking(stakingTarget).deposit(stakingAmount);
-            // stakingPayload is ignored
+            // bridgePayload is ignored
         } else {
             address targetProcessor = mapChainIdTargetProcessors[chainId];
             // TODO: mint directly or mint to dispenser and approve one by one?
@@ -259,7 +260,7 @@ contract Dispenser is IErrorsTokenomics {
             IToken(olas).transfer(targetProcessor, transferAmount);
             // TODO Inject factory verification on the L2 side
             // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-            ITargetProcessor(targetProcessor).sendMessage(stakingTarget, stakingAmount, stakingPayload, transferAmount);
+            ITargetProcessor(targetProcessor).sendMessage(stakingTarget, stakingAmount, bridgePayload, transferAmount);
         }
     }
 
@@ -267,7 +268,7 @@ contract Dispenser is IErrorsTokenomics {
         uint256[] memory chainIds,
         address[][] memory stakingTargets,
         uint256[][] memory stakingAmounts,
-        bytes[] memory stakingPayloads,
+        bytes[] memory bridgePayloads,
         uint256[] memory transferAmounts
     ) internal {
         // Traverse all staking targets
@@ -283,7 +284,7 @@ contract Dispenser is IErrorsTokenomics {
                     // Approve the OLAS amount for the staking target
                     IToken(olas).approve(stakingTargets[i][j], stakingAmounts[i][j]);
                     IServiceStaking(stakingTargets[i][j]).deposit(stakingAmounts[i][j]);
-                    // stakingPayloads[i] is ignored
+                    // bridgePayloads[i] is ignored
                 }
             } else {
                 address targetProcessor = mapChainIdTargetProcessors[chainId];
@@ -293,7 +294,7 @@ contract Dispenser is IErrorsTokenomics {
                 // TODO Inject factory verification on the L2 side
                 // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
                 ITargetProcessor(targetProcessor).sendMessageBatch(stakingTargets[i], stakingAmounts[i],
-                    stakingPayloads, transferAmounts[i]);
+                    bridgePayloads, transferAmounts[i]);
             }
         }
     }
@@ -383,7 +384,7 @@ contract Dispenser is IErrorsTokenomics {
     function claimServiceStakingIncentives(
         uint256 chainId,
         address target,
-        bytes memory payload
+        bytes memory bridgePayload
     ) external payable {
         // Reentrancy guard
         if (_locked > 1) {
@@ -417,7 +418,7 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         // Dispense to a service staking target
-        _distribute(chainId, target, stakingAmount, payload, transferAmount);
+        _distribute(chainId, target, stakingAmount, bridgePayload, transferAmount);
 
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
         if (returnAmount > 0) {
@@ -436,7 +437,7 @@ contract Dispenser is IErrorsTokenomics {
     function claimServiceStakingIncentivesBatch(
         uint256[] memory chainIds,
         address[][] memory stakingTargets,
-        bytes[] memory stakingTargetPayloads
+        bytes[] memory bridgePayloads
     ) external payable {
         // Reentrancy guard
         if (_locked > 1) {
@@ -444,7 +445,7 @@ contract Dispenser is IErrorsTokenomics {
         }
         _locked = 2;
 
-        if (chainIds.length != stakingTargets.length || chainIds.length != stakingTargetPayloads.length) {
+        if (chainIds.length != stakingTargets.length || chainIds.length != bridgePayloads.length) {
             revert WrongArrayLength(chainIds.length, stakingTargets.length);
         }
 
@@ -518,7 +519,7 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         // Dispense all the service staking targets
-        _distributeBatch(chainIds, stakingTargets, stakingAmounts, stakingTargetPayloads, transferAmounts);
+        _distributeBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts);
 
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
         if (totalReturnAmount > 0) {
@@ -587,5 +588,14 @@ contract Dispenser is IErrorsTokenomics {
         mapChainIdWithheldAmounts[chainId] += amount;
 
         emit WithheldAmountSynced(chainId, amount);
+    }
+
+    function setPause(Pause pauseState) external {
+        // Check the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = pauseState;
     }
 }

@@ -75,12 +75,12 @@ contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes[] memory payloads,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override {
         // Decode the staking contract supplemental payload required for bridging tokens
-        (address refundTo, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) = abi.decode(payloads[0],
-            (address, uint256, uint256, uint256));
+        (address refundAccount, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) =
+            abi.decode(bridgePayload, (address, uint256, uint256, uint256));
 
         // Construct the data for IBridge consisting of 2 pieces:
         // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
@@ -91,7 +91,7 @@ contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
         IToken(olas).approve(l1TokenRelayer, transferAmount);
 
         // Transfer OLAS to the staking dispenser contract across the bridge
-        IBridge(l1TokenRelayer).outboundTransferCustomRefund(olas, refundTo, l2TargetDispenser, transferAmount,
+        IBridge(l1TokenRelayer).outboundTransferCustomRefund(olas, refundAccount, l2TargetDispenser, transferAmount,
             maxGas, gasPriceBid, submissionCostData);
 
         // Assemble data payload

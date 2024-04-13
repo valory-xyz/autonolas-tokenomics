@@ -49,7 +49,7 @@ abstract contract DefaultTargetProcessorL1 {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes[] memory,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal virtual;
 
@@ -83,27 +83,25 @@ abstract contract DefaultTargetProcessorL1 {
     function sendMessage(
         address target,
         uint256 stakingAmount,
-        bytes memory payload,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
         address[] memory targets = new address[](1);
         targets[0] = target;
         uint256[] memory stakingAmounts = new uint256[](1);
         stakingAmounts[0] = stakingAmount;
-        bytes[] memory payloads = new bytes[](1);
-        payloads[0] = payload;
 
-        _sendMessage(targets, stakingAmounts, payloads, transferAmount);
+        _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
     }
 
     // Send a message to the staking dispenser contract to reflect the transferred OLAS amounts
     function sendMessageBatch(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes[] memory payloads,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
-        _sendMessage(targets, stakingAmounts, payloads, transferAmount);
+        _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
     }
 
     function setL2TargetDispenser(address _l2TargetDispenser) external {

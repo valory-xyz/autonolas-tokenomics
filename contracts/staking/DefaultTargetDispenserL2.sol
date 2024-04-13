@@ -117,7 +117,7 @@ abstract contract DefaultTargetDispenserL2 {
         stakingBatchNonce = batchNonce + 1;
     }
 
-    function _sendMessage(uint256 amount) internal virtual;
+    function _sendMessage(uint256 amount, address refundAccount) internal virtual;
 
     function _receiveMessage(
         address messageSender,
@@ -212,7 +212,7 @@ abstract contract DefaultTargetDispenserL2 {
     }
 
     // TODO Finalize with the refunder (different ABI), if zero address - refunder is msg.sender
-    function syncWithheldTokens(address refundAddress) external payable {
+    function syncWithheldTokens(address refundAccount) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -228,7 +228,7 @@ abstract contract DefaultTargetDispenserL2 {
         withheldAmount = 0;
 
         // Send a message to sync the withheld amount
-        _sendMessage(amount);
+        _sendMessage(amount, refundAccount);
 
         emit WithheldAmountSynced(msg.sender, amount);
 

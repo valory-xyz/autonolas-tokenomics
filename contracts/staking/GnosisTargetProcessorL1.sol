@@ -23,10 +23,11 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         uint256 _l2TargetChainId
     ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
 
+    // TODO Where does the unspent gas go?
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes[] memory,
+        bytes memory,
         uint256 transferAmount
     ) internal override {
         // TODO Check for the transferAmount > 0
