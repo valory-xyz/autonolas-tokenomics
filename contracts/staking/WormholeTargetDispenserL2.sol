@@ -2,32 +2,49 @@
 pragma solidity ^0.8.23;
 
 import "./DefaultTargetDispenserL2.sol";
-import "wormhole-solidity-sdk/TokenBase.sol";
+import {TokenBase, TokenReceiver} from "wormhole-solidity-sdk/TokenBase.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
 
 interface IBridge {
+    // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L442
+    // Doc: https://docs.wormhole.com/wormhole/quick-start/cross-chain-dev/standard-relayer
     function quoteEVMDeliveryPrice(
         uint16 targetChain,
         uint256 receiverValue,
         uint256 gasLimit
     ) external returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused);
 
+    // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L122
+    /**
+     * @notice Publishes an instruction for the default delivery provider
+     * to relay a payload to the address `targetAddress` on chain `targetChain`
+     * with gas limit `gasLimit` and `msg.value` equal to `receiverValue`
+     *
+     * Any refunds (from leftover gas) will be sent to `refundAddress` on chain `refundChain`
+     * `targetAddress` must implement the IWormholeReceiver interface
+     *
+     * This function must be called with `msg.value` equal to `quoteEVMDeliveryPrice(targetChain, receiverValue, gasLimit)`
+     *
+     * @param targetChain in Wormhole Chain ID format
+     * @param targetAddress address to call on targetChain (that implements IWormholeReceiver)
+     * @param payload arbitrary bytes to pass in as parameter in call to `targetAddress`
+     * @param receiverValue msg.value that delivery provider should pass in for call to `targetAddress` (in targetChain currency units)
+     * @param gasLimit gas limit with which to call `targetAddress`. Any units of gas unused will be refunded according to the
+     *        `targetChainRefundPerGasUnused` rate quoted by the delivery provider
+     * @param refundChain The chain to deliver any refund to, in Wormhole Chain ID format
+     * @param refundAddress The address on `refundChain` to deliver any refund to
+     * @return sequence sequence number of published VAA containing delivery instructions
+     */
     function sendPayloadToEvm(
-        // Chain ID in Wormhole format
         uint16 targetChain,
-        // Contract Address on target chain we're sending a message to
         address targetAddress,
-        // The payload, encoded as bytes
         bytes memory payload,
-        // How much value to attach to the delivery transaction
         uint256 receiverValue,
-        // The gas limit to set on the delivery transaction
-        uint256 gasLimit
-    ) external payable returns (
-        // Unique, incrementing ID, used to identify a message
-        uint64 sequence
-    );
+        uint256 gasLimit,
+        uint16 refundChain,
+        address refundAddress
+    ) external payable returns (uint64 sequence);
 }
 
 contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
@@ -69,7 +86,9 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             l1SourceProcessor,
             abi.encode(amount),
             0,
-            GAS_LIMIT
+            GAS_LIMIT,
+            uint16(l1SourceChainId),
+            refundAccount
         );
 
         emit MessageSent(sequence, msg.sender, l1SourceProcessor, amount);

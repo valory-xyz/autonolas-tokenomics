@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetProcessorL1.sol";
-import "wormhole-solidity-sdk/TokenBase.sol";
+import {DefaultTargetProcessorL1} from "./DefaultTargetProcessorL1.sol";
+import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 import "../interfaces/IToken.sol";
 
 error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
@@ -58,8 +58,9 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingAmounts);
 
-        // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
-        // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
+        // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
+        // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203
+        // Doc: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             gasLimit, olas, transferAmount, uint16(refundChainId), refundAccount);
 

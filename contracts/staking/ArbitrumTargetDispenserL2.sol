@@ -19,8 +19,8 @@ interface IBridge {
 }
 
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
-    // processMessageFromHome selector (Ethereum chain)
-    bytes4 public constant PROCESS_MESSAGE_FROM_HOME = bytes4(keccak256(bytes("processMessageFromHome(bytes)")));
+    // receiveMessage selector (Ethereum chain)
+    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
 
     constructor(
         address _olas,
@@ -35,7 +35,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     function _sendMessage(uint256 amount, address) internal override {
         // TODO Shall we also pack address(this) and chain Id in order to verify on L1 upon receiving the message?
         // Assemble AMB data payload
-        bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_HOME, amount);
+        bytes memory data = abi.encode(RECEIVE_MESSAGE, amount);
 
         // TODO Dow we need to supply any value?
         // Send message to L1

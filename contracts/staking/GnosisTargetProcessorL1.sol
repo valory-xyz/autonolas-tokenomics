@@ -7,7 +7,15 @@ import "../interfaces/IToken.sol";
 interface IBridge {
     //function relayTokens(address token, address receiver, uint256 value) external;
     //function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
+
+    // Contract: Omnibridge Multi-Token Mediator Proxy
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L80
+    // Flattened: https://vscode.blockscan.com/gnosis/0x2dbdcc6cad1a5a11fd6337244407bc06162aaf92
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/omnibridge
     function relayTokensAndCall(address token, address receiver, uint256 amount, bytes memory payload) external;
+
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
     function messageSender() external returns (address);
 }
 

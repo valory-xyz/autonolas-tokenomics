@@ -5,6 +5,9 @@ import "./DefaultTargetDispenserL2.sol";
 
 interface IBridge {
 //    function messageSender() external returns (address);
+
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L32
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
     function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
 }
 
@@ -42,6 +45,8 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
 //        _receiveMessage(msg.sender, processor, l1SourceChainId, data);
 //    }
 
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
+    // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol
     // TODO If the data is transferred together with the token
     function onTokenBridged(address, uint256, bytes calldata data) external {
         // TODO: also separate l2MessageRelayer for token and messages? As l2MessageRelayer now is for messages only

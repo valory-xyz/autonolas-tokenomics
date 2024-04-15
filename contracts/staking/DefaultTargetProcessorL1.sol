@@ -61,6 +61,10 @@ abstract contract DefaultTargetProcessorL1 {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
+        if (msg.sender != l1Dispenser) {
+            revert();
+        }
+
         address[] memory targets = new address[](1);
         targets[0] = target;
         uint256[] memory stakingAmounts = new uint256[](1);
@@ -76,6 +80,10 @@ abstract contract DefaultTargetProcessorL1 {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
+        if (msg.sender != l1Dispenser) {
+            revert();
+        }
+
         _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
     }
 
