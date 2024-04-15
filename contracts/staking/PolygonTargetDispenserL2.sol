@@ -4,7 +4,7 @@ pragma solidity ^0.8.23;
 import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 import {FxBaseChildTunnel} from "fx-portal/contracts/tunnel/FxBaseChildTunnel.sol";
 
-contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel {
+contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel {
     // _l2MessageRelayer is fxChild
 
     constructor(

@@ -17,7 +17,7 @@ interface IBridge {
     function depositFor(address user, address rootToken, bytes calldata depositData) external;
 }
 
-contract PolygonProcessorL1 is DefaultTargetProcessorL1, FxBaseRootTunnel {
+contract PolygonTargetProcessorL1 is DefaultTargetProcessorL1, FxBaseRootTunnel {
     // _checkpointManager: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#prerequisites
     // _l1TokenRelayer is RootChainManagerProxy (0xA0c68C638235ee32657e8f720a23ceC1bFc77C77)
     // _l1MessageRelayer is fxRoot
