@@ -16,6 +16,7 @@ error WrongSourceChainId(uint256 sourceChainId, uint256 l1SourceChainId);
 error SourceProcessorOnly(address sourceProcessor, address l1SourceProcessor);
 error ReentrancyGuard();
 error OwnerOnly(address sender, address owner);
+error ZeroAddress();
 error ZeroValue();
 
 abstract contract DefaultTargetDispenserL2 {
@@ -201,17 +202,6 @@ abstract contract DefaultTargetDispenserL2 {
         _processData(data);
     }
 
-    function setServiceStakingLimits(uint256 rewardsPerSecondLimitParam) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        rewardsPerSecondLimit = rewardsPerSecondLimitParam;
-
-        emit ServiceStakingParametersUpdated(rewardsPerSecondLimitParam);
-    }
-
     // TODO Finalize with the refunder (different ABI), if zero address - refunder is msg.sender
     function syncWithheldTokens(address refundAccount) external payable {
         // Reentrancy guard
@@ -220,7 +210,12 @@ abstract contract DefaultTargetDispenserL2 {
         }
         _locked = 2;
 
+        if (refundAccount == address(0)) {
+            revert ZeroAddress();
+        }
+
         uint256 amount = withheldAmount;
+        // TODO Check for a minimum withheld amount like 100 OLAS?
         if (amount == 0) {
             revert ZeroValue();
         }

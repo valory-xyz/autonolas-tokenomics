@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {DefaultTargetProcessorL1} from "./DefaultTargetProcessorL1.sol";
+import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {FxBaseRootTunnel} from "fx-portal/contracts/tunnel/FxBaseRootTunnel.sol";
 import "../interfaces/IToken.sol";
 
@@ -17,7 +17,7 @@ interface IBridge {
     function depositFor(address user, address rootToken, bytes calldata depositData) external;
 }
 
-contract PolygonTargetProcessorL1 is DefaultTargetProcessorL1, FxBaseRootTunnel {
+contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunnel {
     // _checkpointManager: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#prerequisites
     // _l1TokenRelayer is RootChainManagerProxy (0xA0c68C638235ee32657e8f720a23ceC1bFc77C77)
     // _l1MessageRelayer is fxRoot
@@ -34,7 +34,7 @@ contract PolygonTargetProcessorL1 is DefaultTargetProcessorL1, FxBaseRootTunnel 
         address _checkpointManager,
         address _predicate
     )
-        DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
         FxBaseRootTunnel(_checkpointManager, _l1MessageRelayer)
     {
         if (_checkpointManager == address(0) || _predicate == address(0)) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {DefaultTargetProcessorL1} from "./DefaultTargetProcessorL1.sol";
+import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import "../interfaces/IToken.sol";
 
 interface IBridge {
@@ -57,16 +57,39 @@ interface IBridge {
      * @return Address of the sender of the currently executing message on the other chain.
      */
     function xDomainMessageSender() external view returns (address);
+
+    // TODO Remove before flight
+    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
+    // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
+    /**
+     * @notice Relays a message that was sent by the other CrossDomainMessenger contract. Can only
+     *         be executed via cross-chain call from the other messenger OR if the message was
+     *         already received once and is currently being replayed.
+     *
+     * @param _nonce       Nonce of the message being relayed.
+     * @param _sender      Address of the user who sent the message.
+     * @param _target      Address that the message is targeted at.
+     * @param _value       ETH value to send with the message.
+     * @param _minGasLimit Minimum amount of gas that the message can be executed with.
+     * @param _message     Message to send to the target.
+     */
+    function relayMessage(
+        uint256 _nonce,
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _minGasLimit,
+        bytes calldata _message
+    ) external payable;
 }
 
 error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
 
 error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 
-contract OptimismTargetProcessorL1 is DefaultTargetProcessorL1 {
+contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // processMessageFromSource selector (Optimism / Base)
     bytes4 public constant PROCESS_MESSAGE = bytes4(keccak256(bytes("processMessage(bytes)")));
-    uint256 public constant MIN_GAS_LIMIT = 200_000;
     address public immutable olasL2;
 
     // https://docs.optimism.io/chain/addresses
@@ -81,7 +104,7 @@ contract OptimismTargetProcessorL1 is DefaultTargetProcessorL1 {
         uint256 _l2TargetChainId,
         address _olasL2
     )
-        DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
         if (_olasL2 == address(0)) {
             revert();
@@ -105,7 +128,7 @@ contract OptimismTargetProcessorL1 is DefaultTargetProcessorL1 {
 
             // Transfer OLAS to the staking dispenser contract across the bridge
             IBridge(l1TokenRelayer).depositERC20To(olas, olasL2, l2TargetDispenser, transferAmount,
-                uint32(MIN_GAS_LIMIT), "0x");
+                uint32(TOKEN_GAS_LIMIT), "0x");
         }
 
         (uint256 cost, uint256 minGasLimitData) = abi.decode(payload, (uint256, uint256));
@@ -113,6 +136,7 @@ contract OptimismTargetProcessorL1 is DefaultTargetProcessorL1 {
         // Assemble data payload
         bytes memory data = abi.encode(PROCESS_MESSAGE, targets, stakingAmounts);
 
+        // TODO Cost to be MESSAGE_GAS_LIMIT or pass as an argument?
         // TODO Account for 20% more
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(minGasLimitData));
@@ -120,6 +144,7 @@ contract OptimismTargetProcessorL1 is DefaultTargetProcessorL1 {
         emit MessageSent(0, targets, stakingAmounts, transferAmount);
     }
 
+    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
     function processMessage(bytes memory data) external {
         // Check L1 Relayer address

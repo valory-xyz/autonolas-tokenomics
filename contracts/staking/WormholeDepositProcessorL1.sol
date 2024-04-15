@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {DefaultTargetProcessorL1} from "./DefaultTargetProcessorL1.sol";
+import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 import "../interfaces/IToken.sol";
 
@@ -9,7 +9,7 @@ error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
 error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 error AlreadyDelivered(bytes32 deliveryHash);
 
-contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
+contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     uint256 public immutable wormholeTargetChainId;
 
     // Map for wormhole delivery hashes
@@ -24,7 +24,7 @@ contract WormholeTargetProcessorL1 is DefaultTargetProcessorL1, TokenSender {
         address _wormholeCore,
         uint256 _wormholeTargetChainId
     )
-        DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
         TokenBase(_l1MessageRelayer, _l1TokenRelayer, _wormholeCore)
     {
         if (_wormholeCore == address(0)) {

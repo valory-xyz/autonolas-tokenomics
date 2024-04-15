@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetProcessorL1.sol";
+import "./DefaultDepositProcessorL1.sol";
 import "../interfaces/IToken.sol";
 
 interface IBridge {
@@ -23,7 +23,7 @@ error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
 
 error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 
-contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
+contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
     //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
 
@@ -33,7 +33,7 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         address _l1TokenRelayer,
         address _l1MessageRelayer,
         uint256 _l2TargetChainId
-    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
+    ) DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
 
     // TODO Where does the unspent gas go?
     function _sendMessage(
@@ -56,7 +56,7 @@ contract GnosisTargetProcessorL1 is DefaultTargetProcessorL1 {
         // Extract gas limit from the payload
         // uint256 gasLimit = abi.decode(payload, (uint256));
         // Send message to L2
-        //IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, GAS_LIMIT);
+        //IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
 
         // Inspired by: https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
         bytes memory data = abi.encode(targets, stakingAmounts);

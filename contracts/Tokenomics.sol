@@ -152,6 +152,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
         uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
         uint256 topUpAgentFraction, uint256 serviceStakingFraction);
+    event ServiceStakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxServiceStakingAmount,
+        uint256 serviceStakingWeightingThreshold);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
@@ -634,6 +636,28 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _serviceStakingFraction);
     }
 
+    function changeServiceStakingParams(
+        uint256 _maxServiceStakingAmount,
+        uint256 _serviceStakingWeightingThreshold
+    ) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // TODO Check limits
+
+        // All the adjustments will be accounted for in the next epoch
+        uint256 eCounter = epochCounter + 1;
+        ServiceStakingPoint storage serviceStakingPoint = mapEpochServiceStakingPoints[eCounter];
+        serviceStakingPoint.maxServiceStakingAmount = uint96(_maxServiceStakingAmount);
+        serviceStakingPoint.serviceStakingWeightingThreshold = uint16(_serviceStakingWeightingThreshold);
+
+        // Set the flag that incentive fractions are requested to be updated (3rd bit is set to one)
+        tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x03;
+        emit ServiceStakingParamsUpdateRequested(eCounter, _maxServiceStakingAmount, _serviceStakingWeightingThreshold);
+    }
+
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
     /// @notice Programs exceeding the limit of the effective bond are not allowed.
     /// @param amount Requested amount for the bond program.
@@ -1027,6 +1051,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
             nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
             // Copy service staking parameters
+            mapEpochServiceStakingPoints[eCounter + 1].maxServiceStakingAmount =
+                mapEpochServiceStakingPoints[eCounter].maxServiceStakingAmount;
             mapEpochServiceStakingPoints[eCounter + 1].serviceStakingWeightingThreshold =
                 mapEpochServiceStakingPoints[eCounter].serviceStakingWeightingThreshold;
             mapEpochServiceStakingPoints[eCounter + 1].serviceStakingFraction =

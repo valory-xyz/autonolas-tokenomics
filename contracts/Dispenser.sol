@@ -65,7 +65,7 @@ interface ITokenomicsInfo {
     function refundFromServiceStaking(uint256 amount) external;
 }
 
-interface ITargetProcessor {
+interface IDepositProcessor {
     function sendMessage(address target, uint256 stakingAmount, bytes memory bridgePayload,
         uint256 transferAmount) external;
     function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory bridgePayloads,
@@ -80,10 +80,10 @@ interface IServiceStaking {
 /// @param chainId L2 chain Id.
 error L2ChainIdNotSupported(uint256 chainId);
 
-/// @dev Only the target processor is able to call the function.
+/// @dev Only the deposit processor is able to call the function.
 /// @param sender Actual sender address.
-/// @param targetProcessor Required target processor.
-error TargetProcessorOnly(address sender, address targetProcessor);
+/// @param depositProcessor Required deposit processor.
+error DepositProcessorOnly(address sender, address depositProcessor);
 
 /// @title Dispenser - Smart contract for distributing incentives
 /// @author AL
@@ -94,7 +94,7 @@ contract Dispenser is IErrorsTokenomics {
     event TreasuryUpdated(address indexed treasury);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
     event ServiceStakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 returnAmount);
-    event SetTargetProcessorChainIds(address[] targetProcessors, uint256[] chainIds);
+    event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount);
 
     enum Pause {
@@ -128,7 +128,7 @@ contract Dispenser is IErrorsTokenomics {
     mapping(uint256 => uint256) public mapLastClaimedStakingServiceEpochs;
     // Mapping for epoch => remaining service staking amount
     mapping(uint256 => uint256) public mapEpochRemainingServiceStakingAmounts;
-    // Mapping for L2 chain Id => dedicated target processors
+    // Mapping for L2 chain Id => dedicated deposit processors
     mapping(uint256 => address) public mapChainIdTargetProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
@@ -254,13 +254,13 @@ contract Dispenser is IErrorsTokenomics {
             IServiceStaking(stakingTarget).deposit(stakingAmount);
             // bridgePayload is ignored
         } else {
-            address targetProcessor = mapChainIdTargetProcessors[chainId];
+            address depositProcessor = mapChainIdTargetProcessors[chainId];
             // TODO: mint directly or mint to dispenser and approve one by one?
             // Approve the OLAS amount for the staking target
-            IToken(olas).transfer(targetProcessor, transferAmount);
+            IToken(olas).transfer(depositProcessor, transferAmount);
             // TODO Inject factory verification on the L2 side
             // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-            ITargetProcessor(targetProcessor).sendMessage(stakingTarget, stakingAmount, bridgePayload, transferAmount);
+            IDepositProcessor(depositProcessor).sendMessage(stakingTarget, stakingAmount, bridgePayload, transferAmount);
         }
     }
 
@@ -287,13 +287,13 @@ contract Dispenser is IErrorsTokenomics {
                     // bridgePayloads[i] is ignored
                 }
             } else {
-                address targetProcessor = mapChainIdTargetProcessors[chainId];
+                address depositProcessor = mapChainIdTargetProcessors[chainId];
                 // TODO: mint directly or mint to dispenser and approve one by one?
                 // Approve the OLAS amount for the staking target
-                IToken(olas).transfer(targetProcessor, transferAmounts[i]);
+                IToken(olas).transfer(depositProcessor, transferAmounts[i]);
                 // TODO Inject factory verification on the L2 side
                 // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-                ITargetProcessor(targetProcessor).sendMessageBatch(stakingTargets[i], stakingAmounts[i],
+                IDepositProcessor(depositProcessor).sendMessageBatch(stakingTargets[i], stakingAmounts[i],
                     bridgePayloads, transferAmounts[i]);
             }
         }
@@ -531,13 +531,13 @@ contract Dispenser is IErrorsTokenomics {
         _locked = 1;
     }
 
-    /// @dev Sets target processor contracts addresses and L2 chain Ids.
-    /// @notice It is the contract owner responsibility to set correct L1 target processor contracts
+    /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
+    /// @notice It is the contract owner responsibility to set correct L1 deposit processor contracts
     ///         and corresponding supported L2 chain Ids.
-    /// @param targetProcessors Set of target processor contract addresses on L1.
+    /// @param depositProcessors Set of deposit processor contract addresses on L1.
     /// @param chainIds Set of corresponding L2 chain Ids.
-    function setTargetProcessorChainIds(
-        address[] memory targetProcessors,
+    function setDepositProcessorChainIds(
+        address[] memory depositProcessors,
         uint256[] memory chainIds
     ) external {
         // Check for the ownership
@@ -546,8 +546,8 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         // Check for array correctness
-        if (targetProcessors.length != chainIds.length) {
-            revert WrongArrayLength(targetProcessors.length, chainIds.length);
+        if (depositProcessors.length != chainIds.length) {
+            revert WrongArrayLength(depositProcessors.length, chainIds.length);
         }
 
         // Link L1 and L2 bridge mediators, set L2 chain Ids
@@ -557,19 +557,19 @@ contract Dispenser is IErrorsTokenomics {
                 revert L2ChainIdNotSupported(chainIds[i]);
             }
 
-            // Note: targetProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
-            mapChainIdTargetProcessors[chainIds[i]] = targetProcessors[i];
+            // Note: depositProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
+            mapChainIdTargetProcessors[chainIds[i]] = depositProcessors[i];
         }
 
-        emit SetTargetProcessorChainIds(targetProcessors, chainIds);
+        emit SetDepositProcessorChainIds(depositProcessors, chainIds);
     }
 
     function syncWithheldAmount(uint256 chainId, uint256 amount) external {
-        address targetProcessor = mapChainIdTargetProcessors[chainId];
+        address depositProcessor = mapChainIdTargetProcessors[chainId];
 
         // Check L1 Wormhole Relayer address
-        if (msg.sender != targetProcessor) {
-            revert TargetProcessorOnly(msg.sender, targetProcessor);
+        if (msg.sender != depositProcessor) {
+            revert DepositProcessorOnly(msg.sender, depositProcessor);
         }
 
         // Add to the withheld amount

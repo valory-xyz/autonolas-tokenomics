@@ -5,10 +5,13 @@ interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
 
-abstract contract DefaultTargetProcessorL1 {
+abstract contract DefaultDepositProcessorL1 {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed messageSender, uint256 indexed chainId, bytes data);
 
+    // TODO Calculate min maxGas required on L2 side
+    uint256 public constant TOKEN_GAS_LIMIT = 2_000_000;
+    uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
     address public immutable olas;
     address public immutable l1Dispenser;
     address public immutable l1TokenRelayer;

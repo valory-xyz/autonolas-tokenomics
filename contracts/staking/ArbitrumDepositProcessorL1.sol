@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetProcessorL1.sol";
+import "./DefaultDepositProcessorL1.sol";
 import "../interfaces/IToken.sol";
 
 interface IBridge {
@@ -62,6 +62,13 @@ interface IBridge {
         bytes calldata data
     ) external payable returns (uint256);
 
+    // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L78
+    /// @notice When l2ToL1Sender returns a nonzero address, the message was originated by an L2 account
+    ///         When the return value is zero, that means this is a system message
+    /// @dev the l2ToL1Sender behaves as the tx.origin, the msg.sender should be validated to protect against reentrancies
+    function l2ToL1Sender() external view returns (address);
+
+    // TODO: Remove before flight
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
     /**
@@ -95,7 +102,9 @@ interface IBridge {
 
 error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
 
-contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
+error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
+
+contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // receiveMessage selector (Arbitrum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
 
@@ -108,7 +117,7 @@ contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
         address _outbox
-    ) DefaultTargetProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {
+    ) DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {
         if (_outbox == address(0)) {
             revert();
         }
@@ -127,65 +136,62 @@ contract ArbitrumTargetProcessorL1 is DefaultTargetProcessorL1 {
         (address refundAccount, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) =
             abi.decode(bridgePayload, (address, uint256, uint256, uint256));
 
-        // Construct the data for IBridge consisting of 2 pieces:
-        // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
-        // bytes extraData: “0x”
-        bytes memory submissionCostData = abi.encode(maxSubmissionCost, "0x");
+        if (refundAccount == address(0)) {
+            revert();
+        }
 
-        // Approve tokens for the bridge contract
-        IToken(olas).approve(l1TokenRelayer, transferAmount);
+        // TODO Revise calculations
+        if (maxGas < MESSAGE_GAS_LIMIT || gasPriceBid < 1 || maxSubmissionCost < MESSAGE_GAS_LIMIT) {
+            revert();
+        }
 
-        // Transfer OLAS to the staking dispenser contract across the bridge
-        IBridge(l1TokenRelayer).outboundTransferCustomRefund(olas, refundAccount, l2TargetDispenser, transferAmount,
-            maxGas, gasPriceBid, submissionCostData);
+        uint256 cost = maxSubmissionCost + maxGas * gasPriceBid;
+
+        if (transferAmount > 0) {
+            // Construct the data for IBridge consisting of 2 pieces:
+            // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
+            // bytes extraData: “0x”
+            bytes memory submissionCostData = abi.encode(maxSubmissionCost, "0x");
+
+            // Approve tokens for the bridge contract
+            IToken(olas).approve(l1TokenRelayer, transferAmount);
+
+            // TODO Make sure maxGas is enough to deliver the token
+            // Transfer OLAS to the staking dispenser contract across the bridge
+            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost}(olas, refundAccount, l2TargetDispenser,
+                transferAmount, maxGas, gasPriceBid, submissionCostData);
+        }
 
         // Assemble data payload
         bytes memory data = abi.encode(RECEIVE_MESSAGE, targets, stakingAmounts);
 
-        // TODO Shall separate between two maxGas and gasPriceBid for bothe token and data calls or calculate for both?
+        // TODO Shall separate between two maxGas and gasPriceBid for both token and data calls or calculate for both?
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
-        uint256 sequence = IBridge(l1MessageRelayer).createRetryableTicket(l2TargetDispenser, 0, maxSubmissionCost,
-            refundAccount, refundAccount, maxGas, gasPriceBid, data);
+        //cost = maxSubmissionCost + maxGas * gasPriceBid;
+        uint256 sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,
+            maxSubmissionCost, refundAccount, refundAccount, maxGas, gasPriceBid, data);
 
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
+    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
     /// @dev Processes a message received from the L2 target dispenser contract.
     /// @param data Bytes message sent from L2.
     function receiveMessage(bytes memory data) external {
-        // TODO msg.sender seems to be the Outbox or address(this). So this is not compatible with the checks
         // Check L1 Relayer address
         if (msg.sender != outbox) {
             revert TargetRelayerOnly(msg.sender, outbox);
         }
 
-        // TODO Is l2Dispenser somehow obtained or extract it via the data decoding (the need encoding on L2)?
-        // TODO Since this is the finalization call, it is safe to call it by anyone
-//        if (l2Dispenser != l2TargetDispenser) {
-//            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-//        }
-//
-//        if (l2TargetChainId != chainId) {
-//            revert();
-//        }
+        // Check L2 dispenser
+        address l2Dispenser = IBridge(outbox).l2ToL1Sender();
+        if (l2Dispenser != l2TargetDispenser) {
+            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
+        }
 
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Process the data
         _receiveMessage(data);
-    }
-
-    // The data must ultimately match the call to the receiveMessage() function
-    function executeTransactionHelper(
-        bytes32[] calldata proof,
-        uint256 index,
-        address l2Sender,
-        address to,
-        uint256 l2Block,
-        uint256 l1Block,
-        uint256 l2Timestamp,
-        bytes calldata data
-    ) external {
-        IBridge(outbox).executeTransaction(proof, index, l2Sender, to, l2Block, l1Block, l2Timestamp, 0, data);
     }
 }
