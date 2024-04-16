@@ -19,10 +19,6 @@ interface IBridge {
     function messageSender() external returns (address);
 }
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
-
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
-
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
     //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
@@ -68,20 +64,12 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @dev Processes a message received from the AMB Contract Proxy (Foreign) contract.
     /// @param data Bytes message sent from the AMB Contract Proxy (Foreign) contract.
     function processMessageFromHome(bytes memory data) external {
-        // Check L1 Relayer address
-        if (msg.sender != l1MessageRelayer) {
-            revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
-        }
-
-        // Get the L2 target dispenser address
-        address l2Dispenser = IBridge(l1MessageRelayer).messageSender();
-        if (l2Dispenser != l2TargetDispenser) {
-            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-        }
-
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
+        // Get L2 dispenser address
+        address l2Dispenser = IBridge(l1MessageRelayer).messageSender();
+
         // Process the data
-        _receiveMessage(data);
+        _receiveMessage(msg.sender, l2Dispenser, data);
     }
 }

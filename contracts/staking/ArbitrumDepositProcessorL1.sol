@@ -100,10 +100,6 @@ interface IBridge {
     ) external;
 }
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
-
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
-
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // receiveMessage selector (Arbitrum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -183,15 +179,12 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert TargetRelayerOnly(msg.sender, outbox);
         }
 
-        // Check L2 dispenser
-        address l2Dispenser = IBridge(outbox).l2ToL1Sender();
-        if (l2Dispenser != l2TargetDispenser) {
-            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-        }
-
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
+        // Get L2 dispenser address
+        address l2Dispenser = IBridge(outbox).l2ToL1Sender();
+
         // Process the data
-        _receiveMessage(data);
+        _receiveMessage(l1MessageRelayer, l2Dispenser, data);
     }
 }

@@ -86,6 +86,6 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Process the data
-        _receiveMessage(data);
+        _receiveMessage(l1MessageRelayer, l2TargetDispenser, data);
     }
 }

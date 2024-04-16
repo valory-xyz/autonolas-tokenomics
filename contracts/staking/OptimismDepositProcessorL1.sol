@@ -83,10 +83,6 @@ interface IBridge {
     ) external payable;
 }
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
-
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
-
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // processMessageFromSource selector (Optimism / Base)
     bytes4 public constant PROCESS_MESSAGE = bytes4(keccak256(bytes("processMessage(bytes)")));
@@ -147,20 +143,12 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
     function processMessage(bytes memory data) external {
-        // Check L1 Relayer address
-        if (msg.sender != l1MessageRelayer) {
-            revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
-        }
-
-        // Check for the target dispenser address
-        address l2Dispenser = IBridge(l1MessageRelayer).xDomainMessageSender();
-        if (l2Dispenser != l2TargetDispenser) {
-            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-        }
-
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
+        // Get L2 dispenser address
+        address l2Dispenser = IBridge(l1MessageRelayer).xDomainMessageSender();
+
         // Process the data
-        _receiveMessage(data);
+        _receiveMessage(msg.sender, l2Dispenser, data);
     }
 }

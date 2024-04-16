@@ -5,8 +5,6 @@ import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 import "../interfaces/IToken.sol";
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 error AlreadyDelivered(bytes32 deliveryHash);
 
 contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
@@ -80,17 +78,6 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         uint16 sourceChain,
         bytes32 deliveryHash
     ) external {
-        // Check L1 Relayer address
-        if (msg.sender != l1MessageRelayer) {
-            revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
-        }
-
-        // Get the L2 target dispenser address
-        address l2Dispenser = address(uint160(uint256(sourceAddress)));
-        if (l2Dispenser != l2TargetDispenser) {
-            revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
-        }
-
         if (sourceChain != wormholeTargetChainId) {
             revert();
         }
@@ -103,6 +90,9 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
 
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
-        _receiveMessage(data);
+        // Get L2 dispenser address
+        address l2Dispenser = address(uint160(uint256(sourceAddress)));
+
+        _receiveMessage(msg.sender, l2Dispenser, data);
     }
 }
