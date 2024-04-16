@@ -96,9 +96,16 @@ abstract contract DefaultTargetDispenserL2 {
             if (IToken(olas).balanceOf(address(this)) >= amount) {
 
                 // Check the target validity address and staking parameters
-                bool isValid = IServiceStakingFactory(proxyFactory).verifyInstance(target);
+                // This is a low level call since it must never revert
+                (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
+                    IServiceStakingFactory.verifyInstance.selector, target));
 
-                if (isValid) {
+                // If the function call was successful, check the return value
+                if (success) {
+                    success = abi.decode(returnData, (bool));
+                }
+
+                if (success) {
                     // Approve and transfer OLAS to the service staking target
                     IToken(olas).approve(target, amount);
                     IServiceStaking(target).deposit(amount);
@@ -168,9 +175,16 @@ abstract contract DefaultTargetDispenserL2 {
 
         if (IToken(olas).balanceOf(address(this)) >= amount) {
             // Check the target validity address and staking parameters
-            bool isValid = IServiceStakingFactory(proxyFactory).verifyInstance(target);
+            // This is a low level call since it must never revert
+            (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
+                IServiceStakingFactory.verifyInstance.selector, target));
 
-            if (isValid) {
+            // If the function call was successful, check the return value
+            if (success) {
+                success = abi.decode(returnData, (bool));
+            }
+
+            if (success) {
                 // Approve and transfer OLAS to the service staking target
                 IToken(olas).approve(target, amount);
                 IServiceStaking(target).deposit(amount);

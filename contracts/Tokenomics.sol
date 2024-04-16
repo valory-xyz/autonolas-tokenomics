@@ -155,6 +155,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     event ServiceStakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxServiceStakingAmount,
         uint256 serviceStakingWeightingThreshold);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
+    event ServiceStakingParamsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
@@ -653,8 +654,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         serviceStakingPoint.maxServiceStakingAmount = uint96(_maxServiceStakingAmount);
         serviceStakingPoint.serviceStakingWeightingThreshold = uint16(_serviceStakingWeightingThreshold);
 
-        // Set the flag that incentive fractions are requested to be updated (3rd bit is set to one)
-        tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x03;
+        // Set the flag that incentive fractions are requested to be updated (4th bit is set to one)
+        tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x08;
         emit ServiceStakingParamsUpdateRequested(eCounter, _maxServiceStakingAmount, _serviceStakingWeightingThreshold);
     }
 
@@ -1037,27 +1038,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Get the tokenomics point of the next epoch
         TokenomicsPoint storage nextEpochPoint = mapEpochTokenomics[eCounter + 1];
-        // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
-        // Check if the second bit is set to one
-        if (tokenomicsParametersUpdated & 0x02 == 0x02) {
-            // Confirm the change of incentive fractions
-            emit IncentiveFractionsUpdated(eCounter + 1);
-        } else {
-            // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
-            for (uint256 i = 0; i < 2; ++i) {
-                nextEpochPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
-                nextEpochPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
-            }
-            nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
-            nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
-            // Copy service staking parameters
-            mapEpochServiceStakingPoints[eCounter + 1].maxServiceStakingAmount =
-                mapEpochServiceStakingPoints[eCounter].maxServiceStakingAmount;
-            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingWeightingThreshold =
-                mapEpochServiceStakingPoints[eCounter].serviceStakingWeightingThreshold;
-            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingFraction =
-                mapEpochServiceStakingPoints[eCounter].serviceStakingFraction;
-        }
         // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
         // Check if the second bit is set to one
         if (tokenomicsParametersUpdated & 0x01 == 0x01) {
@@ -1076,6 +1056,37 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
             // Confirm the change of tokenomics parameters
             emit TokenomicsParametersUpdated(eCounter + 1);
+        }
+
+        // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
+        // Check if the second bit is set to one
+        if (tokenomicsParametersUpdated & 0x02 == 0x02) {
+            // Confirm the change of incentive fractions
+            emit IncentiveFractionsUpdated(eCounter + 1);
+        } else {
+            // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
+            for (uint256 i = 0; i < 2; ++i) {
+                nextEpochPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
+                nextEpochPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
+            }
+            nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
+            nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
+            // Copy service staking fraction
+            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingFraction =
+                mapEpochServiceStakingPoints[eCounter].serviceStakingFraction;
+        }
+
+        // Update service staking parameters if they were requested by the changeServiceStakingParams() function
+        // Check if the forth bit is set to one
+        if (tokenomicsParametersUpdated & 0x08 == 0x08) {
+            // Confirm the change of service staking parameters
+            emit ServiceStakingParamsUpdated(eCounter + 1);
+        } else {
+            // Copy current service staking parameters into the next epoch
+            mapEpochServiceStakingPoints[eCounter + 1].maxServiceStakingAmount =
+                                mapEpochServiceStakingPoints[eCounter].maxServiceStakingAmount;
+            mapEpochServiceStakingPoints[eCounter + 1].serviceStakingWeightingThreshold =
+                                mapEpochServiceStakingPoints[eCounter].serviceStakingWeightingThreshold;
         }
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);

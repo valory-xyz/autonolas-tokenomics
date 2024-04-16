@@ -6,58 +6,58 @@ import "./interfaces/IToken.sol";
 import "./interfaces/ITokenomics.sol";
 import "./interfaces/ITreasury.sol";
 
-// Structure for epoch point with tokenomics-related statistics during each epoch
-// The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 slots)
-struct EpochPoint {
-    // Total amount of ETH donations accrued by the protocol during one epoch
-    // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
-    uint96 totalDonationsETH;
-    // Amount of OLAS intended to fund top-ups for the epoch based on the inflation schedule
-    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-    uint96 totalTopUpsOLAS;
-    // Inverse of the discount factor
-    // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
-    // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
-    // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
-    uint64 idf;
-    // Number of new owners
-    // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
-    uint32 numNewOwners;
-    // Epoch end timestamp
-    // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
-    uint32 endTime;
-    // Parameters for rewards and top-ups (in percentage)
-    // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
-    // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
-    // Treasury fraction
-    uint8 rewardTreasuryFraction;
-    // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
-    // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
-    uint8 maxBondFraction;
-}
-
-// Struct for service staking epoch info
-struct ServiceStakingPoint {
-    // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
-    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-    uint96 serviceStakingAmount;
-    // Max allowed service staking amount threshold
-    // This value is never bigger than the serviceStakingAmount
-    uint96 maxServiceStakingAmount;
-    // Service staking vote weighting threshold
-    uint16 minServiceStakingWeight;
-    // Service staking fraction
-    // This number cannot be practically bigger than 100 as it sums up to 100% with others
-    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
-    uint8 serviceStakingFraction;
-}
-
 interface IVoteWeighting {
     function checkpointNominee(address nominee, uint256 chainId) external;
-    function nomineeRelativeWeight(address nominee, uint256 chainId, uint256 time) external returns (uint256);
+    function nomineeRelativeWeight(address nominee, uint256 chainId, uint256 time) external returns (uint256, uint256);
 }
 
 interface ITokenomicsInfo {
+    // Structure for epoch point with tokenomics-related statistics during each epoch
+    // The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 slots)
+    struct EpochPoint {
+        // Total amount of ETH donations accrued by the protocol during one epoch
+        // Even if the ETH inflation rate is 5% per year, it would take 130+ years to reach 2^96 - 1 of ETH total supply
+        uint96 totalDonationsETH;
+        // Amount of OLAS intended to fund top-ups for the epoch based on the inflation schedule
+        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+        uint96 totalTopUpsOLAS;
+        // Inverse of the discount factor
+        // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
+        // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
+        // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
+        uint64 idf;
+        // Number of new owners
+        // Each unit has at most one owner, so this number cannot be practically bigger than numNewUnits
+        uint32 numNewOwners;
+        // Epoch end timestamp
+        // 2^32 - 1 gives 136+ years counted in seconds starting from the year 1970, which is safe until the year of 2106
+        uint32 endTime;
+        // Parameters for rewards and top-ups (in percentage)
+        // Each of these numbers cannot be practically bigger than 100 as they sum up to 100%
+        // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
+        // Treasury fraction
+        uint8 rewardTreasuryFraction;
+        // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
+        // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
+        uint8 maxBondFraction;
+    }
+
+    // Struct for service staking epoch info
+    struct ServiceStakingPoint {
+        // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+        // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+        uint96 serviceStakingAmount;
+        // Max allowed service staking amount threshold
+        // This value is never bigger than the serviceStakingAmount
+        uint96 maxServiceStakingAmount;
+        // Service staking vote weighting threshold
+        uint16 minServiceStakingWeight;
+        // Service staking fraction
+        // This number cannot be practically bigger than 100 as it sums up to 100% with others
+        // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
+        uint8 serviceStakingFraction;
+    }
+
     function epochCounter() external returns (uint32);
     // TODO Create a better getter in Tokenomics
     function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory);
@@ -334,25 +334,33 @@ contract Dispenser is IErrorsTokenomics {
         for (uint256 j = lastClaimedEpoch; j < eCounter; ++j) {
             // TODO: optimize not to read several times in a row same epoch info
             // Get service staking info
-            ServiceStakingPoint memory serviceStakingPoint = ITokenomicsInfo(tokenomics).mapEpochServiceStakingPoints(j);
+            ITokenomicsInfo.ServiceStakingPoint memory serviceStakingPoint =
+                ITokenomicsInfo(tokenomics).mapEpochServiceStakingPoints(j);
 
-            EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
+            ITokenomicsInfo.EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
             uint256 endTime = ep.endTime;
 
-            // Get the staking weight for each epoch
+            // Get the staking weight for each epoch and the total weight
             // TODO math from where we need to get the weight - endTime or endTime + WEEK, seems like the latter because values are written for the nextTime
-            uint256 stakingWeight = IVoteWeighting(voteWeighting).nomineeRelativeWeight(target, chainId, endTime);
+            (uint256 stakingWeight, uint256 totalWeighSum) =
+                IVoteWeighting(voteWeighting).nomineeRelativeWeight(target, chainId, endTime);
+
+            // Adjust the inflation by the maximum amount of veOLAS voted for service staking contracts
+            uint256 availableStakingAmount = serviceStakingPoint.serviceStakingAmount;
+            if (availableStakingAmount > totalWeighSum) {
+                availableStakingAmount = totalWeighSum;
+            }
 
             // Compare the staking weight
             uint256 stakingAmount;
             uint256 returnAmount;
             if (stakingWeight < serviceStakingPoint.minServiceStakingWeight) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
-                returnAmount = (serviceStakingPoint.serviceStakingAmount * stakingWeight) / 1e18;
+                returnAmount = (availableStakingAmount * stakingWeight) / 1e18;
                 totalAmountReturn += returnAmount;
             } else {
                 // Otherwise, allocate staking amount to corresponding contracts
-                stakingAmount = (serviceStakingPoint.serviceStakingAmount * stakingWeight) / 1e18;
+                stakingAmount = (availableStakingAmount * stakingWeight) / 1e18;
                 if (stakingAmount > serviceStakingPoint.maxServiceStakingAmount) {
                     // Adjust the return amount
                     returnAmount = stakingAmount - serviceStakingPoint.maxServiceStakingAmount;
