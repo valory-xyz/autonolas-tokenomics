@@ -69,6 +69,7 @@ interface IBridge {
     function l2ToL1Sender() external view returns (address);
 
     // TODO: Remove before flight
+    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
     /**
@@ -106,6 +107,13 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
 
     address immutable outbox;
 
+    /// @dev ArbitrumDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (L1ERC20Gateway).
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address (Inbox).
+    /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _outbox L1 Outbox relayer contract address.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -113,7 +121,9 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
         address _outbox
-    ) DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {
+    )
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+    {
         if (_outbox == address(0)) {
             revert();
         }
@@ -121,7 +131,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         outbox = _outbox;
     }
 
-    // TODO: We need to send to the target dispenser and supply with the staking contract target message?
+    /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -170,9 +180,8 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
-    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
-    /// @dev Processes a message received from the L2 target dispenser contract.
-    /// @param data Bytes message sent from L2.
+    /// @dev Process message received from L2.
+    /// @param data Bytes message data sent from L2.
     function receiveMessage(bytes memory data) external {
         // Check L1 Relayer address
         if (msg.sender != outbox) {

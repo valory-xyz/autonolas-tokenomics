@@ -59,6 +59,7 @@ interface IBridge {
     function xDomainMessageSender() external view returns (address);
 
     // TODO Remove before flight
+    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
     /**
@@ -92,6 +93,13 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // _l1TokenRelayer is L1StandardBridgeProxy
     // _l1MessageRelayer is L1CrossDomainMessengerProxy
 
+    /// @dev OptimismDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address on L1.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (L1StandardBridgeProxy).
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address (L1CrossDomainMessengerProxy).
+    /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _olasL2 OLAS token address on L2.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -109,6 +117,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         olasL2 = _olasL2;
     }
 
+    /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -142,6 +151,8 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
 
     // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
+    /// @dev Process message received from L2.
+    /// @param data Bytes message data sent from L2.
     function processMessage(bytes memory data) external {
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 

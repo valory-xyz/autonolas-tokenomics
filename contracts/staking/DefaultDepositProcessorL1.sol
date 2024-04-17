@@ -5,24 +5,39 @@ interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
 
-error TargetRelayerOnly(address messageSender, address l1MessageRelayer);
+error TargetRelayerOnly(address l1Relayer, address l1MessageRelayer);
 error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
 
 abstract contract DefaultDepositProcessorL1 {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
-    event MessageReceived(address indexed messageSender, uint256 indexed chainId, bytes data);
+    event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
 
     // TODO Calculate min maxGas required on L2 side
-    uint256 public constant TOKEN_GAS_LIMIT = 2_000_000;
+    // Token transfer gas limit
+    uint256 public constant TOKEN_GAS_LIMIT = 200_000;
+    // Message transfer gas limit
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
+    // OLAS token address
     address public immutable olas;
+    // L1 tokenomics dispenser address
     address public immutable l1Dispenser;
+    // L1 token relayer bridging contract address
     address public immutable l1TokenRelayer;
+    // L1 message relayer bridging contract address
     address public immutable l1MessageRelayer;
+    // L2 target chain Id
     uint256 public immutable l2TargetChainId;
+    // L2 target dispenser address, set by the deploying owner
     address public l2TargetDispenser;
+    // Contract owner until the time when the l2TargetDispenser is set
     address public owner;
 
+    /// @dev DefaultDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address.
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address.
+    /// @param _l2TargetChainId L2 target chain Id.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -46,7 +61,12 @@ abstract contract DefaultDepositProcessorL1 {
         owner = msg.sender;
     }
 
-    // TODO Check where payable is needed
+    /// @dev Sends message to the L2 side via a corresponding bridge.
+    /// @notice Message is sent to the target dispenser contract to reflect transferred OLAS and staking amounts.
+    /// @param targets Set of staking target addresses.
+    /// @param stakingAmounts Corresponding set of staking amounts.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual total OLAS amount to be transferred.
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -54,9 +74,13 @@ abstract contract DefaultDepositProcessorL1 {
         uint256 transferAmount
     ) internal virtual;
 
-    function _receiveMessage(address messageSender, address l2Dispenser, bytes memory data) internal virtual {
+    /// @dev Receives a message on L1 sent from L2 target dispenser side.
+    /// @param l1Relayer L1 source relayer.
+    /// @param l2Dispenser L2 target dispenser that originated the message.
+    /// @param data Message data payload sent from L2.
+    function _receiveMessage(address l1Relayer, address l2Dispenser, bytes memory data) internal virtual {
         // Check L1 Relayer address to be the msg.sender, where applicable
-        if (messageSender != l1MessageRelayer) {
+        if (l1Relayer != l1MessageRelayer) {
             revert TargetRelayerOnly(msg.sender, l1MessageRelayer);
         }
 
@@ -71,6 +95,11 @@ abstract contract DefaultDepositProcessorL1 {
         IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
     }
 
+    /// @dev Sends a single message to the L2 side via a corresponding bridge.
+    /// @param target Staking target addresses.
+    /// @param stakingAmount Corresponding staking amount.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual OLAS amount to be transferred.
     function sendMessage(
         address target,
         uint256 stakingAmount,
@@ -89,7 +118,12 @@ abstract contract DefaultDepositProcessorL1 {
         _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
     }
 
-    // Send a message to the staking dispenser contract to reflect the transferred OLAS amounts
+
+    /// @dev Sends a batch message to the L2 side via a corresponding bridge.
+    /// @param targets Set of staking target addresses.
+    /// @param stakingAmounts Corresponding set of staking amounts.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual total OLAS amount across all the targets to be transferred.
     function sendMessageBatch(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -103,15 +137,17 @@ abstract contract DefaultDepositProcessorL1 {
         _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
     }
 
-    function setL2TargetDispenser(address _l2TargetDispenser) external {
+    /// @dev Sets L2 target dispenser address and zero-s the owner.
+    /// @param l2Dispenser L2 target dispenser address.
+    function setL2TargetDispenser(address l2Dispenser) external {
         if (owner != msg.sender) {
             revert();
         }
 
-        if (_l2TargetDispenser == address(0)) {
+        if (l2Dispenser == address(0)) {
             revert();
         }
-        l2TargetDispenser = _l2TargetDispenser;
+        l2TargetDispenser = l2Dispenser;
 
         owner = address(0);
     }

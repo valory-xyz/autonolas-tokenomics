@@ -23,6 +23,12 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     // processMessageFromForeign selector (Gnosis chain)
     //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
 
+    /// @dev GnosisDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (TokensRelayer).
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address (AMB Proxy Foreign).
+    /// @param _l2TargetChainId L2 target chain Id.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -31,7 +37,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256 _l2TargetChainId
     ) DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
 
-    // TODO Where does the unspent gas go?
+    /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -61,8 +67,8 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         emit MessageSent(0, targets, stakingAmounts, transferAmount);
     }
 
-    /// @dev Processes a message received from the AMB Contract Proxy (Foreign) contract.
-    /// @param data Bytes message sent from the AMB Contract Proxy (Foreign) contract.
+    /// @dev Process message received from L2.
+    /// @param data Bytes message data sent from L2.
     function processMessageFromHome(bytes memory data) external {
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 

@@ -13,6 +13,14 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 
+    /// @dev WormholeDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (WormholeRelayer).
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address (WormholeRelayer).
+    /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _wormholeCore L1 Wormhole Core contract address.
+    /// @param _wormholeTargetChainId L2 wormhole standard target chain Id.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -39,7 +47,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         wormholeTargetChainId = _wormholeTargetChainId;
     }
 
-    // TODO: We need to send to the target dispenser and supply with the staking contract target message?
+    /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -65,9 +73,9 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
-    /// @dev Processes a message received from L1 Wormhole Relayer contract.
-    /// @notice The sender must be the source processor address.
-    /// @param data Bytes message sent from L1 Wormhole Relayer contract.
+    /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.
+    /// @notice The sender must be the L2 target dispenser address.
+    /// @param data Bytes data message sent from L2.
     /// @param sourceAddress The (wormhole format) address on the sending chain which requested this delivery.
     /// @param sourceChain The wormhole chain Id where this delivery was requested.
     /// @param deliveryHash The VAA hash of the deliveryVAA.

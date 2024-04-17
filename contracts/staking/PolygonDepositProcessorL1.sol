@@ -25,6 +25,14 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
 
     address public immutable predicate;
 
+    /// @dev PolygonDepositProcessorL1 constructor.
+    /// @param _olas OLAS token address on L1.
+    /// @param _l1Dispenser L1 tokenomics dispenser address.
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (RootChainManagerProxy).
+    /// @param _l1MessageRelayer L1 message relayer bridging contract address (fxRoot).
+    /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _checkpointManager Checkpoint manager contract for verifying L2 to L1 data.
+    /// @param _predicate ERC20 predicate contract to lock tokens on L1 before sending to L2.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -44,7 +52,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         predicate = _predicate;
     }
 
-    // TODO Where does the unspent gas go?
+    /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -75,13 +83,8 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseRootTunnel.sol#L175
     // Doc: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#root-tunnel-contract
-    /**
-     * @notice Process message received from Child Tunnel
-     * @dev function needs to be implemented to handle message as per requirement
-     * This is called by receiveMessage function.
-     * Since it is called via a system call, any event will not be emitted during its execution.
-     * @param data bytes message that was sent from Child Tunnel
-     */
+    /// @dev Process message received from the L2 Child Tunnel. This is called by receiveMessage function.
+    /// @param data Bytes message data sent from L2.
     function _processMessageFromChild(bytes memory data) internal override {
         emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
