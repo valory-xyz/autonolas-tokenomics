@@ -342,6 +342,7 @@ contract Dispenser is IErrorsTokenomics {
 
             // Get the staking weight for each epoch and the total weight
             // TODO math from where we need to get the weight - endTime or endTime + WEEK, seems like the latter because values are written for the nextTime
+            // TODO Update: endTime seems to be the valid choice, since otherwise there is a risk of having votes accounted for from the next epoch
             (uint256 stakingWeight, uint256 totalWeighSum) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(target, chainId, endTime);
 

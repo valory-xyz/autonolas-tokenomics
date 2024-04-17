@@ -22,36 +22,34 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
 
+    /// @notice _l1DepositProcessor must be correctly pre-calculated as l1DepositProcessor from L1 aliased to L2.
+    ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
     constructor(
         address _olas,
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
-        address _l1SourceProcessor,
+        address _l1DepositProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1SourceProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, address) internal override {
-        // TODO Shall we also pack address(this) and chain Id in order to verify on L1 upon receiving the message?
         // Assemble AMB data payload
         bytes memory data = abi.encode(RECEIVE_MESSAGE, amount);
 
         // TODO Dow we need to supply any value?
         // Send message to L1
-        uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1SourceProcessor, data);
+        uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
 
-        emit MessageSent(sequence, msg.sender, l1SourceProcessor, amount);
+        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
     }
 
-    /// @dev Processes a message received from the L1 source processor contract.
+    /// @dev Processes a message received from the L1 deposit processor contract.
+    /// @notice msg.sender is a converted address of l1DepositProcessor from L1.
     /// @param data Bytes message sent from L1.
     function receiveMessage(bytes memory data) external {
-        // TODO Is l2Dispenser somehow obtained or it's the msg.sender right away?
-        // Get the L1 source processor address
-        address l1Processor = l1SourceProcessor;
-
         // Process the data
-        _receiveMessage(msg.sender, l1Processor, l1SourceChainId, data);
+        _receiveMessage(l2MessageRelayer, msg.sender, l1SourceChainId, data);
     }
 }

@@ -56,12 +56,12 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
-        address _l1SourceProcessor,
+        address _l1DepositProcessor,
         uint256 _l1SourceChainId,
         address _l2TokenRelayer,
         address _wormholeCore
     )
-        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1SourceProcessor, _l1SourceChainId)
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
         TokenBase(_l2MessageRelayer, _l2TokenRelayer, _wormholeCore)
     {
         if (_l1SourceChainId > type(uint16).max) {
@@ -83,7 +83,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         // Send the message
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(
             uint16(l1SourceChainId),
-            l1SourceProcessor,
+            l1DepositProcessor,
             abi.encode(amount),
             0,
             GAS_LIMIT,
@@ -91,11 +91,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             refundAccount
         );
 
-        emit MessageSent(sequence, msg.sender, l1SourceProcessor, amount);
+        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
-    /// @notice The sender must be the source processor address.
+    /// @notice The sender must be the deposit processor address.
     /// @param data Bytes message sent from L2 Wormhole Relayer contract.
     /// @param receivedTokens Tokens received on L2.
     /// @param sourceProcessor The (wormhole format) address on the sending chain which requested this delivery.
@@ -120,7 +120,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             revert(); //"Expected 1 token transfers"
         }
 
-        // Get the source processor address
+        // Get the deposit processor address
         address processor = address(uint160(uint256(sourceProcessor)));
 
         // Process the data

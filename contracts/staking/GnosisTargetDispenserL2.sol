@@ -20,9 +20,9 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
-        address _l1SourceProcessor,
+        address _l1DepositProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1SourceProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, address) internal override {
@@ -30,9 +30,9 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_HOME, amount);
 
         // Send message to L1
-        IBridge(l2MessageRelayer).requireToPassMessage(l1SourceProcessor, data, GAS_LIMIT);
+        IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(0, msg.sender, l1SourceProcessor, amount);
+        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
     }
 
 //    /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
@@ -51,6 +51,6 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     function onTokenBridged(address, uint256, bytes calldata data) external {
         // TODO: also separate l2MessageRelayer for token and messages? As l2MessageRelayer now is for messages only
         // Process the data
-        _receiveMessage(l2MessageRelayer, l1SourceProcessor, l1SourceChainId, data);
+        _receiveMessage(l2MessageRelayer, l1DepositProcessor, l1SourceChainId, data);
     }
 }

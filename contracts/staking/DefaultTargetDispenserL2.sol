@@ -13,7 +13,7 @@ interface IServiceStaking {
 
 error TargetRelayerOnly(address messageSender, address l2MessageRelayer);
 error WrongSourceChainId(uint256 sourceChainId, uint256 l1SourceChainId);
-error SourceProcessorOnly(address sourceProcessor, address l1SourceProcessor);
+error DepositProcessorOnly(address sourceProcessor, address l1DepositProcessor);
 error ReentrancyGuard();
 error OwnerOnly(address sender, address owner);
 error ZeroAddress();
@@ -29,6 +29,7 @@ abstract contract DefaultTargetDispenserL2 {
     event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Paused();
     event Unpaused();
+    event MessageSender(address indexed messageSender);
 
     // Gas limit for sending a message to L1
     uint256 public constant GAS_LIMIT = 100_000;
@@ -40,16 +41,14 @@ abstract contract DefaultTargetDispenserL2 {
     address public immutable owner;
     // L2 Relayer address that receives the message across the bridge from the source L1 network
     address public immutable l2MessageRelayer;
-    // Source processor address on L1 that is authorized to propagate the transaction execution across the bridge
-    address public immutable l1SourceProcessor;
-    // Source processor chain Id
+    // Deposit processor address on L1 that is authorized to propagate the transaction execution across the bridge
+    address public immutable l1DepositProcessor;
+    // Deposit processor chain Id
     uint256 public immutable l1SourceChainId;
     // Amount of OLAS withheld due to service staking target invalidity
     uint256 public withheldAmount;
     // Nonce for each staking batch
     uint256 public stakingBatchNonce;
-    // rewardsPerSecondLimit
-    uint256 public rewardsPerSecondLimit;
     // Pause switcher
     uint8 public paused;
     // Reentrancy lock
@@ -63,11 +62,11 @@ abstract contract DefaultTargetDispenserL2 {
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
-        address _l1SourceProcessor,
+        address _l1DepositProcessor,
         uint256 _l1SourceChainId
     ) {
         if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
-            _l2MessageRelayer == address(0) || _l1SourceProcessor == address(0)) {
+            _l2MessageRelayer == address(0) || _l1DepositProcessor == address(0)) {
             revert();
         }
 
@@ -75,10 +74,11 @@ abstract contract DefaultTargetDispenserL2 {
             revert();
         }
 
+        olas = _olas;
         proxyFactory = _proxyFactory;
         owner = _owner;
         l2MessageRelayer = _l2MessageRelayer;
-        l1SourceProcessor = _l1SourceProcessor;
+        l1DepositProcessor = _l1DepositProcessor;
         l1SourceChainId = _l1SourceChainId;
         paused = 1;
         _locked = 1;
@@ -144,16 +144,17 @@ abstract contract DefaultTargetDispenserL2 {
             revert WrongSourceChainId(sourceChainId, l1SourceChainId);
         }
 
-        // Check for the source processor address
-        if (sourceProcessor != l1SourceProcessor) {
-            revert SourceProcessorOnly(sourceProcessor, l1SourceProcessor);
+        // Check for the deposit processor address
+        if (sourceProcessor != l1DepositProcessor) {
+            revert DepositProcessorOnly(sourceProcessor, l1DepositProcessor);
         }
 
         // Process the data
         _processData(data);
 
+        emit MessageSender(messageSender);
         // Emit received message
-        emit MessageReceived(l1SourceProcessor, l1SourceChainId, data);
+        emit MessageReceived(l1DepositProcessor, l1SourceChainId, data);
     }
 
     function redeem(address target, uint256 amount, uint256 batchNonce) external {

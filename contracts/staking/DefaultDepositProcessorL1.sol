@@ -14,7 +14,7 @@ abstract contract DefaultDepositProcessorL1 {
 
     // TODO Calculate min maxGas required on L2 side
     // Token transfer gas limit
-    uint256 public constant TOKEN_GAS_LIMIT = 200_000;
+    uint256 public constant TOKEN_GAS_LIMIT = 300_000;
     // Message transfer gas limit
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
     // OLAS token address

@@ -12,10 +12,10 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
-        address _l1SourceProcessor,
+        address _l1DepositProcessor,
         uint256 _l1SourceChainId
     )
-        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1SourceProcessor, _l1SourceChainId)
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
         FxBaseChildTunnel(_l2MessageRelayer)
     {}
 
@@ -29,7 +29,7 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         // Send message to L1
         _sendMessageToRoot(data);
 
-        emit MessageSent(0, msg.sender, l1SourceProcessor, amount);
+        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseChildTunnel.sol#L63
