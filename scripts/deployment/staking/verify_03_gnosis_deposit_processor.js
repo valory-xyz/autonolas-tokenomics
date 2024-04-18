@@ -6,8 +6,7 @@ const parsedData = JSON.parse(dataFromJSON);
 module.exports = [
     parsedData.olasAddress,
     parsedData.dispenserAddress,
-    parsedData.arbitrumL1ERC20GatewayAddress,
-    parsedData.arbitrumInboxAddress,
-    parsedData.arbitrumL2TargetChainId,
-    parsedData.arbitrumOutboxAddress
+    parsedData.gnosisOmniBridgeAddress,
+    parsedData.gnosisAMBForeignAddress,
+    parsedData.gnosisL2TargetChainId
 ];

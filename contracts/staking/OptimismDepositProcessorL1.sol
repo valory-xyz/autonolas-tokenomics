@@ -123,7 +123,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingAmounts,
         bytes memory payload,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -138,6 +138,10 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         (uint256 cost, uint256 minGasLimitData) = abi.decode(payload, (uint256, uint256));
 
+        if (cost > msg.value) {
+            revert();
+        }
+
         // Assemble data payload
         bytes memory data = abi.encode(PROCESS_MESSAGE, targets, stakingAmounts);
 
@@ -146,7 +150,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(minGasLimitData));
 
-        emit MessageSent(0, targets, stakingAmounts, transferAmount);
+        sequence = stakingBatchNonce;
     }
 
     // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
@@ -154,8 +158,6 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
     function processMessage(bytes memory data) external {
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
-
         // Get L2 dispenser address
         address l2Dispenser = IBridge(l1MessageRelayer).xDomainMessageSender();
 

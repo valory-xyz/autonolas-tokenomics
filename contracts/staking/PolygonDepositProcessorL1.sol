@@ -58,7 +58,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         uint256[] memory stakingAmounts,
         bytes memory,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -78,7 +78,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         // Send message to L2
         _sendMessageToChild(data);
 
-        emit MessageSent(0, targets, stakingAmounts, transferAmount);
+        sequence = stakingBatchNonce;
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseRootTunnel.sol#L175
@@ -86,8 +86,6 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
     /// @dev Process message received from the L2 Child Tunnel. This is called by receiveMessage function.
     /// @param data Bytes message data sent from L2.
     function _processMessageFromChild(bytes memory data) internal override {
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
-
         // Process the data
         _receiveMessage(l1MessageRelayer, l2TargetDispenser, data);
     }

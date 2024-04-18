@@ -43,7 +43,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingAmounts,
         bytes memory,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence) {
         // TODO Check for the transferAmount > 0
         // Deposit OLAS
         // Approve tokens for the bridge contract
@@ -62,16 +62,14 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         // Inspired by: https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
         bytes memory data = abi.encode(targets, stakingAmounts);
-        IBridge(l1MessageRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
+        IBridge(l1TokenRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
 
-        emit MessageSent(0, targets, stakingAmounts, transferAmount);
+        sequence = stakingBatchNonce;
     }
 
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
     function processMessageFromHome(bytes memory data) external {
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
-
         // Get L2 dispenser address
         address l2Dispenser = IBridge(l1MessageRelayer).messageSender();
 

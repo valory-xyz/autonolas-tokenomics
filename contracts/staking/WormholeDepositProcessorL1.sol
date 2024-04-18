@@ -53,7 +53,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         uint256[] memory stakingAmounts,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence) {
         // TODO Do we need to check for the refund info validity or the bridge is going to revert this?
         (address refundAccount, uint256 refundChainId, uint256 gasLimit) = abi.decode(bridgePayload,
             (address, uint256, uint256));
@@ -67,10 +67,8 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203
         // Doc: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
-        uint64 sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
+        sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             gasLimit, olas, transferAmount, uint16(refundChainId), refundAccount);
-
-        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
     /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.
@@ -95,8 +93,6 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
             revert AlreadyDelivered(deliveryHash);
         }
         mapDeliveryHashes[deliveryHash] = true;
-
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Get L2 dispenser address
         address l2Dispenser = address(uint160(uint256(sourceAddress)));

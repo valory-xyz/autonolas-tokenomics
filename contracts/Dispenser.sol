@@ -67,9 +67,9 @@ interface ITokenomicsInfo {
 
 interface IDepositProcessor {
     function sendMessage(address target, uint256 stakingAmount, bytes memory bridgePayload,
-        uint256 transferAmount) external;
+        uint256 transferAmount) external payable;
     function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory bridgePayloads,
-        uint256 transferAmount) external;
+        uint256 transferAmount) external payable;
 }
 
 interface IServiceStaking {
@@ -260,7 +260,8 @@ contract Dispenser is IErrorsTokenomics {
             IToken(olas).transfer(depositProcessor, transferAmount);
             // TODO Inject factory verification on the L2 side
             // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-            IDepositProcessor(depositProcessor).sendMessage(stakingTarget, stakingAmount, bridgePayload, transferAmount);
+            IDepositProcessor(depositProcessor).sendMessage{value:msg.value}(stakingTarget, stakingAmount,
+                bridgePayload, transferAmount);
         }
     }
 
@@ -293,8 +294,8 @@ contract Dispenser is IErrorsTokenomics {
                 IToken(olas).transfer(depositProcessor, transferAmounts[i]);
                 // TODO Inject factory verification on the L2 side
                 // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-                IDepositProcessor(depositProcessor).sendMessageBatch(stakingTargets[i], stakingAmounts[i],
-                    bridgePayloads, transferAmounts[i]);
+                IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargets[i],
+                    stakingAmounts[i], bridgePayloads, transferAmounts[i]);
             }
         }
     }

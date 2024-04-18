@@ -256,10 +256,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
 
-    // TODO: maxServiceStaking for each epoch?
-    // effectiveServiceStaking
-    // This number cannot be practically bigger than the inflation remainder of OLAS
-    uint96 public effectiveServiceStaking;
     // Mapping of epoch => service staking point
     mapping(uint256 => ServiceStakingPoint) public mapEpochServiceStakingPoints;
 

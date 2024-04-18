@@ -31,6 +31,8 @@ abstract contract DefaultDepositProcessorL1 {
     address public l2TargetDispenser;
     // Contract owner until the time when the l2TargetDispenser is set
     address public owner;
+    // Nonce for each staking batch
+    uint256 public stakingBatchNonce;
 
     /// @dev DefaultDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
@@ -67,12 +69,13 @@ abstract contract DefaultDepositProcessorL1 {
     /// @param stakingAmounts Corresponding set of staking amounts.
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
     /// @param transferAmount Actual total OLAS amount to be transferred.
+    /// @return sequence Unique message sequence, if applicable.
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal virtual;
+    ) internal virtual returns (uint256 sequence);
 
     /// @dev Receives a message on L1 sent from L2 target dispenser side.
     /// @param l1Relayer L1 source relayer.
@@ -88,6 +91,8 @@ abstract contract DefaultDepositProcessorL1 {
         if (l2Dispenser != l2TargetDispenser) {
             revert WrongMessageSender(l2Dispenser, l2TargetDispenser);
         }
+
+        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Extract the amount of OLAS to sync
         (uint256 amount) = abi.decode(data, (uint256));
@@ -115,7 +120,11 @@ abstract contract DefaultDepositProcessorL1 {
         uint256[] memory stakingAmounts = new uint256[](1);
         stakingAmounts[0] = stakingAmount;
 
-        _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+        uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+
+        stakingBatchNonce++;
+
+        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
 
@@ -134,7 +143,11 @@ abstract contract DefaultDepositProcessorL1 {
             revert();
         }
 
-        _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+        uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+
+        stakingBatchNonce++;
+
+        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
     }
 
     /// @dev Sets L2 target dispenser address and zero-s the owner.

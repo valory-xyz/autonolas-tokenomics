@@ -26,7 +26,6 @@ interface IBridge {
      * @param _data encoded data from router and user
      * @return res abi encoded inbox sequence number
      */
-    //  * @param maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
     function outboundTransferCustomRefund(
         address _l1Token,
         address _refundTo,
@@ -105,14 +104,16 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // receiveMessage selector (Arbitrum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
 
+    address immutable l1ERC20Gateway;
     address immutable outbox;
 
     /// @dev ArbitrumDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
-    /// @param _l1TokenRelayer L1 token relayer bridging contract address (L1ERC20Gateway).
+    /// @param _l1TokenRelayer L1 token relayer router bridging contract address (L1ERC20GatewayRouter).
     /// @param _l1MessageRelayer L1 message relayer bridging contract address (Inbox).
     /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _l1ERC20Gateway Actual L1 token relayer bridging contract address.
     /// @param _outbox L1 Outbox relayer contract address.
     constructor(
         address _olas,
@@ -120,14 +121,16 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         address _l1TokenRelayer,
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
+        address _l1ERC20Gateway,
         address _outbox
     )
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
-        if (_outbox == address(0)) {
+        if (_outbox == address(0) || _l1ERC20Gateway == address(0)) {
             revert();
         }
 
+        l1ERC20Gateway = _l1ERC20Gateway;
         outbox = _outbox;
     }
 
@@ -137,19 +140,17 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingAmounts,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence){
         // Decode the staking contract supplemental payload required for bridging tokens
-        (address refundAccount, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) =
-            abi.decode(bridgePayload, (address, uint256, uint256, uint256));
+        (address refundAccount, uint256 gasPriceBid, uint256 gasLimitMessage, uint256 maxSubmissionCostMessage,
+            uint256 maxSubmissionCostToken) = abi.decode(bridgePayload, (address, uint256, uint256, uint256, uint256));
 
         if (refundAccount == address(0)) {
             revert();
         }
 
-        // TODO Revise calculations
-        // If gasPriceBid or maxSubmissionCost is set incorrectly, both token transfer and message will fail
-        // MESSAGE_GAS_LIMIT is always > TOKEN_GAS_LIMIT by default
-        if (maxGas < 1 || gasPriceBid < 1 || maxSubmissionCost == 0) {
+        //
+        if (gasLimitMessage < 1 || gasPriceBid < 1 || maxSubmissionCostMessage == 0 || maxSubmissionCostToken == 0) {
             revert();
         }
 
@@ -157,36 +158,38 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         if (transferAmount > 0) {
             // Construct the data for IBridge consisting of 2 pieces:
             // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
-            // bytes extraData: “0x”
-            bytes memory submissionCostData = abi.encode(maxSubmissionCost, "0x");
+            bytes memory submissionCostData = abi.encode(maxSubmissionCostToken, "");
 
             // Approve tokens for the bridge contract
-            IToken(olas).approve(l1TokenRelayer, transferAmount);
+            IToken(olas).approve(l1ERC20Gateway, transferAmount);
 
             // Calculate token transfer gas cost
             // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-            cost = maxSubmissionCost + TOKEN_GAS_LIMIT * gasPriceBid;
+            cost = maxSubmissionCostToken + TOKEN_GAS_LIMIT * gasPriceBid;
 
-            // TODO Make sure maxGas is enough to deliver the token
+            if (cost > msg.value) {
+                revert();
+            }
+
             // Transfer OLAS to the staking dispenser contract across the bridge
             IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost}(olas, refundAccount, l2TargetDispenser,
-                transferAmount, maxGas, gasPriceBid, submissionCostData);
+                transferAmount, TOKEN_GAS_LIMIT, gasPriceBid, submissionCostData);
         }
 
         // Adjust cost for the message transfer
         // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-        cost = maxSubmissionCost + maxGas * gasPriceBid;
+        cost = maxSubmissionCostMessage + gasLimitMessage * gasPriceBid;
+
+        if (cost > msg.value) {
+            revert();
+        }
 
         // Assemble data payload
         bytes memory data = abi.encode(RECEIVE_MESSAGE, targets, stakingAmounts);
 
-        // TODO Shall separate between two maxGas and gasPriceBid for both token and data calls or calculate for both?
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
-        //cost = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,
-            maxSubmissionCost, refundAccount, refundAccount, maxGas, gasPriceBid, data);
-
-        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
+        sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,
+            maxSubmissionCostMessage, refundAccount, refundAccount, gasLimitMessage, gasPriceBid, data);
     }
 
     /// @dev Process message received from L2.
@@ -196,8 +199,6 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         if (msg.sender != outbox) {
             revert TargetRelayerOnly(msg.sender, outbox);
         }
-
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
 
         // Get L2 dispenser address
         address l2Dispenser = IBridge(outbox).l2ToL1Sender();

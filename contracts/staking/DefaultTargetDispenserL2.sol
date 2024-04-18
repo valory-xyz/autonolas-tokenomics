@@ -29,7 +29,6 @@ abstract contract DefaultTargetDispenserL2 {
     event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Paused();
     event Unpaused();
-    event MessageSender(address indexed messageSender);
 
     // Gas limit for sending a message to L1
     uint256 public constant GAS_LIMIT = 100_000;
@@ -110,7 +109,6 @@ abstract contract DefaultTargetDispenserL2 {
                     IToken(olas).approve(target, amount);
                     IServiceStaking(target).deposit(amount);
                     emit ServiceStakingTargetDeposited(target, amount);
-
                 } else {
                     // Withhold OLAS for further usage
                     withheldAmount += amount;
@@ -149,12 +147,11 @@ abstract contract DefaultTargetDispenserL2 {
             revert DepositProcessorOnly(sourceProcessor, l1DepositProcessor);
         }
 
-        // Process the data
-        _processData(data);
-
-        emit MessageSender(messageSender);
         // Emit received message
         emit MessageReceived(l1DepositProcessor, l1SourceChainId, data);
+
+        // Process the data
+        _processData(data);
     }
 
     function redeem(address target, uint256 amount, uint256 batchNonce) external {

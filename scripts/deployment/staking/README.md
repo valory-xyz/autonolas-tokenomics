@@ -1,0 +1,12 @@
+# Deployment sequence
+
+## Arbitrum
+1. On L1: deploy ArbitrumDepositProcessorL1
+2. On L2: Calculate L2 alias for the ArbitrumDepositProcessorL1.address
+3. On L2: Deploy ArbitrumTargetDispenserL2
+4. On L1: In ArbitrumDepositProcessorL1 set ArbitrumTargetDispenserL2 to l2TargetDispenser.
+
+## Gnosis
+1. On L1: deploy GnosisDepositProcessorL1
+2. On L2: deploy GnosisTargetDispenserL2
+3. On L1: In GnosisDepositProcessorL1 set GnosisTargetDispenserL2 to as l2TargetDispenser.
