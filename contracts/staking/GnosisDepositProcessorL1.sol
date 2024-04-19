@@ -5,8 +5,15 @@ import "./DefaultDepositProcessorL1.sol";
 import "../interfaces/IToken.sol";
 
 interface IBridge {
-    //function relayTokens(address token, address receiver, uint256 value) external;
-    //function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
+    // Contract: AMB Contract Proxy Foreign
+    // Source: https://github.com/omni/tokenbridge-contracts/blob/908a48107919d4ab127f9af07d44d47eac91547e/contracts/upgradeable_contracts/arbitrary_message/MessageDelivery.sol#L22
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
+    /// @dev Requests message relay to the opposite network
+    /// @param target Executor address on the other side.
+    /// @param data Calldata passed to the executor on the other side.
+    /// @param maxGasLimit Gas limit used on the other network for executing a message.
+    /// @return Message Id.
+    function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external returns (bytes32);
 
     // Contract: Omnibridge Multi-Token Mediator Proxy
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L80
@@ -15,14 +22,11 @@ interface IBridge {
     function relayTokensAndCall(address token, address receiver, uint256 amount, bytes memory payload) external;
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
-    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
     function messageSender() external returns (address);
 }
 
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
-    // processMessageFromForeign selector (Gnosis chain)
-    //bytes4 public constant PROCESS_MESSAGE_FROM_FOREIGN = bytes4(keccak256(bytes("processMessageFromForeign(bytes)")));
-
     /// @dev GnosisDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
@@ -44,32 +48,31 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         bytes memory,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
-        // TODO Check for the transferAmount > 0
         // Deposit OLAS
-        // Approve tokens for the bridge contract
-        IToken(olas).approve(l1TokenRelayer, transferAmount);
+        if (transferAmount > 0) {
+            // Approve tokens for the bridge contract
+            IToken(olas).approve(l1TokenRelayer, transferAmount);
 
-        // Transfer OLAS to the staking dispenser contract across the bridge
-        //IBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
+            bytes memory data = abi.encode(targets, stakingAmounts);
+            IBridge(l1TokenRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
 
-        // Assemble AMB data payload
-        //bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_FOREIGN, targets, stakingAmounts);
+            sequence = stakingBatchNonce;
+        } else {
+            // Assemble AMB data payload
+            bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
 
-        // Extract gas limit from the payload
-        // uint256 gasLimit = abi.decode(payload, (uint256));
-        // Send message to L2
-        //IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
+            // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
+            // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
+            // Send message to L2
+            bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
 
-        // Inspired by: https://gnosisscan.io/address/0xf6A78083ca3e2a662D6dd1703c939c8aCE2e268d#writeProxyContract#F16
-        bytes memory data = abi.encode(targets, stakingAmounts);
-        IBridge(l1TokenRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
-
-        sequence = stakingBatchNonce;
+            sequence = uint256(iMsg);
+        }
     }
 
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
-    function processMessageFromHome(bytes memory data) external {
+    function receiveMessage(bytes memory data) external {
         // Get L2 dispenser address
         address l2Dispenser = IBridge(l1MessageRelayer).messageSender();
 

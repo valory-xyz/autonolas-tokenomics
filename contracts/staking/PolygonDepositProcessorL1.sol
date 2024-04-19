@@ -89,4 +89,11 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         // Process the data
         _receiveMessage(l1MessageRelayer, l2TargetDispenser, data);
     }
+
+    /// @dev Sets L2 target dispenser address.
+    /// @param l2Dispenser L2 target dispenser address.
+    function setL2TargetDispenser(address l2Dispenser) external override {
+        setFxChildTunnel(l2Dispenser);
+        _setL2TargetDispenser(l2Dispenser);
+    }
 }

@@ -101,9 +101,6 @@ interface IBridge {
 }
 
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
-    // receiveMessage selector (Arbitrum chain)
-    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
-
     address immutable l1ERC20Gateway;
     address immutable outbox;
 
@@ -185,7 +182,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble data payload
-        bytes memory data = abi.encode(RECEIVE_MESSAGE, targets, stakingAmounts);
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,

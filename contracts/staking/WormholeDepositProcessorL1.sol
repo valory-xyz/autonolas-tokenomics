@@ -58,8 +58,10 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         (address refundAccount, uint256 refundChainId, uint256 gasLimit) = abi.decode(bridgePayload,
             (address, uint256, uint256));
 
-        // Approve tokens for the token bridge contract
-        IToken(olas).approve(address(tokenBridge), transferAmount);
+        if (transferAmount > 0) {
+            // Approve tokens for the token bridge contract
+            IToken(olas).approve(address(tokenBridge), transferAmount);
+        }
 
         // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingAmounts);

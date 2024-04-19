@@ -52,7 +52,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/test/verify_02_arbitrum_deposit_processor.js --network " + providerName + " " + arbitrumDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking//verify_02_arbitrum_deposit_processor.js --network " + providerName + " " + arbitrumDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 

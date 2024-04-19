@@ -85,8 +85,6 @@ interface IBridge {
 }
 
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
-    // processMessageFromSource selector (Optimism / Base)
-    bytes4 public constant PROCESS_MESSAGE = bytes4(keccak256(bytes("processMessage(bytes)")));
     address public immutable olasL2;
 
     // https://docs.optimism.io/chain/addresses
@@ -121,7 +119,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes memory payload,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
         // Check for the transferAmount > 0
@@ -133,22 +131,20 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
 
             // Transfer OLAS to the staking dispenser contract across the bridge
             IBridge(l1TokenRelayer).depositERC20To(olas, olasL2, l2TargetDispenser, transferAmount,
-                uint32(TOKEN_GAS_LIMIT), "0x");
+                uint32(TOKEN_GAS_LIMIT), "");
         }
 
-        (uint256 cost, uint256 minGasLimitData) = abi.decode(payload, (uint256, uint256));
+        (uint256 cost, uint256 minGasLimit) = abi.decode(bridgePayload, (uint256, uint256));
 
         if (cost > msg.value) {
             revert();
         }
 
-        // Assemble data payload
-        bytes memory data = abi.encode(PROCESS_MESSAGE, targets, stakingAmounts);
-
-        // TODO Cost to be MESSAGE_GAS_LIMIT or pass as an argument?
-        // TODO Account for 20% more
+        // Assemble data bridgePayload
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
+        
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
-        IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(minGasLimitData));
+        IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(minGasLimit));
 
         sequence = stakingBatchNonce;
     }
@@ -157,7 +153,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
-    function processMessage(bytes memory data) external {
+    function receiveMessage(bytes memory data) external {
         // Get L2 dispenser address
         address l2Dispenser = IBridge(l1MessageRelayer).xDomainMessageSender();
 

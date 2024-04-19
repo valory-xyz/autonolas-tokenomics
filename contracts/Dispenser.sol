@@ -123,6 +123,8 @@ contract Dispenser is IErrorsTokenomics {
     address public treasury;
     // Vote Weighting contract address
     address public voteWeighting;
+    // Retainer address
+    address public retainer;
 
     // Mapping for (chainId | target) service staking pair => last claimed epochs
     mapping(uint256 => uint256) public mapLastClaimedStakingServiceEpochs;
@@ -188,6 +190,19 @@ contract Dispenser is IErrorsTokenomics {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
         }
+    }
+
+    function changeRetainer(address _retainer) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        retainer = _retainer;
+    }
+
+    function retain() external {
+        // Go over epochs and retain funds to return back to the tokenomics
     }
 
     function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) external {
@@ -303,7 +318,7 @@ contract Dispenser is IErrorsTokenomics {
     function _calculateServiceStakingIncentives(
         uint256 chainId,
         address target
-    ) internal returns (uint256 totalStakingAmount, uint256 totalAmountReturn) {
+    ) internal returns (uint256 totalStakingAmount, uint256 totalReturnAmount) {
         // Check for the correct chain Id
         if (chainId == 0 || chainId > MAX_CHAIN_ID) {
             revert L2ChainIdNotSupported(chainId);
@@ -350,6 +365,7 @@ contract Dispenser is IErrorsTokenomics {
             // Adjust the inflation by the maximum amount of veOLAS voted for service staking contracts
             uint256 availableStakingAmount = serviceStakingPoint.serviceStakingAmount;
             if (availableStakingAmount > totalWeighSum) {
+                // TODO Account for the remainder to return back to tokenomics
                 availableStakingAmount = totalWeighSum;
             }
 
@@ -359,20 +375,21 @@ contract Dispenser is IErrorsTokenomics {
             if (stakingWeight < serviceStakingPoint.minServiceStakingWeight) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
                 returnAmount = (availableStakingAmount * stakingWeight) / 1e18;
-                totalAmountReturn += returnAmount;
+                totalReturnAmount += returnAmount;
             } else {
                 // Otherwise, allocate staking amount to corresponding contracts
                 stakingAmount = (availableStakingAmount * stakingWeight) / 1e18;
                 if (stakingAmount > serviceStakingPoint.maxServiceStakingAmount) {
                     // Adjust the return amount
                     returnAmount = stakingAmount - serviceStakingPoint.maxServiceStakingAmount;
-                    totalAmountReturn += returnAmount;
+                    totalReturnAmount += returnAmount;
                     // Adjust the staking amount
                     stakingAmount = serviceStakingPoint.maxServiceStakingAmount;
                 }
                 totalStakingAmount += stakingAmount;
             }
 
+            // TODO This is obsolete? As we just return the amounts now
             // Adjust remaining service staking amounts
             uint256 remainingServiceStakingAmount = mapEpochRemainingServiceStakingAmounts[j];
             // Combine staking and return amounts as they both need to be subtracted from the remaining amount
@@ -427,8 +444,11 @@ contract Dispenser is IErrorsTokenomics {
             ITreasury(treasury).withdrawToAccount(address(this), 0, transferAmount);
         }
 
+        // TODO Check if this can be optimized in case of stakingAmount == 0 to happen earlier
         // Dispense to a service staking target
-        _distribute(chainId, target, stakingAmount, bridgePayload, transferAmount);
+        if (stakingAmount > 0) {
+            _distribute(chainId, target, stakingAmount, bridgePayload, transferAmount);
+        }
 
         // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
         if (returnAmount > 0) {
@@ -528,6 +548,7 @@ contract Dispenser is IErrorsTokenomics {
             ITreasury(treasury).withdrawToAccount(address(this), 0, totalStakingAmount);
         }
 
+        // TODO Deal with stakingAmounts[i][j] == 0 - remove them from the list
         // Dispense all the service staking targets
         _distributeBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts);
 

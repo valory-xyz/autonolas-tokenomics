@@ -4,17 +4,22 @@ pragma solidity ^0.8.23;
 import "./DefaultTargetDispenserL2.sol";
 
 interface IBridge {
-//    function messageSender() external returns (address);
-
-    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L32
+    // Contract: AMB Contract Proxy Home
+    // Source: https://github.com/omni/tokenbridge-contracts/blob/908a48107919d4ab127f9af07d44d47eac91547e/contracts/upgradeable_contracts/arbitrary_message/MessageDelivery.sol#L22
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
-    function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external;
+    /// @dev Requests message relay to the opposite network
+    /// @param target Executor address on the other side.
+    /// @param data Calldata passed to the executor on the other side.
+    /// @param maxGasLimit Gas limit used on the other network for executing a message.
+    /// @return Message Id.
+    function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external returns (bytes32);
+
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
+    function messageSender() external returns (address);
 }
 
 contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
-    // processMessageFromHome selector (Ethereum chain)
-    bytes4 public constant PROCESS_MESSAGE_FROM_HOME = bytes4(keccak256(bytes("processMessageFromHome(bytes)")));
-
     constructor(
         address _olas,
         address _proxyFactory,
@@ -27,23 +32,23 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, address) internal override {
         // Assemble AMB data payload
-        bytes memory data = abi.encode(PROCESS_MESSAGE_FROM_HOME, amount);
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // Send message to L1
-        IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
+        bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }
 
-//    /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
-//    /// @param data Bytes message sent from the AMB Contract Proxy (Home) contract.
-//    function processMessageFromForeign(bytes memory data) external {
-//        // Get the processor address
-//        address processor = IBridge(l2MessageRelayer).messageSender();
-//
-//        // Process the data
-//        _receiveMessage(msg.sender, processor, l1SourceChainId, data);
-//    }
+    /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
+    /// @param data Bytes message sent from the AMB Contract Proxy (Home) contract.
+    function receiveMessage(bytes memory data) external {
+        // Get L1 processor address
+        address processor = IBridge(l2MessageRelayer).messageSender();
+
+        // Process the data
+        _receiveMessage(msg.sender, processor, l1SourceChainId, data);
+    }
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
     // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol

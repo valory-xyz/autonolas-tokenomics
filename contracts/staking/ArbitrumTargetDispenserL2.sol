@@ -19,9 +19,6 @@ interface IBridge {
 }
 
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
-    // receiveMessage selector (Ethereum chain)
-    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
-
     /// @notice _l1DepositProcessor must be correctly pre-calculated as l1DepositProcessor from L1 aliased to L2.
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
     constructor(
@@ -36,7 +33,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, address) internal override {
         // Assemble AMB data payload
-        bytes memory data = abi.encode(RECEIVE_MESSAGE, amount);
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // TODO Dow we need to supply any value?
         // Send message to L1

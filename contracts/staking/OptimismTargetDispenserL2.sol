@@ -35,8 +35,6 @@ interface IBridge {
 }
 
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
-    // processMessageFromSource selector (Ethereum)
-    bytes4 public constant PROCESS_MESSAGE = bytes4(keccak256(bytes("processMessage(bytes)")));
 
     constructor(
         address _olas,
@@ -50,7 +48,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
     // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, address) internal override {
         // Assemble data payload
-        bytes memory data = abi.encode(PROCESS_MESSAGE, amount);
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // Send message to L1
         // TODO Account for 20% more on L2 as well?
@@ -61,7 +59,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
     }
 
-    function processMessage(bytes memory data) external {
+    function receiveMessage(bytes memory data) external {
         // Check for the target dispenser address
         address l1Processor = IBridge(l2MessageRelayer).xDomainMessageSender();
 

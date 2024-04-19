@@ -26,15 +26,18 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("1. EOA to deploy Mock Dispenser");
-    const Dispenser = await ethers.getContractFactory("MockServiceStakingDispenser");
-    console.log("You are signing the following transaction: Dispenser.connect(EOA).deploy()");
-    const dispenser = await Dispenser.connect(EOA).deploy(parsedData.olasAddress);
-    const result = await dispenser.deployed();
+    console.log("3. EOA to deploy OptimismDepositProcessorL1");
+    const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
+    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
+    const optimismDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.dispenserAddress, parsedData.optimisticL1StandardBridgeProxyAddress,
+        parsedData.optimisticL1CrossDomainMessengerProxyAddress, parsedData.optimisticL2TargetChainId,
+        parsedData.optimisticOLASAddress);
+    const result = await optimismDepositProcessorL1.deployed();
 
     // Transaction details
-    console.log("Contract deployment: Dispenser");
-    console.log("Contract address:", dispenser.address);
+    console.log("Contract deployment: OptimismDepositProcessorL1");
+    console.log("Contract address:", optimismDepositProcessorL1.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // If on sepolia, wait a minute for the transaction completion
@@ -43,13 +46,13 @@ async function main() {
     }
 
     // Writing updated parameters back to the JSON file
-    parsedData.dispenserAddress = dispenser.address;
+    parsedData.optimismDepositProcessorL1Address = optimismDepositProcessorL1.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_01_mock_dispenser.js --network " + providerName + " " + dispenser.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_04_optimism_deposit_processor.js --network " + providerName + " " + optimismDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 

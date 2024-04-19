@@ -40,30 +40,31 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("3. EOA to deploy GnosisTargetDispenserL2");
-    const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
-    console.log("You are signing the following transaction: GnosisTargetDispenserL2.connect(EOA).deploy()");
-    const gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress, parsedData.gnosisAMBHomeAddress,
-        parsedData.gnosisDepositProcessorL1Address, parsedData.l1ChainId);
-    const result = await gnosisTargetDispenserL2.deployed();
+    console.log("4. EOA to deploy OptimismTargetDispenserL2");
+    const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
+    console.log("You are signing the following transaction: OptimismTargetDispenserL2.connect(EOA).deploy()");
+    const optimismTargetDispenserL2 = await OptimismTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress,
+        parsedData.optimisticL2CrossDomainMessengerAddress, parsedData.optimismDepositProcessorL1Address,
+        parsedData.l1ChainId);
+    const result = await optimismTargetDispenserL2.deployed();
 
     // Transaction details
-    console.log("Contract deployment: GnosisTargetDispenserL2");
-    console.log("Contract address:", gnosisTargetDispenserL2.address);
+    console.log("Contract deployment: OptimismTargetDispenserL2");
+    console.log("Contract address:", optimismTargetDispenserL2.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.gnosisTargetDispenserL2Address = gnosisTargetDispenserL2.address;
+    parsedData.optimismTargetDispenserL2Address = optimismTargetDispenserL2.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/gnosis/verify_03_gnosis_target_dispenser.js --network " + providerName + " " + gnosisTargetDispenserL2.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/optimistic/verify_04_optimism_target_dispenser.js --network " + providerName + " " + optimismTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 

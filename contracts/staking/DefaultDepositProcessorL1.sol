@@ -12,10 +12,11 @@ abstract contract DefaultDepositProcessorL1 {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
 
-    // TODO Calculate min maxGas required on L2 side
-    // Token transfer gas limit
+    // receiveMessage selector to be executed on L2
+    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
+    // Token transfer gas limit for L2
     uint256 public constant TOKEN_GAS_LIMIT = 300_000;
-    // Message transfer gas limit
+    // Message transfer gas limit for L2
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
     // OLAS token address
     address public immutable olas;
@@ -69,7 +70,7 @@ abstract contract DefaultDepositProcessorL1 {
     /// @param stakingAmounts Corresponding set of staking amounts.
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
     /// @param transferAmount Actual total OLAS amount to be transferred.
-    /// @return sequence Unique message sequence, if applicable.
+    /// @return sequence Unique message sequence (if applicable) or the batch number.
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
@@ -152,7 +153,7 @@ abstract contract DefaultDepositProcessorL1 {
 
     /// @dev Sets L2 target dispenser address and zero-s the owner.
     /// @param l2Dispenser L2 target dispenser address.
-    function setL2TargetDispenser(address l2Dispenser) external {
+    function _setL2TargetDispenser(address l2Dispenser) internal {
         if (owner != msg.sender) {
             revert();
         }
@@ -163,5 +164,11 @@ abstract contract DefaultDepositProcessorL1 {
         l2TargetDispenser = l2Dispenser;
 
         owner = address(0);
+    }
+
+    /// @dev Sets L2 target dispenser address.
+    /// @param l2Dispenser L2 target dispenser address.
+    function setL2TargetDispenser(address l2Dispenser) external virtual {
+        _setL2TargetDispenser(l2Dispenser);
     }
 }

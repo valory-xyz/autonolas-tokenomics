@@ -30,8 +30,10 @@ abstract contract DefaultTargetDispenserL2 {
     event Paused();
     event Unpaused();
 
+    // receiveMessage selector (Ethereum chain)
+    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Gas limit for sending a message to L1
-    uint256 public constant GAS_LIMIT = 100_000;
+    uint256 public constant GAS_LIMIT = 200_000;
     // OLAS address
     address public immutable olas;
     // Proxy factory address
@@ -137,14 +139,14 @@ abstract contract DefaultTargetDispenserL2 {
             revert TargetRelayerOnly(messageSender, l2MessageRelayer);
         }
 
-        // Check the source chain Id
-        if (sourceChainId != l1SourceChainId) {
-            revert WrongSourceChainId(sourceChainId, l1SourceChainId);
-        }
-
         // Check for the deposit processor address
         if (sourceProcessor != l1DepositProcessor) {
             revert DepositProcessorOnly(sourceProcessor, l1DepositProcessor);
+        }
+
+        // Check the source chain Id
+        if (sourceChainId != l1SourceChainId) {
+            revert WrongSourceChainId(sourceChainId, l1SourceChainId);
         }
 
         // Emit received message
@@ -223,7 +225,7 @@ abstract contract DefaultTargetDispenserL2 {
         _locked = 2;
 
         if (refundAccount == address(0)) {
-            revert ZeroAddress();
+            refundAccount = msg.sender;
         }
 
         uint256 amount = withheldAmount;

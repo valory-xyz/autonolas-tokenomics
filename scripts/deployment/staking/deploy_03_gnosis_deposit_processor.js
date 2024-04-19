@@ -51,7 +51,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/test/verify_03_gnosis_deposit_processor.js --network " + providerName + " " + gnosisDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking//verify_03_gnosis_deposit_processor.js --network " + providerName + " " + gnosisDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 

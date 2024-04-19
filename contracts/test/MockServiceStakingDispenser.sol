@@ -27,36 +27,36 @@ contract MockServiceStakingDispenser {
     }
 
     /// @dev Mints a specified amount and sends to staking dispenser on L2.
+    /// @param depositProcessor Deposit processor bridge mediator.
     /// @param stakingTarget Service staking target address on L2.
     /// @param stakingAmount Token amount to stake.
-    /// @param depositProcessor Deposit processor bridge mediator.
     /// @param bridgePayload Bridge payload, if necessary.
+    /// @param transferAmount Actual token transfer amount.
     function mintAndSend(
+        address depositProcessor,
         address stakingTarget,
         uint256 stakingAmount,
-        address depositProcessor,
-        bytes memory bridgePayload
+        bytes memory bridgePayload,
+        uint256 transferAmount
     ) external payable {
-        IToken(token).mint(depositProcessor, stakingAmount);
+        IToken(token).mint(depositProcessor, transferAmount);
         IDepositProcessor(depositProcessor).sendMessage{value:msg.value}(stakingTarget, stakingAmount, bridgePayload,
-            stakingAmount);
+            transferAmount);
     }
 
     /// @dev Mints specified amounts and sends a batch message to the L2 side via a corresponding bridge.
+    /// @param depositProcessor Deposit processor bridge mediator.
     /// @param stakingTargets Set of staking target addresses.
     /// @param stakingAmounts Corresponding set of staking amounts.
-    /// @param depositProcessor Deposit processor bridge mediator.
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual token transfer amount.
     function sendMessageBatch(
+        address depositProcessor,
         address[] memory stakingTargets,
         uint256[] memory stakingAmounts,
-        address depositProcessor,
-        bytes memory bridgePayload
+        bytes memory bridgePayload,
+        uint256 transferAmount
     ) external payable {
-        uint256 transferAmount;
-        for (uint256 i = 0; i < stakingAmounts.length; ++i) {
-            transferAmount += stakingAmounts[i];
-        }
         IToken(token).mint(depositProcessor, transferAmount);
         IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargets, stakingAmounts,
             bridgePayload, transferAmount);

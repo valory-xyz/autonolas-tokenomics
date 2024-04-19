@@ -10,3 +10,8 @@
 1. On L1: deploy GnosisDepositProcessorL1
 2. On L2: deploy GnosisTargetDispenserL2
 3. On L1: In GnosisDepositProcessorL1 set GnosisTargetDispenserL2 to as l2TargetDispenser.
+
+## Optimism / Base
+1. On L1: deploy OptimismDepositProcessorL1
+2. On L2: deploy OptimismTargetDispenserL2
+3. On L1: In OptimismDepositProcessorL1 set OptimismTargetDispenserL2 to as l2TargetDispenser.
