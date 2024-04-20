@@ -29,8 +29,8 @@ const main = async () => {
         console.log("Correct wallet setup");
     }
 
-    const l1DepositProcessorAddress = "0xFf25c04CA77cE4457246aAe52299366d3aEc434d";
-    const l2TargetDispenserAddress = "0x3c3007a2e4ba7f73C764F69f6D6C1983D9EB6B26";
+    const l1DepositProcessorAddress = "0xE47F503C8C602D9B70E01627915dDAa4ee05531b";
+    const l2TargetDispenserAddress = "0x11EAdb54abB2476ddA705D80048516714274b07d";
     //const erc20Token = (await ethers.getContractAt("ERC20Token", tokenAddress)).connect(EOAarbitrumSepolia);
     //console.log(erc20Token.address);
 
@@ -131,7 +131,7 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0x1F4C3134aFB97DE2BfBBF28894d24F58D0A95eFC";
+    const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
@@ -144,6 +144,8 @@ const main = async () => {
         finalPayload, transferAmount, { value: totalCost, gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
+
+    // tx back to L1: https://sepolia.arbiscan.io/tx/0xde0193236bce2ae7ecedff473853b994ed3f678c8823db70190593d8e757b548
 };
 
 main()

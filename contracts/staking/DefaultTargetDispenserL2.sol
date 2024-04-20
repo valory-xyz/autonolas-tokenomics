@@ -20,13 +20,14 @@ error ZeroAddress();
 error ZeroValue();
 
 abstract contract DefaultTargetDispenserL2 {
+    event FundsReceived(address indexed sender, uint256 value);
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 batchNonce);
-    event ServiceStakingParametersUpdated(uint256 rewardsPerSecondLimit);
     event MessageSent(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor, uint256 amount);
-    event MessageReceived(address indexed messageSender, uint256 chainId, bytes data);
+    event MessageReceived(address indexed sender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
+    event Drain(address indexed owner, uint256 amount);
     event Paused();
     event Unpaused();
 
@@ -90,32 +91,36 @@ abstract contract DefaultTargetDispenserL2 {
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
         uint256 batchNonce = stakingBatchNonce;
+        uint256 withheld = withheldAmount;
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
+
+            // Check the target validity address and staking parameters
+            // This is a low level call since it must never revert
+            (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
+                IServiceStakingFactory.verifyInstance.selector, target));
+
+            // If the function call was successful, check the return value
+            if (success) {
+                success = abi.decode(returnData, (bool));
+            }
+
+            // If verification failed, withhold OLAS amount and continue
+            if (!success) {
+                // Withhold OLAS for further usage
+                withheld += amount;
+                emit ServiceStakingAmountWithheld(target, amount);
+
+                continue;
+            }
+
             // TODO Shall we account for paused here and just queue, if paused?
             if (IToken(olas).balanceOf(address(this)) >= amount) {
-
-                // Check the target validity address and staking parameters
-                // This is a low level call since it must never revert
-                (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
-                    IServiceStakingFactory.verifyInstance.selector, target));
-
-                // If the function call was successful, check the return value
-                if (success) {
-                    success = abi.decode(returnData, (bool));
-                }
-
-                if (success) {
                     // Approve and transfer OLAS to the service staking target
                     IToken(olas).approve(target, amount);
                     IServiceStaking(target).deposit(amount);
                     emit ServiceStakingTargetDeposited(target, amount);
-                } else {
-                    // Withhold OLAS for further usage
-                    withheldAmount += amount;
-                    emit ServiceStakingAmountWithheld(target, amount);
-                }
             } else {
                 // Hash of target + amount + batchNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
@@ -124,9 +129,14 @@ abstract contract DefaultTargetDispenserL2 {
             }
         }
         stakingBatchNonce = batchNonce + 1;
+
+        // Adjust withheld amount, if needed
+        if (withheld > 0) {
+            withheldAmount = withheld;
+        }
     }
 
-    function _sendMessage(uint256 amount, address refundAccount) internal virtual;
+    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal virtual;
 
     function _receiveMessage(
         address messageSender,
@@ -174,26 +184,12 @@ abstract contract DefaultTargetDispenserL2 {
         }
 
         if (IToken(olas).balanceOf(address(this)) >= amount) {
-            // Check the target validity address and staking parameters
-            // This is a low level call since it must never revert
-            (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
-                IServiceStakingFactory.verifyInstance.selector, target));
+            // Approve and transfer OLAS to the service staking target
+            IToken(olas).approve(target, amount);
+            IServiceStaking(target).deposit(amount);
+            emit ServiceStakingTargetDeposited(target, amount);
 
-            // If the function call was successful, check the return value
-            if (success) {
-                success = abi.decode(returnData, (bool));
-            }
-
-            if (success) {
-                // Approve and transfer OLAS to the service staking target
-                IToken(olas).approve(target, amount);
-                IServiceStaking(target).deposit(amount);
-                emit ServiceStakingTargetDeposited(target, amount);
-            } else {
-                // Withhold OLAS for further usage
-                withheldAmount += amount;
-                emit ServiceStakingAmountWithheld(target, amount);
-            }
+            // Remove processed queued nonce
             stakingQueueingNonces[queueHash] = false;
         } else {
             revert();
@@ -216,17 +212,13 @@ abstract contract DefaultTargetDispenserL2 {
         _processData(data);
     }
 
-    // TODO Finalize with the refunder (different ABI), if zero address - refunder is msg.sender
-    function syncWithheldTokens(address refundAccount) external payable {
+    // TODO Finalize with the refundAccount (different ABI), if zero address - refundAccount is msg.sender
+    function syncWithheldTokens(bytes memory bridgePayload) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
-
-        if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
-        }
 
         uint256 amount = withheldAmount;
         // TODO Check for a minimum withheld amount like 100 OLAS?
@@ -238,7 +230,7 @@ abstract contract DefaultTargetDispenserL2 {
         withheldAmount = 0;
 
         // Send a message to sync the withheld amount
-        _sendMessage(amount, refundAccount);
+        _sendMessage(amount, bridgePayload);
 
         emit WithheldAmountSynced(msg.sender, amount);
 
@@ -265,5 +257,38 @@ abstract contract DefaultTargetDispenserL2 {
         emit Unpaused();
     }
 
-    receive() external payable {}
+    /// @dev Drains contract native funds.
+    /// @return amount Drained amount.
+    function drain() external returns (uint256 amount) {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for the drainer address
+        if (msg.sender != owner) {
+            revert ();
+        }
+
+        // Drain the slashed funds
+        amount = address(this).balance;
+        if (amount == 0) {
+            revert();
+        }
+
+        // Send funds to the owner
+        (bool result, ) = msg.sender.call{value: amount}("");
+        if (!result) {
+            revert ();//TransferFailed(address(0), address(this), msg.sender, amount);
+        }
+        emit Drain(msg.sender, amount);
+
+        _locked = 1;
+    }
+
+    /// @dev Receives native network token.
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
+    }
 }

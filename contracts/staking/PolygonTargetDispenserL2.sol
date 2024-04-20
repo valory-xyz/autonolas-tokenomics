@@ -20,7 +20,7 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
     {}
 
     // TODO: where does the unspent gas go?
-    function _sendMessage(uint256 amount, address) internal override {
+    function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encode(amount);
 

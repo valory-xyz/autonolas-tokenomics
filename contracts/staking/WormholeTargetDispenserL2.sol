@@ -75,10 +75,12 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         l1SourceChainId = _l1SourceChainId;
     }
 
-    function _sendMessage(uint256 amount, address refundAccount) internal override {
+    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
         // Get a quote for the cost of gas for delivery
         uint256 cost;
         (cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
+
+        address refundAccount = abi.decode(bridgePayload, (address));
 
         // Send the message
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(

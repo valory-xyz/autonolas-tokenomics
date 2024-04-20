@@ -15,8 +15,8 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x0C51d23918A8fFa6789A938E6D9555DD3982c99d";
-    const l2TargetDispenserAddress = "0x93Cd3f6DcE64d67f4420939865A00aC89776D4b5";
+    const l1DepositProcessorAddress = "0x5Bb894d064A5c32a05DF64718dF3fF9A2549D258";
+    const l2TargetDispenserAddress = "0xA9D794548486D15BfbCe2b8b5F5518b739fa8A4b";
     const targetInstance = "0x42C002Bc981A47d4143817BD9eA6A898a9916285";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
@@ -30,25 +30,29 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0x1F4C3134aFB97DE2BfBBF28894d24F58D0A95eFC";
+    const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
+    const gasPrice = ethers.utils.parseUnits("2", "gwei");
+    // This is a contract-level message gas limit for L2 - capable of processing around 200 targets + amounts
     const minGasLimit = "2000000";
-    const cost = "1000000";
-    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256","uint256"], [cost, minGasLimit]);
+    const cost = ethers.BigNumber.from("1000000").mul(gasPrice);
+    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [cost]);
 
     const transferAmount = defaultAmount;
     // Must be at least 20% bigger than cost
-    const finalCost = "1200000";
+    const finalCost = ethers.BigNumber.from("1200000").mul(gasPrice);
     const gasLimit = "5000000";
     const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
-        bridgePayload, transferAmount, { value: finalCost, gasLimit });
+        bridgePayload, transferAmount, { value: finalCost, gasLimit, gasPrice });
     console.log("TX hash", tx.hash);
     await tx.wait();
+
+    // tx back: https://sepolia-optimism.etherscan.io/tx/0x6ef9bb50e9a70077ddb00d978b0baf93e3ba17e5f36a3978b225e97f7b613884
 };
 
 main()

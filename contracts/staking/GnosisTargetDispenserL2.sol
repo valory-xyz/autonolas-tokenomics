@@ -30,7 +30,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     // TODO: where does the unspent gas go?
-    function _sendMessage(uint256 amount, address) internal override {
+    function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 

@@ -31,7 +31,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     // TODO: where does the unspent gas go?
-    function _sendMessage(uint256 amount, address) internal override {
+    function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
@@ -45,7 +45,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     /// @dev Processes a message received from the L1 deposit processor contract.
     /// @notice msg.sender is a converted address of l1DepositProcessor from L1.
     /// @param data Bytes message sent from L1.
-    function receiveMessage(bytes memory data) external {
+    function receiveMessage(bytes memory data) external payable {
         // Process the data
         _receiveMessage(l2MessageRelayer, msg.sender, l1SourceChainId, data);
     }
