@@ -91,7 +91,7 @@ abstract contract DefaultTargetDispenserL2 {
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
         uint256 batchNonce = stakingBatchNonce;
-        uint256 withheld = withheldAmount;
+        uint256 withheld = 0;
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
@@ -132,7 +132,7 @@ abstract contract DefaultTargetDispenserL2 {
 
         // Adjust withheld amount, if needed
         if (withheld > 0) {
-            withheldAmount = withheld;
+            withheldAmount += withheld;
         }
     }
 

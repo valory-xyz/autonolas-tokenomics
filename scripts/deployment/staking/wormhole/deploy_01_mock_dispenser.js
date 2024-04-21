@@ -11,11 +11,25 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    let EOA;
 
-    const provider = await ethers.providers.getDefaultProvider(providerName);
+    let networkURL = parsedData.networkURL;
+    if (providerName === "polygon") {
+        if (!process.env.ALCHEMY_API_KEY_MATIC) {
+            console.log("set ALCHEMY_API_KEY_MATIC env variable");
+        }
+        networkURL += process.env.ALCHEMY_API_KEY_MATIC;
+    } else if (providerName === "polygonAmoy") {
+        if (!process.env.ALCHEMY_API_KEY_AMOY) {
+            console.log("set ALCHEMY_API_KEY_AMOY env variable");
+            return;
+        }
+        networkURL += process.env.ALCHEMY_API_KEY_AMOY;
+    }
+
+    const provider = new ethers.providers.JsonRpcProvider(networkURL);
     const signers = await ethers.getSigners();
 
+    let EOA;
     if (useLedger) {
         EOA = new LedgerSigner(provider, derivationPath);
     } else {
@@ -26,18 +40,15 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("4. EOA to deploy OptimismDepositProcessorL1");
-    const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
-    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
-    const optimismDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.optimisticL1StandardBridgeProxyAddress,
-        parsedData.optimisticL1CrossDomainMessengerProxyAddress, parsedData.optimisticL2TargetChainId,
-        parsedData.optimisticOLASAddress);
-    const result = await optimismDepositProcessorL1.deployed();
+    console.log("1. EOA to deploy Mock Dispenser");
+    const Dispenser = await ethers.getContractFactory("MockServiceStakingDispenser");
+    console.log("You are signing the following transaction: Dispenser.connect(EOA).deploy()");
+    const dispenser = await Dispenser.connect(EOA).deploy(parsedData.olasAddress);
+    const result = await dispenser.deployed();
 
     // Transaction details
-    console.log("Contract deployment: OptimismDepositProcessorL1");
-    console.log("Contract address:", optimismDepositProcessorL1.address);
+    console.log("Contract deployment: Dispenser");
+    console.log("Contract address:", dispenser.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // If on sepolia, wait a minute for the transaction completion
@@ -46,13 +57,13 @@ async function main() {
     }
 
     // Writing updated parameters back to the JSON file
-    parsedData.optimismDepositProcessorL1Address = optimismDepositProcessorL1.address;
+    parsedData.dispenserAddress = dispenser.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_04_optimism_deposit_processor.js --network " + providerName + " " + optimismDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/verify_01_mock_dispenser.js --network " + providerName + " " + dispenser.address, { encoding: "utf-8" });
     }
 }
 

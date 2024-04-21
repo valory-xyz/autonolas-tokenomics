@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetDispenserL2.sol";
+import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 import {TokenBase, TokenReceiver} from "wormhole-solidity-sdk/TokenBase.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
@@ -58,8 +58,8 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId,
-        address _l2TokenRelayer,
-        address _wormholeCore
+        address _wormholeCore,
+        address _l2TokenRelayer
     )
         DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
         TokenBase(_l2MessageRelayer, _l2TokenRelayer, _wormholeCore)
@@ -77,10 +77,16 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
         // Get a quote for the cost of gas for delivery
-        uint256 cost;
-        (cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
+        (uint256 cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
+
+        if (cost > msg.sender) {
+            revert();
+        }
 
         address refundAccount = abi.decode(bridgePayload, (address));
+        if (refundAccount == address(0)) {
+            refundAccount = msg.sender;
+        }
 
         // Send the message
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(

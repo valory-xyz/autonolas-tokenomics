@@ -39,7 +39,7 @@ const main = async () => {
 
     const gasPrice = ethers.utils.parseUnits("2", "gwei");
     // This is a contract-level message gas limit for L2 - capable of processing around 200 targets + amounts
-    const minGasLimit = "2000000";
+    //const minGasLimit = "2000000";
     const cost = ethers.BigNumber.from("1000000").mul(gasPrice);
     const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [cost]);
 

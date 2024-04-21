@@ -26,18 +26,18 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("4. EOA to deploy OptimismDepositProcessorL1");
-    const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
-    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
-    const optimismDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.optimisticL1StandardBridgeProxyAddress,
-        parsedData.optimisticL1CrossDomainMessengerProxyAddress, parsedData.optimisticL2TargetChainId,
-        parsedData.optimisticOLASAddress);
-    const result = await optimismDepositProcessorL1.deployed();
+    console.log("5. EOA to deploy WormholeDepositProcessorL1");
+    const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
+    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).deploy()");
+    const wormholeDepositProcessorL1 = await WormholeDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.dispenserAddress, parsedData.wormholeL1TokenRelayerAddress,
+        parsedData.wormholeL1MessageRelayerAddress, parsedData.celoL2TargetChainId,
+        parsedData.wormholeL1CoreAddress, parsedData.celoWormholeL2TargetChainId);
+    const result = await wormholeDepositProcessorL1.deployed();
 
     // Transaction details
-    console.log("Contract deployment: OptimismDepositProcessorL1");
-    console.log("Contract address:", optimismDepositProcessorL1.address);
+    console.log("Contract deployment: WormholeDepositProcessorL1");
+    console.log("Contract address:", wormholeDepositProcessorL1.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // If on sepolia, wait a minute for the transaction completion
@@ -46,13 +46,13 @@ async function main() {
     }
 
     // Writing updated parameters back to the JSON file
-    parsedData.optimismDepositProcessorL1Address = optimismDepositProcessorL1.address;
+    parsedData.wormholeDepositProcessorL1Address = wormholeDepositProcessorL1.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_04_optimism_deposit_processor.js --network " + providerName + " " + optimismDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_05_wormhole_deposit_processor.js --network " + providerName + " " + wormholeDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 

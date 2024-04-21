@@ -55,13 +55,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
         // TODO Do we need to check for the refund info validity or the bridge is going to revert this?
-        (address refundAccount, uint256 refundChainId, uint256 gasLimit) = abi.decode(bridgePayload,
-            (address, uint256, uint256));
-
-        if (transferAmount > 0) {
-            // Approve tokens for the token bridge contract
-            IToken(olas).approve(address(tokenBridge), transferAmount);
-        }
+        (address refundAccount, uint256 refundChainId) = abi.decode(bridgePayload, (address, uint256));
 
         // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingAmounts);
@@ -69,8 +63,9 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203
         // Doc: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
+        // The token approval is done inside the function
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
-            gasLimit, olas, transferAmount, uint16(refundChainId), refundAccount);
+            MESSAGE_GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAccount);
     }
 
     /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.
@@ -100,5 +95,12 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         address l2Dispenser = address(uint160(uint256(sourceAddress)));
 
         _receiveMessage(msg.sender, l2Dispenser, data);
+    }
+
+    /// @dev Sets L2 target dispenser address.
+    /// @param l2Dispenser L2 target dispenser address.
+    function setL2TargetDispenser(address l2Dispenser) external override {
+        setRegisteredSender(uint16(wormholeTargetChainId), bytes32(uint256(uint160(l2Dispenser))));
+        _setL2TargetDispenser(l2Dispenser);
     }
 }

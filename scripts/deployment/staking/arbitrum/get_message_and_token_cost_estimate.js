@@ -133,10 +133,24 @@ const main = async () => {
     const fs = require("fs");
     const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
-    const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
+    let contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
+
+    const olasAddress = "0x2AeD71638128A3811F5e5971a397fFe6A8587caa";
+    const olasJSON = "artifacts/contracts/test/ERC20TokenOwnerless.sol/ERC20TokenOwnerless.json";
+    contractFromJSON = fs.readFileSync(olasJSON, "utf8");
+    parsedFile = JSON.parse(contractFromJSON);
+    const olasABI = parsedFile["abi"];
+    const olas = new ethers.Contract(olasAddress, olasABI, arbitrumSepoliaProvider);
+    const totalSupply = await olas.totalSupply();
+    console.log("totalSupply on L2:", totalSupply);
+    let balance = await olas.balanceOf(l2TargetDispenserAddress);
+    console.log("balance of L2 target dispenser:", balance);
+    balance = await olas.balanceOf(targetInstance);
+    console.log("balance of L2 proxy:", balance);
+    return;
 
     const transferAmount = defaultAmount;
     const gasLimit = 3000000;
