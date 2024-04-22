@@ -70,11 +70,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         TokenBase(_l2MessageRelayer, _l2TokenRelayer, _wormholeCore)
     {
         if (_l1SourceChainId > type(uint16).max) {
-            revert();
+            revert Overflow(_l1SourceChainId, type(uint16).max);
         }
 
         if (_wormholeCore == address(0) || _l2TokenRelayer == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         l1SourceChainId = _l1SourceChainId;
@@ -85,7 +85,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         (uint256 cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
 
         if (cost > msg.value) {
-            revert();
+            revert LowerThan(msg.value, cost);
         }
 
         address refundAccount;
