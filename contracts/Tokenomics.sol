@@ -608,7 +608,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Same check for top-up fractions
-        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _serviceStakingFraction;
+        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction +
+            _serviceStakingFraction;
         if (sumTopUpFractions > 100) {
             revert WrongAmount(sumTopUpFractions, 100);
         }

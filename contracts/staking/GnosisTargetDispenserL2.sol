@@ -20,16 +20,26 @@ interface IBridge {
 }
 
 contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
+    address public immutable l2TokenRelayer;
+
     constructor(
         address _olas,
         address _proxyFactory,
         address _owner,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
-        uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+        uint256 _l1SourceChainId,
+        address _l2TokenRelayer
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+    {
+        if (_l2TokenRelayer == address(0)) {
+            revert();
+        }
 
-    // TODO: where does the unspent gas go?
+        l2TokenRelayer = _l2TokenRelayer;
+    }
+
     function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
@@ -37,7 +47,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount, 0);
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
@@ -52,9 +62,11 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
     // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol
-    // TODO If the data is transferred together with the token
     function onTokenBridged(address, uint256, bytes calldata data) external {
-        // TODO: also separate l2MessageRelayer for token and messages? As l2MessageRelayer now is for messages only
+        if (msg.sender != l2TokenRelayer) {
+            revert TargetRelayerOnly(msg.sender, l2TokenRelayer);
+        }
+
         // Process the data
         _receiveMessage(l2MessageRelayer, l1DepositProcessor, l1SourceChainId, data);
     }

@@ -125,7 +125,7 @@ const main = async () => {
     console.log("Total cost:", totalCost.toString());
 
     const finalPayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
-        [EOAarbitrumSepolia.address, gasPriceBid, gasLimitMessage, maxSubmissionCostMessage, maxSubmissionCostToken]);
+        [EOAarbitrumSepolia.address, gasPriceBid, maxSubmissionCostToken, gasLimitMessage, maxSubmissionCostMessage]);
     console.log("ArbitrumDepositProcessorL1 payload:", finalPayload);
 
 
@@ -160,6 +160,37 @@ const main = async () => {
     await tx.wait();
 
     // tx back to L1: https://sepolia.arbiscan.io/tx/0xde0193236bce2ae7ecedff473853b994ed3f678c8823db70190593d8e757b548
+
+    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
+    // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
+    // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
+    /**
+     * @notice Executes a messages in an Outbox entry.
+     * @dev Reverts if dispute period hasn't expired, since the outbox entry
+     *      is only created once the rollup confirms the respective assertion.
+     * @dev it is not possible to execute any L2-to-L1 transaction which contains data
+     *      to a contract address without any code (as enforced by the Bridge contract).
+     * @param proof Merkle proof of message inclusion in send root
+     * @param index Merkle path to message
+     * @param l2Sender sender if original message (i.e., caller of ArbSys.sendTxToL1)
+     * @param to destination address for L1 contract call
+     * @param l2Block l2 block number at which sendTxToL1 call was made
+     * @param l1Block l1 block number at which sendTxToL1 call was made
+     * @param l2Timestamp l2 Timestamp at which sendTxToL1 call was made
+     * @param value wei in L1 message
+     * @param data abi-encoded L1 message data
+     */
+//    function executeTransaction(
+//        bytes32[] calldata proof,
+//        uint256 index,
+//        address l2Sender,
+//        address to,
+//        uint256 l2Block,
+//        uint256 l1Block,
+//        uint256 l2Timestamp,
+//        uint256 value,
+//        bytes calldata data
+//    ) external;
 };
 
 main()

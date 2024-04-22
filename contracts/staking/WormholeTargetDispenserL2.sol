@@ -5,6 +5,11 @@ import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 import {TokenBase, TokenReceiver} from "wormhole-solidity-sdk/TokenBase.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
+error OneTokenOnly();
+/// @dev Provided token address is incorrect.
+/// @param provided Provided token address.
+/// @param expected Expected token address.
+error WrongTokenAddress(address provided, address expected);
 
 interface IBridge {
     // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L442
@@ -104,7 +109,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             refundAccount
         );
 
-        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount, cost);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
@@ -130,7 +135,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L187
         if (receivedTokens.length != 1) {
-            revert(); //"Expected 1 token transfers"
+            revert OneTokenOnly();
+        }
+
+        if (receivedTokens[0].tokenAddress != olas) {
+            revert WrongTokenAddress(receivedTokens[0].tokenAddress, olas);
         }
 
         // Get the deposit processor address

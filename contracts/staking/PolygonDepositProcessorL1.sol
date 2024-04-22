@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
+import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 import {FxBaseRootTunnel} from "fx-portal/contracts/tunnel/FxBaseRootTunnel.sol";
-import "../interfaces/IToken.sol";
 
 interface IBridge {
     // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
@@ -46,7 +45,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         FxBaseRootTunnel(_checkpointManager, _l1MessageRelayer)
     {
         if (_checkpointManager == address(0) || _predicate == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         predicate = _predicate;

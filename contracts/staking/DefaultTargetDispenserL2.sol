@@ -1,35 +1,42 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../interfaces/IToken.sol";
-
-interface IServiceStakingFactory {
-    function verifyInstance(address instance) external view returns (bool);
-}
+import "../interfaces/IBridgeErrors.sol";
 
 interface IServiceStaking {
     function deposit(uint256 amount) external;
 }
 
-error TargetRelayerOnly(address messageSender, address l2MessageRelayer);
-error WrongSourceChainId(uint256 sourceChainId, uint256 l1SourceChainId);
-error DepositProcessorOnly(address sourceProcessor, address l1DepositProcessor);
-error ReentrancyGuard();
-error OwnerOnly(address sender, address owner);
-error ZeroAddress();
-error ZeroValue();
+interface IServiceStakingFactory {
+    function verifyInstance(address instance) external view returns (bool);
+}
 
-abstract contract DefaultTargetDispenserL2 {
+interface IToken {
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
+
+    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
+    /// @param amount Token amount.
+    /// @return True if the function execution is successful.
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event FundsReceived(address indexed sender, uint256 value);
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
-    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount, uint256 batchNonce);
-    event MessageSent(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor, uint256 amount);
+    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
+        uint256 batchNonce, uint256 paused);
+    event MessageSent(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
+        uint256 amount, uint256 cost);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Drain(address indexed owner, uint256 amount);
-    event Paused();
-    event Unpaused();
+    event TargetDispenserPaused();
+    event TargetDispenserUnpaused();
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -69,11 +76,11 @@ abstract contract DefaultTargetDispenserL2 {
     ) {
         if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
             _l2MessageRelayer == address(0) || _l1DepositProcessor == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         if (_l1SourceChainId == 0) {
-            revert();
+            revert ZeroValue();
         }
 
         olas = _olas;
@@ -91,7 +98,8 @@ abstract contract DefaultTargetDispenserL2 {
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
         uint256 batchNonce = stakingBatchNonce;
-        uint256 withheld = 0;
+        uint256 localWithheldAmount = 0;
+        uint256 localPaused = paused;
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
@@ -109,14 +117,14 @@ abstract contract DefaultTargetDispenserL2 {
             // If verification failed, withhold OLAS amount and continue
             if (!success) {
                 // Withhold OLAS for further usage
-                withheld += amount;
+                localWithheldAmount += amount;
                 emit ServiceStakingAmountWithheld(target, amount);
 
                 continue;
             }
 
-            // TODO Shall we account for paused here and just queue, if paused?
-            if (IToken(olas).balanceOf(address(this)) >= amount) {
+            // Check the OLAS balance and the contract being unpaused
+            if (IToken(olas).balanceOf(address(this)) >= amount && localPaused == 1) {
                     // Approve and transfer OLAS to the service staking target
                     IToken(olas).approve(target, amount);
                     IServiceStaking(target).deposit(amount);
@@ -125,14 +133,14 @@ abstract contract DefaultTargetDispenserL2 {
                 // Hash of target + amount + batchNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
                 stakingQueueingNonces[queueHash] = true;
-                emit ServiceStakingRequestQueued(queueHash, target, amount, batchNonce);
+                emit ServiceStakingRequestQueued(queueHash, target, amount, batchNonce, localPaused);
             }
         }
         stakingBatchNonce = batchNonce + 1;
 
         // Adjust withheld amount, if needed
-        if (withheld > 0) {
-            withheldAmount += withheld;
+        if (localWithheldAmount > 0) {
+            withheldAmount += localWithheldAmount;
         }
     }
 
@@ -151,7 +159,7 @@ abstract contract DefaultTargetDispenserL2 {
 
         // Check for the deposit processor address
         if (sourceProcessor != l1DepositProcessor) {
-            revert DepositProcessorOnly(sourceProcessor, l1DepositProcessor);
+            revert WrongMessageSender(sourceProcessor, l1DepositProcessor);
         }
 
         // Check the source chain Id
@@ -174,16 +182,17 @@ abstract contract DefaultTargetDispenserL2 {
         _locked = 2;
 
         if (paused == 2) {
-            revert();
+            revert Paused();
         }
         
         bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
         bool queued = stakingQueueingNonces[queueHash];
         if (!queued) {
-            revert();
+            revert TargetAmountNotQueued(target, amount, batchNonce);
         }
 
-        if (IToken(olas).balanceOf(address(this)) >= amount) {
+        uint256 olasBalance = IToken(olas).balanceOf(address(this));
+        if (olasBalance >= amount) {
             // Approve and transfer OLAS to the service staking target
             IToken(olas).approve(target, amount);
             IServiceStaking(target).deposit(amount);
@@ -192,7 +201,7 @@ abstract contract DefaultTargetDispenserL2 {
             // Remove processed queued nonce
             stakingQueueingNonces[queueHash] = false;
         } else {
-            revert();
+            revert LowerThan(olasBalance, amount);
         }
 
         _locked = 1;
@@ -212,7 +221,6 @@ abstract contract DefaultTargetDispenserL2 {
         _processData(data);
     }
 
-    // TODO Finalize with the refundAccount (different ABI), if zero address - refundAccount is msg.sender
     function syncWithheldTokens(bytes memory bridgePayload) external payable {
         // Reentrancy guard
         if (_locked > 1) {
@@ -220,8 +228,12 @@ abstract contract DefaultTargetDispenserL2 {
         }
         _locked = 2;
 
+        if (paused == 2) {
+            revert Paused();
+        }
+
         uint256 amount = withheldAmount;
-        // TODO Check for a minimum withheld amount like 100 OLAS?
+
         if (amount == 0) {
             revert ZeroValue();
         }
@@ -244,7 +256,7 @@ abstract contract DefaultTargetDispenserL2 {
         }
 
         paused = 2;
-        emit Paused();
+        emit TargetDispenserPaused();
     }
 
     function unpause() external {
@@ -254,9 +266,10 @@ abstract contract DefaultTargetDispenserL2 {
         }
 
         paused = 1;
-        emit Unpaused();
+        emit TargetDispenserUnpaused();
     }
 
+    // TODO: shall we send all to the owner or another address?
     /// @dev Drains contract native funds.
     /// @return amount Drained amount.
     function drain() external returns (uint256 amount) {
@@ -274,13 +287,13 @@ abstract contract DefaultTargetDispenserL2 {
         // Drain the slashed funds
         amount = address(this).balance;
         if (amount == 0) {
-            revert();
+            revert ZeroValue();
         }
 
         // Send funds to the owner
         (bool result, ) = msg.sender.call{value: amount}("");
         if (!result) {
-            revert ();//TransferFailed(address(0), address(this), msg.sender, amount);
+            revert TransferFailed(address(0), address(this), msg.sender, amount);
         }
         emit Drain(msg.sender, amount);
 

@@ -33,13 +33,14 @@ const main = async () => {
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, polygonProvider);
 
-    const refundChainId = "14"; // celo
-    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [EOApolygon.address, refundChainId]);
+    // gasLimitMessage is usually set to 2_000_000 as a constant in testing to handle about 200 targets + amounts
+    const gasLimitMessage = "2000000";
+    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
+        [EOApolygon.address, gasLimitMessage]);
     console.log("bridgePayload", bridgePayload);
     const gasPrice = await polygonProvider.getGasPrice();
 
-    // Run this with wormholeRelayer.quoteEVMDeliveryPrice(targetChain, 0, gasLimit);
-    // where gasLimit is set to 2_000_000 as a constant
+    // Run this with wormholeRelayer.quoteEVMDeliveryPrice(targetChain, 0, gasLimitMessage);
     const wormholeCost = ethers.BigNumber.from("500000").mul(gasPrice);
     console.log("Wormhole cost", wormholeCost);
     const totalCost = wormholeCost.mul(2);

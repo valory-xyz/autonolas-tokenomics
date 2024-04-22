@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
-import "../interfaces/IToken.sol";
+import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
 interface IBridge {
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/L1/L1StandardBridge.sol#L188
@@ -57,34 +56,10 @@ interface IBridge {
      * @return Address of the sender of the currently executing message on the other chain.
      */
     function xDomainMessageSender() external view returns (address);
-
-    // TODO Remove before flight
-    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
-    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
-    // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
-    /**
-     * @notice Relays a message that was sent by the other CrossDomainMessenger contract. Can only
-     *         be executed via cross-chain call from the other messenger OR if the message was
-     *         already received once and is currently being replayed.
-     *
-     * @param _nonce       Nonce of the message being relayed.
-     * @param _sender      Address of the user who sent the message.
-     * @param _target      Address that the message is targeted at.
-     * @param _value       ETH value to send with the message.
-     * @param _minGasLimit Minimum amount of gas that the message can be executed with.
-     * @param _message     Message to send to the target.
-     */
-    function relayMessage(
-        uint256 _nonce,
-        address _sender,
-        address _target,
-        uint256 _value,
-        uint256 _minGasLimit,
-        bytes calldata _message
-    ) external payable;
 }
 
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
     address public immutable olasL2;
 
     // https://docs.optimism.io/chain/addresses
@@ -109,7 +84,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
         if (_olasL2 == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         olasL2 = _olasL2;
@@ -122,6 +97,11 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
+
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -134,24 +114,24 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
                 uint32(TOKEN_GAS_LIMIT), "");
         }
 
-        uint256 cost = abi.decode(bridgePayload, (uint256));
+        (uint256 cost, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
+        if (cost == 0 || gasLimitMessage == 0) {
+            revert ZeroValue();
+        }
 
         if (cost > msg.value) {
-            revert();
+            revert LowerThan(msg.value, cost);
         }
 
         // Assemble data bridgePayload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
         
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
-        IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(MESSAGE_GAS_LIMIT));
+        IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(gasLimitMessage));
 
         sequence = stakingBatchNonce;
     }
 
-    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
-    // TODO Where to send received funds, if coming from relayMessage() function?
-    // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
     function receiveMessage(bytes memory data) external payable {

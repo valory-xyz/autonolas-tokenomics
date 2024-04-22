@@ -39,9 +39,9 @@ const main = async () => {
 
     const gasPrice = ethers.utils.parseUnits("2", "gwei");
     // This is a contract-level message gas limit for L2 - capable of processing around 200 targets + amounts
-    //const minGasLimit = "2000000";
+    const minGasLimit = "2000000";
     const cost = ethers.BigNumber.from("1000000").mul(gasPrice);
-    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [cost]);
+    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [cost, minGasLimit]);
 
     const transferAmount = defaultAmount;
     // Must be at least 20% bigger than cost
@@ -53,6 +53,30 @@ const main = async () => {
     await tx.wait();
 
     // tx back: https://sepolia-optimism.etherscan.io/tx/0x6ef9bb50e9a70077ddb00d978b0baf93e3ba17e5f36a3978b225e97f7b613884
+
+    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
+    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
+    // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
+    /**
+     * @notice Relays a message that was sent by the other CrossDomainMessenger contract. Can only
+     *         be executed via cross-chain call from the other messenger OR if the message was
+     *         already received once and is currently being replayed.
+     *
+     * @param _nonce       Nonce of the message being relayed.
+     * @param _sender      Address of the user who sent the message.
+     * @param _target      Address that the message is targeted at.
+     * @param _value       ETH value to send with the message.
+     * @param _minGasLimit Minimum amount of gas that the message can be executed with.
+     * @param _message     Message to send to the target.
+     */
+//    function relayMessage(
+//        uint256 _nonce,
+//        address _sender,
+//        address _target,
+//        uint256 _value,
+//        uint256 _minGasLimit,
+//        bytes calldata _message
+//    ) external payable;
 };
 
 main()

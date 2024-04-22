@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultDepositProcessorL1.sol";
-import "../interfaces/IToken.sol";
+import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
 interface IBridge {
     // Contract: AMB Contract Proxy Foreign
@@ -27,6 +26,8 @@ interface IBridge {
 }
 
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
+
     /// @dev GnosisDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
@@ -45,9 +46,14 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingAmounts,
-        bytes memory,
+        bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
+
         // Deposit OLAS
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
@@ -63,8 +69,14 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
 
             // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
             // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
+            uint256 gasLimitMessage = abi.decode(bridgePayload, (uint256));
+            // Check for the max gas limit
+            if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+                revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+            }
+
             // Send message to L2
-            bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
+            bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, gasLimitMessage);
 
             sequence = uint256(iMsg);
         }

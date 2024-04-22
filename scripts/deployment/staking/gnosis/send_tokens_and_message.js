@@ -23,9 +23,9 @@ const main = async () => {
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
-    let payloadData = ethers.utils.defaultAbiCoder.encode(["address[]","uint256[]"], [stakingTargets, stakingAmounts]);
-    let receiverABI = ["function receiveMessage(bytes memory data)"];
-    let iReceiver = new ethers.utils.Interface(receiverABI);
+    const payloadData = ethers.utils.defaultAbiCoder.encode(["address[]","uint256[]"], [stakingTargets, stakingAmounts]);
+    const receiverABI = ["function receiveMessage(bytes memory data)"];
+    const iReceiver = new ethers.utils.Interface(receiverABI);
     const messageCalldata = iReceiver.encodeFunctionData("receiveMessage", [payloadData]);
     console.log("messageCalldata:", messageCalldata);
 
@@ -38,6 +38,9 @@ const main = async () => {
     parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
+
+    const gasLimitMessage = "2000000";
+    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [cost]);
 
     const transferAmount = defaultAmount;
     const gasLimit = "3000000";

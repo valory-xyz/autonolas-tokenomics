@@ -45,13 +45,11 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         uint256 _l1SourceChainId
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
-    // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
         // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // Send message to L1
-        // TODO Account for 20% more on L2 as well?
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         uint256 cost = abi.decode(bridgePayload, (uint256));
 
@@ -61,7 +59,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
 
         IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(GAS_LIMIT));
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(0, msg.sender, l1DepositProcessor, amount, cost);
     }
 
     function receiveMessage(bytes memory data) external payable {

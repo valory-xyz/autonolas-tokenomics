@@ -1,20 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+import "../interfaces/IBridgeErrors.sol";
+
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
 
-error TargetRelayerOnly(address l1Relayer, address l1MessageRelayer);
-error WrongMessageSender(address l2Dispenser, address l2TargetDispenser);
+interface IToken {
+    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
+    /// @param amount Token amount.
+    /// @return True if the function execution is successful.
+    function approve(address spender, uint256 amount) external returns (bool);
+}
 
-abstract contract DefaultDepositProcessorL1 {
+abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
 
     // receiveMessage selector to be executed on L2
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Token transfer gas limit for L2
+    // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
     uint256 public constant TOKEN_GAS_LIMIT = 300_000;
     // Message transfer gas limit for L2
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
@@ -49,11 +57,11 @@ abstract contract DefaultDepositProcessorL1 {
         uint256 _l2TargetChainId
     ) {
         if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         if (_l2TargetChainId == 0) {
-            revert();
+            revert ZeroValue();
         }
 
         olas = _olas;
@@ -113,7 +121,7 @@ abstract contract DefaultDepositProcessorL1 {
         uint256 transferAmount
     ) external virtual payable {
         if (msg.sender != l1Dispenser) {
-            revert();
+            revert ManagerOnly(l1Dispenser, msg.sender);
         }
 
         address[] memory targets = new address[](1);
@@ -141,7 +149,7 @@ abstract contract DefaultDepositProcessorL1 {
         uint256 transferAmount
     ) external virtual payable {
         if (msg.sender != l1Dispenser) {
-            revert();
+            revert ManagerOnly(l1Dispenser, msg.sender);
         }
 
         uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
@@ -154,12 +162,12 @@ abstract contract DefaultDepositProcessorL1 {
     /// @dev Sets L2 target dispenser address and zero-s the owner.
     /// @param l2Dispenser L2 target dispenser address.
     function _setL2TargetDispenser(address l2Dispenser) internal {
-        if (owner != msg.sender) {
-            revert();
+        if (msg.sender != owner) {
+            revert OwnerOnly(owner, msg.sender);
         }
 
         if (l2Dispenser == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
         l2TargetDispenser = l2Dispenser;
 

@@ -3,11 +3,11 @@ pragma solidity ^0.8.23;
 
 import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
-import "../interfaces/IToken.sol";
 
 error AlreadyDelivered(bytes32 deliveryHash);
 
 contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
     uint256 public immutable wormholeTargetChainId;
 
     // Map for wormhole delivery hashes
@@ -34,14 +34,14 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         TokenBase(_l1MessageRelayer, _l1TokenRelayer, _wormholeCore)
     {
         if (_wormholeCore == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
         if (_wormholeTargetChainId == 0) {
-            revert();
+            revert ZeroValue();
         }
 
         if (_wormholeTargetChainId > type(uint16).max) {
-            revert();
+            revert Overflow(_wormholeTargetChainId, type(uint16).max);
         }
 
         wormholeTargetChainId = _wormholeTargetChainId;
@@ -54,8 +54,18 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
-        // TODO Do we need to check for the refund info validity or the bridge is going to revert this?
-        (address refundAccount, uint256 refundChainId) = abi.decode(bridgePayload, (address, uint256));
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
+
+        (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload,
+            (address, uint256));
+
+        // If refundAccount is zero, default to msg.sender
+        if (refundAccount == address(0)) {
+            refundAccount = msg.sender;
+        }
 
         // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingAmounts);
@@ -65,7 +75,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Doc: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         // The token approval is done inside the function
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
-            MESSAGE_GAS_LIMIT, olas, transferAmount, uint16(refundChainId), refundAccount);
+            gasLimitMessage, olas, transferAmount, uint16(l2TargetChainId), refundAccount);
     }
 
     /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.
@@ -82,7 +92,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         bytes32 deliveryHash
     ) external {
         if (sourceChain != wormholeTargetChainId) {
-            revert();
+            revert WrongSourceChainId(sourceChain, wormholeTargetChainId);
         }
 
         // Check the delivery hash uniqueness

@@ -19,7 +19,6 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         FxBaseChildTunnel(_l2MessageRelayer)
     {}
 
-    // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encode(amount);
@@ -29,7 +28,7 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         // Send message to L1
         _sendMessageToRoot(data);
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(0, msg.sender, l1DepositProcessor, amount, 0);
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseChildTunnel.sol#L63
@@ -43,8 +42,6 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
      * @param data bytes message that was sent from Root Tunnel
      */
     function _processMessageFromRoot(uint256, address sender, bytes memory data) internal override {
-        // TODO: Check if stateId is needed (first unused parameter)
-
         // Process the data
         _receiveMessage(l2MessageRelayer, sender, l1SourceChainId, data);
     }

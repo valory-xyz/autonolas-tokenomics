@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "./DefaultTargetDispenserL2.sol";
+import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 
 interface IBridge {
     // Source (Go) and interface: https://docs.arbitrum.io/build-decentralized-apps/precompiles/reference#arbsys
@@ -19,7 +19,7 @@ interface IBridge {
 }
 
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
-    /// @notice _l1DepositProcessor must be correctly pre-calculated as l1DepositProcessor from L1 aliased to L2.
+    /// @notice _l1DepositProcessor must be correctly aliased from the address on L1.
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
     constructor(
         address _olas,
@@ -30,16 +30,14 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         uint256 _l1SourceChainId
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
-    // TODO: where does the unspent gas go?
     function _sendMessage(uint256 amount, bytes memory) internal override {
-        // Assemble AMB data payload
+        // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
-        // TODO Dow we need to supply any value?
         // Send message to L1
         uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
 
-        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
+        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount, 0);
     }
 
     /// @dev Processes a message received from the L1 deposit processor contract.
