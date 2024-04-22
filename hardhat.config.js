@@ -82,7 +82,7 @@ module.exports = {
             chainId: 11155111,
         },
         polygonAmoy: {
-            url: "https://polygon-mumbai.g.alchemy.com/v2/" + ALCHEMY_API_KEY_AMOY,
+            url: "https://polygon-amoy.g.alchemy.com/v2/" + ALCHEMY_API_KEY_AMOY,
             accounts: accounts,
             chainId: 80002
         },
@@ -122,8 +122,8 @@ module.exports = {
                 network: "polygonAmoy",
                 chainId: 80002,
                 urls: {
-                    apiURL: "https://heimdall-api-amoy.polygon.technology",
-                    browserURL: "https://www.oklink.com/amoy"
+                    apiURL: "https://api-amoy.polygonscan.com/api",
+                    browserURL: "https://amoy.polygonscan.com/"
                 }
             },
             {

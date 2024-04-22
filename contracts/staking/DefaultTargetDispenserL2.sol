@@ -34,7 +34,7 @@ abstract contract DefaultTargetDispenserL2 {
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Gas limit for sending a message to L1
-    uint256 public constant GAS_LIMIT = 200_000;
+    uint256 public constant GAS_LIMIT = 300_000;
     // OLAS address
     address public immutable olas;
     // Proxy factory address

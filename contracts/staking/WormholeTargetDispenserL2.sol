@@ -79,11 +79,16 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         // Get a quote for the cost of gas for delivery
         (uint256 cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
 
-        if (cost > msg.sender) {
+        if (cost > msg.value) {
             revert();
         }
 
-        address refundAccount = abi.decode(bridgePayload, (address));
+        address refundAccount;
+        if (bridgePayload.length == 0) {
+            refundAccount = msg.sender;
+        }
+        // TODO: Shall we need to check for the bridgePayload length?
+        refundAccount = abi.decode(bridgePayload, (address));
         if (refundAccount == address(0)) {
             refundAccount = msg.sender;
         }
