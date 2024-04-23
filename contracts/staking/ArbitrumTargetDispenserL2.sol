@@ -7,14 +7,12 @@ interface IBridge {
     // Source (Go) and interface: https://docs.arbitrum.io/build-decentralized-apps/precompiles/reference#arbsys
     // Source for the possible utility contract: https://github.com/OffchainLabs/token-bridge-contracts/blob/b3894ecc8b6185b2d505c71c9a7851725f53df15/contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol#L30
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
-    /**
-     * @notice Send a transaction to L1
-     * @dev it is not possible to execute on the L1 any L2-to-L1 transaction which contains data
-     * to a contract address without any code (as enforced by the Bridge contract).
-     * @param destination recipient address on L1
-     * @param data (optional) calldata for L1 contract call
-     * @return a unique identifier for this L2-to-L1 transaction.
-     */
+    /// @notice Send a transaction to L1
+    /// @dev it is not possible to execute on the L1 any L2-to-L1 transaction which contains data
+    /// to a contract address without any code (as enforced by the Bridge contract).
+    /// @param destination recipient address on L1
+    /// @param data (optional) calldata for L1 contract call
+    /// @return a unique identifier for this L2-to-L1 transaction.
     function sendTxToL1(address destination, bytes calldata data) external payable returns (uint256);
 }
 

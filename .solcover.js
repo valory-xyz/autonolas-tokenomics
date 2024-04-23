@@ -1,12 +1,13 @@
 module.exports = {
     skipFiles: [
+        "staking/test/BridgeRelayer.sol",
+        "staking/test/MockServiceStakingDispenser.sol",
+        "staking/test/MockServiceStakingFactory.sol",
+        "staking/test/MockServiceStakingProxy.sol",
         "test/ERC20Token.sol",
         "test/DepositAttacker.sol",
         "test/FlashLoanAttacker.sol",
         "test/MockRegistry.sol",
-        "test/MockServiceStakingDispenser.sol",
-        "test/MockServiceStakingFactory.sol",
-        "test/MockServiceStakingProxy.sol",
         "test/MockTokenomics.sol",
         "test/MockVE.sol",
         "test/ReentrancyAttacker.sol",

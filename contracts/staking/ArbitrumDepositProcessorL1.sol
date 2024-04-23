@@ -64,7 +64,7 @@ interface IBridge {
 }
 
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 158;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;
     address immutable l1ERC20Gateway;
     address immutable outbox;
 
@@ -181,7 +181,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert TargetRelayerOnly(msg.sender, outbox);
         }
 
-        // Get L2 dispenser address
+        // Get L2 target dispenser address
         address l2Dispenser = IBridge(outbox).l2ToL1Sender();
 
         // Process the data

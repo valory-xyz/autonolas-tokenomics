@@ -125,10 +125,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
             // Check the OLAS balance and the contract being unpaused
             if (IToken(olas).balanceOf(address(this)) >= amount && localPaused == 1) {
-                    // Approve and transfer OLAS to the service staking target
-                    IToken(olas).approve(target, amount);
-                    IServiceStaking(target).deposit(amount);
-                    emit ServiceStakingTargetDeposited(target, amount);
+                // Approve and transfer OLAS to the service staking target
+                IToken(olas).approve(target, amount);
+                IServiceStaking(target).deposit(amount);
+                emit ServiceStakingTargetDeposited(target, amount);
             } else {
                 // Hash of target + amount + batchNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
