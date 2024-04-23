@@ -36,6 +36,8 @@ contract BridgeRelayer {
     address public arbitrumTargetDispenserL2;
     address public gnosisDepositProcessorL1;
     address public gnosisTargetDispenserL2;
+    address public optimismDepositProcessorL1;
+    address public optimismTargetDispenserL2;
 
     address public sender;
 
@@ -51,6 +53,11 @@ contract BridgeRelayer {
     function setGnosisAddresses(address _gnosisDepositProcessorL1, address _gnosisTargetDispenserL2) external {
         gnosisDepositProcessorL1 = _gnosisDepositProcessorL1;
         gnosisTargetDispenserL2 = _gnosisTargetDispenserL2;
+    }
+
+    function setOptimismAddresses(address _optimismDepositProcessorL1, address _optimismTargetDispenserL2) external {
+        optimismDepositProcessorL1 = _optimismDepositProcessorL1;
+        optimismTargetDispenserL2 = _optimismTargetDispenserL2;
     }
 
     // !!!!!!!!!!!!!!!!!!!!! ARBITRUM FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
@@ -178,6 +185,67 @@ contract BridgeRelayer {
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
     function messageSender() external view returns (address) {
+        return sender;
+    }
+
+
+    // !!!!!!!!!!!!!!!!!!!!! OPTIMISM FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
+    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/L1/L1StandardBridge.sol#L188
+    // Doc: https://docs.optimism.io/builders/app-developers/bridging/standard-bridge#architecture
+    // @custom:legacy
+    // @notice Deposits some amount of ERC20 tokens into a target account on L2.
+    //
+    // @param l1Token     Address of the L1 token being deposited.
+    // @param l2Token     Address of the corresponding token on L2.
+    // @param to          Address of the recipient on L2.
+    // @param amount      Amount of the ERC20 to deposit.
+    // @param minGasLimit Minimum gas limit for the deposit message on L2.
+    // @param extraData   Optional data to forward to L2. Data supplied here will not be used to
+    //                     execute any code on L2 and is only emitted as extra data for the
+    //                     convenience of off-chain tooling.
+    function depositERC20To(
+        address l1Token,
+        address,
+        address to,
+        uint256 amount,
+        uint32,
+        bytes calldata
+    ) external {
+        IToken(l1Token).transferFrom(msg.sender, address(this), amount);
+        IToken(l1Token).transfer(to, amount);
+    }
+
+    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L259
+    // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging
+    // @notice Sends a message to some target address on the other chain. Note that if the call
+    //         always reverts, then the message will be unrelayable, and any ETH sent will be
+    //         permanently locked. The same will occur if the target on the other chain is
+    //         considered unsafe (see the _isUnsafeTarget() function).
+    //
+    // @param target      Target contract or wallet address.
+    // @param message     Message to trigger the target address with.
+    // @param minGasLimit Minimum gas limit that the message can be executed with.
+    function sendMessage(
+        address target,
+        bytes calldata message,
+        uint32
+    ) external payable {
+        sender = msg.sender;
+        (bool success, ) = target.call(message);
+
+        if (!success) {
+            revert();
+        }
+    }
+
+    // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L422
+    // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#accessing-msgsender
+    // @notice Retrieves the address of the contract or wallet that initiated the currently
+    //         executing message on the other chain. Will throw an error if there is no message
+    //         currently being executed. Allows the recipient of a call to see who triggered it.
+    //
+    // @return Address of the sender of the currently executing message on the other chain.
+    function xDomainMessageSender() external view returns (address) {
         return sender;
     }
 }

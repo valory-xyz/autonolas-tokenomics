@@ -87,7 +87,24 @@ describe("ServiceStakingBridging", async () => {
         await gnosisDepositProcessorL1.setL2TargetDispenser(gnosisTargetDispenserL2.address);
 
         // Set gnosis addresses in a bridge contract
-        await bridgeRelayer.setArbitrumAddresses(gnosisDepositProcessorL1.address, gnosisTargetDispenserL2.address);
+        await bridgeRelayer.setGnosisAddresses(gnosisDepositProcessorL1.address, gnosisTargetDispenserL2.address);
+
+        const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
+        optimismDepositProcessorL1 = await OptimismDepositProcessorL1.deploy(olas.address, dispenser.address,
+            bridgeRelayer.address, bridgeRelayer.address, chainId, olas.address);
+        await optimismDepositProcessorL1.deployed();
+
+        const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
+        optimismTargetDispenserL2 = await OptimismTargetDispenserL2.deploy(olas.address,
+            serviceStakingProxyFactory.address, deployer.address, bridgeRelayer.address,
+            optimismDepositProcessorL1.address, chainId);
+        await optimismTargetDispenserL2.deployed();
+
+        // Set the optimismTargetDispenserL2 address in optimismDepositProcessorL1
+        await optimismDepositProcessorL1.setL2TargetDispenser(optimismTargetDispenserL2.address);
+
+        // Set optimism addresses in a bridge contract
+        await bridgeRelayer.setOptimismAddresses(optimismDepositProcessorL1.address, optimismTargetDispenserL2.address);
     });
 
     context("Arbitrum", async function () {
@@ -129,7 +146,7 @@ describe("ServiceStakingBridging", async () => {
     });
 
     context("Gnosis", async function () {
-        it.only("Send message with single target and amount from L1 to L2 and back", async function () {
+        it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = serviceStakingInstance.address;
             const stakingAmount = defaultAmount;
@@ -163,6 +180,46 @@ describe("ServiceStakingBridging", async () => {
 
             // Send withheld amount from L2 to L1
             await gnosisTargetDispenserL2.syncWithheldTokens("0x");
+        });
+    });
+
+    context("Optimism", async function () {
+        it.only("Send message with single target and amount from L1 to L2 and back", async function () {
+            // Encode the staking data to emulate it being received on L2
+            const stakingTarget = serviceStakingInstance.address;
+            const stakingAmount = defaultAmount;
+
+            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"],
+                [defaultCost, defaultGasLimit]);
+
+            // Send a message on L2 with funds
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
+
+            // Get the current staking batch nonce
+            const stakingBatchNonce = await optimismTargetDispenserL2.stakingBatchNonce();
+
+            // Send a message on L2 without enough funds
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                0, {value: defaultMsgValue});
+
+            // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
+            await olas.mint(optimismTargetDispenserL2.address, stakingAmount);
+
+            // Redeem funds
+            await optimismTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
+
+            // Check the withheld amount
+            const withheldAmount = await optimismTargetDispenserL2.withheldAmount();
+            expect(Number(withheldAmount)).to.equal(stakingAmount);
+
+            // Send withheld amount from L2 to L1
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
+            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultCost});
         });
     });
 });

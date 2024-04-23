@@ -35,7 +35,13 @@ interface IBridge {
 }
 
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
-
+    /// @dev DefaultTargetDispenserL2 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _proxyFactory Service staking proxy factory address.
+    /// @param _owner Contract owner.
+    /// @param _l2MessageRelayer L2 message relayer bridging contract address (L2CrossDomainMessengerProxy).
+    /// @param _l1DepositProcessor L1 deposit processor address.
+    /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
@@ -45,6 +51,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         uint256 _l1SourceChainId
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
+    /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
         // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
@@ -53,15 +60,19 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         uint256 cost = abi.decode(bridgePayload, (uint256));
 
+        // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
-            return();
+            revert LowerThan(msg.value, cost);
         }
 
+        // Send the message to L1 deposit processor
         IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(GAS_LIMIT));
 
         emit MessageSent(0, msg.sender, l1DepositProcessor, amount, cost);
     }
 
+    /// @dev Processes a message received from L1 deposit processor contract.
+    /// @param data Bytes message data sent from L1.
     function receiveMessage(bytes memory data) external payable {
         // Check for the target dispenser address
         address l1Processor = IBridge(l2MessageRelayer).xDomainMessageSender();

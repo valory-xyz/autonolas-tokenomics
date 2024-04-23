@@ -59,7 +59,9 @@ interface IBridge {
 }
 
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
+    // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
+    // OLAS address on L2
     address public immutable olasL2;
 
     // https://docs.optimism.io/chain/addresses
@@ -83,6 +85,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     )
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
+        // Check for zero address
         if (_olasL2 == address(0)) {
             revert ZeroAddress();
         }
@@ -109,26 +112,31 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
             // Source: https://github.com/maticnetwork/pos-portal/blob/5fbd35ba9cdc8a07bf32d81d6d1f4ce745feabd6/flat/RootChainManager.sol#L2218
             IToken(olas).approve(l1TokenRelayer, transferAmount);
 
-            // Transfer OLAS to the staking dispenser contract across the bridge
+            // Transfer OLAS to L2 staking dispenser contract across the bridge
             IBridge(l1TokenRelayer).depositERC20To(olas, olasL2, l2TargetDispenser, transferAmount,
                 uint32(TOKEN_GAS_LIMIT), "");
         }
 
+        // Decode cost related data
         (uint256 cost, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
+        // Check for zero values
         if (cost == 0 || gasLimitMessage == 0) {
             revert ZeroValue();
         }
 
+        // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
             revert LowerThan(msg.value, cost);
         }
 
-        // Assemble data bridgePayload
+        // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
         
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
+        // Send message to L2
         IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(gasLimitMessage));
 
+        // Since there is no returned message sequence, use the staking batch nonce
         sequence = stakingBatchNonce;
     }
 
