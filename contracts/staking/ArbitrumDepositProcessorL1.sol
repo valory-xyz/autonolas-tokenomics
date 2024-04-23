@@ -64,8 +64,11 @@ interface IBridge {
 }
 
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
+    // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;
+    // L1 ERC20 Gateway address
     address immutable l1ERC20Gateway;
+    // L1 Outbox relayer address
     address immutable outbox;
 
     /// @dev ArbitrumDepositProcessorL1 constructor.

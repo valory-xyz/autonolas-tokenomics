@@ -26,12 +26,13 @@ interface IBridge {
 }
 
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
+    // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
 
     /// @dev GnosisDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
-    /// @param _l1TokenRelayer L1 token relayer bridging contract address (TokensRelayer).
+    /// @param _l1TokenRelayer L1 token relayer bridging contract address (OmniBridge).
     /// @param _l1MessageRelayer L1 message relayer bridging contract address (AMB Proxy Foreign).
     /// @param _l2TargetChainId L2 target chain Id.
     constructor(
@@ -54,7 +55,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
         }
 
-        // Deposit OLAS
+        // Transfer OLAS together with message, or just a message
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1TokenRelayer, transferAmount);

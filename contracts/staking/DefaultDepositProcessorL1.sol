@@ -56,10 +56,12 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId
     ) {
+        // Check for zero addresses
         if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
             revert ZeroAddress();
         }
 
+        // Check for zero value
         if (_l2TargetChainId == 0) {
             revert ZeroValue();
         }
@@ -86,7 +88,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         uint256 transferAmount
     ) internal virtual returns (uint256 sequence);
 
-    /// @dev Receives a message on L1 sent from L2 target dispenser side.
+    /// @dev Receives a message on L1 sent from L2 target dispenser side to sync withheld OLAS amount on L2.
     /// @param l1Relayer L1 source relayer.
     /// @param l2Dispenser L2 target dispenser that originated the message.
     /// @param data Message data payload sent from L2.
@@ -106,6 +108,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         // Extract the amount of OLAS to sync
         (uint256 amount) = abi.decode(data, (uint256));
 
+        // Sync withheld tokens in the dispenser contract
         IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
     }
 
@@ -120,17 +123,21 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
+        // Check for the dispenser contract to be the msg.sender
         if (msg.sender != l1Dispenser) {
             revert ManagerOnly(l1Dispenser, msg.sender);
         }
 
+        // Construct one-element arrays from targets and amounts
         address[] memory targets = new address[](1);
         targets[0] = target;
         uint256[] memory stakingAmounts = new uint256[](1);
         stakingAmounts[0] = stakingAmount;
 
+        // Send the message to L2
         uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
 
+        // Increase the staking batch nonce
         stakingBatchNonce++;
 
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
@@ -148,12 +155,15 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
+        // Check for the dispenser contract to be the msg.sender
         if (msg.sender != l1Dispenser) {
             revert ManagerOnly(l1Dispenser, msg.sender);
         }
 
+        // Send the message to L2
         uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
 
+        // Increase the staking batch nonce
         stakingBatchNonce++;
 
         emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
@@ -162,15 +172,18 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     /// @dev Sets L2 target dispenser address and zero-s the owner.
     /// @param l2Dispenser L2 target dispenser address.
     function _setL2TargetDispenser(address l2Dispenser) internal {
+        // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(owner, msg.sender);
         }
 
+        // The L2 target dispenser must have a non zero address
         if (l2Dispenser == address(0)) {
             revert ZeroAddress();
         }
         l2TargetDispenser = l2Dispenser;
 
+        // Revoke the owner role making the contract ownerless
         owner = address(0);
     }
 

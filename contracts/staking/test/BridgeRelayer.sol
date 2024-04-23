@@ -3,9 +3,10 @@ pragma solidity ^0.8.23;
 
 import "hardhat/console.sol";
 
-//interface IBridgeRelayer {
-//    function receiveMessage(bytes memory data) external payable;
-//}
+interface IBridgeRelayer {
+    function receiveMessage(bytes memory data) external payable;
+    function onTokenBridged(address, uint256, bytes calldata data) external;
+}
 
 interface IToken {
     /// @dev Transfers the token amount.
@@ -33,6 +34,10 @@ contract BridgeRelayer {
     address public immutable token;
     address public arbitrumDepositProcessorL1;
     address public arbitrumTargetDispenserL2;
+    address public gnosisDepositProcessorL1;
+    address public gnosisTargetDispenserL2;
+
+    address public sender;
 
     constructor(address _token) {
         token = _token;
@@ -41,6 +46,11 @@ contract BridgeRelayer {
     function setArbitrumAddresses(address _arbitrumDepositProcessorL1, address _arbitrumTargetDispenserL2) external {
         arbitrumDepositProcessorL1 = _arbitrumDepositProcessorL1;
         arbitrumTargetDispenserL2 = _arbitrumTargetDispenserL2;
+    }
+
+    function setGnosisAddresses(address _gnosisDepositProcessorL1, address _gnosisTargetDispenserL2) external {
+        gnosisDepositProcessorL1 = _gnosisDepositProcessorL1;
+        gnosisTargetDispenserL2 = _gnosisTargetDispenserL2;
     }
 
     // !!!!!!!!!!!!!!!!!!!!! ARBITRUM FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
@@ -133,5 +143,41 @@ contract BridgeRelayer {
         } else {
             return 1;
         }
+    }
+
+
+    // !!!!!!!!!!!!!!!!!!!!! GNOSIS FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
+    // Contract: AMB Contract Proxy Foreign
+    // Source: https://github.com/omni/tokenbridge-contracts/blob/908a48107919d4ab127f9af07d44d47eac91547e/contracts/upgradeable_contracts/arbitrary_message/MessageDelivery.sol#L22
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge
+    /// @dev Requests message relay to the opposite network
+    /// @param target Executor address on the other side.
+    /// @param data Calldata passed to the executor on the other side.
+    /// @return Message Id.
+    function requireToPassMessage(address target, bytes memory data, uint256) external returns (bytes32) {
+        sender = msg.sender;
+        (bool success, ) = target.call(data);
+
+        if (success) {
+            return bytes32(0);
+        } else {
+            revert();
+        }
+    }
+
+    // Contract: Omnibridge Multi-Token Mediator Proxy
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L80
+    // Flattened: https://vscode.blockscan.com/gnosis/0x2dbdcc6cad1a5a11fd6337244407bc06162aaf92
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/omnibridge
+    function relayTokensAndCall(address l1Token, address receiver, uint256 amount, bytes memory payload) external {
+        IToken(l1Token).transferFrom(msg.sender, address(this), amount);
+        IToken(l1Token).transfer(receiver, amount);
+        IBridgeRelayer(receiver).onTokenBridged(address(0), 0, payload);
+    }
+
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
+    // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
+    function messageSender() external view returns (address) {
+        return sender;
     }
 }

@@ -17,8 +17,15 @@ interface IBridge {
 }
 
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
+    /// @dev ArbitrumTargetDispenserL2 constructor.
     /// @notice _l1DepositProcessor must be correctly aliased from the address on L1.
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
+    /// @param _olas OLAS token address.
+    /// @param _proxyFactory Service staking proxy factory address.
+    /// @param _owner Contract owner.
+    /// @param _l2MessageRelayer L2 message relayer bridging contract address (ArbSys).
+    /// @param _l1DepositProcessor L1 deposit processor address.
+    /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
@@ -28,6 +35,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         uint256 _l1SourceChainId
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
+    /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
@@ -38,11 +46,11 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount, 0);
     }
 
-    /// @dev Processes a message received from the L1 deposit processor contract.
-    /// @notice msg.sender is a converted address of l1DepositProcessor from L1.
-    /// @param data Bytes message sent from L1.
+    /// @dev Processes a message received from L1 deposit processor contract.
+    /// @notice msg.sender is an aliased L1 l1DepositProcessor address.
+    /// @param data Bytes message data sent from L1.
     function receiveMessage(bytes memory data) external payable {
-        // Process the data
+        // Process the message data
         _receiveMessage(l2MessageRelayer, msg.sender, l1SourceChainId, data);
     }
 }

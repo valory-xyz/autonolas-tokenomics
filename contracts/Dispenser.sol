@@ -609,6 +609,11 @@ contract Dispenser is IErrorsTokenomics {
         emit WithheldAmountSynced(chainId, amount);
     }
 
+    /// @dev Syncs the withheld amount manually by the DAO in order to restore the data that was not delivered from L2.
+    /// @notice The possible bridge failure scenario that requires to act via the DAO vote includes:
+    ///         - Message from L2 to L1 fails: need to call this function.
+    /// @param chainId L2 chain Id.
+    /// @param amount Withheld amount that was not delivered from L2.
     function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount) external {
         // Check the contract ownership
         if (msg.sender != owner) {

@@ -20,8 +20,17 @@ interface IBridge {
 }
 
 contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
+    // L2 token relayer address
     address public immutable l2TokenRelayer;
 
+    /// @dev GnosisTargetDispenserL2 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _proxyFactory Service staking proxy factory address.
+    /// @param _owner Contract owner.
+    /// @param _l2MessageRelayer L2 message relayer bridging contract address (AMBHomeProxy).
+    /// @param _l1DepositProcessor L1 deposit processor address.
+    /// @param _l1SourceChainId L1 source chain Id.
+    /// @param _l2TokenRelayer L2 token relayer address (HomeOmniBridgeProxy).
     constructor(
         address _olas,
         address _proxyFactory,
@@ -33,6 +42,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     )
         DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
     {
+        // Check for zero address
         if (_l2TokenRelayer == address(0)) {
             revert ZeroAddress();
         }
@@ -40,6 +50,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         l2TokenRelayer = _l2TokenRelayer;
     }
 
+    /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory) internal override {
         // Assemble AMB data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
@@ -51,9 +62,9 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
-    /// @param data Bytes message sent from the AMB Contract Proxy (Home) contract.
+    /// @param data Bytes message data sent from the AMB Contract Proxy (Home) contract.
     function receiveMessage(bytes memory data) external {
-        // Get L1 processor address
+        // Get L1 deposit processor address
         address processor = IBridge(l2MessageRelayer).messageSender();
 
         // Process the data
@@ -62,6 +73,8 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
     // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol
+    /// @dev Processes the data received together with the token transfer from L1.
+    /// @param data Bytes message data sent from L1.
     function onTokenBridged(address, uint256, bytes calldata data) external {
         // Check for the message to come from the L2 token relayer
         if (msg.sender != l2TokenRelayer) {

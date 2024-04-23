@@ -41,6 +41,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Gas limit for sending a message to L1
+    // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
     uint256 public constant GAS_LIMIT = 300_000;
     // OLAS address
     address public immutable olas;
@@ -66,6 +67,13 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     // Queueing hashes of (target, amount, stakingBatchNonce)
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
+    /// @dev DefaultTargetDispenserL2 constructor.
+    /// @param _olas OLAS token address.
+    /// @param _proxyFactory Service staking proxy factory address.
+    /// @param _owner Contract owner.
+    /// @param _l2MessageRelayer L2 message relayer bridging contract address.
+    /// @param _l1DepositProcessor L1 deposit processor address.
+    /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
@@ -74,11 +82,13 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
     ) {
+        // Check for zero addresses
         if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
             _l2MessageRelayer == address(0) || _l1DepositProcessor == address(0)) {
             revert ZeroAddress();
         }
 
+        // Check for a zero value
         if (_l1SourceChainId == 0) {
             revert ZeroValue();
         }
@@ -93,13 +103,17 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         _locked = 1;
     }
 
-    // Process the data
+    /// @dev Processes the data received from L1.
+    /// @param data Bytes message data sent from L1.
     function _processData(bytes memory data) internal {
+        // Decode received data
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
         uint256 batchNonce = stakingBatchNonce;
         uint256 localWithheldAmount = 0;
         uint256 localPaused = paused;
+
+        // Traverse all the targets
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
@@ -120,6 +134,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 localWithheldAmount += amount;
                 emit ServiceStakingAmountWithheld(target, amount);
 
+                // Proceed to the next target
                 continue;
             }
 
@@ -128,46 +143,57 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 // Approve and transfer OLAS to the service staking target
                 IToken(olas).approve(target, amount);
                 IServiceStaking(target).deposit(amount);
+
                 emit ServiceStakingTargetDeposited(target, amount);
             } else {
                 // Hash of target + amount + batchNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
+                // Queue the hash for further redeem
                 stakingQueueingNonces[queueHash] = true;
+
                 emit ServiceStakingRequestQueued(queueHash, target, amount, batchNonce, localPaused);
             }
         }
+        // Increase the staking batch nonce
         stakingBatchNonce = batchNonce + 1;
 
-        // Adjust withheld amount, if needed
+        // Adjust withheld amount, if at least one target has not passed the validity check
         if (localWithheldAmount > 0) {
             withheldAmount += localWithheldAmount;
         }
     }
 
+    /// @dev Sends message to L1 to sync the withheld amount.
+    /// @param amount Amount to sync.
+    /// @param bridgePayload Payload data for the bridge relayer.
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal virtual;
 
+    /// @dev Receives a message from L1.
+    /// @param messageRelayer L2 bridge message relayer address.
+    /// @param sourceProcessor L1 deposit processor address.
+    /// @param sourceChainId L1 chain Id.
+    /// @param data Bytes message data sent from L1.
     function _receiveMessage(
-        address messageSender,
+        address messageRelayer,
         address sourceProcessor,
         uint256 sourceChainId,
         bytes memory data
     ) internal virtual {
-        // Check L2 Relayer address
-        if (messageSender != l2MessageRelayer) {
-            revert TargetRelayerOnly(messageSender, l2MessageRelayer);
+        // Check L2 message relayer address
+        if (messageRelayer != l2MessageRelayer) {
+            revert TargetRelayerOnly(messageRelayer, l2MessageRelayer);
         }
 
-        // Check for the deposit processor address
+        // Check L1 deposit processor address
         if (sourceProcessor != l1DepositProcessor) {
             revert WrongMessageSender(sourceProcessor, l1DepositProcessor);
         }
 
-        // Check the source chain Id
+        // Check source chain Id
         if (sourceChainId != l1SourceChainId) {
             revert WrongSourceChainId(sourceChainId, l1SourceChainId);
         }
 
-        // Emit received message
         emit MessageReceived(l1DepositProcessor, l1SourceChainId, data);
 
         // Process the data
@@ -181,46 +207,56 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
         _locked = 2;
 
+        // Pause check
         if (paused == 2) {
             revert Paused();
         }
-        
+
+        // Hash of target + amount + batchNonce
         bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
         bool queued = stakingQueueingNonces[queueHash];
+        // Check if the target and amount are queued
         if (!queued) {
             revert TargetAmountNotQueued(target, amount, batchNonce);
         }
 
+        // Get the current contract OLAS balance
         uint256 olasBalance = IToken(olas).balanceOf(address(this));
         if (olasBalance >= amount) {
             // Approve and transfer OLAS to the service staking target
             IToken(olas).approve(target, amount);
             IServiceStaking(target).deposit(amount);
+
             emit ServiceStakingTargetDeposited(target, amount);
 
             // Remove processed queued nonce
             stakingQueueingNonces[queueHash] = false;
         } else {
+            // OLAS balance is not enough for redeem
             revert LowerThan(olasBalance, amount);
         }
 
         _locked = 1;
     }
 
-    // 1. token fails, message fails: re-send OLAS to the contract (separate vote), call processDataMaintenance
-    // 2. token succeeds, message fails: call processDataMaintenance
-    // 3. token fails, message succeeds: re-send OLAS to the contract (separate vote)
-    // 4. message from L2 to L1 fails: call L1 syncMaintenance
-
+    /// @dev Processes the data manually provided by the DAO in order to restore the data that was not delivered from L1.
+    /// @notice Here are possible bridge failure scenarios and the way to act via the DAO vote:
+    ///         - Both token and message delivery fails: re-send OLAS to the contract (separate vote), call this function;
+    ///         - Token transfer succeeds, message fails: call this function;
+    ///         - Token transfer fails, message succeeds: re-send OLAS to the contract (separate vote).
+    /// @param data Bytes message data that was not delivered from L1.
     function processDataMaintenance(bytes memory data) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Process the data
         _processData(data);
     }
 
+    /// @dev Syncs withheld token amount with L1.
+    /// @param bridgePayload Payload data for the bridge relayer.
     function syncWithheldTokens(bytes memory bridgePayload) external payable {
         // Reentrancy guard
         if (_locked > 1) {
@@ -228,12 +264,13 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
         _locked = 2;
 
+        // Pause check
         if (paused == 2) {
             revert Paused();
         }
 
+        // Check the withheld amount to be greater than zero
         uint256 amount = withheldAmount;
-
         if (amount == 0) {
             revert ZeroValue();
         }
@@ -249,6 +286,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         _locked = 1;
     }
 
+    /// @dev Pause the contract.
     function pause() external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -259,6 +297,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit TargetDispenserPaused();
     }
 
+    /// @dev Unpause the contract
     function unpause() external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -295,6 +334,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         if (!result) {
             revert TransferFailed(address(0), address(this), msg.sender, amount);
         }
+
         emit Drain(msg.sender, amount);
 
         _locked = 1;

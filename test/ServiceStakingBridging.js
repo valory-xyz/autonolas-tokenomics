@@ -23,6 +23,7 @@ describe("ServiceStakingBridging", async () => {
     let bridgeRelayer;
     let arbitrumDepositProcessorL1;
     let arbitrumTargetDispenserL2;
+    let gnosisDepositProcessorL1;
     let gnosisTargetDispenserL2;
 
     // These should not be in beforeEach.
@@ -71,14 +72,26 @@ describe("ServiceStakingBridging", async () => {
         // Set arbitrum addresses in a bridge contract
         await bridgeRelayer.setArbitrumAddresses(arbitrumDepositProcessorL1.address, arbitrumTargetDispenserL2.address);
 
-//        const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
-//        gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
-//            serviceStakingProxyFactory.address, deployer.address, deployer.address, deployer.address, chainId);
-//        await gnosisTargetDispenserL2.deployed();
+        const GnosisDepositProcessorL1 = await ethers.getContractFactory("GnosisDepositProcessorL1");
+        gnosisDepositProcessorL1 = await GnosisDepositProcessorL1.deploy(olas.address, dispenser.address,
+            bridgeRelayer.address, bridgeRelayer.address, chainId);
+        await gnosisDepositProcessorL1.deployed();
+
+        const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
+        gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
+            serviceStakingProxyFactory.address, deployer.address, bridgeRelayer.address,
+            gnosisDepositProcessorL1.address, chainId, bridgeRelayer.address);
+        await gnosisTargetDispenserL2.deployed();
+
+        // Set the gnosisTargetDispenserL2 address in gnosisDepositProcessorL1
+        await gnosisDepositProcessorL1.setL2TargetDispenser(gnosisTargetDispenserL2.address);
+
+        // Set gnosis addresses in a bridge contract
+        await bridgeRelayer.setArbitrumAddresses(gnosisDepositProcessorL1.address, gnosisTargetDispenserL2.address);
     });
 
     context("Arbitrum", async function () {
-        it.only("Send message with single target and amount from L1 to L2 and back", async function () {
+        it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = serviceStakingInstance.address;
             const stakingAmount = defaultAmount;
@@ -113,55 +126,43 @@ describe("ServiceStakingBridging", async () => {
             // Send withheld amount from L2 to L1
             await arbitrumTargetDispenserL2.syncWithheldTokens("0x");
         });
-
-        it("Receive message with single target and amount", async function () {
-            // Encode the staking data to emulate it being received on L2
-            const stakingTargets = [serviceStakingInstance.address];
-            const stakingAmounts = [defaultAmount];
-            let payloadData = ethers.utils.defaultAbiCoder.encode(["address[]","uint256[]"],
-                [stakingTargets, stakingAmounts]);
-
-            // Receive a message on L2 where the funds are not delivered yet
-            await arbitrumTargetDispenserL2.receiveMessage(payloadData);
-
-            // Simulate sending tokens from L1 to L2 by just minting them
-            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
-
-            // Receive a message on L2 with the funds available
-            await arbitrumTargetDispenserL2.receiveMessage(payloadData);
-
-            // Finish receiving a previous message
-            await arbitrumTargetDispenserL2.redeem(stakingTargets[0], stakingAmounts[0], 0);
-
-            await expect(
-                arbitrumTargetDispenserL2.redeem(stakingTargets[0], stakingAmounts[0], 0)
-            ).to.be.reverted;
-        });
     });
 
     context("Gnosis", async function () {
-        it("Gnosis: Receive message with single target and amount", async function () {
+        it.only("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTargets = [serviceStakingInstance.address];
-            const stakingAmounts = [defaultAmount];
-            let payloadData = ethers.utils.defaultAbiCoder.encode(["address[]","uint256[]"],
-                [stakingTargets, stakingAmounts]);
+            const stakingTarget = serviceStakingInstance.address;
+            const stakingAmount = defaultAmount;
 
-            // Receive a message on L2 where the funds are not delivered yet
-            await gnosisTargetDispenserL2.processMessageFromForeign(payloadData);
+            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
 
-            // Simulate sending tokens from L1 to L2 by just minting them
-            await olas.mint(gnosisTargetDispenserL2.address, defaultAmount);
+            // Send a message on L2 with funds
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
 
-            // Receive a message on L2 with the funds available
-            await gnosisTargetDispenserL2.processMessageFromForeign(payloadData);
+            // Get the current staking batch nonce
+            const stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
 
-//            // Finish receiving a previous message
-//            await gnosisTargetDispenserL2.redeem(stakingTargets[0], stakingAmounts[0], 0);
-//
-//            await expect(
-//                gnosisTargetDispenserL2.redeem(stakingTargets[0], stakingAmounts[0], 0)
-//            ).to.be.reverted;
+            // Send a message on L2 without enough funds
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                0, {value: defaultMsgValue});
+
+            // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
+            await olas.mint(gnosisTargetDispenserL2.address, stakingAmount);
+
+            // Redeem funds
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
+
+            // Check the withheld amount
+            const withheldAmount = await gnosisTargetDispenserL2.withheldAmount();
+            expect(Number(withheldAmount)).to.equal(stakingAmount);
+
+            // Send withheld amount from L2 to L1
+            await gnosisTargetDispenserL2.syncWithheldTokens("0x");
         });
     });
 });
