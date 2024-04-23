@@ -6,7 +6,7 @@ shopt -s nullglob
 # Function to extract interfaces with imports from a Solidity contract
 function extract_interfaces_with_imports() {
     contract_path="$1"
-    interfaces=$(grep -n 'import .*;' "$contract_path" | grep -n 'interface' | sed 's/^\([0-9]\+\):\(.*\)/\2/')
+    interfaces=$(grep -n "import .*;" "$contract_path" | grep -n "interface" | sed "s/^\([0-9]\+\):\(.*\)/\2/")
     echo "$interfaces"
 }
 
@@ -23,7 +23,7 @@ for contract_file in contracts/staking/*.sol contracts/Tokenomics.sol contracts/
     echo "---------------------------"
   
     # Add import statements to all_imports array
-    imports=$(echo "$interfaces" | grep -o 'import .*;' | sort -u)
+    imports=$(echo "$interfaces" | grep -o "import .*;" | sort -u)
     all_imports+=($imports)
 done 
 
@@ -46,7 +46,7 @@ all_imports_no_duplication=()
 # Loop through the original array
 for element in "${all_imports_conc[@]}"; do
     # Split the element by comma
-    IFS=', ' read -r -a parts <<< "$element"
+    IFS=", " read -r -a parts <<< "$element"
     # Check if the combination of "import" and "interface" is not already in the new array
     if [[ ! " ${all_imports_no_duplication[*]} " =~ " ${parts[*]} " ]]; then
         # Add the combination to the new array
