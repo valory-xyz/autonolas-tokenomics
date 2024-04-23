@@ -1,0 +1,18 @@
+      | Contract                                                                                                                 |   CodeLine |
+----------------------------------------------------------------------------------------------------------------------------------------------
+    1 | contracts/staking/ArbitrumDepositProcessorL1.sol                                                                         |         89 |
+    2 | contracts/staking/ArbitrumTargetDispenserL2.sol                                                                          |         25 |
+    3 | contracts/staking/DefaultDepositProcessorL1.sol                                                                          |         91 |
+    4 | contracts/staking/DefaultTargetDispenserL2.sol                                                                           |        180 |
+    5 | contracts/staking/GnosisDepositProcessorL1.sol                                                                           |         32 |
+    6 | contracts/staking/GnosisTargetDispenserL2.sol                                                                            |         24 |
+    7 | contracts/staking/OptimismDepositProcessorL1.sol                                                                         |         67 |
+    8 | contracts/staking/OptimismTargetDispenserL2.sol                                                                          |         31 |
+    9 | contracts/staking/PolygonDepositProcessorL1.sol                                                                          |         45 |
+   10 | contracts/staking/PolygonTargetDispenserL2.sol                                                                           |         24 |
+   11 | contracts/staking/WormholeDepositProcessorL1.sol                                                                         |         64 |
+   12 | contracts/staking/WormholeTargetDispenserL2.sol                                                                          |         75 |
+   13 | contracts/Tokenomics.sol                                                                                                 |        702 |
+   14 | contracts/Dispenser.sol                                                                                                  |        357 |
+----------------------------------------------------------------------------------------------------------------------------------------------
+   14 | All Tokenomics contract                                                                                                  |       1806 |
