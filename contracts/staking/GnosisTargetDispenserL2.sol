@@ -34,7 +34,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
     {
         if (_l2TokenRelayer == address(0)) {
-            revert();
+            revert ZeroAddress();
         }
 
         l2TokenRelayer = _l2TokenRelayer;
@@ -63,6 +63,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
     // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol
     function onTokenBridged(address, uint256, bytes calldata data) external {
+        // Check for the message to come from the L2 token relayer
         if (msg.sender != l2TokenRelayer) {
             revert TargetRelayerOnly(msg.sender, l2TokenRelayer);
         }

@@ -125,24 +125,35 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Check for the tx param limits
-        if (gasPriceBid < 1 || (transferAmount > 0 && maxSubmissionCostToken == 0) || gasLimitMessage < 1 ||
-            maxSubmissionCostMessage == 0) {
+        if (gasPriceBid < 1 || gasLimitMessage < 1 || maxSubmissionCostMessage == 0) {
             revert ZeroValue();
         }
 
-        uint256 cost;
+        // Calculate token and message transfer cost
+        // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
+        uint256[] memory cost = new uint256[](2);
+        if (transferAmount > 0) {
+            if (maxSubmissionCostToken == 0) {
+                revert ZeroValue();
+            }
+
+            // Calculate token transfer gas cost
+            cost[0] = maxSubmissionCostToken + TOKEN_GAS_LIMIT * gasPriceBid;
+        }
+
+        // Calculate cost for the message transfer
+        cost[1] = maxSubmissionCostMessage + gasLimitMessage * gasPriceBid;
+        // Get the total cost
+        uint256 totalCost = cost[0] + cost[1];
+
+        // Check fot msg.value to cover the total cost
+        if (totalCost > msg.value) {
+            revert LowerThan(msg.value, totalCost);
+        }
+
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1ERC20Gateway, transferAmount);
-
-            // Calculate token transfer gas cost
-            // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-            cost = maxSubmissionCostToken + TOKEN_GAS_LIMIT * gasPriceBid;
-
-            // Check fot msg.value to cover the cost
-            if (cost > msg.value) {
-                revert LowerThan(msg.value, cost);
-            }
 
             // Construct the data for IBridge consisting of 2 pieces:
             // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
@@ -150,25 +161,15 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             bytes memory submissionCostData = abi.encode(maxSubmissionCostToken, "");
 
             // Transfer OLAS to the staking dispenser contract across the bridge
-            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost}(olas, refundAccount, l2TargetDispenser,
-                transferAmount, TOKEN_GAS_LIMIT, gasPriceBid, submissionCostData);
+            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas, refundAccount,
+                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, gasPriceBid, submissionCostData);
         }
 
-        // Adjust cost for the message transfer
-        // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-        cost = maxSubmissionCostMessage + gasLimitMessage * gasPriceBid;
-
-        // TODO Check for the overall cost vs msg.value
-        // Check fot msg.value to cover the cost
-        if (cost > msg.value) {
-            revert LowerThan(msg.value, cost);
-        }
-
-        // Assemble data payload
+        // Assemble message data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
-        sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,
+        sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
             maxSubmissionCostMessage, refundAccount, refundAccount, gasLimitMessage, gasPriceBid, data);
     }
 
