@@ -60,6 +60,7 @@ function generateReport() {
     
     // Manually specified contracts in contracts/ directory
     const contractsInContractsDir = [
+        "TokenomicsConstants.sol",
         "Tokenomics.sol",
         "Dispenser.sol"
     ];

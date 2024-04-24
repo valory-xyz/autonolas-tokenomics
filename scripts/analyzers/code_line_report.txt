@@ -12,7 +12,8 @@
    10 | contracts/staking/PolygonTargetDispenserL2.sol                                                                           |         24 |
    11 | contracts/staking/WormholeDepositProcessorL1.sol                                                                         |         64 |
    12 | contracts/staking/WormholeTargetDispenserL2.sol                                                                          |         75 |
-   13 | contracts/Tokenomics.sol                                                                                                 |        702 |
-   14 | contracts/Dispenser.sol                                                                                                  |        357 |
+   13 | contracts/TokenomicsConstants.sol                                                                                        |         59 |
+   14 | contracts/Tokenomics.sol                                                                                                 |        702 |
+   15 | contracts/Dispenser.sol                                                                                                  |        357 |
 ----------------------------------------------------------------------------------------------------------------------------------------------
-   14 | All Tokenomics contract                                                                                                  |       1806 |
+   15 | All Tokenomics contract                                                                                                  |       1865 |

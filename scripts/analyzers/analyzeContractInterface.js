@@ -15,7 +15,7 @@ all_imports=()
 
 # Loop through all Solidity files in the contracts staking plus Tokenomics and Dispenser directory
 echo "---------------------------"
-for contract_file in contracts/staking/*.sol contracts/Tokenomics.sol contracts/Dispenser.sol; do
+for contract_file in contracts/staking/*.sol contracts/TokenomicsConstants.sol contracts/Tokenomics.sol contracts/Dispenser.sol; do
     contract_name=$(basename "$contract_file")
     echo "Contract Name: $contract_name"
     interfaces=$(extract_interfaces_with_imports "$contract_file")
