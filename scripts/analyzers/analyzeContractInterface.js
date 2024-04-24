@@ -28,6 +28,7 @@ for contract_file in contracts/staking/*.sol contracts/Tokenomics.sol contracts/
 done 
 
 
+
 # New array to store unique combinations of "import" and "interface"
 all_imports_conc=()
 # First we need to concatenated import-interface pairs
@@ -68,15 +69,35 @@ done
 
 
 echo "Different Interfaces in all Tokenomcs contracts:"
-count=0
-for import_stmt in "${all_imports_conc_n_d[@]}"; do
-    if [[ $import_stmt != "import \"../"* ]]; then
+# Loop through the array
+for ((i = 0; i < ${#all_imports_conc_n_d[@]}; i++)); do
+    # Current import statement
+    import_stmt="${all_imports_conc_n_d[$i]}"
+    
+    # Extract the file name part from the import statement
+    file_name=$(basename "$import_stmt")
+    
+    # Flag to determine if the import statement is distinct
+    is_distinct=true
+    
+    # Check if the current file name is already included
+    for ((j = i - 1; j >= 0; j--)); do
+        if [[ $(basename "${all_imports_conc_n_d[$j]}") == "$file_name" ]]; then
+            is_distinct=false
+            break
+        fi
+    done
+    
+    # Display the import statement if it's distinct
+    if $is_distinct; then
         ((count++))
         echo "$count. $import_stmt"
     fi
 done
 
 echo "Total Number of Different Interfaces: $count"
+
+
 
 
 
