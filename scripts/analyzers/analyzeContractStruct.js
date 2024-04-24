@@ -1,9 +1,27 @@
 #!/bin/bash
 
+
+
 all_structs=()
+
+contracts=(
+    contracts/staking/*.sol 
+    contracts/TokenomicsConstants.sol 
+    contracts/Tokenomics.sol 
+    contracts/Dispenser.sol 
+    contracts/interfaces/IToken.sol 
+    contracts/interfaces/IDonatorBlacklist.sol 
+    contracts/interfaces/IErrorsTokenomics.sol 
+    contracts/interfaces/IOLAS.sol 
+    contracts/interfaces/IServiceRegistry.sol 
+    contracts/interfaces/ITreasury.sol 
+    contracts/interfaces/IVotingEscrow.sol 
+    contracts/interfaces/ITokenomics.sol
+)
+
 # Loop through all Solidity files in the contracts staking plus Tokenomics and Dispenser directory
 echo "---------------------------"
-for contract_file in contracts/staking/*.sol contracts/TokenomicsConstants.sol contracts/Tokenomics.sol contracts/Dispenser.sol; do
+for contract_file in "${contracts[@]}"; do
 # Loop through each contract path
     contract_name=$(basename "$contract_file")
 

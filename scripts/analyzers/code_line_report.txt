@@ -15,5 +15,13 @@
    13 | contracts/TokenomicsConstants.sol                                                                                        |         59 |
    14 | contracts/Tokenomics.sol                                                                                                 |        702 |
    15 | contracts/Dispenser.sol                                                                                                  |        357 |
+   16 | contracts/interfaces/IToken.sol                                                                                          |         10 |
+   17 | contracts/interfaces/IDonatorBlacklist.sol                                                                               |          4 |
+   18 | contracts/interfaces/IErrorsTokenomics.sol                                                                               |         31 |
+   19 | contracts/interfaces/IOLAS.sol                                                                                           |          5 |
+   20 | contracts/interfaces/IServiceRegistry.sol                                                                                |         12 |
+   21 | contracts/interfaces/ITreasury.sol                                                                                       |          8 |
+   22 | contracts/interfaces/IVotingEscrow.sol                                                                                   |          4 |
+   23 | contracts/interfaces/ITokenomics.sol                                                                                     |         17 |
 ----------------------------------------------------------------------------------------------------------------------------------------------
-   15 | All Tokenomics contract                                                                                                  |       1865 |
+   23 | All Tokenomics contract                                                                                                  |       1956 |
