@@ -44,7 +44,7 @@ async function main() {
     const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
     console.log("You are signing the following transaction: GnosisTargetDispenserL2.connect(EOA).deploy()");
     const gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress, parsedData.gnosisAMBHomeAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.gnosisAMBHomeAddress,
         parsedData.gnosisDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await gnosisTargetDispenserL2.deployed();
 

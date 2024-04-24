@@ -6,6 +6,14 @@ import "hardhat/console.sol";
 interface IBridgeRelayer {
     function receiveMessage(bytes memory data) external payable;
     function onTokenBridged(address, uint256, bytes calldata data) external;
+    function processMessageFromRoot(uint256 stateId, address rootMessageSender, bytes calldata data) external;
+    function receiveWormholeMessages(
+        bytes memory payload,
+        bytes[] memory additionalVaas,
+        bytes32 sourceAddress,
+        uint16 sourceChain,
+        bytes32 deliveryHash
+    ) external payable;
 }
 
 interface IToken {
@@ -38,8 +46,13 @@ contract BridgeRelayer {
     address public gnosisTargetDispenserL2;
     address public optimismDepositProcessorL1;
     address public optimismTargetDispenserL2;
+    address public polygonDepositProcessorL1;
+    address public polygonTargetDispenserL2;
+    address public wormholeDepositProcessorL1;
+    address public wormholeTargetDispenserL2;
 
     address public sender;
+    uint256 public nonce;
 
     constructor(address _token) {
         token = _token;
@@ -58,6 +71,16 @@ contract BridgeRelayer {
     function setOptimismAddresses(address _optimismDepositProcessorL1, address _optimismTargetDispenserL2) external {
         optimismDepositProcessorL1 = _optimismDepositProcessorL1;
         optimismTargetDispenserL2 = _optimismTargetDispenserL2;
+    }
+
+    function setPolygonAddresses(address _polygonDepositProcessorL1, address _polygonTargetDispenserL2) external {
+        polygonDepositProcessorL1 = _polygonDepositProcessorL1;
+        polygonTargetDispenserL2 = _polygonTargetDispenserL2;
+    }
+
+    function setWormholeAddresses(address _wormholeDepositProcessorL1, address _wormholeTargetDispenserL2) external {
+        wormholeDepositProcessorL1 = _wormholeDepositProcessorL1;
+        wormholeTargetDispenserL2 = _wormholeTargetDispenserL2;
     }
 
     // !!!!!!!!!!!!!!!!!!!!! ARBITRUM FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
@@ -143,6 +166,7 @@ contract BridgeRelayer {
     /// @param data (optional) calldata for L1 contract call
     /// @return a unique identifier for this L2-to-L1 transaction.
     function sendTxToL1(address destination, bytes calldata data) external payable returns (uint256) {
+        destination = arbitrumDepositProcessorL1;
         (bool success, ) = destination.call(data);
 
         if (success) {
@@ -247,5 +271,209 @@ contract BridgeRelayer {
     // @return Address of the sender of the currently executing message on the other chain.
     function xDomainMessageSender() external view returns (address) {
         return sender;
+    }
+
+
+    // !!!!!!!!!!!!!!!!!!!!! POLYGON FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
+    // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
+    /// @notice Move tokens from root to child chain
+    /// @dev This mechanism supports arbitrary tokens as long as its predicate has been registered and the token is mapped
+    /// @param user address of account that should receive this deposit on child chain
+    /// @param rootToken address of token that is being deposited
+    /// @param depositData bytes data that is sent to predicate and child token contracts to handle deposit
+    function depositFor(address user, address rootToken, bytes calldata depositData) external {
+        uint256 amount = abi.decode(depositData, (uint256));
+        IToken(rootToken).transferFrom(msg.sender, address(this), amount);
+        IToken(rootToken).transfer(user, amount);
+    }
+
+
+    // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/FxRoot.sol#L29
+    function sendMessageToChild(address receiver, bytes calldata data) external {
+        // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseChildTunnel.sol#L36
+        IBridgeRelayer(receiver).processMessageFromRoot(0, msg.sender, data);
+    }
+
+
+    // !!!!!!!!!!!!!!!!!!!!! WORMHOLE FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
+    // @notice VaaKey identifies a wormhole message
+    //
+    // @custom:member chainId Wormhole chain ID of the chain where this VAA was emitted from
+    // @custom:member emitterAddress Address of the emitter of the VAA, in Wormhole bytes32 format
+    // @custom:member sequence Sequence number of the VAA
+    struct VaaKey {
+        uint16 chainId;
+        bytes32 emitterAddress;
+        uint64 sequence;
+    }
+
+    struct TokenReceived {
+        bytes32 tokenHomeAddress;
+        uint16 tokenHomeChain;
+        address tokenAddress; // wrapped address if tokenHomeChain !== this chain, else tokenHomeAddress (in evm address format)
+        uint256 amount;
+        uint256 amountNormalized; // if decimals > 8, normalized to 8 decimal places
+    }
+
+    struct TransferWithPayload {
+        uint8 payloadID;
+        uint256 amount;
+        bytes32 tokenAddress;
+        uint16 tokenChain;
+        bytes32 to;
+        uint16 toChain;
+        bytes32 fromAddress;
+        bytes payload;
+    }
+
+    struct Signature {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        uint8 guardianIndex;
+    }
+
+    struct VM {
+        uint8 version;
+        uint32 timestamp;
+        uint32 nonce;
+        uint16 emitterChainId;
+        bytes32 emitterAddress;
+        uint64 sequence;
+        uint8 consistencyLevel;
+        bytes payload;
+        uint32 guardianSetIndex;
+        Signature[] signatures;
+        bytes32 hash;
+    }
+
+    function transferTokensWithPayload(
+        address l1Token,
+        uint256 amount,
+        uint16,
+        bytes32 recipient,
+        uint32,
+        bytes memory
+    ) external payable returns (uint64 sequence) {
+        IToken(l1Token).transferFrom(msg.sender, address(this), amount);
+        IToken(l1Token).transfer(address(uint160(uint256(recipient))), amount);
+        sequence = 0;
+    }
+    
+    // @notice Returns the price to request a relay to chain `targetChain`, using the default delivery provider
+    //
+    // @param targetChain in Wormhole Chain ID format
+    // @param receiverValue msg.value that delivery provider should pass in for call to `targetAddress` (in targetChain currency units)
+    // @param gasLimit gas limit with which to call `targetAddress`.
+    // @return nativePriceQuote Price, in units of current chain currency, that the delivery provider charges to perform the relay
+    // @return targetChainRefundPerGasUnused amount of target chain currency that will be refunded per unit of gas unused,
+    //         if a refundAddress is specified.
+    //         Note: This value can be overridden by the delivery provider on the target chain. The returned value here should be considered to be a
+    //         promise by the delivery provider of the amount of refund per gas unused that will be returned to the refundAddress at the target chain.
+    //         If a delivery provider decides to override, this will be visible as part of the emitted Delivery event on the target chain.
+    function quoteEVMDeliveryPrice(uint16, uint256, uint256)
+        external pure returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused) {
+        nativePriceQuote = 1;
+        targetChainRefundPerGasUnused = 1;
+    }
+
+    function messageFee() external pure returns (uint256) {
+        return 0;
+    }
+
+    function chainId() external pure returns (uint16) {
+        return 1;
+    }
+    
+    // @notice Publishes an instruction for the default delivery provider
+    // to relay a payload and VAAs specified by `vaaKeys` to the address `targetAddress` on chain `targetChain`
+    // with gas limit `gasLimit` and `msg.value` equal to `receiverValue`
+    //
+    // Any refunds (from leftover gas) will be sent to `refundAddress` on chain `refundChain`
+    // `targetAddress` must implement the IWormholeReceiver interface
+    //
+    // This function must be called with `msg.value` equal to `quoteEVMDeliveryPrice(targetChain, receiverValue, gasLimit)`
+    //
+    // @param targetChain in Wormhole Chain ID format
+    // @param targetAddress address to call on targetChain (that implements IWormholeReceiver)
+    // @param payload arbitrary bytes to pass in as parameter in call to `targetAddress`
+    // @param receiverValue msg.value that delivery provider should pass in for call to `targetAddress` (in targetChain currency units)
+    // @param gasLimit gas limit with which to call `targetAddress`. Any units of gas unused will be refunded according to the
+    //        `targetChainRefundPerGasUnused` rate quoted by the delivery provider
+    // @param vaaKeys Additional VAAs to pass in as parameter in call to `targetAddress`
+    // @param refundChain The chain to deliver any refund to, in Wormhole Chain ID format
+    // @param refundAddress The address on `refundChain` to deliver any refund to
+    // @return sequence sequence number of published VAA containing delivery instructions
+    ///wormholeRelayer.sendVaasToEvm
+    function sendVaasToEvm(
+        uint16 targetChain,
+        address targetAddress,
+        bytes memory payload,
+        uint256,
+        uint256,
+        VaaKey[] memory,
+        uint16,
+        address
+    ) external payable returns (uint64 sequence) {
+        bytes[] memory additionalVaas = new bytes[](1);
+        IBridgeRelayer(targetAddress).receiveWormholeMessages(payload, additionalVaas,
+            bytes32(uint256(uint160(msg.sender))), targetChain, bytes32(nonce));
+
+        nonce++;
+        sequence = 0;
+    }
+
+    function bridgeContracts(uint16) external view returns (bytes32) {
+        return bytes32(uint256(uint160(wormholeTargetDispenserL2)));
+    }
+
+    function parseVM(bytes memory) external view returns (VM memory vm) {
+        vm.emitterAddress = bytes32(uint256(uint160(wormholeTargetDispenserL2)));
+    }
+
+    function parseTransferWithPayload(bytes memory) external view returns (TransferWithPayload memory transfer) {
+        transfer.tokenAddress = bytes32(uint256(uint160(token)));
+        transfer.tokenChain = 1;
+        transfer.to = bytes32(uint256(uint160(wormholeTargetDispenserL2)));
+        transfer.toChain = 1;
+    }
+
+    function completeTransferWithPayload(bytes memory) external pure returns (bytes memory) {
+        return "0x";
+    }
+
+    // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L122
+    // @notice Publishes an instruction for the default delivery provider
+    // to relay a payload to the address `targetAddress` on chain `targetChain`
+    // with gas limit `gasLimit` and `msg.value` equal to `receiverValue`
+    //
+    // Any refunds (from leftover gas) will be sent to `refundAddress` on chain `refundChain`
+    // `targetAddress` must implement the IWormholeReceiver interface
+    //
+    // This function must be called with `msg.value` equal to `quoteEVMDeliveryPrice(targetChain, receiverValue, gasLimit)`
+    //
+    // @param targetChain in Wormhole Chain ID format
+    // @param targetAddress address to call on targetChain (that implements IWormholeReceiver)
+    // @param payload arbitrary bytes to pass in as parameter in call to `targetAddress`
+    // @param receiverValue msg.value that delivery provider should pass in for call to `targetAddress` (in targetChain currency units)
+    // @param gasLimit gas limit with which to call `targetAddress`. Any units of gas unused will be refunded according to the
+    //        `targetChainRefundPerGasUnused` rate quoted by the delivery provider
+    // @param refundChain The chain to deliver any refund to, in Wormhole Chain ID format
+    // @param refundAddress The address on `refundChain` to deliver any refund to
+    // @return sequence sequence number of published VAA containing delivery instructions
+    function sendPayloadToEvm(
+        uint16 targetChain,
+        address targetAddress,
+        bytes memory payload,
+        uint256,
+        uint256,
+        uint16,
+        address
+    ) external payable returns (uint64 sequence) {
+        IBridgeRelayer(targetAddress).receiveWormholeMessages(payload, new bytes[](0),
+            bytes32(uint256(uint160(msg.sender))), targetChain, bytes32(nonce));
+
+        nonce++;
+        sequence = 0;
     }
 }

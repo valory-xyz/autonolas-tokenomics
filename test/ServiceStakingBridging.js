@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("ServiceStakingBridging", async () => {
+describe.only("ServiceStakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;
@@ -25,6 +25,12 @@ describe("ServiceStakingBridging", async () => {
     let arbitrumTargetDispenserL2;
     let gnosisDepositProcessorL1;
     let gnosisTargetDispenserL2;
+    let optimismDepositProcessorL1;
+    let optimismTargetDispenserL2;
+    let polygonDepositProcessorL1;
+    let polygonTargetDispenserL2;
+    let wormholeDepositProcessorL1;
+    let wormholeTargetDispenserL2;
 
     // These should not be in beforeEach.
     beforeEach(async () => {
@@ -56,14 +62,14 @@ describe("ServiceStakingBridging", async () => {
         await bridgeRelayer.deployed();
 
         const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
+        // L2 Target Dispenser address is a bridge contract as well such that it matches the required msg.sender
         arbitrumDepositProcessorL1 = await ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address,
             bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address);
         await arbitrumDepositProcessorL1.deployed();
 
         const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
         arbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, deployer.address, bridgeRelayer.address,
-            bridgeRelayer.address, chainId);
+            serviceStakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId);
         await arbitrumTargetDispenserL2.deployed();
 
         // Set the arbitrumTargetDispenserL2 address in arbitrumDepositProcessorL1
@@ -79,8 +85,8 @@ describe("ServiceStakingBridging", async () => {
 
         const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
         gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, deployer.address, bridgeRelayer.address,
-            gnosisDepositProcessorL1.address, chainId, bridgeRelayer.address);
+            serviceStakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
+            bridgeRelayer.address);
         await gnosisTargetDispenserL2.deployed();
 
         // Set the gnosisTargetDispenserL2 address in gnosisDepositProcessorL1
@@ -96,8 +102,7 @@ describe("ServiceStakingBridging", async () => {
 
         const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
         optimismTargetDispenserL2 = await OptimismTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, deployer.address, bridgeRelayer.address,
-            optimismDepositProcessorL1.address, chainId);
+            serviceStakingProxyFactory.address, bridgeRelayer.address, optimismDepositProcessorL1.address, chainId);
         await optimismTargetDispenserL2.deployed();
 
         // Set the optimismTargetDispenserL2 address in optimismDepositProcessorL1
@@ -105,13 +110,174 @@ describe("ServiceStakingBridging", async () => {
 
         // Set optimism addresses in a bridge contract
         await bridgeRelayer.setOptimismAddresses(optimismDepositProcessorL1.address, optimismTargetDispenserL2.address);
+
+        const PolygonDepositProcessorL1 = await ethers.getContractFactory("PolygonDepositProcessorL1");
+        polygonDepositProcessorL1 = await PolygonDepositProcessorL1.deploy(olas.address, dispenser.address,
+            bridgeRelayer.address, bridgeRelayer.address, chainId, olas.address, bridgeRelayer.address);
+        await polygonDepositProcessorL1.deployed();
+
+        const PolygonTargetDispenserL2 = await ethers.getContractFactory("PolygonTargetDispenserL2");
+        polygonTargetDispenserL2 = await PolygonTargetDispenserL2.deploy(olas.address,
+            serviceStakingProxyFactory.address, bridgeRelayer.address, polygonDepositProcessorL1.address, chainId);
+        await polygonTargetDispenserL2.deployed();
+
+        // Set the polygonTargetDispenserL2 address in polygonDepositProcessorL1
+        await polygonDepositProcessorL1.setL2TargetDispenser(polygonTargetDispenserL2.address);
+        // Set the polygonDepositProcessorL1 address in polygonTargetDispenserL2
+        await polygonTargetDispenserL2.setFxRootTunnel(polygonDepositProcessorL1.address);
+
+        // Set polygon addresses in a bridge contract
+        await bridgeRelayer.setPolygonAddresses(polygonDepositProcessorL1.address, polygonTargetDispenserL2.address);
+
+        const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
+        wormholeDepositProcessorL1 = await WormholeDepositProcessorL1.deploy(olas.address, dispenser.address,
+            bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, chainId);
+        await wormholeDepositProcessorL1.deployed();
+
+        const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
+        wormholeTargetDispenserL2 = await WormholeTargetDispenserL2.deploy(olas.address,
+            serviceStakingProxyFactory.address, bridgeRelayer.address, wormholeDepositProcessorL1.address, chainId,
+            bridgeRelayer.address, bridgeRelayer.address);
+        await wormholeTargetDispenserL2.deployed();
+
+        // Set the wormholeTargetDispenserL2 address in wormholeDepositProcessorL1
+        await wormholeDepositProcessorL1.setL2TargetDispenser(wormholeTargetDispenserL2.address);
+
+        // Set wormhole addresses in a bridge contract
+        await bridgeRelayer.setWormholeAddresses(wormholeDepositProcessorL1.address, wormholeTargetDispenserL2.address);
     });
 
     context("Arbitrum", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
+            // Zero OLAS token
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(AddressZero, AddressZero, AddressZero, AddressZero,
+                    0, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero dispenser address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, AddressZero, AddressZero, AddressZero,
+                    0, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero L1 token relayer address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, AddressZero, AddressZero,
+                    0, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero L1 message relayer address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address, AddressZero,
+                    0, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero L2 chain Id
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, 0, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
+
+            // Overflow in L2 chain Id
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, ethers.constants.MaxUint256, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "Overflow");
+
+            // Zero ERC20 Gateway address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero Outbox address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+        });
+
+        it("Should fail with incorrect constructor parameters for L2", async function () {
+            const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
+            // Zero OLAS token
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
+
+            // Zero proxy factory address
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, AddressZero, AddressZero, AddressZero, 0)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
+
+            // Zero L2 message relayer address
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, AddressZero,
+                    AddressZero, 0)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
+
+            // Zero L1 deposit processor address
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    AddressZero, 0)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
+
+            // Zero L1 chain Id
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    arbitrumDepositProcessorL1.address, 0)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
+
+            // Overflow L1 chain Id
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    arbitrumDepositProcessorL1.address, ethers.constants.MaxUint256)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Overflow");
+        });
+
+        it("Changing the owner and pausing / unpausing", async function () {
+            const account = signers[1];
+
+            // Trying to change owner from a non-owner account address
+            await expect(
+                arbitrumTargetDispenserL2.connect(account).changeOwner(account.address)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            // Trying to change owner for the zero address
+            await expect(
+                arbitrumTargetDispenserL2.connect(deployer).changeOwner(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
+
+            // Changing the owner
+            await arbitrumTargetDispenserL2.connect(deployer).changeOwner(account.address);
+
+            // Trying to change owner from the previous owner address
+            await expect(
+                arbitrumTargetDispenserL2.connect(deployer).changeOwner(deployer.address)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            // Trying to pause and unpause from a non-owner account address
+            await expect(
+                arbitrumTargetDispenserL2.connect(deployer).pause()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            await expect(
+                arbitrumTargetDispenserL2.connect(deployer).unpause()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+        });
+
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = serviceStakingInstance.address;
             const stakingAmount = defaultAmount;
+
+            // Try to send a message with a zero or incorrect payload
+            await expect(
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
+                    stakingAmount)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "IncorrectDataLength");
+
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [deployer.address, defaultGasPrice, defaultCost, defaultGasLimit, defaultCost]);
 
@@ -146,23 +312,57 @@ describe("ServiceStakingBridging", async () => {
     });
 
     context("Gnosis", async function () {
+        it("Should fail with incorrect constructor parameters for L2", async function () {
+            const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
+
+            // Zero L2 token relayer address
+            await expect(
+                GnosisTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    gnosisDepositProcessorL1.address, chainId, AddressZero)
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "ZeroAddress");
+        });
+
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = serviceStakingInstance.address;
             const stakingAmount = defaultAmount;
 
+            // Try to send a message with a zero or incorrect payload
+            await expect(
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
+                    stakingAmount)
+            ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "IncorrectDataLength");
+
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
 
             // Send a message on L2 with funds
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+                stakingAmount);
+
+            // Pause the L2 contract
+            await gnosisTargetDispenserL2.pause();
 
             // Get the current staking batch nonce
-            const stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
+            let stakingBatchNonce = await gnosisTargetDispenserL2.connect(deployer).stakingBatchNonce();
+
+            // Send a message on L2 with funds when the contract is paused - it must queue the amount
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                stakingAmount);
+
+            // Try to redeem
+            await expect(
+                gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce)
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
+
+            // Unpause and redeem
+            await gnosisTargetDispenserL2.unpause();
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+
+            // Get the current staking batch nonce
+            stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                0, {value: defaultMsgValue});
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0);
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
             await olas.mint(gnosisTargetDispenserL2.address, stakingAmount);
@@ -172,22 +372,47 @@ describe("ServiceStakingBridging", async () => {
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+                stakingAmount);
 
             // Check the withheld amount
             const withheldAmount = await gnosisTargetDispenserL2.withheldAmount();
             expect(Number(withheldAmount)).to.equal(stakingAmount);
 
-            // Send withheld amount from L2 to L1
+            // Pause the L2 contract
+            await gnosisTargetDispenserL2.pause();
+
+            // Trying to sync withheld tokens when paused
+            await expect(
+                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
+
+            // Unpause and send withheld amount from L2 to L1
+            await gnosisTargetDispenserL2.unpause();
             await gnosisTargetDispenserL2.syncWithheldTokens("0x");
         });
     });
 
     context("Optimism", async function () {
-        it.only("Send message with single target and amount from L1 to L2 and back", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
+
+            // Zero OLAS L2 address
+            await expect(
+                OptimismDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, AddressZero)
+            ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "ZeroAddress");
+        });
+
+        it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = serviceStakingInstance.address;
             const stakingAmount = defaultAmount;
+
+            // Try to send a message with a zero or incorrect payload
+            await expect(
+                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
+                    stakingAmount)
+            ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "IncorrectDataLength");
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"],
                 [defaultCost, defaultGasLimit]);
@@ -220,6 +445,147 @@ describe("ServiceStakingBridging", async () => {
             // Send withheld amount from L2 to L1
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
             await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultCost});
+        });
+    });
+
+    context("Polygon", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const PolygonDepositProcessorL1 = await ethers.getContractFactory("PolygonDepositProcessorL1");
+
+            // Zero checkpoint manager contract address
+            await expect(
+                PolygonDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(polygonDepositProcessorL1, "ZeroAddress");
+
+            // Zero ERC20 predicate contract address
+            await expect(
+                PolygonDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, AddressZero)
+            ).to.be.revertedWithCustomError(polygonDepositProcessorL1, "ZeroAddress");
+        });
+
+        it("Send message with single target and amount from L1 to L2 and back", async function () {
+            // Encode the staking data to emulate it being received on L2
+            const stakingTarget = serviceStakingInstance.address;
+            const stakingAmount = defaultAmount;
+
+            // Send a message on L2 with funds
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
+                stakingAmount);
+
+            // Get the current staking batch nonce
+            const stakingBatchNonce = await polygonTargetDispenserL2.stakingBatchNonce();
+
+            // Send a message on L2 without enough funds
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingAmount, "0x", 0);
+
+            // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
+            await olas.mint(polygonTargetDispenserL2.address, stakingAmount);
+
+            // Redeem funds
+            await polygonTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, deployer.address, stakingAmount, "0x",
+                stakingAmount);
+
+            // Check the withheld amount
+            const withheldAmount = await polygonTargetDispenserL2.withheldAmount();
+            expect(Number(withheldAmount)).to.equal(stakingAmount);
+
+            // Send withheld amount from L2 to L1
+            await polygonTargetDispenserL2.syncWithheldTokens("0x");
+        });
+    });
+
+    context("Wormhole", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
+
+            // Zero L1 wormhole core contract address
+            await expect(
+                WormholeDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, AddressZero, 0)
+            ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "ZeroAddress");
+
+            // Zero wormhole L2 chain Id
+            await expect(
+                WormholeDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, 0)
+            ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "ZeroValue");
+
+            // Overflow wormhole L2 chain Id
+            await expect(
+                WormholeDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, 2**16 + 1)
+            ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "Overflow");
+        });
+
+        it("Should fail with incorrect constructor parameters for L2", async function () {
+            const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
+
+            // Zero L2 wormhole core contract address
+            await expect(
+                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    wormholeDepositProcessorL1.address, chainId, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroAddress");
+
+            // Zero L2 token relayer contract address
+            await expect(
+                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    wormholeDepositProcessorL1.address, chainId, bridgeRelayer.address, AddressZero)
+            ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroAddress");
+
+            // Overflow L1 wormhole chain Id
+            await expect(
+                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    wormholeDepositProcessorL1.address, 2**16 + 1, bridgeRelayer.address, bridgeRelayer.address)
+            ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "Overflow");
+        });
+
+        it("Send message with single target and amount from L1 to L2 and back", async function () {
+            // Encode the staking data to emulate it being received on L2
+            const stakingTarget = serviceStakingInstance.address;
+            const stakingAmount = defaultAmount;
+
+            // Try to send a message with a zero or incorrect payload
+            await expect(
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
+                    stakingAmount)
+            ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "IncorrectDataLength");
+
+            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
+                [AddressZero, defaultGasLimit]);
+
+            // Send a message on L2 with funds
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
+
+            // Get the current staking batch nonce
+            const stakingBatchNonce = await wormholeTargetDispenserL2.stakingBatchNonce();
+
+            // Send a message on L2 without enough funds
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+                0, {value: defaultMsgValue});
+
+            // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
+            await olas.mint(wormholeTargetDispenserL2.address, stakingAmount);
+
+            // Redeem funds
+            await wormholeTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
+                stakingAmount, {value: defaultMsgValue});
+
+            // Check the withheld amount
+            const withheldAmount = await wormholeTargetDispenserL2.withheldAmount();
+            expect(Number(withheldAmount)).to.equal(stakingAmount);
+
+            // Send withheld amount from L2 to L1
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            await wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue});
         });
     });
 });

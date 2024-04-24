@@ -6,22 +6,16 @@ import {FxBaseRootTunnel} from "fx-portal/contracts/tunnel/FxBaseRootTunnel.sol"
 
 interface IBridge {
     // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
-    /**
-     * @notice Move tokens from root to child chain
-     * @dev This mechanism supports arbitrary tokens as long as its predicate has been registered and the token is mapped
-     * @param user address of account that should receive this deposit on child chain
-     * @param rootToken address of token that is being deposited
-     * @param depositData bytes data that is sent to predicate and child token contracts to handle deposit
-     */
+    /// @notice Move tokens from root to child chain
+    /// @dev This mechanism supports arbitrary tokens as long as its predicate has been registered and the token is mapped
+    /// @param user address of account that should receive this deposit on child chain
+    /// @param rootToken address of token that is being deposited
+    /// @param depositData bytes data that is sent to predicate and child token contracts to handle deposit
     function depositFor(address user, address rootToken, bytes calldata depositData) external;
 }
 
 contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunnel {
-    // _checkpointManager: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#prerequisites
-    // _l1TokenRelayer is RootChainManagerProxy (0xA0c68C638235ee32657e8f720a23ceC1bFc77C77)
-    // _l1MessageRelayer is fxRoot
-    // _predicate is Predicate (0x40ec5B33f54e0E8A33A975908C5BA1c14e5BbbDf): https://github.com/maticnetwork/pos-portal/blob/master/flat/ERC20Predicate.sol
-
+    // ERC20 Predicate contract address
     address public immutable predicate;
 
     /// @dev PolygonDepositProcessorL1 constructor.
@@ -44,6 +38,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
         FxBaseRootTunnel(_checkpointManager, _l1MessageRelayer)
     {
+        // Check for zero addresses
         if (_checkpointManager == address(0) || _predicate == address(0)) {
             revert ZeroAddress();
         }
@@ -65,7 +60,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
             // Source: https://github.com/maticnetwork/pos-portal/blob/5fbd35ba9cdc8a07bf32d81d6d1f4ce745feabd6/flat/RootChainManager.sol#L2218
             IToken(olas).approve(predicate, transferAmount);
 
-            // Transfer OLAS to the staking dispenser contract across the bridge
+            // Transfer OLAS to L2 target dispenser contract across the bridge
             IBridge(l1TokenRelayer).depositFor(l2TargetDispenser, olas, abi.encode(transferAmount));
         }
 
@@ -77,12 +72,14 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         // Send message to L2
         _sendMessageToChild(data);
 
+        // Since there is no returned message sequence, use the staking batch nonce
         sequence = stakingBatchNonce;
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseRootTunnel.sol#L175
     // Doc: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#root-tunnel-contract
     /// @dev Process message received from the L2 Child Tunnel. This is called by receiveMessage function.
+    /// @notice All the bridge relayer and sender verifications are performed in a parent receiveMessage() function.
     /// @param data Bytes message data sent from L2.
     function _processMessageFromChild(bytes memory data) internal override {
         // Process the data

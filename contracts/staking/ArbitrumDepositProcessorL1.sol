@@ -91,7 +91,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
         // Check for zero contract addresses
-        if (_outbox == address(0) || _l1ERC20Gateway == address(0)) {
+        if (_l1ERC20Gateway == address(0) || _outbox == address(0)) {
             revert ZeroAddress();
         }
 

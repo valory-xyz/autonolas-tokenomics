@@ -6,16 +6,14 @@ import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 interface IBridge {
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L259
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging
-    /**
-     * @notice Sends a message to some target address on the other chain. Note that if the call
-     *         always reverts, then the message will be unrelayable, and any ETH sent will be
-     *         permanently locked. The same will occur if the target on the other chain is
-     *         considered unsafe (see the _isUnsafeTarget() function).
-     *
-     * @param _target      Target contract or wallet address.
-     * @param _message     Message to trigger the target address with.
-     * @param _minGasLimit Minimum gas limit that the message can be executed with.
-     */
+    /// @notice Sends a message to some target address on the other chain. Note that if the call
+    ///         always reverts, then the message will be unrelayable, and any ETH sent will be
+    ///         permanently locked. The same will occur if the target on the other chain is
+    ///         considered unsafe (see the _isUnsafeTarget() function).
+    ///
+    /// @param _target      Target contract or wallet address.
+    /// @param _message     Message to trigger the target address with.
+    /// @param _minGasLimit Minimum gas limit that the message can be executed with.
     function sendMessage(
         address _target,
         bytes calldata _message,
@@ -24,37 +22,38 @@ interface IBridge {
 
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L422
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#accessing-msgsender
-    /**
-     * @notice Retrieves the address of the contract or wallet that initiated the currently
-     *         executing message on the other chain. Will throw an error if there is no message
-     *         currently being executed. Allows the recipient of a call to see who triggered it.
-     *
-     * @return Address of the sender of the currently executing message on the other chain.
-     */
+    /// @notice Retrieves the address of the contract or wallet that initiated the currently
+    ///         executing message on the other chain. Will throw an error if there is no message
+    ///         currently being executed. Allows the recipient of a call to see who triggered it.
+    ///
+    /// @return Address of the sender of the currently executing message on the other chain.
     function xDomainMessageSender() external view returns (address);
 }
 
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
-    /// @dev DefaultTargetDispenserL2 constructor.
+    // Bridge payload length
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
+
+    /// @dev OptimismTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
-    /// @param _owner Contract owner.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (L2CrossDomainMessengerProxy).
     /// @param _l1DepositProcessor L1 deposit processor address.
     /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
-        address _owner,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
-        // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
 
         // Send message to L1
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
@@ -65,10 +64,13 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
             revert LowerThan(msg.value, cost);
         }
 
+        // Assemble data payload
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
+
         // Send the message to L1 deposit processor
         IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(GAS_LIMIT));
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount, cost);
+        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.

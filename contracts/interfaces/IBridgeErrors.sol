@@ -33,10 +33,25 @@ interface IBridgeErrors {
     /// @param max Maximum possible value.
     error Overflow(uint256 provided, uint256 max);
 
+    /// @dev Target bridge relayer is incorrect.
+    /// @param provided Provided relayer address.
+    /// @param expected Expected relayer address.
     error TargetRelayerOnly(address provided, address expected);
+
+    /// @dev Message sender from another chain is incorrect.
+    /// @param provided Provided message sender address.
+    /// @param expected Expected message sender address.
     error WrongMessageSender(address provided, address expected);
+
+    /// @dev Chain Id originating the call is incorrect.
+    /// @param provided Provided chain Id.
+    /// @param expected Expected chain Id.
     error WrongSourceChainId(uint256 provided, uint256 expected);
 
+    /// @dev Target and its corresponding amount are not found in the queue.
+    /// @param target Target address.
+    /// @param amount Token amount.
+    /// @param batchNonce Reference batch nonce.
     error TargetAmountNotQueued(address target, uint256 amount, uint256 batchNonce);
 
     /// @dev Failure of a transfer.
@@ -45,6 +60,20 @@ interface IBridgeErrors {
     /// @param to Address `to`.
     /// @param amount Token amount.
     error TransferFailed(address token, address from, address to, uint256 amount);
+
+    /// @dev Delivery hash has been already processed.
+    /// @param deliveryHash Delivery hash.
+    error AlreadyDelivered(bytes32 deliveryHash);
+
+    /// @dev Wrong amount received / provided.
+    /// @param provided Provided amount.
+    /// @param expected Expected amount.
+    error WrongAmount(uint256 provided, uint256 expected);
+
+    /// @dev Provided token address is incorrect.
+    /// @param provided Provided token address.
+    /// @param expected Expected token address.
+    error WrongTokenAddress(address provided, address expected);
 
     /// @dev The contract is paused.
     error Paused();

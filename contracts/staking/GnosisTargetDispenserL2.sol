@@ -26,7 +26,6 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     /// @dev GnosisTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
-    /// @param _owner Contract owner.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (AMBHomeProxy).
     /// @param _l1DepositProcessor L1 deposit processor address.
     /// @param _l1SourceChainId L1 source chain Id.
@@ -34,13 +33,12 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     constructor(
         address _olas,
         address _proxyFactory,
-        address _owner,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId,
         address _l2TokenRelayer
     )
-        DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
     {
         // Check for zero address
         if (_l2TokenRelayer == address(0)) {
@@ -58,7 +56,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount, 0);
+        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.

@@ -21,6 +21,8 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
     // receiveMessage selector to be executed on L2
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
+    // Maximum chain Id as per EVM specs
+    uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
     // Token transfer gas limit for L2
     // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
     uint256 public constant TOKEN_GAS_LIMIT = 300_000;
@@ -64,6 +66,11 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         // Check for zero value
         if (_l2TargetChainId == 0) {
             revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
         }
 
         olas = _olas;

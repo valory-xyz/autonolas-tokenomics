@@ -22,18 +22,16 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
-    /// @param _owner Contract owner.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (ArbSys).
     /// @param _l1DepositProcessor L1 deposit processor address.
     /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
-        address _owner,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _owner, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory) internal override {
@@ -43,7 +41,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
 
-        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount, 0);
+        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.

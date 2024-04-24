@@ -44,9 +44,8 @@ async function main() {
     const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
     console.log("You are signing the following transaction: OptimismTargetDispenserL2.connect(EOA).deploy()");
     const optimismTargetDispenserL2 = await OptimismTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress,
-        parsedData.optimisticL2CrossDomainMessengerAddress, parsedData.optimismDepositProcessorL1Address,
-        parsedData.l1ChainId);
+        parsedData.serviceStakingFactoryAddress, parsedData.optimisticL2CrossDomainMessengerAddress,
+        parsedData.optimismDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await optimismTargetDispenserL2.deployed();
 
     // Transaction details

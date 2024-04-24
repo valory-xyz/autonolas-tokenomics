@@ -25,13 +25,14 @@ interface IToken {
 }
 
 abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
+    event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
     event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
         uint256 batchNonce, uint256 paused);
     event MessageSent(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
-        uint256 amount, uint256 cost);
+        uint256 amount);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Drain(address indexed owner, uint256 amount);
@@ -40,6 +41,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
+    // Maximum chain Id as per EVM specs
+    uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
     // Gas limit for sending a message to L1
     // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
     uint256 public constant GAS_LIMIT = 300_000;
@@ -47,8 +50,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     address public immutable olas;
     // Proxy factory address
     address public immutable proxyFactory;
-    // Owner address (Timelock or bridge mediator)
-    address public immutable owner;
     // L2 Relayer address that receives the message across the bridge from the source L1 network
     address public immutable l2MessageRelayer;
     // Deposit processor address on L1 that is authorized to propagate the transaction execution across the bridge
@@ -59,6 +60,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     uint256 public withheldAmount;
     // Nonce for each staking batch
     uint256 public stakingBatchNonce;
+    // Owner address (Timelock or bridge mediator)
+    address public owner;
     // Pause switcher
     uint8 public paused;
     // Reentrancy lock
@@ -70,21 +73,19 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev DefaultTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
-    /// @param _owner Contract owner.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address.
     /// @param _l1DepositProcessor L1 deposit processor address.
     /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
         address _proxyFactory,
-        address _owner,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
     ) {
         // Check for zero addresses
-        if (_olas == address(0) || _proxyFactory == address(0) || _owner == address(0) ||
-            _l2MessageRelayer == address(0) || _l1DepositProcessor == address(0)) {
+        if (_olas == address(0) || _proxyFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
             revert ZeroAddress();
         }
 
@@ -93,12 +94,20 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             revert ZeroValue();
         }
 
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
         olas = _olas;
         proxyFactory = _proxyFactory;
-        owner = _owner;
         l2MessageRelayer = _l2MessageRelayer;
         l1DepositProcessor = _l1DepositProcessor;
         l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
         paused = 1;
         _locked = 1;
     }
@@ -198,6 +207,23 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
         // Process the data
         _processData(data);
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
     }
 
     function redeem(address target, uint256 amount, uint256 batchNonce) external {
@@ -318,9 +344,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
         _locked = 2;
 
-        // Check for the drainer address
+        // Check for the owner address
         if (msg.sender != owner) {
-            revert ();
+            revert OwnerOnly(msg.sender, owner);
         }
 
         // Drain the slashed funds

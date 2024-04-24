@@ -44,7 +44,7 @@ async function main() {
     const PolygonTargetDispenserL2 = await ethers.getContractFactory("PolygonTargetDispenserL2");
     console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).deploy()");
     const polygonTargetDispenserL2 = await PolygonTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress, parsedData.polygonFXChildAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.polygonFXChildAddress,
         parsedData.gnosisDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await polygonTargetDispenserL2.deployed();
 

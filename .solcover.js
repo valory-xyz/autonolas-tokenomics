@@ -5,6 +5,7 @@ module.exports = {
         "staking/test/MockServiceStakingFactory.sol",
         "staking/test/MockServiceStakingProxy.sol",
         "test/ERC20Token.sol",
+        "test/ERC20TokenOwnerless.sol",
         "test/DepositAttacker.sol",
         "test/FlashLoanAttacker.sol",
         "test/MockRegistry.sol",
