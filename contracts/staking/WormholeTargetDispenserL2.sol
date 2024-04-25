@@ -54,7 +54,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     /// @param _proxyFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (Relayer).
     /// @param _l1DepositProcessor L1 deposit processor address.
-    /// @param _l1SourceChainId L1 source chain Id.
+    /// @param _l1SourceChainId L1 wormhole standard source chain Id.
     /// @param _wormholeCore L2 Wormhole Core contract address.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address (Token Bridge).
     constructor(
@@ -106,7 +106,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),
             l1DepositProcessor, abi.encode(amount), 0, GAS_LIMIT, uint16(l1SourceChainId), refundAccount);
 
-        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
+        emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
@@ -129,6 +129,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         }
         mapDeliveryHashes[deliveryHash] = true;
 
+        // Check for the source chain Id
+        if (sourceChainId != l1SourceChainId) {
+            revert WrongChainId(sourceChainId, l1SourceChainId);
+        }
+
         // Inspired by: https://docs.wormhole.com/wormhole/quick-start/tutorials/hello-token
         // Source code: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L187
         // Check that only one token is received
@@ -145,6 +150,6 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         address processor = address(uint160(uint256(sourceProcessor)));
 
         // Process the data
-        _receiveMessage(msg.sender, processor, sourceChainId, data);
+        _receiveMessage(msg.sender, processor, data);
     }
 }

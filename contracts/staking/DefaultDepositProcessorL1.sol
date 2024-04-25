@@ -16,7 +16,7 @@ interface IToken {
 }
 
 abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
-    event MessageSent(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
+    event MessagePosted(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
 
     // receiveMessage selector to be executed on L2
@@ -147,7 +147,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         // Increase the staking batch nonce
         stakingBatchNonce++;
 
-        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
+        emit MessagePosted(sequence, targets, stakingAmounts, transferAmount);
     }
 
 
@@ -173,7 +173,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         // Increase the staking batch nonce
         stakingBatchNonce++;
 
-        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
+        emit MessagePosted(sequence, targets, stakingAmounts, transferAmount);
     }
 
     /// @dev Sets L2 target dispenser address and zero-s the owner.

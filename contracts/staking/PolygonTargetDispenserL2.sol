@@ -32,7 +32,7 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         // Send message to L1
         _sendMessageToRoot(data);
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
+        emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseChildTunnel.sol#L63
@@ -45,6 +45,6 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
     /// @param data Bytes message that was sent from L1 Root Tunnel.
     function _processMessageFromRoot(uint256, address sender, bytes memory data) internal override {
         // Process the data
-        _receiveMessage(l2MessageRelayer, sender, l1SourceChainId, data);
+        _receiveMessage(l2MessageRelayer, sender, data);
     }
 }

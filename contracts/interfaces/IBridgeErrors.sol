@@ -46,13 +46,18 @@ interface IBridgeErrors {
     /// @dev Chain Id originating the call is incorrect.
     /// @param provided Provided chain Id.
     /// @param expected Expected chain Id.
-    error WrongSourceChainId(uint256 provided, uint256 expected);
+    error WrongChainId(uint256 provided, uint256 expected);
 
     /// @dev Target and its corresponding amount are not found in the queue.
     /// @param target Target address.
     /// @param amount Token amount.
     /// @param batchNonce Reference batch nonce.
     error TargetAmountNotQueued(address target, uint256 amount, uint256 batchNonce);
+
+    /// @dev Insufficient token balance.
+    /// @param provided Provided balance.
+    /// @param expected Expected available amount.
+    error InsufficientBalance(uint256 provided, uint256 expected);
 
     /// @dev Failure of a transfer.
     /// @param token Address of a token.

@@ -59,6 +59,11 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         uint256 cost = abi.decode(bridgePayload, (uint256));
 
+        // Check for zero value
+        if (cost == 0) {
+            revert ZeroValue();
+        }
+
         // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
             revert LowerThan(msg.value, cost);
@@ -70,7 +75,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send the message to L1 deposit processor
         IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(GAS_LIMIT));
 
-        emit MessageSent(0, msg.sender, l1DepositProcessor, amount);
+        emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.
@@ -80,6 +85,6 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         address l1Processor = IBridge(l2MessageRelayer).xDomainMessageSender();
 
         // Process the data
-        _receiveMessage(msg.sender, l1Processor, l1SourceChainId, data);
+        _receiveMessage(msg.sender, l1Processor, data);
     }
 }

@@ -41,7 +41,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
 
-        emit MessageSent(sequence, msg.sender, l1DepositProcessor, amount);
+        emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.
@@ -49,6 +49,6 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     /// @param data Bytes message data sent from L1.
     function receiveMessage(bytes memory data) external payable {
         // Process the message data
-        _receiveMessage(l2MessageRelayer, msg.sender, l1SourceChainId, data);
+        _receiveMessage(l2MessageRelayer, msg.sender, data);
     }
 }

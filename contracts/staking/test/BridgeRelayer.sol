@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "hardhat/console.sol";
-
 interface IBridgeRelayer {
     function receiveMessage(bytes memory data) external payable;
     function onTokenBridged(address, uint256, bytes calldata data) external;
@@ -51,11 +49,32 @@ contract BridgeRelayer {
     address public wormholeDepositProcessorL1;
     address public wormholeTargetDispenserL2;
 
+    address public wrongToken;
     address public sender;
     uint256 public nonce;
 
+    enum Mode {
+        Normal,
+        WrongRelayer,
+        WrongSender,
+        WrongChainId,
+        WrongToken,
+        WrongNumTokens,
+        WrongDeliveryHash
+    }
+    Mode public mode;
+
     constructor(address _token) {
         token = _token;
+    }
+
+    function setMode(Mode _mode) external {
+        mode = _mode;
+        nonce++;
+    }
+
+    function setWrongToken(address _wrongToken) external {
+        wrongToken = _wrongToken;
     }
 
     function setArbitrumAddresses(address _arbitrumDepositProcessorL1, address _arbitrumTargetDispenserL2) external {
@@ -187,13 +206,15 @@ contract BridgeRelayer {
     /// @return Message Id.
     function requireToPassMessage(address target, bytes memory data, uint256) external returns (bytes32) {
         sender = msg.sender;
-        (bool success, ) = target.call(data);
+        (bool success, bytes memory returnData) = target.call(data);
 
-        if (success) {
-            return bytes32(0);
-        } else {
-            revert();
+        if (!success) {
+            assembly {
+                let returnDataSize := mload(returnData)
+                revert(add(32, returnData), returnDataSize)
+            }
         }
+        return bytes32(0);
     }
 
     // Contract: Omnibridge Multi-Token Mediator Proxy
@@ -209,7 +230,11 @@ contract BridgeRelayer {
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
     function messageSender() external view returns (address) {
-        return sender;
+        if (mode == Mode.WrongSender) {
+            return address(1);
+        } else {
+            return sender;
+        }
     }
 
 
@@ -381,7 +406,10 @@ contract BridgeRelayer {
         return 0;
     }
 
-    function chainId() external pure returns (uint16) {
+    function chainId() external view returns (uint16) {
+        if (mode == Mode.WrongChainId) {
+            return 0;
+        }
         return 1;
     }
     
@@ -415,11 +443,22 @@ contract BridgeRelayer {
         uint16,
         address
     ) external payable returns (uint64 sequence) {
+        if (mode == Mode.WrongChainId) {
+            targetChain = 0;
+        }
+
         bytes[] memory additionalVaas = new bytes[](1);
+
+        if (mode == Mode.WrongNumTokens) {
+            additionalVaas = new bytes[](2);
+        }
+
         IBridgeRelayer(targetAddress).receiveWormholeMessages(payload, additionalVaas,
             bytes32(uint256(uint160(msg.sender))), targetChain, bytes32(nonce));
 
-        nonce++;
+        if (mode != Mode.WrongDeliveryHash) {
+            nonce++;
+        }
         sequence = 0;
     }
 
@@ -436,6 +475,14 @@ contract BridgeRelayer {
         transfer.tokenChain = 1;
         transfer.to = bytes32(uint256(uint160(wormholeTargetDispenserL2)));
         transfer.toChain = 1;
+
+        if (mode == Mode.WrongChainId) {
+            transfer.tokenChain = 0;
+            transfer.toChain = 0;
+        }
+        if (mode == Mode.WrongToken && wrongToken != address(0)) {
+            transfer.tokenAddress = bytes32(uint256(uint160(wrongToken)));
+        }
     }
 
     function completeTransferWithPayload(bytes memory) external pure returns (bytes memory) {
@@ -470,10 +517,16 @@ contract BridgeRelayer {
         uint16,
         address
     ) external payable returns (uint64 sequence) {
+        if (mode == Mode.WrongChainId) {
+            targetChain = 0;
+        }
+
         IBridgeRelayer(targetAddress).receiveWormholeMessages(payload, new bytes[](0),
             bytes32(uint256(uint160(msg.sender))), targetChain, bytes32(nonce));
 
-        nonce++;
+        if (mode != Mode.WrongDeliveryHash) {
+            nonce++;
+        }
         sequence = 0;
     }
 }

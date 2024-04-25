@@ -31,7 +31,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
     event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
         uint256 batchNonce, uint256 paused);
-    event MessageSent(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
+    event MessagePosted(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
         uint256 amount);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
     event WithheldAmountSynced(address indexed sender, uint256 amount);
@@ -180,12 +180,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev Receives a message from L1.
     /// @param messageRelayer L2 bridge message relayer address.
     /// @param sourceProcessor L1 deposit processor address.
-    /// @param sourceChainId L1 chain Id.
     /// @param data Bytes message data sent from L1.
     function _receiveMessage(
         address messageRelayer,
         address sourceProcessor,
-        uint256 sourceChainId,
         bytes memory data
     ) internal virtual {
         // Check L2 message relayer address
@@ -196,11 +194,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         // Check L1 deposit processor address
         if (sourceProcessor != l1DepositProcessor) {
             revert WrongMessageSender(sourceProcessor, l1DepositProcessor);
-        }
-
-        // Check source chain Id
-        if (sourceChainId != l1SourceChainId) {
-            revert WrongSourceChainId(sourceChainId, l1SourceChainId);
         }
 
         emit MessageReceived(l1DepositProcessor, l1SourceChainId, data);
@@ -259,7 +252,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             stakingQueueingNonces[queueHash] = false;
         } else {
             // OLAS balance is not enough for redeem
-            revert LowerThan(olasBalance, amount);
+            revert InsufficientBalance(olasBalance, amount);
         }
 
         _locked = 1;
@@ -356,8 +349,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
 
         // Send funds to the owner
-        (bool result, ) = msg.sender.call{value: amount}("");
-        if (!result) {
+        (bool success, ) = msg.sender.call{value: amount}("");
+        if (!success) {
             revert TransferFailed(address(0), address(this), msg.sender, amount);
         }
 

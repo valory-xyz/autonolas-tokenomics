@@ -71,6 +71,12 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
             // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
             // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
             uint256 gasLimitMessage = abi.decode(bridgePayload, (uint256));
+
+            // Check for zero value
+            if (gasLimitMessage == 0) {
+                revert ZeroValue();
+            }
+
             // Check for the max gas limit
             if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
                 revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);

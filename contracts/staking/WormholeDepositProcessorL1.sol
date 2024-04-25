@@ -64,8 +64,12 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         }
 
         // Decode required parameters
-        (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload,
-            (address, uint256));
+        (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload, (address, uint256));
+
+        // Check for zero value
+        if (gasLimitMessage == 0) {
+            revert ZeroValue();
+        }
 
         // If refundAccount is zero, default to msg.sender
         if (refundAccount == address(0)) {
@@ -99,7 +103,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     ) external {
         // Check for the source chain Id
         if (sourceChain != wormholeTargetChainId) {
-            revert WrongSourceChainId(sourceChain, wormholeTargetChainId);
+            revert WrongChainId(sourceChain, wormholeTargetChainId);
         }
 
         // Check the delivery hash uniqueness

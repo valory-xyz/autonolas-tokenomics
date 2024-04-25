@@ -56,7 +56,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Send message to L1
         bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
 
-        emit MessageSent(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
+        emit MessagePosted(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.
@@ -66,7 +66,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         address processor = IBridge(l2MessageRelayer).messageSender();
 
         // Process the data
-        _receiveMessage(msg.sender, processor, l1SourceChainId, data);
+        _receiveMessage(msg.sender, processor, data);
     }
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
@@ -80,6 +80,6 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         }
 
         // Process the data
-        _receiveMessage(l2MessageRelayer, l1DepositProcessor, l1SourceChainId, data);
+        _receiveMessage(l2MessageRelayer, l1DepositProcessor, data);
     }
 }

@@ -128,7 +128,8 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Check for the tx param limits
-        if (gasPriceBid < 1 || gasLimitMessage < 1 || maxSubmissionCostMessage == 0) {
+        // See the function description for the magic values of 1
+        if (gasPriceBid < 2 || gasLimitMessage < 2 || maxSubmissionCostMessage == 0) {
             revert ZeroValue();
         }
 
