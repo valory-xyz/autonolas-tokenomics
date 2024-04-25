@@ -124,4 +124,9 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         setRegisteredSender(uint16(wormholeTargetChainId), bytes32(uint256(uint160(l2Dispenser))));
         _setL2TargetDispenser(l2Dispenser);
     }
+
+    /// @inheritdoc DefaultDepositProcessorL1
+    function getBridgingDecimals() external pure override returns (uint256) {
+        return 8;
+    }
 }

@@ -70,6 +70,7 @@ interface IDepositProcessor {
         uint256 transferAmount) external payable;
     function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory bridgePayloads,
         uint256 transferAmount) external payable;
+    function getBridgingDecimals() external pure returns (uint256);
 }
 
 interface IServiceStaking {
@@ -131,7 +132,7 @@ contract Dispenser is IErrorsTokenomics {
     // Mapping for epoch => remaining service staking amount
     mapping(uint256 => uint256) public mapEpochRemainingServiceStakingAmounts;
     // Mapping for L2 chain Id => dedicated deposit processors
-    mapping(uint256 => address) public mapChainIdTargetProcessors;
+    mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
 
@@ -269,7 +270,7 @@ contract Dispenser is IErrorsTokenomics {
             IServiceStaking(stakingTarget).deposit(stakingAmount);
             // bridgePayload is ignored
         } else {
-            address depositProcessor = mapChainIdTargetProcessors[chainId];
+            address depositProcessor = mapChainIdDepositProcessors[chainId];
             // TODO: mint directly or mint to dispenser and approve one by one?
             // Approve the OLAS amount for the staking target
             IToken(olas).transfer(depositProcessor, transferAmount);
@@ -303,7 +304,7 @@ contract Dispenser is IErrorsTokenomics {
                     // bridgePayloads[i] is ignored
                 }
             } else {
-                address depositProcessor = mapChainIdTargetProcessors[chainId];
+                address depositProcessor = mapChainIdDepositProcessors[chainId];
                 // TODO: mint directly or mint to dispenser and approve one by one?
                 // Approve the OLAS amount for the staking target
                 IToken(olas).transfer(depositProcessor, transferAmounts[i]);
@@ -317,7 +318,8 @@ contract Dispenser is IErrorsTokenomics {
 
     function _calculateServiceStakingIncentives(
         uint256 chainId,
-        address target
+        address target,
+        uint256 bridgingDecimals
     ) internal returns (uint256 totalStakingAmount, uint256 totalReturnAmount) {
         // Check for the correct chain Id
         if (chainId == 0 || chainId > MAX_CHAIN_ID) {
@@ -424,8 +426,12 @@ contract Dispenser is IErrorsTokenomics {
             revert();
         }
 
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
+        uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+
         // Staking amount to send as a deposit with, and the amount to return back to effective staking
-        (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainId, target);
+        (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainId, target,
+            bridgingDecimals);
 
         // Account for possible withheld OLAS amounts
         uint256 transferAmount = stakingAmount;
@@ -509,6 +515,9 @@ contract Dispenser is IErrorsTokenomics {
                 revert ZeroValue();
             }
 
+            address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
+            uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+            
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             // Traverse all staking targets
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
@@ -520,7 +529,7 @@ contract Dispenser is IErrorsTokenomics {
 
                 // Staking amount to send as a deposit with, and the amount to return back to effective staking
                 (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainIds[i],
-                    stakingTargets[i][j]);
+                    stakingTargets[i][j], bridgingDecimals);
 
                 stakingAmounts[i][j] += stakingAmount;
                 transferAmounts[i] += stakingAmount;
@@ -589,14 +598,14 @@ contract Dispenser is IErrorsTokenomics {
             }
 
             // Note: depositProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
-            mapChainIdTargetProcessors[chainIds[i]] = depositProcessors[i];
+            mapChainIdDepositProcessors[chainIds[i]] = depositProcessors[i];
         }
 
         emit SetDepositProcessorChainIds(depositProcessors, chainIds);
     }
 
     function syncWithheldAmount(uint256 chainId, uint256 amount) external {
-        address depositProcessor = mapChainIdTargetProcessors[chainId];
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
 
         // Check L1 Wormhole Relayer address
         if (msg.sender != depositProcessor) {
