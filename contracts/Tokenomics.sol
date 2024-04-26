@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// TODO - take the scope from .sol files
 import "./TokenomicsConstants.sol";
 import "./interfaces/IDonatorBlacklist.sol";
 import "./interfaces/IErrorsTokenomics.sol";

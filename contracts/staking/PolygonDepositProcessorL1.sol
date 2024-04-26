@@ -18,13 +18,14 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
     // ERC20 Predicate contract address
     address public immutable predicate;
 
+    // TODO: Check the contracts
     /// @dev PolygonDepositProcessorL1 constructor.
     /// @param _olas OLAS token address on L1.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
     /// @param _l1TokenRelayer L1 token relayer bridging contract address (RootChainManagerProxy).
     /// @param _l1MessageRelayer L1 message relayer bridging contract address (fxRoot).
     /// @param _l2TargetChainId L2 target chain Id.
-    /// @param _checkpointManager Checkpoint manager contract for verifying L2 to L1 data.
+    /// @param _checkpointManager Checkpoint manager contract for verifying L2 to L1 data (RootChainManagerProxy).
     /// @param _predicate ERC20 predicate contract to lock tokens on L1 before sending to L2.
     constructor(
         address _olas,
