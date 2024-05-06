@@ -9,5 +9,6 @@ module.exports = [
     parsedData.timelockAddress,
     parsedData.arbitrumArbSysAddress,
     parsedData.arbitrumDepositProcessorL1Address,
-    parsedData.l1ChainId
+    parsedData.l1ChainId,
+    parsedData.arbitrumAliasedDepositProcessorL1Address
 ];

@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("ServiceStakingBridging", async () => {
+describe.only("ServiceStakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;
@@ -70,7 +70,8 @@ describe("ServiceStakingBridging", async () => {
 
         const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
         arbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId);
+            serviceStakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId,
+            bridgeRelayer.address);
         await arbitrumTargetDispenserL2.deployed();
 
         // Set the arbitrumTargetDispenserL2 address in arbitrumDepositProcessorL1
@@ -213,36 +214,42 @@ describe("ServiceStakingBridging", async () => {
             const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
             // Zero OLAS token
             await expect(
-                ArbitrumTargetDispenserL2.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0)
+                ArbitrumTargetDispenserL2.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero proxy factory address
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, AddressZero, AddressZero, AddressZero, 0)
+                ArbitrumTargetDispenserL2.deploy(olas.address, AddressZero, AddressZero, AddressZero, 0, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L2 message relayer address
             await expect(
                 ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, AddressZero,
-                    AddressZero, 0)
+                    AddressZero, 0, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L1 deposit processor address
             await expect(
                 ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    AddressZero, 0)
+                    AddressZero, 0, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L1 chain Id
             await expect(
                 ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    arbitrumDepositProcessorL1.address, 0)
+                    arbitrumDepositProcessorL1.address, 0, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
+
+            // Zero aliased L1 deposit processor address
+            await expect(
+                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                    arbitrumDepositProcessorL1.address, 1, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Overflow L1 chain Id
             await expect(
                 ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    arbitrumDepositProcessorL1.address, ethers.constants.MaxUint256)
+                    arbitrumDepositProcessorL1.address, ethers.constants.MaxUint256, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Overflow");
         });
 
@@ -424,6 +431,11 @@ describe("ServiceStakingBridging", async () => {
             await expect(
                 arbitrumDepositProcessorL1.setL2TargetDispenser(arbitrumTargetDispenserL2.address)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
+
+            // Try to receive a message on L2 not by the aliased L1 deposit processor
+            await expect(
+                arbitrumTargetDispenserL2.receiveMessage("0x")
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongMessageSender");
         });
 
         it("Drain functionality on L2", async function () {

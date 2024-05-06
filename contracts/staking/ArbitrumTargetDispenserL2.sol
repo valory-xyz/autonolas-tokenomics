@@ -17,21 +17,33 @@ interface IBridge {
 }
 
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
+    address public immutable l1AliasedDepositProcessor;
+
     /// @dev ArbitrumTargetDispenserL2 constructor.
-    /// @notice _l1DepositProcessor must be correctly aliased from the address on L1.
+    /// @notice _l1AliasedDepositProcessor must be correctly aliased from the address on L1.
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (ArbSys).
-    /// @param _l1DepositProcessor L1 deposit processor address.
+    /// @param _l1DepositProcessor L1 deposit processor address (NOT aliased).
     /// @param _l1SourceChainId L1 source chain Id.
+    /// @param _l1AliasedDepositProcessor Aliased deposit processor address.
     constructor(
         address _olas,
         address _proxyFactory,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
-        uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+        uint256 _l1SourceChainId,
+        address _l1AliasedDepositProcessor
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+    {
+        // Check for zero address
+        if (_l1AliasedDepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+        l1AliasedDepositProcessor = _l1AliasedDepositProcessor;
+    }
 
     /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory) internal override {
@@ -48,7 +60,12 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     /// @notice msg.sender is an aliased L1 l1DepositProcessor address.
     /// @param data Bytes message data sent from L1.
     function receiveMessage(bytes memory data) external payable {
+        // Check that msg.sender is the aliased L1 deposit processor
+        if (msg.sender != l1AliasedDepositProcessor) {
+            revert WrongMessageSender(msg.sender, l1AliasedDepositProcessor);
+        }
+
         // Process the message data
-        _receiveMessage(l2MessageRelayer, msg.sender, data);
+        _receiveMessage(l2MessageRelayer, l1DepositProcessor, data);
     }
 }
