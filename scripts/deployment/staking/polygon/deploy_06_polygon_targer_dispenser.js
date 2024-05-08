@@ -45,7 +45,7 @@ async function main() {
     console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).deploy()");
     const polygonTargetDispenserL2 = await PolygonTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.serviceStakingFactoryAddress, parsedData.polygonFXChildAddress,
-        parsedData.gnosisDepositProcessorL1Address, parsedData.l1ChainId);
+        parsedData.polygonDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await polygonTargetDispenserL2.deployed();
 
     // Transaction details
@@ -63,7 +63,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/gnosis/verify_03_gnosis_target_dispenser.js --network " + providerName + " " + polygonTargetDispenserL2.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/polygon/verify_06_polygon_target_dispenser.js --network " + providerName + " " + polygonTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 

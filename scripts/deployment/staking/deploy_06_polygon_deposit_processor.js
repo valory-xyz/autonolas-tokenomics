@@ -26,12 +26,12 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("3. EOA to deploy PolygonDepositProcessorL1");
+    console.log("6. EOA to deploy PolygonDepositProcessorL1");
     const PolygonDepositProcessorL1 = await ethers.getContractFactory("PolygonDepositProcessorL1");
     console.log("You are signing the following transaction: PolygonDepositProcessorL1.connect(EOA).deploy()");
     const polygonDepositProcessorL1 = await PolygonDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.dispenserAddress, parsedData.polygonRootChainProxyAddress,
-        parsedData.polygonFXRootAddress, parsedData.gnosisL2TargetChainId, parsedData.polygonRootChainProxyAddress,
+        parsedData.polygonFXRootAddress, parsedData.polygonL2TargetChainId, parsedData.polygonRootChainProxyAddress,
         parsedData.polygonERC20PredicateAddress);
     const result = await polygonDepositProcessorL1.deployed();
 
@@ -52,7 +52,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking//verify_03_gnosis_deposit_processor.js --network " + providerName + " " + polygonDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_06_polygon_deposit_processor.js --network " + providerName + " " + polygonDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 
