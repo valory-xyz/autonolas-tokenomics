@@ -6,7 +6,6 @@ const parsedData = JSON.parse(dataFromJSON);
 module.exports = [
     parsedData.olasAddress,
     parsedData.serviceStakingFactoryAddress,
-    parsedData.timelockAddress,
     parsedData.wormholeL2MessageRelayer,
     parsedData.celoWormholeDepositProcessorL1Address,
     parsedData.wormholel1ChainId,

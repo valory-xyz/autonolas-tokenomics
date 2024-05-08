@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe.only("ServiceStakingBridging", async () => {
+describe("ServiceStakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;
@@ -65,7 +65,8 @@ describe.only("ServiceStakingBridging", async () => {
         const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
         // L2 Target Dispenser address is a bridge contract as well such that it matches the required msg.sender
         arbitrumDepositProcessorL1 = await ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address,
-            bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address);
+            bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address,
+            bridgeRelayer.address);
         await arbitrumDepositProcessorL1.deployed();
 
         const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
@@ -155,54 +156,61 @@ describe.only("ServiceStakingBridging", async () => {
             // Zero OLAS token
             await expect(
                 ArbitrumDepositProcessorL1.deploy(AddressZero, AddressZero, AddressZero, AddressZero,
-                    0, AddressZero, AddressZero)
+                    0, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Zero dispenser address
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, AddressZero, AddressZero, AddressZero,
-                    0, AddressZero, AddressZero)
+                    0, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Zero L1 token relayer address
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, AddressZero, AddressZero,
-                    0, AddressZero, AddressZero)
+                    0, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Zero L1 message relayer address
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address, AddressZero,
-                    0, AddressZero, AddressZero)
+                    0, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Zero L2 chain Id
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
-                    bridgeRelayer.address, 0, AddressZero, AddressZero)
+                    bridgeRelayer.address, 0, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             // Overflow in L2 chain Id
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
-                    bridgeRelayer.address, ethers.constants.MaxUint256, AddressZero, AddressZero)
+                    bridgeRelayer.address, ethers.constants.MaxUint256, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "Overflow");
 
             // Zero ERC20 Gateway address
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
-                    bridgeRelayer.address, chainId, AddressZero, AddressZero)
+                    bridgeRelayer.address, chainId, AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Zero Outbox address
             await expect(
                 ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
-                    bridgeRelayer.address, chainId, bridgeRelayer.address, AddressZero)
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
+
+            // Zero Bridge address
+            await expect(
+                ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address, bridgeRelayer.address,
+                    bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address, AddressZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroAddress");
 
             // Deploy the L1 deposit processor
             const depositProcessorL1 = await ArbitrumDepositProcessorL1.deploy(olas.address, dispenser.address,
-                bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address);
+                bridgeRelayer.address, bridgeRelayer.address, chainId, bridgeRelayer.address, bridgeRelayer.address,
+                bridgeRelayer.address);
 
             // Try to set a zero address for the L2 target dispenser
             await expect(
@@ -414,7 +422,7 @@ describe.only("ServiceStakingBridging", async () => {
                     stakingAmount)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "LowerThan");
 
-            // Receiving a message not from the Outbox on L1
+            // Receiving a message not from the Bridge on L1
             await expect(
                 arbitrumDepositProcessorL1.receiveMessage("0x")
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "TargetRelayerOnly");

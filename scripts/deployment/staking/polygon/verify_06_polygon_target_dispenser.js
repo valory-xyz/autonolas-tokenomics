@@ -6,7 +6,6 @@ const parsedData = JSON.parse(dataFromJSON);
 module.exports = [
     parsedData.olasAddress,
     parsedData.serviceStakingFactoryAddress,
-    parsedData.timelockAddress,
     parsedData.gnosisAMBHomeAddress,
     parsedData.gnosisDepositProcessorL1Address,
     parsedData.l1ChainId

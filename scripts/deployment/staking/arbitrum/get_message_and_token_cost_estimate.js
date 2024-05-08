@@ -29,8 +29,8 @@ const main = async () => {
         console.log("Correct wallet setup");
     }
 
-    const l1DepositProcessorAddress = "0xE47F503C8C602D9B70E01627915dDAa4ee05531b";
-    const l2TargetDispenserAddress = "0x11EAdb54abB2476ddA705D80048516714274b07d";
+    const l1DepositProcessorAddress = "0x62f698468d9eb1Ed8c33f4DfE2e643b1a2D2980F";
+    const l2TargetDispenserAddress = "0xbb244EA713C065Ae54dC3A8eeeA765deEEDD8Df4";
     //const erc20Token = (await ethers.getContractAt("ERC20Token", tokenAddress)).connect(EOAarbitrumSepolia);
     //console.log(erc20Token.address);
 
@@ -45,7 +45,7 @@ const main = async () => {
 
     // To be able to estimate the gas related params to our L1-L2 message, we need to know how many bytes of calldata out
     // retryable ticket will require
-    const targetInstance = "0x2796c0470516C588383e50639dF12414d2CA4D14";
+    const targetInstance = "0x33A23Cb1Df4810f4D1B932D85E78a8Fd6b9C9659";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -94,9 +94,11 @@ const main = async () => {
         RetryablesGasOverrides //if provided, it will override the estimated values. Note that providing "RetryablesGasOverrides" is totally optional.
     );
     const gasPriceBid = L1ToL2MessageGasParams.maxFeePerGas;
-    const gasLimitMessage = L1ToL2MessageGasParams.gasLimit;
+    let gasLimitMessage = L1ToL2MessageGasParams.gasLimit;
     const maxSubmissionCostMessage = L1ToL2MessageGasParams.maxSubmissionCost;
     console.log("gasPriceBid:", gasPriceBid.toString());
+    // Add to the gas limit message because it miscalculates sometimes
+    gasLimitMessage = gasLimitMessage.add("100000");
     console.log("gasLimitMessage:", gasLimitMessage.toString());
     console.log("maxSubmissionCostMessage:", maxSubmissionCostMessage.toString());
 
@@ -119,7 +121,8 @@ const main = async () => {
         ethers.utils.hexDataLength(tokenCalldata));
     console.log("maxSubmissionCostToken:", maxSubmissionCostToken.toString());
 
-    const tokenGasLimit = ethers.BigNumber.from("300000");
+    // Add 100k to the overall deposit to reflect the gasLimitMessage as well
+    const tokenGasLimit = ethers.BigNumber.from("400000");
     const tokenGasCost = gasPriceBid.mul(tokenGasLimit);
     const totalCost = L1ToL2MessageGasParams.deposit.add(maxSubmissionCostToken).add(tokenGasCost);
     console.log("Total cost:", totalCost.toString());
@@ -132,7 +135,7 @@ const main = async () => {
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
     const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
-    const dispenserJSON = "artifacts/contracts/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
+    const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     let contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
@@ -145,52 +148,27 @@ const main = async () => {
     const olasABI = parsedFile["abi"];
     const olas = new ethers.Contract(olasAddress, olasABI, arbitrumSepoliaProvider);
     const totalSupply = await olas.totalSupply();
-    console.log("totalSupply on L2:", totalSupply);
+    //console.log("totalSupply on L2:", totalSupply);
     let balance = await olas.balanceOf(l2TargetDispenserAddress);
-    console.log("balance of L2 target dispenser:", balance);
+    //console.log("balance of L2 target dispenser:", balance);
     balance = await olas.balanceOf(targetInstance);
-    console.log("balance of L2 proxy:", balance);
-    return;
+    //console.log("balance of L2 proxy:", balance);
 
     const transferAmount = defaultAmount;
     const gasLimit = 3000000;
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
         finalPayload, transferAmount, { value: totalCost, gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
 
     // tx back to L1: https://sepolia.arbiscan.io/tx/0xde0193236bce2ae7ecedff473853b994ed3f678c8823db70190593d8e757b548
 
+    // Use the following script to finalize L2-L1 transaction:
+    // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js
+
     // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
-    /**
-     * @notice Executes a messages in an Outbox entry.
-     * @dev Reverts if dispute period hasn't expired, since the outbox entry
-     *      is only created once the rollup confirms the respective assertion.
-     * @dev it is not possible to execute any L2-to-L1 transaction which contains data
-     *      to a contract address without any code (as enforced by the Bridge contract).
-     * @param proof Merkle proof of message inclusion in send root
-     * @param index Merkle path to message
-     * @param l2Sender sender if original message (i.e., caller of ArbSys.sendTxToL1)
-     * @param to destination address for L1 contract call
-     * @param l2Block l2 block number at which sendTxToL1 call was made
-     * @param l1Block l1 block number at which sendTxToL1 call was made
-     * @param l2Timestamp l2 Timestamp at which sendTxToL1 call was made
-     * @param value wei in L1 message
-     * @param data abi-encoded L1 message data
-     */
-//    function executeTransaction(
-//        bytes32[] calldata proof,
-//        uint256 index,
-//        address l2Sender,
-//        address to,
-//        uint256 l2Block,
-//        uint256 l1Block,
-//        uint256 l2Timestamp,
-//        uint256 value,
-//        bytes calldata data
-//    ) external;
 };
 
 main()

@@ -67,9 +67,11 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;
     // L1 ERC20 Gateway address
-    address immutable l1ERC20Gateway;
+    address public immutable l1ERC20Gateway;
     // L1 Outbox relayer address
-    address immutable outbox;
+    address public immutable outbox;
+    // L1 Bridge relayer address
+    address public immutable bridge;
 
     /// @dev ArbitrumDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
@@ -79,6 +81,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @param _l2TargetChainId L2 target chain Id.
     /// @param _l1ERC20Gateway Actual L1 token relayer bridging contract address.
     /// @param _outbox L1 Outbox relayer contract address.
+    /// @param _bridge L1 Bridge repalyer contract address that finalizes the call from L2 to L1
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -86,17 +89,19 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
         address _l1ERC20Gateway,
-        address _outbox
+        address _outbox,
+        address _bridge
     )
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
         // Check for zero contract addresses
-        if (_l1ERC20Gateway == address(0) || _outbox == address(0)) {
+        if (_l1ERC20Gateway == address(0) || _outbox == address(0) || _bridge == address(0)) {
             revert ZeroAddress();
         }
 
         l1ERC20Gateway = _l1ERC20Gateway;
         outbox = _outbox;
+        bridge = _bridge;
     }
 
     /// @inheritdoc DefaultDepositProcessorL1
@@ -181,8 +186,8 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @param data Bytes message data sent from L2.
     function receiveMessage(bytes memory data) external {
         // Check L1 Relayer address
-        if (msg.sender != outbox) {
-            revert TargetRelayerOnly(msg.sender, outbox);
+        if (msg.sender != bridge) {
+            revert TargetRelayerOnly(msg.sender, bridge);
         }
 
         // Get L2 target dispenser address

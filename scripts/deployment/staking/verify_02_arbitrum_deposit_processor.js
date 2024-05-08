@@ -10,5 +10,6 @@ module.exports = [
     parsedData.arbitrumInboxAddress,
     parsedData.arbitrumL2TargetChainId,
     parsedData.arbitrumL1ERC20GatewayAddress,
-    parsedData.arbitrumOutboxAddress
+    parsedData.arbitrumOutboxAddress,
+    parsedData.arbitrumBridgeAddress
 ];
