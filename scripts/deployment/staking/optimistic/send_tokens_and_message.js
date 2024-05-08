@@ -54,6 +54,9 @@ const main = async () => {
 
     // tx back: https://sepolia-optimism.etherscan.io/tx/0x6ef9bb50e9a70077ddb00d978b0baf93e3ba17e5f36a3978b225e97f7b613884
 
+    // https://docs.optimism.io/builders/app-developers/tutorials/cross-dom-solidity#interact-with-the-l2-greeter
+    // https://github.com/t4sk/notes/tree/main/op
+
     // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1

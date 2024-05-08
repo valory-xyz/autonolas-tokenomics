@@ -99,6 +99,7 @@ contract Dispenser is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
+    event VoteWeightingUpdated(address indexed voteWeighting);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
     event ServiceStakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
@@ -135,6 +136,8 @@ contract Dispenser is IErrorsTokenomics {
 
     // Mapping for hash(Nominee struct) service staking pair => last claimed epochs
     mapping(bytes32 => uint256) public mapLastClaimedStakingServiceEpochs;
+    // Mapping for hash(Nominee struct) service staking pair => epoch number when the staking contract is removed
+    mapping(bytes32 => uint256) public mapRemovedNomineeEpochs;
     // Mapping for epoch => remaining service staking amount
     mapping(uint256 => uint256) public mapEpochRemainingServiceStakingAmounts;
     // Mapping for L2 chain Id => dedicated deposit processors
@@ -145,7 +148,8 @@ contract Dispenser is IErrorsTokenomics {
     /// @dev Dispenser constructor.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
-    constructor(address _tokenomics, address _treasury)
+    /// @param _voteWeighting Vote Weighting address.
+    constructor(address _tokenomics, address _treasury, address _voteWeighting)
     {
         owner = msg.sender;
         _locked = 1;
@@ -153,12 +157,13 @@ contract Dispenser is IErrorsTokenomics {
         paused = Pause.DevIncentivesPaused;
 
         // Check for at least one zero contract address
-        if (_tokenomics == address(0) || _treasury == address(0)) {
+        if (_tokenomics == address(0) || _treasury == address(0) || _voteWeighting == address(0)) {
             revert ZeroAddress();
         }
 
         tokenomics = _tokenomics;
         treasury = _treasury;
+        voteWeighting = _voteWeighting;
     }
 
     /// @dev Changes the owner address.
@@ -181,7 +186,8 @@ contract Dispenser is IErrorsTokenomics {
     /// @dev Changes various managing contract addresses.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
-    function changeManagers(address _tokenomics, address _treasury) external {
+    /// @param _voteWeighting Vote Weighting address.
+    function changeManagers(address _tokenomics, address _treasury, address _voteWeighting) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -192,10 +198,17 @@ contract Dispenser is IErrorsTokenomics {
             tokenomics = _tokenomics;
             emit TokenomicsUpdated(_tokenomics);
         }
+
         // Change Treasury contract address
         if (_treasury != address(0)) {
             treasury = _treasury;
             emit TreasuryUpdated(_treasury);
+        }
+
+        // Change Vote Weighting contract address
+        if (_voteWeighting != address(0)) {
+            voteWeighting = _voteWeighting;
+            emit VoteWeightingUpdated(_voteWeighting);
         }
     }
 
@@ -206,6 +219,28 @@ contract Dispenser is IErrorsTokenomics {
         }
 
         retainer = _retainer;
+    }
+
+    /// @dev Records nominee starting epoch number.
+    /// @param nomineeHash Nominee hash.
+    function enableNominee(bytes32 nomineeHash) external {
+        // Check for the contract ownership
+        if (msg.sender != voteWeighting) {
+            revert ManagerOnly(msg.sender, voteWeighting);
+        }
+
+        mapLastClaimedStakingServiceEpochs[nomineeHash] = ITokenomicsInfo(tokenomics).epochCounter();
+    }
+
+    /// @dev Records nominee removal epoch number.
+    /// @param nomineeHash Nominee hash.
+    function removeNominee(bytes32 nomineeHash) external {
+        // Check for the contract ownership
+        if (msg.sender != voteWeighting) {
+            revert ManagerOnly(msg.sender, voteWeighting);
+        }
+
+        mapRemovedNomineeEpochs[nomineeHash] = ITokenomicsInfo(tokenomics).epochCounter();
     }
 
     // TODO: check for balanceOf before and after the mint of OLAS
@@ -359,7 +394,8 @@ contract Dispenser is IErrorsTokenomics {
 //            revert ZeroAddress();
 //        }
 //
-//        // Checkpoint the vote wighting for a target on a specific chain Id
+//        // Checkpoint the vote weighting for a target on a specific chain Id
+//        // If the service staking nominee does not exist, the function call reverts
 //        IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
 //
 //        uint256 eCounter = ITokenomicsInfo(tokenomics).epochCounter();
@@ -371,6 +407,7 @@ contract Dispenser is IErrorsTokenomics {
 //        bytes32 nomineeHash = keccak256(abi.encode(nominee));
 //
 //        uint256 lastClaimedEpoch = mapLastClaimedStakingServiceEpochs[nomineeHash];
+//        // TODO lastClaimedEpoch == 0 must never happen as it gets enabled when nominee is added
 //        // Shall not claim in the same epoch
 //        if (eCounter == lastClaimedEpoch) {
 //            revert();

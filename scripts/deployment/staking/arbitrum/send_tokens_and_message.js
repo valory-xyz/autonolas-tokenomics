@@ -156,17 +156,18 @@ const main = async () => {
 
     const transferAmount = defaultAmount;
     const gasLimit = 3000000;
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
         finalPayload, transferAmount, { value: totalCost, gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
 
-    // tx back to L1: https://sepolia.arbiscan.io/tx/0xde0193236bce2ae7ecedff473853b994ed3f678c8823db70190593d8e757b548
+    // tx back to L1: https://sepolia.arbiscan.io/tx/0x2140d182185f9a9b97f8b5a70c85ebddc41a5cdfeea188895cca572309455bc5
+    // Finalized tx on L1: https://sepolia.etherscan.io/tx/0x7a916dde5984de4951cde7a61549646d5d36f4eb4d845d941c86e2b0ae299181
 
     // Use the following script to finalize L2-L1 transaction:
     // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js
 
-    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
+    // The script will call IBridge.executeTransaction() after the transaction challenge period has passed
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
     // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
 };
