@@ -6,6 +6,7 @@ import {FxBaseRootTunnel} from "fx-portal/contracts/tunnel/FxBaseRootTunnel.sol"
 
 interface IBridge {
     // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
+    // List of contracts: https://contracts.decentraland.org/links
     /// @notice Move tokens from root to child chain
     /// @dev This mechanism supports arbitrary tokens as long as its predicate has been registered and the token is mapped
     /// @param user address of account that should receive this deposit on child chain

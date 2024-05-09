@@ -6,9 +6,9 @@ const parsedData = JSON.parse(dataFromJSON);
 module.exports = [
     parsedData.olasAddress,
     parsedData.dispenserAddress,
-    parsedData.polygonRootChainProxyAddress,
+    parsedData.polygonRootChainManagerProxyAddress,
     parsedData.polygonFXRootAddress,
     parsedData.polygonL2TargetChainId,
-    parsedData.polygonRootChainProxyAddress,
+    parsedData.polygonCheckpointManagerAddress,
     parsedData.polygonERC20PredicateAddress
 ];

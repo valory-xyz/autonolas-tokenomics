@@ -30,8 +30,8 @@ async function main() {
     const PolygonDepositProcessorL1 = await ethers.getContractFactory("PolygonDepositProcessorL1");
     console.log("You are signing the following transaction: PolygonDepositProcessorL1.connect(EOA).deploy()");
     const polygonDepositProcessorL1 = await PolygonDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.polygonRootChainProxyAddress,
-        parsedData.polygonFXRootAddress, parsedData.polygonL2TargetChainId, parsedData.polygonRootChainProxyAddress,
+        parsedData.dispenserAddress, parsedData.polygonRootChainManagerProxyAddress,
+        parsedData.polygonFXRootAddress, parsedData.polygonL2TargetChainId, parsedData.polygonCheckpointManagerAddress,
         parsedData.polygonERC20PredicateAddress);
     const result = await polygonDepositProcessorL1.deployed();
 

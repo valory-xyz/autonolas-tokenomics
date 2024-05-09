@@ -15,8 +15,8 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x7B7eb7219322C3aE8A98a5bc0Fb6b5A1F8deFCdA";
-    const l2TargetDispenserAddress = "0x43d28764bB39936185c84906983fB57A8A905a4F";
+    const l1DepositProcessorAddress = "0x23CBf7653A73b5a46E6EAec382c532ed6D9AB730";
+    const l2TargetDispenserAddress = "0x670Ac235EE13C0B2a5065282bBB0c61cfB354592";
     const targetInstance = "0xdbd5DA0FC7920Cc80875640fb296Ce2751d36929";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
@@ -43,6 +43,12 @@ const main = async () => {
         "0x", transferAmount, { gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
+
+    // List of addresses: https://contracts.decentraland.org/links
+
+    // L2 to L1 tracking:
+    // tx: https://amoy.polygonscan.com/tx/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d
+    // proof link: https://proof-generator.polygon.technology/api/v1/amoy/exit-payload/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d?eventSignature=0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036
 };
 
 main()
