@@ -3,11 +3,11 @@ pragma solidity ^0.8.23;
 
 import "../interfaces/IBridgeErrors.sol";
 
-interface IServiceStaking {
+interface IStaking {
     function deposit(uint256 amount) external;
 }
 
-interface IServiceStakingFactory {
+interface IStakingFactory {
     function verifyInstance(address instance) external view returns (bool);
 }
 
@@ -27,9 +27,9 @@ interface IToken {
 abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
-    event ServiceStakingTargetDeposited(address indexed target, uint256 amount);
-    event ServiceStakingAmountWithheld(address indexed target, uint256 amount);
-    event ServiceStakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
+    event StakingTargetDeposited(address indexed target, uint256 amount);
+    event StakingAmountWithheld(address indexed target, uint256 amount);
+    event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
         uint256 batchNonce, uint256 paused);
     event MessagePosted(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
         uint256 amount);
@@ -48,8 +48,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     uint256 public constant GAS_LIMIT = 300_000;
     // OLAS address
     address public immutable olas;
-    // Proxy factory address
-    address public immutable proxyFactory;
+    // Staking proxy factory address
+    address public immutable stakingFactory;
     // L2 Relayer address that receives the message across the bridge from the source L1 network
     address public immutable l2MessageRelayer;
     // Deposit processor address on L1 that is authorized to propagate the transaction execution across the bridge
@@ -72,19 +72,19 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev DefaultTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.
-    /// @param _proxyFactory Service staking proxy factory address.
+    /// @param _stakingFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address.
     /// @param _l1DepositProcessor L1 deposit processor address.
     /// @param _l1SourceChainId L1 source chain Id.
     constructor(
         address _olas,
-        address _proxyFactory,
+        address _stakingFactory,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
     ) {
         // Check for zero addresses
-        if (_olas == address(0) || _proxyFactory == address(0) || _l2MessageRelayer == address(0)
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
             || _l1DepositProcessor == address(0)) {
             revert ZeroAddress();
         }
@@ -101,7 +101,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
         // Immutable parameters assignment
         olas = _olas;
-        proxyFactory = _proxyFactory;
+        stakingFactory = _stakingFactory;
         l2MessageRelayer = _l2MessageRelayer;
         l1DepositProcessor = _l1DepositProcessor;
         l1SourceChainId = _l1SourceChainId;
@@ -129,8 +129,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
             // Check the target validity address and staking parameters
             // This is a low level call since it must never revert
-            (bool success, bytes memory returnData) = proxyFactory.call(abi.encodeWithSelector(
-                IServiceStakingFactory.verifyInstance.selector, target));
+            (bool success, bytes memory returnData) = stakingFactory.call(abi.encodeWithSelector(
+                IStakingFactory.verifyInstance.selector, target));
 
             // If the function call was successful, check the return value
             if (success) {
@@ -141,7 +141,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             if (!success) {
                 // Withhold OLAS for further usage
                 localWithheldAmount += amount;
-                emit ServiceStakingAmountWithheld(target, amount);
+                emit StakingAmountWithheld(target, amount);
 
                 // Proceed to the next target
                 continue;
@@ -151,16 +151,16 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             if (IToken(olas).balanceOf(address(this)) >= amount && localPaused == 1) {
                 // Approve and transfer OLAS to the service staking target
                 IToken(olas).approve(target, amount);
-                IServiceStaking(target).deposit(amount);
+                IStaking(target).deposit(amount);
 
-                emit ServiceStakingTargetDeposited(target, amount);
+                emit StakingTargetDeposited(target, amount);
             } else {
                 // Hash of target + amount + batchNonce
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
                 // Queue the hash for further redeem
                 stakingQueueingNonces[queueHash] = true;
 
-                emit ServiceStakingRequestQueued(queueHash, target, amount, batchNonce, localPaused);
+                emit StakingRequestQueued(queueHash, target, amount, batchNonce, localPaused);
             }
         }
         // Increase the staking batch nonce
@@ -244,9 +244,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         if (olasBalance >= amount) {
             // Approve and transfer OLAS to the service staking target
             IToken(olas).approve(target, amount);
-            IServiceStaking(target).deposit(amount);
+            IStaking(target).deposit(amount);
 
-            emit ServiceStakingTargetDeposited(target, amount);
+            emit StakingTargetDeposited(target, amount);
 
             // Remove processed queued nonce
             stakingQueueingNonces[queueHash] = false;

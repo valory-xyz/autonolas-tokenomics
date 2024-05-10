@@ -9,7 +9,7 @@ interface IVerifier {
 error InstanceHasNoImplementation(address instance);
 
 /// @dev Mocking the service staking proxy factory.
-contract MockServiceStakingFactory {
+contract MockStakingFactory {
     // Verifier contract
     address public verifier;
     // Mapping of staking service proxy instances => implementation address

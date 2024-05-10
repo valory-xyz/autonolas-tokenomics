@@ -8,6 +8,5 @@ module.exports = [
     parsedData.serviceStakingFactoryAddress,
     parsedData.arbitrumArbSysAddress,
     parsedData.arbitrumDepositProcessorL1Address,
-    parsedData.l1ChainId,
-    parsedData.arbitrumAliasedDepositProcessorL1Address
+    parsedData.l1ChainId
 ];

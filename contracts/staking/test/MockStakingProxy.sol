@@ -11,7 +11,7 @@ interface IToken {
 }
 
 /// @dev Mocking the service staking proxy.
-contract MockServiceStakingProxy {
+contract MockStakingProxy {
     address public immutable token;
     uint256 public balance;
 

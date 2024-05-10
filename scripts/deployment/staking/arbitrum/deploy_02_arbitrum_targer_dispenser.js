@@ -45,8 +45,7 @@ async function main() {
     console.log("You are signing the following transaction: ArbitrumTargetDispenserL2.connect(EOA).deploy()");
     const arbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.serviceStakingFactoryAddress, parsedData.arbitrumArbSysAddress,
-        parsedData.arbitrumDepositProcessorL1Address, parsedData.l1ChainId,
-        parsedData.arbitrumAliasedDepositProcessorL1Address);
+        parsedData.arbitrumDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await arbitrumTargetDispenserL2.deployed();
 
     // Transaction details

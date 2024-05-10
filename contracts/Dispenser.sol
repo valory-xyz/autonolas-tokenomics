@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-// TODO Scope from .sol
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IToken.sol";
-import "./interfaces/ITokenomics.sol";
-import "./interfaces/ITreasury.sol";
+import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
+import {IToken} from "./interfaces/IToken.sol";
+import {ITokenomics} from "./interfaces/ITokenomics.sol";
+import {ITreasury} from "./interfaces/ITreasury.sol";
 
 interface IVoteWeighting {
     struct Nominee {
@@ -14,7 +13,7 @@ interface IVoteWeighting {
     }
 
     function checkpointNominee(bytes32 account, uint256 chainId) external;
-    function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256 time) external returns (uint256, uint256);
+    function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256 time) external view returns (uint256, uint256);
 }
 
 interface ITokenomicsInfo {
@@ -49,26 +48,26 @@ interface ITokenomicsInfo {
     }
 
     // Struct for service staking epoch info
-    struct ServiceStakingPoint {
+    struct StakingPoint {
         // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
         // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-        uint96 serviceStakingAmount;
+        uint96 stakingAmount;
         // Max allowed service staking amount threshold
-        // This value is never bigger than the serviceStakingAmount
-        uint96 maxServiceStakingAmount;
+        // This value is never bigger than the stakingAmount
+        uint96 maxStakingAmount;
         // Service staking vote weighting threshold
-        uint16 minServiceStakingWeight;
+        uint16 minStakingWeight;
         // Service staking fraction
         // This number cannot be practically bigger than 100 as it sums up to 100% with others
-        // maxBondFraction + topUpComponentFraction + topUpAgentFraction + serviceStakingFraction <= 100%
-        uint8 serviceStakingFraction;
+        // maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction <= 100%
+        uint8 stakingFraction;
     }
 
-    function epochCounter() external returns (uint32);
+    function epochCounter() external view returns (uint32);
     // TODO Create a better getter in Tokenomics
-    function mapEpochTokenomics(uint256 eCounter) external returns (EpochPoint memory);
-    function mapEpochServiceStakingPoints(uint256 eCounter) external returns (ServiceStakingPoint memory);
-    function refundFromServiceStaking(uint256 amount) external;
+    function mapEpochTokenomics(uint256 eCounter) external view returns (EpochPoint memory);
+    function mapEpochStakingPoints(uint256 eCounter) external view returns (StakingPoint memory);
+    function refundFromStaking(uint256 amount) external;
 }
 
 interface IDepositProcessor {
@@ -83,25 +82,23 @@ interface IDepositProcessor {
     function getBridgingDecimals() external pure returns (uint256);
 }
 
-interface IServiceStaking {
-    function deposit(uint256 stakingAmount) external;
-}
-
 /// @dev Only the deposit processor is able to call the function.
 /// @param sender Actual sender address.
 /// @param depositProcessor Required deposit processor.
 error DepositProcessorOnly(address sender, address depositProcessor);
 
+// TODO Names and titles in all the deployed contracts
 /// @title Dispenser - Smart contract for distributing incentives
-/// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract Dispenser is IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
-    event ServiceStakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 returnAmount);
+    event StakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount);
 
@@ -118,6 +115,10 @@ contract Dispenser is IErrorsTokenomics {
     // OLAS token address
     address public immutable olas;
 
+    // Max number of epochs to claim staking incentives for
+    uint256 public maxNumClaimingEpochs;
+    // Max number of targets for a specific chain to claim staking incentives for
+    uint256 public maxNumStakingTargets;
     // Owner address
     address public owner;
     // Reentrancy lock
@@ -138,8 +139,6 @@ contract Dispenser is IErrorsTokenomics {
     mapping(bytes32 => uint256) public mapLastClaimedStakingServiceEpochs;
     // Mapping for hash(Nominee struct) service staking pair => epoch number when the staking contract is removed
     mapping(bytes32 => uint256) public mapRemovedNomineeEpochs;
-    // Mapping for epoch => remaining service staking amount
-    mapping(uint256 => uint256) public mapEpochRemainingServiceStakingAmounts;
     // Mapping for L2 chain Id => dedicated deposit processors
     mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
@@ -154,7 +153,7 @@ contract Dispenser is IErrorsTokenomics {
         owner = msg.sender;
         _locked = 1;
         // TODO Define final behavior before deployment
-        paused = Pause.DevIncentivesPaused;
+        paused = Pause.StakingIncentivesPaused;
 
         // Check for at least one zero contract address
         if (_tokenomics == address(0) || _treasury == address(0) || _voteWeighting == address(0)) {
@@ -164,6 +163,8 @@ contract Dispenser is IErrorsTokenomics {
         tokenomics = _tokenomics;
         treasury = _treasury;
         voteWeighting = _voteWeighting;
+        // TODO initial max number of epochs to claim staking incentives for
+        maxNumClaimingEpochs = 10;
     }
 
     /// @dev Changes the owner address.
@@ -221,6 +222,21 @@ contract Dispenser is IErrorsTokenomics {
         retainer = _retainer;
     }
 
+    function changeStakingParams(uint256 _maxNumClaimingEpochs, uint256 _maxNumStakingTargets) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        if (_maxNumClaimingEpochs > 0) {
+            maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        }
+
+        if (_maxNumStakingTargets > 0) {
+            maxNumStakingTargets = _maxNumStakingTargets;
+        }
+    }
+
     /// @dev Records nominee starting epoch number.
     /// @param nomineeHash Nominee hash.
     function enableNominee(bytes32 nomineeHash) external {
@@ -243,19 +259,9 @@ contract Dispenser is IErrorsTokenomics {
         mapRemovedNomineeEpochs[nomineeHash] = ITokenomicsInfo(tokenomics).epochCounter();
     }
 
-    // TODO: check for balanceOf before and after the mint of OLAS
-
     // TODO Implement the retaining logic based on staking amounts calculations
     function retain() external {
         // Go over epochs and retain funds to return back to the tokenomics
-    }
-
-    function setRemainingServiceStakingAmount(uint256 epochNumber, uint256 amount) external {
-        // Check for the tokenomics
-        if (msg.sender != tokenomics) {
-            revert ManagerOnly(msg.sender, tokenomics);
-        }
-        mapEpochRemainingServiceStakingAmounts[epochNumber] = amount;
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -305,32 +311,20 @@ contract Dispenser is IErrorsTokenomics {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal {
-        if (chainId == 1) {
-            address stakingTargetEVM = address(uint160(uint256(stakingTarget)));
-            // TODO Inject factory verification here
-            // TODO Check for the numEpochs(Tokenomics) * rewardsPerSecond * numServices * epochLength(Tokenomics)
-            // Get hash of target.code, check if the hash is present in the registered factory
-            // Approve the OLAS amount for the staking target
-            IToken(olas).approve(stakingTargetEVM, stakingAmount);
-            IServiceStaking(stakingTargetEVM).deposit(stakingAmount);
-            // bridgePayload is ignored
-        } else {
-            address depositProcessor = mapChainIdDepositProcessors[chainId];
-            // TODO: mint directly or mint to dispenser and approve one by one?
-            // Approve the OLAS amount for the staking target
-            IToken(olas).transfer(depositProcessor, transferAmount);
+        // Get the deposit processor contract address
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
 
-            if (chainId <= MAX_EVM_CHAIN_ID) {
-                address stakingTargetEVM = address(uint160(uint256(stakingTarget)));
-                // TODO Inject factory verification on the L2 side
-                // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-                IDepositProcessor(depositProcessor).sendMessage{value:msg.value}(stakingTargetEVM, stakingAmount,
-                    bridgePayload, transferAmount);
-            } else {
-                // Send to non-EVM
-                IDepositProcessor(depositProcessor).sendMessageNonEVM{value:msg.value}(stakingTarget,
-                    stakingAmount, bridgePayload, transferAmount);
-            }
+        // Transfer corresponding OLAS amounts to the deposit processor
+        IToken(olas).transfer(depositProcessor, transferAmount);
+
+        if (chainId <= MAX_EVM_CHAIN_ID) {
+            address stakingTargetEVM = address(uint160(uint256(stakingTarget)));
+            IDepositProcessor(depositProcessor).sendMessage{value:msg.value}(stakingTargetEVM, stakingAmount,
+                bridgePayload, transferAmount);
+        } else {
+            // Send to non-EVM
+            IDepositProcessor(depositProcessor).sendMessageNonEVM{value:msg.value}(stakingTarget,
+                stakingAmount, bridgePayload, transferAmount);
         }
     }
 
@@ -345,311 +339,299 @@ contract Dispenser is IErrorsTokenomics {
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Unpack chain Id and target addresses
             uint256 chainId = chainIds[i];
+            // Get the deposit processor contract address
+            address depositProcessor = mapChainIdDepositProcessors[chainId];
+            // Transfer corresponding OLAS amounts to deposit processors
+            IToken(olas).transfer(depositProcessor, transferAmounts[i]);
 
-            if (chainId == 1) {
+            if (chainId <= MAX_EVM_CHAIN_ID) {
+                address[] memory stakingTargetsEVM = new address[](stakingTargets[i].length);
                 for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
-                    // TODO Inject factory verification here
-                    // TODO Check for the numEpochs(Tokenomics) * rewardsPerSecond * numServices * epochLength(Tokenomics)
-                    // Get hash of target.code, check if the hash is present in the registered factory
-                    // Approve the OLAS amount for the staking target
-                    address stakingTargetsEVM = address(uint160(uint256(stakingTargets[i][j])));
-                    IToken(olas).approve(stakingTargetsEVM, stakingAmounts[i][j]);
-                    IServiceStaking(stakingTargetsEVM).deposit(stakingAmounts[i][j]);
-                    // bridgePayloads[i] is ignored
+                    stakingTargetsEVM[j] = address(uint160(uint256(stakingTargets[i][j])));
                 }
+                // Send to EVM chains
+                IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargetsEVM,
+                    stakingAmounts[i], bridgePayloads, transferAmounts[i]);
             } else {
-                address depositProcessor = mapChainIdDepositProcessors[chainId];
-                // TODO: mint directly or mint to dispenser and approve one by one?
-                // Approve the OLAS amount for the staking target
-                IToken(olas).transfer(depositProcessor, transferAmounts[i]);
-                if (chainId <= MAX_EVM_CHAIN_ID) {
-                    address[] memory stakingTargetsEVM = new address[](stakingTargets[i].length);
-                    for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
-                        stakingTargetsEVM[j] = address(uint160(uint256(stakingTargets[i][j])));
-                    }
-                    // TODO If L2 implementation address is the same as on L1, the check can be done locally as well
-                    IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargetsEVM,
-                        stakingAmounts[i], bridgePayloads, transferAmounts[i]);
-                } else {
-                    // Send to non-EVM
-                    IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:msg.value}(stakingTargets[i],
-                        stakingAmounts[i], bridgePayloads, transferAmounts[i]);
-                }
+                // Send to non-EVM chains
+                IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:msg.value}(stakingTargets[i],
+                    stakingAmounts[i], bridgePayloads, transferAmounts[i]);
             }
         }
     }
 
-//    function _calculateServiceStakingIncentives(
-//        uint256 chainId,
-//        bytes32 target,
-//        uint256 bridgingDecimals
-//    ) internal returns (uint256 totalStakingAmount, uint256 totalReturnAmount) {
-//        // Check for the correct chain Id
-//        if (chainId == 0) {
-//            revert ZeroValue();
-//        }
-//
-//        // Check for the zero address
-//        if (target == bytes32(0)) {
-//            revert ZeroAddress();
-//        }
-//
-//        // Checkpoint the vote weighting for a target on a specific chain Id
-//        // If the service staking nominee does not exist, the function call reverts
-//        IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
-//
-//        uint256 eCounter = ITokenomicsInfo(tokenomics).epochCounter();
-//        // TODO: Write initial lastClaimedEpoch when the staking contract is added for voting
-//
-//        // Construct the nominee struct
-//        IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(target, chainId);
-//        // Check that the nominee exists
-//        bytes32 nomineeHash = keccak256(abi.encode(nominee));
-//
-//        uint256 lastClaimedEpoch = mapLastClaimedStakingServiceEpochs[nomineeHash];
-//        // TODO lastClaimedEpoch == 0 must never happen as it gets enabled when nominee is added
-//        // Shall not claim in the same epoch
-//        if (eCounter == lastClaimedEpoch) {
-//            revert();
-//        }
-//
-//        // TODO: Register lastClaimedEpoch for the first time? Here or via VoteWeighting?
-//        // TODO: Define a maximum number of epochs to claim for
-//        for (uint256 j = lastClaimedEpoch; j < eCounter; ++j) {
-//            // TODO: optimize not to read several times in a row same epoch info
-//            // Get service staking info
-//            ITokenomicsInfo.ServiceStakingPoint memory serviceStakingPoint =
-//                ITokenomicsInfo(tokenomics).mapEpochServiceStakingPoints(j);
-//
-//            ITokenomicsInfo.EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
-//            uint256 endTime = ep.endTime;
-//
-//            // Get the staking weight for each epoch and the total weight
-//            // TODO math from where we need to get the weight - endTime or endTime + WEEK, seems like the latter because values are written for the nextTime
-//            // TODO Update: endTime seems to be the valid choice, since otherwise there is a risk of having votes accounted for from the next epoch
-//            (uint256 stakingWeight, uint256 totalWeighSum) =
-//                IVoteWeighting(voteWeighting).nomineeRelativeWeight(target, chainId, endTime);
-//
-//            // Adjust the inflation by the maximum amount of veOLAS voted for service staking contracts
-//            uint256 availableStakingAmount = serviceStakingPoint.serviceStakingAmount;
-//            if (availableStakingAmount > totalWeighSum) {
-//                // TODO Account for the remainder to return back to tokenomics
-//                availableStakingAmount = totalWeighSum;
-//            }
-//
-//            // Compare the staking weight
-//            uint256 stakingAmount;
-//            uint256 returnAmount;
-//            if (stakingWeight < serviceStakingPoint.minServiceStakingWeight) {
-//                // If vote weighting staking weight is lower than the defined threshold - return the staking amount
-//                returnAmount = (availableStakingAmount * stakingWeight) / 1e18;
-//                totalReturnAmount += returnAmount;
-//            } else {
-//                // Otherwise, allocate staking amount to corresponding contracts
-//                stakingAmount = (availableStakingAmount * stakingWeight) / 1e18;
-//                if (stakingAmount > serviceStakingPoint.maxServiceStakingAmount) {
-//                    // Adjust the return amount
-//                    returnAmount = stakingAmount - serviceStakingPoint.maxServiceStakingAmount;
-//                    totalReturnAmount += returnAmount;
-//                    // Adjust the staking amount
-//                    stakingAmount = serviceStakingPoint.maxServiceStakingAmount;
-//                }
-//
-//                // Normalize staking amount if there is a bridge decimals limiting condition
-//                // Note: only OLAS decimals must be considered
-//                if (bridgingDecimals < 18) {
-//                    uint256 normalizedStakingAmount = stakingAmount / (10**(18 - bridgingDecimals));
-//                    normalizedStakingAmount *= 10**(18 - bridgingDecimals);
-//                    // Update return amounts
-//                    returnAmount += stakingAmount - normalizedStakingAmount;
-//                    // Downsize staking amount to a specified number of bridging decimals
-//                    stakingAmount = normalizedStakingAmount;
-//                }
-//
-//                totalStakingAmount += stakingAmount;
-//            }
-//
-//            // TODO This is obsolete? As we just return the amounts now
-//            // Adjust remaining service staking amounts
-//            uint256 remainingServiceStakingAmount = mapEpochRemainingServiceStakingAmounts[j];
-//            // Combine staking and return amounts as they both need to be subtracted from the remaining amount
-//            stakingAmount += returnAmount;
-//            // This must never happen as staking amounts are always correct within the calculated bounds
-//            if (stakingAmount > remainingServiceStakingAmount) {
-//                revert();
-//            }
-//            remainingServiceStakingAmount -= stakingAmount;
-//            mapEpochRemainingServiceStakingAmounts[j] = remainingServiceStakingAmount;
-//        }
-//
-//        // Write current epoch counter to start claiming with the next time
-//        mapLastClaimedStakingServiceEpochs[nomineeHash] = eCounter;
-//    }
-//
-//    // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
-//    // TODO: We need to come up with the solution such that we are able to return unclaimed below threshold values back to effective staking.
-//    function claimServiceStakingIncentives(
-//        uint256 chainId,
-//        bytes32 target,
-//        bytes memory bridgePayload
-//    ) external payable {
-//        // Reentrancy guard
-//        if (_locked > 1) {
-//            revert ReentrancyGuard();
-//        }
-//        _locked = 2;
-//
-//        Pause currentPause = paused;
-//        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
-//            revert();
-//        }
-//
-//        address depositProcessor = mapChainIdDepositProcessors[chainId];
-//        uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
-//
-//        // Staking amount to send as a deposit with, and the amount to return back to effective staking
-//        (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainId, target,
-//            bridgingDecimals);
-//
-//        // Account for possible withheld OLAS amounts
-//        // Note: in case of normalized staking amounts with bridging decimals, this is correctly managed
-//        // as normalized amounts are returned from another side
-//        uint256 transferAmount = stakingAmount;
-//        uint256 withheldAmount = mapChainIdWithheldAmounts[chainId];
-//        if (withheldAmount >= transferAmount) {
-//            withheldAmount -= transferAmount;
-//            transferAmount = 0;
-//        } else {
-//            transferAmount -= withheldAmount;
-//            withheldAmount = 0;
-//        }
-//        mapChainIdWithheldAmounts[chainId] = withheldAmount;
-//
-//        if (transferAmount > 0) {
-//            // Mint tokens to the staking target dispenser
-//            ITreasury(treasury).withdrawToAccount(address(this), 0, transferAmount);
-//        }
-//
-//        // TODO Check if this can be optimized in case of stakingAmount == 0 to happen earlier
-//        // Dispense to a service staking target
-//        if (stakingAmount > 0) {
-//            _distribute(chainId, target, stakingAmount, bridgePayload, transferAmount);
-//        }
-//
-//        // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-//        if (returnAmount > 0) {
-//            ITokenomicsInfo(tokenomics).refundFromServiceStaking(returnAmount);
-//        }
-//
-//        emit ServiceStakingIncentivesClaimed(msg.sender, stakingAmount, returnAmount);
-//
-//        _locked = 1;
-//    }
-//
-//    // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
-//    // TODO: We need to come up with the solution such that we are able to return unclaimed below threshold values back to effective staking.
-//    // TODO: Define a maximum number of targets to claim for
-//    // Ascending order of chain Ids
-//    function claimServiceStakingIncentivesBatch(
-//        uint256[] memory chainIds,
-//        bytes32[][] memory stakingTargets,
-//        bytes[] memory bridgePayloads
-//    ) external payable {
-//        // Reentrancy guard
-//        if (_locked > 1) {
-//            revert ReentrancyGuard();
-//        }
-//        _locked = 2;
-//
-//        if (chainIds.length != stakingTargets.length || chainIds.length != bridgePayloads.length) {
-//            revert WrongArrayLength(chainIds.length, stakingTargets.length);
-//        }
-//
-//        Pause currentPause = paused;
-//        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
-//            revert();
-//        }
-//
-//        // Staking amount across all the targets to send as a deposit
-//        uint256 totalStakingAmount;
-//        // Staking amount to return back to effective staking
-//        uint256 totalReturnAmount;
-//
-//        // Allocate the array of staking and transfer amounts
-//        uint256[][] memory stakingAmounts = new uint256[][](chainIds.length);
-//        uint256[] memory transferAmounts = new uint256[](chainIds.length);
-//
-//        // TODO: derive the max number of numChains * numTargetsPerChain * numEpochs to claim => totalNumOfClaimedEpochs
-//        uint256 lastChainId;
-//        bytes32 lastTarget;
-//        // Traverse all chains
-//        for (uint256 i = 0; i < chainIds.length; ++i) {
-//            // Check that chain Ids are strictly in ascending non-repeatable order
-//            if (lastChainId >= chainIds[i]) {
-//                revert();
-//            }
-//            lastChainId = chainIds[i];
-//
-//            // Staking targets must not be an empty array
-//            if (stakingTargets[i].length == 0) {
-//                revert ZeroValue();
-//            }
-//
-//            address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
-//            uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
-//
-//            stakingAmounts[i] = new uint256[](stakingTargets[i].length);
-//            // Traverse all staking targets
-//            for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
-//                // Enforce ascending non-repeatable order of targets
-//                if (uint256(lastTarget) >= uint256(stakingTargets[i][j])) {
-//                    revert();
-//                }
-//                lastTarget = stakingTargets[i][j];
-//
-//                // Staking amount to send as a deposit with, and the amount to return back to effective staking
-//                (uint256 stakingAmount, uint256 returnAmount) = _calculateServiceStakingIncentives(chainIds[i],
-//                    stakingTargets[i][j], bridgingDecimals);
-//
-//                stakingAmounts[i][j] += stakingAmount;
-//                transferAmounts[i] += stakingAmount;
-//                totalReturnAmount += returnAmount;
-//            }
-//
-//            // Account for possible withheld OLAS amounts
-//            uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
-//            if (withheldAmount >= transferAmounts[i]) {
-//                withheldAmount -= transferAmounts[i];
-//                transferAmounts[i] = 0;
-//            } else {
-//                transferAmounts[i] -= withheldAmount;
-//                withheldAmount = 0;
-//            }
-//            mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
-//
-//            // Add to the total staking amount
-//            totalStakingAmount += transferAmounts[i];
-//        }
-//
-//        // TODO mint here or mint separately to each instead of a transfer
-//        if (totalStakingAmount > 0) {
-//            // Mint tokens to the staking target dispenser
-//            ITreasury(treasury).withdrawToAccount(address(this), 0, totalStakingAmount);
-//        }
-//
-//        // TODO Deal with stakingAmounts[i][j] == 0 - remove them from the list
-//        // Dispense all the service staking targets
-//        _distributeBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts);
-//
-//        // TODO: Tokenomics - return totalReturnAmount into EffectiveSatking (or another additional variable tracking returns to redistribute further)
-//        if (totalReturnAmount > 0) {
-//            ITokenomicsInfo(tokenomics).refundFromServiceStaking(totalReturnAmount);
-//        }
-//
-//        emit ServiceStakingIncentivesClaimed(msg.sender, totalStakingAmount, totalReturnAmount);
-//
-//        _locked = 1;
-//    }
+    function calculateStakingIncentives(
+        uint256 chainId,
+        bytes32 target,
+        uint256 bridgingDecimals
+    ) public returns (uint256 totalStakingAmount, uint256 totalReturnAmount) {
+        // Check for the correct chain Id
+        if (chainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for the zero address
+        if (target == bytes32(0)) {
+            revert ZeroAddress();
+        }
+
+        // Checkpoint the vote weighting for a target on a specific chain Id
+        // If the service staking nominee does not exist, the function call reverts
+        IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
+
+        uint256 eCounter = ITokenomicsInfo(tokenomics).epochCounter();
+
+        // Construct the nominee struct
+        IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(target, chainId);
+        // Check that the nominee exists
+        bytes32 nomineeHash = keccak256(abi.encode(nominee));
+
+        uint256 firstClaimedEpoch = mapLastClaimedStakingServiceEpochs[nomineeHash];
+        // This must never happen as the nominee gets enabled when added to voteWeighting
+        if (firstClaimedEpoch == 0) {
+            revert();
+        }
+
+        // Shall not claim in the same epoch
+        if (eCounter == firstClaimedEpoch) {
+            revert();
+        }
+
+        // Get a number of epochs to claim for based on the maximum number of epochs claimed
+        uint256 lastClaimedEpoch = firstClaimedEpoch + maxNumClaimingEpochs;
+        if (firstClaimedEpoch + maxNumClaimingEpochs > eCounter) {
+            lastClaimedEpoch = eCounter;
+        }
+
+        // Traverse all the claimed epochs
+        for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // TODO: optimize not to read several times in a row same epoch info
+            // Get service staking info
+            ITokenomicsInfo.StakingPoint memory stakingPoint =
+                ITokenomicsInfo(tokenomics).mapEpochStakingPoints(j);
+
+            ITokenomicsInfo.EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
+            uint256 endTime = ep.endTime;
+
+            // Get the staking weight for each epoch and the total weight
+            // Epoch endTime is used to get the weights info, since otherwise there is a risk of having votes
+            // accounted for from the next epoch
+            (uint256 stakingWeight, uint256 totalWeighSum) =
+                IVoteWeighting(voteWeighting).nomineeRelativeWeight(target, chainId, endTime);
+
+            // Adjust the inflation by the maximum amount of veOLAS voted for service staking contracts
+            uint256 availableStakingAmount = stakingPoint.stakingAmount;
+            if (availableStakingAmount > totalWeighSum) {
+                // TODO Account for the remainder to return back to tokenomics
+                availableStakingAmount = totalWeighSum;
+            }
+
+            // Compare the staking weight
+            uint256 stakingAmount;
+            uint256 returnAmount;
+            if (stakingWeight < stakingPoint.minStakingWeight) {
+                // If vote weighting staking weight is lower than the defined threshold - return the staking amount
+                returnAmount = (availableStakingAmount * stakingWeight) / 1e18;
+                totalReturnAmount += returnAmount;
+            } else {
+                // Otherwise, allocate staking amount to corresponding contracts
+                stakingAmount = (availableStakingAmount * stakingWeight) / 1e18;
+                if (stakingAmount > stakingPoint.maxStakingAmount) {
+                    // Adjust the return amount
+                    returnAmount = stakingAmount - stakingPoint.maxStakingAmount;
+                    totalReturnAmount += returnAmount;
+                    // Adjust the staking amount
+                    stakingAmount = stakingPoint.maxStakingAmount;
+                }
+
+                // Normalize staking amount if there is a bridge decimals limiting condition
+                // Note: only OLAS decimals must be considered
+                if (bridgingDecimals < 18) {
+                    uint256 normalizedStakingAmount = stakingAmount / (10**(18 - bridgingDecimals));
+                    normalizedStakingAmount *= 10 ** (18 - bridgingDecimals);
+                    // Update return amounts
+                    returnAmount += stakingAmount - normalizedStakingAmount;
+                    // Downsize staking amount to a specified number of bridging decimals
+                    stakingAmount = normalizedStakingAmount;
+                }
+
+                totalStakingAmount += stakingAmount;
+            }
+        }
+
+        // Write last claimed epoch counter to start claiming from the next time
+        mapLastClaimedStakingServiceEpochs[nomineeHash] = lastClaimedEpoch;
+    }
+
+    function claimStakingIncentives(
+        uint256 chainId,
+        bytes32 target,
+        bytes memory bridgePayload
+    ) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        Pause currentPause = paused;
+        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
+            revert();
+        }
+
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
+        uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+
+        // Staking amount to send as a deposit with, and the amount to return back to effective staking
+        (uint256 stakingAmount, uint256 returnAmount) = calculateStakingIncentives(chainId, target,
+            bridgingDecimals);
+
+        // Account for possible withheld OLAS amounts
+        // Note: in case of normalized staking amounts with bridging decimals, this is correctly managed
+        // as normalized amounts are returned from another side
+        uint256 transferAmount = stakingAmount;
+        uint256 withheldAmount = mapChainIdWithheldAmounts[chainId];
+        if (withheldAmount > 0) {
+            // If withheld amount is enough to cover all the staking amounts, the transfer of OLAS is not needed
+            if (withheldAmount >= transferAmount) {
+                withheldAmount -= transferAmount;
+                transferAmount = 0;
+            } else {
+                // Otherwise, reduce the transfer of tokens for the OLAS withheld amount
+                transferAmount -= withheldAmount;
+                withheldAmount = 0;
+            }
+            mapChainIdWithheldAmounts[chainId] = withheldAmount;
+        }
+
+        // TODO: check for balanceOf before and after the mint of OLAS
+        if (transferAmount > 0) {
+            // Mint tokens to the staking target dispenser
+            ITreasury(treasury).withdrawToAccount(address(this), 0, transferAmount);
+        }
+
+        // TODO Check if this can be optimized in case of stakingAmount == 0 to happen earlier
+        // Dispense to a service staking target
+        if (stakingAmount > 0) {
+            _distribute(chainId, target, stakingAmount, bridgePayload, transferAmount);
+        }
+
+        // Refund returned amount back to tokenomics inflation
+        if (returnAmount > 0) {
+            ITokenomicsInfo(tokenomics).refundFromStaking(returnAmount);
+        }
+
+        emit StakingIncentivesClaimed(msg.sender, stakingAmount, returnAmount);
+
+        _locked = 1;
+    }
+
+    // TODO: Let choose epochs to claim for - set last epoch as eCounter or as last claimed.
+    // TODO: Define a maximum number of targets to claim for
+    // Ascending order of chain Ids
+    function claimStakingIncentivesBatch(
+        uint256[] memory chainIds,
+        bytes32[][] memory stakingTargets,
+        bytes[] memory bridgePayloads
+    ) external payable {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        if (chainIds.length != stakingTargets.length || chainIds.length != bridgePayloads.length) {
+            revert WrongArrayLength(chainIds.length, stakingTargets.length);
+        }
+
+        Pause currentPause = paused;
+        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
+            revert();
+        }
+
+        // TODO Check for the numEpochs(Tokenomics) * rewardsPerSecond * numServices * epochLength(Tokenomics)
+
+        // Staking amount across all the targets to send as a deposit
+        uint256 totalStakingAmount;
+        // Staking amount to return back to effective staking
+        uint256 totalReturnAmount;
+
+        // Allocate the array of staking and transfer amounts
+        uint256[][] memory stakingAmounts = new uint256[][](chainIds.length);
+        uint256[] memory transferAmounts = new uint256[](chainIds.length);
+
+        // TODO: derive the max number of numChains * numTargetsPerChain * numEpochs to claim => totalNumOfClaimedEpochs
+        uint256 lastChainId;
+        bytes32 lastTarget;
+        // Traverse all chains
+        for (uint256 i = 0; i < chainIds.length; ++i) {
+            // Check that chain Ids are strictly in ascending non-repeatable order
+            if (lastChainId >= chainIds[i]) {
+                revert();
+            }
+            lastChainId = chainIds[i];
+
+            // Staking targets must not be an empty array
+            if (stakingTargets[i].length == 0) {
+                revert ZeroValue();
+            }
+
+            address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
+            uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+
+            stakingAmounts[i] = new uint256[](stakingTargets[i].length);
+            // Traverse all staking targets
+            for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
+                // Enforce ascending non-repeatable order of targets
+                if (uint256(lastTarget) >= uint256(stakingTargets[i][j])) {
+                    revert();
+                }
+                lastTarget = stakingTargets[i][j];
+
+                // Staking amount to send as a deposit with, and the amount to return back to effective staking
+                (uint256 stakingAmount, uint256 returnAmount) = calculateStakingIncentives(chainIds[i],
+                    stakingTargets[i][j], bridgingDecimals);
+
+                stakingAmounts[i][j] += stakingAmount;
+                transferAmounts[i] += stakingAmount;
+                totalReturnAmount += returnAmount;
+            }
+
+            // Account for possible withheld OLAS amounts
+            uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
+            if (withheldAmount >= transferAmounts[i]) {
+                withheldAmount -= transferAmounts[i];
+                transferAmounts[i] = 0;
+            } else {
+                transferAmounts[i] -= withheldAmount;
+                withheldAmount = 0;
+            }
+            mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
+
+            // Add to the total staking amount
+            totalStakingAmount += transferAmounts[i];
+        }
+
+        // TODO: check for balanceOf before and after the mint of OLAS
+        // TODO mint here or mint separately to each instead of a transfer
+        if (totalStakingAmount > 0) {
+            // Mint tokens to the staking target dispenser
+            ITreasury(treasury).withdrawToAccount(address(this), 0, totalStakingAmount);
+        }
+
+        // TODO Deal with stakingAmounts[i][j] == 0 - remove them from the list
+        // Dispense all the service staking targets
+        _distributeBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts);
+
+        // Refund returned amount back to tokenomics inflation
+        if (totalReturnAmount > 0) {
+            ITokenomicsInfo(tokenomics).refundFromStaking(totalReturnAmount);
+        }
+
+        emit StakingIncentivesClaimed(msg.sender, totalStakingAmount, totalReturnAmount);
+
+        _locked = 1;
+    }
 
     /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
     /// @notice It is the contract owner responsibility to set correct L1 deposit processor contracts
@@ -707,6 +689,11 @@ contract Dispenser is IErrorsTokenomics {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // The sync must never happen for the L1 chain Id itself
+        if (chainId == 1) {
+            revert();
         }
 
         // Get bridging decimals for a specified chain Id

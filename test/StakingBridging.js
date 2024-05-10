@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe("ServiceStakingBridging", async () => {
+describe("StakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;
@@ -18,8 +18,8 @@ describe("ServiceStakingBridging", async () => {
     let signers;
     let deployer;
     let olas;
-    let serviceStakingInstance;
-    let serviceStakingProxyFactory;
+    let stakingInstance;
+    let stakingProxyFactory;
     let dispenser;
     let bridgeRelayer;
     let arbitrumDepositProcessorL1;
@@ -42,20 +42,20 @@ describe("ServiceStakingBridging", async () => {
         olas = await ERC20TokenOwnerless.deploy();
         await olas.deployed();
 
-        const MockServiceStakingProxy = await ethers.getContractFactory("MockServiceStakingProxy");
-        serviceStakingInstance = await MockServiceStakingProxy.deploy(olas.address);
-        await serviceStakingInstance.deployed();
+        const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
+        stakingInstance = await MockStakingProxy.deploy(olas.address);
+        await stakingInstance.deployed();
 
-        const MockServiceStakingFactory = await ethers.getContractFactory("MockServiceStakingFactory");
-        serviceStakingProxyFactory = await MockServiceStakingFactory.deploy();
-        await serviceStakingProxyFactory.deployed();
+        const MockStakingFactory = await ethers.getContractFactory("MockStakingFactory");
+        stakingProxyFactory = await MockStakingFactory.deploy();
+        await stakingProxyFactory.deployed();
 
         // Add a default implementation mocked as a proxy address itself
-        await serviceStakingProxyFactory.addImplementation(serviceStakingInstance.address,
-            serviceStakingInstance.address);
+        await stakingProxyFactory.addImplementation(stakingInstance.address,
+            stakingInstance.address);
 
-        const MockServiceStakingDispenser = await ethers.getContractFactory("MockServiceStakingDispenser");
-        dispenser = await MockServiceStakingDispenser.deploy(olas.address);
+        const MockStakingDispenser = await ethers.getContractFactory("MockStakingDispenser");
+        dispenser = await MockStakingDispenser.deploy(olas.address);
         await dispenser.deployed();
 
         const BridgeRelayer = await ethers.getContractFactory("BridgeRelayer");
@@ -71,8 +71,7 @@ describe("ServiceStakingBridging", async () => {
 
         const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
         arbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId,
-            bridgeRelayer.address);
+            stakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId);
         await arbitrumTargetDispenserL2.deployed();
 
         // Set the arbitrumTargetDispenserL2 address in arbitrumDepositProcessorL1
@@ -88,7 +87,7 @@ describe("ServiceStakingBridging", async () => {
 
         const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
         gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
+            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
             bridgeRelayer.address);
         await gnosisTargetDispenserL2.deployed();
 
@@ -105,7 +104,7 @@ describe("ServiceStakingBridging", async () => {
 
         const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
         optimismTargetDispenserL2 = await OptimismTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, optimismDepositProcessorL1.address, chainId);
+            stakingProxyFactory.address, bridgeRelayer.address, optimismDepositProcessorL1.address, chainId);
         await optimismTargetDispenserL2.deployed();
 
         // Set the optimismTargetDispenserL2 address in optimismDepositProcessorL1
@@ -121,7 +120,7 @@ describe("ServiceStakingBridging", async () => {
 
         const PolygonTargetDispenserL2 = await ethers.getContractFactory("PolygonTargetDispenserL2");
         polygonTargetDispenserL2 = await PolygonTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, polygonDepositProcessorL1.address, chainId);
+            stakingProxyFactory.address, bridgeRelayer.address, polygonDepositProcessorL1.address, chainId);
         await polygonTargetDispenserL2.deployed();
 
         // Set the polygonTargetDispenserL2 address in polygonDepositProcessorL1
@@ -139,7 +138,7 @@ describe("ServiceStakingBridging", async () => {
 
         const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
         wormholeTargetDispenserL2 = await WormholeTargetDispenserL2.deploy(olas.address,
-            serviceStakingProxyFactory.address, bridgeRelayer.address, wormholeDepositProcessorL1.address, chainId,
+            stakingProxyFactory.address, bridgeRelayer.address, wormholeDepositProcessorL1.address, chainId,
             bridgeRelayer.address, bridgeRelayer.address);
         await wormholeTargetDispenserL2.deployed();
 
@@ -222,42 +221,36 @@ describe("ServiceStakingBridging", async () => {
             const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
             // Zero OLAS token
             await expect(
-                ArbitrumTargetDispenserL2.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero proxy factory address
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, AddressZero, AddressZero, AddressZero, 0, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(olas.address, AddressZero, AddressZero, AddressZero, 0)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L2 message relayer address
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, AddressZero,
-                    AddressZero, 0, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, AddressZero,
+                    AddressZero, 0)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L1 deposit processor address
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    AddressZero, 0, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
+                    AddressZero, 0)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Zero L1 chain Id
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    arbitrumDepositProcessorL1.address, 0, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
+                    arbitrumDepositProcessorL1.address, 0)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
-
-            // Zero aliased L1 deposit processor address
-            await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    arbitrumDepositProcessorL1.address, 1, AddressZero)
-            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroAddress");
 
             // Overflow L1 chain Id
             await expect(
-                ArbitrumTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
-                    arbitrumDepositProcessorL1.address, ethers.constants.MaxUint256, AddressZero)
+                ArbitrumTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
+                    arbitrumDepositProcessorL1.address, ethers.constants.MaxUint256)
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Overflow");
         });
 
@@ -294,7 +287,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
@@ -374,7 +367,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Checks during a message sending on L1", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
@@ -471,14 +464,14 @@ describe("ServiceStakingBridging", async () => {
 
             // Zero L2 token relayer address
             await expect(
-                GnosisTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                GnosisTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
                     gnosisDepositProcessorL1.address, chainId, AddressZero)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "ZeroAddress");
         });
 
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
@@ -547,7 +540,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
@@ -572,7 +565,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Verify senders on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
@@ -625,7 +618,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
@@ -669,7 +662,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero cost gas limit
@@ -732,7 +725,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Send a message on L2 with funds
@@ -792,26 +785,26 @@ describe("ServiceStakingBridging", async () => {
 
             // Zero L2 wormhole core contract address
             await expect(
-                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                WormholeTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
                     wormholeDepositProcessorL1.address, chainId, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroAddress");
 
             // Zero L2 token relayer contract address
             await expect(
-                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                WormholeTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
                     wormholeDepositProcessorL1.address, chainId, bridgeRelayer.address, AddressZero)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroAddress");
 
             // Overflow L1 wormhole chain Id
             await expect(
-                WormholeTargetDispenserL2.deploy(olas.address, serviceStakingProxyFactory.address, bridgeRelayer.address,
+                WormholeTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
                     wormholeDepositProcessorL1.address, 2**16 + 1, bridgeRelayer.address, bridgeRelayer.address)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "Overflow");
         });
 
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
@@ -855,7 +848,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             // Try to send a message with a zero cost gas limit
@@ -891,7 +884,7 @@ describe("ServiceStakingBridging", async () => {
 
         it("Verify senders info on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
-            const stakingTarget = serviceStakingInstance.address;
+            const stakingTarget = stakingInstance.address;
             const stakingAmount = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],

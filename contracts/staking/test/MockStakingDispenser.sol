@@ -12,8 +12,8 @@ interface IDepositProcessor {
         uint256 transferAmount) external payable;
 }
 
-/// @title MockServiceStakingDispenser - Smart contract for mocking the service staking part of a Dispenser contract
-contract MockServiceStakingDispenser {
+/// @title MockStakingDispenser - Smart contract for mocking the service staking part of a Dispenser contract
+contract MockStakingDispenser {
     event WithheldAmountSynced(uint256 chainId, uint256 amount);
 
     // Token contract address
