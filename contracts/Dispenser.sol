@@ -7,17 +7,34 @@ import {ITokenomics} from "./interfaces/ITokenomics.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 
 interface IVoteWeighting {
+    // Nominee struct
     struct Nominee {
         bytes32 account;
         uint256 chainId;
     }
 
-    // Mapping of hash(Nominee struct) => nominee Id
+    /// @dev Gets the nominee Id by its hash.
+    /// @param nomineeHash Nominee hash derived from its account address and chainId.
+    /// @return Nominee Id.
     function mapNomineeIds(bytes32 nomineeHash) external returns (uint256);
+
+    /// @dev Checkpoint to fill data for both a specific nominee and common for all nominees.
+    /// @param account Address of the nominee.
+    /// @param chainId Chain Id.
     function checkpointNominee(bytes32 account, uint256 chainId) external;
+
+    /// @dev Get Nominee relative weight (not more than 1.0) normalized to 1e18 and the sum of weights.
+    ///         (e.g. 1.0 == 1e18). Inflation which will be received by it is
+    ///         inflation_rate * relativeWeight / 1e18.
+    /// @param account Address of the nominee in bytes32 form.
+    /// @param chainId Chain Id.
+    /// @param time Relative weight at the specified timestamp in the past or present.
+    /// @return Value of relative weight normalized to 1e18.
+    /// @return Sum of nominee weights.
     function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256 time) external view returns (uint256, uint256);
 }
 
+// Tokenomics interface that was not recorded in ITokenomics
 interface ITokenomicsInfo {
     // Structure for epoch point with tokenomics-related statistics during each epoch
     // The size of the struct is 96 * 2 + 64 + 32 * 2 + 8 * 2 = 256 + 80 (2 slots)
@@ -58,6 +75,7 @@ interface ITokenomicsInfo {
         // This value is never bigger than the stakingAmount
         uint96 maxStakingAmount;
         // Service staking vote weighting threshold
+        // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
         uint16 minStakingWeight;
         // Service staking fraction
         // This number cannot be practically bigger than 100 as it sums up to 100% with others
@@ -65,21 +83,52 @@ interface ITokenomicsInfo {
         uint8 stakingFraction;
     }
 
+    /// @dev Gets tokenomics epoch counter.
+    /// @return Epoch counter.
     function epochCounter() external view returns (uint32);
+
+    /// @dev Gets tokenomics epoch point.
+    /// @param eCounter Epoch number.
+    /// @return Epoch point.
     function mapEpochTokenomics(uint256 eCounter) external view returns (EpochPoint memory);
+
+    /// @dev Gets tokenomics epoch service staking point.
+    /// @param eCounter Epoch number.
+    /// @return Staking point.
     function mapEpochStakingPoints(uint256 eCounter) external view returns (StakingPoint memory);
+
+    /// @dev Records the amount returned back to the inflation from staking.
+    /// @param amount OLAS amount returned from staking.
     function refundFromStaking(uint256 amount) external;
 }
 
 interface IDepositProcessor {
+    /// @dev Sends a single message to the L2 side via a corresponding bridge.
+    /// @param target Staking target addresses.
+    /// @param stakingAmount Corresponding staking amount.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual OLAS amount to be transferred.
     function sendMessage(address target, uint256 stakingAmount, bytes memory bridgePayload,
         uint256 transferAmount) external payable;
-    function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes[] memory bridgePayloads,
+
+    /// @dev Sends a batch message to the L2 side via a corresponding bridge.
+    /// @param targets Set of staking target addresses.
+    /// @param stakingAmounts Corresponding set of staking amounts.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param transferAmount Actual total OLAS amount across all the targets to be transferred.
+    function sendMessageBatch(address[] memory targets, uint256[] memory stakingAmounts, bytes memory bridgePayload,
         uint256 transferAmount) external payable;
+
+    /// @dev Sends a single message to the non-EVM chain.
     function sendMessageNonEVM(bytes32 target, uint256 stakingAmount, bytes memory bridgePayload,
         uint256 transferAmount) external payable;
+
+    /// @dev Sends a batch message to the non-EVM chain.
     function sendMessageBatchNonEVM(bytes32[] memory targets, uint256[] memory stakingAmounts,
-        bytes[] memory bridgePayloads, uint256 transferAmount) external payable;
+        bytes memory bridgePayload, uint256 transferAmount) external payable;
+
+    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
+    /// @return Number of supported decimals.
     function getBridgingDecimals() external pure returns (uint256);
 }
 
@@ -113,7 +162,6 @@ contract Dispenser is IErrorsTokenomics {
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
-
     // OLAS token address
     address public immutable olas;
 
@@ -291,11 +339,11 @@ contract Dispenser is IErrorsTokenomics {
 
                 // Send to EVM chains
                 IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargetsEVM,
-                    updatedStakingAmounts, bridgePayloads, transferAmounts[i]);
+                    updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
             } else {
                 // Send to non-EVM chains
                 IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:msg.value}(updatedStakingTargets,
-                    updatedStakingAmounts, bridgePayloads, transferAmounts[i]);
+                    updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
             }
         }
     }
@@ -413,6 +461,10 @@ contract Dispenser is IErrorsTokenomics {
             revert ManagerOnly(msg.sender, voteWeighting);
         }
 
+        // TODO This must never happen, discuss
+        if (mapLastClaimedStakingServiceEpochs[nomineeHash] > 0) {
+            revert();
+        }
         mapLastClaimedStakingServiceEpochs[nomineeHash] = ITokenomicsInfo(tokenomics).epochCounter();
     }
 
@@ -424,11 +476,9 @@ contract Dispenser is IErrorsTokenomics {
             revert ManagerOnly(msg.sender, voteWeighting);
         }
 
-        // TODO embed in calculation
         mapRemovedNomineeEpochs[nomineeHash] = ITokenomicsInfo(tokenomics).epochCounter();
     }
 
-    // TODO Implement the retaining logic based on staking amounts calculations
     function retain() external {
         // Go over epochs and retain funds to return back to the tokenomics
         bytes32 localRetainer = retainer;
@@ -452,11 +502,8 @@ contract Dispenser is IErrorsTokenomics {
             ITokenomicsInfo.EpochPoint memory ep = ITokenomicsInfo(tokenomics).mapEpochTokenomics(j);
             uint256 endTime = ep.endTime;
 
-            // Get the staking weight for each epoch and the total weight
-            // Epoch endTime is used to get the weights info, since otherwise there is a risk of having votes
-            // accounted for from the next epoch
-            // totalWeightSum is the overall veOLAS power (bias) across all the voting nominees
-            (uint256 stakingWeight, uint256 totalWeightSum) =
+            // Get the staking weight for each epoch
+            (uint256 stakingWeight, ) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer, block.chainid, endTime);
 
             totalReturnAmount += stakingPoint.stakingAmount * stakingWeight;

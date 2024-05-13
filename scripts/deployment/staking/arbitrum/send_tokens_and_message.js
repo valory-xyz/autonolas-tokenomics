@@ -166,6 +166,8 @@ const main = async () => {
 
     // Use the following script to finalize L2-L1 transaction:
     // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js
+    // Make sure to "yarn" the outbox-execute package
+    // Follow steps in README.md
 
     // The script will call IBridge.executeTransaction() after the transaction challenge period has passed
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123

@@ -200,7 +200,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         _setL2TargetDispenser(l2Dispenser);
     }
 
-    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge
+    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
     /// @return Number of supported decimals.
     function getBridgingDecimals() external pure virtual returns (uint256) {
         return 18;

@@ -120,11 +120,10 @@ struct StakingPoint {
     uint96 stakingAmount;
     // Max allowed service staking amount threshold
     // This value is never bigger than the stakingAmount
-    // TODO Make this amount possible to update
     uint96 maxStakingAmount;
     // Service staking vote weighting threshold
-    // TODO Define number of decimals for the threshold (how many signs after the .)
-    uint16 stakingWeightingThreshold;
+    // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
+    uint16 minStakingWeight;
     // Service staking fraction
     // This number cannot be practically bigger than 100 as it sums up to 100% with others
     // maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction <= 100%
@@ -150,7 +149,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
         uint256 topUpAgentFraction, uint256 stakingFraction);
     event StakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxStakingAmount,
-        uint256 stakingWeightingThreshold);
+        uint256 minStakingWeight);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
     event StakingParamsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
@@ -633,7 +632,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
     function changeStakingParams(
         uint256 _maxStakingAmount,
-        uint256 _stakingWeightingThreshold
+        uint256 _minStakingWeight
     ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -646,11 +645,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 eCounter = epochCounter + 1;
         StakingPoint storage stakingPoint = mapEpochStakingPoints[eCounter];
         stakingPoint.maxStakingAmount = uint96(_maxStakingAmount);
-        stakingPoint.stakingWeightingThreshold = uint16(_stakingWeightingThreshold);
+        stakingPoint.minStakingWeight = uint16(_minStakingWeight);
 
         // Set the flag that incentive fractions are requested to be updated (4th bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x08;
-        emit StakingParamsUpdateRequested(eCounter, _maxStakingAmount, _stakingWeightingThreshold);
+        emit StakingParamsUpdateRequested(eCounter, _maxStakingAmount, _minStakingWeight);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -1079,8 +1078,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Copy current service staking parameters into the next epoch
             mapEpochStakingPoints[eCounter + 1].maxStakingAmount =
                                 mapEpochStakingPoints[eCounter].maxStakingAmount;
-            mapEpochStakingPoints[eCounter + 1].stakingWeightingThreshold =
-                                mapEpochStakingPoints[eCounter].stakingWeightingThreshold;
+            mapEpochStakingPoints[eCounter + 1].minStakingWeight =
+                                mapEpochStakingPoints[eCounter].minStakingWeight;
         }
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
