@@ -622,10 +622,6 @@ contract Dispenser {
             revert ManagerOnly(msg.sender, voteWeighting);
         }
 
-        // TODO This must never happen, discuss
-        if (mapLastClaimedStakingEpochs[nomineeHash] > 0) {
-            revert();
-        }
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
     }
 

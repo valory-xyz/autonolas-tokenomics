@@ -1,15 +1,131 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.23;
 
-// TODO - take the scope from .sol files
-import "./TokenomicsConstants.sol";
-import "./interfaces/IDonatorBlacklist.sol";
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IOLAS.sol";
-import "./interfaces/IServiceRegistry.sol";
-import "./interfaces/IToken.sol";
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IVotingEscrow.sol";
+import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
+import {TokenomicsConstants} from "./TokenomicsConstants.sol";
+import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
+import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
+
+// IOLAS interface
+interface IOLAS {
+    /// @dev Provides OLA token time launch.
+    /// @return Time launch.
+    function timeLaunch() external view returns (uint256);
+}
+
+// IERC721 token interface
+interface IToken {
+    /// @dev Gets the owner of the token Id.
+    /// @param tokenId Token Id.
+    /// @return Token Id owner address.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
+    /// @dev Gets the total amount of tokens stored by the contract.
+    /// @return Amount of tokens.
+    function totalSupply() external view returns (uint256);
+}
+
+// ITreasury interface
+interface ITreasury {
+    /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
+    /// @param treasuryRewards Treasury rewards.
+    /// @return success True, if the function execution is successful.
+    function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success);
+}
+
+// IServiceRegistry interface.
+interface IServiceRegistry {
+    enum UnitType {
+        Component,
+        Agent
+    }
+
+    /// @dev Checks if the service Id exists.
+    /// @param serviceId Service Id.
+    /// @return true if the service exists, false otherwise.
+    function exists(uint256 serviceId) external view returns (bool);
+
+    /// @dev Gets the full set of linearized components / canonical agent Ids for a specified service.
+    /// @notice The service must be / have been deployed in order to get the actual data.
+    /// @param serviceId Service Id.
+    /// @return numUnitIds Number of component / agent Ids.
+    /// @return unitIds Set of component / agent Ids.
+    function getUnitIdsOfService(UnitType unitType, uint256 serviceId) external view
+    returns (uint256 numUnitIds, uint32[] memory unitIds);
+}
+
+// IVotingEscrow interface
+interface IVotingEscrow {
+    /// @dev Gets the voting power.
+    /// @param account Account address.
+    function getVotes(address account) external view returns (uint256);
+}
+
+/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param manager Required sender address as a manager.
+error ManagerOnly(address sender, address manager);
+
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
+
+/// @dev Provided zero address.
+error ZeroAddress();
+
+/// @dev Wrong length of two arrays.
+/// @param numValues1 Number of values in a first array.
+/// @param numValues2 Number of values in a second array.
+error WrongArrayLength(uint256 numValues1, uint256 numValues2);
+
+/// @dev Service Id does not exist in registry records.
+/// @param serviceId Service Id.
+error ServiceDoesNotExist(uint256 serviceId);
+
+/// @dev Zero value when it has to be different from zero.
+error ZeroValue();
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
+/// @dev Service was never deployed.
+/// @param serviceId Service Id.
+error ServiceNeverDeployed(uint256 serviceId);
+
+/// @dev Received lower value than the expected one.
+/// @param provided Provided value is lower.
+/// @param expected Expected value.
+error LowerThan(uint256 provided, uint256 expected);
+
+/// @dev Wrong amount received / provided.
+/// @param provided Provided amount.
+/// @param expected Expected amount.
+error WrongAmount(uint256 provided, uint256 expected);
+
+/// @dev The donator address is blacklisted.
+/// @param account Donator account address.
+error DonatorBlacklisted(address account);
+
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
+/// @dev The contract has to be delegate-called via proxy.
+error DelegatecallOnly();
+
+/// @dev Caught an operation that is not supposed to happen in the same block.
+error SameBlockNumberViolation();
+
+/// @dev Failure of treasury re-balance during the reward allocation.
+/// @param epochNumber Epoch number.
+error TreasuryRebalanceFailed(uint256 epochNumber);
+
+/// @dev Operation with a wrong component / agent Id.
+/// @param unitId Component / agent Id.
+/// @param unitType Type of the unit (component / agent).
+error WrongUnitId(uint256 unitId, uint256 unitType);
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -131,9 +247,10 @@ struct StakingPoint {
 }
 
 /// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
-/// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
+contract Tokenomics is TokenomicsConstants {
     event OwnerUpdated(address indexed owner);
     event TreasuryUpdated(address indexed treasury);
     event DepositoryUpdated(address indexed depository);
@@ -324,7 +441,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
 
-        // Check that the epoch length is not bigger than one year
+        // Check that the epoch length is not out of defined bounds
         if (uint32(_epochLen) > MAX_EPOCH_LENGTH) {
             revert Overflow(_epochLen, MAX_EPOCH_LENGTH);
         }
@@ -1320,30 +1437,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
     }
 
-    // TODO: recalculate the inflation per epoch to correctly reflect the state at any time
-    /// @dev Gets inflation per last epoch.
-    /// @return inflationPerEpoch Inflation value.
-    function getInflationPerEpoch() external view returns (uint256 inflationPerEpoch) {
-        inflationPerEpoch = inflationPerSecond * epochLen;
-    }
-
     /// @dev Gets component / agent point of a specified epoch number and a unit type.
     /// @param epoch Epoch number.
     /// @param unitType Component (0) or agent (1).
     /// @return up Unit point.
     function getUnitPoint(uint256 epoch, uint256 unitType) external view returns (UnitPoint memory up) {
         up = mapEpochTokenomics[epoch].unitPoints[unitType];
-    }
-
-    /// @dev Gets inverse discount factor with the multiple of 1e18.
-    /// @param epoch Epoch number.
-    /// @return idf Discount factor with the multiple of 1e18.
-    function getIDF(uint256 epoch) external view returns (uint256 idf)
-    {
-        idf = mapEpochTokenomics[epoch].epochPoint.idf;
-        if (idf == 0) {
-            idf = 1e18;
-        }
     }
 
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.

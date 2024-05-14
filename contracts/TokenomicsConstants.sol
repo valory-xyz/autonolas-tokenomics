@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "@prb/math/src/UD60x18.sol";
+pragma solidity ^0.8.23;
 
 /// @title TokenomicsConstants - Smart contract with tokenomics constants
-/// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
     string public constant VERSION = "1.2.0";
