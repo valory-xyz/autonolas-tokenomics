@@ -343,7 +343,7 @@ describe("StakingBridging", async () => {
 
             // Process data maintenance by the owner
             const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]"],
-                [[stakingTarget], [stakingAmount * 2]])
+                [[stakingTarget], [stakingAmount * 2]]);
             await arbitrumTargetDispenserL2.processDataMaintenance(payload);
 
             // Try to do it not from the owner
