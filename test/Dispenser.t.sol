@@ -1,4 +1,4 @@
-pragma solidity =0.8.20;
+pragma solidity =0.8.23;
 
 import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -53,7 +53,7 @@ contract BaseSetup is Test {
         componentRegistry = new MockRegistry();
         agentRegistry = new MockRegistry();
         serviceRegistry = new MockRegistry();
-        dispenser = new Dispenser(deployer, deployer);
+        dispenser = new Dispenser(deployer, deployer, deployer);
 
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Correct tokenomics address will be added below
@@ -70,7 +70,7 @@ contract BaseSetup is Test {
         // Change tokenomics address
         treasury.changeManagers(address(tokenomics), address(0), address(0));
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury));
+        dispenser.changeManagers(address(tokenomics), address(treasury), address(0));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));
