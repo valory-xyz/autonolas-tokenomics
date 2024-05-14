@@ -36,8 +36,8 @@ jobs:
         run: ./node_modules/.bin/solhint contracts/interfaces/*.sol contracts/*.sol contracts/test/*.sol
 
       # Compile the code
-      - name: Clean hardhat in order to avoid the solc checksum verification failure
-        run: ./node_modules/.bin/hardhat clean --global
+#      - name: Clean hardhat in order to avoid the solc checksum verification failure
+#        run: ./node_modules/.bin/hardhat clean --global
       - name: Compile, adjust uniswap library hash and recompile again
         run: npm run compile
 
