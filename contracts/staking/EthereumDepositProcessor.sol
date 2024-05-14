@@ -32,6 +32,10 @@ error TargetVerificationFailed(address target);
 /// @param manager Required sender address as a manager.
 error ManagerOnly(address sender, address manager);
 
+/// @title EthereumDepositProcessor - Smart contract for processing tokens and data on L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract EthereumDepositProcessor {
     event StakingTargetDeposited(address indexed target, uint256 amount);
 
@@ -60,13 +64,10 @@ contract EthereumDepositProcessor {
         _locked = 1;
     }
 
-    /// @dev Sends message to the L2 side via a corresponding bridge.
+    /// @dev Deposits staking amounts for corresponding targets.
     /// @param targets Set of staking target addresses.
     /// @param stakingAmounts Corresponding set of staking amounts.
-    function _deposit(
-        address[] memory targets,
-        uint256[] memory stakingAmounts
-    ) internal {
+    function _deposit(address[] memory targets, uint256[] memory stakingAmounts) internal {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -94,8 +95,7 @@ contract EthereumDepositProcessor {
         _locked = 1;
     }
 
-    // TODO correct natspec
-    /// @dev Sends a single message to the L2 side via a corresponding bridge.
+    /// @dev Deposits a single staking amount for a corresponding target.
     /// @param target Staking target addresses.
     /// @param stakingAmount Corresponding staking amount.
     function sendMessage(
@@ -120,7 +120,7 @@ contract EthereumDepositProcessor {
     }
 
 
-    /// @dev Sends a batch message to the L2 side via a corresponding bridge.
+    /// @dev Deposits a batch of staking amounts for corresponding targets.
     /// @param targets Set of staking target addresses.
     /// @param stakingAmounts Corresponding set of staking amounts.
     function sendMessageBatch(

@@ -4,6 +4,10 @@ pragma solidity ^0.8.23;
 import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 
+/// @title WormholeDepositProcessorL1 - Smart contract for sending tokens and data via Wormhole bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;

@@ -4,6 +4,10 @@ pragma solidity ^0.8.23;
 import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 import {FxBaseChildTunnel} from "fx-portal/contracts/tunnel/FxBaseChildTunnel.sol";
 
+/// @title PolygonTargetDispenserL2 - Smart contract for processing tokens and data received on Polygon L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel {
     /// @dev PolygonTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.

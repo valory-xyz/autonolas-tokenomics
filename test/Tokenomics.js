@@ -336,22 +336,23 @@ describe("Tokenomics", async () => {
         it("Changing reward fractions", async function () {
             // Trying to change tokenomics reward fractions from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 100, 0, 0)
+                tokenomics.connect(signers[1]).changeIncentiveFractions(50, 50, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // The sum of first 2 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 51, 100, 0, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 51, 100, 0, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
             // The sum of last 2 must not be bigger than 100
             await expect(
-                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 50, 51, 0)
+                tokenomics.connect(deployer).changeIncentiveFractions(50, 40, 50, 51, 0, 0)
             ).to.be.revertedWithCustomError(tokenomics, "WrongAmount");
 
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10, 10);
             // Try to set exactly same values again
-            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10);
+            await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10, 10);
         });
 
         it("Changing registries addresses", async function () {
@@ -475,6 +476,10 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with revenues", async () => {
+            // Get IDF of the first epoch
+            let lastIDF = Number(await tokenomics.getLastIDF()) / E18;
+            expect(lastIDF).to.equal(1);
+
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -487,22 +492,17 @@ describe("Tokenomics", async () => {
             const lastEpoch = await tokenomics.epochCounter() - 1;
 
             // Get IDF of the last epoch
-            const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
+            const idf = Number(await tokenomics.getLastIDF()) / E18;
             expect(idf).to.greaterThan(0);
             
             // Get last IDF that must match the idf of the last epoch
-            const lastIDF = Number(await tokenomics.getLastIDF()) / E18;
+            lastIDF = Number(await tokenomics.getLastIDF()) / E18;
             expect(idf).to.equal(lastIDF);
-
-            // Get IDF of the zero (arbitrary) epoch that has a zero IDF
-            // By default, if IDF is not defined, it must be set to 1
-            const zeroDF = Number(await tokenomics.getIDF(0));
-            expect(zeroDF).to.equal(E18);
         });
 
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
             // Change tokenomics factors such that all the rewards are given to the treasury
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 20, 50, 30, 0);
             // Move more than one epoch in time and move to the next epoch
             await helpers.time.increase(epochLen + 10);
             await tokenomics.checkpoint();
@@ -536,7 +536,7 @@ describe("Tokenomics", async () => {
 
             // Get IDF
             const lastEpoch = await tokenomics.epochCounter() - 1;
-            const idf = Number(await tokenomics.getIDF(lastEpoch)) / E18;
+            const idf = Number(await tokenomics.getLastIDF()) / E18;
             expect(idf).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
         });
     });
@@ -608,7 +608,7 @@ describe("Tokenomics", async () => {
 
         it("Calculate incentives", async () => {
             // Change tokenomics factors such that the rewards are given to the treasury as well
-            await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(60, 30, 40, 40, 20, 0);
 
             // Check the case when the service was not yet deployed and component / agent Ids are not set up
             await expect(
@@ -653,7 +653,7 @@ describe("Tokenomics", async () => {
             await tokenomics.getOwnerIncentives(accounts[0], [0, 1], [1, 1]);
 
             // Get the top-up number per epoch
-            const topUp = await tokenomics.getInflationPerEpoch();
+            const topUp = (await tokenomics.inflationPerSecond()).mul(await tokenomics.epochLen());
             expect(topUp).to.greaterThan(0);
         });
 
@@ -711,7 +711,7 @@ describe("Tokenomics", async () => {
             const initMaxBondFraction = (await tokenomics.mapEpochTokenomics(await tokenomics.epochCounter())).maxBondFraction;
 
             // Changing maxBond fraction to 100%
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
 
@@ -738,7 +738,7 @@ describe("Tokenomics", async () => {
             snapshot = await helpers.takeSnapshot();
 
             // Change now maxBondFraction and epoch length at the same time
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
@@ -793,7 +793,7 @@ describe("Tokenomics", async () => {
             snapshot = await helpers.takeSnapshot();
 
             // Changing maxBond fraction to 100%
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             // Calculate the maxBond manually and compare with the tokenomics one
             initMaxBond = await tokenomics.maxBond();
             inflationPerSecond = ethers.BigNumber.from(await tokenomics.inflationPerSecond());
@@ -838,7 +838,7 @@ describe("Tokenomics", async () => {
             snapshot = await helpers.takeSnapshot();
 
             // Change now maxBondFraction and epoch length at the same time
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
             // Calculate the maxBond manually and compare with the tokenomics one
             initMaxBond = await tokenomics.maxBond();
@@ -935,7 +935,7 @@ describe("Tokenomics", async () => {
             // The maxBond lock flag must be set to true, now try to change the epochLen
             await tokenomics.changeTokenomicsParameters(0, 0, 0, epochLen + 100, 0);
             // Try to change the maxBondFraction as well
-            await tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0);
+            await tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0, 0);
 
             // Now skip one epoch
             await helpers.time.increaseTo(timeEpochBeforeYearChange + epochLen);
@@ -995,7 +995,7 @@ describe("Tokenomics", async () => {
             await expect(
                 treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                     regDepositFromServices], {value: twoRegDepositFromServices})
-            ).to.be.revertedWithCustomError(tokenomics, "ReentrancyGuard");
+            ).to.be.revertedWithCustomError(treasury, "ReentrancyGuard");
         });
     });
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../interfaces/IBridgeErrors.sol";
+import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
@@ -15,6 +15,10 @@ interface IToken {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+/// @title DefaultDepositProcessorL1 - Smart contract for sending tokens and data via arbitrary bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     event MessagePosted(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);

@@ -63,6 +63,10 @@ interface IBridge {
     function l2ToL1Sender() external view returns (address);
 }
 
+/// @title ArbitrumDepositProcessorL1 - Smart contract for sending tokens and data via Arbitrum bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;

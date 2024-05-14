@@ -19,6 +19,10 @@ interface IBridge {
     function messageSender() external returns (address);
 }
 
+/// @title GnosisTargetDispenserL2 - Smart contract for processing tokens and data received on Gnosis L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     // L2 token relayer address
     address public immutable l2TokenRelayer;

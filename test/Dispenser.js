@@ -15,6 +15,7 @@ describe("Dispenser", async () => {
     let treasury;
     let dispenser;
     let ve;
+    let voteWeighting;
     let serviceRegistry;
     let componentRegistry;
     let agentRegistry;
@@ -48,7 +49,7 @@ describe("Dispenser", async () => {
         await ve.deployed();
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(deployer.address, deployer.address);
+        dispenser = await Dispenser.deploy(deployer.address, deployer.address, deployer.address);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
@@ -56,7 +57,7 @@ describe("Dispenser", async () => {
         await treasury.deployed();
 
         // Update for the correct treasury contract
-        await dispenser.changeManagers(AddressZero, treasury.address);
+        await dispenser.changeManagers(AddressZero, treasury.address, AddressZero);
 
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         // Deploy master tokenomics contract
@@ -79,7 +80,7 @@ describe("Dispenser", async () => {
         await attacker.deployed();
 
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        await dispenser.changeManagers(tokenomics.address, treasury.address);
+        await dispenser.changeManagers(tokenomics.address, treasury.address, AddressZero);
 
         // Update tokenomics address in treasury
         await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
@@ -97,18 +98,20 @@ describe("Dispenser", async () => {
 
             // Trying to change managers from a non-owner account address
             await expect(
-                dispenser.connect(account).changeManagers(deployer.address, deployer.address)
+                dispenser.connect(account).changeManagers(deployer.address, deployer.address, deployer.address)
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
-            // Changing treasury and tokenomics addresses
-            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address);
+            // Changing treasury, tokenomics and vote weighting addresses
+            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address, deployer.address);
             expect(await dispenser.tokenomics()).to.equal(deployer.address);
             expect(await dispenser.treasury()).to.equal(deployer.address);
+            expect(await dispenser.voteWeighting()).to.equal(deployer.address);
 
             // Trying to change to zero addresses and making sure nothing has changed
-            await dispenser.connect(deployer).changeManagers(AddressZero, AddressZero);
+            await dispenser.connect(deployer).changeManagers(AddressZero, AddressZero, AddressZero);
             expect(await dispenser.tokenomics()).to.equal(deployer.address);
             expect(await dispenser.treasury()).to.equal(deployer.address);
+            expect(await dispenser.voteWeighting()).to.equal(deployer.address);
 
             // Trying to change owner from a non-owner account address
             await expect(
@@ -132,10 +135,13 @@ describe("Dispenser", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, deployer.address)
+                Dispenser.deploy(AddressZero, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero)
+                Dispenser.deploy(AddressZero, deployer.address, AddressZero)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            await expect(
+                Dispenser.deploy(deployer.address, AddressZero, AddressZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
         });
     });
@@ -153,7 +159,7 @@ describe("Dispenser", async () => {
             // Try to claim incentives for non-existent components
             await expect(
                 dispenser.connect(deployer).claimOwnerIncentives([0], [0])
-            ).to.be.revertedWithCustomError(dispenser, "WrongUnitId");
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
             // Skip the number of seconds for 2 epochs
             await helpers.time.increase(epochLen + 10);
@@ -272,7 +278,7 @@ describe("Dispenser", async () => {
             // Try to claim incentives for non-existent components
             await expect(
                 dispenser.connect(deployer).claimOwnerIncentives([0], [0])
-            ).to.be.revertedWithCustomError(dispenser, "WrongUnitId");
+            ).to.be.revertedWithCustomError(tokenomics, "WrongUnitId");
 
             // Skip the number of seconds for 2 epochs
             await helpers.time.increase(epochLen + 10);
@@ -613,7 +619,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component and agent fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 40, 40, 20);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 40, 40, 20, 0);
             // Changes will take place in the next epoch, need to move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Start new epoch
@@ -712,7 +718,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 100, 40, 0, 60);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 100, 40, 0, 60, 0);
             // Changes will take place in the next epoch, need to move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Start new epoch
@@ -811,7 +817,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the component and agent to-up fractions to zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(50, 30, 100, 0, 0, 0);
             // Changes will take place in the next epoch, need to move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Start new epoch
@@ -913,7 +919,7 @@ describe("Dispenser", async () => {
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices, regDepositFromServices],
                 {value: twoRegDepositFromServices});
             // Change the fractions such that rewards and top-ups are now zero. However, they will be updated for the next epoch only
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             // Move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
@@ -1028,7 +1034,7 @@ describe("Dispenser", async () => {
             await agentRegistry.changeUnitOwner(1, deployer.address);
 
             // Change the fractions such that rewards and top-ups are not zero
-            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0);
+            await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
             // Changes will take place in the next epoch, need to move more than one epoch in time
             await helpers.time.increase(epochLen + 10);
             // Start new epoch
@@ -1144,11 +1150,11 @@ describe("Dispenser", async () => {
             // Failing on the receive call
             await expect(
                 attacker.badClaimOwnerIncentives(false, [0, 1], [1, 1])
-            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
 
             await expect(
                 attacker.badClaimOwnerIncentives(true, [0, 1], [1, 1])
-            ).to.be.revertedWithCustomError(dispenser, "TransferFailed");
+            ).to.be.revertedWithCustomError(treasury, "TransferFailed");
 
             // The funds still remain on the protocol side
             result = await tokenomics.getOwnerIncentives(attacker.address, [0, 1], [1, 1]);

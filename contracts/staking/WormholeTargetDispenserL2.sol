@@ -43,6 +43,10 @@ interface IBridge {
     ) external payable returns (uint64 sequence);
 }
 
+/// @title WormholeTargetDispenserL2 - Smart contract for processing tokens and data received via Wormhole on L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;

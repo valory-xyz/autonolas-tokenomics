@@ -195,6 +195,15 @@ contract BridgeRelayer {
         }
     }
 
+    /// @dev Simulate the L2 dispenser de-aliased address such that after aliasing it's the same as address(this).
+    function l1ToL2AliasedSender() external view returns (address) {
+        // Get the l1AliasedDepositProcessor based on _l1DepositProcessor
+        uint160 offset = uint160(0x1111000000000000000000000000000000001111);
+        unchecked {
+            return address(uint160(address(this)) - offset);
+        }
+    }
+
 
     // !!!!!!!!!!!!!!!!!!!!! GNOSIS FUNCTIONS !!!!!!!!!!!!!!!!!!!!!
     // Contract: AMB Contract Proxy Foreign

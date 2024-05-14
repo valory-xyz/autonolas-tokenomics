@@ -69,9 +69,10 @@ describe("StakingBridging", async () => {
             bridgeRelayer.address);
         await arbitrumDepositProcessorL1.deployed();
 
+        const bridgedRelayerDeAliased = await bridgeRelayer.l1ToL2AliasedSender();
         const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
         arbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
-            stakingProxyFactory.address, bridgeRelayer.address, bridgeRelayer.address, chainId);
+            stakingProxyFactory.address, bridgeRelayer.address, bridgedRelayerDeAliased, chainId);
         await arbitrumTargetDispenserL2.deployed();
 
         // Set the arbitrumTargetDispenserL2 address in arbitrumDepositProcessorL1

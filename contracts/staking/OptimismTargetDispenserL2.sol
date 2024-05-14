@@ -30,6 +30,10 @@ interface IBridge {
     function xDomainMessageSender() external view returns (address);
 }
 
+/// @title OptimismTargetDispenserL2 - Smart contract for processing tokens and data received on Optimism L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;

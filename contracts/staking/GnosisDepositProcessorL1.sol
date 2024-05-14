@@ -25,6 +25,10 @@ interface IBridge {
     function messageSender() external returns (address);
 }
 
+/// @title GnosisDepositProcessorL1 - Smart contract for sending tokens and data via Gnosis bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;

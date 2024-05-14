@@ -404,19 +404,19 @@ contract Dispenser {
     /// @param stakingAmounts Corresponding set of staking amounts.
     /// @param bridgePayloads Bridge payloads (if) necessary for a specific bridge relayer depending on chain Id.
     /// @param transferAmounts Set of actual total OLAS amounts across all the targets to be transferred.
+    /// @param valueAmounts Set of value amounts required to provide to some of the bridges.
     function _distributeStakingIncentivesBatch(
         uint256[] memory chainIds,
         bytes32[][] memory stakingTargets,
         uint256[][] memory stakingAmounts,
         bytes[] memory bridgePayloads,
-        uint256[] memory transferAmounts
+        uint256[] memory transferAmounts,
+        uint256[] memory valueAmounts
     ) internal {
         // Traverse all staking targets
         for (uint256 i = 0; i < chainIds.length; ++i) {
-            // Unpack chain Id and target addresses
-            uint256 chainId = chainIds[i];
             // Get the deposit processor contract address
-            address depositProcessor = mapChainIdDepositProcessors[chainId];
+            address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
             // Transfer corresponding OLAS amounts to deposit processors
             IToken(olas).transfer(depositProcessor, transferAmounts[i]);
 
@@ -443,7 +443,7 @@ contract Dispenser {
             }
 
             // Address conversion depending on chain Ids
-            if (chainId <= MAX_EVM_CHAIN_ID) {
+            if (chainIds[i] <= MAX_EVM_CHAIN_ID) {
                 // Convert to EVM addresses
                 address[] memory stakingTargetsEVM = new address[](updatedStakingTargets.length);
                 for (uint256 j = 0; j < updatedStakingTargets.length; ++j) {
@@ -451,11 +451,11 @@ contract Dispenser {
                 }
 
                 // Send to EVM chains
-                IDepositProcessor(depositProcessor).sendMessageBatch{value:msg.value}(stakingTargetsEVM,
+                IDepositProcessor(depositProcessor).sendMessageBatch{value:valueAmounts[i]}(stakingTargetsEVM,
                     updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
             } else {
                 // Send to non-EVM chains
-                IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:msg.value}(updatedStakingTargets,
+                IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:valueAmounts[i]}(updatedStakingTargets,
                     updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
             }
         }
@@ -465,8 +465,27 @@ contract Dispenser {
     /// @param chainIds Set of chain Ids.
     /// @notice The function is not view deliberately such that all the reverts are executed correctly.
     /// @param stakingTargets Set of staking target addresses corresponding to each chain Id.
-    function _checkAscendingOrder(uint256[] memory chainIds, bytes32[][] memory stakingTargets) internal {
+    /// @param bridgePayloads Set of bridge payloads (if) necessary for a specific bridge relayer depending on chain Id.
+    /// @param valueAmounts Set of value amounts required to provide to some of the bridges.
+    function _checkOrderAndValues(
+        uint256[] memory chainIds,
+        bytes32[][] memory stakingTargets,
+        bytes[] memory bridgePayloads,
+        uint256[] memory valueAmounts
+    ) internal {
+        // Check array sizes
+        if (chainIds.length != stakingTargets.length) {
+            revert WrongArrayLength(chainIds.length, stakingTargets.length);
+        }
+        if (chainIds.length != bridgePayloads.length) {
+            revert WrongArrayLength(chainIds.length, bridgePayloads.length);
+        }
+        if (chainIds.length != valueAmounts.length) {
+            revert WrongArrayLength(chainIds.length, valueAmounts.length);
+        }
+
         uint256 lastChainId;
+        uint256 totalAmount;
         // Traverse all chains
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Check that chain Ids are strictly in ascending non-repeatable order
@@ -480,6 +499,11 @@ contract Dispenser {
             if (stakingTargets[i].length == 0) {
                 revert ZeroValue();
             }
+
+            if (valueAmounts[i] == 0) {
+                revert ZeroValue();
+            }
+            totalAmount += valueAmounts[i];
 
             // Check for the maximum number of staking targets
             if (stakingTargets[i].length > maxNumStakingTargets) {
@@ -496,6 +520,11 @@ contract Dispenser {
                 }
                 lastTarget = stakingTargets[i][j];
             }
+        }
+
+        // Check if the total transferred amount corresponds to the sum of value amounts
+        if (msg.value != totalAmount) {
+            revert WrongAmount(msg.value, totalAmount);
         }
     }
 
@@ -829,9 +858,9 @@ contract Dispenser {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
         uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
 
-        // Staking amount to send as a deposit with, and the amount to return back to effective staking
-        (uint256 stakingAmount, uint256 returnAmount) = calculateStakingIncentives(numClaimedEpochs, chainId, stakingTarget,
-            bridgingDecimals);
+        // Get the staking amount to send as a deposit with, and the amount to return back to staking inflation
+        (uint256 stakingAmount, uint256 returnAmount) = calculateStakingIncentives(numClaimedEpochs, chainId,
+            stakingTarget, bridgingDecimals);
 
         // Refund returned amount back to tokenomics inflation
         if (returnAmount > 0) {
@@ -890,11 +919,13 @@ contract Dispenser {
     /// @param chainIds Set of chain Ids.
     /// @param stakingTargets Set of staking target addresses corresponding to each chain Id.
     /// @param bridgePayloads Set of bridge payloads (if) necessary for a specific bridge relayer depending on chain Id.
+    /// @param valueAmounts Set of value amounts required to provide to some of the bridges.
     function claimStakingIncentivesBatch(
         uint256 numClaimedEpochs,
         uint256[] memory chainIds,
         bytes32[][] memory stakingTargets,
-        bytes[] memory bridgePayloads
+        bytes[] memory bridgePayloads,
+        uint256[] memory valueAmounts
     ) external payable {
         // Reentrancy guard
         if (_locked > 1) {
@@ -902,10 +933,7 @@ contract Dispenser {
         }
         _locked = 2;
 
-        // Check array sizes
-        if (chainIds.length != stakingTargets.length || chainIds.length != bridgePayloads.length) {
-            revert WrongArrayLength(chainIds.length, stakingTargets.length);
-        }
+        _checkOrderAndValues(chainIds, stakingTargets, bridgePayloads, valueAmounts);
 
         // Check the number of claimed epochs
         if (numClaimedEpochs > maxNumClaimingEpochs) {
@@ -917,18 +945,15 @@ contract Dispenser {
             revert Paused();
         }
 
-        // Staking amount across all the targets to send as a deposit
-        uint256 totalStakingAmount;
-        // Actual OLAS transfer amount across all the targets
-        uint256 totalTransferAmount;
-        // Staking amount to return back to effective staking
-        uint256 totalReturnAmount;
+        // Total staking amounts
+        // 0: Staking amount across all the targets to send as a deposit
+        // 1: Actual OLAS transfer amount across all the targets
+        // 2: Staking amount to return back to effective staking
+        uint256[] memory totalAmounts = new uint256[](3);
 
         // Allocate the array of staking and transfer amounts
         uint256[][] memory stakingAmounts = new uint256[][](chainIds.length);
         uint256[] memory transferAmounts = new uint256[](chainIds.length);
-
-        _checkAscendingOrder(chainIds, stakingTargets);
 
         // Traverse all chains
         for (uint256 i = 0; i < chainIds.length; ++i) {
@@ -938,14 +963,14 @@ contract Dispenser {
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             // Traverse all staking targets
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
-                // Staking amount to send as a deposit with, and the amount to return back to effective staking
+                // Get the staking amount to send as a deposit with, and the amount to return back to staking inflation
                 (uint256 stakingAmount, uint256 returnAmount) = calculateStakingIncentives(numClaimedEpochs, chainIds[i],
                     stakingTargets[i][j], bridgingDecimals);
 
                 stakingAmounts[i][j] = stakingAmount;
                 transferAmounts[i] += stakingAmount;
-                totalStakingAmount += stakingAmount;
-                totalReturnAmount += returnAmount;
+                totalAmounts[0] += stakingAmount;
+                totalAmounts[2] += returnAmount;
             }
 
             // Account for possible withheld OLAS amounts
@@ -962,31 +987,32 @@ contract Dispenser {
             }
 
             // Add to the total transfer amount
-            totalTransferAmount += transferAmounts[i];
+            totalAmounts[1] += transferAmounts[i];
         }
 
         // Refund returned amount back to tokenomics inflation
-        if (totalReturnAmount > 0) {
-            ITokenomics(tokenomics).refundFromStaking(totalReturnAmount);
+        if (totalAmounts[2] > 0) {
+            ITokenomics(tokenomics).refundFromStaking(totalAmounts[2]);
         }
 
         // Check if minting is needed as the actual OLAS transfer is required
-        if (totalTransferAmount > 0) {
+        if (totalAmounts[1] > 0) {
             uint256 balanceBefore = IToken(olas).balanceOf(address(this));
 
             // Mint tokens to self in order to distribute to staking deposit processors
-            ITreasury(treasury).withdrawToAccount(address(this), 0, totalTransferAmount);
+            ITreasury(treasury).withdrawToAccount(address(this), 0, totalAmounts[1]);
 
             // Check the balance after the mint
-            if (IToken(olas).balanceOf(address(this)) - balanceBefore != totalTransferAmount) {
-                revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, totalTransferAmount);
+            if (IToken(olas).balanceOf(address(this)) - balanceBefore != totalAmounts[1]) {
+                revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, totalAmounts[1]);
             }
         }
 
         // Dispense all the service staking targets
-        _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts);
+        _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts,
+            valueAmounts);
 
-        emit StakingIncentivesClaimed(msg.sender, totalStakingAmount, totalTransferAmount, totalReturnAmount);
+        emit StakingIncentivesClaimed(msg.sender, totalAmounts[0], totalAmounts[1], totalAmounts[2]);
 
         _locked = 1;
     }

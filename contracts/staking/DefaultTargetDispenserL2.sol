@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import "../interfaces/IBridgeErrors.sol";
+import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
 interface IStaking {
     function deposit(uint256 amount) external;
@@ -24,6 +24,10 @@ interface IToken {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+/// @title DefaultTargetDispenserL2 - Smart contract for processing tokens and data received on L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
