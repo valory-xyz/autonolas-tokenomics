@@ -122,7 +122,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     /// @dev Sends a single message to the L2 side via a corresponding bridge.
     /// @param target Staking target addresses.
     /// @param stakingAmount Corresponding staking amount.
-    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridge relayer.
     /// @param transferAmount Actual OLAS amount to be transferred.
     function sendMessage(
         address target,
@@ -154,7 +154,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     /// @dev Sends a batch message to the L2 side via a corresponding bridge.
     /// @param targets Set of staking target addresses.
     /// @param stakingAmounts Corresponding set of staking amounts.
-    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridge relayer.
     /// @param transferAmount Actual total OLAS amount across all the targets to be transferred.
     function sendMessageBatch(
         address[] memory targets,

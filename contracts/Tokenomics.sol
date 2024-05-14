@@ -325,8 +325,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Check that the epoch length is not bigger than one year
-        if (uint32(_epochLen) > ONE_YEAR) {
-            revert Overflow(_epochLen, ONE_YEAR);
+        if (uint32(_epochLen) > MAX_EPOCH_LENGTH) {
+            revert Overflow(_epochLen, MAX_EPOCH_LENGTH);
         }
 
         // Assign other input variables
@@ -558,7 +558,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Check for the epochLen value to change
-        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= ONE_YEAR) {
+        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= MAX_EPOCH_LENGTH) {
             nextEpochLen = uint32(_epochLen);
         } else {
             _epochLen = epochLen;
@@ -960,8 +960,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 diffNumSeconds = block.timestamp - prevEpochTime;
         uint256 curEpochLen = epochLen;
         // Check if the time passed since the last epoch end time is bigger than the specified epoch length,
-        // but not bigger than a year in seconds
-        if (diffNumSeconds < curEpochLen || diffNumSeconds > ONE_YEAR) {
+        // but not bigger than almost a year in seconds
+        if (diffNumSeconds < curEpochLen || diffNumSeconds > MAX_EPOCH_LENGTH) {
             return false;
         }
 
@@ -1350,9 +1350,16 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @return idf Discount factor with the multiple of 1e18.
     function getLastIDF() external view returns (uint256 idf)
     {
-        idf = mapEpochTokenomics[epochCounter - 1].epochPoint.idf;
+        idf = mapEpochTokenomics[epochCounter].epochPoint.idf;
         if (idf == 0) {
             idf = 1e18;
         }
+    }
+
+    /// @dev Gets epoch end time.
+    /// @param epoch Epoch number.
+    /// @return endTime Epoch end time.
+    function getEpochEndTime(uint256 epoch) external view returns (uint256 endTime) {
+        endTime = mapEpochTokenomics[epoch].epochPoint.endTime;
     }
 }

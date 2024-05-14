@@ -8,7 +8,7 @@ import "@prb/math/src/UD60x18.sol";
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
-    string public constant VERSION = "1.1.0";
+    string public constant VERSION = "1.2.0";
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
@@ -16,6 +16,8 @@ abstract contract TokenomicsConstants {
     uint256 public constant ONE_YEAR = 1 days * 365;
     // Minimum epoch length
     uint256 public constant MIN_EPOCH_LENGTH = 1 weeks;
+    // Max epoch length
+    uint256 public constant MAX_EPOCH_LENGTH = ONE_YEAR - 1 weeks;
     // Minimum fixed point tokenomics parameters
     uint256 public constant MIN_PARAM_VALUE = 1e14;
 
