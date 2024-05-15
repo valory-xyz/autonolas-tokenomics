@@ -121,7 +121,7 @@ interface ITokenomics {
     /// @return Staking point.
     function mapEpochStakingPoints(uint256 eCounter) external view returns (StakingPoint memory);
 
-    /// @dev Records the amount returned back to the inflation from staking.
+    /// @dev Records amount returned back from staking to the inflation.
     /// @param amount OLAS amount returned from staking.
     function refundFromStaking(uint256 amount) external;
 }

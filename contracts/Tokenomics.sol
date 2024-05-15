@@ -744,13 +744,28 @@ contract Tokenomics is TokenomicsConstants {
             _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _stakingFraction);
     }
 
+    /// @dev Sets staking parameters by the DAO.
+    /// @param _maxStakingAmount Max allowed staking amount threshold.
+    /// @param _minStakingWeight Min staking weight threshold bound by 10_000.
     function changeStakingParams(uint256 _maxStakingAmount, uint256 _minStakingWeight) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // TODO Check limits
+        // Check for zero values
+        if (_maxStakingAmount == 0 || _minStakingWeight == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflows as per specs
+        if (_maxStakingAmount > type(uint96).max) {
+            revert Overflow(_maxStakingAmount, type(uint96).max);
+        }
+
+        if (_minStakingWeight > 10_000) {
+            revert Overflow(_minStakingWeight, 10_000);
+        }
 
         // All the adjustments will be accounted for in the next epoch
         uint256 eCounter = epochCounter + 1;
@@ -805,6 +820,8 @@ contract Tokenomics is TokenomicsConstants {
         emit EffectiveBondUpdated(epochCounter, eBond);
     }
 
+    /// @dev Records amount returned back from staking to the inflation.
+    /// @param amount OLAS amount returned from staking.
     function refundFromStaking(uint256 amount) external {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
@@ -812,7 +829,13 @@ contract Tokenomics is TokenomicsConstants {
         }
 
         uint256 eCounter = epochCounter;
-        mapEpochStakingPoints[eCounter].stakingAmount += uint96(amount);
+        uint256 stakingAmount = mapEpochStakingPoints[eCounter].stakingAmount + amount;
+        // This scenario is not realistically possible, as the refund comes back from the allocated inflation.
+        if (stakingAmount > type(uint96).max) {
+            revert Overflow(stakingAmount, type(uint96).max);
+        }
+
+        mapEpochStakingPoints[eCounter].stakingAmount = uint96(stakingAmount);
         emit StakingRefunded(eCounter, amount);
     }
 
@@ -1179,8 +1202,7 @@ contract Tokenomics is TokenomicsConstants {
             nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
             nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
             // Copy service staking fraction
-            mapEpochStakingPoints[eCounter + 1].stakingFraction =
-                mapEpochStakingPoints[eCounter].stakingFraction;
+            mapEpochStakingPoints[eCounter + 1].stakingFraction = mapEpochStakingPoints[eCounter].stakingFraction;
         }
 
         // Update service staking parameters if they were requested by the changeStakingParams() function
@@ -1190,10 +1212,8 @@ contract Tokenomics is TokenomicsConstants {
             emit StakingParamsUpdated(eCounter + 1);
         } else {
             // Copy current service staking parameters into the next epoch
-            mapEpochStakingPoints[eCounter + 1].maxStakingAmount =
-                                mapEpochStakingPoints[eCounter].maxStakingAmount;
-            mapEpochStakingPoints[eCounter + 1].minStakingWeight =
-                                mapEpochStakingPoints[eCounter].minStakingWeight;
+            mapEpochStakingPoints[eCounter + 1].maxStakingAmount = mapEpochStakingPoints[eCounter].maxStakingAmount;
+            mapEpochStakingPoints[eCounter + 1].minStakingWeight = mapEpochStakingPoints[eCounter].minStakingWeight;
         }
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);

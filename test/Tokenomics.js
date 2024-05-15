@@ -355,6 +355,34 @@ describe("Tokenomics", async () => {
             await tokenomics.connect(deployer).changeIncentiveFractions(30, 40, 10, 50, 10, 10);
         });
 
+        it("Changing staking parameters", async function () {
+            // Trying to change staking parameters a non-owner account address
+            await expect(
+                tokenomics.connect(signers[1]).changeStakingParams(0, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
+
+            // Try to set zero values
+            await expect(
+                tokenomics.changeStakingParams(0, 1)
+            ).to.be.revertedWithCustomError(tokenomics, "ZeroValue");
+            await expect(
+                tokenomics.changeStakingParams(1, 0)
+            ).to.be.revertedWithCustomError(tokenomics, "ZeroValue");
+
+            // The maxStakingAmount cannot be bigger than uint96
+            await expect(
+                tokenomics.changeStakingParams(maxUint96 + "1", 10)
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+
+            // The minStakingWeight cannot be bigger than uint96
+            await expect(
+                tokenomics.changeStakingParams(10, 10001)
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+
+            // Set staking parameters
+            await tokenomics.changeStakingParams(10, 10);
+        });
+
         it("Changing registries addresses", async function () {
             // Trying to change tokenomics parameters from a non-owner account address
             await expect(
@@ -386,6 +414,12 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "Overflow");
         });
 
+        it("Should fail when trying to refund unrealistically big number from the staking dispenser", async function () {
+            await expect(
+                tokenomics.refundFromStaking(maxUint96 + "1")
+            ).to.be.revertedWithCustomError(tokenomics, "Overflow");
+        });
+
         it("Should fail when calling treasury-owned functions by other addresses", async function () {
             await expect(
                 tokenomics.connect(signers[1]).trackServiceDonations(deployer.address, [], [], 0)
@@ -395,6 +429,10 @@ describe("Tokenomics", async () => {
         it("Should fail when calling dispenser-owned functions by other addresses", async function () {
             await expect(
                 tokenomics.connect(signers[1]).accountOwnerIncentives(deployer.address, [], [])
+            ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
+
+            await expect(
+                tokenomics.connect(signers[1]).refundFromStaking(10)
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
@@ -922,6 +960,40 @@ describe("Tokenomics", async () => {
             // Add more inflation to the manual maxBond since the round-off is within one block
             manualMaxBond = manualMaxBond.add((ethers.BigNumber.from(12).mul(inflationPerSecond)));
             expect(manualMaxBond).to.greaterThan(updatedMaxBond);
+
+            // Restore the state of the blockchain back to the very beginning of this test
+            snapshot.restore();
+        });
+
+        it("Changing staking fraction and staking parameters", async function () {
+            // Take a snapshot of the current state of the blockchain
+            let snapshot = await helpers.takeSnapshot();
+
+            let stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
+            // Check that all the initial ones are zeros
+            expect(stakingStruct.stakingFraction).to.equal(0);
+            expect(stakingStruct.maxStakingAmount).to.equal(0);
+            expect(stakingStruct.minStakingWeight).to.equal(0);
+
+            // Changing staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
+            // Check that thevalues are not updated until the end of epoch
+            expect(stakingStruct.stakingFraction).to.equal(0);
+            expect(stakingStruct.maxStakingAmount).to.equal(0);
+            expect(stakingStruct.minStakingWeight).to.equal(0);
+
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
+            // Check that the staking fraction has been updated correctly in comparison with the initial one
+            expect(stakingStruct.stakingFraction).to.equal(100);
+            expect(stakingStruct.maxStakingAmount).to.equal(50);
+            expect(stakingStruct.minStakingWeight).to.equal(10);
 
             // Restore the state of the blockchain back to the very beginning of this test
             snapshot.restore();

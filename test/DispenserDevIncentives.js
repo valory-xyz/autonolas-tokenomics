@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("Dispenser", async () => {
+describe("DispenserStakingIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
     const oneMonth = 86400 * 30;
