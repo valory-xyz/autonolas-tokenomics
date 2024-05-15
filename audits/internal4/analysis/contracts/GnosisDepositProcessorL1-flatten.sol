@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -95,10 +91,6 @@ interface IBridgeErrors {
 
 
 // File contracts/staking/DefaultDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
@@ -309,10 +301,6 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
 
 // File contracts/staking/GnosisDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IBridge {
     // Contract: AMB Contract Proxy Foreign
     // Source: https://github.com/omni/tokenbridge-contracts/blob/908a48107919d4ab127f9af07d44d47eac91547e/contracts/upgradeable_contracts/arbitrary_message/MessageDelivery.sol#L22

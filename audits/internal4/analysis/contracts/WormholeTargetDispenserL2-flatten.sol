@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: Apache AND MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -95,10 +91,6 @@ interface IBridgeErrors {
 
 
 // File contracts/staking/DefaultTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IStaking {
     function deposit(uint256 amount) external;
 }
@@ -467,12 +459,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
 
 // File wormhole-solidity-sdk/interfaces/IWormhole.sol@v0.0.4
-
-// contracts/Messages.sol
-// Original license: SPDX_License_Identifier: Apache
-
-pragma solidity ^0.8.0;
-
 interface IWormhole {
     struct GuardianSet {
         address[] keys;
@@ -619,11 +605,6 @@ interface IWormhole {
 
 
 // File wormhole-solidity-sdk/interfaces/IWormholeReceiver.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: Apache
-
-pragma solidity ^0.8.0;
-
 /**
  * @notice Interface for a contract which can receive Wormhole messages.
  */
@@ -674,11 +655,6 @@ interface IWormholeReceiver {
 
 
 // File wormhole-solidity-sdk/interfaces/IWormholeRelayer.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: Apache
-
-pragma solidity ^0.8.0;
-
 /**
  * @title WormholeRelayer
  * @author
@@ -1350,10 +1326,6 @@ error NotAnEvmAddress(bytes32);
 
 
 // File wormhole-solidity-sdk/Utils.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: Apache
-pragma solidity ^0.8.13;
-
 function toWormholeFormat(address addr) pure returns (bytes32) {
     return bytes32(uint256(uint160(addr)));
 }
@@ -1367,13 +1339,6 @@ function fromWormholeFormat(bytes32 whFormatAddress) pure returns (address) {
 
 
 // File wormhole-solidity-sdk/Base.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: Apache
-pragma solidity ^0.8.13;
-
-
-
-
 abstract contract Base {
     IWormholeRelayer public immutable wormholeRelayer;
     IWormhole public immutable wormhole;
@@ -1424,12 +1389,6 @@ abstract contract Base {
 
 
 // File wormhole-solidity-sdk/interfaces/IERC20.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: MIT
-// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
-
-pragma solidity ^0.8.0;
-
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
@@ -1508,10 +1467,6 @@ interface IERC20 {
 // File wormhole-solidity-sdk/interfaces/IWETH.sol@v0.0.4
 
 // contracts/Bridge.sol
-// Original license: SPDX_License_Identifier: Apache
-
-pragma solidity ^0.8.0;
-
 interface IWETH is IERC20 {
     function deposit() external payable;
     function withdraw(uint256 amount) external;
@@ -1519,13 +1474,6 @@ interface IWETH is IERC20 {
 
 
 // File wormhole-solidity-sdk/interfaces/ITokenBridge.sol@v0.0.4
-
-// contracts/Bridge.sol
-// Original license: SPDX_License_Identifier: Apache
-
-pragma solidity ^0.8.0;
-
-
 interface ITokenBridge {
     struct Transfer {
         uint8 payloadID;
@@ -1699,14 +1647,6 @@ interface ITokenBridge {
 
 
 // File wormhole-solidity-sdk/TokenBase.sol@v0.0.4
-
-// Original license: SPDX_License_Identifier: Apache
-pragma solidity ^0.8.13;
-
-
-
-
-
 abstract contract TokenBase is Base {
     ITokenBridge public immutable tokenBridge;
 
@@ -1950,11 +1890,6 @@ abstract contract TokenReceiver is TokenBase {
 
 
 // File contracts/staking/WormholeTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
-
 interface IBridge {
     // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L442
     // Doc: https://docs.wormhole.com/wormhole/quick-start/cross-chain-dev/standard-relayer

@@ -1,0 +1,69 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./ArbitrumTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:861:30:
+    |
+861 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+INFO:Printers:Inheritance Graph: ./WormholeTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./DefaultDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./WormholeDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./GnosisTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./GnosisDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./EthereumDepositProcessor-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./TokenomicsConstants-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./OptimismDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./OptimismTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./ArbitrumTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./ArbitrumDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./Dispenser-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./PolygonDepositProcessorL1-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./PolygonTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./DefaultTargetDispenserL2-flatten.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (118 contracts)

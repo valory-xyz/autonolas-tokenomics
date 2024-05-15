@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -95,10 +91,6 @@ interface IBridgeErrors {
 
 
 // File contracts/staking/DefaultDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
@@ -309,13 +301,6 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
 
 // File fx-portal/contracts/lib/RLPReader.sol@v1.0.3
-
-/*
-* @author Hamdi Allam hamdi.allam97@gmail.com
-* Please reach out with any questions or concerns
-*/
-pragma solidity ^0.8.0;
-
 library RLPReader {
     uint8 constant STRING_SHORT_START = 0x80;
     uint8 constant STRING_LONG_START  = 0xb8;
@@ -660,9 +645,6 @@ library RLPReader {
 
 
 // File fx-portal/contracts/lib/ExitPayloadReader.sol@v1.0.3
-
-pragma solidity ^0.8.0;
-
 library ExitPayloadReader {
   using RLPReader for bytes;
   using RLPReader for RLPReader.RLPItem;
@@ -824,10 +806,6 @@ library ExitPayloadReader {
 
 
 // File fx-portal/contracts/lib/Merkle.sol@v1.0.3
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.0;
-
 library Merkle {
     function checkMembership(
         bytes32 leaf,
@@ -866,10 +844,6 @@ library Merkle {
 
 
 // File fx-portal/contracts/lib/MerklePatriciaProof.sol@v1.0.3
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.0;
-
 library MerklePatriciaProof {
     /*
      * @dev Verifies a merkle patricia proof.
@@ -1028,13 +1002,6 @@ library MerklePatriciaProof {
 
 
 // File fx-portal/contracts/tunnel/FxBaseRootTunnel.sol@v1.0.3
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.0;
-
-
-
-
 interface IFxStateSender {
     function sendMessageToChild(address _receiver, bytes calldata _data) external;
 }
@@ -1226,11 +1193,6 @@ abstract contract FxBaseRootTunnel {
 
 
 // File contracts/staking/PolygonDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
-
 interface IBridge {
     // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
     // List of contracts: https://contracts.decentraland.org/links

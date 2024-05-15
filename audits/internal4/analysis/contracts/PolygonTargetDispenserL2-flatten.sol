@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -95,10 +91,6 @@ interface IBridgeErrors {
 
 
 // File contracts/staking/DefaultTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IStaking {
     function deposit(uint256 amount) external;
 }
@@ -467,10 +459,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
 
 // File fx-portal/contracts/tunnel/FxBaseChildTunnel.sol@v1.0.3
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.0;
-
 // IFxMessageProcessor represents interface to process message
 interface IFxMessageProcessor {
     function processMessageFromRoot(uint256 stateId, address rootMessageSender, bytes calldata data) external;
@@ -537,11 +525,6 @@ abstract contract FxBaseChildTunnel is IFxMessageProcessor{
 
 
 // File contracts/staking/PolygonTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
-
 /// @title PolygonTargetDispenserL2 - Smart contract for processing tokens and data received on Polygon L2, and data sent back to L1.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>

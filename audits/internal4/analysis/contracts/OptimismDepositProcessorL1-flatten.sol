@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -95,10 +91,6 @@ interface IBridgeErrors {
 
 
 // File contracts/staking/DefaultDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
 }
@@ -309,10 +301,6 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
 
 // File contracts/staking/OptimismDepositProcessorL1.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IBridge {
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/L1/L1StandardBridge.sol#L188
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/standard-bridge#architecture

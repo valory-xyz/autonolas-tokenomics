@@ -1,10 +1,6 @@
 // Sources flattened with hardhat v2.22.4 https://hardhat.org
 
 // SPDX-License-Identifier: MIT
-
-// File contracts/interfaces/IBridgeErrors.sol
-
-// Original license: SPDX_License_Identifier: MIT
 pragma solidity ^0.8.23;
 
 interface IBridgeErrors {
@@ -92,12 +88,6 @@ interface IBridgeErrors {
     // Reentrancy guard
     error ReentrancyGuard();
 }
-
-
-// File contracts/staking/DefaultTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
 
 interface IStaking {
     function deposit(uint256 amount) external;
@@ -467,10 +457,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
 
 // File contracts/staking/ArbitrumTargetDispenserL2.sol
-
-// Original license: SPDX_License_Identifier: MIT
-pragma solidity ^0.8.23;
-
 interface IBridge {
     // Source (Go) and interface: https://docs.arbitrum.io/build-decentralized-apps/precompiles/reference#arbsys
     // Source for the possible utility contract: https://github.com/OffchainLabs/token-bridge-contracts/blob/b3894ecc8b6185b2d505c71c9a7851725f53df15/contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol#L30
