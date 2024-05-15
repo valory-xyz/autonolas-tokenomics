@@ -284,20 +284,22 @@ contract Dispenser {
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
 
     /// @dev Dispenser constructor.
+    /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     /// @param _voteWeighting Vote Weighting address.
-    constructor(address _tokenomics, address _treasury, address _voteWeighting) {
+    constructor(address _olas, address _tokenomics, address _treasury, address _voteWeighting) {
         owner = msg.sender;
         _locked = 1;
         // TODO Define final behavior before deployment
         paused = Pause.StakingIncentivesPaused;
 
         // Check for at least one zero contract address
-        if (_tokenomics == address(0) || _treasury == address(0) || _voteWeighting == address(0)) {
+        if (_tokenomics == address(0) || _treasury == address(0) || _olas == address(0) || _voteWeighting == address(0)) {
             revert ZeroAddress();
         }
 
+        olas = _olas;
         tokenomics = _tokenomics;
         treasury = _treasury;
         voteWeighting = _voteWeighting;
@@ -317,7 +319,12 @@ contract Dispenser {
         uint256 numClaimedEpochs
     ) internal returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
         // Checkpoint the vote weighting for the retainer on L1
-        IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
+        if (msg.sender == address(this) || msg.sender == owner) {
+            IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
+        } else {
+            voteWeighting.staticcall(abi.encodeWithSelector(IVoteWeighting(voteWeighting).checkpointNominee.selector,
+                target, chainId));
+        }
 
         // Get the current epoch number
         uint256 eCounter = ITokenomics(tokenomics).epochCounter();
@@ -365,7 +372,9 @@ contract Dispenser {
         }
 
         // Write last claimed epoch counter to start claiming / retaining from the next time
-        mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+        if (msg.sender == address(this) || msg.sender == owner) {
+            mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+        }
     }
 
     /// @dev Distributes staking incentives to a corresponding staking target.
@@ -641,12 +650,48 @@ contract Dispenser {
         }
     }
 
+    /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
+    /// @notice It is the contract owner responsibility to set correct L1 deposit processor contracts
+    ///         and corresponding supported L2 chain Ids.
+    /// @param depositProcessors Set of deposit processor contract addresses on L1.
+    /// @param chainIds Set of corresponding L2 chain Ids.
+    function setDepositProcessorChainIds(address[] memory depositProcessors, uint256[] memory chainIds) external {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for array length correctness
+        if (depositProcessors.length == 0 || depositProcessors.length != chainIds.length) {
+            revert WrongArrayLength(depositProcessors.length, chainIds.length);
+        }
+
+        // Link L1 and L2 bridge mediators, set L2 chain Ids
+        for (uint256 i = 0; i < chainIds.length; ++i) {
+            // Check supported chain Ids on L2
+            if (chainIds[i] == 0) {
+                revert ZeroValue();
+            }
+
+            // Note: depositProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
+            mapChainIdDepositProcessors[chainIds[i]] = depositProcessors[i];
+        }
+
+        emit SetDepositProcessorChainIds(depositProcessors, chainIds);
+    }
+
     /// @dev Records nominee starting epoch number.
     /// @param nomineeHash Nominee hash.
     function addNominee(bytes32 nomineeHash) external {
         // Check for the contract ownership
         if (msg.sender != voteWeighting) {
             revert ManagerOnly(msg.sender, voteWeighting);
+        }
+
+        // Check for the paused state
+        Pause currentPause = paused;
+        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
+            revert Paused();
         }
 
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
@@ -661,39 +706,6 @@ contract Dispenser {
         }
 
         mapRemovedNomineeEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
-    }
-
-    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
-    function retain() external {
-        // Go over epochs and retain funds to return back to the tokenomics
-        bytes32 localRetainer = retainer;
-
-        // Check for zero retainer address
-        if (localRetainer == 0) {
-            revert ZeroAddress();
-        }
-
-        (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(localRetainer, block.chainid, maxNumClaimingEpochs);
-
-        uint256 totalReturnAmount;
-
-        // Traverse all the claimed epochs
-        for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
-            // Get service staking info
-            ITokenomics.StakingPoint memory stakingPoint =
-                ITokenomics(tokenomics).mapEpochStakingPoints(j);
-
-            // Get epoch end time
-            uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
-
-            // Get the staking weight for each epoch
-            (uint256 stakingWeight, ) =
-                IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer, block.chainid, endTime);
-
-            totalReturnAmount += stakingPoint.stakingAmount * stakingWeight;
-        }
-        totalReturnAmount /= 1e18;
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -713,6 +725,7 @@ contract Dispenser {
         }
         _locked = 2;
 
+        // Check for the paused state
         Pause currentPause = paused;
         if (currentPause == Pause.DevIncentivesPaused || currentPause == Pause.AllPaused) {
             revert Paused();
@@ -848,6 +861,7 @@ contract Dispenser {
             revert Overflow(numClaimedEpochs, maxNumClaimingEpochs);
         }
 
+        // Check for the paused state
         Pause currentPause = paused;
         if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
             revert Paused();
@@ -1017,37 +1031,37 @@ contract Dispenser {
         _locked = 1;
     }
 
-    /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
-    /// @notice It is the contract owner responsibility to set correct L1 deposit processor contracts
-    ///         and corresponding supported L2 chain Ids.
-    /// @param depositProcessors Set of deposit processor contract addresses on L1.
-    /// @param chainIds Set of corresponding L2 chain Ids.
-    function setDepositProcessorChainIds(
-        address[] memory depositProcessors,
-        uint256[] memory chainIds
-    ) external {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
+    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
+    function retain() external {
+        // Go over epochs and retain funds to return back to the tokenomics
+        bytes32 localRetainer = retainer;
+
+        // Check for zero retainer address
+        if (localRetainer == 0) {
+            revert ZeroAddress();
         }
 
-        // Check for array correctness
-        if (depositProcessors.length != chainIds.length) {
-            revert WrongArrayLength(depositProcessors.length, chainIds.length);
+        (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
+                        _checkpointNomineeAndGetClaimedEpochCounters(localRetainer, block.chainid, maxNumClaimingEpochs);
+
+        uint256 totalReturnAmount;
+
+        // Traverse all the claimed epochs
+        for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // Get service staking info
+            ITokenomics.StakingPoint memory stakingPoint =
+                                    ITokenomics(tokenomics).mapEpochStakingPoints(j);
+
+            // Get epoch end time
+            uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
+
+            // Get the staking weight for each epoch
+            (uint256 stakingWeight, ) =
+                                    IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer, block.chainid, endTime);
+
+            totalReturnAmount += stakingPoint.stakingAmount * stakingWeight;
         }
-
-        // Link L1 and L2 bridge mediators, set L2 chain Ids
-        for (uint256 i = 0; i < chainIds.length; ++i) {
-            // Check supported chain Ids on L2
-            if (chainIds[i] == 0) {
-                revert ZeroValue();
-            }
-
-            // Note: depositProcessors[i] might be zero if there is a need to stop processing a specific L2 chain Id
-            mapChainIdDepositProcessors[chainIds[i]] = depositProcessors[i];
-        }
-
-        emit SetDepositProcessorChainIds(depositProcessors, chainIds);
+        totalReturnAmount /= 1e18;
     }
 
     /// @dev Syncs the withheld amount according to the data received from L2.
@@ -1104,7 +1118,7 @@ contract Dispenser {
 
     /// @dev Sets the pause state.
     /// @param pauseState Pause state.
-    function setPause(Pause pauseState) external {
+    function setPauseState(Pause pauseState) external {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);

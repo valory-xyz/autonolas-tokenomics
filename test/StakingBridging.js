@@ -52,8 +52,7 @@ describe("StakingBridging", async () => {
         await stakingProxyFactory.deployed();
 
         // Add a default implementation mocked as a proxy address itself
-        await stakingProxyFactory.addImplementation(stakingInstance.address,
-            stakingInstance.address);
+        await stakingProxyFactory.addImplementation(stakingInstance.address, stakingInstance.address);
 
         const MockStakingDispenser = await ethers.getContractFactory("MockStakingDispenser");
         dispenser = await MockStakingDispenser.deploy(olas.address);
