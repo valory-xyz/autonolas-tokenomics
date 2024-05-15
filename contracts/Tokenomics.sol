@@ -416,8 +416,7 @@ contract Tokenomics is TokenomicsConstants {
         address _agentRegistry,
         address _serviceRegistry,
         address _donatorBlacklist
-    ) external
-    {
+    ) external {
         // Check if the contract is already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
@@ -1008,6 +1007,7 @@ contract Tokenomics is TokenomicsConstants {
     /// @param numNewOwners Number of new owners of components / agents registered during the epoch.
     /// @return idf IDF value.
     function _calculateIDF(uint256 treasuryRewards, uint256 numNewOwners) internal view returns (uint256 idf) {
+        idf = 0;
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
         // Calculate IDF from epsilon rate and f(K,D)
