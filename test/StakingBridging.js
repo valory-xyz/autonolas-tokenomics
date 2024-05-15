@@ -22,6 +22,7 @@ describe("StakingBridging", async () => {
     let stakingProxyFactory;
     let dispenser;
     let bridgeRelayer;
+    let ethereumDepositProcessor;
     let arbitrumDepositProcessorL1;
     let arbitrumTargetDispenserL2;
     let gnosisDepositProcessorL1;
@@ -61,6 +62,11 @@ describe("StakingBridging", async () => {
         const BridgeRelayer = await ethers.getContractFactory("BridgeRelayer");
         bridgeRelayer = await BridgeRelayer.deploy(olas.address);
         await bridgeRelayer.deployed();
+
+        const EthereumDepositProcessor = await ethers.getContractFactory("EthereumDepositProcessor");
+        ethereumDepositProcessor = await EthereumDepositProcessor.deploy(olas.address, dispenser.address,
+            stakingProxyFactory.address);
+        await ethereumDepositProcessor.deployed();
 
         const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
         // L2 Target Dispenser address is a bridge contract as well such that it matches the required msg.sender
@@ -148,6 +154,61 @@ describe("StakingBridging", async () => {
 
         // Set wormhole addresses in a bridge contract
         await bridgeRelayer.setWormholeAddresses(wormholeDepositProcessorL1.address, wormholeTargetDispenserL2.address);
+    });
+
+    context("Ethereum", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const EthereumDepositProcessor = await ethers.getContractFactory("EthereumDepositProcessor");
+            // Zero OLAS token
+            await expect(
+                EthereumDepositProcessor.deploy(AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+
+            // Zero dispenser address
+            await expect(
+                EthereumDepositProcessor.deploy(olas.address, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+
+            // Zero L1 token relayer address
+            await expect(
+                EthereumDepositProcessor.deploy(olas.address, dispenser.address, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+        });
+
+        it("Staking deposit", async function () {
+            // Encode the staking data to emulate it being received on L2
+            const stakingTarget = stakingInstance.address;
+            const stakingAmount = defaultAmount;
+            const bridgePayload = "0x";
+
+            // Try to deposit with a non-zero msg.value
+            await expect(
+                dispenser.mintAndSend(ethereumDepositProcessor.address, stakingTarget, stakingAmount, bridgePayload,
+                    stakingAmount, {value: defaultMsgValue})
+            ).to.be.reverted;
+            await expect(
+                dispenser.sendMessageBatch(ethereumDepositProcessor.address, [stakingTarget], [stakingAmount],
+                    bridgePayload, stakingAmount, {value: defaultMsgValue})
+            ).to.be.reverted;
+
+            // Send a message not from the dispenser
+            await expect(
+                ethereumDepositProcessor.sendMessage(stakingTarget, stakingAmount, bridgePayload, stakingAmount)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
+            await expect(
+                ethereumDepositProcessor.sendMessageBatch([stakingTarget], [stakingAmount], bridgePayload, stakingAmount)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
+
+            // Deposit with funds and a correct target
+            await dispenser.mintAndSend(ethereumDepositProcessor.address, stakingTarget, stakingAmount, bridgePayload,
+                stakingAmount);
+
+            // Try to deposit to an invalid target
+            await expect(
+                dispenser.mintAndSend(ethereumDepositProcessor.address, deployer.address, stakingAmount, bridgePayload,
+                    stakingAmount)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "TargetVerificationFailed");
+        });
     });
 
     context("Arbitrum", async function () {

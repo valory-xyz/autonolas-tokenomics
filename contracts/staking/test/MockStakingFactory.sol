@@ -6,8 +6,6 @@ interface IVerifier {
     function verifyInstance(address instance) external view returns (bool);
 }
 
-error InstanceHasNoImplementation(address instance);
-
 /// @dev Mocking the service staking proxy factory.
 contract MockStakingFactory {
     // Verifier contract
@@ -23,18 +21,18 @@ contract MockStakingFactory {
         mapInstanceImplementations[instance] = implementation;
     }
 
-    function verifyInstance(address instance) external view returns (bool success) {
+    function verifyInstance(address instance) external view returns (bool) {
         address implementation = mapInstanceImplementations[instance];
         if (implementation == address(0)) {
-            revert InstanceHasNoImplementation(instance);
+            return false;
         }
 
         // Provide additional checks, if needed
         address localVerifier = verifier;
         if (localVerifier != address (0)) {
-            success = IVerifier(localVerifier).verifyInstance(instance);
-        } else {
-            success = true;
+            return IVerifier(localVerifier).verifyInstance(instance);
         }
+
+        return true;
     }
 }
