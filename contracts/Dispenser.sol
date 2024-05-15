@@ -485,7 +485,7 @@ contract Dispenser {
         }
 
         uint256 lastChainId;
-        uint256 totalAmount;
+        uint256 totalValueAmount;
         // Traverse all chains
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Check that chain Ids are strictly in ascending non-repeatable order
@@ -500,10 +500,8 @@ contract Dispenser {
                 revert ZeroValue();
             }
 
-            if (valueAmounts[i] == 0) {
-                revert ZeroValue();
-            }
-            totalAmount += valueAmounts[i];
+            // Add to the total value amount
+            totalValueAmount += valueAmounts[i];
 
             // Check for the maximum number of staking targets
             if (stakingTargets[i].length > maxNumStakingTargets) {
@@ -523,8 +521,8 @@ contract Dispenser {
         }
 
         // Check if the total transferred amount corresponds to the sum of value amounts
-        if (msg.value != totalAmount) {
-            revert WrongAmount(msg.value, totalAmount);
+        if (msg.value != totalValueAmount) {
+            revert WrongAmount(msg.value, totalValueAmount);
         }
     }
 
@@ -958,7 +956,8 @@ contract Dispenser {
         // Traverse all chains
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Get deposit processor bridging decimals corresponding to a chain Id
-            uint256 bridgingDecimals = IDepositProcessor(mapChainIdDepositProcessors[chainIds[i]]).getBridgingDecimals();
+            address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
+            uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
 
             stakingAmounts[i] = new uint256[](stakingTargets[i].length);
             // Traverse all staking targets
