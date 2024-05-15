@@ -346,7 +346,9 @@ contract Dispenser {
 
         // We still need to claim for the epoch number following the one when the nominee was removed
         uint256 epochAfterRemoved = mapRemovedNomineeEpochs[nomineeHash] + 1;
-        if (firstClaimedEpoch >= epochAfterRemoved) {
+        // If the nominee is not removed, its value in the map is always zero, unless removed
+        // The nominee cannot be removed in the zero-th epoch by default
+        if (epochAfterRemoved > 1 && firstClaimedEpoch >= epochAfterRemoved) {
             revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
         }
 
@@ -354,8 +356,8 @@ contract Dispenser {
         lastClaimedEpoch = firstClaimedEpoch + numClaimedEpochs;
 
         // Limit last claimed epoch by the number following the nominee removal epoch
-        // The condition is strictly > because the lastClaimedEpoch is not included in claiming
-        if (lastClaimedEpoch > epochAfterRemoved) {
+        // The condition for is lastClaimedEpoch strictly > because the lastClaimedEpoch is not included in claiming
+        if (epochAfterRemoved > 1 && lastClaimedEpoch > epochAfterRemoved) {
             lastClaimedEpoch = epochAfterRemoved;
         }
 
