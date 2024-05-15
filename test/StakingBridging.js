@@ -203,6 +203,10 @@ describe("StakingBridging", async () => {
             await dispenser.mintAndSend(ethereumDepositProcessor.address, stakingTarget, stakingAmount, bridgePayload,
                 stakingAmount);
 
+            // Deposit with funds and correct targets
+            await dispenser.sendMessageBatch(ethereumDepositProcessor.address, [stakingTarget, stakingTarget],
+                [stakingAmount, stakingAmount], bridgePayload, 2 * stakingAmount);
+
             // Try to deposit to an invalid target
             await expect(
                 dispenser.mintAndSend(ethereumDepositProcessor.address, deployer.address, stakingAmount, bridgePayload,

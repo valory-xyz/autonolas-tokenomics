@@ -642,8 +642,7 @@ contract Tokenomics is TokenomicsConstants {
         uint256 _epsilonRate,
         uint256 _epochLen,
         uint256 _veOLASThreshold
-    ) external
-    {
+    ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -708,8 +707,7 @@ contract Tokenomics is TokenomicsConstants {
         uint256 _topUpComponentFraction,
         uint256 _topUpAgentFraction,
         uint256 _stakingFraction
-    ) external
-    {
+    ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -747,10 +745,7 @@ contract Tokenomics is TokenomicsConstants {
             _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _stakingFraction);
     }
 
-    function changeStakingParams(
-        uint256 _maxStakingAmount,
-        uint256 _minStakingWeight
-    ) external {
+    function changeStakingParams(uint256 _maxStakingAmount, uint256 _minStakingWeight) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -863,7 +858,12 @@ contract Tokenomics is TokenomicsConstants {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    function _trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal {
+    function _trackServiceDonations(
+        address donator,
+        uint256[] memory serviceIds,
+        uint256[] memory amounts,
+        uint256 curEpoch
+    ) internal {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
@@ -1007,10 +1007,7 @@ contract Tokenomics is TokenomicsConstants {
     /// @param treasuryRewards Treasury rewards.
     /// @param numNewOwners Number of new owners of components / agents registered during the epoch.
     /// @return idf IDF value.
-    function _calculateIDF(
-        uint256 treasuryRewards,
-        uint256 numNewOwners
-    ) internal view returns (uint256 idf) {
+    function _calculateIDF(uint256 treasuryRewards, uint256 numNewOwners) internal view returns (uint256 idf) {
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
         // Calculate IDF from epsilon rate and f(K,D)
@@ -1287,9 +1284,11 @@ contract Tokenomics is TokenomicsConstants {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
-        returns (uint256 reward, uint256 topUp)
-    {
+    function accountOwnerIncentives(
+        address account,
+        uint256[] memory unitTypes,
+        uint256[] memory unitIds
+    ) external returns (uint256 reward, uint256 topUp) {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
             revert ManagerOnly(msg.sender, dispenser);
@@ -1362,9 +1361,11 @@ contract Tokenomics is TokenomicsConstants {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function getOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
-        returns (uint256 reward, uint256 topUp)
-    {
+    function getOwnerIncentives(
+        address account,
+        uint256[] memory unitTypes,
+        uint256[] memory unitIds
+    ) external view returns (uint256 reward, uint256 topUp) {
         // Check array lengths
         if (unitTypes.length != unitIds.length) {
             revert WrongArrayLength(unitTypes.length, unitIds.length);
@@ -1440,25 +1441,21 @@ contract Tokenomics is TokenomicsConstants {
     /// @dev Gets component / agent point of a specified epoch number and a unit type.
     /// @param epoch Epoch number.
     /// @param unitType Component (0) or agent (1).
-    /// @return up Unit point.
-    function getUnitPoint(uint256 epoch, uint256 unitType) external view returns (UnitPoint memory up) {
-        up = mapEpochTokenomics[epoch].unitPoints[unitType];
+    /// @return Unit point.
+    function getUnitPoint(uint256 epoch, uint256 unitType) external view returns (UnitPoint memory) {
+        return mapEpochTokenomics[epoch].unitPoints[unitType];
     }
 
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
-    /// @return idf Discount factor with the multiple of 1e18.
-    function getLastIDF() external view returns (uint256 idf)
-    {
-        idf = mapEpochTokenomics[epochCounter].epochPoint.idf;
-        if (idf == 0) {
-            idf = 1e18;
-        }
+    /// @return Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256) {
+        return mapEpochTokenomics[epochCounter].epochPoint.idf;
     }
 
     /// @dev Gets epoch end time.
     /// @param epoch Epoch number.
-    /// @return endTime Epoch end time.
-    function getEpochEndTime(uint256 epoch) external view returns (uint256 endTime) {
-        endTime = mapEpochTokenomics[epoch].epochPoint.endTime;
+    /// @return Epoch end time.
+    function getEpochEndTime(uint256 epoch) external view returns (uint256) {
+        return mapEpochTokenomics[epoch].epochPoint.endTime;
     }
 }

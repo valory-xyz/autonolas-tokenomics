@@ -137,4 +137,11 @@ contract EthereumDepositProcessor {
         // Send the message to L2
         _deposit(targets, stakingAmounts);
     }
+
+    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
+    /// @notice This function is implemented for the compatibility purposes only, as no cross-bridge is happening on L1.
+    /// @return Number of supported decimals.
+    function getBridgingDecimals() external pure returns (uint256) {
+        return 18;
+    }
 }

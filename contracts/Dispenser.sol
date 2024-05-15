@@ -287,8 +287,7 @@ contract Dispenser {
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     /// @param _voteWeighting Vote Weighting address.
-    constructor(address _tokenomics, address _treasury, address _voteWeighting)
-    {
+    constructor(address _tokenomics, address _treasury, address _voteWeighting) {
         owner = msg.sender;
         _locked = 1;
         // TODO Define final behavior before deployment
@@ -316,8 +315,7 @@ contract Dispenser {
         bytes32 target,
         uint256 chainId,
         uint256 numClaimedEpochs
-    ) internal returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch)
-    {
+    ) internal returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
         // Checkpoint the vote weighting for the retainer on L1
         IVoteWeighting(voteWeighting).checkpointNominee(target, chainId);
 
@@ -705,9 +703,10 @@ contract Dispenser {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount in ETH.
     /// @return topUp Top-up amount in OLAS.
-    function claimOwnerIncentives(uint256[] memory unitTypes, uint256[] memory unitIds) external
-        returns (uint256 reward, uint256 topUp)
-    {
+    function claimOwnerIncentives(
+        uint256[] memory unitTypes,
+        uint256[] memory unitIds
+    ) external returns (uint256 reward, uint256 topUp) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
