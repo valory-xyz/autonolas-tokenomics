@@ -182,6 +182,25 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
 Dispenser:
 function retain() external {}
 ```
+5. Low probability overflow.
+```
+function refundFromStaking(uint256 amount) external {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
+        uint256 eCounter = epochCounter;
+        mapEpochStakingPoints[eCounter].stakingAmount += uint96(amount);
+        emit StakingRefunded(eCounter, amount);
+    }
+to
+    uint256 tmp = mapEpochStakingPoints[eCounter].stakingAmount;
+    tmp += uint96(amount);
+    if( tmp > type(uint96).max) {
+        revert Overflow(eBond, type(uint96).max);
+    }
+```
 
 #### To Discussion
 1. Mutex for _processData.
