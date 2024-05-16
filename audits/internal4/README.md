@@ -43,12 +43,12 @@ contract Dispenser {
     /// @param _voteWeighting Vote Weighting address.
     constructor(address _tokenomics, address _treasury, address _voteWeighting) {}
 ```
-2. possible epochAfterRemoved - 1 < 0 in revert message
+2. checking by possibility `epochAfterRemoved - 1` < 0 in revert message
 ```
 contract Dispenser:
 revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
 ```
-3. check transferAmounts > 0
+3. checking transferAmounts > 0 before transfer
 ```
 contract Dispenser:
 in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(olas).transfer(depositProcessor, transferAmount); check transferAmount > 0
