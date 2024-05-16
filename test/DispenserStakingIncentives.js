@@ -151,7 +151,12 @@ describe("DispenserStakingIncentives", async () => {
                 dispenser.changeRetainer(convertAddressToBytes32(signers[1].address))
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
-            // Trying to add retainer as a nominee when the contract is paused
+            // Trying to add retainer as a nominee when the staking incentives is paused
+            await expect(
+                vw.addNominee(signers[1].address, chainId)
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+            // Trying to add retainer as a nominee when all is paused
+            await dispenser.setPauseState(3);
             await expect(
                 vw.addNominee(signers[1].address, chainId)
             ).to.be.revertedWithCustomError(dispenser, "Paused");
@@ -231,6 +236,306 @@ describe("DispenserStakingIncentives", async () => {
 
             // Claim staking incentives
             await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
+
+            // Check that the target contract got OLAS
+            expect(await olas.balanceOf(stakingInstance.address)).to.gt(0);
+
+            // Set weights to a very small value
+            await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTarget), chainId, 1);
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // No one will have enough staking amount, and no token deposits will be triggered
+            // All the staking allocation will be returned back to inflation
+            await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Claim staking incentives for several nominees", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Get another staking instance
+            const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
+            const stakingInstance2 = await MockStakingProxy.deploy(olas.address);
+            await stakingInstance2.deployed();
+
+            // Add a default implementation mocked as a proxy address itself
+            await stakingProxyFactory.addImplementation(stakingInstance2.address, stakingInstance2.address);
+
+            let stakingTargets = [stakingInstance.address, stakingInstance2.address];
+            let chainIds = [chainId, chainId + 1];
+
+            // Set another deposit processor for a different chain Id
+            await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId + 1]);
+
+            for (let i = 0; i < stakingTargets.length; i++) {
+                // Add each staking instances as a nominee
+                await vw.addNominee(stakingTargets[i], chainIds[i]);
+                // Vote for each nominee
+                await vw.setNomineeRelativeWeight(stakingTargets[i], chainIds[i], defaultWeight);
+                // Change the address to bytes32 form
+                stakingTargets[i] = convertAddressToBytes32(stakingTargets[i]);
+            }
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            let stakingTargetsFinal = [[stakingTargets[0]], [stakingTargets[1]]];
+            let bridgePayloads = [bridgePayload, bridgePayload];
+            let valueAmounts = [0, 0];
+
+            // Claim staking incentives
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                bridgePayloads, valueAmounts);
+
+            // Check that target contracts got OLAS
+            for (let i = 0; i < stakingTargets.length; i++) {
+                expect(await olas.balanceOf(convertBytes32ToAddress(stakingTargets[i]))).to.gt(0);
+            }
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Should fail when claiming staking incentives for nominees with incorrect params", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Get another staking instance
+            const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
+            const stakingInstance2 = await MockStakingProxy.deploy(olas.address);
+            await stakingInstance2.deployed();
+
+            // Add a default implementation mocked as a proxy address itself
+            await stakingProxyFactory.addImplementation(stakingInstance2.address, stakingInstance2.address);
+
+            // Descending order of staking contracts and chain Ids
+            let stakingTargets;
+            if (stakingInstance.address.toString() > stakingInstance2.address.toString()) {
+                stakingTargets = [stakingInstance.address, stakingInstance2.address];
+            } else {
+                stakingTargets = [stakingInstance2.address, stakingInstance.address];
+            }
+            let chainIds = [chainId + 1, chainId];
+
+            // Set another deposit processor for a different chain Id
+            await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId + 1]);
+
+            for (let i = 0; i < stakingTargets.length; i++) {
+                // Add each staking instances as a nominee
+                await vw.addNominee(stakingTargets[i], chainIds[i]);
+                // Vote for each nominee
+                await vw.setNomineeRelativeWeight(stakingTargets[i], chainIds[i], defaultWeight);
+                // Change the address to bytes32 form
+                stakingTargets[i] = convertAddressToBytes32(stakingTargets[i]);
+            }
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            let stakingTargetsFinal = [[stakingTargets[0]], [stakingTargets[1]]];
+            let bridgePayloads = [bridgePayload, bridgePayload];
+            let valueAmounts = [0, 0];
+
+            // Wrong array lengths
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [], stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, [],
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    [], valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, [])
+            ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
+
+            // Try to claim staking incentives with reverse chain Id order
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongChainId");
+
+            // First chain Id is zero
+            chainIds = [0, 1];
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongChainId");
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs, 0, HashZero, bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            // Same in the calculation of staking incentives
+            await expect(
+                dispenser.calculateStakingIncentives(numClaimedEpochs, 0, HashZero, bridgingDecimals)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Correct chain Ids
+            chainIds = [chainId, chainId + 1]
+
+            // Empty staking arrays
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, [[], []],
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Zero value staking targets
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, [[HashZero], [HashZero]],
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs, chainId, HashZero, bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            // Same in the calculation of staking incentives
+            await expect(
+                dispenser.calculateStakingIncentives(numClaimedEpochs, chainId, HashZero, bridgingDecimals)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+
+            // Repeating staking targets
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[0], stakingTargets[0]]],
+                    [bridgePayloads[0]], [valueAmounts[0]])
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
+
+            // Descending order of staking targets
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[0], stakingTargets[1]]],
+                    [bridgePayloads[0]], [valueAmounts[0]])
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
+
+            // Value amounts is incorrect
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, [0, 1])
+            ).to.be.revertedWithCustomError(dispenser, "WrongAmount");
+
+            // Change dispenser staking params
+            await dispenser.changeStakingParams(1, 1);
+            // Too many staking targets
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[1], stakingTargets[0]]],
+                    [bridgePayloads[0]], [valueAmounts[0]])
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Too many epochs to claim for
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs + 1, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTargets[0], bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Trying to claim when staking is paused
+            await dispenser.setPauseState(2);
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTargets[0], bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+
+            // Trying to claim when all is paused
+            await dispenser.setPauseState(3);
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTargets[0], bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+
+            // Unpause everything
+            await dispenser.setPauseState(0);
+
+            // The nominees were registered in the reverse chain Id order, and thus do not exist with the current one
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Register nominees with a correct order
+            for (let i = 0; i < stakingTargets.length; i++) {
+                // Add each staking instances as a nominee
+                await vw.addNominee(convertBytes32ToAddress(stakingTargets[i]), chainIds[i]);
+                // Vote for each nominee
+                await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTargets[i]), chainIds[i], defaultWeight);
+            }
+
+            stakingTargetsFinal = [[stakingTargets[0]], [stakingTargets[1]]];
+
+            // Claiming in the same epoch as registering nominees is not possible
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Finally able to claim
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                  bridgePayloads, valueAmounts);
+
+            // Try to claim again in this epoch
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                    bridgePayloads, valueAmounts)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Set weights to a very small value
+            for (let i = 0; i < stakingTargets.length; i++) {
+                // Vote for each nominee
+                await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTargets[i]), chainIds[i], 1);
+            }
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // No one will have enough staking amount, and no token deposits will be triggered
+            // All the staking allocation will be returned back to inflation
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                  bridgePayloads, valueAmounts);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

@@ -41,7 +41,8 @@ contract MockVoteWeighting {
         Nominee memory nominee = Nominee(bytes32(uint256(uint160(account))), chainId);
         bytes32 nomineeHash = keccak256(abi.encode(nominee));
 
-        mapNomineeRelativeWeights[nomineeHash] = weight * 10**18;
+        // 1.0 == 1e18, meaning 0.1%, or 1e-4 is equal to 1e14 in 1e18 form
+        mapNomineeRelativeWeights[nomineeHash] = weight * 10**14;
 
         totalWeight += weight;
     }

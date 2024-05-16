@@ -226,6 +226,10 @@ error DepositProcessorOnly(address sender, address depositProcessor);
 /// @param chainId Chain Id.
 error WrongChainId(uint256 chainId);
 
+/// @dev Account address is incorrect.
+/// @param account Account address.
+error WrongAccount(bytes32 account);
+
 // TODO Names and titles in all the deployed contracts
 /// @title Dispenser - Smart contract for distributing incentives
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -295,7 +299,7 @@ contract Dispenser {
         paused = Pause.StakingIncentivesPaused;
 
         // Check for at least one zero contract address
-        if (_tokenomics == address(0) || _treasury == address(0) || _olas == address(0) || _voteWeighting == address(0)) {
+        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) || _voteWeighting == address(0)) {
             revert ZeroAddress();
         }
 
@@ -305,6 +309,7 @@ contract Dispenser {
         voteWeighting = _voteWeighting;
         // TODO initial max number of epochs to claim staking incentives for
         maxNumClaimingEpochs = 10;
+        maxNumStakingTargets = 100;
     }
 
     /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
@@ -426,8 +431,11 @@ contract Dispenser {
         for (uint256 i = 0; i < chainIds.length; ++i) {
             // Get the deposit processor contract address
             address depositProcessor = mapChainIdDepositProcessors[chainIds[i]];
+
             // Transfer corresponding OLAS amounts to deposit processors
-            IToken(olas).transfer(depositProcessor, transferAmounts[i]);
+            if (transferAmounts[i] > 0) {
+                IToken(olas).transfer(depositProcessor, transferAmounts[i]);
+            }
 
             // Find zero staking amounts
             uint256 numActualTargets;
@@ -451,21 +459,24 @@ contract Dispenser {
                 }
             }
 
-            // Address conversion depending on chain Ids
-            if (chainIds[i] <= MAX_EVM_CHAIN_ID) {
-                // Convert to EVM addresses
-                address[] memory stakingTargetsEVM = new address[](updatedStakingTargets.length);
-                for (uint256 j = 0; j < updatedStakingTargets.length; ++j) {
-                    stakingTargetsEVM[j] = address(uint160(uint256(updatedStakingTargets[j])));
-                }
+            // Check that the updated staking targets are not empty
+            if (numPos > 0) {
+                // Address conversion depending on chain Ids
+                if (chainIds[i] <= MAX_EVM_CHAIN_ID) {
+                    // Convert to EVM addresses
+                    address[] memory stakingTargetsEVM = new address[](updatedStakingTargets.length);
+                    for (uint256 j = 0; j < updatedStakingTargets.length; ++j) {
+                        stakingTargetsEVM[j] = address(uint160(uint256(updatedStakingTargets[j])));
+                    }
 
-                // Send to EVM chains
-                IDepositProcessor(depositProcessor).sendMessageBatch{value:valueAmounts[i]}(stakingTargetsEVM,
-                    updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
-            } else {
-                // Send to non-EVM chains
-                IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:valueAmounts[i]}(updatedStakingTargets,
-                    updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
+                    // Send to EVM chains
+                    IDepositProcessor(depositProcessor).sendMessageBatch{value:valueAmounts[i]}(stakingTargetsEVM,
+                        updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
+                } else {
+                    // Send to non-EVM chains
+                    IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value:valueAmounts[i]}(updatedStakingTargets,
+                        updatedStakingAmounts, bridgePayloads[i], transferAmounts[i]);
+                }
             }
         }
     }
@@ -500,7 +511,7 @@ contract Dispenser {
             // Check that chain Ids are strictly in ascending non-repeatable order
             // Also protects from the initial chainId == 0
             if (lastChainId >= chainIds[i]) {
-                revert Overflow(lastChainId, chainIds[i] - 1);
+                revert WrongChainId(chainIds[i]);
             }
             lastChainId = chainIds[i];
 
@@ -523,7 +534,7 @@ contract Dispenser {
                 // Enforce ascending non-repeatable order of targets
                 // Also protects from the initial stakingTargets[i][j] == 0
                 if (uint256(lastTarget) >= uint256(stakingTargets[i][j])) {
-                    revert Overflow(uint256(lastTarget), uint256(stakingTargets[i][j]) - 1);
+                    revert WrongAccount(stakingTargets[i][j]);
                 }
                 lastTarget = stakingTargets[i][j];
             }
@@ -856,6 +867,16 @@ contract Dispenser {
         }
         _locked = 2;
 
+        // Check for zero chain Id
+        if (chainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for zero target address
+        if (stakingTarget == 0) {
+            revert ZeroAddress();
+        }
+
         // Check the number of claimed epochs
         if (numClaimedEpochs > maxNumClaimingEpochs) {
             revert Overflow(numClaimedEpochs, maxNumClaimingEpochs);
@@ -988,16 +1009,18 @@ contract Dispenser {
             }
 
             // Account for possible withheld OLAS amounts
-            uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
-            if (withheldAmount > 0) {
-                if (withheldAmount >= transferAmounts[i]) {
-                    withheldAmount -= transferAmounts[i];
-                    transferAmounts[i] = 0;
-                } else {
-                    transferAmounts[i] -= withheldAmount;
-                    withheldAmount = 0;
+            if (transferAmounts[i] > 0) {
+                uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
+                if (withheldAmount > 0) {
+                    if (withheldAmount >= transferAmounts[i]) {
+                        withheldAmount -= transferAmounts[i];
+                        transferAmounts[i] = 0;
+                    } else {
+                        transferAmounts[i] -= withheldAmount;
+                        withheldAmount = 0;
+                    }
+                    mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
                 }
-                mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
             }
 
             // Add to the total transfer amount
@@ -1009,22 +1032,25 @@ contract Dispenser {
             ITokenomics(tokenomics).refundFromStaking(totalAmounts[2]);
         }
 
-        // Check if minting is needed as the actual OLAS transfer is required
-        if (totalAmounts[1] > 0) {
-            uint256 balanceBefore = IToken(olas).balanceOf(address(this));
+        // Check if staking amount is deposited
+        if (totalAmounts[0] > 0) {
+            // Check if minting is needed as the actual OLAS transfer is required
+            if (totalAmounts[1] > 0) {
+                uint256 balanceBefore = IToken(olas).balanceOf(address(this));
 
-            // Mint tokens to self in order to distribute to staking deposit processors
-            ITreasury(treasury).withdrawToAccount(address(this), 0, totalAmounts[1]);
+                // Mint tokens to self in order to distribute to staking deposit processors
+                ITreasury(treasury).withdrawToAccount(address(this), 0, totalAmounts[1]);
 
-            // Check the balance after the mint
-            if (IToken(olas).balanceOf(address(this)) - balanceBefore != totalAmounts[1]) {
-                revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, totalAmounts[1]);
+                // Check the balance after the mint
+                if (IToken(olas).balanceOf(address(this)) - balanceBefore != totalAmounts[1]) {
+                    revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, totalAmounts[1]);
+                }
             }
-        }
 
-        // Dispense all the service staking targets
-        _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts,
-            valueAmounts);
+            // Dispense all the service staking targets, if the total staking amount is not equal to zero
+            _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingAmounts, bridgePayloads, transferAmounts,
+                valueAmounts);
+        }
 
         emit StakingIncentivesClaimed(msg.sender, totalAmounts[0], totalAmounts[1], totalAmounts[2]);
 
