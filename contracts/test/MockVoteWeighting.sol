@@ -33,7 +33,11 @@ contract MockVoteWeighting {
     /// @param account Address of the nominee.
     /// @param chainId Chain Id.
     function checkpointNominee(bytes32 account, uint256 chainId) external {
-
+        Nominee memory nominee = Nominee(account, chainId);
+        bytes32 nomineeHash = keccak256(abi.encode(nominee));
+        if (mapNomineeIds[nomineeHash] == 0) {
+            revert();
+        }
     }
 
     /// @dev Set staking weight.
@@ -52,10 +56,9 @@ contract MockVoteWeighting {
     ///         inflation_rate * relativeWeight / 1e18.
     /// @param account Address of the nominee in bytes32 form.
     /// @param chainId Chain Id.
-    /// @param time Relative weight at the specified timestamp in the past or present.
     /// @return Value of relative weight normalized to 1e18.
     /// @return Sum of nominee weights.
-    function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256 time) external view returns (uint256, uint256) {
+    function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256) external view returns (uint256, uint256) {
         Nominee memory nominee = Nominee(account, chainId);
         bytes32 nomineeHash = keccak256(abi.encode(nominee));
         return (mapNomineeRelativeWeights[nomineeHash], totalWeight);

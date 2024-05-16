@@ -248,6 +248,7 @@ contract Dispenser {
     event TokenomicsUpdated(address indexed tokenomics);
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
+    event RetainerUpdated(bytes32 indexed retainer);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
     event StakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 transferAmount,
         uint256 returnAmount);
@@ -685,7 +686,7 @@ contract Dispenser {
 
         // Get the current retainer nominee hash
         bytes32 currentRetainer = retainer;
-        // Check that current retainer has a nonzero address
+        // Checks in case the current retainer has still a nonzero address
         if (currentRetainer != 0) {
             // Get current retainer nominee hash
             nominee = IVoteWeighting.Nominee(currentRetainer, block.chainid);
@@ -698,15 +699,23 @@ contract Dispenser {
                 revert ZeroValue();
             }
 
+            // Get last retained epoch number
+            uint256 lastClaimedEpoch = mapLastClaimedStakingEpochs[nomineeHash];
+            // Note that lastClaimedEpoch must never be zero
+            if (lastClaimedEpoch == 0) {
+                revert ZeroValue();
+            }
+
             // Check that all the funds have been retained for previous epochs
             // The retainer must be removed in one of previous epochs
-            uint256 lastClaimedEpoch = mapLastClaimedStakingEpochs[nomineeHash];
             if (removedEpochCounter >= lastClaimedEpoch) {
                 revert Overflow(removedEpochCounter, lastClaimedEpoch - 1);
             }
         }
 
         retainer = newRetainer;
+
+        emit RetainerUpdated(newRetainer);
     }
 
     /// @dev Changes staking params by the DAO.
@@ -926,8 +935,11 @@ contract Dispenser {
                 availableStakingAmount = totalWeightSum;
             }
 
+            // TODO
             // Compare the staking weight
-            if (stakingWeight < stakingPoint.minStakingWeight) {
+            // 100% = 1e18, in order to compare with minStakingWeight we need to bring it to the range of 0 .. 10_000
+            //if (stakingWeight / 1e14 < uint256(stakingPoint.minStakingWeight))
+            if (stakingWeight < uint256(stakingPoint.minStakingWeight) * 1e14) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
                 returnAmount = ((stakingDiff + availableStakingAmount) * stakingWeight) / 1e18;
                 totalReturnAmount += returnAmount;
@@ -1175,6 +1187,13 @@ contract Dispenser {
 
         if (totalReturnAmount > 0) {
             ITokenomics(tokenomics).refundFromStaking(totalReturnAmount);
+        }
+
+        // Self delete retainer if this is the last epoch it can retain for
+        uint256 removedEpochCounter = mapRemovedNomineeEpochs[nomineeHash];
+        if (removedEpochCounter > 0 && lastClaimedEpoch > removedEpochCounter) {
+            retainer = 0;
+            emit RetainerUpdated(0);
         }
 
         emit Retained(msg.sender, totalReturnAmount);
