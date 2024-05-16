@@ -1,5 +1,5 @@
 
-Look carefully.
+False positive. _lock.
 Reentrancy in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#425-452):
 	External calls:
 	- (success) = msg.sender.call{value: amount}() (WormholeTargetDispenserL2-flatten.sol#444)
@@ -11,19 +11,19 @@ Reentrancy in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatte
 	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (WormholeTargetDispenserL2-flatten.sol#371-398)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully.
+False positive. stakingFactory trusted.
 Manipulated call found: (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (WormholeTargetDispenserL2-flatten.sol#224-225) in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#209-265)
 Only the calldata could be manipulated
 	The calldata could be manipulated through TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1825-1879)
 	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (WormholeTargetDispenserL2-flatten.sol#359-367)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefully.
+False positive.
 DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#425-452) uses a dangerous strict equality:
 	- amount == 0 (WormholeTargetDispenserL2-flatten.sol#439)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefully.
+False positive. No reentrancy.
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#209-265):
 	External calls:
 	- (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (WormholeTargetDispenserL2-flatten.sol#224-225)
@@ -35,7 +35,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispen
 	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#209-265)
 	- DefaultTargetDispenserL2.stakingBatchNonce (WormholeTargetDispenserL2-flatten.sol#154)
 
-Look carefully.
+False positive. No reentrancy.
 Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#314-351):
 	External calls:
 	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#338)
@@ -62,7 +62,7 @@ DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#338)
 WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#1975-2000) ignores return value by (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,GAS_LIMIT) (WormholeTargetDispenserL2-flatten.sol#1988)
 
-Look carefully.
+False positive
 Dubious typecast in WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#1975-2000):
 	uint256 => uint16 casting occurs in (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,GAS_LIMIT) (WormholeTargetDispenserL2-flatten.sol#1988)
 	uint256 => uint16 casting occurs in sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),l1DepositProcessor,abi.encode(amount),0,GAS_LIMIT,uint16(l1SourceChainId),refundAccount) (WormholeTargetDispenserL2-flatten.sol#1996-1997)
@@ -73,7 +73,7 @@ Dubious typecast in WormholeTargetDispenserL2.slitherConstructorConstantVariable
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (WormholeTargetDispenserL2-flatten.sol#135)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully.
+By design.
 Function TokenReceiver.getDecimals(address) (WormholeTargetDispenserL2-flatten.sol#1805-1813) contains a low level call to a custom address
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/call_forward_to_protected.md
 INFO:Detectors:
@@ -87,7 +87,7 @@ TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeTargetDispense
 TokenReceiver.getDecimals(address) (WormholeTargetDispenserL2-flatten.sol#1805-1813) has external calls inside a loop: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeTargetDispenserL2-flatten.sol#1809-1811)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
 
-Look carefully.
+False positive.
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#209-265):
 	External calls:
 	- (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (WormholeTargetDispenserL2-flatten.sol#224-225)
@@ -97,7 +97,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispen
 	- stakingQueueingNonces[queueHash] = true (WormholeTargetDispenserL2-flatten.sol#253)
 	- withheldAmount += localWithheldAmount (WormholeTargetDispenserL2-flatten.sol#263)
 
-Look carefully.
+False positive.
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#209-265):
 	External calls:
 	- (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (WormholeTargetDispenserL2-flatten.sol#224-225)
@@ -108,7 +108,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispen
 	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (WormholeTargetDispenserL2-flatten.sol#255)
 	- StakingTargetDeposited(target,amount) (WormholeTargetDispenserL2-flatten.sol#248)
 
-Look carefully.
+False positive. Under mutex.
 Reentrancy in WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#1975-2000):
 	External calls:
 	- (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,GAS_LIMIT) (WormholeTargetDispenserL2-flatten.sol#1988)
@@ -118,14 +118,14 @@ Reentrancy in WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTar
 	Event emitted after the call(s):
 	- MessagePosted(sequence,msg.sender,l1DepositProcessor,amount) (WormholeTargetDispenserL2-flatten.sol#1999)
 
-Look carefully.
+False positive.
 Reentrancy in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#425-452):
 	External calls:
 	- (success) = msg.sender.call{value: amount}() (WormholeTargetDispenserL2-flatten.sol#444)
 	Event emitted after the call(s):
 	- Drain(msg.sender,amount) (WormholeTargetDispenserL2-flatten.sol#449)
 
-Look carefully.
+False positive.
 Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#314-351):
 	External calls:
 	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#338)
@@ -161,15 +161,15 @@ Ignore.
 Function TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1825-1879) contains magic numbers: 8, 10
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
 
-Look carefully.
+Out of scope.
 Base.registrationOwner (WormholeTargetDispenserL2-flatten.sol#1346) should be immutable 
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
 
-Look carefully. Not issue.
+Out of scope.
 In a function TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1703-1727) variable TokenBase.tokenBridge (WormholeTargetDispenserL2-flatten.sol#1651) is read multiple times
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
 
-Look carefully. Add to list well-know issue.
+False positive.
 Contract locking ether found:
 	Contract DefaultDepositProcessorL1 (DefaultDepositProcessorL1-flatten.sol#110-300) has payable functions:
 	 - DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (DefaultDepositProcessorL1-flatten.sol#219-243)
@@ -182,7 +182,7 @@ Dubious typecast in DefaultDepositProcessorL1.slitherConstructorConstantVariable
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (DefaultDepositProcessorL1-flatten.sol#115)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully!!! Low issue.
+Fix it.
 Setter function DefaultDepositProcessorL1.setL2TargetDispenser(address) (DefaultDepositProcessorL1-flatten.sol#291-293) does not emit an event
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
 
@@ -206,24 +206,24 @@ Ignore.
 Function DefaultDepositProcessorL1.getBridgingDecimals() (DefaultDepositProcessorL1-flatten.sol#297-299) contains magic number: 18
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
 
-Check it.
+Ignore.
 In a function DefaultDepositProcessorL1._receiveMessage(address,address,bytes) (DefaultDepositProcessorL1-flatten.sol#194-212) variable DefaultDepositProcessorL1.l2TargetDispenser (DefaultDepositProcessorL1-flatten.sol#134) is read multiple times
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
 
-Look carefully.
+False positive. Out of scope.
 Manipulated call found: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1655-1657) in TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1651-1659)
 Only the destination could be manipulated
 	The destination could be manipulated through TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1671-1725)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefully. Add to well-know issue.
+False positive. Out of scope.
 Contract locking ether found:
 	Contract TokenReceiver (WormholeDepositProcessorL1-flatten.sol#1642-1735) has payable functions:
 	 - TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1671-1725)
 	But does not have a function to withdraw the ether
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
 
-Look carefully.
+Fix it.
 TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1671-1725) ignores return value by tokenBridge.completeTransferWithPayload(additionalVaas[i]) (WormholeDepositProcessorL1-flatten.sol#1697)
 TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeDepositProcessorL1-flatten.sol#1549-1573) ignores return value by IERC20(token).approve(address(tokenBridge),amount) (WormholeDepositProcessorL1-flatten.sol#1556)
 TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeDepositProcessorL1-flatten.sol#1581-1607) ignores return value by (cost) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain,receiverValue,gasLimit) (WormholeDepositProcessorL1-flatten.sol#1593-1597)
@@ -257,7 +257,7 @@ TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeDepositProcess
 TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1651-1659) has external calls inside a loop: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1655-1657)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
 
-Look carefully!!! In list of issue.
+Fix it.
 Setter function WormholeDepositProcessorL1.setL2TargetDispenser(address) (WormholeDepositProcessorL1-flatten.sol#1859-1862) does not emit an event
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
 
@@ -266,13 +266,13 @@ INFO:Detectors:
 TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeDepositProcessorL1-flatten.sol#1581-1607) is never used and should be removed
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
 
-Why not via interface? Look carefully.
+Out of scope - wormhole codebase.
 INFO:Detectors:
 Low level call in TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1651-1659):
 	- (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1655-1657)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
 
-Look carefully! Ignore?
+Out of scope - wormhole codebase.
 INFO:Detectors:
 TokenReceiver (WormholeDepositProcessorL1-flatten.sol#1642-1735) should inherit from IWormholeReceiver (WormholeDepositProcessorL1-flatten.sol#453-496)
 WormholeDepositProcessorL1 (WormholeDepositProcessorL1-flatten.sol#1743-1868) should inherit from IWormholeReceiver (WormholeDepositProcessorL1-flatten.sol#453-496)
@@ -300,12 +300,12 @@ Function DefaultDepositProcessorL1.getBridgingDecimals() (WormholeDepositProcess
 Function WormholeDepositProcessorL1.getBridgingDecimals() (WormholeDepositProcessorL1-flatten.sol#1865-1867) contains magic number: 8
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
 
-Look carefully!
+Out of scope - wormhole codebase.
 INFO:Detectors:
 Base.registrationOwner (WormholeDepositProcessorL1-flatten.sol#1192) should be immutable 
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
 
-Look carefully!
+Out of scope - wormhole codebase.
 INFO:Detectors:
 In a function TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1671-1725) variable TokenBase.tokenBridge (WormholeDepositProcessorL1-flatten.sol#1497) is read multiple times
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
@@ -338,7 +338,7 @@ DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#425-452) u
 	- amount == 0 (GnosisTargetDispenserL2-flatten.sol#439)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -367,7 +367,7 @@ Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTa
 	- DefaultTargetDispenserL2.stakingQueueingNonces (GnosisTargetDispenserL2-flatten.sol#163)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!
+In report.
 INFO:Detectors:
 DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#209-265) ignores return value by IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#245)
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#338)
@@ -379,7 +379,7 @@ Dubious typecast in GnosisTargetDispenserL2.slitherConstructorConstantVariables(
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (GnosisTargetDispenserL2-flatten.sol#135)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -401,7 +401,7 @@ Reentrancy in GnosisTargetDispenserL2.receiveMessage(bytes) (GnosisTargetDispens
 		- stakingQueueingNonces[queueHash] = true (GnosisTargetDispenserL2-flatten.sol#253)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -459,7 +459,7 @@ INFO:Detectors:
 Variable DefaultTargetDispenserL2._locked (GnosisTargetDispenserL2-flatten.sol#160) is not in mixedCase
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Contract locking ether found:
 	Contract GnosisDepositProcessorL1 (GnosisDepositProcessorL1-flatten.sol#330-403) has payable functions:
@@ -468,7 +468,7 @@ Contract locking ether found:
 	But does not have a function to withdraw the ether
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
 
-Look carefully.
+In report.
 INFO:Detectors:
 GnosisDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (GnosisDepositProcessorL1-flatten.sol#349-392) ignores return value by IToken(olas).approve(l1TokenRelayer,transferAmount) (GnosisDepositProcessorL1-flatten.sol#363)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
@@ -517,7 +517,7 @@ Reentrancy in EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDe
 	- EthereumDepositProcessor.constructor(address,address,address) (EthereumDepositProcessor-flatten.sol#57-67)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!
+In report.
 INFO:Detectors:
 EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#72-98) ignores return value by IToken(olas).approve(target,amount) (EthereumDepositProcessor-flatten.sol#91)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
@@ -588,7 +588,7 @@ Reentrancy in DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatte
 	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (OptimismTargetDispenserL2-flatten.sol#371-398)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Manipulated call found: (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (OptimismTargetDispenserL2-flatten.sol#224-225) in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#209-265)
 Only the calldata could be manipulated
@@ -596,13 +596,13 @@ Only the calldata could be manipulated
 	The calldata could be manipulated through OptimismTargetDispenserL2.receiveMessage(bytes) (OptimismTargetDispenserL2-flatten.sol#543-549)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefully.
+False positive.
 INFO:Detectors:
 DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#425-452) uses a dangerous strict equality:
 	- amount == 0 (OptimismTargetDispenserL2-flatten.sol#439)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -631,13 +631,13 @@ Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (Optimism
 	- DefaultTargetDispenserL2.stakingQueueingNonces (OptimismTargetDispenserL2-flatten.sol#163)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully.
+In report.
 INFO:Detectors:
 DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#209-265) ignores return value by IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#245)
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#338)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Dubious typecast in OptimismTargetDispenserL2._sendMessage(uint256,bytes) (OptimismTargetDispenserL2-flatten.sol#512-539):
 	uint256 => uint32 casting occurs in IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor,data,uint32(GAS_LIMIT)) (OptimismTargetDispenserL2-flatten.sol#536)
@@ -645,7 +645,7 @@ Dubious typecast in OptimismTargetDispenserL2.slitherConstructorConstantVariable
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (OptimismTargetDispenserL2-flatten.sol#135)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -657,7 +657,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispen
 	- withheldAmount += localWithheldAmount (OptimismTargetDispenserL2-flatten.sol#263)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -700,7 +700,7 @@ Variable DefaultTargetDispenserL2._locked (OptimismTargetDispenserL2-flatten.sol
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
 
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2.drain() (ArbitrumTargetDispenserL2-flatten.sol#423-450):
 	External calls:
@@ -713,7 +713,7 @@ Reentrancy in DefaultTargetDispenserL2.drain() (ArbitrumTargetDispenserL2-flatte
 	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (ArbitrumTargetDispenserL2-flatten.sol#369-396)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Manipulated call found: (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (ArbitrumTargetDispenserL2-flatten.sol#222-223) in DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispenserL2-flatten.sol#207-263)
 Only the calldata could be manipulated
@@ -721,13 +721,13 @@ Only the calldata could be manipulated
 	The calldata could be manipulated through ArbitrumTargetDispenserL2.receiveMessage(bytes) (ArbitrumTargetDispenserL2-flatten.sol#520-528)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefully!
+False positive.
 INFO:Detectors:
 DefaultTargetDispenserL2.drain() (ArbitrumTargetDispenserL2-flatten.sol#423-450) uses a dangerous strict equality:
 	- amount == 0 (ArbitrumTargetDispenserL2-flatten.sol#437)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefully!!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispenserL2-flatten.sol#207-263):
 	External calls:
@@ -740,7 +740,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispen
 	- DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispenserL2-flatten.sol#207-263)
 	- DefaultTargetDispenserL2.stakingBatchNonce (ArbitrumTargetDispenserL2-flatten.sol#152)
 
-Look carefully!
+False positive.
 Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (ArbitrumTargetDispenserL2-flatten.sol#312-349):
 	External calls:
 	- IToken(olas).approve(target,amount) (ArbitrumTargetDispenserL2-flatten.sol#336)
@@ -758,7 +758,7 @@ Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (Arbitrum
 	- DefaultTargetDispenserL2.stakingQueueingNonces (ArbitrumTargetDispenserL2-flatten.sol#161)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!
+In report.
 INFO:Detectors:
 DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispenserL2-flatten.sol#207-263) ignores return value by IToken(olas).approve(target,amount) (ArbitrumTargetDispenserL2-flatten.sol#243)
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (ArbitrumTargetDispenserL2-flatten.sol#312-349) ignores return value by IToken(olas).approve(target,amount) (ArbitrumTargetDispenserL2-flatten.sol#336)
@@ -770,13 +770,13 @@ Dubious typecast in ArbitrumTargetDispenserL2.slitherConstructorConstantVariable
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (ArbitrumTargetDispenserL2-flatten.sol#133)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully!!
+In report.
 INFO:Detectors:
 ArbitrumTargetDispenserL2.constructor(address,address,address,address,uint256)._l1DepositProcessor (ArbitrumTargetDispenserL2-flatten.sol#494) lacks a zero-check on :
 		- l1AliasedDepositProcessor = address(uint160(_l1DepositProcessor) + offset) (ArbitrumTargetDispenserL2-flatten.sol#502)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
 
-Look carefully!!!!!!!!!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (ArbitrumTargetDispenserL2-flatten.sol#207-263):
 	External calls:
@@ -830,7 +830,7 @@ INFO:Detectors:
 Variable DefaultTargetDispenserL2._locked (ArbitrumTargetDispenserL2-flatten.sol#158) is not in mixedCase
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
 
-Look carefully!
+In report.
 INFO:Detectors:
 ArbitrumDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (ArbitrumDepositProcessorL1-flatten.sol#417-485) ignores return value by IToken(olas).approve(l1ERC20Gateway,transferAmount) (ArbitrumDepositProcessorL1-flatten.sol#467)
 ArbitrumDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (ArbitrumDepositProcessorL1-flatten.sol#417-485) ignores return value by IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas,refundAccount,l2TargetDispenser,transferAmount,TOKEN_GAS_LIMIT,gasPriceBid,submissionCostData) (ArbitrumDepositProcessorL1-flatten.sol#475-476)
@@ -855,7 +855,7 @@ INFO:Detectors:
 Function DefaultDepositProcessorL1.getBridgingDecimals() (ArbitrumDepositProcessorL1-flatten.sol#297-299) contains magic number: 18
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (Dispenser-flatten.sol#410-464) sends eth to arbitrary user
 	Dangerous calls:
@@ -909,13 +909,13 @@ Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][
 	- Dispenser.constructor(address,address,address) (Dispenser-flatten.sol#292-308)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully!
+In report.
 INFO:Detectors:
 Dispenser._distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (Dispenser-flatten.sol#379-401) ignores return value by IToken(olas).transfer(depositProcessor,transferAmount) (Dispenser-flatten.sol#390)
 Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (Dispenser-flatten.sol#410-464) ignores return value by IToken(olas).transfer(depositProcessor,transferAmounts[i]) (Dispenser-flatten.sol#423)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
 
-Look carefully!
+In report.
 INFO:Detectors:
 Dispenser.olas (Dispenser-flatten.sol#257) is never initialized. It is used in:
 	- Dispenser._distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (Dispenser-flatten.sol#379-401)
@@ -934,7 +934,7 @@ Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#
 	- normalizedAmount *= 10 ** (18 - bridgingDecimals) (Dispenser-flatten.sol#1096)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#708-740):
 	External calls:
@@ -961,7 +961,7 @@ Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][
 	- Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#1078-1105)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]).numPos (Dispenser-flatten.sol#438) is a local variable never initialized
 Dispenser.claimOwnerIncentives(uint256[],uint256[]).success (Dispenser-flatten.sol#726) is a local variable never initialized
@@ -969,7 +969,7 @@ Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes).transferAmount (
 Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]).numActualTargets (Dispenser-flatten.sol#426) is a local variable never initialized
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
 
-Look carefully!
+In report.
 INFO:Detectors:
 Dispenser.retain() (Dispenser-flatten.sol#669-699) ignores return value by (stakingWeight) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer,block.chainid,endTime) (Dispenser-flatten.sol#693-694)
 Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#836-913) ignores return value by ITreasury(treasury).withdrawToAccount(address(this),0,transferAmount) (Dispenser-flatten.sol#898)
@@ -984,14 +984,14 @@ Dubious typecast in Dispenser._distributeStakingIncentivesBatch(uint256[],bytes3
 	uint256 => uint160 casting occurs in stakingTargetsEVM[j_scope_1] = address(uint160(uint256(updatedStakingTargets[j_scope_1]))) (Dispenser-flatten.sol#452)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully! See above.
+In report.
 INFO:Detectors:
 Dispenser.changeStakingParams(uint256,uint256) (Dispenser-flatten.sol#631-644) should emit an event for: 
 	- maxNumClaimingEpochs = _maxNumClaimingEpochs (Dispenser-flatten.sol#638) 
 	- maxNumStakingTargets = _maxNumStakingTargets (Dispenser-flatten.sol#642) 
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
 
-Look carefully. By design?
+By design.
 INFO:Detectors:
 Dispenser.retain() (Dispenser-flatten.sol#669-699) has external calls inside a loop: stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j) (Dispenser-flatten.sol#686-687)
 Dispenser.retain() (Dispenser-flatten.sol#669-699) has external calls inside a loop: endTime = ITokenomics(tokenomics).getEpochEndTime(j) (Dispenser-flatten.sol#690)
@@ -1004,7 +1004,7 @@ Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256,uint256) 
 Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256,uint256) (Dispenser-flatten.sol#316-371) has external calls inside a loop: eCounter = ITokenomics(tokenomics).epochCounter() (Dispenser-flatten.sol#325)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
 
-Look carefully!
+In report.
 INFO:Detectors:
 Reentrancy in Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256,uint256) (Dispenser-flatten.sol#316-371):
 	External calls:
@@ -1025,7 +1025,7 @@ Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (D
 	- mapChainIdWithheldAmounts[chainId] = withheldAmount (Dispenser-flatten.sol#890)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#708-740):
 	External calls:
@@ -1033,6 +1033,7 @@ Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-fla
 	- success = ITreasury(treasury).withdrawToAccount(msg.sender,reward,topUp) (Dispenser-flatten.sol#729)
 	Event emitted after the call(s):
 	- IncentivesClaimed(msg.sender,reward,topUp) (Dispenser-flatten.sol#737)
+False positive.
 Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#836-913):
 	External calls:
 	- (stakingAmount,returnAmount) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (Dispenser-flatten.sol#863-864)
@@ -1049,6 +1050,7 @@ Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (D
 		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingAmount,bridgePayload,transferAmount) (Dispenser-flatten.sol#398-399)
 	Event emitted after the call(s):
 	- StakingIncentivesClaimed(msg.sender,stakingAmount,transferAmount,returnAmount) (Dispenser-flatten.sol#910)
+False positive.
 Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#924-1020):
 	External calls:
 	- (stakingAmount,returnAmount) = calculateStakingIncentives(numClaimedEpochs,chainIds[i],stakingTargets[i][j],bridgingDecimals) (Dispenser-flatten.sol#969-970)
@@ -1067,7 +1069,7 @@ Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][
 	- StakingIncentivesClaimed(msg.sender,totalAmounts[0],totalAmounts[1],totalAmounts[2]) (Dispenser-flatten.sol#1017)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
 
-Look carefully!!!!!
+In report.
 INFO:Detectors:
 Setter function Dispenser.setPause(Dispenser.Pause) (Dispenser-flatten.sol#1109-1116) does not emit an event
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
@@ -1090,18 +1092,18 @@ Function Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],byt
 Function Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#1078-1105) contains magic numbers: 18, 10, 10
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
 
-Look carefully!
+By design.
 INFO:Detectors:
 In a function Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#836-913) variable Dispenser.olas (Dispenser-flatten.sol#257) is read multiple times
 In a function Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#924-1020) variable Dispenser.olas (Dispenser-flatten.sol#257) is read multiple times
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
 
-Look carefully!
+In report.
 INFO:Detectors:
 Function FxBaseRootTunnel.setFxChildTunnel(address) (PolygonDepositProcessorL1-flatten.sol#1053-1056) is a non-protected setter fxChildTunnel is written
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/unprotected_setter.md
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Contract locking ether found:
 	Contract PolygonDepositProcessorL1 (PolygonDepositProcessorL1-flatten.sol#1211-1290) has payable functions:
@@ -1124,13 +1126,13 @@ Dubious typecast in PolygonDepositProcessorL1.slitherConstructorConstantVariable
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (PolygonDepositProcessorL1-flatten.sol#115)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully! Out of scope?
+Out of scope?
 INFO:Detectors:
 FxBaseRootTunnel.setFxChildTunnel(address)._fxChildTunnel (PolygonDepositProcessorL1-flatten.sol#1053) lacks a zero-check on :
 		- fxChildTunnel = _fxChildTunnel (PolygonDepositProcessorL1-flatten.sol#1055)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
 
-Look carefully!
+In report.
 INFO:Detectors:
 Setter function PolygonDepositProcessorL1.setL2TargetDispenser(address) (PolygonDepositProcessorL1-flatten.sol#1286-1289) does not emit an event
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
@@ -1241,7 +1243,7 @@ In a function RLPReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1
 In a function ExitPayloadReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#674-694) variable ExitPayloadReader.WORD_SIZE (PolygonDepositProcessorL1-flatten.sol#652) is read multiple times
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
 
-Look carefully.
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#425-452):
 	External calls:
@@ -1254,12 +1256,12 @@ Reentrancy in DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten
 	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (PolygonTargetDispenserL2-flatten.sol#371-398)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully.
+In report.
 INFO:Detectors:
 Function FxBaseChildTunnel.setFxRootTunnel(address) (PolygonTargetDispenserL2-flatten.sol#491-494) is a non-protected setter fxRootTunnel is written
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/unprotected_setter.md
 
-Look carefully!!
+False positive.
 INFO:Detectors:
 Manipulated call found: (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (PolygonTargetDispenserL2-flatten.sol#224-225) in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#209-265)
 Only the calldata could be manipulated
@@ -1267,13 +1269,14 @@ Only the calldata could be manipulated
 	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (PolygonTargetDispenserL2-flatten.sol#359-367)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefully.
+False positive.
 INFO:Detectors:
 DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#425-452) uses a dangerous strict equality:
 	- amount == 0 (PolygonTargetDispenserL2-flatten.sol#439)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefully.
+
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -1302,7 +1305,7 @@ Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonT
 	- DefaultTargetDispenserL2.stakingQueueingNonces (PolygonTargetDispenserL2-flatten.sol#163)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!!!
+In report.
 DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#209-265) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#245)
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#338)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
@@ -1313,13 +1316,13 @@ Dubious typecast in PolygonTargetDispenserL2.slitherConstructorConstantVariables
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (PolygonTargetDispenserL2-flatten.sol#135)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully.
+In report.
 INFO:Detectors:
 FxBaseChildTunnel.setFxRootTunnel(address)._fxRootTunnel (PolygonTargetDispenserL2-flatten.sol#491) lacks a zero-check on :
 		- fxRootTunnel = _fxRootTunnel (PolygonTargetDispenserL2-flatten.sol#493)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
 
-Look carefully!!!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -1331,7 +1334,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispens
 	- withheldAmount += localWithheldAmount (PolygonTargetDispenserL2-flatten.sol#263)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
 
-Look carefully!!!
+False positive.
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#209-265):
 	External calls:
 	- (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (PolygonTargetDispenserL2-flatten.sol#224-225)
@@ -1384,19 +1387,19 @@ Reentrancy in DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten
 	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (DefaultTargetDispenserL2-flatten.sol#371-398)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
 
-Look carefully!
+False positive.
 Manipulated call found: (success,returnData) = stakingFactory.call(abi.encodeWithSelector(IStakingFactory.verifyInstance.selector,target)) (DefaultTargetDispenserL2-flatten.sol#224-225) in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#209-265)
 Only the calldata could be manipulated
 	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (DefaultTargetDispenserL2-flatten.sol#359-367)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
 
-Look carefylly!
+False positive.
 INFO:Detectors:
 DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#425-452) uses a dangerous strict equality:
 	- amount == 0 (DefaultTargetDispenserL2-flatten.sol#439)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
 
-Look carefylly!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -1425,7 +1428,7 @@ Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultT
 	- DefaultTargetDispenserL2.stakingQueueingNonces (DefaultTargetDispenserL2-flatten.sol#163)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
 
-Look carefully!
+False positive.
 INFO:Detectors:
 DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#209-265) ignores return value by IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#245)
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#338)
@@ -1437,7 +1440,7 @@ Dubious typecast in DefaultTargetDispenserL2.slitherConstructorConstantVariables
 	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (DefaultTargetDispenserL2-flatten.sol#135)
 Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#209-265):
 	External calls:
@@ -1449,7 +1452,7 @@ Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispens
 	- withheldAmount += localWithheldAmount (DefaultTargetDispenserL2-flatten.sol#263)
 Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
 
-Look carefully!
+False positive.
 INFO:Detectors:
 Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#209-265):
 	External calls:
