@@ -7,6 +7,8 @@ describe("DispenserDevIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = "0x" + "0".repeat(40);
     const oneMonth = 86400 * 30;
+    const maxNumClaimingEpochs = 10;
+    const maxNumStakingTargets = 100;
 
     let signers;
     let deployer;
@@ -48,7 +50,8 @@ describe("DispenserDevIncentives", async () => {
         await ve.deployed();
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address);
+        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
+            maxNumClaimingEpochs, maxNumStakingTargets);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");

@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("DispenserStakingIncentives", async () => {
+describe.only("DispenserStakingIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
@@ -15,6 +15,8 @@ describe("DispenserStakingIncentives", async () => {
     const bridgePayload = "0x";
     const epochLen = oneMonth;
     const delta = 100;
+    const maxNumClaimingEpochs = 10;
+    const maxNumStakingTargets = 100;
 
     let signers;
     let deployer;
@@ -56,7 +58,8 @@ describe("DispenserStakingIncentives", async () => {
         await stakingProxyFactory.addImplementation(stakingInstance.address, stakingInstance.address);
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address);
+        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
+            maxNumClaimingEpochs, maxNumStakingTargets);
         await dispenser.deployed();
 
         // Vote Weighting mock
