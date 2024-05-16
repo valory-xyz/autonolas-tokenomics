@@ -223,6 +223,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit OwnerUpdated(newOwner);
     }
 
+    /// @dev Redeems queued staking amount.
+    /// @param target Staking target address.
+    /// @param amount Staking amount.
+    /// @param batchNonce Batch nonce.
     function redeem(address target, uint256 amount, uint256 batchNonce) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -331,9 +335,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit TargetDispenserUnpaused();
     }
 
-    // TODO: shall we send all to the owner or another address?
     /// @dev Drains contract native funds.
-    /// @return amount Drained amount.
+    /// @return amount Drained amount to the owner address.
     function drain() external returns (uint256 amount) {
         // Reentrancy guard
         if (_locked > 1) {
