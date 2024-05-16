@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe.only("DispenserStakingIncentives", async () => {
+describe("DispenserStakingIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
@@ -17,6 +17,7 @@ describe.only("DispenserStakingIncentives", async () => {
     const delta = 100;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
+    const maxUint256 = ethers.constants.MaxUint256;
 
     let signers;
     let deployer;
@@ -192,12 +193,12 @@ describe.only("DispenserStakingIncentives", async () => {
 
             // Should fail when array lengths do not match
             await expect(
-                dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address],[])
+                dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [])
             ).to.be.revertedWithCustomError(dispenser, "WrongArrayLength");
 
             // Should fail when chain Id is zero
             await expect(
-                dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address],[0])
+                dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [0])
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
     });
@@ -539,6 +540,113 @@ describe.only("DispenserStakingIncentives", async () => {
             // All the staking allocation will be returned back to inflation
             await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
                   bridgePayloads, valueAmounts);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Retain staking incentives", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Add a staking instance as a nominee
+            await vw.addNominee(deployer.address, chainId);
+
+            // Vote for the retainer
+            await vw.setNomineeRelativeWeight(deployer.address, chainId, defaultWeight);
+
+            // Try to retain without a setup retainer
+            await expect(
+                dispenser.retain()
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+
+            const retainer = convertAddressToBytes32(deployer.address);
+
+            // Set up a retainer
+            await dispenser.changeRetainer(retainer);
+
+            // Try to retain in the same epoch
+            await expect(
+                dispenser.retain()
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Checkpoint to get to the next epoch
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Retain staking amounts
+            await dispenser.retain();
+
+            // Vote for the retainer with a minimal voting
+            await vw.setNomineeRelativeWeight(deployer.address, chainId, 1);
+
+            // Checkpoint to get to the next epoch
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Retain staking amounts
+            await dispenser.retain();
+
+            // Vote for the retainer with a zero weight
+            await vw.setNomineeRelativeWeight(deployer.address, chainId, 0);
+
+            // Checkpoint to get to the next epoch
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Retain staking amounts
+            await dispenser.retain();
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Sync withheld amount maintenance (DAO)", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Trying to sync withheld amount maintenance not by the owner (DAO)
+            await expect(
+                dispenser.connect(signers[1]).syncWithheldAmountMaintenance(0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
+
+            // Trying to sync withheld amount maintenance with a zero chain Id
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Trying to sync withheld amount maintenance with a zero amount
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(1, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Trying to sync withheld amount maintenance with the same chain Id as the dispenser contract is deployed on
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(chainId, 1)
+            ).to.be.revertedWithCustomError(dispenser, "WrongChainId");
+            
+            // Set the deposit processor
+            await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId + 1]);
+            
+            // Trying to sync withheld amount with an overflow value
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(chainId + 1, maxUint256)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Sync withheld amount maintenance
+            await dispenser.syncWithheldAmountMaintenance(chainId + 1, 100);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

@@ -137,17 +137,50 @@ describe("DispenserDevIncentives", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero)
+                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero)
+                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, 0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, 10, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+        });
+
+        it("Should fail when trying to claim during the paused statke", async function () {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Try to claim when dev incentives are paused
+            await dispenser.setPauseState(1);
+            await expect(
+                dispenser.connect(deployer).claimOwnerIncentives([], [])
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+
+            // Try to claim when all are paused
+            await dispenser.setPauseState(3);
+            await expect(
+                dispenser.connect(deployer).claimOwnerIncentives([], [])
+            ).to.be.revertedWithCustomError(dispenser, "Paused");
+
+            // Try to claim when the treasury is paused
+            await dispenser.setPauseState(0);
+            await treasury.pause();
+            await expect(
+                dispenser.connect(deployer).claimOwnerIncentives([], [])
+            ).to.be.revertedWithCustomError(treasury, "Paused");
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
         });
     });
 

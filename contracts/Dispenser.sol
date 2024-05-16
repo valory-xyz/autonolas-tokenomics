@@ -138,6 +138,10 @@ interface ITreasury {
     /// @return success True if the function execution is successful.
     function withdrawToAccount(address account, uint256 accountRewards, uint256 accountTopUps) external
         returns (bool success);
+
+    /// @dev Returns the paused state.
+    /// @return Paused state.
+    function paused() external returns (uint8);
 }
 
 // Vote Weighting nterface
@@ -243,6 +247,7 @@ contract Dispenser {
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
     event StakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 transferAmount,
         uint256 returnAmount);
+    event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount);
 
@@ -795,7 +800,8 @@ contract Dispenser {
 
         // Check for the paused state
         Pause currentPause = paused;
-        if (currentPause == Pause.DevIncentivesPaused || currentPause == Pause.AllPaused) {
+        if (currentPause == Pause.DevIncentivesPaused || currentPause == Pause.AllPaused ||
+            ITreasury(treasury).paused() == 2) {
             revert Paused();
         }
 
@@ -1132,6 +1138,12 @@ contract Dispenser {
             totalReturnAmount += stakingPoint.stakingAmount * stakingWeight;
         }
         totalReturnAmount /= 1e18;
+
+        if (totalReturnAmount > 0) {
+            ITokenomics(tokenomics).refundFromStaking(totalReturnAmount);
+        }
+
+        emit Retained(msg.sender, totalReturnAmount);
     }
 
     /// @dev Syncs the withheld amount according to the data received from L2.
@@ -1163,6 +1175,11 @@ contract Dispenser {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check zero value chain Id and amount
+        if (chainId == 0 || amount == 0) {
+            revert ZeroValue();
+        }
+
         // The sync must never happen for the L1 chain Id itself, as dispenser exists strictly on L1-s
         if (chainId == block.chainid) {
             revert WrongChainId(chainId);
@@ -1180,8 +1197,14 @@ contract Dispenser {
             amount = normalizedAmount;
         }
 
+        // The overall amount is bound by the OLAS projected maximum amount for years to come
+        uint256 withheldAmount = mapChainIdWithheldAmounts[chainId] + amount;
+        if (withheldAmount > type(uint96).max) {
+            revert Overflow(withheldAmount, type(uint96).max);
+        }
+
         // Add to the withheld amount
-        mapChainIdWithheldAmounts[chainId] += amount;
+        mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
         emit WithheldAmountSynced(chainId, amount);
     }
