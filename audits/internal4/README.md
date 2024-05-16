@@ -58,7 +58,7 @@ in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(ol
 Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
 ```
 ##### Other
-2. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
+1. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
 ```
 audits\internal4\analysis\contracts\PolygonDepositProcessorL1-flatten.sol
 abstract contract FxBaseRootTunnel {
