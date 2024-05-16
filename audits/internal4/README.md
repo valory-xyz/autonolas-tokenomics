@@ -57,6 +57,10 @@ in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(ol
 ```
 Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
 ```
+5. sync pause of Dispenser with pause of Treasury
+```
+The Treasury contract must be leading and if Treasury has set a pause, then it must be checked on Dispeser side and pause too.
+```
 ##### Other
 1. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
 ```
