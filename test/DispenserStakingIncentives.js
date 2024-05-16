@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("DispenserStakingIncentives", async () => {
+describe.only("DispenserStakingIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
@@ -29,6 +29,9 @@ describe("DispenserStakingIncentives", async () => {
     let dispenser;
     let vw;
     let ethereumDepositProcessor;
+    let bridgeRelayer;
+    let gnosisDepositProcessorL1;
+    let gnosisTargetDispenserL2;
 
     function convertAddressToBytes32(account) {
         return ("0x" + "0".repeat(24) + account.slice(2)).toLowerCase();
@@ -108,6 +111,24 @@ describe("DispenserStakingIncentives", async () => {
         ethereumDepositProcessor = await EthereumDepositProcessor.deploy(olas.address, dispenser.address,
             stakingProxyFactory.address);
         await ethereumDepositProcessor.deployed();
+
+        const BridgeRelayer = await ethers.getContractFactory("BridgeRelayer");
+        bridgeRelayer = await BridgeRelayer.deploy(olas.address);
+        await bridgeRelayer.deployed();
+
+        const GnosisDepositProcessorL1 = await ethers.getContractFactory("GnosisDepositProcessorL1");
+        gnosisDepositProcessorL1 = await GnosisDepositProcessorL1.deploy(olas.address, dispenser.address,
+            bridgeRelayer.address, bridgeRelayer.address, chainId);
+        await gnosisDepositProcessorL1.deployed();
+
+        const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
+        gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
+            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
+            bridgeRelayer.address);
+        await gnosisTargetDispenserL2.deployed();
+
+        // Set the gnosisTargetDispenserL2 address in gnosisDepositProcessorL1
+        await gnosisDepositProcessorL1.setL2TargetDispenser(gnosisTargetDispenserL2.address);
 
         // Whitelist a default deposit processor
         await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId]);
@@ -314,6 +335,69 @@ describe("DispenserStakingIncentives", async () => {
             for (let i = 0; i < stakingTargets.length; i++) {
                 expect(await olas.balanceOf(convertBytes32ToAddress(stakingTargets[i]))).to.gt(0);
             }
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Claim staking incentives for several nominees with different weights", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Get another staking instance
+            const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
+            const stakingInstance2 = await MockStakingProxy.deploy(olas.address);
+            await stakingInstance2.deployed();
+
+            // Add a default implementation mocked as a proxy address itself
+            await stakingProxyFactory.addImplementation(stakingInstance2.address, stakingInstance2.address);
+
+            let stakingTargets = [stakingInstance.address, stakingInstance2.address];
+            let chainIds = [chainId, chainId + 1];
+
+            // Set another deposit processor for a different chain Id
+            await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId + 1]);
+
+            for (let i = 0; i < stakingTargets.length; i++) {
+                // Add each staking instances as a nominee
+                await vw.addNominee(stakingTargets[i], chainIds[i]);
+                // Vote for each nominee
+                if (i == 0) {
+                    await vw.setNomineeRelativeWeight(stakingTargets[i], chainIds[i], defaultWeight);
+                } else {
+                    await vw.setNomineeRelativeWeight(stakingTargets[i], chainIds[i], 1);
+                }
+                // Change the address to bytes32 form
+                stakingTargets[i] = convertAddressToBytes32(stakingTargets[i]);
+            }
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            let stakingTargetsFinal = [[stakingTargets[0]], [stakingTargets[1]]];
+            let bridgePayloads = [bridgePayload, bridgePayload];
+            let valueAmounts = [0, 0];
+
+            // Claim staking incentives
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
+                bridgePayloads, valueAmounts);
+
+            // Check that target contracts got OLAS
+            expect(await olas.balanceOf(convertBytes32ToAddress(stakingTargets[0]))).to.gt(0);
+            expect(await olas.balanceOf(convertBytes32ToAddress(stakingTargets[1]))).to.equal(0);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
@@ -545,6 +629,68 @@ describe("DispenserStakingIncentives", async () => {
             await snapshot.restore();
         });
 
+        it("Change non-zero retainer", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            let oldRetainer = deployer.address;
+            let newRetainer = signers[1].address;
+
+            // Add both retainers as nominees
+            await vw.addNominee(oldRetainer, chainId);
+            await vw.addNominee(newRetainer, chainId);
+
+            oldRetainer = convertAddressToBytes32(oldRetainer);
+            newRetainer = convertAddressToBytes32(newRetainer);
+
+            // Set up a retainer
+            await dispenser.changeRetainer(oldRetainer);
+
+            // Try to change a retainer with an old retainer still be not removed
+            await expect(
+                dispenser.changeRetainer(newRetainer)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Remove old retainer
+            await vw.removeNominee(convertBytes32ToAddress(oldRetainer), chainId);
+
+            // Try to change the retainer in the same epoch when the old retainer was removed
+            await expect(
+                dispenser.changeRetainer(newRetainer)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Checkpoint to get to the next epoch
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Try to change the retainer in the next epoch but with the old retainer not retained all
+            await expect(
+                dispenser.changeRetainer(newRetainer)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Retain staking amounts (none) to update the last claimed epoch
+            await dispenser.retain();
+
+            // Now it's possible to change a retainer
+            await dispenser.changeRetainer(newRetainer);
+            expect(await dispenser.retainer()).to.equal(newRetainer);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
         it("Retain staking incentives", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
@@ -561,7 +707,7 @@ describe("DispenserStakingIncentives", async () => {
             // Unpause the dispenser
             await dispenser.setPauseState(0);
 
-            // Add a staking instance as a nominee
+            // Add deployer as a retainer nominee
             await vw.addNominee(deployer.address, chainId);
 
             // Vote for the retainer
@@ -647,6 +793,61 @@ describe("DispenserStakingIncentives", async () => {
 
             // Sync withheld amount maintenance
             await dispenser.syncWithheldAmountMaintenance(chainId + 1, 100);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it.skip("Claim staking incentives for a single nominee with cross-bridging and withheld amount", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Add a staking instance as a nominee
+            await vw.addNominee(stakingInstance.address, chainId);
+
+            // Vote for the nominee
+            await vw.setNomineeRelativeWeight(stakingInstance.address, chainId, defaultWeight);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const stakingTarget = convertAddressToBytes32(stakingInstance.address);
+            // Calculate staking incentives
+            const stakingAmounts = await dispenser.callStatic.calculateStakingIncentives(numClaimedEpochs, chainId,
+                stakingTarget, bridgingDecimals);
+            // We deliberately setup the voting such that there is staking amount and return amount
+            expect(stakingAmounts.totalStakingAmount).to.gt(0);
+            expect(stakingAmounts.totalReturnAmount).to.gt(0);
+
+            // Claim staking incentives
+            await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
+
+            // Check that the target contract got OLAS
+            expect(await olas.balanceOf(stakingInstance.address)).to.gt(0);
+
+            // Set weights to a very small value
+            await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTarget), chainId, 1);
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // No one will have enough staking amount, and no token deposits will be triggered
+            // All the staking allocation will be returned back to inflation
+            await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

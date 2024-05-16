@@ -111,6 +111,10 @@ interface ITokenomics {
     /// @return Epoch counter.
     function epochCounter() external view returns (uint32);
 
+    /// @dev Gets tokenomics epoch length.
+    /// @return Epoch length.
+    function epochLen() external view returns (uint32);
+
     /// @dev Gets epoch end time.
     /// @param epoch Epoch number.
     /// @return endTime Epoch end time.
@@ -249,7 +253,7 @@ contract Dispenser {
         uint256 returnAmount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
-    event WithheldAmountSynced(uint256 chainId, uint256 amount);
+    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount);
 
     enum Pause {
         Unpaused,
@@ -778,7 +782,23 @@ contract Dispenser {
             revert ManagerOnly(msg.sender, voteWeighting);
         }
 
-        mapRemovedNomineeEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+        // Get the epoch counter
+        uint256 eCounter = ITokenomics(tokenomics).epochCounter();
+
+        // Get the previous epoch end time
+        uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(eCounter - 1);
+
+        // Get the epoch length
+        uint256 epochLen = ITokenomics(tokenomics).epochLen();
+
+        // Check that there is more than one week before the end of the ongoing epoch
+        uint256 maxAllowedTIme = endTime + epochLen - 1 weeks;
+        if (block.timestamp >= maxAllowedTIme) {
+            revert Overflow(block.timestamp, maxAllowedTIme);
+        }
+
+        // Set the removed nominee epoch number
+        mapRemovedNomineeEpochs[nomineeHash] = eCounter;
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -811,7 +831,21 @@ contract Dispenser {
         bool success;
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0
         if ((reward + topUp) > 0) {
+            // Get the current OLAS balance
+            uint256 balanceBefore;
+            if (topUp > 0) {
+                balanceBefore = IToken(olas).balanceOf(msg.sender);
+            }
+
             success = ITreasury(treasury).withdrawToAccount(msg.sender, reward, topUp);
+
+            // Check the balance after the OLAS mint, if applicable
+            if (topUp > 0){
+                uint256 balanceDiff = IToken(olas).balanceOf(msg.sender) - balanceBefore;
+                if (balanceDiff != topUp) {
+                    revert WrongAmount(balanceDiff, topUp);
+                }
+            }
         }
 
         // Check if the claim is successful and has at least one non-zero incentive.
@@ -1158,10 +1192,16 @@ contract Dispenser {
             revert DepositProcessorOnly(msg.sender, depositProcessor);
         }
 
-        // Add to the withheld amount
-        mapChainIdWithheldAmounts[chainId] += amount;
+        // The overall amount is bound by the OLAS projected maximum amount for years to come
+        uint256 withheldAmount = mapChainIdWithheldAmounts[chainId] + amount;
+        if (withheldAmount > type(uint96).max) {
+            revert Overflow(withheldAmount, type(uint96).max);
+        }
 
-        emit WithheldAmountSynced(chainId, amount);
+        // Update the withheld amount
+        mapChainIdWithheldAmounts[chainId] = withheldAmount;
+
+        emit WithheldAmountSynced(chainId, amount, withheldAmount);
     }
 
     /// @dev Syncs the withheld amount manually by the DAO in order to restore the data that was not delivered from L2.
@@ -1206,7 +1246,7 @@ contract Dispenser {
         // Add to the withheld amount
         mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
-        emit WithheldAmountSynced(chainId, amount);
+        emit WithheldAmountSynced(chainId, amount, withheldAmount);
     }
 
     /// @dev Sets the pause state.
