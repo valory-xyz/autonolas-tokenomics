@@ -177,7 +177,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
             l1AliasedDepositProcessor = address(uint160(_l1DepositProcessor) + offset);
         }
 ```
-4. Better add _lock for retain, Because it's impossible to write it in CEI-forms 
+4. Better add _lock for retain, Because it's impossible to write in CEI-forms 
 ```
 Dispenser:
 function retain() external {}
