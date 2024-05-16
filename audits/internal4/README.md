@@ -53,7 +53,7 @@ revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
 contract Dispenser:
 in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(olas).transfer(depositProcessor, transferAmount); check transferAmount > 0
 ```
-4. Double check calculateStakingIncentives
+4. Double check calculateStakingIncentives. Let discussed.
 ```
 Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
 ```
@@ -61,6 +61,15 @@ Need to rewrite the code such that anybody is able to call the calculateStakingI
 ```
 The Treasury contract must be leading and if Treasury has set a pause, then it must be checked on Dispeser side and pause too.
 ```
+6. doublke check function retain() external
+```
+function looks like she doesn't actually do anything at the end.
+        totalReturnAmount /= 1e18;
+    /// action??? with totalReturnAmount
+    }
+```
+7. removeNominee issue around end-of-epoch. revert if `remove` near `end-of-epoch - 7days`. Let discussed.
+
 ##### Other
 1. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
 ```
@@ -182,7 +191,7 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
 Dispenser:
 function retain() external {}
 ```
-5. Low probability overflow.
+5. Low probability overflow. Pay attention to all operation: a += b, type(a) => uint96
 ```
 function refundFromStaking(uint256 amount) external {
         // Check for the dispenser access
