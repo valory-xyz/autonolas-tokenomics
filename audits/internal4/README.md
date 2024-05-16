@@ -32,7 +32,8 @@ All automatic warnings are listed in the following file, concerns of which we ad
 [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/slither_full.txt) <br>
 
 #### Issue
-1. Bug. `olas` is never initialized
+##### Dispenser
+1. Bug. `olas` is never initialized, `maxNumStakingTargets` is never initialized  
 ```
 contract Dispenser {
       address public immutable olas;
@@ -40,27 +41,23 @@ contract Dispenser {
     /// @param _tokenomics Tokenomics address.
     /// @param _treasury Treasury address.
     /// @param _voteWeighting Vote Weighting address.
-    constructor(address _tokenomics, address _treasury, address _voteWeighting) {
-        owner = msg.sender;
-        _locked = 1;
-        // TODO Define final behavior before deployment
-        paused = Pause.StakingIncentivesPaused;
-
-        // Check for at least one zero contract address
-        if (_tokenomics == address(0) || _treasury == address(0) || _voteWeighting == address(0)) {
-            revert ZeroAddress();
-        }
-
-        tokenomics = _tokenomics;
-        treasury = _treasury;
-        voteWeighting = _voteWeighting;
-        // TODO initial max number of epochs to claim staking incentives for
-        maxNumClaimingEpochs = 10;
-    }
-    ..
-    later:
-    IToken(olas).transfer(depositProcessor, transferAmount);
+    constructor(address _tokenomics, address _treasury, address _voteWeighting) {}
 ```
+2. possible epochAfterRemoved - 1 < 0 in revert message
+```
+contract Dispenser:
+revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
+```
+3. check transferAmounts > 0
+```
+contract Dispenser:
+in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(olas).transfer(depositProcessor, transferAmount); check transferAmount > 0
+```
+4. Double check calculateStakingIncentives
+```
+Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
+```
+##### Other
 2. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
 ```
 audits\internal4\analysis\contracts\PolygonDepositProcessorL1-flatten.sol
@@ -135,7 +132,6 @@ WormholeDepositProcessorL1.setL2TargetDispenser()
 PolygonDepositProcessorL1.setL2TargetDispenser()
 Dispenser.setPause()
 Dispenser.changeStakingParams()
-
 ```
 2. abi.encodeWithSignature to abi.encodeCall
 ```
