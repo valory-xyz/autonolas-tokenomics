@@ -124,7 +124,7 @@ abstract contract FxBaseRootTunnel {
     }
 ```
 
-#### Low issue
+#### Low priority issue
 1. does not emit an event
 ```
 DefaultDepositProcessorL1.setL2TargetDispenser()
