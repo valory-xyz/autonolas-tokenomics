@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 // Deposit Processor interface
 interface IDepositProcessor {
@@ -244,24 +244,26 @@ error WrongAccount(bytes32 account);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract Dispenser {
-    event OwnerUpdated(address indexed owner);
-    event TokenomicsUpdated(address indexed tokenomics);
-    event TreasuryUpdated(address indexed treasury);
-    event VoteWeightingUpdated(address indexed voteWeighting);
-    event RetainerUpdated(bytes32 indexed retainer);
-    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
-    event StakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 transferAmount,
-        uint256 returnAmount);
-    event Retained(address indexed account, uint256 returnAmount);
-    event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
-    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount);
-
     enum Pause {
         Unpaused,
         DevIncentivesPaused,
         StakingIncentivesPaused,
         AllPaused
     }
+
+    event OwnerUpdated(address indexed owner);
+    event TokenomicsUpdated(address indexed tokenomics);
+    event TreasuryUpdated(address indexed treasury);
+    event VoteWeightingUpdated(address indexed voteWeighting);
+    event RetainerUpdated(bytes32 indexed retainer);
+    event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
+    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
+    event StakingIncentivesClaimed(address indexed account, uint256 stakingAmount, uint256 transferAmount,
+        uint256 returnAmount);
+    event Retained(address indexed account, uint256 returnAmount);
+    event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
+    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount);
+    event PauseDispenser(Pause pauseState);
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
@@ -401,7 +403,9 @@ contract Dispenser {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
 
         // Transfer corresponding OLAS amounts to the deposit processor
-        IToken(olas).transfer(depositProcessor, transferAmount);
+        if (transferAmount > 0) {
+            IToken(olas).transfer(depositProcessor, transferAmount);
+        }
 
         if (chainId <= MAX_EVM_CHAIN_ID) {
             address stakingTargetEVM = address(uint160(uint256(stakingTarget)));
@@ -676,41 +680,19 @@ contract Dispenser {
             revert ZeroAddress();
         }
 
+        // Get the current retainer nominee hash
+        bytes32 currentRetainer = retainer;
+        // Checks in case the current retainer has still a nonzero address
+        if (currentRetainer != 0) {
+            revert WrongAccount(currentRetainer);
+        }
+
         // Check if the new retainer exists as a nominee
         IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(newRetainer, block.chainid);
         bytes32 nomineeHash = keccak256(abi.encode(nominee));
         uint256 id = IVoteWeighting(voteWeighting).mapNomineeIds(nomineeHash);
         if (id == 0) {
             revert ZeroValue();
-        }
-
-        // Get the current retainer nominee hash
-        bytes32 currentRetainer = retainer;
-        // Checks in case the current retainer has still a nonzero address
-        if (currentRetainer != 0) {
-            // Get current retainer nominee hash
-            nominee = IVoteWeighting.Nominee(currentRetainer, block.chainid);
-            nomineeHash = keccak256(abi.encode(nominee));
-
-            // The current retainer must be removed from nominees before switching to a new one
-            uint256 removedEpochCounter = mapRemovedNomineeEpochs[nomineeHash];
-            // Check that the retainer is removed
-            if (removedEpochCounter == 0) {
-                revert ZeroValue();
-            }
-
-            // Get last retained epoch number
-            uint256 lastClaimedEpoch = mapLastClaimedStakingEpochs[nomineeHash];
-            // Note that lastClaimedEpoch must never be zero
-            if (lastClaimedEpoch == 0) {
-                revert ZeroValue();
-            }
-
-            // Check that all the funds have been retained for previous epochs
-            // The retainer must be removed in one of previous epochs
-            if (removedEpochCounter >= lastClaimedEpoch) {
-                revert Overflow(removedEpochCounter, lastClaimedEpoch - 1);
-            }
         }
 
         retainer = newRetainer;
@@ -727,13 +709,15 @@ contract Dispenser {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        if (_maxNumClaimingEpochs > 0) {
-            maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        // Check if values are zero
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+            revert ZeroValue();
         }
 
-        if (_maxNumStakingTargets > 0) {
-            maxNumStakingTargets = _maxNumStakingTargets;
-        }
+        maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        maxNumStakingTargets = _maxNumStakingTargets;
+
+        emit StakingParamsUpdated(_maxNumClaimingEpochs, _maxNumStakingTargets);
     }
 
     /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
@@ -935,10 +919,8 @@ contract Dispenser {
                 availableStakingAmount = totalWeightSum;
             }
 
-            // TODO
             // Compare the staking weight
-            // 100% = 1e18, in order to compare with minStakingWeight we need to bring it to the range of 0 .. 10_000
-            //if (stakingWeight / 1e14 < uint256(stakingPoint.minStakingWeight))
+            // 100% = 1e18, in order to compare with minStakingWeight we need to bring it from the range of 0 .. 10_000
             if (stakingWeight < uint256(stakingPoint.minStakingWeight) * 1e14) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking amount
                 returnAmount = ((stakingDiff + availableStakingAmount) * stakingWeight) / 1e18;
@@ -1005,7 +987,8 @@ contract Dispenser {
 
         // Check for the paused state
         Pause currentPause = paused;
-        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
+        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused ||
+            ITreasury(treasury).paused() == 2) {
             revert Paused();
         }
 
@@ -1099,7 +1082,8 @@ contract Dispenser {
         }
 
         Pause currentPause = paused;
-        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused) {
+        if (currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused ||
+            ITreasury(treasury).paused() == 2) {
             revert Paused();
         }
 
@@ -1147,6 +1131,12 @@ contract Dispenser {
 
     /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
     function retain() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Go over epochs and retain funds to return back to the tokenomics
         bytes32 localRetainer = retainer;
 
@@ -1197,6 +1187,8 @@ contract Dispenser {
         }
 
         emit Retained(msg.sender, totalReturnAmount);
+
+        _locked = 1;
     }
 
     /// @dev Syncs the withheld amount according to the data received from L2.
@@ -1277,5 +1269,7 @@ contract Dispenser {
         }
 
         paused = pauseState;
+
+        emit PauseDispenser(pauseState);
     }
 }

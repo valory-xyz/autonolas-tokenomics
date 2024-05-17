@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
-import {FxBaseRootTunnel} from "fx-portal/contracts/tunnel/FxBaseRootTunnel.sol";
+import {FxBaseRootTunnel} from "../../lib/fx-portal/contracts/tunnel/FxBaseRootTunnel.sol";
 
 interface IBridge {
     // Source: https://github.com/maticnetwork/pos-portal/blob/master/flat/RootChainManager.sol#L2173
@@ -20,6 +20,8 @@ interface IBridge {
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunnel {
+    event FxChildTunnelUpdated(address indexed fxChildTunnel);
+
     // ERC20 Predicate contract address
     address public immutable predicate;
 
@@ -90,6 +92,25 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
     function _processMessageFromChild(bytes memory data) internal override {
         // Process the data
         _receiveMessage(l1MessageRelayer, l2TargetDispenser, data);
+    }
+
+    /// @dev Sets l2TargetDispenser, aka fxChildTunnel.
+    /// @param l2Dispenser L2 target dispenser address.
+    function setFxChildTunnel(address l2Dispenser) public override {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for zero address
+        if (l2Dispenser == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Set L1 deposit processor address
+        fxChildTunnel = l2Dispenser;
+
+        emit FxChildTunnelUpdated(l2Dispenser);
     }
 
     /// @dev Sets L2 target dispenser address.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
@@ -763,8 +763,8 @@ contract Tokenomics is TokenomicsConstants {
             revert Overflow(_maxStakingAmount, type(uint96).max);
         }
 
-        if (_minStakingWeight > 10_000) {
-            revert Overflow(_minStakingWeight, 10_000);
+        if (_minStakingWeight > MAX_STAKING_WEIGHT) {
+            revert Overflow(_minStakingWeight, MAX_STAKING_WEIGHT);
         }
 
         // All the adjustments will be accounted for in the next epoch

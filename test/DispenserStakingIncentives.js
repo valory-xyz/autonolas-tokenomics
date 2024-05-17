@@ -157,10 +157,13 @@ describe("DispenserStakingIncentives", async () => {
             // Set arbitrary parameters
             await dispenser.changeStakingParams(10, 10);
 
-            // No action when trying to set parameters to zero
-            await dispenser.changeStakingParams(0, 0);
-            expect(await dispenser.maxNumClaimingEpochs()).to.equal(10);
-            expect(await dispenser.maxNumStakingTargets()).to.equal(10);
+            // Trying to set parameters to zero
+            await expect(
+                dispenser.changeStakingParams(0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                dispenser.changeStakingParams(10, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
 
         it("Changing retainer from a zero initial address", async () => {
@@ -498,7 +501,7 @@ describe("DispenserStakingIncentives", async () => {
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
             // Correct chain Ids
-            chainIds = [chainId, chainId + 1]
+            chainIds = [chainId, chainId + 1];
 
             // Empty staking arrays
             await expect(
@@ -605,7 +608,7 @@ describe("DispenserStakingIncentives", async () => {
 
             // Finally able to claim
             await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
-                  bridgePayloads, valueAmounts);
+                bridgePayloads, valueAmounts);
 
             // Try to claim again in this epoch
             await expect(
@@ -626,7 +629,7 @@ describe("DispenserStakingIncentives", async () => {
             // No one will have enough staking amount, and no token deposits will be triggered
             // All the staking allocation will be returned back to inflation
             await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
-                  bridgePayloads, valueAmounts);
+                bridgePayloads, valueAmounts);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
@@ -664,15 +667,15 @@ describe("DispenserStakingIncentives", async () => {
             // Try to change a retainer with an old retainer still be not removed
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Remove old retainer
             await vw.removeNominee(convertBytes32ToAddress(oldRetainer), chainId);
 
-            // Try to change the retainer in the same epoch when the old retainer was removed
+            // Try to change the retainer in the same epoch when the old retainer was removed but not everything retained
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Checkpoint to get to the next epoch
             await helpers.time.increase(epochLen);
@@ -681,7 +684,7 @@ describe("DispenserStakingIncentives", async () => {
             // Try to change the retainer in the next epoch but with the old retainer not retained all
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Retain staking amounts (none) to update the last claimed epoch
             await dispenser.retain();

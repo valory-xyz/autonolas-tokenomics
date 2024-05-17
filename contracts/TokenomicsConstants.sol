@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 /// @title TokenomicsConstants - Smart contract with tokenomics constants
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -19,6 +19,8 @@ abstract contract TokenomicsConstants {
     uint256 public constant MAX_EPOCH_LENGTH = ONE_YEAR - 1 days;
     // Minimum fixed point tokenomics parameters
     uint256 public constant MIN_PARAM_VALUE = 1e14;
+    // Max staking weight amount
+    uint256 public constant MAX_STAKING_WEIGHT = 10_000;
 
     /// @dev Gets an inflation cap for a specific year.
     /// @param numYears Number of years passed from the launch date.

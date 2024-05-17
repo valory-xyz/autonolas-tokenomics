@@ -1,4 +1,4 @@
-pragma solidity =0.8.23;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -53,7 +53,7 @@ contract BaseSetup is Test {
         componentRegistry = new MockRegistry();
         agentRegistry = new MockRegistry();
         serviceRegistry = new MockRegistry();
-        dispenser = new Dispenser(deployer, deployer, deployer);
+        dispenser = new Dispenser(address(olas), deployer, deployer, deployer, 100, 100);
 
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Correct tokenomics address will be added below

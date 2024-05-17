@@ -22,6 +22,7 @@ interface IToken {
 abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     event MessagePosted(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
+    event L2TargetDispenserUpdated(address indexed l2TargetDispenser);
 
     // receiveMessage selector to be executed on L2
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -196,6 +197,8 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
         // Revoke the owner role making the contract ownerless
         owner = address(0);
+
+        emit L2TargetDispenserUpdated(l2Dispenser);
     }
 
     /// @dev Sets L2 target dispenser address.
