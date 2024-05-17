@@ -498,7 +498,7 @@ describe("DispenserStakingIncentives", async () => {
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
             // Correct chain Ids
-            chainIds = [chainId, chainId + 1]
+            chainIds = [chainId, chainId + 1];
 
             // Empty staking arrays
             await expect(
@@ -605,7 +605,7 @@ describe("DispenserStakingIncentives", async () => {
 
             // Finally able to claim
             await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
-                  bridgePayloads, valueAmounts);
+                bridgePayloads, valueAmounts);
 
             // Try to claim again in this epoch
             await expect(
@@ -626,7 +626,7 @@ describe("DispenserStakingIncentives", async () => {
             // No one will have enough staking amount, and no token deposits will be triggered
             // All the staking allocation will be returned back to inflation
             await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, chainIds, stakingTargetsFinal,
-                  bridgePayloads, valueAmounts);
+                bridgePayloads, valueAmounts);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
