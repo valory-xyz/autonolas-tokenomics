@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";

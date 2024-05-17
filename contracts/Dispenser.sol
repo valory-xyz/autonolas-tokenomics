@@ -527,8 +527,9 @@ contract Dispenser {
             totalValueAmount += valueAmounts[i];
 
             // Check for the maximum number of staking targets
-            if (stakingTargets[i].length > maxNumStakingTargets) {
-                revert Overflow(stakingTargets[i].length, maxNumStakingTargets);
+            uint256 localMaxNumStakingTargets = maxNumStakingTargets;
+            if (stakingTargets[i].length > localMaxNumStakingTargets) {
+                revert Overflow(stakingTargets[i].length, localMaxNumStakingTargets);
             }
 
             bytes32 lastTarget;
@@ -981,8 +982,9 @@ contract Dispenser {
         }
 
         // Check the number of claimed epochs
-        if (numClaimedEpochs > maxNumClaimingEpochs) {
-            revert Overflow(numClaimedEpochs, maxNumClaimingEpochs);
+        uint256 localMaxNumClaimingEpochs = maxNumClaimingEpochs;
+        if (numClaimedEpochs > localMaxNumClaimingEpochs) {
+            revert Overflow(numClaimedEpochs, localMaxNumClaimingEpochs);
         }
 
         // Check for the paused state
@@ -1077,8 +1079,9 @@ contract Dispenser {
         _checkOrderAndValues(chainIds, stakingTargets, bridgePayloads, valueAmounts);
 
         // Check the number of claimed epochs
-        if (numClaimedEpochs > maxNumClaimingEpochs) {
-            revert Overflow(numClaimedEpochs, maxNumClaimingEpochs);
+        uint256 localMaxNumClaimingEpochs = maxNumClaimingEpochs;
+        if (numClaimedEpochs > localMaxNumClaimingEpochs) {
+            revert Overflow(numClaimedEpochs, localMaxNumClaimingEpochs);
         }
 
         Pause currentPause = paused;
@@ -1091,7 +1094,7 @@ contract Dispenser {
         // 0: Staking amount across all the targets to send as a deposit
         // 1: Actual OLAS transfer amount across all the targets
         // 2: Staking amount to return back to effective staking
-        uint256[] memory totalAmounts;// = new uint256[](3);
+        uint256[] memory totalAmounts;
         // Arrays of staking and transfer amounts
         uint256[][] memory stakingAmounts;
         uint256[] memory transferAmounts;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 interface IToken {
     /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -7,14 +7,25 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
+
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 interface IStaking {
-    function deposit(uint256 stakingAmount) external;
+    /// @dev Deposits OLAS tokens to the staking contract.
+    /// @param amount OLAS amount.
+    function deposit(uint256 amount) external;
 }
 
 interface IStakingFactory {
-    function verifyInstance(address instance) external view returns (bool);
+    /// @dev Verifies staking proxy instance and gets emissions amount.
+    /// @param instance Staking proxy instance.
+    /// @return amount Emissions amount.
+    function verifyInstanceAndGetEmissionsAmount(address instance) external view returns (uint256 amount);
 }
 
 /// @dev Provided zero address.
@@ -23,9 +34,9 @@ error ZeroAddress();
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @dev Target address verification failed.
+/// @dev Target address returned zero emissions amount.
 /// @param target Target address.
-error TargetVerificationFailed(address target);
+error TargetEmissionsZero(address target);
 
 /// @dev Only `manager` has a privilege, but the `sender` was provided.
 /// @param sender Sender address.
@@ -37,6 +48,7 @@ error ManagerOnly(address sender, address manager);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract EthereumDepositProcessor {
+    event AmountRefunded(address indexed target, uint256 refundAmount);
     event StakingTargetDeposited(address indexed target, uint256 amount);
 
     // OLAS address
@@ -79,10 +91,23 @@ contract EthereumDepositProcessor {
             address target = targets[i];
             uint256 amount = stakingAmounts[i];
 
-            // Check the target validity address and staking parameters
-            bool success = IStakingFactory(stakingFactory).verifyInstance(target);
-            if (!success) {
-                revert TargetVerificationFailed(target);
+            // Check the target validity address and staking parameters, and get emissions amount
+            uint256 limitAmount = IStakingFactory(stakingFactory).verifyInstanceAndGetEmissionsAmount(target);
+
+            // If the limit amount is zero, something is wrong with the target
+            if (limitAmount == 0) {
+                revert TargetEmissionsZero(target);
+            }
+
+            // Check the amount limit and adjust, if necessary
+            if (amount > limitAmount) {
+                uint256 refundAmount = amount - limitAmount;
+                amount = limitAmount;
+
+                // Send refund amount to the owner address (timelock)
+                IToken(olas).transfer(target, refundAmount);
+
+                emit AmountRefunded(target, refundAmount);
             }
 
             // Approve the OLAS amount for the staking target

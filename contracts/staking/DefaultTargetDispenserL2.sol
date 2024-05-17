@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
+// Staking interface
 interface IStaking {
+    /// @dev Deposits OLAS tokens to the staking contract.
+    /// @param amount OLAS amount.
     function deposit(uint256 amount) external;
 }
 
+// Staking factory interface
 interface IStakingFactory {
-    function verifyInstance(address instance) external view returns (bool);
+    /// @dev Verifies staking proxy instance and gets emissions amount.
+    /// @param instance Staking proxy instance.
+    /// @return amount Emissions amount.
+    function verifyInstanceAndGetEmissionsAmount(address instance) external view returns (uint256 amount);
 }
 
+// Necessary ERC20 token interface
 interface IToken {
     /// @dev Gets the amount of tokens owned by a specified account.
     /// @param account Account address.
@@ -137,24 +145,34 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             address target = targets[i];
             uint256 amount = amounts[i];
 
-            // Check the target validity address and staking parameters
+            // Check the target validity address and staking parameters, and get emissions amount
             // This is a low level call since it must never revert
-            bytes memory verifyData = abi.encodeCall(IStakingFactory.verifyInstance, target);
+            bytes memory verifyData = abi.encodeCall(IStakingFactory.verifyInstanceAndGetEmissionsAmount, target);
             (bool success, bytes memory returnData) = stakingFactory.call(verifyData);
 
+            uint256 limitAmount;
             // If the function call was successful, check the return value
-            if (success) {
-                success = abi.decode(returnData, (bool));
+            if (success && returnData.length == 32) {
+                limitAmount = abi.decode(returnData, (uint256));
             }
 
-            // If verification failed, withhold OLAS amount and continue
-            if (!success) {
+            // If the limit amount is zero, withhold OLAS amount and continue
+            if (limitAmount == 0) {
                 // Withhold OLAS for further usage
                 localWithheldAmount += amount;
                 emit StakingAmountWithheld(target, amount);
 
                 // Proceed to the next target
                 continue;
+            }
+
+            // Check the amount limit and adjust, if necessary
+            if (amount > limitAmount) {
+                uint256 targetWithheldAmount = amount - limitAmount;
+                localWithheldAmount += targetWithheldAmount;
+                amount = limitAmount;
+
+                emit StakingAmountWithheld(target, targetWithheldAmount);
             }
 
             // Check the OLAS balance and the contract being unpaused
