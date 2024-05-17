@@ -210,7 +210,7 @@ describe("StakingBridging", async () => {
             await expect(
                 dispenser.mintAndSend(ethereumDepositProcessor.address, deployer.address, stakingAmount, bridgePayload,
                     stakingAmount)
-            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "TargetVerificationFailed");
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "TargetEmissionsZero");
         });
     });
 
