@@ -119,6 +119,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev Processes the data received from L1.
     /// @param data Bytes message data sent from L1.
     function _processData(bytes memory data) internal {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Decode received data
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
@@ -133,8 +139,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
             // Check the target validity address and staking parameters
             // This is a low level call since it must never revert
-            (bool success, bytes memory returnData) = stakingFactory.call(abi.encodeWithSelector(
-                IStakingFactory.verifyInstance.selector, target));
+            bytes memory verifyData = abi.encodeCall(IStakingFactory.verifyInstance, target);
+            (bool success, bytes memory returnData) = stakingFactory.call(verifyData);
 
             // If the function call was successful, check the return value
             if (success) {
@@ -174,6 +180,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         if (localWithheldAmount > 0) {
             withheldAmount += localWithheldAmount;
         }
+
+        _locked = 1;
     }
 
     /// @dev Sends message to L1 to sync the withheld amount.

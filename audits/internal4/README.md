@@ -43,24 +43,34 @@ contract Dispenser {
     /// @param _voteWeighting Vote Weighting address.
     constructor(address _tokenomics, address _treasury, address _voteWeighting) {}
 ```
+[x] fixed
+
 2. checking by possibility `epochAfterRemoved - 1` < 0 in revert message
 ```
 contract Dispenser:
 revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
 ```
+[x] fixed
+
 3. checking transferAmounts > 0 before transfer
 ```
 contract Dispenser:
 in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(olas).transfer(depositProcessor, transferAmount); check transferAmount > 0
 ```
+[x] fixed
+
 4. Double check calculateStakingIncentives. Let discussed.
 ```
 Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
 ```
+[x] fixed
+
 5. sync pause of Dispenser with pause of Treasury
 ```
 The Treasury contract must be leading and if Treasury has set a pause, then it must be checked on Dispeser side and pause too.
 ```
+[x] fixed
+
 6. doublke check function retain() external
 ```
 function looks like she doesn't actually do anything at the end.
@@ -68,7 +78,10 @@ function looks like she doesn't actually do anything at the end.
     /// action??? with totalReturnAmount
     }
 ```
+[x] fixed
+
 7. removeNominee issue around end-of-epoch. revert if `remove` near `end-of-epoch - 7days`. Let discussed.
+[x] fixed
 
 ##### Other
 1. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
@@ -136,6 +149,7 @@ abstract contract FxBaseRootTunnel {
         fxRootTunnel = _fxRootTunnel;
     }
 ```
+[x] fixed
 
 #### Low priority issue
 1. does not emit an event
@@ -146,6 +160,8 @@ PolygonDepositProcessorL1.setL2TargetDispenser()
 Dispenser.setPause()
 Dispenser.changeStakingParams()
 ```
+[x] fixed
+
 2. abi.encodeWithSignature to abi.encodeCall
 ```
 Example of more safe way:
@@ -156,6 +172,8 @@ Example of more safe way:
         (bool success, bytes memory result) = target.call(data);
 ref: https://detectors.auditbase.com/abiencodecall-over-signature-solidity
 ```
+[x] fixed
+
 3. lacks a zero-check on
 ```
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
@@ -186,11 +204,15 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
             l1AliasedDepositProcessor = address(uint160(_l1DepositProcessor) + offset);
         }
 ```
+[x] already implemented in the DefaultTargetDispenserL2 constructor
+
 4. Better add _lock for retain, Because it's impossible to write in CEI-forms 
 ```
 Dispenser:
 function retain() external {}
 ```
+[x] fixed
+
 5. Low probability overflow. Pay attention to all operation: a += b, type(a) => uint96
 ```
 function refundFromStaking(uint256 amount) external {
@@ -210,6 +232,7 @@ to
         revert Overflow(eBond, type(uint96).max);
     }
 ```
+[x] already implemented in a newer version
 
 #### To Discussion
 1. Mutex for _processData.
@@ -224,6 +247,8 @@ function _processData(bytes memory data) internal {
         _locked = 1;
 }
 ```
+[x] fixed
+
 2. A lot of warnings - "ignores return value". 
 ```
 TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1703-1727) ignores return value by IERC20(token).approve(address(tokenBridge),amount) (WormholeTargetDispenserL2-flatten.sol#1710)
@@ -272,3 +297,4 @@ DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.s
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#338)
 -
 ```
+[x] noted

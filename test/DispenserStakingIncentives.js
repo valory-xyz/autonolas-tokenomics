@@ -664,15 +664,15 @@ describe("DispenserStakingIncentives", async () => {
             // Try to change a retainer with an old retainer still be not removed
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Remove old retainer
             await vw.removeNominee(convertBytes32ToAddress(oldRetainer), chainId);
 
-            // Try to change the retainer in the same epoch when the old retainer was removed
+            // Try to change the retainer in the same epoch when the old retainer was removed but not everything retained
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Checkpoint to get to the next epoch
             await helpers.time.increase(epochLen);
@@ -681,7 +681,7 @@ describe("DispenserStakingIncentives", async () => {
             // Try to change the retainer in the next epoch but with the old retainer not retained all
             await expect(
                 dispenser.changeRetainer(newRetainer)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
 
             // Retain staking amounts (none) to update the last claimed epoch
             await dispenser.retain();
