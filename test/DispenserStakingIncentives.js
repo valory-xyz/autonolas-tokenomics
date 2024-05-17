@@ -157,10 +157,13 @@ describe("DispenserStakingIncentives", async () => {
             // Set arbitrary parameters
             await dispenser.changeStakingParams(10, 10);
 
-            // No action when trying to set parameters to zero
-            await dispenser.changeStakingParams(0, 0);
-            expect(await dispenser.maxNumClaimingEpochs()).to.equal(10);
-            expect(await dispenser.maxNumStakingTargets()).to.equal(10);
+            // Trying to set parameters to zero
+            await expect(
+                dispenser.changeStakingParams(0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                dispenser.changeStakingParams(10, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
 
         it("Changing retainer from a zero initial address", async () => {
