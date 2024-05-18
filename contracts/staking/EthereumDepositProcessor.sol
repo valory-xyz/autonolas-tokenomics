@@ -57,6 +57,8 @@ contract EthereumDepositProcessor {
     address public immutable dispenser;
     // Staking proxy factory address
     address public immutable stakingFactory;
+    // OLAS address
+    address public immutable timelock;
     // Reentrancy lock
     uint8 internal _locked;
 
@@ -104,8 +106,9 @@ contract EthereumDepositProcessor {
                 uint256 refundAmount = amount - limitAmount;
                 amount = limitAmount;
 
+                // TODO initialize in constructor
                 // Send refund amount to the owner address (timelock)
-                IToken(olas).transfer(target, refundAmount);
+                IToken(olas).transfer(timelock, refundAmount);
 
                 emit AmountRefunded(target, refundAmount);
             }
