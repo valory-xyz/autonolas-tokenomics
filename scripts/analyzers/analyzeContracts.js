@@ -63,14 +63,9 @@ function generateReport() {
         "TokenomicsConstants.sol",
         "Tokenomics.sol",
         "Dispenser.sol",
-        "interfaces/IToken.sol", 
         "interfaces/IDonatorBlacklist.sol", 
         "interfaces/IErrorsTokenomics.sol",
-        "interfaces/IOLAS.sol",
-        "interfaces/IServiceRegistry.sol",
-        "interfaces/ITreasury.sol",
-        "interfaces/IVotingEscrow.sol",
-        "interfaces/ITokenomics.sol", 
+        "interfaces/IBridgeErrors.sol"
     ];
 
     contractsInContractsDir.forEach(contractName => {
