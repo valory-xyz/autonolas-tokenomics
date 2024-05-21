@@ -94,7 +94,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -128,7 +128,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
         
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         // Send message to L2

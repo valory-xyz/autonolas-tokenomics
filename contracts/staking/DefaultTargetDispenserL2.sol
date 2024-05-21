@@ -40,7 +40,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
     event StakingTargetDeposited(address indexed target, uint256 amount);
-    event StakingAmountWithheld(address indexed target, uint256 amount);
+    event AmountWithheld(address indexed target, uint256 amount);
     event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
         uint256 batchNonce, uint256 paused);
     event MessagePosted(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
@@ -83,7 +83,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     mapping(bytes32 => bool) public stakingQueueingNonces;
 
     /// @dev DefaultTargetDispenserL2 constructor.
-    /// @param _olas OLAS token address.
+    /// @param _olas OLAS token address on L2.
     /// @param _stakingFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address.
     /// @param _l1DepositProcessor L1 deposit processor address.
@@ -160,7 +160,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             if (limitAmount == 0) {
                 // Withhold OLAS for further usage
                 localWithheldAmount += amount;
-                emit StakingAmountWithheld(target, amount);
+                emit AmountWithheld(target, amount);
 
                 // Proceed to the next target
                 continue;
@@ -172,7 +172,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 localWithheldAmount += targetWithheldAmount;
                 amount = limitAmount;
 
-                emit StakingAmountWithheld(target, targetWithheldAmount);
+                emit AmountWithheld(target, targetWithheldAmount);
             }
 
             // Check the OLAS balance and the contract being unpaused
@@ -249,9 +249,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Redeems queued staking amount.
+    /// @dev Redeems queued staking incentive.
     /// @param target Staking target address.
-    /// @param amount Staking amount.
+    /// @param amount Staking incentive amount.
     /// @param batchNonce Batch nonce.
     function redeem(address target, uint256 amount, uint256 batchNonce) external {
         // Reentrancy guard
@@ -362,6 +362,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     }
 
     /// @dev Drains contract native funds.
+    /// @notice For cross-bridge leftovers and incorrectly sent funds.
     /// @return amount Drained amount to the owner address.
     function drain() external returns (uint256 amount) {
         // Reentrancy guard

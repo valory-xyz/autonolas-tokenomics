@@ -58,7 +58,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -81,7 +81,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         }
 
         // Encode target addresses and amounts
-        bytes memory data = abi.encode(targets, stakingAmounts);
+        bytes memory data = abi.encode(targets, stakingIncentives);
 
         // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203

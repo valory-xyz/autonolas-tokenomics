@@ -118,7 +118,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     ///         - maxSubmissionCostMessage: Max gas deducted from user's L2 balance to cover message base submission fee.
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -179,7 +179,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble message data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,

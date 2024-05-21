@@ -4,7 +4,7 @@ The review has been performed based on the contract code in the following reposi
 commit: `ae0cfff0aa6bcde59f1e9442777f3ab427b6d050` or `tag: v1.2.0-pre-internal-audit`<br> 
 
 ## Objectives
-The audit focused on contracts related to PooA Staking in this repo.
+The audit focused on contracts related to PoAA Staking in this repo.
 
 ### Flatten version
 Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/contracts) 
