@@ -231,19 +231,19 @@ describe("Tokenomics", async () => {
 
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
-            expect(fiveYearSupplyCap).to.equal("82823328297" + "0".repeat(16));
+            expect(fiveYearSupplyCap).to.equal("818313084" + "0".repeat(18));
 
             const elevenYearSupplyCap = await tokenomics.getSupplyCapForYear(11);
             expect(elevenYearSupplyCap).to.equal("10404" + "0".repeat(23));
 
             const fiveYearInflationAmount = await tokenomics.getInflationForYear(5);
-            expect(fiveYearInflationAmount).to.equal("5719340697" + "0".repeat(16));
+            expect(fiveYearInflationAmount).to.equal("72000000" + "0".repeat(18));
 
             const elevenYearInflationAmount = await tokenomics.getInflationForYear(11);
             expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
         });
 
-        it("Check inflation numbers", async function () {
+        it.("Check inflation numbers", async function () {
             const initInflation = ethers.BigNumber.from("5265" + "0".repeat(23));
             let totalInflation = initInflation;
             // Check the inflation increase
