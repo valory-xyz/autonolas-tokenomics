@@ -402,7 +402,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Migrates funds to a new specified L2 target dispenser contract address.
     /// @notice The contract must be paused to prevent other interactions.
-    /// @notice Owner will be zeroed and the contract becomes paused for good.
+    /// @notice The owner is be zeroed, the contract becomes paused and in the reentrancy state for good.
+    /// @notice No further write interaction with the contract is going to be possible.
     function migrate(address newL2TargetDispenser) external {
         // Reentrancy guard
         if (_locked > 1) {

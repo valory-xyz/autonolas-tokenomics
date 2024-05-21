@@ -929,49 +929,6 @@ describe("DispenserStakingIncentives", async () => {
 
             // Claim staking incentives with the unverified target
             await dispenser.claimStakingIncentives(numClaimedEpochs, wormholeChainId, stakingTarget, wormholeBridgePayload);
-            return;
-
-            // Check that the target contract got OLAS
-            expect(await gnosisTargetDispenserL2.withheldAmount()).to.gt(0);
-
-            // Try to sync the withheld amount not via the L2-L1 communication
-            await expect(
-                dispenser.syncWithheldAmount(gnosisChainId, 100)
-            ).to.be.revertedWithCustomError(dispenser, "DepositProcessorOnly");
-
-            // Sync back the withheld amount
-            await gnosisTargetDispenserL2.syncWithheldTokens(gnosisBridgePayload);
-
-            // Add a valid staking target nominee
-            await vw.addNominee(stakingInstance.address, gnosisChainId);
-
-            stakingTarget = convertAddressToBytes32(stakingInstance.address);
-
-            // Set weights to a nominee
-            await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTarget), gnosisChainId, defaultWeight);
-
-            // Changing staking parameters for the next epoch
-            await tokenomics.changeStakingParams(100, 10);
-
-            // Checkpoint to start the new epoch and able to claim
-            await helpers.time.increase(epochLen);
-            await tokenomics.checkpoint();
-
-            // Claim with withheld amount being accounted for
-            await dispenser.claimStakingIncentives(numClaimedEpochs, gnosisChainId, stakingTarget, gnosisBridgePayload);
-
-            // Set a different weight to a nominee
-            await vw.setNomineeRelativeWeight(convertBytes32ToAddress(stakingTarget), gnosisChainId, defaultWeight);
-
-            // Checkpoint to start the new epoch and able to claim
-            await helpers.time.increase(epochLen);
-            await tokenomics.checkpoint();
-
-            // Claim again with withheld amount being accounted for
-            await dispenser.claimStakingIncentives(numClaimedEpochs, gnosisChainId, stakingTarget, gnosisBridgePayload);
-
-            // Restore to the state of the snapshot
-            await snapshot.restore();
         });
 
         it("Claim staking incentives for a single nominee with cross-bridging and withheld amount batch", async () => {
