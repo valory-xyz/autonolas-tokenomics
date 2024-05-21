@@ -243,7 +243,7 @@ describe("Tokenomics", async () => {
             expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
         });
 
-        it.("Check inflation numbers", async function () {
+        it("Check inflation numbers", async function () {
             const initInflation = ethers.BigNumber.from("5265" + "0".repeat(23));
             let totalInflation = initInflation;
             // Check the inflation increase
