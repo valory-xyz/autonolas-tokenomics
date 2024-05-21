@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe.only("StakingBridging", async () => {
+describe("StakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;

@@ -30,6 +30,12 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
+
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 /// @title DefaultTargetDispenserL2 - Smart contract for processing tokens and data received on L2, and data sent back to L1.
@@ -50,6 +56,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
+    event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -132,6 +139,11 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             revert ReentrancyGuard();
         }
         _locked = 2;
+
+        // Check that the contract is not migrated
+        if (owner == address(0)) {
+            revert ContractMigrated();
+        }
 
         // Decode received data
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
@@ -391,6 +403,49 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit Drain(msg.sender, amount);
 
         _locked = 1;
+    }
+
+    /// @dev Migrates funds to a new specified L2 target dispenser contract address.
+    /// @notice The contract must be paused to prevent other interactions.
+    /// @notice Owner will be zeroed and the contract becomes paused for good.
+    function migrate(address newL2TargetDispenser) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for the owner address
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check that the contract is paused
+        if (paused == 1) {
+            revert Unpaused();
+        }
+
+        // Check that the migration address is a contract
+        if (newL2TargetDispenser.code.length == 0) {
+            revert ZeroValue();
+        }
+
+        // Get OLAS token amount
+        uint256 amount = IToken(olas).balanceOf(address(this));
+        // Transfer amount to the new L2 target dispenser
+        if (amount > 0) {
+            bool success = IToken(olas).transfer(newL2TargetDispenser, amount);
+            if (!success) {
+                revert TransferFailed(olas, address(this), newL2TargetDispenser, amount);
+            }
+        }
+
+        // Zero the owner
+        owner = address(0);
+
+        emit Migrated(msg.sender, newL2TargetDispenser, amount);
+
+        // _locked is now set to 2 for good
     }
 
     /// @dev Receives native network token.

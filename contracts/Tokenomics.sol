@@ -246,7 +246,8 @@ struct StakingPoint {
     uint8 stakingFraction;
 }
 
-/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
+/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners, discount factor
+///        regulations for bonds, and staking incentives.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>

@@ -469,7 +469,7 @@ contract Dispenser {
             bytes32[] memory updatedStakingTargets = new bytes32[](numActualTargets);
             uint256[] memory updatedStakingAmounts = new uint256[](numActualTargets);
             uint256 numPos;
-            for (uint256 j = 0; j < stakingTargets[j].length; ++j) {
+            for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
                 if (positions[j]) {
                     updatedStakingTargets[numPos] = stakingTargets[i][j];
                     updatedStakingAmounts[numPos] = stakingIncentives[i][j];

@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe.only("DispenserStakingIncentives", async () => {
+describe("DispenserStakingIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
@@ -875,6 +875,105 @@ describe.only("DispenserStakingIncentives", async () => {
 
             // Claim again with withheld amount being accounted for
             await dispenser.claimStakingIncentives(numClaimedEpochs, gnosisChainId, stakingTarget, gnosisBridgePayload);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Claim staking incentives for a single nominee with cross-bridging and withheld amount batch", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(100, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Set gnosis deposit processor
+            await dispenser.setDepositProcessorChainIds([gnosisDepositProcessorL1.address], [gnosisChainId]);
+
+            // Add a non-whitelisted staking instance as a nominee
+            await vw.addNominee(deployer.address, gnosisChainId);
+            // Add a proxy instance as a nominee
+            await vw.addNominee(stakingInstance.address, gnosisChainId);
+
+            // Vote for nominees
+            await vw.setNomineeRelativeWeight(deployer.address, gnosisChainId, defaultWeight);
+            await vw.setNomineeRelativeWeight(stakingInstance.address, gnosisChainId, defaultWeight);
+
+            // Changing staking parameters for the next epoch
+            await tokenomics.changeStakingParams(50, 10);
+
+            // Checkpoint to account for weights
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            let stakingTargets;
+            // Setting targets in correct order
+            if (deployer.address.toString() < stakingInstance.address) {
+                stakingTargets = [convertAddressToBytes32(deployer.address), convertAddressToBytes32(stakingInstance.address)];
+            } else {
+                stakingTargets = [convertAddressToBytes32(stakingInstance.address), convertAddressToBytes32(deployer.address)];
+            }
+
+            let gnosisBridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
+
+            // Claim staking incentives with the unverified target
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [gnosisChainId], [stakingTargets],
+                [gnosisBridgePayload], [0]);
+
+            // Check that the target contract got OLAS
+            expect(await gnosisTargetDispenserL2.withheldAmount()).to.gt(0);
+
+            // Sync back the withheld amount
+            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
+
+            // Get another staking instance
+            const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
+            const stakingInstance2 = await MockStakingProxy.deploy(olas.address);
+            await stakingInstance2.deployed();
+
+            // Add a default implementation mocked as a proxy address itself
+            await stakingProxyFactory.addImplementation(stakingInstance2.address, stakingInstance2.address);
+
+            // Add a valid staking target nominee
+            await vw.addNominee(stakingInstance2.address, gnosisChainId);
+
+            // Setting targets in correct order
+            if (stakingInstance2.address.toString() < stakingInstance.address) {
+                stakingTargets = [convertAddressToBytes32(stakingInstance2.address), convertAddressToBytes32(stakingInstance.address)];
+            } else {
+                stakingTargets = [convertAddressToBytes32(stakingInstance.address), convertAddressToBytes32(stakingInstance2.address)];
+            }
+
+            // Set weights to a nominee
+            await vw.setNomineeRelativeWeight(stakingInstance2.address, gnosisChainId, defaultWeight);
+
+            // Changing staking parameters for the next epoch
+            await tokenomics.changeStakingParams(100, 10);
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Claim with withheld amount being accounted for
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [gnosisChainId], [stakingTargets],
+                [gnosisBridgePayload], [0]);
+
+            // Checkpoint to start the new epoch and able to claim
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Claim again with withheld amount being accounted for
+            await dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [gnosisChainId], [stakingTargets],
+                [gnosisBridgePayload], [0]);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

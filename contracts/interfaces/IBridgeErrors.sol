@@ -83,6 +83,12 @@ interface IBridgeErrors {
     /// @dev The contract is paused.
     error Paused();
 
-    // Reentrancy guard
+    /// @dev The contract is unpaused.
+    error Unpaused();
+
+    // @dev Reentrancy guard.
     error ReentrancyGuard();
+
+    /// @dev The contract has migrated.
+    error ContractMigrated();
 }

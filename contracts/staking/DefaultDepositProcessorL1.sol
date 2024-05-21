@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
-
+import "hardhat/console.sol";
 import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
 interface IDispenser {

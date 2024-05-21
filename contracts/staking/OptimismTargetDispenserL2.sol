@@ -59,9 +59,8 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
         }
 
-        // Send message to L1
-        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
-        uint256 cost = abi.decode(bridgePayload, (uint256));
+        // Extract bridge cost and gas limit from the bridge payload
+        (uint256 cost, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
 
         // Check for zero value
         if (cost == 0) {
@@ -73,11 +72,17 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
             revert LowerThan(msg.value, cost);
         }
 
+        // Check the gas limit value
+        if (gasLimitMessage < GAS_LIMIT) {
+            gasLimitMessage = GAS_LIMIT;
+        }
+
         // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // Send the message to L1 deposit processor
-        IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(GAS_LIMIT));
+        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
+        IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(gasLimitMessage));
 
         emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
     }
