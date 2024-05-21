@@ -140,11 +140,6 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
         _locked = 2;
 
-        // Check that the contract is not migrated
-        if (owner == address(0)) {
-            revert ContractMigrated();
-        }
-
         // Decode received data
         (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
 
@@ -427,7 +422,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
         // Check that the migration address is a contract
         if (newL2TargetDispenser.code.length == 0) {
-            revert ZeroValue();
+            revert WrongAccount(newL2TargetDispenser);
+        }
+
+        // Check that the new address is not the current one
+        if (newL2TargetDispenser == address(this)) {
+            revert WrongAccount(address(this));
         }
 
         // Get OLAS token amount

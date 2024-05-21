@@ -89,6 +89,7 @@ interface IBridgeErrors {
     // @dev Reentrancy guard.
     error ReentrancyGuard();
 
-    /// @dev The contract has migrated.
-    error ContractMigrated();
+    /// @dev Account address is incorrect.
+    /// @param account Account address.
+    error WrongAccount(address account);
 }

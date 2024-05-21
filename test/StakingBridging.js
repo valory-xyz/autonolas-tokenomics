@@ -513,18 +513,62 @@ describe("StakingBridging", async () => {
             // Try to drain not by the owner
             await expect(
                 arbitrumTargetDispenserL2.connect(signers[1]).drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
 
             // Try to drain with the zero amount on a contract
             await expect(
                 arbitrumTargetDispenserL2.drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
 
             // Receive funds by ArbitrumTargetDispenserL2
             await deployer.sendTransaction({to: arbitrumTargetDispenserL2.address, value: ethers.utils.parseEther("1")});
 
             // Drain by the owner
             await arbitrumTargetDispenserL2.drain();
+        });
+
+        it("Migrate functionality on L2", async function () {
+            // Try to migrate not by the owner
+            await expect(
+                arbitrumTargetDispenserL2.connect(signers[1]).migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            // Try to migrate when the contract is not paused
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Unpaused");
+
+            // Pause the deposit processor
+            await arbitrumTargetDispenserL2.pause();
+
+            // Try to migrate not to the contract address
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Try to migrate to the same contract (just to kill the contract)
+            await expect(
+                arbitrumTargetDispenserL2.migrate(arbitrumTargetDispenserL2.address)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Deposit some OLAS to the contract
+            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
+
+            // Migrate the contract to another one
+            await arbitrumTargetDispenserL2.migrate(arbitrumDepositProcessorL1.address);
+
+            // The contract is now frozen, pause is active and reentrancy revert is applied, where possible
+            await expect(
+                arbitrumTargetDispenserL2.drain()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ReentrancyGuard");
+
+            expect(await arbitrumTargetDispenserL2.owner()).to.equal(AddressZero);
+            expect(await arbitrumTargetDispenserL2.paused()).to.equal(2);
+
+            // Any ownable function is going to revert
+            await expect(
+                arbitrumTargetDispenserL2.unpause()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
         });
     });
 
