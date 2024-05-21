@@ -49,7 +49,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 

@@ -36,7 +36,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
 
     /// @dev OptimismTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.

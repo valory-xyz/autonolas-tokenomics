@@ -846,7 +846,7 @@ describe("DispenserStakingIncentives", async () => {
             ).to.be.revertedWithCustomError(dispenser, "DepositProcessorOnly");
 
             // Sync back the withheld amount
-            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldTokens(gnosisBridgePayload);
 
             // Add a valid staking target nominee
             await vw.addNominee(stakingInstance.address, gnosisChainId);
@@ -933,7 +933,7 @@ describe("DispenserStakingIncentives", async () => {
             expect(await gnosisTargetDispenserL2.withheldAmount()).to.gt(0);
 
             // Sync back the withheld amount
-            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldTokens(gnosisBridgePayload);
 
             // Get another staking instance
             const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");
