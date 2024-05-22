@@ -402,8 +402,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Migrates funds to a new specified L2 target dispenser contract address.
     /// @notice The contract must be paused to prevent other interactions.
-    /// @notice The owner is be zeroed, the contract becomes paused and in the reentrancy state for good.
-    /// @notice No further write interaction with the contract is going to be possible.
+    ///         The owner is be zeroed, the contract becomes paused and in the reentrancy state for good.
+    ///         No further write interaction with the contract is going to be possible.
+    ///         If the withheld amount is nonzero, it is regulated by the DAO directly on the L1 side.
+    ///         If there are outstanding queued requests, they are processed by the DAO directly on the L2 side.
     function migrate(address newL2TargetDispenser) external {
         // Reentrancy guard
         if (_locked > 1) {
