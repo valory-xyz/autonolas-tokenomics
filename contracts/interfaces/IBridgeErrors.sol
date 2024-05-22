@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 interface IBridgeErrors {
     /// @dev Only `manager` has a privilege, but the `sender` was provided.
@@ -83,6 +83,13 @@ interface IBridgeErrors {
     /// @dev The contract is paused.
     error Paused();
 
-    // Reentrancy guard
+    /// @dev The contract is unpaused.
+    error Unpaused();
+
+    // @dev Reentrancy guard.
     error ReentrancyGuard();
+
+    /// @dev Account address is incorrect.
+    /// @param account Account address.
+    error WrongAccount(address account);
 }

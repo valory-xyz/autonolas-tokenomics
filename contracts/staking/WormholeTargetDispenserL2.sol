@@ -49,7 +49,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
     // Map for wormhole delivery hashes
     mapping(bytes32 => bool) public mapDeliveryHashes;
 
@@ -92,14 +92,24 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
         }
 
-        address refundAccount = abi.decode(bridgePayload, (address));
+        // Extract refundAccount and gasLimitMessage from bridgePayload
+        (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload, (address, uint256));
         // If refundAccount is zero, default to msg.sender
         if (refundAccount == address(0)) {
             refundAccount = msg.sender;
         }
 
+        // Check the gas limit values for both ends
+        if (gasLimitMessage < GAS_LIMIT) {
+            gasLimitMessage = GAS_LIMIT;
+        }
+
+        if (gasLimitMessage > MAX_GAS_LIMIT) {
+            gasLimitMessage = MAX_GAS_LIMIT;
+        }
+
         // Get a quote for the cost of gas for delivery
-        (uint256 cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, GAS_LIMIT);
+        (uint256 cost, ) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId), 0, gasLimitMessage);
 
         // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
@@ -108,7 +118,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
         // Send the message to L1
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),
-            l1DepositProcessor, abi.encode(amount), 0, GAS_LIMIT, uint16(l1SourceChainId), refundAccount);
+            l1DepositProcessor, abi.encode(amount), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
 
         emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
     }

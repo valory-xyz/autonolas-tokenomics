@@ -65,23 +65,25 @@ contract EthereumDepositProcessor {
     /// @dev EthereumDepositProcessor constructor.
     /// @param _olas OLAS token address.
     /// @param _dispenser Tokenomics dispenser address.
-    /// @param _stakingFactory Service staking proxy factory address
-    constructor(address _olas, address _dispenser, address _stakingFactory) {
+    /// @param _stakingFactory Service staking proxy factory address.
+    /// @param _timelock DAO timelock address.
+    constructor(address _olas, address _dispenser, address _stakingFactory, address _timelock) {
         // Check for zero addresses
-        if (_olas == address(0) || _dispenser == address(0) || _stakingFactory == address(0)) {
+        if (_olas == address(0) || _dispenser == address(0) || _stakingFactory == address(0) || _timelock == address(0)) {
             revert ZeroAddress();
         }
 
         olas = _olas;
         dispenser = _dispenser;
         stakingFactory = _stakingFactory;
+        timelock = _timelock;
         _locked = 1;
     }
 
-    /// @dev Deposits staking amounts for corresponding targets.
+    /// @dev Deposits staking incentives for corresponding targets.
     /// @param targets Set of staking target addresses.
-    /// @param stakingAmounts Corresponding set of staking amounts.
-    function _deposit(address[] memory targets, uint256[] memory stakingAmounts) internal {
+    /// @param stakingIncentives Corresponding set of staking incentives.
+    function _deposit(address[] memory targets, uint256[] memory stakingIncentives) internal {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -91,7 +93,7 @@ contract EthereumDepositProcessor {
         // Traverse all the targets
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
-            uint256 amount = stakingAmounts[i];
+            uint256 amount = stakingIncentives[i];
 
             // Check the target validity address and staking parameters, and get emissions amount
             uint256 limitAmount = IStakingFactory(stakingFactory).verifyInstanceAndGetEmissionsAmount(target);
@@ -106,8 +108,7 @@ contract EthereumDepositProcessor {
                 uint256 refundAmount = amount - limitAmount;
                 amount = limitAmount;
 
-                // TODO initialize in constructor
-                // Send refund amount to the owner address (timelock)
+                // Send refund amount to the DAO address (timelock)
                 IToken(olas).transfer(timelock, refundAmount);
 
                 emit AmountRefunded(target, refundAmount);
@@ -123,12 +124,12 @@ contract EthereumDepositProcessor {
         _locked = 1;
     }
 
-    /// @dev Deposits a single staking amount for a corresponding target.
+    /// @dev Deposits a single staking incentive for a corresponding target.
     /// @param target Staking target addresses.
-    /// @param stakingAmount Corresponding staking amount.
+    /// @param stakingIncentive Corresponding staking incentive.
     function sendMessage(
         address target,
-        uint256 stakingAmount,
+        uint256 stakingIncentive,
         bytes memory,
         uint256
     ) external {
@@ -140,20 +141,20 @@ contract EthereumDepositProcessor {
         // Construct one-element arrays from targets and amounts
         address[] memory targets = new address[](1);
         targets[0] = target;
-        uint256[] memory stakingAmounts = new uint256[](1);
-        stakingAmounts[0] = stakingAmount;
+        uint256[] memory stakingIncentives = new uint256[](1);
+        stakingIncentives[0] = stakingIncentive;
 
         // Deposit OLAS to staking contracts
-        _deposit(targets, stakingAmounts);
+        _deposit(targets, stakingIncentives);
     }
 
 
-    /// @dev Deposits a batch of staking amounts for corresponding targets.
+    /// @dev Deposits a batch of staking incentives for corresponding targets.
     /// @param targets Set of staking target addresses.
-    /// @param stakingAmounts Corresponding set of staking amounts.
+    /// @param stakingIncentives Corresponding set of staking incentives.
     function sendMessageBatch(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory,
         uint256
     ) external {
@@ -163,7 +164,7 @@ contract EthereumDepositProcessor {
         }
 
         // Send the message to L2
-        _deposit(targets, stakingAmounts);
+        _deposit(targets, stakingIncentives);
     }
 
     /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
