@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 import {FxBaseRootTunnel} from "../../lib/fx-portal/contracts/tunnel/FxBaseRootTunnel.sol";
@@ -25,7 +25,6 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
     // ERC20 Predicate contract address
     address public immutable predicate;
 
-    // TODO: Check the contracts
     /// @dev PolygonDepositProcessorL1 constructor.
     /// @param _olas OLAS token address on L1.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
@@ -57,7 +56,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -73,7 +72,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         }
 
         // Assemble data payload
-        bytes memory data = abi.encode(targets, stakingAmounts);
+        bytes memory data = abi.encode(targets, stakingIncentives);
 
         // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/FxRoot.sol#L29
         // Doc: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#root-tunnel-contract

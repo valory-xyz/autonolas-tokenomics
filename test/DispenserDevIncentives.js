@@ -5,10 +5,12 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("DispenserDevIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
-    const AddressZero = "0x" + "0".repeat(40);
+    const AddressZero = ethers.constants.AddressZero;
+    const HashZero = ethers.constants.HashZero;
     const oneMonth = 86400 * 30;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
+    const retainer = "0x" + "5".repeat(64);
 
     let signers;
     let deployer;
@@ -51,7 +53,7 @@ describe("DispenserDevIncentives", async () => {
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
         dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            maxNumClaimingEpochs, maxNumStakingTargets);
+            retainer, maxNumClaimingEpochs, maxNumStakingTargets);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
@@ -137,22 +139,25 @@ describe("DispenserDevIncentives", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, 0, 0)
+                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, HashZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, 0, 0)
+                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, HashZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, HashZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, HashZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, HashZero, 0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, 10, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
 

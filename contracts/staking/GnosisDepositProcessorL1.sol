@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
@@ -50,7 +50,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -64,13 +64,13 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1TokenRelayer, transferAmount);
 
-            bytes memory data = abi.encode(targets, stakingAmounts);
+            bytes memory data = abi.encode(targets, stakingIncentives);
             IBridge(l1TokenRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
 
             sequence = stakingBatchNonce;
         } else {
             // Assemble AMB data payload
-            bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
+            bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
 
             // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
             // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
