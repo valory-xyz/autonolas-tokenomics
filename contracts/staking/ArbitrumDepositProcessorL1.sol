@@ -142,6 +142,11 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert ZeroValue();
         }
 
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
         // Calculate token and message transfer cost
         // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
         uint256[] memory cost = new uint256[](2);

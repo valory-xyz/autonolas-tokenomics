@@ -864,14 +864,14 @@ contract Dispenser {
             revert ZeroAddress();
         }
 
-        // Get the nominee hash
+        // Get the staking target nominee hash
         nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
 
         uint256 firstClaimedEpoch;
         (firstClaimedEpoch, lastClaimedEpoch) =
             _checkpointNomineeAndGetClaimedEpochCounters(nomineeHash, numClaimedEpochs);
 
-        // Checkpoint the vote weighting for the retainer on L1
+        // Checkpoint staking target nominee in the Vote Weighting contract
         IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
 
         // Traverse all the claimed epochs
@@ -1121,24 +1121,16 @@ contract Dispenser {
         }
         _locked = 2;
 
-        // Go over epochs and retain funds to return back to the tokenomics
-        bytes32 localRetainer = retainer;
-
-        // Construct the nominee struct
-        IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(localRetainer, block.chainid);
-        // Get the nominee hash
-        bytes32 nomineeHash = keccak256(abi.encode(nominee));
-
         // Get first and last claimed epochs
         (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(nomineeHash, maxNumClaimingEpochs);
+            _checkpointNomineeAndGetClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
 
         // Write last claimed epoch counter to start retaining from the next time
-        mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+        mapLastClaimedStakingEpochs[retainerHash] = lastClaimedEpoch;
 
         uint256 totalReturnAmount;
 
-        // Traverse all the claimed epochs
+        // Go over epochs and retain funds to return back to the tokenomics
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
             // Get service staking info
             ITokenomics.StakingPoint memory stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j);
@@ -1147,7 +1139,7 @@ contract Dispenser {
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
             // Get the staking weight for each epoch
-            (uint256 stakingWeight, ) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer,
+            (uint256 stakingWeight, ) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(retainer,
                 block.chainid, endTime);
 
             totalReturnAmount += stakingPoint.stakingIncentive * stakingWeight;

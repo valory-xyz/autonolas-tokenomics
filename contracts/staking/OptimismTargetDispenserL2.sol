@@ -72,9 +72,13 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
             revert LowerThan(msg.value, cost);
         }
 
-        // Check the gas limit value
+        // Check the gas limit values for both ends
         if (gasLimitMessage < GAS_LIMIT) {
             gasLimitMessage = GAS_LIMIT;
+        }
+
+        if (gasLimitMessage > MAX_GAS_LIMIT) {
+            gasLimitMessage = MAX_GAS_LIMIT;
         }
 
         // Assemble data payload
