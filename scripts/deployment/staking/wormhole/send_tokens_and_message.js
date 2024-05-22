@@ -29,7 +29,7 @@ const main = async () => {
     const dispenserAddress = "0xc2c7E40674f1C7Bb99eFe5680Efd79842502bED4";
     const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
+    let parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, polygonProvider);
 

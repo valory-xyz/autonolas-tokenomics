@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 
@@ -16,6 +16,10 @@ interface IBridge {
     function sendTxToL1(address destination, bytes calldata data) external payable returns (uint256);
 }
 
+/// @title ArbitrumTargetDispenserL2 - Smart contract for processing tokens and data received on Arbitrum L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Aliased L1 deposit processor address
     address public immutable l1AliasedDepositProcessor;

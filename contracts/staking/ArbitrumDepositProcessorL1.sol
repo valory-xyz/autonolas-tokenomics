@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
@@ -63,6 +63,10 @@ interface IBridge {
     function l2ToL1Sender() external view returns (address);
 }
 
+/// @title ArbitrumDepositProcessorL1 - Smart contract for sending tokens and data via Arbitrum bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;
@@ -114,7 +118,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
     ///         - maxSubmissionCostMessage: Max gas deducted from user's L2 balance to cover message base submission fee.
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -136,6 +140,11 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         // See the function description for the magic values of 1
         if (gasPriceBid < 2 || gasLimitMessage < 2 || maxSubmissionCostMessage == 0) {
             revert ZeroValue();
+        }
+
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
         }
 
         // Calculate token and message transfer cost
@@ -175,7 +184,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble message data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 interface IToken {
     /// @dev Transfers the token amount that was previously approved up until the maximum allowance.
