@@ -1,0 +1,1088 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeTargetDispenserL2-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> WormholeTargetDispenserL2-flatten.sol
+
+
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeDepositProcessorL1-flatten.sol:
+Warning: Source file does not specify required compiler version! Consider adding "pragma solidity ^0.8.25;"
+--> WormholeDepositProcessorL1-flatten.sol
+
+
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./EthereumDepositProcessor-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> EthereumDepositProcessor-flatten.sol
+
+
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./Dispenser-flatten.sol:
+Warning: Function state mutability can be restricted to view
+   --> Dispenser-flatten.sol:358:5:
+    |
+358 |     function _checkpointNomineeAndGetClaimedEpochCounters(
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: Contract code size is 26033 bytes and exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on Mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+   --> Dispenser-flatten.sol:255:1:
+    |
+255 | contract Dispenser {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:901:30:
+    |
+901 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+Warning: Unused local variable.
+    --> PolygonDepositProcessorL1-flatten.sol:1147:52:
+     |
+1147 |         (bytes32 headerRoot, uint256 startBlock, , uint256 createdAt, ) = checkpointManager.headerBlocks(headerNumber);
+     |                                                    ^^^^^^^^^^^^^^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormhole
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m          Function          [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       publishMessage       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         initialize         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      parseAndVerifyVM      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          verifyVM          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      verifySignatures      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          parseVM           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           quorum           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       getGuardianSet       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getCurrentGuardianSetIndex [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    getGuardianSetExpiry    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m governanceActionIsConsumed [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       isInitialized        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          chainId           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           isFork           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     governanceChainId      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     governanceContract     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         messageFee         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         evmChainId         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        nextSequence        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    parseContractUpgrade    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  parseGuardianSetUpgrade   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     parseSetMessageFee     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     parseTransferFees      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    parseRecoverChainId     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   submitContractUpgrade    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitSetMessageFee     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitNewGuardianSet    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     submitTransferFees     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitRecoverChainId    [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormholeReceiver
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m         Function        [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m receiveWormholeMessages [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormholeRelayer
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function               [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m           sendPayloadToEvm           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendPayloadToEvm           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            sendVaasToEvm             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            sendVaasToEvm             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              sendToEvm               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              sendToEvm               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 send                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 send                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             resendToEvm              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                resend                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        quoteEVMDeliveryPrice         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        quoteEVMDeliveryPrice         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          quoteDeliveryPrice          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         quoteNativeForChain          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      getDefaultDeliveryProvider      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getRegisteredWormholeRelayerContract [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          deliveryAttempted           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         deliverySuccessBlock         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         deliveryFailureBlock         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               deliver                [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWETH
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m   Function   [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m totalSupply  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  balanceOf   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   transfer   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  allowance   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   approve    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m transferFrom [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   deposit    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   withdraw   [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ITokenBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                 Function                [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m           _parseTransferCommon          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               attestToken               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            wrapAndTransferETH           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      wrapAndTransferETHWithPayload      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              transferTokens             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        transferTokensWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              updateWrapped              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              createWrapped              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       completeTransferWithPayload       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m completeTransferAndUnwrapETHWithPayload [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             completeTransfer            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       completeTransferAndUnwrapETH      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             encodeAssetMeta             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              encodeTransfer             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        encodeTransferWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parsePayloadID             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parseAssetMeta             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parseTransfer              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         parseTransferWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        governanceActionIsConsumed       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              isInitialized              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           isTransferCompleted           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 wormhole                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 chainId                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                evmChainId               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                  isFork                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            governanceChainId            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            governanceContract           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               wrappedAsset              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             bridgeContracts             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           tokenImplementation           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                   WETH                  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            outstandingBridged           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              isWrappedAsset             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 finality                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              implementation             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                initialize               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              registerChain              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 upgrade                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           submitRecoverChainId          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            parseRegisterChain           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               parseUpgrade              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           parseRecoverChainId           [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract TokenSender
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m          Function         [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        constructor        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        constructor        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    setRegisteredSender    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       transferTokens      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       transferTokens      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m sendTokenWithPayloadToEvm [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m sendTokenWithPayloadToEvm [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m quoteEVMDeliveryPrice [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    sendPayloadToEvm   [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract WormholeTargetDispenserL2
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             getDecimals             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      getTokenAddressOnThisChain     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       receiveWormholeMessages       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       receivePayloadAndTokens       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setRegisteredSender         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _processData            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeOwner             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                redeem               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processDataMaintenance       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          syncWithheldTokens         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                pause                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               unpause               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                drain                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               migrate               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               receive               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       receivePayloadAndTokens       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract DefaultDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormhole
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m          Function          [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       publishMessage       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         initialize         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      parseAndVerifyVM      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          verifyVM          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      verifySignatures      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          parseVM           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           quorum           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       getGuardianSet       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getCurrentGuardianSetIndex [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    getGuardianSetExpiry    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m governanceActionIsConsumed [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       isInitialized        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          chainId           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           isFork           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     governanceChainId      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     governanceContract     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         messageFee         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         evmChainId         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        nextSequence        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    parseContractUpgrade    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  parseGuardianSetUpgrade   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     parseSetMessageFee     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     parseTransferFees      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    parseRecoverChainId     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   submitContractUpgrade    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitSetMessageFee     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitNewGuardianSet    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     submitTransferFees     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    submitRecoverChainId    [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormholeReceiver
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m         Function        [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m receiveWormholeMessages [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWormholeRelayer
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function               [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m           sendPayloadToEvm           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendPayloadToEvm           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            sendVaasToEvm             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            sendVaasToEvm             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              sendToEvm               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              sendToEvm               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 send                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 send                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             resendToEvm              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                resend                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        quoteEVMDeliveryPrice         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        quoteEVMDeliveryPrice         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          quoteDeliveryPrice          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         quoteNativeForChain          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      getDefaultDeliveryProvider      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getRegisteredWormholeRelayerContract [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          deliveryAttempted           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         deliverySuccessBlock         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         deliveryFailureBlock         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               deliver                [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IWETH
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m   Function   [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m totalSupply  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  balanceOf   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   transfer   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  allowance   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   approve    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m transferFrom [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   deposit    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   withdraw   [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ITokenBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                 Function                [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m           _parseTransferCommon          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               attestToken               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            wrapAndTransferETH           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      wrapAndTransferETHWithPayload      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              transferTokens             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        transferTokensWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              updateWrapped              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              createWrapped              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       completeTransferWithPayload       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m completeTransferAndUnwrapETHWithPayload [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             completeTransfer            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       completeTransferAndUnwrapETH      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             encodeAssetMeta             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              encodeTransfer             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        encodeTransferWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parsePayloadID             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parseAssetMeta             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              parseTransfer              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         parseTransferWithPayload        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        governanceActionIsConsumed       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              isInitialized              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           isTransferCompleted           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 wormhole                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 chainId                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                evmChainId               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                  isFork                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            governanceChainId            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            governanceContract           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               wrappedAsset              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             bridgeContracts             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           tokenImplementation           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                   WETH                  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            outstandingBridged           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              isWrappedAsset             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 finality                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              implementation             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                initialize               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              registerChain              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 upgrade                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           submitRecoverChainId          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            parseRegisterChain           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               parseUpgrade              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           parseRecoverChainId           [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract TokenReceiver
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m          Function          [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        constructor         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        constructor         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    setRegisteredSender     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        getDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getTokenAddressOnThisChain [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  receiveWormholeMessages   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  receivePayloadAndTokens   [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract WormholeDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m            transferTokens           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            transferTokens           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      sendTokenWithPayloadToEvm      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      sendTokenWithPayloadToEvm      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setRegisteredSender         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       receiveWormholeMessages       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m requireToPassMessage [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    messageSender     [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract GnosisTargetDispenserL2
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _processData            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeOwner             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                redeem               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processDataMaintenance       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          syncWithheldTokens         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                pause                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               unpause               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                drain                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               migrate               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               receive               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            onTokenBridged           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m requireToPassMessage [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  relayTokensAndCall  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    messageSender     [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract GnosisDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract EthereumDepositProcessor
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m     constructor     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _deposit      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     sendMessage     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   sendMessageBatch  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m getBridgingDecimals [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract TokenomicsConstants
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m         getSupplyCapForYear         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getInflationForYear         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m    depositERC20To    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     sendMessage      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m xDomainMessageSender [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract OptimismDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m     sendMessage      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m xDomainMessageSender [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract OptimismTargetDispenserL2
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _processData            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeOwner             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                redeem               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processDataMaintenance       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          syncWithheldTokens         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                pause                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               unpause               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                drain                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               migrate               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               receive               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m           Function           [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m outboundTransferCustomRefund [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    createRetryableTicket     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         l2ToL1Sender         [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ArbitrumDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDepositProcessor
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        Function        [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      sendMessage       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    sendMessageBatch    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   sendMessageNonEVM    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m sendMessageBatchNonEVM [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  getBridgingDecimals   [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ITokenomics
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        Function        [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m accountOwnerIncentives [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      epochCounter      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        epochLen        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    getEpochEndTime     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m mapEpochStakingPoints  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   refundFromStaking    [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ITreasury
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function     [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m withdrawToAccount [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       paused      [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IVoteWeighting
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m     mapNomineeIds     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   checkpointNominee   [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m nomineeRelativeWeight [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract Dispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                   Function                   [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                 constructor                  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m _checkpointNomineeAndGetClaimedEpochCounters [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         _distributeStakingIncentives         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      _distributeStakingIncentivesBatch       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _checkOrderAndValues             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _calculateStakingIncentivesBatch       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 changeOwner                  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                changeManagers                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeStakingParams              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setDepositProcessorChainIds          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                  addNominee                  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                removeNominee                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             claimOwnerIncentives             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          calculateStakingIncentives          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            claimStakingIncentives            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         claimStakingIncentivesBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                    retain                    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              syncWithheldAmount              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        syncWithheldAmountMaintenance         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                setPauseState                 [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     slitherConstructorConstantVariables      [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IDispenser
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncWithheldAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m approve  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStateSender
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m syncState [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract FxRoot
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m      Function      [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m sendMessageToChild [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m    constructor     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m     setFxChild     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m sendMessageToChild [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract RLPReader
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                 next                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               hasNext               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              toRlpItem              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               iterator              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                rlpLen               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           payloadLocation           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              payloadLen             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                toList               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                isList               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          rlpBytesKeccak256          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           payloadKeccak256          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              toRlpBytes             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              toBoolean              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              toAddress              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                toUint               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             toUintStrict            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               toBytes               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               numItems              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _itemLength             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            _payloadOffset           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                 copy                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ExitPayloadReader
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m                 copy                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            toExitPayload            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           getHeaderNumber           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            getBlockProof            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            getBlockNumber           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             getBlockTime            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              getTxRoot              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            getReceiptRoot           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              getReceipt             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           getReceiptProof           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBranchMaskAsBytes        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBranchMaskAsUint         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          getReceiptLogIndex         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               toBytes               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                getLog               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              getEmitter             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              getTopics              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               getData               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m              toRlpBytes             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               getField              [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract Merkle
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m     Function    [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m checkMembership [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract MerklePatriciaProof
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m       Function       [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m        verify        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  _nibblesToTraverse  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   _getNibbleArray    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m _getNthNibbleOfBytes [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract ICheckpointManager
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IBridge
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function  [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m depositFor [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract PolygonDepositProcessorL1
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           setFxChildTunnel          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         _sendMessageToChild         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m      _validateAndExtractMessage     [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  _checkBlockMembershipInCheckpoint  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m            receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _processMessageFromChild      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             sendMessage             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           sendMessageBatch          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        _setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         getBridgingDecimals         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _processMessageFromChild      [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           setFxChildTunnel          [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m         setL2TargetDispenser        [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract FxChild
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m    Function    [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m onStateReceive [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m   setFxRoot    [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m onStateReceive [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract PolygonTargetDispenserL2
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           setFxRootTunnel           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processMessageFromRoot       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          _sendMessageToRoot         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _processMessageFromRoot       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processMessageFromRoot       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _processData            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeOwner             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                redeem               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processDataMaintenance       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          syncWithheldTokens         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                pause                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               unpause               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                drain                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               migrate               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               receive               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m       _processMessageFromRoot       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           setFxRootTunnel           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStaking
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m deposit  [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IStakingFactory
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m verifyInstanceAndGetEmissionsAmount [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract IToken
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m  Function [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m balanceOf [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  approve  [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m  transfer [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Printers:
+Contract DefaultTargetDispenserL2
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m               Function              [34m|[0m[96m Modifiers [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m
+[34m|[0m[96m             constructor             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _processData            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             _sendMessage            [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m           _receiveMessage           [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m             changeOwner             [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                redeem               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m        processDataMaintenance       [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m          syncWithheldTokens         [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                pause                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               unpause               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m                drain                [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               migrate               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m               receive               [34m|[0m[96m     []    [34m|[0m[96m
+[34m|[0m[96m slitherConstructorConstantVariables [34m|[0m[96m     []    [34m|[0m[96m
+[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[34m-[0m[96m[36m+[0m[96m[0m
+INFO:Slither:. analyzed (115 contracts)

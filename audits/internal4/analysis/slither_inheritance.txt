@@ -1,0 +1,710 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./ArbitrumTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:861:30:
+    |
+861 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis/contracts' running
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
++ IWormhole
+
++ IWormholeReceiver
+
++ IWormholeRelayerBase
+
++ IWormholeRelayerSend
+ -> IWormholeRelayerBase
+
++ IWormholeRelayerDelivery
+ -> IWormholeRelayerBase
+
++ IWormholeRelayer
+ -> IWormholeRelayerDelivery, IWormholeRelayerSend
+, [IWormholeRelayerBase]
+
++ Base
+
++ IERC20
+
++ IWETH
+ -> IERC20
+
++ ITokenBridge
+
++ TokenBase
+ -> Base
+
++ TokenSender
+ -> TokenBase
+, [Base]
+
++ TokenReceiver
+ -> TokenBase
+, [Base]
+
++ IBridge
+
++ WormholeTargetDispenserL2
+ -> DefaultTargetDispenserL2, TokenReceiver
+, [TokenBase, Base, IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+, [WormholeTargetDispenserL2]
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> WormholeTargetDispenserL2
+
++ IWormhole
+
++ IWormholeReceiver
+
++ IWormholeRelayerBase
+ -> IWormholeRelayerSend, IWormholeRelayerDelivery
+, [IWormholeRelayer]
+
++ IWormholeRelayerSend
+ -> IWormholeRelayer
+
++ IWormholeRelayerDelivery
+ -> IWormholeRelayer
+
++ IWormholeRelayer
+
++ Base
+ -> TokenBase
+, [TokenSender, TokenReceiver, WormholeTargetDispenserL2]
+
++ IERC20
+ -> IWETH
+
++ IWETH
+
++ ITokenBridge
+
++ TokenBase
+ -> TokenSender, TokenReceiver
+, [WormholeTargetDispenserL2]
+
++ TokenSender
+
++ TokenReceiver
+ -> WormholeTargetDispenserL2
+
++ IBridge
+
++ WormholeTargetDispenserL2
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
++ IWormhole
+
++ IWormholeReceiver
+
++ IWormholeRelayerBase
+
++ IWormholeRelayerSend
+ -> IWormholeRelayerBase
+
++ IWormholeRelayerDelivery
+ -> IWormholeRelayerBase
+
++ IWormholeRelayer
+ -> IWormholeRelayerDelivery, IWormholeRelayerSend
+, [IWormholeRelayerBase]
+
++ Base
+
++ IERC20
+
++ IWETH
+ -> IERC20
+
++ ITokenBridge
+
++ TokenBase
+ -> Base
+
++ TokenSender
+ -> TokenBase
+, [Base]
+
++ TokenReceiver
+ -> TokenBase
+, [Base]
+
++ WormholeDepositProcessorL1
+ -> DefaultDepositProcessorL1, TokenSender
+, [TokenBase, Base, IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+, [WormholeDepositProcessorL1]
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> WormholeDepositProcessorL1
+
++ IWormhole
+
++ IWormholeReceiver
+
++ IWormholeRelayerBase
+ -> IWormholeRelayerSend, IWormholeRelayerDelivery
+, [IWormholeRelayer]
+
++ IWormholeRelayerSend
+ -> IWormholeRelayer
+
++ IWormholeRelayerDelivery
+ -> IWormholeRelayer
+
++ IWormholeRelayer
+
++ Base
+ -> TokenBase
+, [TokenSender, TokenReceiver, WormholeDepositProcessorL1]
+
++ IERC20
+ -> IWETH
+
++ IWETH
+
++ ITokenBridge
+
++ TokenBase
+ -> TokenSender, TokenReceiver
+, [WormholeDepositProcessorL1]
+
++ TokenSender
+ -> WormholeDepositProcessorL1
+
++ TokenReceiver
+
++ WormholeDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
++ IBridge
+
++ GnosisTargetDispenserL2
+ -> DefaultTargetDispenserL2
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+, [GnosisTargetDispenserL2]
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> GnosisTargetDispenserL2
+
++ IBridge
+
++ GnosisTargetDispenserL2
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
++ IBridge
+
++ GnosisDepositProcessorL1
+ -> DefaultDepositProcessorL1
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+, [GnosisDepositProcessorL1]
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> GnosisDepositProcessorL1
+
++ IBridge
+
++ GnosisDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IToken
+
++ IStaking
+
++ IStakingFactory
+
++ EthereumDepositProcessor
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IToken
+
++ IStaking
+
++ IStakingFactory
+
++ EthereumDepositProcessor
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ TokenomicsConstants
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ TokenomicsConstants
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
++ IBridge
+
++ OptimismDepositProcessorL1
+ -> DefaultDepositProcessorL1
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+, [OptimismDepositProcessorL1]
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> OptimismDepositProcessorL1
+
++ IBridge
+
++ OptimismDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
++ IBridge
+
++ OptimismTargetDispenserL2
+ -> DefaultTargetDispenserL2
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+, [OptimismTargetDispenserL2]
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> OptimismTargetDispenserL2
+
++ IBridge
+
++ OptimismTargetDispenserL2
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
++ IBridge
+
++ ArbitrumTargetDispenserL2
+ -> DefaultTargetDispenserL2
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+, [ArbitrumTargetDispenserL2]
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> ArbitrumTargetDispenserL2
+
++ IBridge
+
++ ArbitrumTargetDispenserL2
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
++ IBridge
+
++ ArbitrumDepositProcessorL1
+ -> DefaultDepositProcessorL1
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+, [ArbitrumDepositProcessorL1]
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> ArbitrumDepositProcessorL1
+
++ IBridge
+
++ ArbitrumDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IDepositProcessor
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ IVoteWeighting
+
++ Dispenser
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IDepositProcessor
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ IVoteWeighting
+
++ Dispenser
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> IBridgeErrors
+
++ RLPReader
+
++ ExitPayloadReader
+
++ Merkle
+
++ MerklePatriciaProof
+
++ IFxStateSender
+
++ ICheckpointManager
+
++ FxBaseRootTunnel
+
++ IBridge
+
++ PolygonDepositProcessorL1
+ -> DefaultDepositProcessorL1, FxBaseRootTunnel
+, [IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultDepositProcessorL1
+, [PolygonDepositProcessorL1]
+
++ IDispenser
+
++ IToken
+
++ DefaultDepositProcessorL1
+ -> PolygonDepositProcessorL1
+
++ RLPReader
+
++ ExitPayloadReader
+
++ Merkle
+
++ MerklePatriciaProof
+
++ IFxStateSender
+
++ ICheckpointManager
+
++ FxBaseRootTunnel
+ -> PolygonDepositProcessorL1
+
++ IBridge
+
++ PolygonDepositProcessorL1
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
++ IFxMessageProcessor
+
++ FxBaseChildTunnel
+ -> IFxMessageProcessor
+
++ PolygonTargetDispenserL2
+ -> DefaultTargetDispenserL2, FxBaseChildTunnel
+, [IFxMessageProcessor, IBridgeErrors]
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+, [PolygonTargetDispenserL2]
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> PolygonTargetDispenserL2
+
++ IFxMessageProcessor
+ -> FxBaseChildTunnel
+, [PolygonTargetDispenserL2]
+
++ FxBaseChildTunnel
+ -> PolygonTargetDispenserL2
+
++ PolygonTargetDispenserL2
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IBridgeErrors
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+ -> IBridgeErrors
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IBridgeErrors
+ -> DefaultTargetDispenserL2
+
++ IStaking
+
++ IStakingFactory
+
++ IToken
+
++ DefaultTargetDispenserL2
+
+INFO:Slither:. analyzed (118 contracts)
