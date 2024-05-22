@@ -1,32 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
-import "./DefaultDepositProcessorL1.sol";
-import "../interfaces/IToken.sol";
+import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
 interface IBridge {
     // Source: https://github.com/OffchainLabs/token-bridge-contracts/blob/b3894ecc8b6185b2d505c71c9a7851725f53df15/contracts/tokenbridge/ethereum/gateway/L1ArbitrumGateway.sol#L238
     // Calling contract: L1ERC20Gateway
     // Doc: https://docs.arbitrum.io/build-decentralized-apps/token-bridging/token-bridge-erc20
     // Addresses: https://docs.arbitrum.io/build-decentralized-apps/reference/useful-addresses
-    /**
-     * @notice Deposit ERC20 token from Ethereum into Arbitrum.
-     * @dev L2 address alias will not be applied to the following types of addresses on L1:
-     *      - an externally-owned account
-     *      - a contract in construction
-     *      - an address where a contract will be created
-     *      - an address where a contract lived, but was destroyed
-     * @param _l1Token L1 address of ERC20
-     * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
-     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
-     * @param _amount Token Amount
-     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
-     * @param _gasPriceBid Gas price for L2 execution
-     * @param _data encoded data from router and user
-     * @return res abi encoded inbox sequence number
-     */
-    //  * @param maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
+    /// @notice Deposit ERC20 token from Ethereum into Arbitrum.
+    /// @dev L2 address alias will not be applied to the following types of addresses on L1:
+    ///      - an externally-owned account
+    ///      - a contract in construction
+    ///      - an address where a contract will be created
+    ///      - an address where a contract lived, but was destroyed
+    /// @param _l1Token L1 address of ERC20
+    /// @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
+    /// @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+    ///            This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+    /// @param _amount Token Amount
+    /// @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+    /// @param _gasPriceBid Gas price for L2 execution
+    /// @param _data encoded data from router and user
+    /// @return res abi encoded inbox sequence number
     function outboundTransferCustomRefund(
         address _l1Token,
         address _refundTo,
@@ -39,18 +35,16 @@ interface IBridge {
 
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Inbox.sol#L432
     // Doc: https://docs.arbitrum.io/arbos/l1-to-l2-messaging
-    /**
-     * @dev Gas limit and maxFeePerGas should not be set to 1 as that is used to trigger the RetryableData error
-     * @param to destination L2 contract address
-     * @param l2CallValue call value for retryable L2 message
-     * @param maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
-     * @param excessFeeRefundAddress gasLimit x maxFeePerGas - execution cost gets credited here on L2 balance
-     * @param callValueRefundAddress l2Callvalue gets credited here on L2 if retryable txn times out or gets cancelled
-     * @param gasLimit Max gas deducted from user's L2 balance to cover L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
-     * @param maxFeePerGas price bid for L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
-     * @param data ABI encoded data of L2 message
-     * @return unique message number of the retryable transaction
-     */
+    /// @dev Gas limit and maxFeePerGas should not be set to 1 as that is used to trigger the RetryableData error
+    /// @param to destination L2 contract address
+    /// @param l2CallValue call value for retryable L2 message
+    /// @param maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
+    /// @param excessFeeRefundAddress gasLimit x maxFeePerGas - execution cost gets credited here on L2 balance
+    /// @param callValueRefundAddress l2Callvalue gets credited here on L2 if retryable txn times out or gets cancelled
+    /// @param gasLimit Max gas deducted from user's L2 balance to cover L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
+    /// @param maxFeePerGas price bid for L2 execution. Should not be set to 1 (magic value used to trigger the RetryableData error)
+    /// @param data ABI encoded data of L2 message
+    /// @return unique message number of the retryable transaction
     function createRetryableTicket(
         address to,
         uint256 l2CallValue,
@@ -67,139 +61,145 @@ interface IBridge {
     ///         When the return value is zero, that means this is a system message
     /// @dev the l2ToL1Sender behaves as the tx.origin, the msg.sender should be validated to protect against reentrancies
     function l2ToL1Sender() external view returns (address);
-
-    // TODO: Remove before flight
-    // TODO This must be called as IBridge.executeTransaction() after the transaction challenge period has passed
-    // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
-    // Docs: https://docs.arbitrum.io/arbos/l2-to-l1-messaging
-    /**
-     * @notice Executes a messages in an Outbox entry.
-     * @dev Reverts if dispute period hasn't expired, since the outbox entry
-     *      is only created once the rollup confirms the respective assertion.
-     * @dev it is not possible to execute any L2-to-L1 transaction which contains data
-     *      to a contract address without any code (as enforced by the Bridge contract).
-     * @param proof Merkle proof of message inclusion in send root
-     * @param index Merkle path to message
-     * @param l2Sender sender if original message (i.e., caller of ArbSys.sendTxToL1)
-     * @param to destination address for L1 contract call
-     * @param l2Block l2 block number at which sendTxToL1 call was made
-     * @param l1Block l1 block number at which sendTxToL1 call was made
-     * @param l2Timestamp l2 Timestamp at which sendTxToL1 call was made
-     * @param value wei in L1 message
-     * @param data abi-encoded L1 message data
-     */
-    function executeTransaction(
-        bytes32[] calldata proof,
-        uint256 index,
-        address l2Sender,
-        address to,
-        uint256 l2Block,
-        uint256 l1Block,
-        uint256 l2Timestamp,
-        uint256 value,
-        bytes calldata data
-    ) external;
 }
 
+/// @title ArbitrumDepositProcessorL1 - Smart contract for sending tokens and data via Arbitrum bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
-    // receiveMessage selector (Arbitrum chain)
-    bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
-
-    address immutable outbox;
+    // Bridge payload length
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 160;
+    // L1 ERC20 Gateway address
+    address public immutable l1ERC20Gateway;
+    // L1 Outbox relayer address
+    address public immutable outbox;
+    // L1 Bridge relayer address
+    address public immutable bridge;
 
     /// @dev ArbitrumDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
-    /// @param _l1TokenRelayer L1 token relayer bridging contract address (L1ERC20Gateway).
+    /// @param _l1TokenRelayer L1 token relayer router bridging contract address (L1ERC20GatewayRouter).
     /// @param _l1MessageRelayer L1 message relayer bridging contract address (Inbox).
     /// @param _l2TargetChainId L2 target chain Id.
+    /// @param _l1ERC20Gateway Actual L1 token relayer bridging contract address.
     /// @param _outbox L1 Outbox relayer contract address.
+    /// @param _bridge L1 Bridge repalyer contract address that finalizes the call from L2 to L1
     constructor(
         address _olas,
         address _l1Dispenser,
         address _l1TokenRelayer,
         address _l1MessageRelayer,
         uint256 _l2TargetChainId,
-        address _outbox
+        address _l1ERC20Gateway,
+        address _outbox,
+        address _bridge
     )
         DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
     {
-        if (_outbox == address(0)) {
-            revert();
+        // Check for zero contract addresses
+        if (_l1ERC20Gateway == address(0) || _outbox == address(0) || _bridge == address(0)) {
+            revert ZeroAddress();
         }
 
+        l1ERC20Gateway = _l1ERC20Gateway;
         outbox = _outbox;
+        bridge = _bridge;
     }
 
     /// @inheritdoc DefaultDepositProcessorL1
+    /// @notice bridgePayload is composed of the following parameters:
+    ///         - refundAccount: address of a refund account for the excess of funds paid for the message transaction.
+    ///                          Note if refundAccount is zero address, it is defaulted to the msg.sender;
+    ///         - gasPriceBid: gas price bid of a sending L1 chain;
+    ///         - maxSubmissionCostToken: Max gas deducted from user's L2 balance to cover token base submission fee;
+    ///         - gasLimitMessage: Max gas deducted from user's L2 balance to cover L2 message execution
+    ///         - maxSubmissionCostMessage: Max gas deducted from user's L2 balance to cover message base submission fee.
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override {
+    ) internal override returns (uint256 sequence) {
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
+
         // Decode the staking contract supplemental payload required for bridging tokens
-        (address refundAccount, uint256 maxGas, uint256 gasPriceBid, uint256 maxSubmissionCost) =
-            abi.decode(bridgePayload, (address, uint256, uint256, uint256));
+        (address refundAccount, uint256 gasPriceBid, uint256 maxSubmissionCostToken, uint256 gasLimitMessage,
+            uint256 maxSubmissionCostMessage) = abi.decode(bridgePayload, (address, uint256, uint256, uint256, uint256));
 
+        // If refundAccount is zero, default to msg.sender
         if (refundAccount == address(0)) {
-            revert();
+            refundAccount = msg.sender;
         }
 
-        // TODO Revise calculations
-        // If gasPriceBid or maxSubmissionCost is set incorrectly, both token transfer and message will fail
-        // MESSAGE_GAS_LIMIT is always > TOKEN_GAS_LIMIT by default
-        if (maxGas < 1 || gasPriceBid < 1 || maxSubmissionCost == 0) {
-            revert();
+        // Check for the tx param limits
+        // See the function description for the magic values of 1
+        if (gasPriceBid < 2 || gasLimitMessage < 2 || maxSubmissionCostMessage == 0) {
+            revert ZeroValue();
         }
 
-        uint256 cost;
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
+        // Calculate token and message transfer cost
+        // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
+        uint256[] memory cost = new uint256[](2);
         if (transferAmount > 0) {
-            // Construct the data for IBridge consisting of 2 pieces:
-            // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
-            // bytes extraData: “0x”
-            bytes memory submissionCostData = abi.encode(maxSubmissionCost, "0x");
-
-            // Approve tokens for the bridge contract
-            IToken(olas).approve(l1TokenRelayer, transferAmount);
+            if (maxSubmissionCostToken == 0) {
+                revert ZeroValue();
+            }
 
             // Calculate token transfer gas cost
-            // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-            cost = maxSubmissionCost + TOKEN_GAS_LIMIT * gasPriceBid;
-
-            // TODO Make sure maxGas is enough to deliver the token
-            // Transfer OLAS to the staking dispenser contract across the bridge
-            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost}(olas, refundAccount, l2TargetDispenser,
-                transferAmount, maxGas, gasPriceBid, submissionCostData);
+            cost[0] = maxSubmissionCostToken + TOKEN_GAS_LIMIT * gasPriceBid;
         }
 
-        // Adjust cost for the message transfer
-        // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
-        cost = maxSubmissionCost + maxGas * gasPriceBid;
+        // Calculate cost for the message transfer
+        cost[1] = maxSubmissionCostMessage + gasLimitMessage * gasPriceBid;
+        // Get the total cost
+        uint256 totalCost = cost[0] + cost[1];
 
-        // Assemble data payload
-        bytes memory data = abi.encode(RECEIVE_MESSAGE, targets, stakingAmounts);
+        // Check fot msg.value to cover the total cost
+        if (totalCost > msg.value) {
+            revert LowerThan(msg.value, totalCost);
+        }
 
-        // TODO Shall separate between two maxGas and gasPriceBid for both token and data calls or calculate for both?
+        if (transferAmount > 0) {
+            // Approve tokens for the bridge contract
+            IToken(olas).approve(l1ERC20Gateway, transferAmount);
+
+            // Construct the data for IBridge consisting of 2 pieces:
+            // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
+            // bytes memory extraData: empty data
+            bytes memory submissionCostData = abi.encode(maxSubmissionCostToken, "");
+
+            // Transfer OLAS to the staking dispenser contract across the bridge
+            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas, refundAccount,
+                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, gasPriceBid, submissionCostData);
+        }
+
+        // Assemble message data payload
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
-        //cost = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost}(l2TargetDispenser, 0,
-            maxSubmissionCost, refundAccount, refundAccount, maxGas, gasPriceBid, data);
-
-        emit MessageSent(sequence, targets, stakingAmounts, transferAmount);
+        sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
+            maxSubmissionCostMessage, refundAccount, refundAccount, gasLimitMessage, gasPriceBid, data);
     }
 
     /// @dev Process message received from L2.
     /// @param data Bytes message data sent from L2.
     function receiveMessage(bytes memory data) external {
         // Check L1 Relayer address
-        if (msg.sender != outbox) {
-            revert TargetRelayerOnly(msg.sender, outbox);
+        if (msg.sender != bridge) {
+            revert TargetRelayerOnly(msg.sender, bridge);
         }
 
-        emit MessageReceived(l2TargetDispenser, l2TargetChainId, data);
-
-        // Get L2 dispenser address
+        // Get L2 target dispenser address
         address l2Dispenser = IBridge(outbox).l2ToL1Sender();
 
         // Process the data

@@ -1,4 +1,4 @@
-pragma solidity =0.8.20;
+pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
@@ -28,6 +28,7 @@ contract BaseSetup is Test {
     uint256[] internal unitIds;
     address payable[] internal users;
     address internal deployer;
+    bytes32 internal retainer;
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
@@ -46,6 +47,7 @@ contract BaseSetup is Test {
         vm.label(deployer, "Deployer");
         dev = users[1];
         vm.label(dev, "Developer");
+        retainer = bytes32(uint256(uint160(deployer)));
 
         // Deploy contracts
         olas = new ERC20Token();
@@ -53,7 +55,7 @@ contract BaseSetup is Test {
         componentRegistry = new MockRegistry();
         agentRegistry = new MockRegistry();
         serviceRegistry = new MockRegistry();
-        dispenser = new Dispenser(deployer, deployer);
+        dispenser = new Dispenser(address(olas), deployer, deployer, deployer, retainer, 100, 100);
 
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Correct tokenomics address will be added below
@@ -70,7 +72,7 @@ contract BaseSetup is Test {
         // Change tokenomics address
         treasury.changeManagers(address(tokenomics), address(0), address(0));
         // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury));
+        dispenser.changeManagers(address(tokenomics), address(treasury), address(0));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));

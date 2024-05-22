@@ -3,12 +3,12 @@
 //require("hardhat-deploy");
 require("hardhat-deploy-ethers");
 require("hardhat-gas-reporter");
-require("hardhat-tracer");
+//require("hardhat-tracer");
 require("@nomicfoundation/hardhat-chai-matchers");
 require("@nomiclabs/hardhat-ethers");
 require("@nomiclabs/hardhat-etherscan");
 require("@nomicfoundation/hardhat-toolbox");
-// require('hardhat-storage-layout');
+//require('hardhat-storage-layout');
 
 const ALCHEMY_API_KEY_MAINNET = process.env.ALCHEMY_API_KEY_MAINNET;
 const ALCHEMY_API_KEY_MATIC = process.env.ALCHEMY_API_KEY_MATIC;
@@ -82,7 +82,7 @@ module.exports = {
             chainId: 11155111,
         },
         polygonAmoy: {
-            url: "https://polygon-mumbai.g.alchemy.com/v2/" + ALCHEMY_API_KEY_AMOY,
+            url: "https://polygon-amoy.g.alchemy.com/v2/" + ALCHEMY_API_KEY_AMOY,
             accounts: accounts,
             chainId: 80002
         },
@@ -122,8 +122,8 @@ module.exports = {
                 network: "polygonAmoy",
                 chainId: 80002,
                 urls: {
-                    apiURL: "https://heimdall-api-amoy.polygon.technology",
-                    browserURL: "https://www.oklink.com/amoy"
+                    apiURL: "https://api-amoy.polygonscan.com/api",
+                    browserURL: "https://amoy.polygonscan.com/"
                 }
             },
             {
@@ -219,12 +219,13 @@ module.exports = {
     solidity: {
         compilers: [
             {
-                version: "0.8.23",
+                version: "0.8.25",
                 settings: {
                     optimizer: {
                         enabled: true,
                         runs: 4000,
                     },
+                    evmVersion: "cancun"
                 },
             },
             {
