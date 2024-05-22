@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
- error TransferFailed(address token, address from, address to, uint256 value);
+error TransferFailed(address token, address from, address to, uint256 value);
 
 /// @dev Mocking the service registry functionality.
 contract MockRegistry {

@@ -1,14 +1,131 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.25;
 
-import "./TokenomicsConstants.sol";
-import "./interfaces/IDonatorBlacklist.sol";
-import "./interfaces/IErrorsTokenomics.sol";
-import "./interfaces/IOLAS.sol";
-import "./interfaces/IServiceRegistry.sol";
-import "./interfaces/IToken.sol";
-import "./interfaces/ITreasury.sol";
-import "./interfaces/IVotingEscrow.sol";
+import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
+import {TokenomicsConstants} from "./TokenomicsConstants.sol";
+import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
+import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
+
+// IOLAS interface
+interface IOLAS {
+    /// @dev Provides OLA token time launch.
+    /// @return Time launch.
+    function timeLaunch() external view returns (uint256);
+}
+
+// IERC721 token interface
+interface IToken {
+    /// @dev Gets the owner of the token Id.
+    /// @param tokenId Token Id.
+    /// @return Token Id owner address.
+    function ownerOf(uint256 tokenId) external view returns (address);
+
+    /// @dev Gets the total amount of tokens stored by the contract.
+    /// @return Amount of tokens.
+    function totalSupply() external view returns (uint256);
+}
+
+// ITreasury interface
+interface ITreasury {
+    /// @dev Re-balances treasury funds to account for the treasury reward for a specific epoch.
+    /// @param treasuryRewards Treasury rewards.
+    /// @return success True, if the function execution is successful.
+    function rebalanceTreasury(uint256 treasuryRewards) external returns (bool success);
+}
+
+// IServiceRegistry interface.
+interface IServiceRegistry {
+    enum UnitType {
+        Component,
+        Agent
+    }
+
+    /// @dev Checks if the service Id exists.
+    /// @param serviceId Service Id.
+    /// @return true if the service exists, false otherwise.
+    function exists(uint256 serviceId) external view returns (bool);
+
+    /// @dev Gets the full set of linearized components / canonical agent Ids for a specified service.
+    /// @notice The service must be / have been deployed in order to get the actual data.
+    /// @param serviceId Service Id.
+    /// @return numUnitIds Number of component / agent Ids.
+    /// @return unitIds Set of component / agent Ids.
+    function getUnitIdsOfService(UnitType unitType, uint256 serviceId) external view
+    returns (uint256 numUnitIds, uint32[] memory unitIds);
+}
+
+// IVotingEscrow interface
+interface IVotingEscrow {
+    /// @dev Gets the voting power.
+    /// @param account Account address.
+    function getVotes(address account) external view returns (uint256);
+}
+
+/// @dev Only `manager` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param manager Required sender address as a manager.
+error ManagerOnly(address sender, address manager);
+
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
+
+/// @dev Provided zero address.
+error ZeroAddress();
+
+/// @dev Wrong length of two arrays.
+/// @param numValues1 Number of values in a first array.
+/// @param numValues2 Number of values in a second array.
+error WrongArrayLength(uint256 numValues1, uint256 numValues2);
+
+/// @dev Service Id does not exist in registry records.
+/// @param serviceId Service Id.
+error ServiceDoesNotExist(uint256 serviceId);
+
+/// @dev Zero value when it has to be different from zero.
+error ZeroValue();
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
+/// @dev Service was never deployed.
+/// @param serviceId Service Id.
+error ServiceNeverDeployed(uint256 serviceId);
+
+/// @dev Received lower value than the expected one.
+/// @param provided Provided value is lower.
+/// @param expected Expected value.
+error LowerThan(uint256 provided, uint256 expected);
+
+/// @dev Wrong amount received / provided.
+/// @param provided Provided amount.
+/// @param expected Expected amount.
+error WrongAmount(uint256 provided, uint256 expected);
+
+/// @dev The donator address is blacklisted.
+/// @param account Donator account address.
+error DonatorBlacklisted(address account);
+
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
+/// @dev The contract has to be delegate-called via proxy.
+error DelegatecallOnly();
+
+/// @dev Caught an operation that is not supposed to happen in the same block.
+error SameBlockNumberViolation();
+
+/// @dev Failure of treasury re-balance during the reward allocation.
+/// @param epochNumber Epoch number.
+error TreasuryRebalanceFailed(uint256 epochNumber);
+
+/// @dev Operation with a wrong component / agent Id.
+/// @param unitId Component / agent Id.
+/// @param unitType Type of the unit (component / agent).
+error WrongUnitId(uint256 unitId, uint256 unitType);
 
 /*
 * In this contract we consider both ETH and OLAS tokens.
@@ -80,7 +197,7 @@ struct EpochPoint {
     // treasuryFraction + rewardComponentFraction + rewardAgentFraction = 100%
     // Treasury fraction
     uint8 rewardTreasuryFraction;
-    // maxBondFraction + topUpComponentFraction + topUpAgentFraction <= 100%
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction <= 100%
     // Amount of OLAS (in percentage of inflation) intended to fund bonding incentives during the epoch
     uint8 maxBondFraction;
 }
@@ -112,28 +229,53 @@ struct IncentiveBalances {
     uint32 lastEpoch;
 }
 
-/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
-/// @author AL
+// Struct for service staking epoch info
+struct StakingPoint {
+    // Amount of OLAS that funds service staking incentives for the epoch based on the inflation schedule
+    // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
+    uint96 stakingIncentive;
+    // Max allowed service staking incentive threshold
+    // This value is never bigger than the stakingIncentive
+    uint96 maxStakingIncentive;
+    // Service staking vote weighting threshold
+    // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
+    uint16 minStakingWeight;
+    // Service staking fraction
+    // This number cannot be practically bigger than 100 as it sums up to 100% with others
+    // maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction <= 100%
+    uint8 stakingFraction;
+}
+
+/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners, discount factor
+///        regulations for bonds, and staking incentives.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
-contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
+contract Tokenomics is TokenomicsConstants {
     event OwnerUpdated(address indexed owner);
     event TreasuryUpdated(address indexed treasury);
     event DepositoryUpdated(address indexed depository);
     event DispenserUpdated(address indexed dispenser);
     event EpochLengthUpdated(uint256 epochLen);
-    event EffectiveBondUpdated(uint256 effectiveBond);
+    event EffectiveBondUpdated(uint256 indexed epochNumber, uint256 effectiveBond);
+    event StakingRefunded(uint256 indexed epochNumber, uint256 amount);
     event IDFUpdated(uint256 idf);
     event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 codePerDev,
         uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
     event TokenomicsParametersUpdated(uint256 indexed epochNumber);
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
-        uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction);
+        uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
+        uint256 topUpAgentFraction, uint256 stakingFraction);
+    event StakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxStakingIncentive,
+        uint256 minStakingWeight);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
+    event StakingParamsUpdated(uint256 indexed epochNumber);
     event ComponentRegistryUpdated(address indexed componentRegistry);
     event AgentRegistryUpdated(address indexed agentRegistry);
     event ServiceRegistryUpdated(address indexed serviceRegistry);
     event DonatorBlacklistUpdated(address indexed blacklist);
-    event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards, uint256 accountTopUps);
+    event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
+        uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
 
     // Owner address
@@ -228,6 +370,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     // Mapping of component / agent Id => incentive balances
     mapping(uint256 => mapping(uint256 => IncentiveBalances)) public mapUnitIncentives;
 
+    // Mapping of epoch => service staking point
+    mapping(uint256 => StakingPoint) public mapEpochStakingPoints;
+
     /// @dev Tokenomics constructor.
     constructor()
         TokenomicsConstants()
@@ -272,8 +417,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         address _agentRegistry,
         address _serviceRegistry,
         address _donatorBlacklist
-    ) external
-    {
+    ) external {
         // Check if the contract is already initialized
         if (owner != address(0)) {
             revert AlreadyInitialized();
@@ -297,9 +441,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert LowerThan(_epochLen, MIN_EPOCH_LENGTH);
         }
 
-        // Check that the epoch length is not bigger than one year
-        if (uint32(_epochLen) > ONE_YEAR) {
-            revert Overflow(_epochLen, ONE_YEAR);
+        // Check that the epoch length is not out of defined bounds
+        if (uint32(_epochLen) > MAX_EPOCH_LENGTH) {
+            revert Overflow(_epochLen, MAX_EPOCH_LENGTH);
         }
 
         // Assign other input variables
@@ -343,8 +487,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Reward fractions
         // 0 stands for components and 1 for agents
-        // The initial target is to distribute around 2/3 of incentives reserved to fund owners of the code
-        // for components royalties and 1/3 for agents royalties
         tp.unitPoints[0].rewardUnitFraction = 83;
         tp.unitPoints[1].rewardUnitFraction = 17;
         // tp.epochPoint.rewardTreasuryFraction is essentially equal to zero
@@ -500,8 +642,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 _epsilonRate,
         uint256 _epochLen,
         uint256 _veOLASThreshold
-    ) external
-    {
+    ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -533,7 +674,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Check for the epochLen value to change
-        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= ONE_YEAR) {
+        if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= MAX_EPOCH_LENGTH) {
             nextEpochLen = uint32(_epochLen);
         } else {
             _epochLen = epochLen;
@@ -564,9 +705,9 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 _rewardAgentFraction,
         uint256 _maxBondFraction,
         uint256 _topUpComponentFraction,
-        uint256 _topUpAgentFraction
-    ) external
-    {
+        uint256 _topUpAgentFraction,
+        uint256 _stakingFraction
+    ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -578,8 +719,10 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
 
         // Same check for top-up fractions
-        if (_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction > 100) {
-            revert WrongAmount(_maxBondFraction + _topUpComponentFraction + _topUpAgentFraction, 100);
+        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction +
+            _stakingFraction;
+        if (sumTopUpFractions > 100) {
+            revert WrongAmount(sumTopUpFractions, 100);
         }
 
         // All the adjustments will be accounted for in the next epoch
@@ -594,11 +737,46 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
         tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
         tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
+        mapEpochStakingPoints[eCounter].stakingFraction = uint8(_stakingFraction);
 
         // Set the flag that incentive fractions are requested to be updated (2nd bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x02;
         emit IncentiveFractionsUpdateRequested(eCounter, _rewardComponentFraction, _rewardAgentFraction,
-            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction);
+            _maxBondFraction, _topUpComponentFraction, _topUpAgentFraction, _stakingFraction);
+    }
+
+    /// @dev Sets staking parameters by the DAO.
+    /// @param _maxStakingIncentive Max allowed staking incentive threshold.
+    /// @param _minStakingWeight Min staking weight threshold bound by 10_000.
+    function changeStakingParams(uint256 _maxStakingIncentive, uint256 _minStakingWeight) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for zero values
+        if (_maxStakingIncentive == 0 || _minStakingWeight == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflows as per specs
+        if (_maxStakingIncentive > type(uint96).max) {
+            revert Overflow(_maxStakingIncentive, type(uint96).max);
+        }
+
+        if (_minStakingWeight > MAX_STAKING_WEIGHT) {
+            revert Overflow(_minStakingWeight, MAX_STAKING_WEIGHT);
+        }
+
+        // All the adjustments will be accounted for in the next epoch
+        uint256 eCounter = epochCounter + 1;
+        StakingPoint storage stakingPoint = mapEpochStakingPoints[eCounter];
+        stakingPoint.maxStakingIncentive = uint96(_maxStakingIncentive);
+        stakingPoint.minStakingWeight = uint16(_minStakingWeight);
+
+        // Set the flag that incentive fractions are requested to be updated (4th bit is set to one)
+        tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x08;
+        emit StakingParamsUpdateRequested(eCounter, _maxStakingIncentive, _minStakingWeight);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -620,7 +798,7 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             eBond -= amount;
             effectiveBond = uint96(eBond);
             success = true;
-            emit EffectiveBondUpdated(eBond);
+            emit EffectiveBondUpdated(epochCounter, eBond);
         }
     }
 
@@ -640,7 +818,26 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             revert Overflow(eBond, type(uint96).max);
         }
         effectiveBond = uint96(eBond);
-        emit EffectiveBondUpdated(eBond);
+        emit EffectiveBondUpdated(epochCounter, eBond);
+    }
+
+    /// @dev Records amount returned back from staking to the inflation.
+    /// @param amount OLAS amount returned from staking.
+    function refundFromStaking(uint256 amount) external {
+        // Check for the dispenser access
+        if (dispenser != msg.sender) {
+            revert ManagerOnly(msg.sender, depository);
+        }
+
+        uint256 eCounter = epochCounter;
+        uint256 stakingIncentive = mapEpochStakingPoints[eCounter].stakingIncentive + amount;
+        // This scenario is not realistically possible, as the refund comes back from the allocated inflation.
+        if (stakingIncentive > type(uint96).max) {
+            revert Overflow(stakingIncentive, type(uint96).max);
+        }
+
+        mapEpochStakingPoints[eCounter].stakingIncentive = uint96(stakingIncentive);
+        emit StakingRefunded(eCounter, amount);
     }
 
     /// @dev Finalizes epoch incentives for a specified component / agent Id.
@@ -684,7 +881,12 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param serviceIds Set of service Ids.
     /// @param amounts Correspondent set of ETH amounts provided by services.
     /// @param curEpoch Current epoch number.
-    function _trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts, uint256 curEpoch) internal {
+    function _trackServiceDonations(
+        address donator,
+        uint256[] memory serviceIds,
+        uint256[] memory amounts,
+        uint256 curEpoch
+    ) internal {
         // Component / agent registry addresses
         address[] memory registries = new address[](2);
         (registries[0], registries[1]) = (componentRegistry, agentRegistry);
@@ -828,10 +1030,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param treasuryRewards Treasury rewards.
     /// @param numNewOwners Number of new owners of components / agents registered during the epoch.
     /// @return idf IDF value.
-    function _calculateIDF(
-        uint256 treasuryRewards,
-        uint256 numNewOwners
-    ) internal view returns (uint256 idf) {
+    function _calculateIDF(uint256 treasuryRewards, uint256 numNewOwners) internal view returns (uint256 idf) {
+        idf = 0;
         // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
         // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
         // Calculate IDF from epsilon rate and f(K,D)
@@ -898,8 +1098,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         uint256 diffNumSeconds = block.timestamp - prevEpochTime;
         uint256 curEpochLen = epochLen;
         // Check if the time passed since the last epoch end time is bigger than the specified epoch length,
-        // but not bigger than a year in seconds
-        if (diffNumSeconds < curEpochLen || diffNumSeconds > ONE_YEAR) {
+        // but not bigger than almost a year in seconds
+        if (diffNumSeconds < curEpochLen || diffNumSeconds > MAX_EPOCH_LENGTH) {
             return false;
         }
 
@@ -910,7 +1110,8 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         // 1: treasuryRewards, 2: componentRewards, 3: agentRewards
         // OLAS inflation is split between:
         // 4: maxBond, 5: component ownerTopUps, 6: agent ownerTopUps
-        uint256[] memory incentives = new uint256[](7);
+        // 7: returned staking incentive from previous epochs, 8: staking incentive
+        uint256[] memory incentives = new uint256[](9);
         incentives[0] = tp.epochPoint.totalDonationsETH;
         incentives[1] = (incentives[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
         // 0 stands for components and 1 for agents
@@ -968,20 +1169,6 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
 
         // Get the tokenomics point of the next epoch
         TokenomicsPoint storage nextEpochPoint = mapEpochTokenomics[eCounter + 1];
-        // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
-        // Check if the second bit is set to one
-        if (tokenomicsParametersUpdated & 0x02 == 0x02) {
-            // Confirm the change of incentive fractions
-            emit IncentiveFractionsUpdated(eCounter + 1);
-        } else {
-            // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
-            for (uint256 i = 0; i < 2; ++i) {
-                nextEpochPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
-                nextEpochPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
-            }
-            nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
-            nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
-        }
         // Update parameters for the next epoch, if changes were requested by the changeTokenomicsParameters() function
         // Check if the second bit is set to one
         if (tokenomicsParametersUpdated & 0x01 == 0x01) {
@@ -1001,8 +1188,54 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             // Confirm the change of tokenomics parameters
             emit TokenomicsParametersUpdated(eCounter + 1);
         }
+
+        // Update incentive fractions for the next epoch if they were requested by the changeIncentiveFractions() function
+        // Check if the second bit is set to one
+        if (tokenomicsParametersUpdated & 0x02 == 0x02) {
+            // Confirm the change of incentive fractions
+            emit IncentiveFractionsUpdated(eCounter + 1);
+        } else {
+            // Copy current tokenomics point into the next one such that it has necessary tokenomics parameters
+            for (uint256 i = 0; i < 2; ++i) {
+                nextEpochPoint.unitPoints[i].topUpUnitFraction = tp.unitPoints[i].topUpUnitFraction;
+                nextEpochPoint.unitPoints[i].rewardUnitFraction = tp.unitPoints[i].rewardUnitFraction;
+            }
+            nextEpochPoint.epochPoint.rewardTreasuryFraction = tp.epochPoint.rewardTreasuryFraction;
+            nextEpochPoint.epochPoint.maxBondFraction = tp.epochPoint.maxBondFraction;
+            // Copy service staking fraction
+            mapEpochStakingPoints[eCounter + 1].stakingFraction = mapEpochStakingPoints[eCounter].stakingFraction;
+        }
+
+        // Update service staking parameters if they were requested by the changeStakingParams() function
+        // Check if the forth bit is set to one
+        if (tokenomicsParametersUpdated & 0x08 == 0x08) {
+            // Confirm the change of service staking parameters
+            emit StakingParamsUpdated(eCounter + 1);
+        } else {
+            // Copy current service staking parameters into the next epoch
+            mapEpochStakingPoints[eCounter + 1].maxStakingIncentive = mapEpochStakingPoints[eCounter].maxStakingIncentive;
+            mapEpochStakingPoints[eCounter + 1].minStakingWeight = mapEpochStakingPoints[eCounter].minStakingWeight;
+        }
         // Record settled epoch timestamp
         tp.epochPoint.endTime = uint32(block.timestamp);
+
+        // Cumulative incentives
+        uint256 accountRewards = incentives[2] + incentives[3];
+        // Owner top-ups: epoch incentives for component owners funded with the inflation
+        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
+        // Owner top-ups: epoch incentives for agent owners funded with the inflation
+        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
+        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
+        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
+        // This amount will appear in the EpochSettled event, and thus can be tracked historically
+        uint256 accountTopUps = incentives[5] + incentives[6];
+
+        // Service staking funding
+        // Refunded amount during the epoch
+        incentives[7] = mapEpochStakingPoints[eCounter].stakingIncentive;
+        // Adding service staking top-ups amount based on a current epoch inflation
+        incentives[8] = incentives[7] + (inflationPerEpoch * mapEpochStakingPoints[eCounter].stakingFraction) / 100;
+        mapEpochStakingPoints[eCounter].stakingIncentive = uint96(incentives[8]);
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when
@@ -1048,21 +1281,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
             nextEpochPoint.epochPoint.idf = 1e18;
         }
 
-        // Cumulative incentives
-        uint256 accountRewards = incentives[2] + incentives[3];
-        // Owner top-ups: epoch incentives for component owners funded with the inflation
-        incentives[5] = (inflationPerEpoch * tp.unitPoints[0].topUpUnitFraction) / 100;
-        // Owner top-ups: epoch incentives for agent owners funded with the inflation
-        incentives[6] = (inflationPerEpoch * tp.unitPoints[1].topUpUnitFraction) / 100;
-        // Even if there was no single donating service owner that had a sufficient veOLAS balance,
-        // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
-        // This amount will appear in the EpochSettled event, and thus can be tracked historically
-        uint256 accountTopUps = incentives[5] + incentives[6];
-
         // Treasury contract rebalances ETH funds depending on the treasury rewards
         if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {
             // Emit settled epoch written to the last economics point
-            emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps);
+            emit EpochSettled(eCounter, incentives[1], accountRewards, accountTopUps, curMaxBond, incentives[7],
+                incentives[8]);
             // Start new epoch
             epochCounter = uint32(eCounter + 1);
         } else {
@@ -1082,9 +1305,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function accountOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external
-        returns (uint256 reward, uint256 topUp)
-    {
+    function accountOwnerIncentives(
+        address account,
+        uint256[] memory unitTypes,
+        uint256[] memory unitIds
+    ) external returns (uint256 reward, uint256 topUp) {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
             revert ManagerOnly(msg.sender, dispenser);
@@ -1157,9 +1382,11 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
     /// @param unitIds Set of corresponding unit Ids where account is the owner.
     /// @return reward Reward amount.
     /// @return topUp Top-up amount.
-    function getOwnerIncentives(address account, uint256[] memory unitTypes, uint256[] memory unitIds) external view
-        returns (uint256 reward, uint256 topUp)
-    {
+    function getOwnerIncentives(
+        address account,
+        uint256[] memory unitTypes,
+        uint256[] memory unitIds
+    ) external view returns (uint256 reward, uint256 topUp) {
         // Check array lengths
         if (unitTypes.length != unitIds.length) {
             revert WrongArrayLength(unitTypes.length, unitIds.length);
@@ -1232,38 +1459,24 @@ contract Tokenomics is TokenomicsConstants, IErrorsTokenomics {
         }
     }
 
-    /// @dev Gets inflation per last epoch.
-    /// @return inflationPerEpoch Inflation value.
-    function getInflationPerEpoch() external view returns (uint256 inflationPerEpoch) {
-        inflationPerEpoch = inflationPerSecond * epochLen;
-    }
-
     /// @dev Gets component / agent point of a specified epoch number and a unit type.
     /// @param epoch Epoch number.
     /// @param unitType Component (0) or agent (1).
-    /// @return up Unit point.
-    function getUnitPoint(uint256 epoch, uint256 unitType) external view returns (UnitPoint memory up) {
-        up = mapEpochTokenomics[epoch].unitPoints[unitType];
-    }
-
-    /// @dev Gets inverse discount factor with the multiple of 1e18.
-    /// @param epoch Epoch number.
-    /// @return idf Discount factor with the multiple of 1e18.
-    function getIDF(uint256 epoch) external view returns (uint256 idf)
-    {
-        idf = mapEpochTokenomics[epoch].epochPoint.idf;
-        if (idf == 0) {
-            idf = 1e18;
-        }
+    /// @return Unit point.
+    function getUnitPoint(uint256 epoch, uint256 unitType) external view returns (UnitPoint memory) {
+        return mapEpochTokenomics[epoch].unitPoints[unitType];
     }
 
     /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
-    /// @return idf Discount factor with the multiple of 1e18.
-    function getLastIDF() external view returns (uint256 idf)
-    {
-        idf = mapEpochTokenomics[epochCounter - 1].epochPoint.idf;
-        if (idf == 0) {
-            idf = 1e18;
-        }
+    /// @return Discount factor with the multiple of 1e18.
+    function getLastIDF() external view returns (uint256) {
+        return mapEpochTokenomics[epochCounter].epochPoint.idf;
+    }
+
+    /// @dev Gets epoch end time.
+    /// @param epoch Epoch number.
+    /// @return Epoch end time.
+    function getEpochEndTime(uint256 epoch) external view returns (uint256) {
+        return mapEpochTokenomics[epoch].epochPoint.endTime;
     }
 }

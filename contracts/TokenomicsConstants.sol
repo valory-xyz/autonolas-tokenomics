@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "@prb/math/src/UD60x18.sol";
+pragma solidity ^0.8.25;
 
 /// @title TokenomicsConstants - Smart contract with tokenomics constants
-/// @author AL
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
-    string public constant VERSION = "1.0.1";
+    string public constant VERSION = "1.2.0";
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
@@ -16,8 +15,12 @@ abstract contract TokenomicsConstants {
     uint256 public constant ONE_YEAR = 1 days * 365;
     // Minimum epoch length
     uint256 public constant MIN_EPOCH_LENGTH = 1 weeks;
+    // Max epoch length
+    uint256 public constant MAX_EPOCH_LENGTH = ONE_YEAR - 1 days;
     // Minimum fixed point tokenomics parameters
     uint256 public constant MIN_PARAM_VALUE = 1e14;
+    // Max staking weight amount
+    uint256 public constant MAX_STAKING_WEIGHT = 10_000;
 
     /// @dev Gets an inflation cap for a specific year.
     /// @param numYears Number of years passed from the launch date.
@@ -31,15 +34,15 @@ abstract contract TokenomicsConstants {
         // For the first 10 years the supply caps are pre-defined
         if (numYears < 10) {
             uint96[10] memory supplyCaps = [
-                529_659_000_00e16,
-                569_913_084_00e16,
-                641_152_219_50e16,
-                708_500_141_72e16,
-                771_039_876_00e16,
-                828_233_282_97e16,
-                879_860_040_11e16,
-                925_948_139_65e16,
-                966_706_331_40e16,
+                529_659_000e18,
+                569_913_084e18,
+                610_313_084e18,
+                666_313_084e18,
+                746_313_084e18,
+                818_313_084e18,
+                882_313_084e18,
+                930_313_084e18,
+                970_313_084e18,
                 1_000_000_000e18
             ];
             supplyCap = supplyCaps[numYears];
@@ -68,16 +71,16 @@ abstract contract TokenomicsConstants {
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
             uint88[10] memory inflationAmounts = [
-                3_159_000_00e16,
-                40_254_084_00e16,
-                71_239_135_50e16,
-                67_347_922_22e16,
-                62_539_734_28e16,
-                57_193_406_97e16,
-                51_626_757_14e16,
-                46_088_099_54e16,
-                40_758_191_75e16,
-                33_293_668_60e16
+                3_159_000e18,
+                40_254_084e18,
+                40_400_000e18,
+                56_000_000e18,
+                80_000_000e18,
+                72_000_000e18,
+                64_000_000e18,
+                48_000_000e18,
+                40_000_000e18,
+                29_686_916e18
             ];
             inflationAmount = inflationAmounts[numYears];
         } else {

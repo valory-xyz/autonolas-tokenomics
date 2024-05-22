@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.23;
 
-import "../Dispenser.sol";
-import "../Depository.sol";
+import {Dispenser} from "../Dispenser.sol";
+import {Depository} from "../Depository.sol";
 import "../Tokenomics.sol";
-import "../Treasury.sol";
+import {Treasury} from "../Treasury.sol";
 import {GenericBondCalculator} from "../GenericBondCalculator.sol";
-import "./ERC20Token.sol";
+import {ERC20Token} from "./ERC20Token.sol";
 import "./MockRegistry.sol";
 import "./MockVE.sol";
 import {ZuniswapV2Factory} from "../../lib/zuniswapv2/src/ZuniswapV2Factory.sol";
