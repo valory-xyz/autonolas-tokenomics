@@ -316,7 +316,7 @@ npm link sol2uml --only=production
 sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal4/analysis2/storage
 Generated png file audits/internal4/analysis2/storage/Tokenomics.png
 ```
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/Tokenomics.png) <br>
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/storage/Tokenomics.png) <br>
 Same as before (see above). No issue.
 
 ### Security issues.
