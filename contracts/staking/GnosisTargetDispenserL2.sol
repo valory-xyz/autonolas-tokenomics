@@ -64,9 +64,13 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Get the gas limit from the bridge payload
         uint256 gasLimitMessage = abi.decode(bridgePayload, (uint256));
 
-        // Check the gas limit value
+        // Check the gas limit values for both ends
         if (gasLimitMessage < GAS_LIMIT) {
             gasLimitMessage = GAS_LIMIT;
+        }
+
+        if (gasLimitMessage > MAX_GAS_LIMIT) {
+            gasLimitMessage = MAX_GAS_LIMIT;
         }
 
         // Assemble AMB data payload

@@ -75,6 +75,11 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
             revert ZeroValue();
         }
 
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
         // If refundAccount is zero, default to msg.sender
         if (refundAccount == address(0)) {
             refundAccount = msg.sender;

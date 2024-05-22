@@ -99,9 +99,13 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
             refundAccount = msg.sender;
         }
 
-        // Check the gas limit value
+        // Check the gas limit values for both ends
         if (gasLimitMessage < GAS_LIMIT) {
             gasLimitMessage = GAS_LIMIT;
+        }
+
+        if (gasLimitMessage > MAX_GAS_LIMIT) {
+            gasLimitMessage = MAX_GAS_LIMIT;
         }
 
         // Get a quote for the cost of gas for delivery

@@ -351,6 +351,8 @@ All automatic warnings are listed in the following file, concerns of which we ad
         retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
 
 ```
+[x] fixed
+
 2. Not overflow gasLimit.
 ```
         // Check the gas limit value
@@ -359,16 +361,22 @@ All automatic warnings are listed in the following file, concerns of which we ad
         }
         Under EIP-1559 a maximum gas limit is 30 million gas. So, if gasLimitMessage > MAX_GAS_LIMIT gasLimitMessage = GAS_LIMIT;
 ```
+[x] fixed
+
 3. The old version remains.
 ```
 autonolas-tokenomics$ grep -r "0.8.23" ./contracts/
 ./contracts/interfaces/IBridgeErrors.sol:pragma solidity ^0.8.23;
 ```
+[x] fixed
+
 4. Double checking comments
 ```
     Dispenser.sol
     // Checkpoint the vote weighting for the retainer on L1
 ```
+[x] fixed
+
 ### To discussion. Not sure.
 ```
 DefaultTargetDispenserL2.sol
@@ -380,5 +388,6 @@ DefaultTargetDispenserL2.sol
     like:
     if(owner == address(0)) or _lock > 1 then revert()
 ```
+[x] fixed
 
 
