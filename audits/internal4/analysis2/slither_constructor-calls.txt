@@ -1,0 +1,951 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeTargetDispenserL2-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> WormholeTargetDispenserL2-flatten.sol
+
+
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeDepositProcessorL1-flatten.sol:
+Warning: Source file does not specify required compiler version! Consider adding "pragma solidity ^0.8.25;"
+--> WormholeDepositProcessorL1-flatten.sol
+
+
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./EthereumDepositProcessor-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> EthereumDepositProcessor-flatten.sol
+
+
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./Dispenser-flatten.sol:
+Warning: Function state mutability can be restricted to view
+   --> Dispenser-flatten.sol:358:5:
+    |
+358 |     function _checkpointNomineeAndGetClaimedEpochCounters(
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: Contract code size is 26033 bytes and exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on Mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+   --> Dispenser-flatten.sol:255:1:
+    |
+255 | contract Dispenser {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:901:30:
+    |
+901 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+Warning: Unused local variable.
+    --> PolygonDepositProcessorL1-flatten.sol:1147:52:
+     |
+1147 |         (bytes32 headerRoot, uint256 startBlock, , uint256 createdAt, ) = checkpointManager.headerBlocks(headerNumber);
+     |                                                    ^^^^^^^^^^^^^^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+INFO:Printers:
+###########################
+####### TokenSender #######
+###########################
+
+## Constructor Call Sequence
+	- Base
+	- TokenBase
+
+## Constructor Definitions
+
+### Base
+
+     constructor(address _wormholeRelayer, address _wormhole) {
+        wormholeRelayer = IWormholeRelayer(_wormholeRelayer);
+        wormhole = IWormhole(_wormhole);
+        registrationOwner = msg.sender;
+    }
+
+### TokenBase
+
+     constructor(
+        address _wormholeRelayer,
+        address _tokenBridge,
+        address _wormhole
+    ) Base(_wormholeRelayer, _wormhole) {
+        tokenBridge = ITokenBridge(_tokenBridge);
+    }
+
+#########################################
+####### WormholeTargetDispenserL2 #######
+#########################################
+
+## Constructor Call Sequence
+	- DefaultTargetDispenserL2
+	- Base
+	- TokenBase
+	- WormholeTargetDispenserL2
+
+## Constructor Definitions
+
+### DefaultTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _stakingFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for a zero value
+        if (_l1SourceChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        l2MessageRelayer = _l2MessageRelayer;
+        l1DepositProcessor = _l1DepositProcessor;
+        l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
+        paused = 1;
+        _locked = 1;
+    }
+
+### Base
+
+     constructor(address _wormholeRelayer, address _wormhole) {
+        wormholeRelayer = IWormholeRelayer(_wormholeRelayer);
+        wormhole = IWormhole(_wormhole);
+        registrationOwner = msg.sender;
+    }
+
+### TokenBase
+
+     constructor(
+        address _wormholeRelayer,
+        address _tokenBridge,
+        address _wormhole
+    ) Base(_wormholeRelayer, _wormhole) {
+        tokenBridge = ITokenBridge(_tokenBridge);
+    }
+
+### WormholeTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _proxyFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId,
+        address _wormholeCore,
+        address _l2TokenRelayer
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+        TokenBase(_l2MessageRelayer, _l2TokenRelayer, _wormholeCore)
+    {
+        // Check for zero addresses
+        if (_wormholeCore == address(0) || _l2TokenRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for the overflow value
+        if (_l1SourceChainId > type(uint16).max) {
+            revert Overflow(_l1SourceChainId, type(uint16).max);
+        }
+
+        l1SourceChainId = _l1SourceChainId;
+    }
+
+INFO:Printers:
+#########################################
+####### DefaultDepositProcessorL1 #######
+#########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+INFO:Printers:
+#############################
+####### TokenReceiver #######
+#############################
+
+## Constructor Call Sequence
+	- Base
+	- TokenBase
+
+## Constructor Definitions
+
+### Base
+
+     constructor(address _wormholeRelayer, address _wormhole) {
+        wormholeRelayer = IWormholeRelayer(_wormholeRelayer);
+        wormhole = IWormhole(_wormhole);
+        registrationOwner = msg.sender;
+    }
+
+### TokenBase
+
+     constructor(
+        address _wormholeRelayer,
+        address _tokenBridge,
+        address _wormhole
+    ) Base(_wormholeRelayer, _wormhole) {
+        tokenBridge = ITokenBridge(_tokenBridge);
+    }
+
+##########################################
+####### WormholeDepositProcessorL1 #######
+##########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+	- Base
+	- TokenBase
+	- WormholeDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+### Base
+
+     constructor(address _wormholeRelayer, address _wormhole) {
+        wormholeRelayer = IWormholeRelayer(_wormholeRelayer);
+        wormhole = IWormhole(_wormhole);
+        registrationOwner = msg.sender;
+    }
+
+### TokenBase
+
+     constructor(
+        address _wormholeRelayer,
+        address _tokenBridge,
+        address _wormhole
+    ) Base(_wormholeRelayer, _wormhole) {
+        tokenBridge = ITokenBridge(_tokenBridge);
+    }
+
+### WormholeDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId,
+        address _wormholeCore,
+        uint256 _wormholeTargetChainId
+    )
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        TokenBase(_l1MessageRelayer, _l1TokenRelayer, _wormholeCore)
+    {
+        // Check for zero address
+        if (_wormholeCore == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_wormholeTargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for the overflow value
+        if (_wormholeTargetChainId > type(uint16).max) {
+            revert Overflow(_wormholeTargetChainId, type(uint16).max);
+        }
+
+        wormholeTargetChainId = _wormholeTargetChainId;
+    }
+
+INFO:Printers:
+#######################################
+####### GnosisTargetDispenserL2 #######
+#######################################
+
+## Constructor Call Sequence
+	- DefaultTargetDispenserL2
+	- GnosisTargetDispenserL2
+
+## Constructor Definitions
+
+### DefaultTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _stakingFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for a zero value
+        if (_l1SourceChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        l2MessageRelayer = _l2MessageRelayer;
+        l1DepositProcessor = _l1DepositProcessor;
+        l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
+        paused = 1;
+        _locked = 1;
+    }
+
+### GnosisTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _proxyFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId,
+        address _l2TokenRelayer
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+    {
+        // Check for zero address
+        if (_l2TokenRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        l2TokenRelayer = _l2TokenRelayer;
+    }
+
+INFO:Printers:
+########################################
+####### GnosisDepositProcessorL1 #######
+########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+	- GnosisDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+### GnosisDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId) {}
+
+INFO:Printers:
+########################################
+####### EthereumDepositProcessor #######
+########################################
+
+## Constructor Call Sequence
+	- EthereumDepositProcessor
+
+## Constructor Definitions
+
+### EthereumDepositProcessor
+
+     constructor(address _olas, address _dispenser, address _stakingFactory, address _timelock) {
+        // Check for zero addresses
+        if (_olas == address(0) || _dispenser == address(0) || _stakingFactory == address(0) || _timelock == address(0)) {
+            revert ZeroAddress();
+        }
+
+        olas = _olas;
+        dispenser = _dispenser;
+        stakingFactory = _stakingFactory;
+        timelock = _timelock;
+        _locked = 1;
+    }
+
+INFO:Printers:
+INFO:Printers:
+##########################################
+####### OptimismDepositProcessorL1 #######
+##########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+	- OptimismDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+### OptimismDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId,
+        address _olasL2
+    )
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+    {
+        // Check for zero address
+        if (_olasL2 == address(0)) {
+            revert ZeroAddress();
+        }
+
+        olasL2 = _olasL2;
+    }
+
+INFO:Printers:
+#########################################
+####### OptimismTargetDispenserL2 #######
+#########################################
+
+## Constructor Call Sequence
+	- DefaultTargetDispenserL2
+	- OptimismTargetDispenserL2
+
+## Constructor Definitions
+
+### DefaultTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _stakingFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for a zero value
+        if (_l1SourceChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        l2MessageRelayer = _l2MessageRelayer;
+        l1DepositProcessor = _l1DepositProcessor;
+        l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
+        paused = 1;
+        _locked = 1;
+    }
+
+### OptimismTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _proxyFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+
+INFO:Printers:
+##########################################
+####### ArbitrumDepositProcessorL1 #######
+##########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+	- ArbitrumDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+### ArbitrumDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId,
+        address _l1ERC20Gateway,
+        address _outbox,
+        address _bridge
+    )
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+    {
+        // Check for zero contract addresses
+        if (_l1ERC20Gateway == address(0) || _outbox == address(0) || _bridge == address(0)) {
+            revert ZeroAddress();
+        }
+
+        l1ERC20Gateway = _l1ERC20Gateway;
+        outbox = _outbox;
+        bridge = _bridge;
+    }
+
+INFO:Printers:
+#########################
+####### Dispenser #######
+#########################
+
+## Constructor Call Sequence
+	- Dispenser
+
+## Constructor Definitions
+
+### Dispenser
+
+     constructor(
+        address _olas,
+        address _tokenomics,
+        address _treasury,
+        address _voteWeighting,
+        bytes32 _retainer,
+        uint256 _maxNumClaimingEpochs,
+        uint256 _maxNumStakingTargets
+    ) {
+        owner = msg.sender;
+        _locked = 1;
+        // TODO Define final behavior before deployment
+        paused = Pause.StakingIncentivesPaused;
+
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) ||
+            _voteWeighting == address(0) || _retainer == 0) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value staking parameters
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+            revert ZeroValue();
+        }
+
+        olas = _olas;
+        tokenomics = _tokenomics;
+        treasury = _treasury;
+        voteWeighting = _voteWeighting;
+
+        retainer = _retainer;
+        retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
+        maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        maxNumStakingTargets = _maxNumStakingTargets;
+    }
+
+INFO:Printers:
+######################
+####### FxRoot #######
+######################
+
+## Constructor Call Sequence
+	- FxRoot
+
+## Constructor Definitions
+
+### FxRoot
+
+     constructor(address _stateSender) {
+        stateSender = IStateSender(_stateSender);
+    }
+
+#########################################
+####### PolygonDepositProcessorL1 #######
+#########################################
+
+## Constructor Call Sequence
+	- DefaultDepositProcessorL1
+	- FxBaseRootTunnel
+	- PolygonDepositProcessorL1
+
+## Constructor Definitions
+
+### DefaultDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId
+    ) {
+        // Check for zero addresses
+        if (_l1Dispenser == address(0) || _l1TokenRelayer == address(0) || _l1MessageRelayer == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_l2TargetChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l2TargetChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l2TargetChainId, MAX_CHAIN_ID);
+        }
+
+        olas = _olas;
+        l1Dispenser = _l1Dispenser;
+        l1TokenRelayer = _l1TokenRelayer;
+        l1MessageRelayer = _l1MessageRelayer;
+        l2TargetChainId = _l2TargetChainId;
+        owner = msg.sender;
+    }
+
+### FxBaseRootTunnel
+
+     constructor(address _checkpointManager, address _fxRoot) {
+        checkpointManager = ICheckpointManager(_checkpointManager);
+        fxRoot = IFxStateSender(_fxRoot);
+    }
+
+### PolygonDepositProcessorL1
+
+     constructor(
+        address _olas,
+        address _l1Dispenser,
+        address _l1TokenRelayer,
+        address _l1MessageRelayer,
+        uint256 _l2TargetChainId,
+        address _checkpointManager,
+        address _predicate
+    )
+        DefaultDepositProcessorL1(_olas, _l1Dispenser, _l1TokenRelayer, _l1MessageRelayer, _l2TargetChainId)
+        FxBaseRootTunnel(_checkpointManager, _l1MessageRelayer)
+    {
+        // Check for zero addresses
+        if (_checkpointManager == address(0) || _predicate == address(0)) {
+            revert ZeroAddress();
+        }
+
+        predicate = _predicate;
+    }
+
+INFO:Printers:
+########################################
+####### PolygonTargetDispenserL2 #######
+########################################
+
+## Constructor Call Sequence
+	- DefaultTargetDispenserL2
+	- FxBaseChildTunnel
+	- PolygonTargetDispenserL2
+
+## Constructor Definitions
+
+### DefaultTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _stakingFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for a zero value
+        if (_l1SourceChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        l2MessageRelayer = _l2MessageRelayer;
+        l1DepositProcessor = _l1DepositProcessor;
+        l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
+        paused = 1;
+        _locked = 1;
+    }
+
+### FxBaseChildTunnel
+
+     constructor(address _fxChild) {
+        fxChild = _fxChild;
+    }
+
+### PolygonTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _proxyFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+        FxBaseChildTunnel(_l2MessageRelayer)
+    {}
+
+INFO:Printers:
+########################################
+####### DefaultTargetDispenserL2 #######
+########################################
+
+## Constructor Call Sequence
+	- DefaultTargetDispenserL2
+
+## Constructor Definitions
+
+### DefaultTargetDispenserL2
+
+     constructor(
+        address _olas,
+        address _stakingFactory,
+        address _l2MessageRelayer,
+        address _l1DepositProcessor,
+        uint256 _l1SourceChainId
+    ) {
+        // Check for zero addresses
+        if (_olas == address(0) || _stakingFactory == address(0) || _l2MessageRelayer == address(0)
+            || _l1DepositProcessor == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for a zero value
+        if (_l1SourceChainId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for overflow value
+        if (_l1SourceChainId > MAX_CHAIN_ID) {
+            revert Overflow(_l1SourceChainId, MAX_CHAIN_ID);
+        }
+
+        // Immutable parameters assignment
+        olas = _olas;
+        stakingFactory = _stakingFactory;
+        l2MessageRelayer = _l2MessageRelayer;
+        l1DepositProcessor = _l1DepositProcessor;
+        l1SourceChainId = _l1SourceChainId;
+
+        // State variables assignment
+        owner = msg.sender;
+        paused = 1;
+        _locked = 1;
+    }
+
+INFO:Slither:. analyzed (115 contracts)

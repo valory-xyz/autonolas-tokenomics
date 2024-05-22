@@ -22,6 +22,7 @@ describe("StakingBridging", async () => {
     let stakingProxyFactory;
     let dispenser;
     let bridgeRelayer;
+    let ethereumDepositProcessor;
     let arbitrumDepositProcessorL1;
     let arbitrumTargetDispenserL2;
     let gnosisDepositProcessorL1;
@@ -51,8 +52,7 @@ describe("StakingBridging", async () => {
         await stakingProxyFactory.deployed();
 
         // Add a default implementation mocked as a proxy address itself
-        await stakingProxyFactory.addImplementation(stakingInstance.address,
-            stakingInstance.address);
+        await stakingProxyFactory.addImplementation(stakingInstance.address, stakingInstance.address);
 
         const MockStakingDispenser = await ethers.getContractFactory("MockStakingDispenser");
         dispenser = await MockStakingDispenser.deploy(olas.address);
@@ -61,6 +61,11 @@ describe("StakingBridging", async () => {
         const BridgeRelayer = await ethers.getContractFactory("BridgeRelayer");
         bridgeRelayer = await BridgeRelayer.deploy(olas.address);
         await bridgeRelayer.deployed();
+
+        const EthereumDepositProcessor = await ethers.getContractFactory("EthereumDepositProcessor");
+        ethereumDepositProcessor = await EthereumDepositProcessor.deploy(olas.address, dispenser.address,
+            stakingProxyFactory.address, deployer.address);
+        await ethereumDepositProcessor.deployed();
 
         const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
         // L2 Target Dispenser address is a bridge contract as well such that it matches the required msg.sender
@@ -148,6 +153,70 @@ describe("StakingBridging", async () => {
 
         // Set wormhole addresses in a bridge contract
         await bridgeRelayer.setWormholeAddresses(wormholeDepositProcessorL1.address, wormholeTargetDispenserL2.address);
+    });
+
+    context("Ethereum", async function () {
+        it("Should fail with incorrect constructor parameters for L1", async function () {
+            const EthereumDepositProcessor = await ethers.getContractFactory("EthereumDepositProcessor");
+            // Zero OLAS token
+            await expect(
+                EthereumDepositProcessor.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+
+            // Zero dispenser address
+            await expect(
+                EthereumDepositProcessor.deploy(olas.address, AddressZero, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+
+            // Zero staking factory address
+            await expect(
+                EthereumDepositProcessor.deploy(olas.address, dispenser.address, AddressZero, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+
+            // Zero timelock address
+            await expect(
+                EthereumDepositProcessor.deploy(olas.address, dispenser.address, stakingProxyFactory.address, AddressZero)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "ZeroAddress");
+        });
+
+        it("Staking deposit", async function () {
+            // Encode the staking data to emulate it being received on L2
+            const stakingTarget = stakingInstance.address;
+            const stakingIncentive = defaultAmount;
+            const bridgePayload = "0x";
+
+            // Try to deposit with a non-zero msg.value
+            await expect(
+                dispenser.mintAndSend(ethereumDepositProcessor.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive, {value: defaultMsgValue})
+            ).to.be.reverted;
+            await expect(
+                dispenser.sendMessageBatch(ethereumDepositProcessor.address, [stakingTarget], [stakingIncentive],
+                    bridgePayload, stakingIncentive, {value: defaultMsgValue})
+            ).to.be.reverted;
+
+            // Send a message not from the dispenser
+            await expect(
+                ethereumDepositProcessor.sendMessage(stakingTarget, stakingIncentive, bridgePayload, stakingIncentive)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
+            await expect(
+                ethereumDepositProcessor.sendMessageBatch([stakingTarget], [stakingIncentive], bridgePayload, stakingIncentive)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
+
+            // Deposit with funds and a correct target
+            await dispenser.mintAndSend(ethereumDepositProcessor.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive);
+
+            // Deposit with funds and correct targets
+            await dispenser.sendMessageBatch(ethereumDepositProcessor.address, [stakingTarget, stakingTarget],
+                [stakingIncentive, stakingIncentive], bridgePayload, 2 * stakingIncentive);
+
+            // Try to deposit to an invalid target
+            await expect(
+                dispenser.mintAndSend(ethereumDepositProcessor.address, deployer.address, stakingIncentive, bridgePayload,
+                    stakingIncentive)
+            ).to.be.revertedWithCustomError(ethereumDepositProcessor, "TargetEmissionsZero");
+        });
     });
 
     context("Arbitrum", async function () {
@@ -289,46 +358,46 @@ describe("StakingBridging", async () => {
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "IncorrectDataLength");
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [deployer.address, defaultGasPrice, defaultCost, defaultGasLimit, defaultCost]);
 
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Get the current staking batch nonce
             let stakingBatchNonce = await arbitrumTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
                 0, {value: defaultMsgValue});
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
-            await olas.mint(arbitrumTargetDispenserL2.address, stakingAmount);
+            await olas.mint(arbitrumTargetDispenserL2.address, stakingIncentive);
 
             // Try to redeem funds with a wrong staking batch nonce
             await expect(
-                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingAmount, 0)
+                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, 0)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "TargetAmountNotQueued");
 
             // Redeem funds
-            await arbitrumTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Check the withheld amount
             const withheldAmount = await arbitrumTargetDispenserL2.withheldAmount();
-            expect(Number(withheldAmount)).to.equal(stakingAmount);
+            expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
             await arbitrumTargetDispenserL2.syncWithheldTokens("0x");
@@ -343,7 +412,7 @@ describe("StakingBridging", async () => {
 
             // Process data maintenance by the owner
             const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]"],
-                [[stakingTarget], [stakingAmount * 2]]);
+                [[stakingTarget], [stakingIncentive * 2]]);
             await arbitrumTargetDispenserL2.processDataMaintenance(payload);
 
             // Try to do it not from the owner
@@ -353,7 +422,7 @@ describe("StakingBridging", async () => {
 
             // Try to redeem, but there are no funds
             await expect(
-                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingAmount * 2, stakingBatchNonce)
+                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive * 2, stakingBatchNonce)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "InsufficientBalance");
 
             // Try to send a batch message on L2 with funds
@@ -363,18 +432,18 @@ describe("StakingBridging", async () => {
 
             // Send a batch message on L2 with funds
             await dispenser.sendMessageBatch(arbitrumDepositProcessorL1.address, [stakingTarget, stakingTarget],
-                [stakingAmount, stakingAmount], bridgePayload, stakingAmount, {value: defaultMsgValue});
+                [stakingIncentive, stakingIncentive], bridgePayload, stakingIncentive, {value: defaultMsgValue});
         });
 
         it("Checks during a message sending on L1", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "IncorrectDataLength");
 
             // Try executing with wrong price and gas related parameters
@@ -383,37 +452,37 @@ describe("StakingBridging", async () => {
 
             // Try to send a message
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [AddressZero, defaultGasPrice, 0, defaultGasLimit, defaultCost]);
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [AddressZero, defaultGasPrice, defaultCost, 1, 0]);
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [AddressZero, defaultGasPrice, defaultCost, defaultGasLimit, 0]);
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             // Not enough msg.value to cover the cost
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [AddressZero, defaultGasPrice, defaultCost, defaultGasLimit, defaultCost]);
             await expect(
-                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount)
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "LowerThan");
 
             // Receiving a message not from the Bridge on L1
@@ -423,10 +492,10 @@ describe("StakingBridging", async () => {
 
             // Send a message not from the dispenser
             await expect(
-                arbitrumDepositProcessorL1.sendMessage(stakingTarget, stakingAmount, bridgePayload, stakingAmount)
+                arbitrumDepositProcessorL1.sendMessage(stakingTarget, stakingIncentive, bridgePayload, stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
             await expect(
-                arbitrumDepositProcessorL1.sendMessageBatch([stakingTarget], [stakingAmount], bridgePayload, stakingAmount)
+                arbitrumDepositProcessorL1.sendMessageBatch([stakingTarget], [stakingIncentive], bridgePayload, stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ManagerOnly");
 
             // Try to set the L2 dispenser address again
@@ -444,18 +513,62 @@ describe("StakingBridging", async () => {
             // Try to drain not by the owner
             await expect(
                 arbitrumTargetDispenserL2.connect(signers[1]).drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
 
             // Try to drain with the zero amount on a contract
             await expect(
                 arbitrumTargetDispenserL2.drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
 
             // Receive funds by ArbitrumTargetDispenserL2
             await deployer.sendTransaction({to: arbitrumTargetDispenserL2.address, value: ethers.utils.parseEther("1")});
 
             // Drain by the owner
             await arbitrumTargetDispenserL2.drain();
+        });
+
+        it("Migrate functionality on L2", async function () {
+            // Try to migrate not by the owner
+            await expect(
+                arbitrumTargetDispenserL2.connect(signers[1]).migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            // Try to migrate when the contract is not paused
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Unpaused");
+
+            // Pause the deposit processor
+            await arbitrumTargetDispenserL2.pause();
+
+            // Try to migrate not to the contract address
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Try to migrate to the same contract (just to kill the contract)
+            await expect(
+                arbitrumTargetDispenserL2.migrate(arbitrumTargetDispenserL2.address)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Deposit some OLAS to the contract
+            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
+
+            // Migrate the contract to another one
+            await arbitrumTargetDispenserL2.migrate(arbitrumDepositProcessorL1.address);
+
+            // The contract is now frozen, pause is active and reentrancy revert is applied, where possible
+            await expect(
+                arbitrumTargetDispenserL2.drain()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ReentrancyGuard");
+
+            expect(await arbitrumTargetDispenserL2.owner()).to.equal(AddressZero);
+            expect(await arbitrumTargetDispenserL2.paused()).to.equal(2);
+
+            // Any ownable function is going to revert
+            await expect(
+                arbitrumTargetDispenserL2.unpause()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
         });
     });
 
@@ -473,19 +586,19 @@ describe("StakingBridging", async () => {
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
             await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                    stakingAmount)
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "IncorrectDataLength");
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
 
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive);
 
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
@@ -494,37 +607,37 @@ describe("StakingBridging", async () => {
             let stakingBatchNonce = await gnosisTargetDispenserL2.connect(deployer).stakingBatchNonce();
 
             // Send a message on L2 with funds when the contract is paused - it must queue the amount
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive);
 
             // Try to redeem
             await expect(
-                gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce)
+                gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
 
             // Unpause and redeem
             await gnosisTargetDispenserL2.unpause();
-            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Get the current staking batch nonce
             stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0);
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
-            await olas.mint(gnosisTargetDispenserL2.address, stakingAmount);
+            await olas.mint(gnosisTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive);
 
             // Check the withheld amount
             const withheldAmount = await gnosisTargetDispenserL2.withheldAmount();
-            expect(Number(withheldAmount)).to.equal(stakingAmount);
+            expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
@@ -536,26 +649,34 @@ describe("StakingBridging", async () => {
 
             // Unpause and send withheld amount from L2 to L1
             await gnosisTargetDispenserL2.unpause();
-            await gnosisTargetDispenserL2.syncWithheldTokens("0x");
+
+            // Trying to sync withheld tokens with incorrect bridge payload
+            await expect(
+                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "IncorrectDataLength");
+
+            // Send withheld token info from L2 to L1
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
         });
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
 
             // Try to send a message with a zero gas limit
             await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "ZeroValue");
 
             // Try to send a message with an overflow gas limit value for L2
             const overLimit = (await gnosisDepositProcessorL1.MESSAGE_GAS_LIMIT()).add(1);
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [overLimit]);
             await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "Overflow");
 
             // Try to receive a message on L2 not sent by the bridge relayer
@@ -567,7 +688,7 @@ describe("StakingBridging", async () => {
         it("Verify senders on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
 
@@ -576,16 +697,16 @@ describe("StakingBridging", async () => {
 
             // Message receive will fail on the L1 message sender
             await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "WrongMessageSender");
 
             // Send tokens to the wrong address to withhold it
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive);
 
             // Try to receive a message with the wrong sender
             await expect(
-                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+                gnosisTargetDispenserL2.syncWithheldTokens(HashZero)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "WrongMessageSender");
 
 
@@ -620,87 +741,87 @@ describe("StakingBridging", async () => {
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
             await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                    stakingAmount)
+                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "IncorrectDataLength");
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"],
                 [defaultCost, defaultGasLimit]);
 
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Get the current staking batch nonce
             const stakingBatchNonce = await optimismTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
                 0, {value: defaultMsgValue});
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
-            await olas.mint(optimismTargetDispenserL2.address, stakingAmount);
+            await olas.mint(optimismTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await optimismTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await optimismTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Check the withheld amount
             const withheldAmount = await optimismTargetDispenserL2.withheldAmount();
-            expect(Number(withheldAmount)).to.equal(stakingAmount);
+            expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
             await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultCost});
         });
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero cost gas limit
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [0, 0]);
             await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "ZeroValue");
 
             // Try to send a message with a zero gas limit
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
             await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "ZeroValue");
 
             // Try to send a message without a proper msg.value
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, defaultGasLimit]);
             await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "LowerThan");
 
             // Send a message to the wrong address such that the amount is withheld
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Try to sync a withheld amount with providing incorrect data
             await expect(
-                optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
+                optimismTargetDispenserL2.syncWithheldTokens(HashZero)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "IncorrectDataLength");
 
             // Trying to set a zero cost
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [0, 0]);
             await expect(
                 optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "ZeroValue");
 
 
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
             await expect(
                 optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "LowerThan");
@@ -727,31 +848,31 @@ describe("StakingBridging", async () => {
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                stakingAmount);
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                stakingIncentive);
 
             // Get the current staking batch nonce
             const stakingBatchNonce = await polygonTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingAmount, "0x", 0);
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x", 0);
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
-            await olas.mint(polygonTargetDispenserL2.address, stakingAmount);
+            await olas.mint(polygonTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await polygonTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await polygonTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(polygonDepositProcessorL1.address, deployer.address, stakingAmount, "0x",
-                stakingAmount);
+            await dispenser.mintAndSend(polygonDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
+                stakingIncentive);
 
             // Check the withheld amount
             const withheldAmount = await polygonTargetDispenserL2.withheldAmount();
-            expect(Number(withheldAmount)).to.equal(stakingAmount);
+            expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
             await polygonTargetDispenserL2.syncWithheldTokens("0x");
@@ -806,57 +927,57 @@ describe("StakingBridging", async () => {
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero or incorrect payload
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, "0x",
-                    stakingAmount)
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                    stakingIncentive)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "IncorrectDataLength");
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [AddressZero, defaultGasLimit]);
 
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Get the current staking batch nonce
             const stakingBatchNonce = await wormholeTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
                 0, {value: defaultMsgValue});
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
-            await olas.mint(wormholeTargetDispenserL2.address, stakingAmount);
+            await olas.mint(wormholeTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await wormholeTargetDispenserL2.redeem(stakingTarget, stakingAmount, stakingBatchNonce);
+            await wormholeTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Check the withheld amount
             const withheldAmount = await wormholeTargetDispenserL2.withheldAmount();
-            expect(Number(withheldAmount)).to.equal(stakingAmount);
+            expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue});
         });
 
         it("Checks during a message sending on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             // Try to send a message with a zero cost gas limit
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, 0]);
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload, 0)
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "ZeroValue");
 
             // Try to receive a message by a wrong chain Id
@@ -868,8 +989,8 @@ describe("StakingBridging", async () => {
             // Send a message on L2 with funds for a wrong address
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, defaultGasLimit]);
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Try to send withheld tokens with an incorrect payload
             await expect(
@@ -877,7 +998,7 @@ describe("StakingBridging", async () => {
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "IncorrectDataLength");
 
             // Try to send withheld tokens without any msg.value covering the cost
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [deployer.address]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "LowerThan");
@@ -886,7 +1007,7 @@ describe("StakingBridging", async () => {
         it("Verify senders info on L1 and L2", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
-            const stakingAmount = defaultAmount;
+            const stakingIncentive = defaultAmount;
 
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [AddressZero, defaultGasLimit]);
@@ -896,8 +1017,8 @@ describe("StakingBridging", async () => {
 
             // Try to send tokens and message with the wrong chainId
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount, {value: defaultMsgValue})
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongChainId");
 
             // Try to send tokens and message with the wrong token
@@ -910,35 +1031,35 @@ describe("StakingBridging", async () => {
             await bridgeRelayer.setWrongToken(wrongToken.address);
 
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount, {value: defaultMsgValue})
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongTokenAddress");
 
             // Try to send tokens and message with the wrong number of tokens
             await bridgeRelayer.setWrongToken(AddressZero);
             await bridgeRelayer.setMode(5);
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingAmount, bridgePayload,
-                    stakingAmount, {value: defaultMsgValue})
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongAmount");
 
             // Send a message on L2 with funds when the delivery hash was already used
             await bridgeRelayer.setMode(6);
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
             await expect(
-                dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                    stakingAmount, {value: defaultMsgValue})
+                dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                    stakingIncentive, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "AlreadyDelivered");
 
             // Send a message on L2 with funds for the wrong address
             await bridgeRelayer.setMode(0);
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
 
             // Try to send withheld amount from L2 to L1 with the wrong chain Id
             await bridgeRelayer.setMode(3);
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongChainId");
@@ -950,10 +1071,10 @@ describe("StakingBridging", async () => {
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [AddressZero, defaultGasLimit]);
             // Need to create a withheld condition again by sending another staking to a wrong address
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingAmount, bridgePayload,
-                stakingAmount, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive, {value: defaultMsgValue});
             // Now the delivery hash will fail
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "AlreadyDelivered");

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import "./DefaultTargetDispenserL2.sol";
 
@@ -24,6 +24,8 @@ interface IBridge {
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
+    // Bridge payload length
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
     // L2 token relayer address
     address public immutable l2TokenRelayer;
 
@@ -53,12 +55,29 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory) internal override {
+    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
+        // Check for the bridge payload length
+        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
+            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        }
+
+        // Get the gas limit from the bridge payload
+        uint256 gasLimitMessage = abi.decode(bridgePayload, (uint256));
+
+        // Check the gas limit values for both ends
+        if (gasLimitMessage < GAS_LIMIT) {
+            gasLimitMessage = GAS_LIMIT;
+        }
+
+        if (gasLimitMessage > MAX_GAS_LIMIT) {
+            gasLimitMessage = MAX_GAS_LIMIT;
+        }
+
         // Assemble AMB data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
 
         // Send message to L1
-        bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, GAS_LIMIT);
+        bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, gasLimitMessage);
 
         emit MessagePosted(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }

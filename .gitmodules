@@ -8,3 +8,6 @@
 [submodule "lib/zuniswapv2"]
 	path = lib/zuniswapv2
 	url = git@github.com:Jeiwan/zuniswapv2.git
+[submodule "lib/fx-portal"]
+	path = lib/fx-portal
+	url = https://github.com/0xPolygon/fx-portal

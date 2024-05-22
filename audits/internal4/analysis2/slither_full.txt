@@ -1,0 +1,1517 @@
+
+Everything has either been discussed/fixed before or false positive.
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (WormholeTargetDispenserL2-flatten.sol#486)
+	State variables written after the call(s):
+	- _locked = 1 (WormholeTargetDispenserL2-flatten.sol#493)
+	DefaultTargetDispenserL2._locked (WormholeTargetDispenserL2-flatten.sol#180) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+	- DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494)
+	- DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (WormholeTargetDispenserL2-flatten.sol#413-440)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Manipulated call found: (success,returnData) = stakingFactory.call(verifyData) (WormholeTargetDispenserL2-flatten.sol#251) in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+Only the calldata could be manipulated
+	The calldata could be manipulated through TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970)
+	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (WormholeTargetDispenserL2-flatten.sol#401-409)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494) uses a dangerous strict equality:
+	- amount == 0 (WormholeTargetDispenserL2-flatten.sol#481)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (WormholeTargetDispenserL2-flatten.sol#251)
+	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#281)
+	- IStaking(target).deposit(amount) (WormholeTargetDispenserL2-flatten.sol#282)
+	State variables written after the call(s):
+	- _locked = 1 (WormholeTargetDispenserL2-flatten.sol#302)
+	DefaultTargetDispenserL2._locked (WormholeTargetDispenserL2-flatten.sol#180) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+	- DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494)
+	- DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (WormholeTargetDispenserL2-flatten.sol#413-440)
+	- stakingBatchNonce = batchNonce + 1 (WormholeTargetDispenserL2-flatten.sol#295)
+	DefaultTargetDispenserL2.stakingBatchNonce (WormholeTargetDispenserL2-flatten.sol#174) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+	- DefaultTargetDispenserL2.stakingBatchNonce (WormholeTargetDispenserL2-flatten.sol#174)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (WormholeTargetDispenserL2-flatten.sol#533)
+	State variables written after the call(s):
+	- owner = address(0) (WormholeTargetDispenserL2-flatten.sol#540)
+	DefaultTargetDispenserL2.owner (WormholeTargetDispenserL2-flatten.sol#176) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.changeOwner(address) (WormholeTargetDispenserL2-flatten.sol#337-350)
+	- DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494)
+	- DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545)
+	- DefaultTargetDispenserL2.owner (WormholeTargetDispenserL2-flatten.sol#176)
+	- DefaultTargetDispenserL2.pause() (WormholeTargetDispenserL2-flatten.sol#443-451)
+	- DefaultTargetDispenserL2.processDataMaintenance(bytes) (WormholeTargetDispenserL2-flatten.sol#401-409)
+	- DefaultTargetDispenserL2.unpause() (WormholeTargetDispenserL2-flatten.sol#454-462)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393):
+	External calls:
+	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#380)
+	- IStaking(target).deposit(amount) (WormholeTargetDispenserL2-flatten.sol#381)
+	State variables written after the call(s):
+	- _locked = 1 (WormholeTargetDispenserL2-flatten.sol#392)
+	DefaultTargetDispenserL2._locked (WormholeTargetDispenserL2-flatten.sol#180) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+	- DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494)
+	- DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (WormholeTargetDispenserL2-flatten.sol#413-440)
+	- stakingQueueingNonces[queueHash] = false (WormholeTargetDispenserL2-flatten.sol#386)
+	DefaultTargetDispenserL2.stakingQueueingNonces (WormholeTargetDispenserL2-flatten.sol#183) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393)
+	- DefaultTargetDispenserL2.stakingQueueingNonces (WormholeTargetDispenserL2-flatten.sol#183)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes).limitAmount (WormholeTargetDispenserL2-flatten.sol#253) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1794-1818) ignores return value by IERC20(token).approve(address(tokenBridge),amount) (WormholeTargetDispenserL2-flatten.sol#1801)
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeTargetDispenserL2-flatten.sol#1826-1852) ignores return value by (cost) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain,receiverValue,gasLimit) (WormholeTargetDispenserL2-flatten.sol#1838-1842)
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (WormholeTargetDispenserL2-flatten.sol#1854-1884) ignores return value by (cost) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain,receiverValue,gasLimit) (WormholeTargetDispenserL2-flatten.sol#1868-1872)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) ignores return value by tokenBridge.completeTransferWithPayload(additionalVaas[i]) (WormholeTargetDispenserL2-flatten.sol#1942)
+DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303) ignores return value by IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#281)
+DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393) ignores return value by IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#380)
+WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#2071-2102) ignores return value by (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,gasLimitMessage) (WormholeTargetDispenserL2-flatten.sol#2090)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#2071-2102):
+	uint256 => uint16 casting occurs in (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,gasLimitMessage) (WormholeTargetDispenserL2-flatten.sol#2090)
+	uint256 => uint16 casting occurs in sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),l1DepositProcessor,abi.encode(amount),0,gasLimitMessage,uint16(l1SourceChainId),refundAccount) (WormholeTargetDispenserL2-flatten.sol#2098-2099)
+	uint256 => uint16 casting occurs in sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),l1DepositProcessor,abi.encode(amount),0,gasLimitMessage,uint16(l1SourceChainId),refundAccount) (WormholeTargetDispenserL2-flatten.sol#2098-2099)
+Dubious typecast in WormholeTargetDispenserL2.receivePayloadAndTokens(bytes,TokenReceiver.TokenReceived[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#2111-2146):
+	uint256 => uint160 casting occurs in processor = address(uint160(uint256(sourceProcessor))) (WormholeTargetDispenserL2-flatten.sol#2142)
+Dubious typecast in WormholeTargetDispenserL2.slitherConstructorConstantVariables() (WormholeTargetDispenserL2-flatten.sol#2032-2147):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (WormholeTargetDispenserL2-flatten.sol#155)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Function TokenReceiver.getDecimals(address) (WormholeTargetDispenserL2-flatten.sol#1896-1904) contains a low level call to a custom address
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/call_forward_to_protected.md
+INFO:Detectors:
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) has external calls inside a loop: parsed = wormhole.parseVM(additionalVaas[i]) (WormholeTargetDispenserL2-flatten.sol#1928)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) has external calls inside a loop: require(bool,string)(parsed.emitterAddress == tokenBridge.bridgeContracts(parsed.emitterChainId),Not a Token Bridge VAA) (WormholeTargetDispenserL2-flatten.sol#1929-1933)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) has external calls inside a loop: transfer = tokenBridge.parseTransferWithPayload(parsed.payload) (WormholeTargetDispenserL2-flatten.sol#1934-1935)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) has external calls inside a loop: require(bool,string)(transfer.to == toWormholeFormat(address(this)) && transfer.toChain == wormhole.chainId(),Token was not sent to this address) (WormholeTargetDispenserL2-flatten.sol#1936-1940)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) has external calls inside a loop: tokenBridge.completeTransferWithPayload(additionalVaas[i]) (WormholeTargetDispenserL2-flatten.sol#1942)
+TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1906-1914) has external calls inside a loop: tokenHomeChain == wormhole.chainId() (WormholeTargetDispenserL2-flatten.sol#1910-1913)
+TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1906-1914) has external calls inside a loop: tokenBridge.wrappedAsset(tokenHomeChain,tokenHomeAddress) (WormholeTargetDispenserL2-flatten.sol#1910-1913)
+TokenReceiver.getDecimals(address) (WormholeTargetDispenserL2-flatten.sol#1896-1904) has external calls inside a loop: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeTargetDispenserL2-flatten.sol#1900-1902)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (WormholeTargetDispenserL2-flatten.sol#251)
+	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#281)
+	- IStaking(target).deposit(amount) (WormholeTargetDispenserL2-flatten.sol#282)
+	State variables written after the call(s):
+	- stakingQueueingNonces[queueHash] = true (WormholeTargetDispenserL2-flatten.sol#289)
+	- withheldAmount += localWithheldAmount (WormholeTargetDispenserL2-flatten.sol#299)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (WormholeTargetDispenserL2-flatten.sol#251)
+	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#281)
+	- IStaking(target).deposit(amount) (WormholeTargetDispenserL2-flatten.sol#282)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (WormholeTargetDispenserL2-flatten.sol#263)
+	- AmountWithheld(target,targetWithheldAmount) (WormholeTargetDispenserL2-flatten.sol#275)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (WormholeTargetDispenserL2-flatten.sol#291)
+	- StakingTargetDeposited(target,amount) (WormholeTargetDispenserL2-flatten.sol#284)
+Reentrancy in WormholeTargetDispenserL2._sendMessage(uint256,bytes) (WormholeTargetDispenserL2-flatten.sol#2071-2102):
+	External calls:
+	- (cost) = IBridge(l2MessageRelayer).quoteEVMDeliveryPrice(uint16(l1SourceChainId),0,gasLimitMessage) (WormholeTargetDispenserL2-flatten.sol#2090)
+	- sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),l1DepositProcessor,abi.encode(amount),0,gasLimitMessage,uint16(l1SourceChainId),refundAccount) (WormholeTargetDispenserL2-flatten.sol#2098-2099)
+	External calls sending eth:
+	- sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),l1DepositProcessor,abi.encode(amount),0,gasLimitMessage,uint16(l1SourceChainId),refundAccount) (WormholeTargetDispenserL2-flatten.sol#2098-2099)
+	Event emitted after the call(s):
+	- MessagePosted(sequence,msg.sender,l1DepositProcessor,amount) (WormholeTargetDispenserL2-flatten.sol#2101)
+Reentrancy in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (WormholeTargetDispenserL2-flatten.sol#486)
+	Event emitted after the call(s):
+	- Drain(msg.sender,amount) (WormholeTargetDispenserL2-flatten.sol#491)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (WormholeTargetDispenserL2-flatten.sol#502-545):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (WormholeTargetDispenserL2-flatten.sol#533)
+	Event emitted after the call(s):
+	- Migrated(msg.sender,newL2TargetDispenser,amount) (WormholeTargetDispenserL2-flatten.sol#542)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (WormholeTargetDispenserL2-flatten.sol#356-393):
+	External calls:
+	- IToken(olas).approve(target,amount) (WormholeTargetDispenserL2-flatten.sol#380)
+	- IStaking(target).deposit(amount) (WormholeTargetDispenserL2-flatten.sol#381)
+	Event emitted after the call(s):
+	- StakingTargetDeposited(target,amount) (WormholeTargetDispenserL2-flatten.sol#383)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+TokenReceiver.receivePayloadAndTokens(bytes,TokenReceiver.TokenReceived[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1973-1979) is never used and should be removed
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeTargetDispenserL2-flatten.sol#1826-1852) is never used and should be removed
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (WormholeTargetDispenserL2-flatten.sol#1854-1884) is never used and should be removed
+TokenSender.transferTokens(address,uint256,uint16,address) (WormholeTargetDispenserL2-flatten.sol#1765-1779) is never used and should be removed
+TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1794-1818) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+INFO:Detectors:
+Low level call in DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303):
+	- (success,returnData) = stakingFactory.call(verifyData) (WormholeTargetDispenserL2-flatten.sol#251)
+Low level call in DefaultTargetDispenserL2.drain() (WormholeTargetDispenserL2-flatten.sol#467-494):
+	- (success) = msg.sender.call{value: amount}() (WormholeTargetDispenserL2-flatten.sol#486)
+Low level call in TokenReceiver.getDecimals(address) (WormholeTargetDispenserL2-flatten.sol#1896-1904):
+	- (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeTargetDispenserL2-flatten.sol#1900-1902)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+Variable DefaultTargetDispenserL2._locked (WormholeTargetDispenserL2-flatten.sol#180) is not in mixedCase
+Function ITokenBridge._parseTransferCommon(bytes) (WormholeTargetDispenserL2-flatten.sol#1622) is not in mixedCase
+Function ITokenBridge.WETH() (WormholeTargetDispenserL2-flatten.sol#1710) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Function TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeTargetDispenserL2-flatten.sol#1916-1970) contains magic numbers: 8, 10
+Function DefaultTargetDispenserL2._processData(bytes) (WormholeTargetDispenserL2-flatten.sol#229-303) contains magic number: 32
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Base.registrationOwner (WormholeTargetDispenserL2-flatten.sol#1439) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+
+INFO:Detectors:
+In a function TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1794-1818) variable TokenBase.tokenBridge (WormholeTargetDispenserL2-flatten.sol#1742) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
+INFO:Detectors:
+Contract locking ether found:
+	Contract DefaultDepositProcessorL1 (DefaultDepositProcessorL1-flatten.sol#117-310) has payable functions:
+	 - DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (DefaultDepositProcessorL1-flatten.sol#227-251)
+	 - DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (DefaultDepositProcessorL1-flatten.sol#259-277)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+
+INFO:Detectors:
+Dubious typecast in DefaultDepositProcessorL1.slitherConstructorConstantVariables() (DefaultDepositProcessorL1-flatten.sol#117-310):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (DefaultDepositProcessorL1-flatten.sol#123)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Setter function DefaultDepositProcessorL1.setL2TargetDispenser(address) (DefaultDepositProcessorL1-flatten.sol#301-303) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+INFO:Detectors:
+DefaultDepositProcessorL1._receiveMessage(address,address,bytes) (DefaultDepositProcessorL1-flatten.sol#202-220) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (DefaultDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (DefaultDepositProcessorL1-flatten.sol#202)
+Variable DefaultDepositProcessorL1.l1Dispenser (DefaultDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (DefaultDepositProcessorL1-flatten.sol#301)
+Variable DefaultDepositProcessorL1.l1Dispenser (DefaultDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (DefaultDepositProcessorL1-flatten.sol#281)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+DefaultDepositProcessorL1 (DefaultDepositProcessorL1-flatten.sol#117-310) does not implement functions:
+	- DefaultDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (DefaultDepositProcessorL1-flatten.sol#191-196)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+
+INFO:Detectors:
+Function DefaultDepositProcessorL1.getBridgingDecimals() (DefaultDepositProcessorL1-flatten.sol#307-309) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+In a function DefaultDepositProcessorL1._receiveMessage(address,address,bytes) (DefaultDepositProcessorL1-flatten.sol#202-220) variable DefaultDepositProcessorL1.l2TargetDispenser (DefaultDepositProcessorL1-flatten.sol#142) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
+INFO:Detectors:
+Manipulated call found: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1657-1659) in TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1653-1661)
+Only the destination could be manipulated
+	The destination could be manipulated through TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+Contract locking ether found:
+	Contract TokenReceiver (WormholeDepositProcessorL1-flatten.sol#1644-1737) has payable functions:
+	 - TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+
+INFO:Detectors:
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) ignores return value by tokenBridge.completeTransferWithPayload(additionalVaas[i]) (WormholeDepositProcessorL1-flatten.sol#1699)
+TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeDepositProcessorL1-flatten.sol#1551-1575) ignores return value by IERC20(token).approve(address(tokenBridge),amount) (WormholeDepositProcessorL1-flatten.sol#1558)
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeDepositProcessorL1-flatten.sol#1583-1609) ignores return value by (cost) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain,receiverValue,gasLimit) (WormholeDepositProcessorL1-flatten.sol#1595-1599)
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (WormholeDepositProcessorL1-flatten.sol#1611-1641) ignores return value by (cost) = wormholeRelayer.quoteEVMDeliveryPrice(targetChain,receiverValue,gasLimit) (WormholeDepositProcessorL1-flatten.sol#1625-1629)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in WormholeDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (WormholeDepositProcessorL1-flatten.sol#1793-1827):
+	uint256 => uint16 casting occurs in sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId),l2TargetDispenser,data,0,gasLimitMessage,olas,transferAmount,uint16(l2TargetChainId),refundAccount) (WormholeDepositProcessorL1-flatten.sol#1825-1826)
+	uint256 => uint16 casting occurs in sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId),l2TargetDispenser,data,0,gasLimitMessage,olas,transferAmount,uint16(l2TargetChainId),refundAccount) (WormholeDepositProcessorL1-flatten.sol#1825-1826)
+Dubious typecast in WormholeDepositProcessorL1.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1835-1857):
+	uint256 => uint160 casting occurs in l2Dispenser = address(uint160(uint256(sourceAddress))) (WormholeDepositProcessorL1-flatten.sol#1854)
+Dubious typecast in WormholeDepositProcessorL1.setL2TargetDispenser(address) (WormholeDepositProcessorL1-flatten.sol#1861-1864):
+	uint256 => uint16 casting occurs in setRegisteredSender(uint16(wormholeTargetChainId),bytes32(uint256(uint160(l2Dispenser)))) (WormholeDepositProcessorL1-flatten.sol#1862)
+Dubious typecast in WormholeDepositProcessorL1.slitherConstructorConstantVariables() (WormholeDepositProcessorL1-flatten.sol#1745-1870):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (WormholeDepositProcessorL1-flatten.sol#121)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Function TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1653-1661) contains a low level call to a custom address
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/call_forward_to_protected.md
+
+INFO:Detectors:
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) has external calls inside a loop: parsed = wormhole.parseVM(additionalVaas[i]) (WormholeDepositProcessorL1-flatten.sol#1685)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) has external calls inside a loop: require(bool,string)(parsed.emitterAddress == tokenBridge.bridgeContracts(parsed.emitterChainId),Not a Token Bridge VAA) (WormholeDepositProcessorL1-flatten.sol#1686-1690)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) has external calls inside a loop: transfer = tokenBridge.parseTransferWithPayload(parsed.payload) (WormholeDepositProcessorL1-flatten.sol#1691-1692)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) has external calls inside a loop: require(bool,string)(transfer.to == toWormholeFormat(address(this)) && transfer.toChain == wormhole.chainId(),Token was not sent to this address) (WormholeDepositProcessorL1-flatten.sol#1693-1697)
+TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) has external calls inside a loop: tokenBridge.completeTransferWithPayload(additionalVaas[i]) (WormholeDepositProcessorL1-flatten.sol#1699)
+TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1663-1671) has external calls inside a loop: tokenHomeChain == wormhole.chainId() (WormholeDepositProcessorL1-flatten.sol#1667-1670)
+TokenReceiver.getTokenAddressOnThisChain(uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1663-1671) has external calls inside a loop: tokenBridge.wrappedAsset(tokenHomeChain,tokenHomeAddress) (WormholeDepositProcessorL1-flatten.sol#1667-1670)
+TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1653-1661) has external calls inside a loop: (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1657-1659)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+
+INFO:Detectors:
+Setter function WormholeDepositProcessorL1.setL2TargetDispenser(address) (WormholeDepositProcessorL1-flatten.sol#1861-1864) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+
+INFO:Detectors:
+TokenSender.sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (WormholeDepositProcessorL1-flatten.sol#1583-1609) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+INFO:Detectors:
+solc-0.8.25 is not recommended for deployment
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+
+INFO:Detectors:
+Low level call in TokenReceiver.getDecimals(address) (WormholeDepositProcessorL1-flatten.sol#1653-1661):
+	- (queriedDecimals) = address(tokenAddress).staticcall(abi.encodeWithSignature(decimals())) (WormholeDepositProcessorL1-flatten.sol#1657-1659)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+TokenReceiver (WormholeDepositProcessorL1-flatten.sol#1644-1737) should inherit from IWormholeReceiver (WormholeDepositProcessorL1-flatten.sol#461-504)
+WormholeDepositProcessorL1 (WormholeDepositProcessorL1-flatten.sol#1745-1870) should inherit from IWormholeReceiver (WormholeDepositProcessorL1-flatten.sol#461-504)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-inheritance
+
+INFO:Detectors:
+Function ITokenBridge._parseTransferCommon(bytes) (WormholeDepositProcessorL1-flatten.sol#1380) is not in mixedCase
+Function ITokenBridge.WETH() (WormholeDepositProcessorL1-flatten.sol#1468) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (WormholeDepositProcessorL1-flatten.sol#132) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (WormholeDepositProcessorL1-flatten.sol#299)
+Variable DefaultDepositProcessorL1.l1Dispenser (WormholeDepositProcessorL1-flatten.sol#132) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (WormholeDepositProcessorL1-flatten.sol#200)
+Variable DefaultDepositProcessorL1.l1Dispenser (WormholeDepositProcessorL1-flatten.sol#132) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (WormholeDepositProcessorL1-flatten.sol#279)
+Variable DefaultDepositProcessorL1.l1Dispenser (WormholeDepositProcessorL1-flatten.sol#132) is too similar to WormholeDepositProcessorL1.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32).l2Dispenser (WormholeDepositProcessorL1-flatten.sol#1854)
+Variable DefaultDepositProcessorL1.l1Dispenser (WormholeDepositProcessorL1-flatten.sol#132) is too similar to WormholeDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (WormholeDepositProcessorL1-flatten.sol#1861)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+Function TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) contains magic numbers: 8, 10
+Function DefaultDepositProcessorL1.getBridgingDecimals() (WormholeDepositProcessorL1-flatten.sol#305-307) contains magic number: 18
+Function WormholeDepositProcessorL1.getBridgingDecimals() (WormholeDepositProcessorL1-flatten.sol#1867-1869) contains magic number: 8
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Base.registrationOwner (WormholeDepositProcessorL1-flatten.sol#1196) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+
+INFO:Detectors:
+In a function TokenReceiver.receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (WormholeDepositProcessorL1-flatten.sol#1673-1727) variable TokenBase.tokenBridge (WormholeDepositProcessorL1-flatten.sol#1499) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (GnosisTargetDispenserL2-flatten.sol#491)
+	State variables written after the call(s):
+	- _locked = 1 (GnosisTargetDispenserL2-flatten.sol#498)
+	DefaultTargetDispenserL2._locked (GnosisTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+	- DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499)
+	- DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (GnosisTargetDispenserL2-flatten.sol#418-445)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Manipulated call found: (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256) in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+Only the calldata could be manipulated
+	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (GnosisTargetDispenserL2-flatten.sol#406-414)
+	The calldata could be manipulated through GnosisTargetDispenserL2.receiveMessage(bytes) (GnosisTargetDispenserL2-flatten.sol#637-643)
+	The calldata could be manipulated through GnosisTargetDispenserL2.onTokenBridged(address,uint256,bytes) (GnosisTargetDispenserL2-flatten.sol#649-657)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499) uses a dangerous strict equality:
+	- amount == 0 (GnosisTargetDispenserL2-flatten.sol#486)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+	- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+	- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#287)
+	State variables written after the call(s):
+	- _locked = 1 (GnosisTargetDispenserL2-flatten.sol#307)
+	DefaultTargetDispenserL2._locked (GnosisTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+	- DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499)
+	- DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (GnosisTargetDispenserL2-flatten.sol#418-445)
+	- stakingBatchNonce = batchNonce + 1 (GnosisTargetDispenserL2-flatten.sol#300)
+	DefaultTargetDispenserL2.stakingBatchNonce (GnosisTargetDispenserL2-flatten.sol#179) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+	- DefaultTargetDispenserL2.stakingBatchNonce (GnosisTargetDispenserL2-flatten.sol#179)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (GnosisTargetDispenserL2-flatten.sol#538)
+	State variables written after the call(s):
+	- owner = address(0) (GnosisTargetDispenserL2-flatten.sol#545)
+	DefaultTargetDispenserL2.owner (GnosisTargetDispenserL2-flatten.sol#181) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.changeOwner(address) (GnosisTargetDispenserL2-flatten.sol#342-355)
+	- DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499)
+	- DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550)
+	- DefaultTargetDispenserL2.owner (GnosisTargetDispenserL2-flatten.sol#181)
+	- DefaultTargetDispenserL2.pause() (GnosisTargetDispenserL2-flatten.sol#448-456)
+	- DefaultTargetDispenserL2.processDataMaintenance(bytes) (GnosisTargetDispenserL2-flatten.sol#406-414)
+	- DefaultTargetDispenserL2.unpause() (GnosisTargetDispenserL2-flatten.sol#459-467)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398):
+	External calls:
+	- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#385)
+	- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#386)
+	State variables written after the call(s):
+	- _locked = 1 (GnosisTargetDispenserL2-flatten.sol#397)
+	DefaultTargetDispenserL2._locked (GnosisTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+	- DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499)
+	- DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (GnosisTargetDispenserL2-flatten.sol#418-445)
+	- stakingQueueingNonces[queueHash] = false (GnosisTargetDispenserL2-flatten.sol#391)
+	DefaultTargetDispenserL2.stakingQueueingNonces (GnosisTargetDispenserL2-flatten.sol#188) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398)
+	- DefaultTargetDispenserL2.stakingQueueingNonces (GnosisTargetDispenserL2-flatten.sol#188)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes).limitAmount (GnosisTargetDispenserL2-flatten.sol#258) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308) ignores return value by IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398) ignores return value by IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#385)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in GnosisTargetDispenserL2.slitherConstructorConstantVariables() (GnosisTargetDispenserL2-flatten.sol#580-658):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (GnosisTargetDispenserL2-flatten.sol#160)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+	- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+	- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#287)
+	State variables written after the call(s):
+	- stakingQueueingNonces[queueHash] = true (GnosisTargetDispenserL2-flatten.sol#294)
+	- withheldAmount += localWithheldAmount (GnosisTargetDispenserL2-flatten.sol#304)
+Reentrancy in GnosisTargetDispenserL2.receiveMessage(bytes) (GnosisTargetDispenserL2-flatten.sol#637-643):
+	External calls:
+	- processor = IBridge(l2MessageRelayer).messageSender() (GnosisTargetDispenserL2-flatten.sol#639)
+	- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+		- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+		- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+		- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#287)
+	State variables written after the call(s):
+	- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+		- stakingQueueingNonces[queueHash] = true (GnosisTargetDispenserL2-flatten.sol#294)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+	- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+	- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#287)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (GnosisTargetDispenserL2-flatten.sol#268)
+	- AmountWithheld(target,targetWithheldAmount) (GnosisTargetDispenserL2-flatten.sol#280)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (GnosisTargetDispenserL2-flatten.sol#296)
+	- StakingTargetDeposited(target,amount) (GnosisTargetDispenserL2-flatten.sol#289)
+Reentrancy in GnosisTargetDispenserL2._sendMessage(uint256,bytes) (GnosisTargetDispenserL2-flatten.sol#612-633):
+	External calls:
+	- iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor,data,gasLimitMessage) (GnosisTargetDispenserL2-flatten.sol#630)
+	Event emitted after the call(s):
+	- MessagePosted(uint256(iMsg),msg.sender,l1DepositProcessor,amount) (GnosisTargetDispenserL2-flatten.sol#632)
+Reentrancy in DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (GnosisTargetDispenserL2-flatten.sol#491)
+	Event emitted after the call(s):
+	- Drain(msg.sender,amount) (GnosisTargetDispenserL2-flatten.sol#496)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (GnosisTargetDispenserL2-flatten.sol#507-550):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (GnosisTargetDispenserL2-flatten.sol#538)
+	Event emitted after the call(s):
+	- Migrated(msg.sender,newL2TargetDispenser,amount) (GnosisTargetDispenserL2-flatten.sol#547)
+Reentrancy in GnosisTargetDispenserL2.receiveMessage(bytes) (GnosisTargetDispenserL2-flatten.sol#637-643):
+	External calls:
+	- processor = IBridge(l2MessageRelayer).messageSender() (GnosisTargetDispenserL2-flatten.sol#639)
+	- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+		- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+		- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#286)
+		- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#287)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (GnosisTargetDispenserL2-flatten.sol#268)
+		- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+	- AmountWithheld(target,targetWithheldAmount) (GnosisTargetDispenserL2-flatten.sol#280)
+		- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+	- MessageReceived(l1DepositProcessor,l1SourceChainId,data) (GnosisTargetDispenserL2-flatten.sol#334)
+		- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (GnosisTargetDispenserL2-flatten.sol#296)
+		- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+	- StakingTargetDeposited(target,amount) (GnosisTargetDispenserL2-flatten.sol#289)
+		- _receiveMessage(msg.sender,processor,data) (GnosisTargetDispenserL2-flatten.sol#642)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (GnosisTargetDispenserL2-flatten.sol#361-398):
+	External calls:
+	- IToken(olas).approve(target,amount) (GnosisTargetDispenserL2-flatten.sol#385)
+	- IStaking(target).deposit(amount) (GnosisTargetDispenserL2-flatten.sol#386)
+	Event emitted after the call(s):
+	- StakingTargetDeposited(target,amount) (GnosisTargetDispenserL2-flatten.sol#388)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+Low level call in DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308):
+	- (success,returnData) = stakingFactory.call(verifyData) (GnosisTargetDispenserL2-flatten.sol#256)
+Low level call in DefaultTargetDispenserL2.drain() (GnosisTargetDispenserL2-flatten.sol#472-499):
+	- (success) = msg.sender.call{value: amount}() (GnosisTargetDispenserL2-flatten.sol#491)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+Variable DefaultTargetDispenserL2._locked (GnosisTargetDispenserL2-flatten.sol#185) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Function DefaultTargetDispenserL2._processData(bytes) (GnosisTargetDispenserL2-flatten.sol#234-308) contains magic number: 32
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Contract locking ether found:
+	Contract GnosisDepositProcessorL1 (GnosisDepositProcessor-flatten.sol#340-413) has payable functions:
+	 - DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (GnosisDepositProcessor-flatten.sol#227-251)
+	 - DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (GnosisDepositProcessor-flatten.sol#259-277)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+
+INFO:Detectors:
+GnosisDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (GnosisDepositProcessor-flatten.sol#359-402) ignores return value by IToken(olas).approve(l1TokenRelayer,transferAmount) (GnosisDepositProcessor-flatten.sol#373)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in GnosisDepositProcessorL1.slitherConstructorConstantVariables() (GnosisDepositProcessor-flatten.sol#340-413):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (GnosisDepositProcessor-flatten.sol#123)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Reentrancy in GnosisDepositProcessorL1.receiveMessage(bytes) (GnosisDepositProcessor-flatten.sol#406-412):
+	External calls:
+	- l2Dispenser = IBridge(l1MessageRelayer).messageSender() (GnosisDepositProcessor-flatten.sol#408)
+	- _receiveMessage(msg.sender,l2Dispenser,data) (GnosisDepositProcessor-flatten.sol#411)
+		- IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId,amount) (GnosisDepositProcessor-flatten.sol#219)
+	Event emitted after the call(s):
+	- MessageReceived(l2TargetDispenser,l2TargetChainId,data) (GnosisDepositProcessor-flatten.sol#213)
+		- _receiveMessage(msg.sender,l2Dispenser,data) (GnosisDepositProcessor-flatten.sol#411)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (GnosisDepositProcessor-flatten.sol#134) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (GnosisDepositProcessor-flatten.sol#301)
+Variable DefaultDepositProcessorL1.l1Dispenser (GnosisDepositProcessor-flatten.sol#134) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (GnosisDepositProcessor-flatten.sol#281)
+Variable DefaultDepositProcessorL1.l1Dispenser (GnosisDepositProcessor-flatten.sol#134) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (GnosisDepositProcessor-flatten.sol#202)
+Variable DefaultDepositProcessorL1.l1Dispenser (GnosisDepositProcessor-flatten.sol#134) is too similar to GnosisDepositProcessorL1.receiveMessage(bytes).l2Dispenser (GnosisDepositProcessor-flatten.sol#408)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+Function DefaultDepositProcessorL1.getBridgingDecimals() (GnosisDepositProcessor-flatten.sol#307-309) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#87-126) ignores return value by IToken(olas).transfer(timelock,refundAmount) (EthereumDepositProcessor-flatten.sol#113)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+
+INFO:Detectors:
+Reentrancy in EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#87-126):
+	External calls:
+	- IToken(olas).transfer(timelock,refundAmount) (EthereumDepositProcessor-flatten.sol#113)
+	- IToken(olas).approve(target,amount) (EthereumDepositProcessor-flatten.sol#119)
+	- IStaking(target).deposit(amount) (EthereumDepositProcessor-flatten.sol#120)
+	State variables written after the call(s):
+	- _locked = 1 (EthereumDepositProcessor-flatten.sol#125)
+	EthereumDepositProcessor._locked (EthereumDepositProcessor-flatten.sol#64) can be used in cross function reentrancies:
+	- EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#87-126)
+	- EthereumDepositProcessor.constructor(address,address,address,address) (EthereumDepositProcessor-flatten.sol#71-82)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#87-126) ignores return value by IToken(olas).approve(target,amount) (EthereumDepositProcessor-flatten.sol#119)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Reentrancy in EthereumDepositProcessor._deposit(address[],uint256[]) (EthereumDepositProcessor-flatten.sol#87-126):
+	External calls:
+	- IToken(olas).transfer(timelock,refundAmount) (EthereumDepositProcessor-flatten.sol#113)
+	- IToken(olas).approve(target,amount) (EthereumDepositProcessor-flatten.sol#119)
+	- IStaking(target).deposit(amount) (EthereumDepositProcessor-flatten.sol#120)
+	Event emitted after the call(s):
+	- AmountRefunded(target,refundAmount) (EthereumDepositProcessor-flatten.sol#115)
+	- StakingTargetDeposited(target,amount) (EthereumDepositProcessor-flatten.sol#122)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+Variable EthereumDepositProcessor._locked (EthereumDepositProcessor-flatten.sol#64) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Function EthereumDepositProcessor.getBridgingDecimals() (EthereumDepositProcessor-flatten.sol#174-176) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Function TokenomicsConstants.getSupplyCapForYear(uint256) (TokenomicsConstants-flatten.sol#35-66) contains magic numbers: 10, 529, 9, 100
+Function TokenomicsConstants.getInflationForYear(uint256) (TokenomicsConstants-flatten.sol#71-104) contains magic numbers: 10, 3, 9, 100, 100
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+OptimismDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (OptimismDepositProcessorL1-flatten.sol#403-447) ignores return value by IToken(olas).approve(l1TokenRelayer,transferAmount) (OptimismDepositProcessorL1-flatten.sol#419)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in OptimismDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (OptimismDepositProcessorL1-flatten.sol#403-447):
+	uint256 => uint32 casting occurs in IBridge(l1TokenRelayer).depositERC20To(olas,olasL2,l2TargetDispenser,transferAmount,uint32(TOKEN_GAS_LIMIT),) (OptimismDepositProcessorL1-flatten.sol#422-423)
+	uint256 => uint32 casting occurs in IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser,data,uint32(gasLimitMessage)) (OptimismDepositProcessorL1-flatten.sol#443)
+Dubious typecast in OptimismDepositProcessorL1.slitherConstructorConstantVariables() (OptimismDepositProcessorL1-flatten.sol#367-458):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (OptimismDepositProcessorL1-flatten.sol#123)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (OptimismDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (OptimismDepositProcessorL1-flatten.sol#301)
+Variable DefaultDepositProcessorL1.l1Dispenser (OptimismDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (OptimismDepositProcessorL1-flatten.sol#281)
+Variable DefaultDepositProcessorL1.l1Dispenser (OptimismDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (OptimismDepositProcessorL1-flatten.sol#202)
+Variable DefaultDepositProcessorL1.l1Dispenser (OptimismDepositProcessorL1-flatten.sol#134) is too similar to OptimismDepositProcessorL1.receiveMessage(bytes).l2Dispenser (OptimismDepositProcessorL1-flatten.sol#453)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+Function DefaultDepositProcessorL1.getBridgingDecimals() (OptimismDepositProcessorL1-flatten.sol#307-309) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (OptimismTargetDispenserL2-flatten.sol#488)
+	State variables written after the call(s):
+	- _locked = 1 (OptimismTargetDispenserL2-flatten.sol#495)
+	DefaultTargetDispenserL2._locked (OptimismTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (OptimismTargetDispenserL2-flatten.sol#415-442)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Manipulated call found: (success,returnData) = stakingFactory.call(verifyData) (OptimismTargetDispenserL2-flatten.sol#253) in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+Only the calldata could be manipulated
+	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (OptimismTargetDispenserL2-flatten.sol#403-411)
+	The calldata could be manipulated through OptimismTargetDispenserL2.receiveMessage(bytes) (OptimismTargetDispenserL2-flatten.sol#647-653)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496) uses a dangerous strict equality:
+	- amount == 0 (OptimismTargetDispenserL2-flatten.sol#483)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (OptimismTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (OptimismTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- _locked = 1 (OptimismTargetDispenserL2-flatten.sol#304)
+	DefaultTargetDispenserL2._locked (OptimismTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (OptimismTargetDispenserL2-flatten.sol#415-442)
+	- stakingBatchNonce = batchNonce + 1 (OptimismTargetDispenserL2-flatten.sol#297)
+	DefaultTargetDispenserL2.stakingBatchNonce (OptimismTargetDispenserL2-flatten.sol#176) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.stakingBatchNonce (OptimismTargetDispenserL2-flatten.sol#176)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (OptimismTargetDispenserL2-flatten.sol#535)
+	State variables written after the call(s):
+	- owner = address(0) (OptimismTargetDispenserL2-flatten.sol#542)
+	DefaultTargetDispenserL2.owner (OptimismTargetDispenserL2-flatten.sol#178) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.changeOwner(address) (OptimismTargetDispenserL2-flatten.sol#339-352)
+	- DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.owner (OptimismTargetDispenserL2-flatten.sol#178)
+	- DefaultTargetDispenserL2.pause() (OptimismTargetDispenserL2-flatten.sol#445-453)
+	- DefaultTargetDispenserL2.processDataMaintenance(bytes) (OptimismTargetDispenserL2-flatten.sol#403-411)
+	- DefaultTargetDispenserL2.unpause() (OptimismTargetDispenserL2-flatten.sol#456-464)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (OptimismTargetDispenserL2-flatten.sol#383)
+	State variables written after the call(s):
+	- _locked = 1 (OptimismTargetDispenserL2-flatten.sol#394)
+	DefaultTargetDispenserL2._locked (OptimismTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (OptimismTargetDispenserL2-flatten.sol#415-442)
+	- stakingQueueingNonces[queueHash] = false (OptimismTargetDispenserL2-flatten.sol#388)
+	DefaultTargetDispenserL2.stakingQueueingNonces (OptimismTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.stakingQueueingNonces (OptimismTargetDispenserL2-flatten.sol#185)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes).limitAmount (OptimismTargetDispenserL2-flatten.sol#255) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305) ignores return value by IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#283)
+DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395) ignores return value by IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#382)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in OptimismTargetDispenserL2._sendMessage(uint256,bytes) (OptimismTargetDispenserL2-flatten.sol#611-643):
+	uint256 => uint32 casting occurs in IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor,data,uint32(gasLimitMessage)) (OptimismTargetDispenserL2-flatten.sol#640)
+Dubious typecast in OptimismTargetDispenserL2.slitherConstructorConstantVariables() (OptimismTargetDispenserL2-flatten.sol#592-654):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (OptimismTargetDispenserL2-flatten.sol#157)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (OptimismTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (OptimismTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- stakingQueueingNonces[queueHash] = true (OptimismTargetDispenserL2-flatten.sol#291)
+	- withheldAmount += localWithheldAmount (OptimismTargetDispenserL2-flatten.sol#301)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (OptimismTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (OptimismTargetDispenserL2-flatten.sol#284)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (OptimismTargetDispenserL2-flatten.sol#265)
+	- AmountWithheld(target,targetWithheldAmount) (OptimismTargetDispenserL2-flatten.sol#277)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (OptimismTargetDispenserL2-flatten.sol#293)
+	- StakingTargetDeposited(target,amount) (OptimismTargetDispenserL2-flatten.sol#286)
+Reentrancy in OptimismTargetDispenserL2._sendMessage(uint256,bytes) (OptimismTargetDispenserL2-flatten.sol#611-643):
+	External calls:
+	- IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor,data,uint32(gasLimitMessage)) (OptimismTargetDispenserL2-flatten.sol#640)
+	Event emitted after the call(s):
+	- MessagePosted(0,msg.sender,l1DepositProcessor,amount) (OptimismTargetDispenserL2-flatten.sol#642)
+Reentrancy in DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (OptimismTargetDispenserL2-flatten.sol#488)
+	Event emitted after the call(s):
+	- Drain(msg.sender,amount) (OptimismTargetDispenserL2-flatten.sol#493)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (OptimismTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (OptimismTargetDispenserL2-flatten.sol#535)
+	Event emitted after the call(s):
+	- Migrated(msg.sender,newL2TargetDispenser,amount) (OptimismTargetDispenserL2-flatten.sol#544)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (OptimismTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (OptimismTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (OptimismTargetDispenserL2-flatten.sol#383)
+	Event emitted after the call(s):
+	- StakingTargetDeposited(target,amount) (OptimismTargetDispenserL2-flatten.sol#385)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+INFO:Detectors:
+Low level call in DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305):
+	- (success,returnData) = stakingFactory.call(verifyData) (OptimismTargetDispenserL2-flatten.sol#253)
+Low level call in DefaultTargetDispenserL2.drain() (OptimismTargetDispenserL2-flatten.sol#469-496):
+	- (success) = msg.sender.call{value: amount}() (OptimismTargetDispenserL2-flatten.sol#488)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+Variable DefaultTargetDispenserL2._locked (OptimismTargetDispenserL2-flatten.sol#182) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Function DefaultTargetDispenserL2._processData(bytes) (OptimismTargetDispenserL2-flatten.sol#231-305) contains magic number: 32
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+ArbitrumDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (ArbitrumDepositProcessorL1-flatten.sol#427-495) ignores return value by IToken(olas).approve(l1ERC20Gateway,transferAmount) (ArbitrumDepositProcessorL1-flatten.sol#477)
+ArbitrumDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (ArbitrumDepositProcessorL1-flatten.sol#427-495) ignores return value by IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas,refundAccount,l2TargetDispenser,transferAmount,TOKEN_GAS_LIMIT,gasPriceBid,submissionCostData) (ArbitrumDepositProcessorL1-flatten.sol#485-486)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in ArbitrumDepositProcessorL1.slitherConstructorConstantVariables() (ArbitrumDepositProcessorL1-flatten.sol#378-511):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (ArbitrumDepositProcessorL1-flatten.sol#123)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (ArbitrumDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (ArbitrumDepositProcessorL1-flatten.sol#301)
+Variable DefaultDepositProcessorL1.l1Dispenser (ArbitrumDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (ArbitrumDepositProcessorL1-flatten.sol#202)
+Variable DefaultDepositProcessorL1.l1Dispenser (ArbitrumDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (ArbitrumDepositProcessorL1-flatten.sol#281)
+Variable DefaultDepositProcessorL1.l1Dispenser (ArbitrumDepositProcessorL1-flatten.sol#134) is too similar to ArbitrumDepositProcessorL1.receiveMessage(bytes).l2Dispenser (ArbitrumDepositProcessorL1-flatten.sol#506)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+Function DefaultDepositProcessorL1.getBridgingDecimals() (ArbitrumDepositProcessorL1-flatten.sol#307-309) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (Dispenser-flatten.sol#442-499) sends eth to arbitrary user
+	Dangerous calls:
+	- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#491-492)
+	- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#495-496)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#functions-that-send-ether-to-arbitrary-destinations
+
+INFO:Detectors:
+Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#975-976)
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (Dispenser-flatten.sol#985-986)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	- ITokenomics(tokenomics).refundFromStaking(returnAmount) (Dispenser-flatten.sol#993)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,transferAmount) (Dispenser-flatten.sol#1023)
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#1032)
+		- IToken(olas).transfer(depositProcessor,transferAmount) (Dispenser-flatten.sol#421)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#426-427)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#430-431)
+	External calls sending eth:
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#1032)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#426-427)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#430-431)
+	State variables written after the call(s):
+	- _locked = 1 (Dispenser-flatten.sol#1037)
+	Dispenser._locked (Dispenser-flatten.sol#292) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256) (Dispenser-flatten.sol#317-351)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#1071-1072)
+	- (totalAmounts,stakingIncentives,transferAmounts) = _calculateStakingIncentivesBatch(numClaimedEpochs,chainIds,stakingTargets) (Dispenser-flatten.sol#1085-1086)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	- ITokenomics(tokenomics).refundFromStaking(totalAmounts[2]) (Dispenser-flatten.sol#1090)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,totalAmounts[1]) (Dispenser-flatten.sol#1100)
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (Dispenser-flatten.sol#1109-1110)
+		- IToken(olas).transfer(depositProcessor,transferAmounts[i]) (Dispenser-flatten.sol#457)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#491-492)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#495-496)
+	External calls sending eth:
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (Dispenser-flatten.sol#1109-1110)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#491-492)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#495-496)
+	State variables written after the call(s):
+	- _locked = 1 (Dispenser-flatten.sol#1115)
+	Dispenser._locked (Dispenser-flatten.sol#292) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256) (Dispenser-flatten.sol#317-351)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Dispenser._distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (Dispenser-flatten.sol#409-433) ignores return value by IToken(olas).transfer(depositProcessor,transferAmount) (Dispenser-flatten.sol#421)
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (Dispenser-flatten.sol#442-499) ignores return value by IToken(olas).transfer(depositProcessor,transferAmounts[i]) (Dispenser-flatten.sol#457)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+
+INFO:Detectors:
+Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (Dispenser-flatten.sol#848-938) performs a multiplication on the result of a division:
+	- normalizedStakingAmount = stakingIncentive / (10 ** (18 - bridgingDecimals)) (Dispenser-flatten.sol#927)
+	- normalizedStakingAmount *= 10 ** (18 - bridgingDecimals) (Dispenser-flatten.sol#928)
+Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#1197-1235) performs a multiplication on the result of a division:
+	- normalizedAmount = amount / (10 ** (18 - bridgingDecimals)) (Dispenser-flatten.sol#1219)
+	- normalizedAmount *= 10 ** (18 - bridgingDecimals) (Dispenser-flatten.sol#1220)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
+
+INFO:Detectors:
+Reentrancy in Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (Dispenser-flatten.sol#574-633):
+	External calls:
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainIds[i],stakingTargets[i][j],bridgingDecimals) (Dispenser-flatten.sol#603-604)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	State variables written after the call(s):
+	- mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount (Dispenser-flatten.sol#626)
+	Dispenser.mapChainIdWithheldAmounts (Dispenser-flatten.sol#310) can be used in cross function reentrancies:
+	- Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (Dispenser-flatten.sol#574-633)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.mapChainIdWithheldAmounts (Dispenser-flatten.sol#310)
+	- Dispenser.syncWithheldAmount(uint256,uint256) (Dispenser-flatten.sol#1172-1190)
+	- Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#1197-1235)
+	- mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch (Dispenser-flatten.sol#607)
+	Dispenser.mapLastClaimedStakingEpochs (Dispenser-flatten.sol#304) can be used in cross function reentrancies:
+	- Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (Dispenser-flatten.sol#574-633)
+	- Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256) (Dispenser-flatten.sol#358-401)
+	- Dispenser.addNominee(bytes32) (Dispenser-flatten.sol#733-747)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.mapLastClaimedStakingEpochs (Dispenser-flatten.sol#304)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836):
+	External calls:
+	- currentPause == Pause.DevIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#800-801)
+	- (reward,topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender,unitTypes,unitIds) (Dispenser-flatten.sol#806)
+	- success = ITreasury(treasury).withdrawToAccount(msg.sender,reward,topUp) (Dispenser-flatten.sol#817)
+	State variables written after the call(s):
+	- _locked = 1 (Dispenser-flatten.sol#835)
+	Dispenser._locked (Dispenser-flatten.sol#292) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256) (Dispenser-flatten.sol#317-351)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#975-976)
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (Dispenser-flatten.sol#985-986)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	State variables written after the call(s):
+	- mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch (Dispenser-flatten.sol#989)
+	Dispenser.mapLastClaimedStakingEpochs (Dispenser-flatten.sol#304) can be used in cross function reentrancies:
+	- Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (Dispenser-flatten.sol#574-633)
+	- Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256) (Dispenser-flatten.sol#358-401)
+	- Dispenser.addNominee(bytes32) (Dispenser-flatten.sol#733-747)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.mapLastClaimedStakingEpochs (Dispenser-flatten.sol#304)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reentrancy in Dispenser.retain() (Dispenser-flatten.sol#1119-1166):
+	External calls:
+	- ITokenomics(tokenomics).refundFromStaking(totalReturnAmount) (Dispenser-flatten.sol#1160)
+	State variables written after the call(s):
+	- _locked = 1 (Dispenser-flatten.sol#1165)
+	Dispenser._locked (Dispenser-flatten.sol#292) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256) (Dispenser-flatten.sol#317-351)
+	- Dispenser.retain() (Dispenser-flatten.sol#1119-1166)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]).numPos (Dispenser-flatten.sol#473) is a local variable never initialized
+Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes).transferAmount (Dispenser-flatten.sol#996) is a local variable never initialized
+Dispenser.claimOwnerIncentives(uint256[],uint256[]).balanceBefore (Dispenser-flatten.sol#812) is a local variable never initialized
+Dispenser.claimOwnerIncentives(uint256[],uint256[]).success (Dispenser-flatten.sol#808) is a local variable never initialized
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]).numActualTargets (Dispenser-flatten.sol#461) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038) ignores return value by ITreasury(treasury).withdrawToAccount(address(this),0,transferAmount) (Dispenser-flatten.sol#1023)
+Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116) ignores return value by ITreasury(treasury).withdrawToAccount(address(this),0,totalAmounts[1]) (Dispenser-flatten.sol#1100)
+Dispenser.retain() (Dispenser-flatten.sol#1119-1166) ignores return value by (stakingWeight) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer,block.chainid,endTime) (Dispenser-flatten.sol#1152-1153)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in Dispenser._distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (Dispenser-flatten.sol#409-433):
+	uint256 => uint160 casting occurs in stakingTargetEVM = address(uint160(uint256(stakingTarget))) (Dispenser-flatten.sol#425)
+Dubious typecast in Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (Dispenser-flatten.sol#442-499):
+	uint256 => uint160 casting occurs in stakingTargetsEVM[j_scope_1] = address(uint160(uint256(updatedStakingTargets[j_scope_1]))) (Dispenser-flatten.sol#487)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (Dispenser-flatten.sol#848-938) has external calls inside a loop: stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j) (Dispenser-flatten.sol#882-883)
+Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (Dispenser-flatten.sol#848-938) has external calls inside a loop: endTime = ITokenomics(tokenomics).getEpochEndTime(j) (Dispenser-flatten.sol#885)
+Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (Dispenser-flatten.sol#848-938) has external calls inside a loop: (stakingWeight,totalWeightSum) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(stakingTarget,chainId,endTime) (Dispenser-flatten.sol#891-892)
+Dispenser.retain() (Dispenser-flatten.sol#1119-1166) has external calls inside a loop: stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j) (Dispenser-flatten.sol#1146)
+Dispenser.retain() (Dispenser-flatten.sol#1119-1166) has external calls inside a loop: endTime = ITokenomics(tokenomics).getEpochEndTime(j) (Dispenser-flatten.sol#1149)
+Dispenser.retain() (Dispenser-flatten.sol#1119-1166) has external calls inside a loop: (stakingWeight) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(localRetainer,block.chainid,endTime) (Dispenser-flatten.sol#1152-1153)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+
+INFO:Detectors:
+Reentrancy in Dispenser.addNominee(bytes32) (Dispenser-flatten.sol#733-747):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#741-742)
+	State variables written after the call(s):
+	- mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter() (Dispenser-flatten.sol#746)
+Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#975-976)
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (Dispenser-flatten.sol#985-986)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	- ITokenomics(tokenomics).refundFromStaking(returnAmount) (Dispenser-flatten.sol#993)
+	State variables written after the call(s):
+	- mapChainIdWithheldAmounts[chainId] = withheldAmount (Dispenser-flatten.sol#1015)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in Dispenser.claimOwnerIncentives(uint256[],uint256[]) (Dispenser-flatten.sol#788-836):
+	External calls:
+	- currentPause == Pause.DevIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#800-801)
+	- (reward,topUp) = ITokenomics(tokenomics).accountOwnerIncentives(msg.sender,unitTypes,unitIds) (Dispenser-flatten.sol#806)
+	- success = ITreasury(treasury).withdrawToAccount(msg.sender,reward,topUp) (Dispenser-flatten.sol#817)
+	Event emitted after the call(s):
+	- IncentivesClaimed(msg.sender,reward,topUp) (Dispenser-flatten.sol#833)
+Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#975-976)
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (Dispenser-flatten.sol#985-986)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	- ITokenomics(tokenomics).refundFromStaking(returnAmount) (Dispenser-flatten.sol#993)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,transferAmount) (Dispenser-flatten.sol#1023)
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#1032)
+		- IToken(olas).transfer(depositProcessor,transferAmount) (Dispenser-flatten.sol#421)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#426-427)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#430-431)
+	External calls sending eth:
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#1032)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#426-427)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (Dispenser-flatten.sol#430-431)
+	Event emitted after the call(s):
+	- StakingIncentivesClaimed(msg.sender,stakingIncentive,transferAmount,returnAmount) (Dispenser-flatten.sol#1035)
+Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (Dispenser-flatten.sol#1071-1072)
+	- (totalAmounts,stakingIncentives,transferAmounts) = _calculateStakingIncentivesBatch(numClaimedEpochs,chainIds,stakingTargets) (Dispenser-flatten.sol#1085-1086)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (Dispenser-flatten.sol#877)
+	- ITokenomics(tokenomics).refundFromStaking(totalAmounts[2]) (Dispenser-flatten.sol#1090)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,totalAmounts[1]) (Dispenser-flatten.sol#1100)
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (Dispenser-flatten.sol#1109-1110)
+		- IToken(olas).transfer(depositProcessor,transferAmounts[i]) (Dispenser-flatten.sol#457)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#491-492)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#495-496)
+	External calls sending eth:
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (Dispenser-flatten.sol#1109-1110)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#491-492)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (Dispenser-flatten.sol#495-496)
+	Event emitted after the call(s):
+	- StakingIncentivesClaimed(msg.sender,totalAmounts[0],totalAmounts[1],totalAmounts[2]) (Dispenser-flatten.sol#1113)
+Reentrancy in Dispenser.retain() (Dispenser-flatten.sol#1119-1166):
+	External calls:
+	- ITokenomics(tokenomics).refundFromStaking(totalReturnAmount) (Dispenser-flatten.sol#1160)
+	Event emitted after the call(s):
+	- Retained(msg.sender,totalReturnAmount) (Dispenser-flatten.sol#1163)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+Dispenser.removeNominee(bytes32) (Dispenser-flatten.sol#751-779) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp >= maxAllowedTime (Dispenser-flatten.sol#773)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+INFO:Detectors:
+Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038) has a high cyclomatic complexity (12).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+
+INFO:Detectors:
+Parameter Dispenser.changeManagers(address,address,address)._tokenomics (Dispenser-flatten.sol#656) is not in mixedCase
+Parameter Dispenser.changeManagers(address,address,address)._treasury (Dispenser-flatten.sol#656) is not in mixedCase
+Parameter Dispenser.changeManagers(address,address,address)._voteWeighting (Dispenser-flatten.sol#656) is not in mixedCase
+Parameter Dispenser.changeStakingParams(uint256,uint256)._maxNumClaimingEpochs (Dispenser-flatten.sol#684) is not in mixedCase
+Parameter Dispenser.changeStakingParams(uint256,uint256)._maxNumStakingTargets (Dispenser-flatten.sol#684) is not in mixedCase
+Variable Dispenser._locked (Dispenser-flatten.sol#292) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Function Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (Dispenser-flatten.sol#574-633) contains magic number: 3
+Function Dispenser.removeNominee(bytes32) (Dispenser-flatten.sol#751-779) contains magic number: 604800
+Function Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (Dispenser-flatten.sol#848-938) contains magic numbers: 1e14, 18, 10, 10
+Function Dispenser.syncWithheldAmountMaintenance(uint256,uint256) (Dispenser-flatten.sol#1197-1235) contains magic numbers: 18, 10, 10
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+In a function Dispenser.removeNominee(bytes32) (Dispenser-flatten.sol#751-779) variable Dispenser.tokenomics (Dispenser-flatten.sol#297) is read multiple times
+In a function Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (Dispenser-flatten.sol#945-1038) variable Dispenser.olas (Dispenser-flatten.sol#279) is read multiple times
+In a function Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (Dispenser-flatten.sol#1049-1116) variable Dispenser.olas (Dispenser-flatten.sol#279) is read multiple times
+In a function Dispenser.retain() (Dispenser-flatten.sol#1119-1166) variable Dispenser.tokenomics (Dispenser-flatten.sol#297) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
+INFO:Detectors:
+Function FxRoot.setFxChild(address) (PolygonDepositProcessorL1-flatten.sol#333-336) is a non-protected setter fxChild is written
+Function FxBaseRootTunnel.setFxChildTunnel(address) (PolygonDepositProcessorL1-flatten.sol#1066-1069) is a non-protected setter fxChildTunnel is written
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/unprotected_setter.md
+
+INFO:Detectors:
+Contract locking ether found:
+	Contract PolygonDepositProcessorL1 (PolygonDepositProcessorL1-flatten.sol#1207-1306) has payable functions:
+	 - DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (PolygonDepositProcessorL1-flatten.sol#227-251)
+	 - DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (PolygonDepositProcessorL1-flatten.sol#259-277)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+
+INFO:Detectors:
+FxBaseRootTunnel._checkBlockMembershipInCheckpoint(uint256,uint256,bytes32,bytes32,uint256,bytes) (PolygonDepositProcessorL1-flatten.sol#1139-1157) ignores return value by (headerRoot,startBlock,createdAt) = checkpointManager.headerBlocks(headerNumber) (PolygonDepositProcessorL1-flatten.sol#1147)
+PolygonDepositProcessorL1._sendMessage(address[],uint256[],bytes,uint256) (PolygonDepositProcessorL1-flatten.sol#1242-1269) ignores return value by IToken(olas).approve(predicate,transferAmount) (PolygonDepositProcessorL1-flatten.sol#1253)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in RLPReader.toAddress(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#536-541):
+	uint256 => uint160 casting occurs in address(uint160(toUint(item))) (PolygonDepositProcessorL1-flatten.sol#540)
+Dubious typecast in PolygonDepositProcessorL1.slitherConstructorConstantVariables() (PolygonDepositProcessorL1-flatten.sol#1207-1306):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (PolygonDepositProcessorL1-flatten.sol#123)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+FxRoot.setFxChild(address)._fxChild (PolygonDepositProcessorL1-flatten.sol#333) lacks a zero-check on :
+		- fxChild = _fxChild (PolygonDepositProcessorL1-flatten.sol#335)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+
+INFO:Detectors:
+Setter function FxRoot.setFxChild(address) (PolygonDepositProcessorL1-flatten.sol#333-336) does not emit an event
+Setter function PolygonDepositProcessorL1.setL2TargetDispenser(address) (PolygonDepositProcessorL1-flatten.sol#1302-1305) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+
+INFO:Detectors:
+RLPReader.toRlpItem(bytes) (PolygonDepositProcessorL1-flatten.sol#392-399) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#394-396)
+RLPReader.isList(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#460-471) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#465-467)
+RLPReader.rlpBytesKeccak256(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#477-485) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#481-483)
+RLPReader.payloadKeccak256(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#491-498) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#494-496)
+RLPReader.toRlpBytes(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#503-514) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#508-510)
+RLPReader.toBoolean(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#517-534) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#521-523)
+RLPReader.toUint(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#543-559) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#549-556)
+RLPReader.toUintStrict(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#562-573) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#568-570)
+RLPReader.toBytes(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#575-588) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#582-584)
+RLPReader._itemLength(uint256) (PolygonDepositProcessorL1-flatten.sol#610-643) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#613-615)
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#622-629)
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#633-639)
+RLPReader._payloadOffset(uint256) (PolygonDepositProcessorL1-flatten.sol#646-662) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#648-650)
+RLPReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#669-691) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#674-676)
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#685-689)
+ExitPayloadReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#722-744) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#727-729)
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#739-743)
+ExitPayloadReader.getReceipt(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#776-800) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#789-792)
+Merkle.checkMembership(bytes32,uint256,bytes32,bytes) (PolygonDepositProcessorL1-flatten.sol#854-882) uses assembly
+	- INLINE ASM (PolygonDepositProcessorL1-flatten.sol#869-871)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+
+INFO:Detectors:
+FxBaseRootTunnel._validateAndExtractMessage(bytes) (PolygonDepositProcessorL1-flatten.sol#1084-1137) compares to a boolean constant:
+	-require(bool,string)(processedExits[exitHash] == false,FxRootTunnel: EXIT_ALREADY_PROCESSED) (PolygonDepositProcessorL1-flatten.sol#1101)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#boolean-equality
+
+INFO:Detectors:
+ExitPayloadReader.getBranchMaskAsUint(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#810-812) is never used and should be removed
+ExitPayloadReader.toRlpBytes(ExitPayloadReader.Log) (PolygonDepositProcessorL1-flatten.sol#841-843) is never used and should be removed
+RLPReader.hasNext(RLPReader.Iterator) (PolygonDepositProcessorL1-flatten.sol#384-387) is never used and should be removed
+RLPReader.iterator(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#406-411) is never used and should be removed
+RLPReader.next(RLPReader.Iterator) (PolygonDepositProcessorL1-flatten.sol#369-377) is never used and should be removed
+RLPReader.payloadKeccak256(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#491-498) is never used and should be removed
+RLPReader.payloadLen(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#434-437) is never used and should be removed
+RLPReader.rlpBytesKeccak256(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#477-485) is never used and should be removed
+RLPReader.rlpLen(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#416-418) is never used and should be removed
+RLPReader.toBoolean(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#517-534) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+INFO:Detectors:
+Parameter FxRoot.setFxChild(address)._fxChild (PolygonDepositProcessorL1-flatten.sol#333) is not in mixedCase
+Parameter FxRoot.sendMessageToChild(address,bytes)._receiver (PolygonDepositProcessorL1-flatten.sol#339) is not in mixedCase
+Parameter FxRoot.sendMessageToChild(address,bytes)._data (PolygonDepositProcessorL1-flatten.sol#339) is not in mixedCase
+Parameter FxBaseRootTunnel.setFxChildTunnel(address)._fxChildTunnel (PolygonDepositProcessorL1-flatten.sol#1066) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+Variable DefaultDepositProcessorL1.l1Dispenser (PolygonDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._receiveMessage(address,address,bytes).l2Dispenser (PolygonDepositProcessorL1-flatten.sol#202)
+Variable DefaultDepositProcessorL1.l1Dispenser (PolygonDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1._setL2TargetDispenser(address).l2Dispenser (PolygonDepositProcessorL1-flatten.sol#281)
+Variable DefaultDepositProcessorL1.l1Dispenser (PolygonDepositProcessorL1-flatten.sol#134) is too similar to DefaultDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (PolygonDepositProcessorL1-flatten.sol#301)
+Variable DefaultDepositProcessorL1.l1Dispenser (PolygonDepositProcessorL1-flatten.sol#134) is too similar to PolygonDepositProcessorL1.setL2TargetDispenser(address).l2Dispenser (PolygonDepositProcessorL1-flatten.sol#1302)
+Variable DefaultDepositProcessorL1.l1Dispenser (PolygonDepositProcessorL1-flatten.sol#134) is too similar to PolygonDepositProcessorL1.setFxChildTunnel(address).l2Dispenser (PolygonDepositProcessorL1-flatten.sol#1283)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#variable-names-too-similar
+
+INFO:Detectors:
+Function RLPReader.toAddress(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#536-541) contains magic number: 21
+Function RLPReader.toUint(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#543-559) contains magic numbers: 32, 256
+Function RLPReader.toUintStrict(RLPReader.RLPItem) (PolygonDepositProcessorL1-flatten.sol#562-573) contains magic number: 33
+Function RLPReader._itemLength(uint256) (PolygonDepositProcessorL1-flatten.sol#610-643) contains magic numbers: 256, 256
+Function RLPReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#669-691) contains magic number: 256
+Function ExitPayloadReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#722-744) contains magic number: 256
+Function ExitPayloadReader.getBlockTime(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#764-766) contains magic number: 3
+Function ExitPayloadReader.getTxRoot(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#768-770) contains magic number: 4
+Function ExitPayloadReader.getReceiptRoot(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#772-774) contains magic number: 5
+Function ExitPayloadReader.getReceipt(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#776-800) contains magic numbers: 6, 33
+Function ExitPayloadReader.getReceiptProof(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#802-804) contains magic number: 7
+Function ExitPayloadReader.getBranchMaskAsBytes(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#806-808) contains magic number: 8
+Function ExitPayloadReader.getBranchMaskAsUint(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#810-812) contains magic number: 8
+Function ExitPayloadReader.getReceiptLogIndex(ExitPayloadReader.ExitPayload) (PolygonDepositProcessorL1-flatten.sol#814-816) contains magic number: 9
+Function ExitPayloadReader.getLog(ExitPayloadReader.Receipt) (PolygonDepositProcessorL1-flatten.sol#823-826) contains magic number: 3
+Function Merkle.checkMembership(bytes32,uint256,bytes32,bytes) (PolygonDepositProcessorL1-flatten.sol#854-882) contains magic numbers: 32, 32, 32, 32
+Function MerklePatriciaProof.verify(bytes,bytes,bytes,bytes32) (PolygonDepositProcessorL1-flatten.sol#896-964) contains magic numbers: 17, 16, 16
+Function DefaultDepositProcessorL1.getBridgingDecimals() (PolygonDepositProcessorL1-flatten.sol#307-309) contains magic number: 18
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+FxBaseRootTunnel.checkpointManager (PolygonDepositProcessorL1-flatten.sol#1053) should be immutable 
+FxBaseRootTunnel.fxRoot (PolygonDepositProcessorL1-flatten.sol#1051) should be immutable 
+FxRoot.stateSender (PolygonDepositProcessorL1-flatten.sol#326) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+
+INFO:Detectors:
+In a function RLPReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#669-691) variable RLPReader.WORD_SIZE (PolygonDepositProcessorL1-flatten.sol#352) is read multiple times
+In a function ExitPayloadReader.copy(uint256,uint256,uint256) (PolygonDepositProcessorL1-flatten.sol#722-744) variable ExitPayloadReader.WORD_SIZE (PolygonDepositProcessorL1-flatten.sol#700) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (PolygonTargetDispenserL2-flatten.sol#488)
+	State variables written after the call(s):
+	- _locked = 1 (PolygonTargetDispenserL2-flatten.sol#495)
+	DefaultTargetDispenserL2._locked (PolygonTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (PolygonTargetDispenserL2-flatten.sol#415-442)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Function FxChild.setFxRoot(address) (PolygonTargetDispenserL2-flatten.sol#575-578) is a non-protected setter fxRoot is written
+Function FxBaseChildTunnel.setFxRootTunnel(address) (PolygonTargetDispenserL2-flatten.sol#616-619) is a non-protected setter fxRootTunnel is written
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/unprotected_setter.md
+
+INFO:Detectors:
+Manipulated call found: (success,returnData) = stakingFactory.call(verifyData) (PolygonTargetDispenserL2-flatten.sol#253) in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+Only the calldata could be manipulated
+	The calldata could be manipulated through FxBaseChildTunnel.processMessageFromRoot(uint256,address,bytes) (PolygonTargetDispenserL2-flatten.sol#621-624)
+	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (PolygonTargetDispenserL2-flatten.sol#403-411)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496) uses a dangerous strict equality:
+	- amount == 0 (PolygonTargetDispenserL2-flatten.sol#483)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (PolygonTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (PolygonTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- _locked = 1 (PolygonTargetDispenserL2-flatten.sol#304)
+	DefaultTargetDispenserL2._locked (PolygonTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (PolygonTargetDispenserL2-flatten.sol#415-442)
+	- stakingBatchNonce = batchNonce + 1 (PolygonTargetDispenserL2-flatten.sol#297)
+	DefaultTargetDispenserL2.stakingBatchNonce (PolygonTargetDispenserL2-flatten.sol#176) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.stakingBatchNonce (PolygonTargetDispenserL2-flatten.sol#176)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (PolygonTargetDispenserL2-flatten.sol#535)
+	State variables written after the call(s):
+	- owner = address(0) (PolygonTargetDispenserL2-flatten.sol#542)
+	DefaultTargetDispenserL2.owner (PolygonTargetDispenserL2-flatten.sol#178) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.changeOwner(address) (PolygonTargetDispenserL2-flatten.sol#339-352)
+	- DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.owner (PolygonTargetDispenserL2-flatten.sol#178)
+	- DefaultTargetDispenserL2.pause() (PolygonTargetDispenserL2-flatten.sol#445-453)
+	- DefaultTargetDispenserL2.processDataMaintenance(bytes) (PolygonTargetDispenserL2-flatten.sol#403-411)
+	- DefaultTargetDispenserL2.unpause() (PolygonTargetDispenserL2-flatten.sol#456-464)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (PolygonTargetDispenserL2-flatten.sol#383)
+	State variables written after the call(s):
+	- _locked = 1 (PolygonTargetDispenserL2-flatten.sol#394)
+	DefaultTargetDispenserL2._locked (PolygonTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (PolygonTargetDispenserL2-flatten.sol#415-442)
+	- stakingQueueingNonces[queueHash] = false (PolygonTargetDispenserL2-flatten.sol#388)
+	DefaultTargetDispenserL2.stakingQueueingNonces (PolygonTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.stakingQueueingNonces (PolygonTargetDispenserL2-flatten.sol#185)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes).limitAmount (PolygonTargetDispenserL2-flatten.sol#255) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#283)
+DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#382)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in PolygonTargetDispenserL2.slitherConstructorConstantVariables() (PolygonTargetDispenserL2-flatten.sol#657-721):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (PolygonTargetDispenserL2-flatten.sol#157)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+FxChild.setFxRoot(address)._fxRoot (PolygonTargetDispenserL2-flatten.sol#575) lacks a zero-check on :
+		- fxRoot = _fxRoot (PolygonTargetDispenserL2-flatten.sol#577)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-zero-address-validation
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (PolygonTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (PolygonTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- stakingQueueingNonces[queueHash] = true (PolygonTargetDispenserL2-flatten.sol#291)
+	- withheldAmount += localWithheldAmount (PolygonTargetDispenserL2-flatten.sol#301)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (PolygonTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (PolygonTargetDispenserL2-flatten.sol#284)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (PolygonTargetDispenserL2-flatten.sol#265)
+	- AmountWithheld(target,targetWithheldAmount) (PolygonTargetDispenserL2-flatten.sol#277)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (PolygonTargetDispenserL2-flatten.sol#293)
+	- StakingTargetDeposited(target,amount) (PolygonTargetDispenserL2-flatten.sol#286)
+Reentrancy in DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (PolygonTargetDispenserL2-flatten.sol#488)
+	Event emitted after the call(s):
+	- Drain(msg.sender,amount) (PolygonTargetDispenserL2-flatten.sol#493)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (PolygonTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (PolygonTargetDispenserL2-flatten.sol#535)
+	Event emitted after the call(s):
+	- Migrated(msg.sender,newL2TargetDispenser,amount) (PolygonTargetDispenserL2-flatten.sol#544)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (PolygonTargetDispenserL2-flatten.sol#383)
+	Event emitted after the call(s):
+	- StakingTargetDeposited(target,amount) (PolygonTargetDispenserL2-flatten.sol#385)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+Setter function FxChild.setFxRoot(address) (PolygonTargetDispenserL2-flatten.sol#575-578) does not emit an event
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/event_setter.md
+
+INFO:Detectors:
+Pragma version^0.8.25 (PolygonTargetDispenserL2-flatten.sol#4) necessitates a version too recent to be trusted. Consider deploying with 0.8.18.
+solc-0.8.25 is not recommended for deployment
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-versions-of-solidity
+
+INFO:Detectors:
+Low level call in DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305):
+	- (success,returnData) = stakingFactory.call(verifyData) (PolygonTargetDispenserL2-flatten.sol#253)
+Low level call in DefaultTargetDispenserL2.drain() (PolygonTargetDispenserL2-flatten.sol#469-496):
+	- (success) = msg.sender.call{value: amount}() (PolygonTargetDispenserL2-flatten.sol#488)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+Variable DefaultTargetDispenserL2._locked (PolygonTargetDispenserL2-flatten.sol#182) is not in mixedCase
+Parameter FxChild.setFxRoot(address)._fxRoot (PolygonTargetDispenserL2-flatten.sol#575) is not in mixedCase
+Parameter FxChild.onStateReceive(uint256,bytes)._data (PolygonTargetDispenserL2-flatten.sol#580) is not in mixedCase
+Parameter FxBaseChildTunnel.setFxRootTunnel(address)._fxRootTunnel (PolygonTargetDispenserL2-flatten.sol#616) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+INFO:Detectors:
+Function DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.sol#231-305) contains magic number: 32
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+INFO:Detectors:
+FxBaseChildTunnel.fxChild (PolygonTargetDispenserL2-flatten.sol#600) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (DefaultTargetDispenserL2-flatten.sol#488)
+	State variables written after the call(s):
+	- _locked = 1 (DefaultTargetDispenserL2-flatten.sol#495)
+	DefaultTargetDispenserL2._locked (DefaultTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (DefaultTargetDispenserL2-flatten.sol#415-442)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+
+INFO:Detectors:
+Manipulated call found: (success,returnData) = stakingFactory.call(verifyData) (DefaultTargetDispenserL2-flatten.sol#253) in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+Only the calldata could be manipulated
+	The calldata could be manipulated through DefaultTargetDispenserL2.processDataMaintenance(bytes) (DefaultTargetDispenserL2-flatten.sol#403-411)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/arbitrary_call.md
+
+INFO:Detectors:
+DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496) uses a dangerous strict equality:
+	- amount == 0 (DefaultTargetDispenserL2-flatten.sol#483)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (DefaultTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (DefaultTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- _locked = 1 (DefaultTargetDispenserL2-flatten.sol#304)
+	DefaultTargetDispenserL2._locked (DefaultTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (DefaultTargetDispenserL2-flatten.sol#415-442)
+	- stakingBatchNonce = batchNonce + 1 (DefaultTargetDispenserL2-flatten.sol#297)
+	DefaultTargetDispenserL2.stakingBatchNonce (DefaultTargetDispenserL2-flatten.sol#176) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.stakingBatchNonce (DefaultTargetDispenserL2-flatten.sol#176)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (DefaultTargetDispenserL2-flatten.sol#535)
+	State variables written after the call(s):
+	- owner = address(0) (DefaultTargetDispenserL2-flatten.sol#542)
+	DefaultTargetDispenserL2.owner (DefaultTargetDispenserL2-flatten.sol#178) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.changeOwner(address) (DefaultTargetDispenserL2-flatten.sol#339-352)
+	- DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.owner (DefaultTargetDispenserL2-flatten.sol#178)
+	- DefaultTargetDispenserL2.pause() (DefaultTargetDispenserL2-flatten.sol#445-453)
+	- DefaultTargetDispenserL2.processDataMaintenance(bytes) (DefaultTargetDispenserL2-flatten.sol#403-411)
+	- DefaultTargetDispenserL2.unpause() (DefaultTargetDispenserL2-flatten.sol#456-464)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (DefaultTargetDispenserL2-flatten.sol#383)
+	State variables written after the call(s):
+	- _locked = 1 (DefaultTargetDispenserL2-flatten.sol#394)
+	DefaultTargetDispenserL2._locked (DefaultTargetDispenserL2-flatten.sol#182) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496)
+	- DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.syncWithheldTokens(bytes) (DefaultTargetDispenserL2-flatten.sol#415-442)
+	- stakingQueueingNonces[queueHash] = false (DefaultTargetDispenserL2-flatten.sol#388)
+	DefaultTargetDispenserL2.stakingQueueingNonces (DefaultTargetDispenserL2-flatten.sol#185) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305)
+	- DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395)
+	- DefaultTargetDispenserL2.stakingQueueingNonces (DefaultTargetDispenserL2-flatten.sol#185)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes).limitAmount (DefaultTargetDispenserL2-flatten.sol#255) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+INFO:Detectors:
+DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305) ignores return value by IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#283)
+DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395) ignores return value by IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#382)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+INFO:Detectors:
+Dubious typecast in DefaultTargetDispenserL2.slitherConstructorConstantVariables() (DefaultTargetDispenserL2-flatten.sol#140-553):
+	bytes32 => bytes4 casting occurs in RECEIVE_MESSAGE = bytes4(keccak256(bytes)(bytes(receiveMessage(bytes)))) (DefaultTargetDispenserL2-flatten.sol#157)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (DefaultTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (DefaultTargetDispenserL2-flatten.sol#284)
+	State variables written after the call(s):
+	- stakingQueueingNonces[queueHash] = true (DefaultTargetDispenserL2-flatten.sol#291)
+	- withheldAmount += localWithheldAmount (DefaultTargetDispenserL2-flatten.sol#301)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+
+INFO:Detectors:
+Reentrancy in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (DefaultTargetDispenserL2-flatten.sol#253)
+	- IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#283)
+	- IStaking(target).deposit(amount) (DefaultTargetDispenserL2-flatten.sol#284)
+	Event emitted after the call(s):
+	- AmountWithheld(target,amount) (DefaultTargetDispenserL2-flatten.sol#265)
+	- AmountWithheld(target,targetWithheldAmount) (DefaultTargetDispenserL2-flatten.sol#277)
+	- StakingRequestQueued(queueHash,target,amount,batchNonce,localPaused) (DefaultTargetDispenserL2-flatten.sol#293)
+	- StakingTargetDeposited(target,amount) (DefaultTargetDispenserL2-flatten.sol#286)
+Reentrancy in DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496):
+	External calls:
+	- (success) = msg.sender.call{value: amount}() (DefaultTargetDispenserL2-flatten.sol#488)
+	Event emitted after the call(s):
+	- Drain(msg.sender,amount) (DefaultTargetDispenserL2-flatten.sol#493)
+Reentrancy in DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547):
+	External calls:
+	- success = IToken(olas).transfer(newL2TargetDispenser,amount) (DefaultTargetDispenserL2-flatten.sol#535)
+	Event emitted after the call(s):
+	- Migrated(msg.sender,newL2TargetDispenser,amount) (DefaultTargetDispenserL2-flatten.sol#544)
+Reentrancy in DefaultTargetDispenserL2.redeem(address,uint256,uint256) (DefaultTargetDispenserL2-flatten.sol#358-395):
+	External calls:
+	- IToken(olas).approve(target,amount) (DefaultTargetDispenserL2-flatten.sol#382)
+	- IStaking(target).deposit(amount) (DefaultTargetDispenserL2-flatten.sol#383)
+	Event emitted after the call(s):
+	- StakingTargetDeposited(target,amount) (DefaultTargetDispenserL2-flatten.sol#385)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+
+INFO:Detectors:
+DefaultTargetDispenserL2._receiveMessage(address,address,bytes) (DefaultTargetDispenserL2-flatten.sol#316-335) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+INFO:Detectors:
+Low level call in DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305):
+	- (success,returnData) = stakingFactory.call(verifyData) (DefaultTargetDispenserL2-flatten.sol#253)
+Low level call in DefaultTargetDispenserL2.drain() (DefaultTargetDispenserL2-flatten.sol#469-496):
+	- (success) = msg.sender.call{value: amount}() (DefaultTargetDispenserL2-flatten.sol#488)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+INFO:Detectors:
+Variable DefaultTargetDispenserL2._locked (DefaultTargetDispenserL2-flatten.sol#182) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+INFO:Detectors:
+DefaultTargetDispenserL2 (DefaultTargetDispenserL2-flatten.sol#140-553) does not implement functions:
+	- DefaultTargetDispenserL2._sendMessage(uint256,bytes) (DefaultTargetDispenserL2-flatten.sol#310)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unimplemented-functions
+INFO:Detectors:
+Function DefaultTargetDispenserL2._processData(bytes) (DefaultTargetDispenserL2-flatten.sol#231-305) contains magic number: 32
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+INFO:Detectors:
+In a function DefaultTargetDispenserL2._receiveMessage(address,address,bytes) (DefaultTargetDispenserL2-flatten.sol#316-335) variable DefaultTargetDispenserL2.l1DepositProcessor (DefaultTargetDispenserL2-flatten.sol#170) is read multiple times
+In a function DefaultTargetDispenserL2.migrate(address) (DefaultTargetDispenserL2-flatten.sol#504-547) variable DefaultTargetDispenserL2.olas (DefaultTargetDispenserL2-flatten.sol#164) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+
