@@ -29,7 +29,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
     // Token transfer gas limit for L2
-    // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
+    // This is safe as the value is practically bigger than observed ones on numerous chains
     uint256 public constant TOKEN_GAS_LIMIT = 300_000;
     // Message transfer gas limit for L2
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
