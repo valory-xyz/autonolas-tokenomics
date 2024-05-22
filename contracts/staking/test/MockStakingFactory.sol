@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 interface IVerifier {
     function verifyImplementation(address implementation) external view returns (bool);
@@ -21,7 +21,7 @@ contract MockStakingFactory {
         mapInstanceImplementations[instance] = implementation;
     }
 
-    function verifyInstance(address instance) external view returns (bool) {
+    function verifyInstance(address instance) public view returns (bool) {
         address implementation = mapInstanceImplementations[instance];
         if (implementation == address(0)) {
             return false;
@@ -29,10 +29,20 @@ contract MockStakingFactory {
 
         // Provide additional checks, if needed
         address localVerifier = verifier;
-        if (localVerifier != address (0)) {
+        if (localVerifier != address(0)) {
             return IVerifier(localVerifier).verifyInstance(instance);
         }
 
         return true;
+    }
+
+    function verifyInstanceAndGetEmissionsAmount(address instance) external view returns (uint256 amount) {
+        // Verify the proxy instance
+        bool success = verifyInstance(instance);
+
+        if (success) {
+            // Get the proxy instance emissions amount
+            amount = 100 ether;
+        }
     }
 }

@@ -231,13 +231,13 @@ describe("Tokenomics", async () => {
 
         it("Get inflation numbers", async function () {
             const fiveYearSupplyCap = await tokenomics.getSupplyCapForYear(5);
-            expect(fiveYearSupplyCap).to.equal("82823328297" + "0".repeat(16));
+            expect(fiveYearSupplyCap).to.equal("818313084" + "0".repeat(18));
 
             const elevenYearSupplyCap = await tokenomics.getSupplyCapForYear(11);
             expect(elevenYearSupplyCap).to.equal("10404" + "0".repeat(23));
 
             const fiveYearInflationAmount = await tokenomics.getInflationForYear(5);
-            expect(fiveYearInflationAmount).to.equal("5719340697" + "0".repeat(16));
+            expect(fiveYearInflationAmount).to.equal("72000000" + "0".repeat(18));
 
             const elevenYearInflationAmount = await tokenomics.getInflationForYear(11);
             expect(elevenYearInflationAmount).to.equal("204" + "0".repeat(23));
@@ -369,7 +369,7 @@ describe("Tokenomics", async () => {
                 tokenomics.changeStakingParams(1, 0)
             ).to.be.revertedWithCustomError(tokenomics, "ZeroValue");
 
-            // The maxStakingAmount cannot be bigger than uint96
+            // The maxStakingIncentive cannot be bigger than uint96
             await expect(
                 tokenomics.changeStakingParams(maxUint96 + "1", 10)
             ).to.be.revertedWithCustomError(tokenomics, "Overflow");
@@ -972,7 +972,7 @@ describe("Tokenomics", async () => {
             let stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
             // Check that all the initial ones are zeros
             expect(stakingStruct.stakingFraction).to.equal(0);
-            expect(stakingStruct.maxStakingAmount).to.equal(0);
+            expect(stakingStruct.maxStakingIncentive).to.equal(0);
             expect(stakingStruct.minStakingWeight).to.equal(0);
 
             // Changing staking fraction to 100%
@@ -983,7 +983,7 @@ describe("Tokenomics", async () => {
             stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
             // Check that thevalues are not updated until the end of epoch
             expect(stakingStruct.stakingFraction).to.equal(0);
-            expect(stakingStruct.maxStakingAmount).to.equal(0);
+            expect(stakingStruct.maxStakingIncentive).to.equal(0);
             expect(stakingStruct.minStakingWeight).to.equal(0);
 
             await helpers.time.increase(epochLen);
@@ -992,7 +992,7 @@ describe("Tokenomics", async () => {
             stakingStruct = await tokenomics.mapEpochStakingPoints(await tokenomics.epochCounter());
             // Check that the staking fraction has been updated correctly in comparison with the initial one
             expect(stakingStruct.stakingFraction).to.equal(100);
-            expect(stakingStruct.maxStakingAmount).to.equal(50);
+            expect(stakingStruct.maxStakingIncentive).to.equal(50);
             expect(stakingStruct.minStakingWeight).to.equal(10);
 
             // Restore the state of the blockchain back to the very beginning of this test

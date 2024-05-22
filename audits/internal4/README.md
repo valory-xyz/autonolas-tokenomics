@@ -4,7 +4,7 @@ The review has been performed based on the contract code in the following reposi
 commit: `ae0cfff0aa6bcde59f1e9442777f3ab427b6d050` or `tag: v1.2.0-pre-internal-audit`<br> 
 
 ## Objectives
-The audit focused on contracts related to PooA Staking in this repo.
+The audit focused on contracts related to PoAA Staking in this repo.
 
 ### Flatten version
 Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/contracts) 
@@ -43,24 +43,34 @@ contract Dispenser {
     /// @param _voteWeighting Vote Weighting address.
     constructor(address _tokenomics, address _treasury, address _voteWeighting) {}
 ```
+[x] fixed
+
 2. checking by possibility `epochAfterRemoved - 1` < 0 in revert message
 ```
 contract Dispenser:
 revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
 ```
+[x] fixed
+
 3. checking transferAmounts > 0 before transfer
 ```
 contract Dispenser:
 in any IToken(olas).transfer(depositProcessor, transferAmounts[i]) or  IToken(olas).transfer(depositProcessor, transferAmount); check transferAmount > 0
 ```
+[x] fixed
+
 4. Double check calculateStakingIncentives. Let discussed.
 ```
 Need to rewrite the code such that anybody is able to call the calculateStakingIncentives function, without a possibility to write into the storage to arbitrary caller.
 ```
+[x] fixed
+
 5. sync pause of Dispenser with pause of Treasury
 ```
 The Treasury contract must be leading and if Treasury has set a pause, then it must be checked on Dispeser side and pause too.
 ```
+[x] fixed
+
 6. doublke check function retain() external
 ```
 function looks like she doesn't actually do anything at the end.
@@ -68,7 +78,10 @@ function looks like she doesn't actually do anything at the end.
     /// action??? with totalReturnAmount
     }
 ```
+[x] fixed
+
 7. removeNominee issue around end-of-epoch. revert if `remove` near `end-of-epoch - 7days`. Let discussed.
+[x] fixed
 
 ##### Other
 1. Bug in polygon? Anybody after deploy contract can setup fxChildTunnel. Issue? + lacks a zero-check on
@@ -136,6 +149,7 @@ abstract contract FxBaseRootTunnel {
         fxRootTunnel = _fxRootTunnel;
     }
 ```
+[x] fixed
 
 #### Low priority issue
 1. does not emit an event
@@ -146,6 +160,8 @@ PolygonDepositProcessorL1.setL2TargetDispenser()
 Dispenser.setPause()
 Dispenser.changeStakingParams()
 ```
+[x] fixed
+
 2. abi.encodeWithSignature to abi.encodeCall
 ```
 Example of more safe way:
@@ -156,6 +172,8 @@ Example of more safe way:
         (bool success, bytes memory result) = target.call(data);
 ref: https://detectors.auditbase.com/abiencodecall-over-signature-solidity
 ```
+[x] fixed
+
 3. lacks a zero-check on
 ```
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
@@ -186,11 +204,15 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
             l1AliasedDepositProcessor = address(uint160(_l1DepositProcessor) + offset);
         }
 ```
+[x] already implemented in the DefaultTargetDispenserL2 constructor
+
 4. Better add _lock for retain, Because it's impossible to write in CEI-forms 
 ```
 Dispenser:
 function retain() external {}
 ```
+[x] fixed
+
 5. Low probability overflow. Pay attention to all operation: a += b, type(a) => uint96
 ```
 function refundFromStaking(uint256 amount) external {
@@ -210,6 +232,7 @@ to
         revert Overflow(eBond, type(uint96).max);
     }
 ```
+[x] already implemented in a newer version
 
 #### To Discussion
 1. Mutex for _processData.
@@ -224,6 +247,8 @@ function _processData(bytes memory data) internal {
         _locked = 1;
 }
 ```
+[x] fixed
+
 2. A lot of warnings - "ignores return value". 
 ```
 TokenSender.transferTokens(address,uint256,uint16,address,bytes) (WormholeTargetDispenserL2-flatten.sol#1703-1727) ignores return value by IERC20(token).approve(address(tokenBridge),amount) (WormholeTargetDispenserL2-flatten.sol#1710)
@@ -272,3 +297,97 @@ DefaultTargetDispenserL2._processData(bytes) (PolygonTargetDispenserL2-flatten.s
 DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenserL2-flatten.sol#314-351) ignores return value by IToken(olas).approve(target,amount) (PolygonTargetDispenserL2-flatten.sol#338)
 -
 ```
+[x] noted
+
+# Re-audit. 22.05.24
+
+## Internal audit of autonolas-tokenomics
+The review has been performed based on the contract code in the following repository:<br>
+`https://github.com/valory-xyz/autonolas-tokenomics` <br>
+commit: `7f20035c543d553ed28a960152a3bae2878f374c` or `tag: v1.2.1-pre-internal-audit`<br>
+
+### Flatten version
+Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/contracts)
+
+### Storage and proxy
+Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
+```
+npm link sol2uml --only=production
+sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal4/analysis2/storage
+Generated png file audits/internal4/analysis2/storage/Tokenomics.png
+```
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/storage/Tokenomics.png) <br>
+Same as before (see above). No issue.
+
+### Security issues.
+#### Problems found instrumentally
+Several checks are obtained automatically. They are commented. <br>
+All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
+[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/slither_full.txt) <br>
+
+#### Low issue
+1. Re-calcualted retainerHash
+```
+    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
+    function retain() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Go over epochs and retain funds to return back to the tokenomics
+        bytes32 localRetainer = retainer;
+
+        // Construct the nominee struct
+        IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(localRetainer, block.chainid);
+        // Get the nominee hash
+        bytes32 nomineeHash = keccak256(abi.encode(nominee));
+
+        but
+            constructor(
+        ...
+        retainer = _retainer;
+        retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
+
+```
+[x] fixed
+
+2. Not overflow gasLimit.
+```
+        // Check the gas limit value
+        if (gasLimitMessage < GAS_LIMIT) {
+            gasLimitMessage = GAS_LIMIT;
+        }
+        Under EIP-1559 a maximum gas limit is 30 million gas. So, if gasLimitMessage > MAX_GAS_LIMIT gasLimitMessage = GAS_LIMIT;
+```
+[x] fixed
+
+3. The old version remains.
+```
+autonolas-tokenomics$ grep -r "0.8.23" ./contracts/
+./contracts/interfaces/IBridgeErrors.sol:pragma solidity ^0.8.23;
+```
+[x] fixed
+
+4. Double checking comments
+```
+    Dispenser.sol
+    // Checkpoint the vote weighting for the retainer on L1
+```
+[x] fixed
+
+### To discussion. Not sure.
+```
+DefaultTargetDispenserL2.sol
+    /// @dev Receives native network token.
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
+    }
+    revert ofter migration?
+    like:
+    if(owner == address(0)) or _lock > 1 then revert()
+```
+[x] fixed
+
+

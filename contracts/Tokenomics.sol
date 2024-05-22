@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
@@ -231,12 +231,12 @@ struct IncentiveBalances {
 
 // Struct for service staking epoch info
 struct StakingPoint {
-    // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+    // Amount of OLAS that funds service staking incentives for the epoch based on the inflation schedule
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
-    uint96 stakingAmount;
-    // Max allowed service staking amount threshold
-    // This value is never bigger than the stakingAmount
-    uint96 maxStakingAmount;
+    uint96 stakingIncentive;
+    // Max allowed service staking incentive threshold
+    // This value is never bigger than the stakingIncentive
+    uint96 maxStakingIncentive;
     // Service staking vote weighting threshold
     // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
     uint16 minStakingWeight;
@@ -246,7 +246,8 @@ struct StakingPoint {
     uint8 stakingFraction;
 }
 
-/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners and discount factor regulations for bonds.
+/// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners, discount factor
+///        regulations for bonds, and staking incentives.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
@@ -265,7 +266,7 @@ contract Tokenomics is TokenomicsConstants {
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
         uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
         uint256 topUpAgentFraction, uint256 stakingFraction);
-    event StakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxStakingAmount,
+    event StakingParamsUpdateRequested(uint256 indexed epochNumber, uint256 maxStakingIncentive,
         uint256 minStakingWeight);
     event IncentiveFractionsUpdated(uint256 indexed epochNumber);
     event StakingParamsUpdated(uint256 indexed epochNumber);
@@ -274,7 +275,7 @@ contract Tokenomics is TokenomicsConstants {
     event ServiceRegistryUpdated(address indexed serviceRegistry);
     event DonatorBlacklistUpdated(address indexed blacklist);
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
-        uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingAmount, uint256 totalStakingAmount);
+        uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
 
     // Owner address
@@ -745,37 +746,37 @@ contract Tokenomics is TokenomicsConstants {
     }
 
     /// @dev Sets staking parameters by the DAO.
-    /// @param _maxStakingAmount Max allowed staking amount threshold.
+    /// @param _maxStakingIncentive Max allowed staking incentive threshold.
     /// @param _minStakingWeight Min staking weight threshold bound by 10_000.
-    function changeStakingParams(uint256 _maxStakingAmount, uint256 _minStakingWeight) external {
+    function changeStakingParams(uint256 _maxStakingIncentive, uint256 _minStakingWeight) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
         // Check for zero values
-        if (_maxStakingAmount == 0 || _minStakingWeight == 0) {
+        if (_maxStakingIncentive == 0 || _minStakingWeight == 0) {
             revert ZeroValue();
         }
 
         // Check for overflows as per specs
-        if (_maxStakingAmount > type(uint96).max) {
-            revert Overflow(_maxStakingAmount, type(uint96).max);
+        if (_maxStakingIncentive > type(uint96).max) {
+            revert Overflow(_maxStakingIncentive, type(uint96).max);
         }
 
-        if (_minStakingWeight > 10_000) {
-            revert Overflow(_minStakingWeight, 10_000);
+        if (_minStakingWeight > MAX_STAKING_WEIGHT) {
+            revert Overflow(_minStakingWeight, MAX_STAKING_WEIGHT);
         }
 
         // All the adjustments will be accounted for in the next epoch
         uint256 eCounter = epochCounter + 1;
         StakingPoint storage stakingPoint = mapEpochStakingPoints[eCounter];
-        stakingPoint.maxStakingAmount = uint96(_maxStakingAmount);
+        stakingPoint.maxStakingIncentive = uint96(_maxStakingIncentive);
         stakingPoint.minStakingWeight = uint16(_minStakingWeight);
 
         // Set the flag that incentive fractions are requested to be updated (4th bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x08;
-        emit StakingParamsUpdateRequested(eCounter, _maxStakingAmount, _minStakingWeight);
+        emit StakingParamsUpdateRequested(eCounter, _maxStakingIncentive, _minStakingWeight);
     }
 
     /// @dev Reserves OLAS amount from the effective bond to be minted during a bond program.
@@ -829,13 +830,13 @@ contract Tokenomics is TokenomicsConstants {
         }
 
         uint256 eCounter = epochCounter;
-        uint256 stakingAmount = mapEpochStakingPoints[eCounter].stakingAmount + amount;
+        uint256 stakingIncentive = mapEpochStakingPoints[eCounter].stakingIncentive + amount;
         // This scenario is not realistically possible, as the refund comes back from the allocated inflation.
-        if (stakingAmount > type(uint96).max) {
-            revert Overflow(stakingAmount, type(uint96).max);
+        if (stakingIncentive > type(uint96).max) {
+            revert Overflow(stakingIncentive, type(uint96).max);
         }
 
-        mapEpochStakingPoints[eCounter].stakingAmount = uint96(stakingAmount);
+        mapEpochStakingPoints[eCounter].stakingIncentive = uint96(stakingIncentive);
         emit StakingRefunded(eCounter, amount);
     }
 
@@ -1109,7 +1110,7 @@ contract Tokenomics is TokenomicsConstants {
         // 1: treasuryRewards, 2: componentRewards, 3: agentRewards
         // OLAS inflation is split between:
         // 4: maxBond, 5: component ownerTopUps, 6: agent ownerTopUps
-        // 7: returned staking amount from previous epochs, 8: staking amount
+        // 7: returned staking incentive from previous epochs, 8: staking incentive
         uint256[] memory incentives = new uint256[](9);
         incentives[0] = tp.epochPoint.totalDonationsETH;
         incentives[1] = (incentives[0] * tp.epochPoint.rewardTreasuryFraction) / 100;
@@ -1212,7 +1213,7 @@ contract Tokenomics is TokenomicsConstants {
             emit StakingParamsUpdated(eCounter + 1);
         } else {
             // Copy current service staking parameters into the next epoch
-            mapEpochStakingPoints[eCounter + 1].maxStakingAmount = mapEpochStakingPoints[eCounter].maxStakingAmount;
+            mapEpochStakingPoints[eCounter + 1].maxStakingIncentive = mapEpochStakingPoints[eCounter].maxStakingIncentive;
             mapEpochStakingPoints[eCounter + 1].minStakingWeight = mapEpochStakingPoints[eCounter].minStakingWeight;
         }
         // Record settled epoch timestamp
@@ -1231,10 +1232,10 @@ contract Tokenomics is TokenomicsConstants {
 
         // Service staking funding
         // Refunded amount during the epoch
-        incentives[7] = mapEpochStakingPoints[eCounter].stakingAmount;
+        incentives[7] = mapEpochStakingPoints[eCounter].stakingIncentive;
         // Adding service staking top-ups amount based on a current epoch inflation
         incentives[8] = incentives[7] + (inflationPerEpoch * mapEpochStakingPoints[eCounter].stakingFraction) / 100;
-        mapEpochStakingPoints[eCounter].stakingAmount = uint96(incentives[8]);
+        mapEpochStakingPoints[eCounter].stakingIncentive = uint96(incentives[8]);
 
         // Adjust max bond value if the next epoch is going to be the year change epoch
         // Note that this computation happens before the epoch that is triggered in the next epoch (the code above) when

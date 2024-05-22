@@ -1,0 +1,1177 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeTargetDispenserL2-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> WormholeTargetDispenserL2-flatten.sol
+
+
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeDepositProcessorL1-flatten.sol:
+Warning: Source file does not specify required compiler version! Consider adding "pragma solidity ^0.8.25;"
+--> WormholeDepositProcessorL1-flatten.sol
+
+
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./EthereumDepositProcessor-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> EthereumDepositProcessor-flatten.sol
+
+
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./Dispenser-flatten.sol:
+Warning: Function state mutability can be restricted to view
+   --> Dispenser-flatten.sol:358:5:
+    |
+358 |     function _checkpointNomineeAndGetClaimedEpochCounters(
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: Contract code size is 26033 bytes and exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on Mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+   --> Dispenser-flatten.sol:255:1:
+    |
+255 | contract Dispenser {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:901:30:
+    |
+901 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+Warning: Unused local variable.
+    --> PolygonDepositProcessorL1-flatten.sol:1147:52:
+     |
+1147 |         (bytes32 headerRoot, uint256 startBlock, , uint256 createdAt, ) = checkpointManager.headerBlocks(headerNumber);
+     |                                                    ^^^^^^^^^^^^^^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract DefaultTargetDispenserL2
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+
++ Contract IWormhole (Most derived contract)
+  - From IWormhole
+    - chainId() (external)
+    - evmChainId() (external)
+    - getCurrentGuardianSetIndex() (external)
+    - getGuardianSet(uint32) (external)
+    - getGuardianSetExpiry() (external)
+    - governanceActionIsConsumed(bytes32) (external)
+    - governanceChainId() (external)
+    - governanceContract() (external)
+    - initialize() (external)
+    - isFork() (external)
+    - isInitialized(address) (external)
+    - messageFee() (external)
+    - nextSequence(address) (external)
+    - parseAndVerifyVM(bytes) (external)
+    - parseContractUpgrade(bytes) (external)
+    - parseGuardianSetUpgrade(bytes) (external)
+    - parseRecoverChainId(bytes) (external)
+    - parseSetMessageFee(bytes) (external)
+    - parseTransferFees(bytes) (external)
+    - parseVM(bytes) (external)
+    - publishMessage(uint32,bytes,uint8) (external)
+    - quorum(uint256) (external)
+    - submitContractUpgrade(bytes) (external)
+    - submitNewGuardianSet(bytes) (external)
+    - submitRecoverChainId(bytes) (external)
+    - submitSetMessageFee(bytes) (external)
+    - submitTransferFees(bytes) (external)
+    - verifySignatures(bytes32,IWormhole.Signature[],IWormhole.GuardianSet) (external)
+    - verifyVM(IWormhole.VM) (external)
+
++ Contract IWormholeReceiver (Most derived contract)
+  - From IWormholeReceiver
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+
++ Contract IWormholeRelayerBase
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+
++ Contract IWormholeRelayerSend
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerSend
+    - getDefaultDeliveryProvider() (external)
+    - quoteDeliveryPrice(uint16,uint256,bytes,address) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256,address) (external)
+    - quoteNativeForChain(uint16,uint256,address) (external)
+    - resend(VaaKey,uint16,uint256,bytes,address) (external)
+    - resendToEvm(VaaKey,uint16,uint256,uint256,address) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,MessageKey[],uint8) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,VaaKey[],uint8) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,MessageKey[],uint8) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,VaaKey[],uint8) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[]) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[],uint16,address) (external)
+
++ Contract IWormholeRelayerDelivery
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerDelivery
+    - deliver(bytes[],bytes,address,bytes) (external)
+
++ Contract IWormholeRelayer (Most derived contract)
+  - From IWormholeRelayerSend
+    - getDefaultDeliveryProvider() (external)
+    - quoteDeliveryPrice(uint16,uint256,bytes,address) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256,address) (external)
+    - quoteNativeForChain(uint16,uint256,address) (external)
+    - resend(VaaKey,uint16,uint256,bytes,address) (external)
+    - resendToEvm(VaaKey,uint16,uint256,uint256,address) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,MessageKey[],uint8) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,VaaKey[],uint8) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,MessageKey[],uint8) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,VaaKey[],uint8) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[]) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[],uint16,address) (external)
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerDelivery
+    - deliver(bytes[],bytes,address,bytes) (external)
+
++ Contract Base
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+
++ Contract IERC20
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IWETH (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+  - From IWETH
+    - deposit() (external)
+    - withdraw(uint256) (external)
+
++ Contract ITokenBridge (Most derived contract)
+  - From ITokenBridge
+    - WETH() (external)
+    - _parseTransferCommon(bytes) (external)
+    - attestToken(address,uint32) (external)
+    - bridgeContracts(uint16) (external)
+    - chainId() (external)
+    - completeTransfer(bytes) (external)
+    - completeTransferAndUnwrapETH(bytes) (external)
+    - completeTransferAndUnwrapETHWithPayload(bytes) (external)
+    - completeTransferWithPayload(bytes) (external)
+    - createWrapped(bytes) (external)
+    - encodeAssetMeta(ITokenBridge.AssetMeta) (external)
+    - encodeTransfer(ITokenBridge.Transfer) (external)
+    - encodeTransferWithPayload(ITokenBridge.TransferWithPayload) (external)
+    - evmChainId() (external)
+    - finality() (external)
+    - governanceActionIsConsumed(bytes32) (external)
+    - governanceChainId() (external)
+    - governanceContract() (external)
+    - implementation() (external)
+    - initialize() (external)
+    - isFork() (external)
+    - isInitialized(address) (external)
+    - isTransferCompleted(bytes32) (external)
+    - isWrappedAsset(address) (external)
+    - outstandingBridged(address) (external)
+    - parseAssetMeta(bytes) (external)
+    - parsePayloadID(bytes) (external)
+    - parseRecoverChainId(bytes) (external)
+    - parseRegisterChain(bytes) (external)
+    - parseTransfer(bytes) (external)
+    - parseTransferWithPayload(bytes) (external)
+    - parseUpgrade(bytes) (external)
+    - registerChain(bytes) (external)
+    - submitRecoverChainId(bytes) (external)
+    - tokenImplementation() (external)
+    - transferTokens(address,uint256,uint16,bytes32,uint256,uint32) (external)
+    - transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes) (external)
+    - updateWrapped(bytes) (external)
+    - upgrade(bytes) (external)
+    - wormhole() (external)
+    - wrapAndTransferETH(uint16,bytes32,uint256,uint32) (external)
+    - wrapAndTransferETHWithPayload(uint16,bytes32,uint32,bytes) (external)
+    - wrappedAsset(uint16,bytes32) (external)
+
++ Contract TokenBase
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+
++ Contract TokenSender (Most derived contract)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenSender
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (internal)
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address,bytes) (internal)
+
++ Contract TokenReceiver
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenReceiver
+    - getDecimals(address) (internal)
+    - getTokenAddressOnThisChain(uint16,bytes32) (internal)
+    - receivePayloadAndTokens(bytes,TokenReceiver.TokenReceived[],bytes32,uint16,bytes32) (internal)
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address) (external)
+
++ Contract WormholeTargetDispenserL2 (Most derived contract)
+  - From TokenReceiver
+    - getDecimals(address) (internal)
+    - getTokenAddressOnThisChain(uint16,bytes32) (internal)
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+  - From WormholeTargetDispenserL2
+    - _sendMessage(uint256,bytes) (internal)
+    - constructor(address,address,address,address,uint256,address,address) (public)
+    - receivePayloadAndTokens(bytes,TokenReceiver.TokenReceived[],bytes32,uint16,bytes32) (internal)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1 (Most derived contract)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
++ Contract IWormhole (Most derived contract)
+  - From IWormhole
+    - chainId() (external)
+    - evmChainId() (external)
+    - getCurrentGuardianSetIndex() (external)
+    - getGuardianSet(uint32) (external)
+    - getGuardianSetExpiry() (external)
+    - governanceActionIsConsumed(bytes32) (external)
+    - governanceChainId() (external)
+    - governanceContract() (external)
+    - initialize() (external)
+    - isFork() (external)
+    - isInitialized(address) (external)
+    - messageFee() (external)
+    - nextSequence(address) (external)
+    - parseAndVerifyVM(bytes) (external)
+    - parseContractUpgrade(bytes) (external)
+    - parseGuardianSetUpgrade(bytes) (external)
+    - parseRecoverChainId(bytes) (external)
+    - parseSetMessageFee(bytes) (external)
+    - parseTransferFees(bytes) (external)
+    - parseVM(bytes) (external)
+    - publishMessage(uint32,bytes,uint8) (external)
+    - quorum(uint256) (external)
+    - submitContractUpgrade(bytes) (external)
+    - submitNewGuardianSet(bytes) (external)
+    - submitRecoverChainId(bytes) (external)
+    - submitSetMessageFee(bytes) (external)
+    - submitTransferFees(bytes) (external)
+    - verifySignatures(bytes32,IWormhole.Signature[],IWormhole.GuardianSet) (external)
+    - verifyVM(IWormhole.VM) (external)
+
++ Contract IWormholeReceiver (Most derived contract)
+  - From IWormholeReceiver
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+
++ Contract IWormholeRelayerBase
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+
++ Contract IWormholeRelayerSend
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerSend
+    - getDefaultDeliveryProvider() (external)
+    - quoteDeliveryPrice(uint16,uint256,bytes,address) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256,address) (external)
+    - quoteNativeForChain(uint16,uint256,address) (external)
+    - resend(VaaKey,uint16,uint256,bytes,address) (external)
+    - resendToEvm(VaaKey,uint16,uint256,uint256,address) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,MessageKey[],uint8) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,VaaKey[],uint8) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,MessageKey[],uint8) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,VaaKey[],uint8) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[]) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[],uint16,address) (external)
+
++ Contract IWormholeRelayerDelivery
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerDelivery
+    - deliver(bytes[],bytes,address,bytes) (external)
+
++ Contract IWormholeRelayer (Most derived contract)
+  - From IWormholeRelayerSend
+    - getDefaultDeliveryProvider() (external)
+    - quoteDeliveryPrice(uint16,uint256,bytes,address) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256) (external)
+    - quoteEVMDeliveryPrice(uint16,uint256,uint256,address) (external)
+    - quoteNativeForChain(uint16,uint256,address) (external)
+    - resend(VaaKey,uint16,uint256,bytes,address) (external)
+    - resendToEvm(VaaKey,uint16,uint256,uint256,address) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,MessageKey[],uint8) (external)
+    - send(uint16,bytes32,bytes,uint256,uint256,bytes,uint16,bytes32,address,VaaKey[],uint8) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256) (external)
+    - sendPayloadToEvm(uint16,address,bytes,uint256,uint256,uint16,address) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,MessageKey[],uint8) (external)
+    - sendToEvm(uint16,address,bytes,uint256,uint256,uint256,uint16,address,address,VaaKey[],uint8) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[]) (external)
+    - sendVaasToEvm(uint16,address,bytes,uint256,uint256,VaaKey[],uint16,address) (external)
+  - From IWormholeRelayerBase
+    - deliveryAttempted(bytes32) (external)
+    - deliveryFailureBlock(bytes32) (external)
+    - deliverySuccessBlock(bytes32) (external)
+    - getRegisteredWormholeRelayerContract(uint16) (external)
+  - From IWormholeRelayerDelivery
+    - deliver(bytes[],bytes,address,bytes) (external)
+
++ Contract Base
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+
++ Contract IERC20
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract IWETH (Most derived contract)
+  - From IERC20
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+  - From IWETH
+    - deposit() (external)
+    - withdraw(uint256) (external)
+
++ Contract ITokenBridge (Most derived contract)
+  - From ITokenBridge
+    - WETH() (external)
+    - _parseTransferCommon(bytes) (external)
+    - attestToken(address,uint32) (external)
+    - bridgeContracts(uint16) (external)
+    - chainId() (external)
+    - completeTransfer(bytes) (external)
+    - completeTransferAndUnwrapETH(bytes) (external)
+    - completeTransferAndUnwrapETHWithPayload(bytes) (external)
+    - completeTransferWithPayload(bytes) (external)
+    - createWrapped(bytes) (external)
+    - encodeAssetMeta(ITokenBridge.AssetMeta) (external)
+    - encodeTransfer(ITokenBridge.Transfer) (external)
+    - encodeTransferWithPayload(ITokenBridge.TransferWithPayload) (external)
+    - evmChainId() (external)
+    - finality() (external)
+    - governanceActionIsConsumed(bytes32) (external)
+    - governanceChainId() (external)
+    - governanceContract() (external)
+    - implementation() (external)
+    - initialize() (external)
+    - isFork() (external)
+    - isInitialized(address) (external)
+    - isTransferCompleted(bytes32) (external)
+    - isWrappedAsset(address) (external)
+    - outstandingBridged(address) (external)
+    - parseAssetMeta(bytes) (external)
+    - parsePayloadID(bytes) (external)
+    - parseRecoverChainId(bytes) (external)
+    - parseRegisterChain(bytes) (external)
+    - parseTransfer(bytes) (external)
+    - parseTransferWithPayload(bytes) (external)
+    - parseUpgrade(bytes) (external)
+    - registerChain(bytes) (external)
+    - submitRecoverChainId(bytes) (external)
+    - tokenImplementation() (external)
+    - transferTokens(address,uint256,uint16,bytes32,uint256,uint32) (external)
+    - transferTokensWithPayload(address,uint256,uint16,bytes32,uint32,bytes) (external)
+    - updateWrapped(bytes) (external)
+    - upgrade(bytes) (external)
+    - wormhole() (external)
+    - wrapAndTransferETH(uint16,bytes32,uint256,uint32) (external)
+    - wrapAndTransferETHWithPayload(uint16,bytes32,uint32,bytes) (external)
+    - wrappedAsset(uint16,bytes32) (external)
+
++ Contract TokenBase
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+
++ Contract TokenSender
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenSender
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (internal)
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address,bytes) (internal)
+
++ Contract TokenReceiver (Most derived contract)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From TokenReceiver
+    - getDecimals(address) (internal)
+    - getTokenAddressOnThisChain(uint16,bytes32) (internal)
+    - receivePayloadAndTokens(bytes,TokenReceiver.TokenReceived[],bytes32,uint16,bytes32) (internal)
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+
++ Contract WormholeDepositProcessorL1 (Most derived contract)
+  - From TokenSender
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256) (internal)
+    - sendTokenWithPayloadToEvm(uint16,address,bytes,uint256,uint256,address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address) (internal)
+    - transferTokens(address,uint256,uint16,address,bytes) (internal)
+  - From TokenBase
+    - constructor(address,address,address) (internal)
+  - From Base
+    - constructor(address,address) (internal)
+    - setRegisteredSender(uint16,bytes32) (public)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+  - From WormholeDepositProcessorL1
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - constructor(address,address,address,address,uint256,address,uint256) (public)
+    - getBridgingDecimals() (external)
+    - receiveWormholeMessages(bytes,bytes[],bytes32,uint16,bytes32) (external)
+    - setL2TargetDispenser(address) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract DefaultTargetDispenserL2
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - messageSender() (external)
+    - requireToPassMessage(address,bytes,uint256) (external)
+
++ Contract GnosisTargetDispenserL2 (Most derived contract)
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+  - From GnosisTargetDispenserL2
+    - _sendMessage(uint256,bytes) (internal)
+    - constructor(address,address,address,address,uint256,address) (public)
+    - onTokenBridged(address,uint256,bytes) (external)
+    - receiveMessage(bytes) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - messageSender() (external)
+    - relayTokensAndCall(address,address,uint256,bytes) (external)
+    - requireToPassMessage(address,bytes,uint256) (external)
+
++ Contract GnosisDepositProcessorL1 (Most derived contract)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+  - From GnosisDepositProcessorL1
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - constructor(address,address,address,address,uint256) (public)
+    - receiveMessage(bytes) (external)
+
+INFO:Printers:
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - transfer(address,uint256) (external)
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract EthereumDepositProcessor (Most derived contract)
+  - From EthereumDepositProcessor
+    - _deposit(address[],uint256[]) (internal)
+    - constructor(address,address,address,address) (public)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+
+INFO:Printers:
++ Contract TokenomicsConstants (Most derived contract)
+  - From TokenomicsConstants
+    - getInflationForYear(uint256) (public)
+    - getSupplyCapForYear(uint256) (public)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - depositERC20To(address,address,address,uint256,uint32,bytes) (external)
+    - sendMessage(address,bytes,uint32) (external)
+    - xDomainMessageSender() (external)
+
++ Contract OptimismDepositProcessorL1 (Most derived contract)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+  - From OptimismDepositProcessorL1
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - constructor(address,address,address,address,uint256,address) (public)
+    - receiveMessage(bytes) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract DefaultTargetDispenserL2
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - sendMessage(address,bytes,uint32) (external)
+    - xDomainMessageSender() (external)
+
++ Contract OptimismTargetDispenserL2 (Most derived contract)
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - changeOwner(address) (external)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+  - From OptimismTargetDispenserL2
+    - _sendMessage(uint256,bytes) (internal)
+    - constructor(address,address,address,address,uint256) (public)
+    - receiveMessage(bytes) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - createRetryableTicket(address,uint256,uint256,address,address,uint256,uint256,bytes) (external)
+    - l2ToL1Sender() (external)
+    - outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes) (external)
+
++ Contract ArbitrumDepositProcessorL1 (Most derived contract)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+  - From ArbitrumDepositProcessorL1
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - constructor(address,address,address,address,uint256,address,address,address) (public)
+    - receiveMessage(bytes) (external)
+
+INFO:Printers:
++ Contract IDepositProcessor (Most derived contract)
+  - From IDepositProcessor
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - sendMessageBatchNonEVM(bytes32[],uint256[],bytes,uint256) (external)
+    - sendMessageNonEVM(bytes32,uint256,bytes,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - accountOwnerIncentives(address,uint256[],uint256[]) (external)
+    - epochCounter() (external)
+    - epochLen() (external)
+    - getEpochEndTime(uint256) (external)
+    - mapEpochStakingPoints(uint256) (external)
+    - refundFromStaking(uint256) (external)
+
++ Contract ITreasury (Most derived contract)
+  - From ITreasury
+    - paused() (external)
+    - withdrawToAccount(address,uint256,uint256) (external)
+
++ Contract IVoteWeighting (Most derived contract)
+  - From IVoteWeighting
+    - checkpointNominee(bytes32,uint256) (external)
+    - mapNomineeIds(bytes32) (external)
+    - nomineeRelativeWeight(bytes32,uint256,uint256) (external)
+
++ Contract Dispenser (Most derived contract)
+  - From Dispenser
+    - _calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (internal)
+    - _checkOrderAndValues(uint256[],bytes32[][],bytes[],uint256[]) (internal)
+    - _checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256) (internal)
+    - _distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (internal)
+    - _distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (internal)
+    - addNominee(bytes32) (external)
+    - calculateStakingIncentives(uint256,uint256,bytes32,uint256) (public)
+    - changeManagers(address,address,address) (external)
+    - changeOwner(address) (external)
+    - changeStakingParams(uint256,uint256) (external)
+    - claimOwnerIncentives(uint256[],uint256[]) (external)
+    - claimStakingIncentives(uint256,uint256,bytes32,bytes) (external)
+    - claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (external)
+    - constructor(address,address,address,address,bytes32,uint256,uint256) (public)
+    - removeNominee(bytes32) (external)
+    - retain() (external)
+    - setDepositProcessorChainIds(address[],uint256[]) (external)
+    - setPauseState(Dispenser.Pause) (external)
+    - syncWithheldAmount(uint256,uint256) (external)
+    - syncWithheldAmountMaintenance(uint256,uint256) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IDispenser (Most derived contract)
+  - From IDispenser
+    - syncWithheldAmount(uint256,uint256) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+
++ Contract DefaultDepositProcessorL1
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+    - setL2TargetDispenser(address) (external)
+
++ Contract IStateSender (Most derived contract)
+  - From IStateSender
+    - syncState(address,bytes) (external)
+
++ Contract IFxStateSender
+  - From IFxStateSender
+    - sendMessageToChild(address,bytes) (external)
+
++ Contract FxRoot (Most derived contract)
+  - From FxRoot
+    - constructor(address) (public)
+    - sendMessageToChild(address,bytes) (public)
+    - setFxChild(address) (public)
+
++ Contract RLPReader (Most derived contract)
+  - From RLPReader
+    - _itemLength(uint256) (private)
+    - _payloadOffset(uint256) (private)
+    - copy(uint256,uint256,uint256) (private)
+    - hasNext(RLPReader.Iterator) (internal)
+    - isList(RLPReader.RLPItem) (internal)
+    - iterator(RLPReader.RLPItem) (internal)
+    - next(RLPReader.Iterator) (internal)
+    - numItems(RLPReader.RLPItem) (private)
+    - payloadKeccak256(RLPReader.RLPItem) (internal)
+    - payloadLen(RLPReader.RLPItem) (internal)
+    - payloadLocation(RLPReader.RLPItem) (internal)
+    - rlpBytesKeccak256(RLPReader.RLPItem) (internal)
+    - rlpLen(RLPReader.RLPItem) (internal)
+    - toAddress(RLPReader.RLPItem) (internal)
+    - toBoolean(RLPReader.RLPItem) (internal)
+    - toBytes(RLPReader.RLPItem) (internal)
+    - toList(RLPReader.RLPItem) (internal)
+    - toRlpBytes(RLPReader.RLPItem) (internal)
+    - toRlpItem(bytes) (internal)
+    - toUint(RLPReader.RLPItem) (internal)
+    - toUintStrict(RLPReader.RLPItem) (internal)
+
++ Contract ExitPayloadReader (Most derived contract)
+  - From ExitPayloadReader
+    - copy(uint256,uint256,uint256) (private)
+    - getBlockNumber(ExitPayloadReader.ExitPayload) (internal)
+    - getBlockProof(ExitPayloadReader.ExitPayload) (internal)
+    - getBlockTime(ExitPayloadReader.ExitPayload) (internal)
+    - getBranchMaskAsBytes(ExitPayloadReader.ExitPayload) (internal)
+    - getBranchMaskAsUint(ExitPayloadReader.ExitPayload) (internal)
+    - getData(ExitPayloadReader.Log) (internal)
+    - getEmitter(ExitPayloadReader.Log) (internal)
+    - getField(ExitPayloadReader.LogTopics,uint256) (internal)
+    - getHeaderNumber(ExitPayloadReader.ExitPayload) (internal)
+    - getLog(ExitPayloadReader.Receipt) (internal)
+    - getReceipt(ExitPayloadReader.ExitPayload) (internal)
+    - getReceiptLogIndex(ExitPayloadReader.ExitPayload) (internal)
+    - getReceiptProof(ExitPayloadReader.ExitPayload) (internal)
+    - getReceiptRoot(ExitPayloadReader.ExitPayload) (internal)
+    - getTopics(ExitPayloadReader.Log) (internal)
+    - getTxRoot(ExitPayloadReader.ExitPayload) (internal)
+    - toBytes(ExitPayloadReader.Receipt) (internal)
+    - toExitPayload(bytes) (internal)
+    - toRlpBytes(ExitPayloadReader.Log) (internal)
+
++ Contract Merkle (Most derived contract)
+  - From Merkle
+    - checkMembership(bytes32,uint256,bytes32,bytes) (internal)
+
++ Contract MerklePatriciaProof (Most derived contract)
+  - From MerklePatriciaProof
+    - _getNibbleArray(bytes) (internal)
+    - _getNthNibbleOfBytes(uint256,bytes) (private)
+    - _nibblesToTraverse(bytes,bytes,uint256) (private)
+    - verify(bytes,bytes,bytes,bytes32) (internal)
+
++ Contract ICheckpointManager (Most derived contract)
+
++ Contract FxBaseRootTunnel
+  - From FxBaseRootTunnel
+    - _checkBlockMembershipInCheckpoint(uint256,uint256,bytes32,bytes32,uint256,bytes) (private)
+    - _processMessageFromChild(bytes) (internal)
+    - _sendMessageToChild(bytes) (internal)
+    - _validateAndExtractMessage(bytes) (internal)
+    - constructor(address,address) (internal)
+    - receiveMessage(bytes) (public)
+    - setFxChildTunnel(address) (public)
+
++ Contract IBridge (Most derived contract)
+  - From IBridge
+    - depositFor(address,address,bytes) (external)
+
++ Contract PolygonDepositProcessorL1 (Most derived contract)
+  - From FxBaseRootTunnel
+    - _checkBlockMembershipInCheckpoint(uint256,uint256,bytes32,bytes32,uint256,bytes) (private)
+    - _sendMessageToChild(bytes) (internal)
+    - _validateAndExtractMessage(bytes) (internal)
+    - constructor(address,address) (internal)
+    - receiveMessage(bytes) (public)
+  - From DefaultDepositProcessorL1
+    - _receiveMessage(address,address,bytes) (internal)
+    - _setL2TargetDispenser(address) (internal)
+    - constructor(address,address,address,address,uint256) (internal)
+    - getBridgingDecimals() (external)
+    - sendMessage(address,uint256,bytes,uint256) (external)
+    - sendMessageBatch(address[],uint256[],bytes,uint256) (external)
+  - From PolygonDepositProcessorL1
+    - _processMessageFromChild(bytes) (internal)
+    - _sendMessage(address[],uint256[],bytes,uint256) (internal)
+    - constructor(address,address,address,address,uint256,address,address) (public)
+    - setFxChildTunnel(address) (public)
+    - setL2TargetDispenser(address) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract DefaultTargetDispenserL2
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+
++ Contract IStateReceiver
+  - From IStateReceiver
+    - onStateReceive(uint256,bytes) (external)
+
++ Contract IFxMessageProcessor
+  - From IFxMessageProcessor
+    - processMessageFromRoot(uint256,address,bytes) (external)
+
++ Contract FxChild (Most derived contract)
+  - From FxChild
+    - onStateReceive(uint256,bytes) (external)
+    - setFxRoot(address) (external)
+
++ Contract FxBaseChildTunnel
+  - From FxBaseChildTunnel
+    - _processMessageFromRoot(uint256,address,bytes) (internal)
+    - _sendMessageToRoot(bytes) (internal)
+    - constructor(address) (internal)
+    - processMessageFromRoot(uint256,address,bytes) (external)
+    - setFxRootTunnel(address) (external)
+
++ Contract PolygonTargetDispenserL2 (Most derived contract)
+  - From FxBaseChildTunnel
+    - _sendMessageToRoot(bytes) (internal)
+    - constructor(address) (internal)
+    - processMessageFromRoot(uint256,address,bytes) (external)
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - changeOwner(address) (external)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+  - From PolygonTargetDispenserL2
+    - _processMessageFromRoot(uint256,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - constructor(address,address,address,address,uint256) (public)
+    - setFxRootTunnel(address) (external)
+
+INFO:Printers:
++ Contract IBridgeErrors
+
++ Contract IStaking (Most derived contract)
+  - From IStaking
+    - deposit(uint256) (external)
+
++ Contract IStakingFactory (Most derived contract)
+  - From IStakingFactory
+    - verifyInstanceAndGetEmissionsAmount(address) (external)
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - transfer(address,uint256) (external)
+
++ Contract DefaultTargetDispenserL2 (Most derived contract)
+  - From DefaultTargetDispenserL2
+    - _processData(bytes) (internal)
+    - _receiveMessage(address,address,bytes) (internal)
+    - _sendMessage(uint256,bytes) (internal)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,address,uint256) (internal)
+    - drain() (external)
+    - migrate(address) (external)
+    - pause() (external)
+    - processDataMaintenance(bytes) (external)
+    - receive() (external)
+    - redeem(address,uint256,uint256) (external)
+    - syncWithheldTokens(bytes) (external)
+    - unpause() (external)
+
+INFO:Slither:. analyzed (115 contracts)
