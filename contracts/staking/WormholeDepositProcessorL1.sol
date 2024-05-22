@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 
+/// @title WormholeDepositProcessorL1 - Smart contract for sending tokens and data via Wormhole bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
@@ -54,7 +58,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -71,13 +75,18 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
             revert ZeroValue();
         }
 
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
         // If refundAccount is zero, default to msg.sender
         if (refundAccount == address(0)) {
             refundAccount = msg.sender;
         }
 
         // Encode target addresses and amounts
-        bytes memory data = abi.encode(targets, stakingAmounts);
+        bytes memory data = abi.encode(targets, stakingIncentives);
 
         // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203

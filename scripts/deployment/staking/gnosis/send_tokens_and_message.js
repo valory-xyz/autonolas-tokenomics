@@ -17,8 +17,8 @@ const main = async () => {
 
     const l1DepositProcessorAddress = "0x82Fd26D73a311CDc5C4D6cDC92c8F1731f2b57b3";
     const l2TargetDispenserAddress = "0x7ED124AF35f5e12318C898ba35b63863908e1eB8";
-//    const l1DepositProcessorAddress = "0xc72334A2b928e8c681E6359E981E50E0004739De";
-//    const l2TargetDispenserAddress = "0x696b624d8BFFe7B4CeebE30F1f7Ee29d1aB52242";
+    //    const l1DepositProcessorAddress = "0xc72334A2b928e8c681E6359E981E50E0004739De";
+    //    const l2TargetDispenserAddress = "0x696b624d8BFFe7B4CeebE30F1f7Ee29d1aB52242";
     const targetInstance = "0x4172a7f2888B8071b0df177f69d8FC61df0c164d";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
@@ -35,12 +35,12 @@ const main = async () => {
     const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
+    let parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
     const gasLimitMessage = "2000000";
-    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [cost]);
+    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [gasLimitMessage]);
 
     const transferAmount = defaultAmount;
     const gasLimit = "3000000";

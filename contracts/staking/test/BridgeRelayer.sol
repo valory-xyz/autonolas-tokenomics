@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 interface IBridgeRelayer {
     function receiveMessage(bytes memory data) external payable;
@@ -192,6 +192,15 @@ contract BridgeRelayer {
             return 0;
         } else {
             return 1;
+        }
+    }
+
+    /// @dev Simulate the L2 dispenser de-aliased address such that after aliasing it's the same as address(this).
+    function l1ToL2AliasedSender() external view returns (address) {
+        // Get the l1AliasedDepositProcessor based on _l1DepositProcessor
+        uint160 offset = uint160(0x1111000000000000000000000000000000001111);
+        unchecked {
+            return address(uint160(address(this)) - offset);
         }
     }
 

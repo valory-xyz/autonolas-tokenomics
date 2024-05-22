@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
-import "../interfaces/IBridgeErrors.sol";
+import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
 interface IDispenser {
     function syncWithheldAmount(uint256 chainId, uint256 amount) external;
@@ -15,16 +15,21 @@ interface IToken {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+/// @title DefaultDepositProcessorL1 - Smart contract for sending tokens and data via arbitrary bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
-    event MessagePosted(uint256 indexed sequence, address[] targets, uint256[] stakingAmounts, uint256 transferAmount);
+    event MessagePosted(uint256 indexed sequence, address[] targets, uint256[] stakingIncentives, uint256 transferAmount);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
+    event L2TargetDispenserUpdated(address indexed l2TargetDispenser);
 
     // receiveMessage selector to be executed on L2
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
     // Token transfer gas limit for L2
-    // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
+    // This is safe as the value is practically bigger than observed ones on numerous chains
     uint256 public constant TOKEN_GAS_LIMIT = 300_000;
     // Message transfer gas limit for L2
     uint256 public constant MESSAGE_GAS_LIMIT = 2_000_000;
@@ -46,7 +51,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     uint256 public stakingBatchNonce;
 
     /// @dev DefaultDepositProcessorL1 constructor.
-    /// @param _olas OLAS token address.
+    /// @param _olas OLAS token address on L1.
     /// @param _l1Dispenser L1 tokenomics dispenser address.
     /// @param _l1TokenRelayer L1 token relayer bridging contract address.
     /// @param _l1MessageRelayer L1 message relayer bridging contract address.
@@ -82,15 +87,15 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     }
 
     /// @dev Sends message to the L2 side via a corresponding bridge.
-    /// @notice Message is sent to the target dispenser contract to reflect transferred OLAS and staking amounts.
+    /// @notice Message is sent to the target dispenser contract to reflect transferred OLAS and staking incentives.
     /// @param targets Set of staking target addresses.
-    /// @param stakingAmounts Corresponding set of staking amounts.
+    /// @param stakingIncentives Corresponding set of staking incentives.
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
     /// @param transferAmount Actual total OLAS amount to be transferred.
     /// @return sequence Unique message sequence (if applicable) or the batch number.
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal virtual returns (uint256 sequence);
@@ -121,12 +126,12 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
     /// @dev Sends a single message to the L2 side via a corresponding bridge.
     /// @param target Staking target addresses.
-    /// @param stakingAmount Corresponding staking amount.
-    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param stakingIncentive Corresponding staking incentive.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridge relayer.
     /// @param transferAmount Actual OLAS amount to be transferred.
     function sendMessage(
         address target,
-        uint256 stakingAmount,
+        uint256 stakingIncentive,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
@@ -138,27 +143,27 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         // Construct one-element arrays from targets and amounts
         address[] memory targets = new address[](1);
         targets[0] = target;
-        uint256[] memory stakingAmounts = new uint256[](1);
-        stakingAmounts[0] = stakingAmount;
+        uint256[] memory stakingIncentives = new uint256[](1);
+        stakingIncentives[0] = stakingIncentive;
 
         // Send the message to L2
-        uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+        uint256 sequence = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
 
         // Increase the staking batch nonce
         stakingBatchNonce++;
 
-        emit MessagePosted(sequence, targets, stakingAmounts, transferAmount);
+        emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
 
 
     /// @dev Sends a batch message to the L2 side via a corresponding bridge.
     /// @param targets Set of staking target addresses.
-    /// @param stakingAmounts Corresponding set of staking amounts.
-    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
+    /// @param stakingIncentives Corresponding set of staking incentives.
+    /// @param bridgePayload Bridge payload necessary (if required) for a specific bridge relayer.
     /// @param transferAmount Actual total OLAS amount across all the targets to be transferred.
     function sendMessageBatch(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) external virtual payable {
@@ -168,12 +173,12 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         }
 
         // Send the message to L2
-        uint256 sequence = _sendMessage(targets, stakingAmounts, bridgePayload, transferAmount);
+        uint256 sequence = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
 
         // Increase the staking batch nonce
         stakingBatchNonce++;
 
-        emit MessagePosted(sequence, targets, stakingAmounts, transferAmount);
+        emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
 
     /// @dev Sets L2 target dispenser address and zero-s the owner.
@@ -192,6 +197,8 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
 
         // Revoke the owner role making the contract ownerless
         owner = address(0);
+
+        emit L2TargetDispenserUpdated(l2Dispenser);
     }
 
     /// @dev Sets L2 target dispenser address.
@@ -200,7 +207,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         _setL2TargetDispenser(l2Dispenser);
     }
 
-    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge
+    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
     /// @return Number of supported decimals.
     function getBridgingDecimals() external pure virtual returns (uint256) {
         return 18;

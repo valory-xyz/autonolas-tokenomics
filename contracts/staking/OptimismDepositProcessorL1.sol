@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultDepositProcessorL1, IToken} from "./DefaultDepositProcessorL1.sol";
 
@@ -52,6 +52,10 @@ interface IBridge {
     function xDomainMessageSender() external view returns (address);
 }
 
+/// @title OptimismDepositProcessorL1 - Smart contract for sending tokens and data via Optimism bridge from L1 to L2 and processing data received from L2.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
     uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
@@ -90,7 +94,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     /// @inheritdoc DefaultDepositProcessorL1
     function _sendMessage(
         address[] memory targets,
-        uint256[] memory stakingAmounts,
+        uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
@@ -118,16 +122,21 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert ZeroValue();
         }
 
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
         // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
             revert LowerThan(msg.value, cost);
         }
 
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingAmounts));
-        
-        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+
         // Send message to L2
+        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(gasLimitMessage));
 
         // Since there is no returned message sequence, use the staking batch nonce

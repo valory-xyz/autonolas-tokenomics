@@ -33,7 +33,7 @@ const main = async () => {
     const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
+    let parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
@@ -56,30 +56,16 @@ const main = async () => {
 
     // https://docs.optimism.io/builders/app-developers/tutorials/cross-dom-solidity#interact-with-the-l2-greeter
     // https://github.com/t4sk/notes/tree/main/op
+    // Make sure to "yarn" the "op" package
+    // cp .env.sample .env
+    // Assign the private key in .env
+    // Might change both L1 and L2 RPCs in src/index.js
+    // export L2_TX=0x6ef9bb50e9a70077ddb00d978b0baf93e3ba17e5f36a3978b225e97f7b613884
+    // env $(cat .env) L2_TX=$L2_TX node src/index.js
 
-    // TODO This must be called as IBridge.relayMessage() after the transaction challenge period has passed
+    // This must be called as IBridge.relayMessage() after the transaction challenge period has passed
     // Source: https://github.com/ethereum-optimism/optimism/blob/65ec61dde94ffa93342728d324fecf474d228e1f/packages/contracts-bedrock/contracts/universal/CrossDomainMessenger.sol#L303
     // Doc: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l2-to-l1-transactions-1
-    /**
-     * @notice Relays a message that was sent by the other CrossDomainMessenger contract. Can only
-     *         be executed via cross-chain call from the other messenger OR if the message was
-     *         already received once and is currently being replayed.
-     *
-     * @param _nonce       Nonce of the message being relayed.
-     * @param _sender      Address of the user who sent the message.
-     * @param _target      Address that the message is targeted at.
-     * @param _value       ETH value to send with the message.
-     * @param _minGasLimit Minimum amount of gas that the message can be executed with.
-     * @param _message     Message to send to the target.
-     */
-//    function relayMessage(
-//        uint256 _nonce,
-//        address _sender,
-//        address _target,
-//        uint256 _value,
-//        uint256 _minGasLimit,
-//        bytes calldata _message
-//    ) external payable;
 };
 
 main()

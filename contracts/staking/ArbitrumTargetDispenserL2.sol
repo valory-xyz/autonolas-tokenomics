@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.25;
 
 import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
 
@@ -16,33 +16,37 @@ interface IBridge {
     function sendTxToL1(address destination, bytes calldata data) external payable returns (uint256);
 }
 
+/// @title ArbitrumTargetDispenserL2 - Smart contract for processing tokens and data received on Arbitrum L2, and data sent back to L1.
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
+    // Aliased L1 deposit processor address
     address public immutable l1AliasedDepositProcessor;
 
     /// @dev ArbitrumTargetDispenserL2 constructor.
     /// @notice _l1AliasedDepositProcessor must be correctly aliased from the address on L1.
     ///         Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#address-aliasing
+    ///         Source: https://github.com/OffchainLabs/token-bridge-contracts/blob/b3894ecc8b6185b2d505c71c9a7851725f53df15/contracts/tokenbridge/libraries/AddressAliasHelper.sol#L21-L32
     /// @param _olas OLAS token address.
     /// @param _proxyFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (ArbSys).
     /// @param _l1DepositProcessor L1 deposit processor address (NOT aliased).
     /// @param _l1SourceChainId L1 source chain Id.
-    /// @param _l1AliasedDepositProcessor Aliased deposit processor address.
     constructor(
         address _olas,
         address _proxyFactory,
         address _l2MessageRelayer,
         address _l1DepositProcessor,
-        uint256 _l1SourceChainId,
-        address _l1AliasedDepositProcessor
+        uint256 _l1SourceChainId
     )
         DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
     {
-        // Check for zero address
-        if (_l1AliasedDepositProcessor == address(0)) {
-            revert ZeroAddress();
+        // Get the l1AliasedDepositProcessor based on _l1DepositProcessor
+        uint160 offset = uint160(0x1111000000000000000000000000000000001111);
+        unchecked {
+            l1AliasedDepositProcessor = address(uint160(_l1DepositProcessor) + offset);
         }
-        l1AliasedDepositProcessor = _l1AliasedDepositProcessor;
     }
 
     /// @inheritdoc DefaultTargetDispenserL2

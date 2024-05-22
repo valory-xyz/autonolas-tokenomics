@@ -137,7 +137,7 @@ const main = async () => {
     const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
     const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
     let contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
+    let parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
@@ -166,6 +166,8 @@ const main = async () => {
 
     // Use the following script to finalize L2-L1 transaction:
     // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js
+    // Make sure to "yarn" the outbox-execute package
+    // Follow steps in README.md
 
     // The script will call IBridge.executeTransaction() after the transaction challenge period has passed
     // Source: https://github.com/OffchainLabs/nitro-contracts/blob/67127e2c2fd0943d9d87a05915d77b1f220906aa/src/bridge/Outbox.sol#L123
