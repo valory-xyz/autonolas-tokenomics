@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-
 all_structs=()
 
 contracts=(
