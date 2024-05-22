@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const helpers = require("@nomicfoundation/hardhat-network-helpers");
 
-describe.only("DispenserDevIncentives", async () => {
+describe("DispenserDevIncentives", async () => {
     const initialMint = "1" + "0".repeat(26);
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;

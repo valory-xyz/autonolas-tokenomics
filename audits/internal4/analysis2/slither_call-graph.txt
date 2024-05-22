@@ -1,0 +1,176 @@
+'solc --version' running
+'solc ./WormholeTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeTargetDispenserL2-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> WormholeTargetDispenserL2-flatten.sol
+
+
+'solc --version' running
+'solc ./DefaultDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./WormholeDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./WormholeDepositProcessorL1-flatten.sol:
+Warning: Source file does not specify required compiler version! Consider adding "pragma solidity ^0.8.25;"
+--> WormholeDepositProcessorL1-flatten.sol
+
+
+'solc --version' running
+'solc ./GnosisTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./GnosisDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./EthereumDepositProcessor-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./EthereumDepositProcessor-flatten.sol:
+Warning: SPDX license identifier not provided in source file. Before publishing, consider adding a comment containing "SPDX-License-Identifier: <SPDX-License>" to each source file. Use "SPDX-License-Identifier: UNLICENSED" for non-open-source code. Please see https://spdx.org for more information.
+--> EthereumDepositProcessor-flatten.sol
+
+
+'solc --version' running
+'solc ./TokenomicsConstants-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./OptimismTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./ArbitrumDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./Dispenser-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./Dispenser-flatten.sol:
+Warning: Function state mutability can be restricted to view
+   --> Dispenser-flatten.sol:358:5:
+    |
+358 |     function _checkpointNomineeAndGetClaimedEpochCounters(
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: Contract code size is 26033 bytes and exceeds 24576 bytes (a limit introduced in Spurious Dragon). This contract may not be deployable on Mainnet. Consider enabling the optimizer (with a low "runs" value!), turning off revert strings, or using libraries.
+   --> Dispenser-flatten.sol:255:1:
+    |
+255 | contract Dispenser {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./PolygonDepositProcessorL1-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+Compilation warnings/errors on ./PolygonDepositProcessorL1-flatten.sol:
+Warning: Unnamed return variable can remain unassigned. Add an explicit return with value to all non-reverting code paths or name the variable.
+   --> PolygonDepositProcessorL1-flatten.sol:901:30:
+    |
+901 |     ) internal pure returns (bool) {
+    |                              ^^^^
+
+Warning: Unused local variable.
+    --> PolygonDepositProcessorL1-flatten.sol:1147:52:
+     |
+1147 |         (bytes32 headerRoot, uint256 startBlock, , uint256 createdAt, ) = checkpointManager.headerBlocks(headerNumber);
+     |                                                    ^^^^^^^^^^^^^^^^^
+
+
+'solc --version' running
+'solc ./PolygonTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+'solc --version' running
+'solc ./DefaultTargetDispenserL2-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal4/analysis2/contracts' running
+INFO:Printers:Call Graph: ./WormholeTargetDispenserL2-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IToken.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IWormhole.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IWormholeReceiver.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IWormholeRelayer.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IWETH.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.ITokenBridge.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.TokenSender.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./WormholeTargetDispenserL2-flatten.sol.WormholeTargetDispenserL2.call-graph.dot
+
+INFO:Printers:Call Graph: ./DefaultDepositProcessorL1-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./DefaultDepositProcessorL1-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./DefaultDepositProcessorL1-flatten.sol.IToken.call-graph.dot
+Call Graph: ./DefaultDepositProcessorL1-flatten.sol.DefaultDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./WormholeDepositProcessorL1-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IToken.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IWormhole.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IWormholeReceiver.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IWormholeRelayer.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.IWETH.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.ITokenBridge.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.TokenReceiver.call-graph.dot
+Call Graph: ./WormholeDepositProcessorL1-flatten.sol.WormholeDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./GnosisTargetDispenserL2-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./GnosisTargetDispenserL2-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./GnosisTargetDispenserL2-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./GnosisTargetDispenserL2-flatten.sol.IToken.call-graph.dot
+Call Graph: ./GnosisTargetDispenserL2-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./GnosisTargetDispenserL2-flatten.sol.GnosisTargetDispenserL2.call-graph.dot
+
+INFO:Printers:Call Graph: ./GnosisDepositProcessor-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./GnosisDepositProcessor-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./GnosisDepositProcessor-flatten.sol.IToken.call-graph.dot
+Call Graph: ./GnosisDepositProcessor-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./GnosisDepositProcessor-flatten.sol.GnosisDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./EthereumDepositProcessor-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./EthereumDepositProcessor-flatten.sol.IToken.call-graph.dot
+Call Graph: ./EthereumDepositProcessor-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./EthereumDepositProcessor-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./EthereumDepositProcessor-flatten.sol.EthereumDepositProcessor.call-graph.dot
+
+INFO:Printers:Call Graph: ./TokenomicsConstants-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./TokenomicsConstants-flatten.sol.TokenomicsConstants.call-graph.dot
+
+INFO:Printers:Call Graph: ./OptimismDepositProcessorL1-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./OptimismDepositProcessorL1-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./OptimismDepositProcessorL1-flatten.sol.IToken.call-graph.dot
+Call Graph: ./OptimismDepositProcessorL1-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./OptimismDepositProcessorL1-flatten.sol.OptimismDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./OptimismTargetDispenserL2-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./OptimismTargetDispenserL2-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./OptimismTargetDispenserL2-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./OptimismTargetDispenserL2-flatten.sol.IToken.call-graph.dot
+Call Graph: ./OptimismTargetDispenserL2-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./OptimismTargetDispenserL2-flatten.sol.OptimismTargetDispenserL2.call-graph.dot
+
+INFO:Printers:Call Graph: ./ArbitrumDepositProcessorL1-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./ArbitrumDepositProcessorL1-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./ArbitrumDepositProcessorL1-flatten.sol.IToken.call-graph.dot
+Call Graph: ./ArbitrumDepositProcessorL1-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./ArbitrumDepositProcessorL1-flatten.sol.ArbitrumDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./Dispenser-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.IDepositProcessor.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.IToken.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.ITokenomics.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.ITreasury.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.IVoteWeighting.call-graph.dot
+Call Graph: ./Dispenser-flatten.sol.Dispenser.call-graph.dot
+
+INFO:Printers:Call Graph: ./PolygonDepositProcessorL1-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.IDispenser.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.IToken.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.IStateSender.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.FxRoot.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.RLPReader.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.ExitPayloadReader.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.Merkle.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.MerklePatriciaProof.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.ICheckpointManager.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.IBridge.call-graph.dot
+Call Graph: ./PolygonDepositProcessorL1-flatten.sol.PolygonDepositProcessorL1.call-graph.dot
+
+INFO:Printers:Call Graph: ./PolygonTargetDispenserL2-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./PolygonTargetDispenserL2-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./PolygonTargetDispenserL2-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./PolygonTargetDispenserL2-flatten.sol.IToken.call-graph.dot
+Call Graph: ./PolygonTargetDispenserL2-flatten.sol.FxChild.call-graph.dot
+Call Graph: ./PolygonTargetDispenserL2-flatten.sol.PolygonTargetDispenserL2.call-graph.dot
+
+INFO:Printers:Call Graph: ./DefaultTargetDispenserL2-flatten.sol.all_contracts.call-graph.dot
+Call Graph: ./DefaultTargetDispenserL2-flatten.sol.IStaking.call-graph.dot
+Call Graph: ./DefaultTargetDispenserL2-flatten.sol.IStakingFactory.call-graph.dot
+Call Graph: ./DefaultTargetDispenserL2-flatten.sol.IToken.call-graph.dot
+Call Graph: ./DefaultTargetDispenserL2-flatten.sol.DefaultTargetDispenserL2.call-graph.dot
+
+INFO:Slither:. analyzed (115 contracts)

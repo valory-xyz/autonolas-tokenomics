@@ -2,7 +2,7 @@
 const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
-describe.only("StakingBridging", async () => {
+describe("StakingBridging", async () => {
     const initialMint = "1" + "0".repeat(26);
     const defaultDeposit = "1" + "0".repeat(22);
     const AddressZero = ethers.constants.AddressZero;
@@ -513,18 +513,62 @@ describe.only("StakingBridging", async () => {
             // Try to drain not by the owner
             await expect(
                 arbitrumTargetDispenserL2.connect(signers[1]).drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
 
             // Try to drain with the zero amount on a contract
             await expect(
                 arbitrumTargetDispenserL2.drain()
-            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ZeroValue");
 
             // Receive funds by ArbitrumTargetDispenserL2
             await deployer.sendTransaction({to: arbitrumTargetDispenserL2.address, value: ethers.utils.parseEther("1")});
 
             // Drain by the owner
             await arbitrumTargetDispenserL2.drain();
+        });
+
+        it("Migrate functionality on L2", async function () {
+            // Try to migrate not by the owner
+            await expect(
+                arbitrumTargetDispenserL2.connect(signers[1]).migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
+
+            // Try to migrate when the contract is not paused
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "Unpaused");
+
+            // Pause the deposit processor
+            await arbitrumTargetDispenserL2.pause();
+
+            // Try to migrate not to the contract address
+            await expect(
+                arbitrumTargetDispenserL2.migrate(AddressZero)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Try to migrate to the same contract (just to kill the contract)
+            await expect(
+                arbitrumTargetDispenserL2.migrate(arbitrumTargetDispenserL2.address)
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "WrongAccount");
+
+            // Deposit some OLAS to the contract
+            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
+
+            // Migrate the contract to another one
+            await arbitrumTargetDispenserL2.migrate(arbitrumDepositProcessorL1.address);
+
+            // The contract is now frozen, pause is active and reentrancy revert is applied, where possible
+            await expect(
+                arbitrumTargetDispenserL2.drain()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "ReentrancyGuard");
+
+            expect(await arbitrumTargetDispenserL2.owner()).to.equal(AddressZero);
+            expect(await arbitrumTargetDispenserL2.paused()).to.equal(2);
+
+            // Any ownable function is going to revert
+            await expect(
+                arbitrumTargetDispenserL2.unpause()
+            ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
         });
     });
 
@@ -605,7 +649,15 @@ describe.only("StakingBridging", async () => {
 
             // Unpause and send withheld amount from L2 to L1
             await gnosisTargetDispenserL2.unpause();
-            await gnosisTargetDispenserL2.syncWithheldTokens("0x");
+
+            // Trying to sync withheld tokens with incorrect bridge payload
+            await expect(
+                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "IncorrectDataLength");
+
+            // Send withheld token info from L2 to L1
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
         });
 
         it("Checks during a message sending on L1 and L2", async function () {
@@ -654,7 +706,7 @@ describe.only("StakingBridging", async () => {
 
             // Try to receive a message with the wrong sender
             await expect(
-                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+                gnosisTargetDispenserL2.syncWithheldTokens(HashZero)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "WrongMessageSender");
 
 
@@ -726,7 +778,7 @@ describe.only("StakingBridging", async () => {
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
             await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultCost});
         });
 
@@ -759,17 +811,17 @@ describe.only("StakingBridging", async () => {
 
             // Try to sync a withheld amount with providing incorrect data
             await expect(
-                optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
+                optimismTargetDispenserL2.syncWithheldTokens(HashZero)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "IncorrectDataLength");
 
             // Trying to set a zero cost
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [0, 0]);
             await expect(
                 optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "ZeroValue");
 
 
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultCost]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
             await expect(
                 optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "LowerThan");
@@ -912,7 +964,7 @@ describe.only("StakingBridging", async () => {
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue});
         });
 
@@ -946,7 +998,7 @@ describe.only("StakingBridging", async () => {
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "IncorrectDataLength");
 
             // Try to send withheld tokens without any msg.value covering the cost
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [deployer.address]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "LowerThan");
@@ -1007,7 +1059,7 @@ describe.only("StakingBridging", async () => {
 
             // Try to send withheld amount from L2 to L1 with the wrong chain Id
             await bridgeRelayer.setMode(3);
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongChainId");
@@ -1022,7 +1074,7 @@ describe.only("StakingBridging", async () => {
             await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
                 stakingIncentive, {value: defaultMsgValue});
             // Now the delivery hash will fail
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address"], [AddressZero]);
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
                 wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "AlreadyDelivered");

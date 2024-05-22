@@ -122,6 +122,11 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
             revert ZeroValue();
         }
 
+        // Check for the max message gas limit
+        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
+            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        }
+
         // Check that provided msg.value is enough to cover the cost
         if (cost > msg.value) {
             revert LowerThan(msg.value, cost);
@@ -129,9 +134,9 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         // Assemble data payload
         bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
-        
-        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
+
         // Send message to L2
+        // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(gasLimitMessage));
 
         // Since there is no returned message sequence, use the staking batch nonce

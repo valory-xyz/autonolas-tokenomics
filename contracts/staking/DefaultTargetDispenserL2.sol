@@ -30,6 +30,12 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
+
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
 }
 
 /// @title DefaultTargetDispenserL2 - Smart contract for processing tokens and data received on L2, and data sent back to L1.
@@ -50,14 +56,18 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
+    event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
-    // Gas limit for sending a message to L1
-    // This is safe as the value is approximately 3 times bigger than observed ones on numerous chains
+    // Default gas limit for sending a message to L1
+    // This is safe as the value is practically bigger than observed ones on numerous chains
     uint256 public constant GAS_LIMIT = 300_000;
+    // Max gas limit for sending a message to L1
+    // Several bridges consider this value as a maximum gas limit
+    uint256 public constant MAX_GAS_LIMIT = 2_000_000;
     // OLAS address
     address public immutable olas;
     // Staking proxy factory address
@@ -393,8 +403,64 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         _locked = 1;
     }
 
+    /// @dev Migrates funds to a new specified L2 target dispenser contract address.
+    /// @notice The contract must be paused to prevent other interactions.
+    ///         The owner is be zeroed, the contract becomes paused and in the reentrancy state for good.
+    ///         No further write interaction with the contract is going to be possible.
+    ///         If the withheld amount is nonzero, it is regulated by the DAO directly on the L1 side.
+    ///         If there are outstanding queued requests, they are processed by the DAO directly on the L2 side.
+    function migrate(address newL2TargetDispenser) external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for the owner address
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check that the contract is paused
+        if (paused == 1) {
+            revert Unpaused();
+        }
+
+        // Check that the migration address is a contract
+        if (newL2TargetDispenser.code.length == 0) {
+            revert WrongAccount(newL2TargetDispenser);
+        }
+
+        // Check that the new address is not the current one
+        if (newL2TargetDispenser == address(this)) {
+            revert WrongAccount(address(this));
+        }
+
+        // Get OLAS token amount
+        uint256 amount = IToken(olas).balanceOf(address(this));
+        // Transfer amount to the new L2 target dispenser
+        if (amount > 0) {
+            bool success = IToken(olas).transfer(newL2TargetDispenser, amount);
+            if (!success) {
+                revert TransferFailed(olas, address(this), newL2TargetDispenser, amount);
+            }
+        }
+
+        // Zero the owner
+        owner = address(0);
+
+        emit Migrated(msg.sender, newL2TargetDispenser, amount);
+
+        // _locked is now set to 2 for good
+    }
+
     /// @dev Receives native network token.
     receive() external payable {
+        // Disable receiving native funds after the contract has been migrated
+        if (owner == address(0)) {
+            revert TransferFailed(address(0), msg.sender, address(this), msg.value);
+        }
+
         emit FundsReceived(msg.sender, msg.value);
     }
 }
