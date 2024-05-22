@@ -298,3 +298,87 @@ DefaultTargetDispenserL2.redeem(address,uint256,uint256) (PolygonTargetDispenser
 -
 ```
 [x] noted
+
+# Re-audit. 22.05.24
+
+## Internal audit of autonolas-tokenomics
+The review has been performed based on the contract code in the following repository:<br>
+`https://github.com/valory-xyz/autonolas-tokenomics` <br>
+commit: `7f20035c543d553ed28a960152a3bae2878f374c` or `tag: v1.2.1-pre-internal-audit`<br>
+
+### Flatten version
+Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/contracts)
+
+### Storage and proxy
+Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
+```
+npm link sol2uml --only=production
+sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal4/analysis2/storage
+Generated png file audits/internal4/analysis2/storage/Tokenomics.png
+```
+[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/Tokenomics.png) <br>
+Same as before (see above). No issue.
+
+### Security issues.
+#### Problems found instrumentally
+Several checks are obtained automatically. They are commented. <br>
+All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
+[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/slither_full.txt) <br>
+
+#### Low issue
+1. Re-calcualted retainerHash
+```
+    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
+    function retain() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Go over epochs and retain funds to return back to the tokenomics
+        bytes32 localRetainer = retainer;
+
+        // Construct the nominee struct
+        IVoteWeighting.Nominee memory nominee = IVoteWeighting.Nominee(localRetainer, block.chainid);
+        // Get the nominee hash
+        bytes32 nomineeHash = keccak256(abi.encode(nominee));
+
+        but
+            constructor(
+        ...
+        retainer = _retainer;
+        retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
+
+```
+2. Not overflow gasLimit.
+```
+        // Check the gas limit value
+        if (gasLimitMessage < GAS_LIMIT) {
+            gasLimitMessage = GAS_LIMIT;
+        }
+        Under EIP-1559 a maximum gas limit is 30 million gas. So, if gasLimitMessage > MAX_GAS_LIMIT gasLimitMessage = GAS_LIMIT;
+```
+3. The old version remains.
+```
+autonolas-tokenomics$ grep -r "0.8.23" ./contracts/
+./contracts/interfaces/IBridgeErrors.sol:pragma solidity ^0.8.23;
+```
+4. Double checking comments
+```
+    Dispenser.sol
+    // Checkpoint the vote weighting for the retainer on L1
+```
+### To discussion. Not sure.
+```
+DefaultTargetDispenserL2.sol
+    /// @dev Receives native network token.
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
+    }
+    revert ofter migration?
+    like:
+    if(owner == address(0)) or _lock > 1 then revert()
+```
+
+
