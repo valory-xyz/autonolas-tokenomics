@@ -323,7 +323,7 @@ contract Dispenser {
     ) {
         owner = msg.sender;
         _locked = 1;
-        // TODO Define final behavior before deployment
+        // Staking incentives must be paused at the time of deployment because staking parameters are not live yet
         paused = Pause.StakingIncentivesPaused;
 
         // Check for at least one zero contract address
@@ -356,7 +356,7 @@ contract Dispenser {
     function _checkpointNomineeAndGetClaimedEpochCounters(
         bytes32 nomineeHash,
         uint256 numClaimedEpochs
-    ) internal returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
+    ) internal view returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
         // Get the current epoch number
         uint256 eCounter = ITokenomics(tokenomics).epochCounter();
 
@@ -372,13 +372,14 @@ contract Dispenser {
 
         // Must not claim in the ongoing epoch
         if (firstClaimedEpoch == eCounter) {
+            // Epoch counter is never equal to zero
             revert Overflow(firstClaimedEpoch, eCounter - 1);
         }
 
         // We still need to claim for the epoch number following the one when the nominee was removed
         uint256 epochAfterRemoved = mapRemovedNomineeEpochs[nomineeHash] + 1;
         // If the nominee is not removed, its value in the map is always zero, unless removed
-        // The nominee cannot be removed in the zero-th epoch by default
+        // The staking contract nominee cannot be removed in the zero-th epoch by default
         if (epochAfterRemoved > 1 && firstClaimedEpoch >= epochAfterRemoved) {
             revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
         }
@@ -761,12 +762,14 @@ contract Dispenser {
         uint256 eCounter = ITokenomics(tokenomics).epochCounter();
 
         // Get the previous epoch end time
+        // Epoch counter is never equal to zero
         uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(eCounter - 1);
 
         // Get the epoch length
         uint256 epochLen = ITokenomics(tokenomics).epochLen();
 
         // Check that there is more than one week before the end of the ongoing epoch
+        // Note that epochLen cannot be smaller than one week as per specified limits
         uint256 maxAllowedTime = endTime + epochLen - 1 weeks;
         if (block.timestamp >= maxAllowedTime) {
             revert Overflow(block.timestamp, maxAllowedTime);
@@ -807,18 +810,18 @@ contract Dispenser {
         // Request treasury to transfer funds to msg.sender if reward > 0 or topUp > 0
         if ((reward + topUp) > 0) {
             // Get the current OLAS balance
-            uint256 balanceBefore;
+            uint256 olasBalance;
             if (topUp > 0) {
-                balanceBefore = IToken(olas).balanceOf(msg.sender);
+                olasBalance = IToken(olas).balanceOf(msg.sender);
             }
 
             success = ITreasury(treasury).withdrawToAccount(msg.sender, reward, topUp);
 
             // Check the balance after the OLAS mint, if applicable
             if (topUp > 0){
-                uint256 balanceDiff = IToken(olas).balanceOf(msg.sender) - balanceBefore;
-                if (balanceDiff != topUp) {
-                    revert WrongAmount(balanceDiff, topUp);
+                olasBalance = IToken(olas).balanceOf(msg.sender) - olasBalance;
+                if (olasBalance != topUp) {
+                    revert WrongAmount(olasBalance, topUp);
                 }
             }
         }
@@ -896,8 +899,10 @@ contract Dispenser {
             // If veOLAS power is lower, it reflects the maximum amount of OLAS allocated for staking
             // such that all the inflation is not distributed for a minimal veOLAS power
             uint256 availableStakingAmount = stakingPoint.stakingIncentive;
-            uint256 stakingDiff = availableStakingAmount - totalWeightSum;
-            if (stakingDiff > 0) {
+
+            uint256 stakingDiff;
+            if (availableStakingAmount > totalWeightSum) {
+                stakingDiff = availableStakingAmount - totalWeightSum;
                 availableStakingAmount = totalWeightSum;
             }
 
@@ -906,17 +911,19 @@ contract Dispenser {
             if (stakingWeight < uint256(stakingPoint.minStakingWeight) * 1e14) {
                 // If vote weighting staking weight is lower than the defined threshold - return the staking incentive
                 returnAmount = ((stakingDiff + availableStakingAmount) * stakingWeight) / 1e18;
-                totalReturnAmount += returnAmount;
             } else {
                 // Otherwise, allocate staking incentive to corresponding contracts
                 stakingIncentive = (availableStakingAmount * stakingWeight) / 1e18;
+                // Calculate initial return amount, if stakingDiff > 0
                 returnAmount = (stakingDiff * stakingWeight) / 1e18;
-                if (stakingIncentive > stakingPoint.maxStakingAmount) {
+
+                // availableStakingAmount is not used anymore and can serve as a local maxStakingAmount
+                availableStakingAmount = stakingPoint.maxStakingAmount;
+                if (stakingIncentive > availableStakingAmount) {
                     // Adjust the return amount
-                    returnAmount += stakingIncentive - stakingPoint.maxStakingAmount;
-                    totalReturnAmount += returnAmount;
+                    returnAmount += stakingIncentive - availableStakingAmount;
                     // Adjust the staking incentive
-                    stakingIncentive = stakingPoint.maxStakingAmount;
+                    stakingIncentive = availableStakingAmount;
                 }
 
                 // Normalize staking incentive if there is a bridge decimals limiting condition
@@ -925,13 +932,16 @@ contract Dispenser {
                     uint256 normalizedStakingAmount = stakingIncentive / (10 ** (18 - bridgingDecimals));
                     normalizedStakingAmount *= 10 ** (18 - bridgingDecimals);
                     // Update return amounts
+                    // stakingIncentive is always bigger or equal than normalizedStakingAmount
                     returnAmount += stakingIncentive - normalizedStakingAmount;
                     // Downsize staking incentive to a specified number of bridging decimals
                     stakingIncentive = normalizedStakingAmount;
                 }
-
+                // Adjust total staking incentive amount
                 totalStakingIncentive += stakingIncentive;
             }
+            // Adjust total return amount
+            totalReturnAmount += returnAmount;
         }
     }
 
@@ -1015,14 +1025,15 @@ contract Dispenser {
 
             // Check if minting is needed as the actual OLAS transfer is required
             if (transferAmount > 0) {
-                uint256 balanceBefore = IToken(olas).balanceOf(address(this));
+                uint256 olasBalance = IToken(olas).balanceOf(address(this));
 
                 // Mint tokens to self in order to distribute to the staking deposit processor
                 ITreasury(treasury).withdrawToAccount(address(this), 0, transferAmount);
 
                 // Check the balance after the mint
-                if (IToken(olas).balanceOf(address(this)) - balanceBefore != transferAmount) {
-                    revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, transferAmount);
+                olasBalance = IToken(olas).balanceOf(address(this)) - olasBalance;
+                if (olasBalance != transferAmount) {
+                    revert WrongAmount(olasBalance, transferAmount);
                 }
             }
 
@@ -1092,14 +1103,15 @@ contract Dispenser {
         if (totalAmounts[0] > 0) {
             // Check if minting is needed as the actual OLAS transfer is required
             if (totalAmounts[1] > 0) {
-                uint256 balanceBefore = IToken(olas).balanceOf(address(this));
+                uint256 olasBalance = IToken(olas).balanceOf(address(this));
 
                 // Mint tokens to self in order to distribute to staking deposit processors
                 ITreasury(treasury).withdrawToAccount(address(this), 0, totalAmounts[1]);
 
                 // Check the balance after the mint
-                if (IToken(olas).balanceOf(address(this)) - balanceBefore != totalAmounts[1]) {
-                    revert WrongAmount(IToken(olas).balanceOf(address(this)) - balanceBefore, totalAmounts[1]);
+                olasBalance = IToken(olas).balanceOf(address(this)) - olasBalance;
+                if (olasBalance != totalAmounts[1]) {
+                    revert WrongAmount(olasBalance, totalAmounts[1]);
                 }
             }
 

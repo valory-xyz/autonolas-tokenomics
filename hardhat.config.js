@@ -223,7 +223,7 @@ module.exports = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 4000,
+                        runs: 1500,
                     },
                     evmVersion: "cancun"
                 },

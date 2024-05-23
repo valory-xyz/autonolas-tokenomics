@@ -14,7 +14,7 @@ abstract contract TokenomicsConstants {
     // One year in seconds
     uint256 public constant ONE_YEAR = 1 days * 365;
     // Minimum epoch length
-    uint256 public constant MIN_EPOCH_LENGTH = 1 weeks;
+    uint256 public constant MIN_EPOCH_LENGTH = 10 days;
     // Max epoch length
     uint256 public constant MAX_EPOCH_LENGTH = ONE_YEAR - 1 days;
     // Minimum fixed point tokenomics parameters

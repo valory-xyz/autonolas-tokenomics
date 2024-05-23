@@ -18,7 +18,7 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint32 epochLen = 1 weeks;
+    uint32 epochLen = 10 days;
 
     function setUp() public virtual {
         utils = new Utils();
