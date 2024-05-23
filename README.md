@@ -6,9 +6,9 @@ This repository contains the tokenomics part of Autonolas onchain-protocol contr
 
 A graphical overview is available here:
 
-![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png?raw=true)
+![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png)
 
-An overview of the Autonolas tokenomics model is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf?raw=true). A description of the tokenomics contracts related to Olas staking is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/StakingSmartContracts.pdf?raw=true).
+An overview of the Autonolas tokenomics model is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf). A description of the tokenomics contracts related to Olas staking is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/StakingSmartContracts.pdf).
 
 Details on tokenomics model and Olas Staking can be found [here](https://olas.network/documents/whitepaper/Autonolas_Tokenomics_Core_Technical_Document.pdf) and [here](https://staking.olas.network/poaa-whitepaper.pdf).
 
@@ -83,7 +83,7 @@ forge test --hh -vv
 
 ### Audits
 The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf?raw=true).
+A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf).
 
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
