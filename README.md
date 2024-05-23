@@ -22,6 +22,8 @@ The Tokenomics contract is deployed via the proxy contract, such that it is poss
   - [Tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Tokenomics.sol)
   - [TokenomicsProxy](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/TokenomicsProxy.sol)
   - [Treasury](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Treasury.sol)
+
+- Staking related contracts:
   - [DefaultDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultDepositProcessorL1.sol)
   - [DefaultTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultTargetDispenserL2.sol)
   - [EthereumDepositProcessor.sol](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/EthereumDepositProcessor.sol.sol)
