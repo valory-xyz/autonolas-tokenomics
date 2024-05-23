@@ -6,13 +6,14 @@ This repository contains the tokenomics part of Autonolas onchain-protocol contr
 
 A graphical overview is available here:
 
-![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png?raw=true)
+![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png)
 
-An overview of the Autonolas tokenomics model, a high-level description of smart contacts, and a full set of smart contract
-specifications are provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf?raw=true).
+An overview of the Autonolas tokenomics model is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf). A description of the tokenomics contracts related to Olas staking is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/StakingSmartContracts.pdf).
+
+Details on tokenomics model and Olas Staking can be found [here](https://olas.network/documents/whitepaper/Autonolas_Tokenomics_Core_Technical_Document.pdf) and [here](https://staking.olas.network/poaa-whitepaper.pdf).
 
 The Depository and Treasury contracts are inspired by OlympusDAO concepts. The Tokenomics contract implements the brunt of the reward logic
-for component and agent owners, and the logic that regulates the discount factor for bonds.
+for component and agent owners, the logic that regulates the discount factor for bonds, and Olas staking emissions.
 The Tokenomics contract is deployed via the proxy contract, such that it is possible to update the current Tokenomics implementation.
 
 - Core contracts:
@@ -21,6 +22,22 @@ The Tokenomics contract is deployed via the proxy contract, such that it is poss
   - [Tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Tokenomics.sol)
   - [TokenomicsProxy](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/TokenomicsProxy.sol)
   - [Treasury](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Treasury.sol)
+
+- Staking related contracts:
+  - [DefaultDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultDepositProcessorL1.sol)
+  - [DefaultTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultTargetDispenserL2.sol)
+  - [EthereumDepositProcessor.sol](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/EthereumDepositProcessor.sol.sol)
+  - [ArbitrumDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/ArbitrumDepositProcessorL1.sol)
+  - [ArbitrumTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/ArbitrumTargetDispenserL2.sol)
+  - [GnosisDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/GnosisDepositProcessorL1.sol)
+  - [GnosisTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/GnosisTargetDispenserL2.sol)
+  - [OptimismDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/OptimismDepositProcessorL1.sol)
+  - [OptimismTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/OptimismTargetDispenserL2.sol)
+  - [PolygonDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/PolygonDepositProcessorL1.sol)
+  - [PolygonTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/PolygonTargetDispenserL2.sol)
+  - [WormholeDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/WormholeDepositProcessorL1.sol)
+  - [WormholeTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/WormholeTargetDispenserL2.sol)
+
 - Auxiliary contracts:
   - [DonatorBlacklist](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/DonatorBlacklist.sol)
   - [GenericBondCalculator](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/GenericBondCalculator.sol)
@@ -66,7 +83,7 @@ forge test --hh -vv
 
 ### Audits
 The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf?raw=true).
+A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf).
 
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
