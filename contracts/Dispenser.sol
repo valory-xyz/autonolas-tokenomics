@@ -914,7 +914,7 @@ contract Dispenser {
             } else {
                 // Otherwise, allocate staking incentive to corresponding contracts
                 stakingIncentive = (availableStakingAmount * stakingWeight) / 1e18;
-
+                // Calculate initial return amount, if stakingDiff > 0
                 returnAmount = (stakingDiff * stakingWeight) / 1e18;
 
                 // availableStakingAmount is not used anymore and can serve as a local maxStakingAmount
@@ -937,9 +937,10 @@ contract Dispenser {
                     // Downsize staking incentive to a specified number of bridging decimals
                     stakingIncentive = normalizedStakingAmount;
                 }
-
+                // Adjust total staking incentive amount
                 totalStakingIncentive += stakingIncentive;
             }
+            // Adjust total return amount
             totalReturnAmount += returnAmount;
         }
     }
