@@ -768,7 +768,6 @@ contract Dispenser {
         // Get the epoch length
         uint256 epochLen = ITokenomics(tokenomics).epochLen();
 
-        // TODO if epochLen is one week?
         // Check that there is more than one week before the end of the ongoing epoch
         // Note that epochLen cannot be smaller than one week as per specified limits
         uint256 maxAllowedTime = endTime + epochLen - 1 weeks;
