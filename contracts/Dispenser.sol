@@ -323,7 +323,7 @@ contract Dispenser {
     ) {
         owner = msg.sender;
         _locked = 1;
-        // TODO Define final behavior before deployment
+        // Staking incentives must be paused at the time of deployment because staking parameters are not live yet
         paused = Pause.StakingIncentivesPaused;
 
         // Check for at least one zero contract address
