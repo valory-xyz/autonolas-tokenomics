@@ -15,9 +15,9 @@
    13 | contracts/staking/WormholeTargetDispenserL2.sol                                                                          |         88 |
    14 | contracts/TokenomicsConstants.sol                                                                                        |         60 |
    15 | contracts/Tokenomics.sol                                                                                                 |        733 |
-   16 | contracts/Dispenser.sol                                                                                                  |        641 |
+   16 | contracts/Dispenser.sol                                                                                                  |        644 |
    17 | contracts/interfaces/IDonatorBlacklist.sol                                                                               |          4 |
    18 | contracts/interfaces/IErrorsTokenomics.sol                                                                               |         31 |
    19 | contracts/interfaces/IBridgeErrors.sol                                                                                   |         23 |
 ----------------------------------------------------------------------------------------------------------------------------------------------
-   19 | All Tokenomics contract                                                                                                  |       2545 |
+   19 | All Tokenomics contract                                                                                                  |       2548 |
