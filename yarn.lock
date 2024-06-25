@@ -934,10 +934,10 @@
     table "^6.8.0"
     undici "^5.14.0"
 
-"@prb/math@^4.0.0":
-  version "4.0.1"
-  resolved "https://registry.npmjs.org/@prb/math/-/math-4.0.1.tgz"
-  integrity sha512-ANTz2KMV+dMdZ57mWgDTR6jZo5uQzUczQEHCxd7CvJZZ9yafnfPhUUILHvvigIOZ85fZbTPVkC8YoRG1z5Qf7g==
+"@prb/math@=4.0.2":
+  version "4.0.2"
+  resolved "https://registry.yarnpkg.com/@prb/math/-/math-4.0.2.tgz#0bcbc34eb2c49c56b70ded059d0af28c09b7833a"
+  integrity sha512-kJgqvXR6iyU7+N959RzggSFhBdnRuSDnc/bs8u6MzdWw7aYIUaAr+uMVdpP6Dheypjerd7sfJgFOs19FRFhscg==
 
 "@scure/base@~1.1.0":
   version "1.1.1"
