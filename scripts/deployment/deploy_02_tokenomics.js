@@ -43,7 +43,7 @@ async function main() {
     }
 
     // Writing updated parameters back to the JSON file
-    parsedData.tokenomicsTwoAddress = tokenomics.address;
+    parsedData.tokenomicsThreeAddress = tokenomics.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification

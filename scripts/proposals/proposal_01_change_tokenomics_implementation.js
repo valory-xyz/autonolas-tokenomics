@@ -28,10 +28,10 @@ async function main() {
     // Get all the necessary contract addresses
     const governorTwoAddress = parsedData.governorTwoAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    const tokenomicsTwoAddress = parsedData.tokenomicsTwoAddress;
+    const tokenomicsThreeAddress = parsedData.tokenomicsThreeAddress;
 
     // Get the GovernorOLAS instance via its ABI
-    const GovernorOLASJSON = "abis/aux/GovernorOLAS.json";
+    const GovernorOLASJSON = "abis/misc/GovernorOLAS.json";
     let contractFromJSON = fs.readFileSync(GovernorOLASJSON, "utf8");
     let contract = JSON.parse(contractFromJSON);
     const GovernorOLASABI = contract["abi"];
@@ -43,8 +43,8 @@ async function main() {
     console.log("Proposal 1. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsTwo)`");
     const targets = [tokenomicsProxyAddress];
     const values = [0];
-    const callDatas = [tokenomicsProxy.interface.encodeFunctionData("changeTokenomicsImplementation", [tokenomicsTwoAddress])];
-    const description = "Change Tokenomics implementation to the version 1.0.1";
+    const callDatas = [tokenomicsProxy.interface.encodeFunctionData("changeTokenomicsImplementation", [tokenomicsThreeAddress])];
+    const description = "Change Tokenomics implementation to the version 1.2.0";
 
     // Proposal details
     console.log("targets:", targets);
