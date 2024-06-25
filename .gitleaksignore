@@ -106,3 +106,7 @@ c1ebdf6ee1d58b2a7aa8ece47be8aaf70e4768ec:audits/internal4/analysis/contracts/dif
 c1ebdf6ee1d58b2a7aa8ece47be8aaf70e4768ec:audits/internal4/analysis/contracts/diff-v1.0.3-v1.2.0-pre-internal-audit.txt:generic-api-key:19074
 c1ebdf6ee1d58b2a7aa8ece47be8aaf70e4768ec:audits/internal4/analysis/contracts/diff-v1.0.3-v1.2.0-pre-internal-audit.txt:generic-api-key:19082
 87f9a8733ea0edf1c4f51c92aa9256206a1a9071:audits/internal4/analysis2/contracts/TokenomicsConstants-flatten.sol:generic-api-key:15
+49edd56685ab74767e25b7a427aa5349e1bb3e46:scripts/deployment/globals_mainnet.json:generic-api-key:1
+49edd56685ab74767e25b7a427aa5349e1bb3e46:scripts/deployment/globals_mainnet.json:generic-api-key:2
+613f448aa91f0679f82affe37db9d9431f3e6071:scripts/deployment/globals_mainnet.json:generic-api-key:1
+613f448aa91f0679f82affe37db9d9431f3e6071:scripts/deployment/globals_mainnet.json:generic-api-key:2
