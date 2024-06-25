@@ -21,7 +21,7 @@ async function main() {
 
     // Swap contract tracking
     const vaultAddress = parsedData.vaultAddress;
-    const vaultJSON = "abis/aux/Vault.json";
+    const vaultJSON = "abis/misc/Vault.json";
     const contractFromJSON = fs.readFileSync(vaultJSON, "utf8");
     const abi = JSON.parse(contractFromJSON);
     const vault = await ethers.getContractAt(abi, vaultAddress);
