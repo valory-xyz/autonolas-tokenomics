@@ -60,17 +60,8 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         }
 
         // Extract bridge cost and gas limit from the bridge payload
-        (uint256 cost, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
-
-        // Check for zero value
-        if (cost == 0) {
-            revert ZeroValue();
-        }
-
-        // Check that provided msg.value is enough to cover the cost
-        if (cost > msg.value) {
-            revert LowerThan(msg.value, cost);
-        }
+        // TODO: remove first parameter field
+        (, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
 
         // Check the gas limit values for both ends
         if (gasLimitMessage < GAS_LIMIT) {
@@ -86,7 +77,7 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
 
         // Send the message to L1 deposit processor
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
-        IBridge(l2MessageRelayer).sendMessage{value: cost}(l1DepositProcessor, data, uint32(gasLimitMessage));
+        IBridge(l2MessageRelayer).sendMessage(l1DepositProcessor, data, uint32(gasLimitMessage));
 
         emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
     }
