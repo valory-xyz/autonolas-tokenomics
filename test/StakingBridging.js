@@ -588,16 +588,8 @@ describe("StakingBridging", async () => {
             const stakingTarget = stakingInstance.address;
             const stakingIncentive = defaultAmount;
 
-            // Try to send a message with a zero or incorrect payload
-            await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
-                    stakingIncentive)
-            ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "IncorrectDataLength");
-
-            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
-
             // Send a message on L2 with funds
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Pause the L2 contract
@@ -607,7 +599,7 @@ describe("StakingBridging", async () => {
             let stakingBatchNonce = await gnosisTargetDispenserL2.connect(deployer).stakingBatchNonce();
 
             // Send a message on L2 with funds when the contract is paused - it must queue the amount
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Try to redeem
@@ -623,7 +615,7 @@ describe("StakingBridging", async () => {
             stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0);
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x", 0);
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
             await olas.mint(gnosisTargetDispenserL2.address, stakingIncentive);
@@ -632,7 +624,7 @@ describe("StakingBridging", async () => {
             await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Check the withheld amount
@@ -650,34 +642,24 @@ describe("StakingBridging", async () => {
             // Unpause and send withheld amount from L2 to L1
             await gnosisTargetDispenserL2.unpause();
 
-            // Trying to sync withheld tokens with incorrect bridge payload
-            await expect(
-                gnosisTargetDispenserL2.syncWithheldTokens("0x")
-            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "IncorrectDataLength");
-
-            // Send withheld token info from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
-            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
-        });
-
-        it("Checks during a message sending on L1 and L2", async function () {
-            // Encode the staking data to emulate it being received on L2
-            const stakingTarget = stakingInstance.address;
-            const stakingIncentive = defaultAmount;
-
+            // Send withheld token info from L2 to L1 when the gas is going to be adjusted from zero
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
 
-            // Try to send a message with a zero gas limit
-            await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "ZeroValue");
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
+                stakingIncentive);
 
-            // Try to send a message with an overflow gas limit value for L2
-            const overLimit = (await gnosisDepositProcessorL1.MESSAGE_GAS_LIMIT()).add(1);
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [overLimit]);
-            await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "Overflow");
+            // Send withheld token info from L2 to L1 when the gas is going to be adjusted without any payload
+            await gnosisTargetDispenserL2.syncWithheldTokens("0x");
+
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
+                stakingIncentive);
+
+            // Send withheld token info from L2 to L1 when the gas is going to be adjusted from being too high
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [moreThanMaxUint96]);
+            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
         });
 
         it("Verify senders on L1 and L2", async function () {
@@ -685,21 +667,19 @@ describe("StakingBridging", async () => {
             const stakingTarget = stakingInstance.address;
             const stakingIncentive = defaultAmount;
 
-            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
-
             // Set the mode for the message sender on receiving side
             await bridgeRelayer.setMode(2);
 
             // Message receive will fail on the L1 message sender
             await expect(
-                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
+                dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x", 0)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "WrongMessageSender");
 
             // Set the mode back to normal for the moment
             await bridgeRelayer.setMode(0);
 
             // Send tokens to the wrong address to withhold it
-            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+            await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Set the mode for the message sender on receiving side
@@ -715,7 +695,7 @@ describe("StakingBridging", async () => {
             const bridgeRelayer2 = await BridgeRelayer.deploy(olas.address);
             await bridgeRelayer2.deployed();
 
-            bridgePayload = gnosisTargetDispenserL2.interface.encodeFunctionData("receiveMessage", ["0x00"]);
+            let bridgePayload = gnosisTargetDispenserL2.interface.encodeFunctionData("receiveMessage", ["0x00"]);
             // Try to send messages via a wrong bridge relayer
             await expect(
                 bridgeRelayer2.requireToPassMessage(gnosisTargetDispenserL2.address, bridgePayload, 0)

@@ -64,8 +64,8 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         (, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
 
         // Check the gas limit values for both ends
-        if (gasLimitMessage < GAS_LIMIT) {
-            gasLimitMessage = GAS_LIMIT;
+        if (gasLimitMessage < MIN_GAS_LIMIT) {
+            gasLimitMessage = MIN_GAS_LIMIT;
         }
 
         if (gasLimitMessage > MAX_GAS_LIMIT) {
