@@ -59,7 +59,7 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         uint256[] memory stakingIncentives,
         bytes memory,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -81,6 +81,8 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
 
         // Since there is no returned message sequence, use the staking batch nonce
         sequence = stakingBatchNonce;
+
+        leftovers = msg.value;
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseRootTunnel.sol#L175

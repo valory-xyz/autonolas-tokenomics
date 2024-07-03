@@ -215,7 +215,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev Sends message to L1 to sync the withheld amount.
     /// @param amount Amount to sync.
     /// @param bridgePayload Payload data for the bridge relayer.
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal virtual;
+    /// @return leftovers Native token leftovers from unused msg.value.
+    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal virtual returns (uint256 leftovers);
 
     /// @dev Receives a message from L1.
     /// @param messageRelayer L2 bridge message relayer address.
@@ -342,7 +343,15 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         withheldAmount = 0;
 
         // Send a message to sync the withheld amount
-        _sendMessage(amount, bridgePayload);
+        uint256 leftovers = _sendMessage(amount, bridgePayload);
+
+        // Send leftover amount back to the sender, if any
+        if (leftovers > 0) {
+            // If the call fails, ignore to avoid the attack that would prevent this function from executing
+            // All the undelivered funds can be drained
+            // solhint-disable-next-line avoid-low-level-calls
+            msg.sender.call{value: leftovers, gas: 21_000}("");
+        }
 
         emit WithheldAmountSynced(msg.sender, amount);
 

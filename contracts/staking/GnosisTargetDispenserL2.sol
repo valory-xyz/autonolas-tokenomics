@@ -55,7 +55,7 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
+    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override returns (uint256 leftovers) {
         uint256 gasLimitMessage;
 
         // Check for the bridge payload length
@@ -79,6 +79,8 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
 
         // Send message to L1
         bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, gasLimitMessage);
+
+        leftovers = msg.value;
 
         emit MessagePosted(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }

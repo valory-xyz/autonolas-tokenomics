@@ -61,7 +61,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
@@ -95,6 +95,8 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Send tokens and / or message to L2
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             gasLimitMessage, olas, transferAmount, uint16(l2TargetChainId), refundAccount);
+
+        leftovers = msg.value;// - cost;
     }
 
     /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.

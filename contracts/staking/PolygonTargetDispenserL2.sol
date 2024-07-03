@@ -29,7 +29,7 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
     {}
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory) internal override {
+    function _sendMessage(uint256 amount, bytes memory) internal override returns (uint256 leftovers) {
         // Assemble AMB data payload
         bytes memory data = abi.encode(amount);
 
@@ -37,6 +37,8 @@ contract PolygonTargetDispenserL2 is DefaultTargetDispenserL2, FxBaseChildTunnel
         // Doc: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#child-tunnel-contract
         // Send message to L1
         _sendMessageToRoot(data);
+
+        leftovers = msg.value;
 
         emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
     }

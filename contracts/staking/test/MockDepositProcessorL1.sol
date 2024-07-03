@@ -20,7 +20,7 @@ contract MockDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingIncentives,
         bytes memory,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
 
         bytes memory data;
 
@@ -36,6 +36,7 @@ contract MockDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         sequence = stakingBatchNonce;
+        leftovers = msg.value;
         emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
 

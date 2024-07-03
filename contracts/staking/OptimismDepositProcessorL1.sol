@@ -97,7 +97,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -131,6 +131,8 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         // Since there is no returned message sequence, use the staking batch nonce
         sequence = stakingBatchNonce;
+
+        leftovers = msg.value;
     }
 
     /// @dev Process message received from L2.

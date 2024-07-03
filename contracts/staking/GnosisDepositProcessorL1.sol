@@ -50,7 +50,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingIncentives,
         bytes memory,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Transfer OLAS tokens
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
@@ -69,6 +69,8 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
 
         sequence = uint256(iMsg);
+
+        leftovers = msg.value;
     }
 
     /// @dev Process message received from L2.

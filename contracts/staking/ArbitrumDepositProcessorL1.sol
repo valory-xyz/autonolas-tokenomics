@@ -121,7 +121,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
@@ -138,13 +138,13 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         // Check for the tx param limits
         // See the function description for the magic values of 1
-        if (gasPriceBid < 2 || gasLimitMessage < 2 || maxSubmissionCostMessage == 0) {
+        if (gasPriceBid < 2 || maxSubmissionCostMessage == 0) {
             revert ZeroValue();
         }
 
-        // Check for the max message gas limit
-        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
-            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        // Check for the message gas limit
+        if (gasLimitMessage < MESSAGE_GAS_LIMIT) {
+            gasLimitMessage = MESSAGE_GAS_LIMIT;
         }
 
         // Calculate token and message transfer cost
@@ -173,14 +173,10 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1ERC20Gateway, transferAmount);
 
-            // Construct the data for IBridge consisting of 2 pieces:
-            // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
-            // bytes memory extraData: empty data
-            bytes memory submissionCostData = abi.encode(maxSubmissionCostToken, "");
-
             // Transfer OLAS to the staking dispenser contract across the bridge
             IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas, refundAccount,
-                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, gasPriceBid, submissionCostData);
+                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, gasPriceBid,
+                abi.encode(maxSubmissionCostToken, ""));
         }
 
         // Assemble message data payload
@@ -189,6 +185,8 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
             maxSubmissionCostMessage, refundAccount, address(0), gasLimitMessage, gasPriceBid, data);
+
+        leftovers = msg.value - totalCost;
     }
 
     /// @dev Process message received from L2.

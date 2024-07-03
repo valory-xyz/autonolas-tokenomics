@@ -93,12 +93,13 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
     /// @param transferAmount Actual total OLAS amount to be transferred.
     /// @return sequence Unique message sequence (if applicable) or the batch number.
+    /// @return leftovers ETH leftovers from unused msg.value.
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
         uint256 transferAmount
-    ) internal virtual returns (uint256 sequence);
+    ) internal virtual returns (uint256 sequence, uint256 leftovers);
 
     /// @dev Receives a message on L1 sent from L2 target dispenser side to sync withheld OLAS amount on L2.
     /// @param l1Relayer L1 source relayer.
@@ -147,7 +148,14 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         stakingIncentives[0] = stakingIncentive;
 
         // Send the message to L2
-        uint256 sequence = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+
+        // Send leftover amount back to the sender, if any
+        if (leftovers > 0) {
+            // If the call fails, ignore to avoid the attack that would prevent this function from executing
+            // solhint-disable-next-line avoid-low-level-calls
+            tx.origin.call{value: leftovers, gas: 21_000}("");
+        }
 
         // Increase the staking batch nonce
         stakingBatchNonce++;
@@ -173,7 +181,14 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         }
 
         // Send the message to L2
-        uint256 sequence = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+
+        // Send leftover amount back to the sender, if any
+        if (leftovers > 0) {
+            // If the call fails, ignore to avoid the attack that would prevent this function from executing
+            // solhint-disable-next-line avoid-low-level-calls
+            tx.origin.call{value: leftovers, gas: 21_000}("");
+        }
 
         // Increase the staking batch nonce
         stakingBatchNonce++;
