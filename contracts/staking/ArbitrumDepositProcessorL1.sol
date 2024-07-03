@@ -131,9 +131,9 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         (address refundAccount, uint256 gasPriceBid, uint256 maxSubmissionCostToken, uint256 gasLimitMessage,
             uint256 maxSubmissionCostMessage) = abi.decode(bridgePayload, (address, uint256, uint256, uint256, uint256));
 
-        // If refundAccount is zero, default to msg.sender
+        // Check for refund account address
         if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
+            revert ZeroAddress();
         }
 
         // Check for the tx param limits

@@ -58,7 +58,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     /// @param _proxyFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (Relayer).
     /// @param _l1DepositProcessor L1 deposit processor address.
-    /// @param _l1SourceChainId L1 wormhole standard source chain Id.
+    /// @param _l1SourceChainId L1 wormhole format source chain Id.
     /// @param _wormholeCore L2 Wormhole Core contract address.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address (Token Bridge).
     constructor(
@@ -94,9 +94,10 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
         // Extract refundAccount and gasLimitMessage from bridgePayload
         (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload, (address, uint256));
-        // If refundAccount is zero, default to msg.sender
+
+        // Check for refund account address
         if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
+            revert ZeroAddress();
         }
 
         // Check the gas limit values for both ends

@@ -24,7 +24,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
     /// @param _l1MessageRelayer L1 message relayer bridging contract address (Relayer).
     /// @param _l2TargetChainId L2 target chain Id.
     /// @param _wormholeCore L1 Wormhole Core contract address.
-    /// @param _wormholeTargetChainId L2 wormhole standard target chain Id.
+    /// @param _wormholeTargetChainId L2 wormhole format target chain Id.
     constructor(
         address _olas,
         address _l1Dispenser,
@@ -70,6 +70,11 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Decode required parameters
         (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload, (address, uint256));
 
+        // Check for refund account address
+        if (refundAccount == address(0)) {
+            revert ZeroAddress();
+        }
+
         // Check for zero value
         if (gasLimitMessage == 0) {
             revert ZeroValue();
@@ -78,11 +83,6 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // Check for the max message gas limit
         if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
             revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
-        }
-
-        // If refundAccount is zero, default to msg.sender
-        if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
         }
 
         // Encode target addresses and amounts
@@ -94,7 +94,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         // The token approval is done inside the function
         // Send tokens and / or message to L2
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
-            gasLimitMessage, olas, transferAmount, uint16(l2TargetChainId), refundAccount);
+            gasLimitMessage, olas, transferAmount, uint16(wormholeTargetChainId), refundAccount);
 
         leftovers = msg.value;// - cost;
     }
