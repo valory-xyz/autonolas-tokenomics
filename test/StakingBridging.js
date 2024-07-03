@@ -643,7 +643,7 @@ describe("StakingBridging", async () => {
             await gnosisTargetDispenserL2.unpause();
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted from zero
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
             await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
 
             // Send a message on L2 with funds for a wrong address
@@ -695,7 +695,7 @@ describe("StakingBridging", async () => {
             const bridgeRelayer2 = await BridgeRelayer.deploy(olas.address);
             await bridgeRelayer2.deployed();
 
-            bridgePayload = gnosisTargetDispenserL2.interface.encodeFunctionData("receiveMessage", ["0x00"]);
+            let bridgePayload = gnosisTargetDispenserL2.interface.encodeFunctionData("receiveMessage", ["0x00"]);
             // Try to send messages via a wrong bridge relayer
             await expect(
                 bridgeRelayer2.requireToPassMessage(gnosisTargetDispenserL2.address, bridgePayload, 0)
