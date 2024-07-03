@@ -227,13 +227,12 @@ contract BridgeRelayer {
     }
 
     // Contract: Omnibridge Multi-Token Mediator Proxy
-    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L80
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L54
     // Flattened: https://vscode.blockscan.com/gnosis/0x2dbdcc6cad1a5a11fd6337244407bc06162aaf92
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/omnibridge
-    function relayTokensAndCall(address l1Token, address receiver, uint256 amount, bytes memory payload) external {
+    function relayTokens(address l1Token, address receiver, uint256 amount) external {
         IToken(l1Token).transferFrom(msg.sender, address(this), amount);
         IToken(l1Token).transfer(receiver, amount);
-        IBridgeRelayer(receiver).onTokenBridged(address(0), 0, payload);
     }
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14

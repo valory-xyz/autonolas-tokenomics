@@ -91,18 +91,4 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         // Process the data
         _receiveMessage(msg.sender, processor, data);
     }
-
-    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/BasicOmnibridge.sol#L464
-    // Source: https://github.com/omni/omnibridge/blob/master/contracts/interfaces/IERC20Receiver.sol
-    /// @dev Processes the data received together with the token transfer from L1.
-    /// @param data Bytes message data sent from L1.
-    function onTokenBridged(address, uint256, bytes calldata data) external {
-        // Check for the message to come from the L2 token relayer
-        if (msg.sender != l2TokenRelayer) {
-            revert TargetRelayerOnly(msg.sender, l2TokenRelayer);
-        }
-
-        // Process the data
-        _receiveMessage(l2MessageRelayer, l1DepositProcessor, data);
-    }
 }
