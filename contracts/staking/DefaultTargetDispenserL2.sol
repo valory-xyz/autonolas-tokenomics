@@ -151,6 +151,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         uint256 localPaused = paused;
 
         // Traverse all the targets
+        // Note that staking target addresses are unique, guaranteed by the L1 dispenser logic
         for (uint256 i = 0; i < targets.length; ++i) {
             address target = targets[i];
             uint256 amount = amounts[i];
@@ -304,7 +305,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     }
 
     /// @dev Processes the data manually provided by the DAO in order to restore the data that was not delivered from L1.
-    /// @notice Here are possible bridge failure scenarios and the way to act via the DAO vote:
+    /// @notice All the staking target addresses encoded in the data must follow the undelivered ones, and thus be unique.
+    ///         Here are possible bridge failure scenarios and the way to act via the DAO vote:
     ///         - Both token and message delivery fails: re-send OLAS to the contract (separate vote), call this function;
     ///         - Token transfer succeeds, message fails: call this function;
     ///         - Token transfer fails, message succeeds: re-send OLAS to the contract (separate vote).
