@@ -62,9 +62,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_CHAIN_ID = type(uint64).max / 2 - 36;
-    // Default gas limit for sending a message to L1
+    // Default min gas limit for sending a message to L1
     // This is safe as the value is practically bigger than observed ones on numerous chains
-    uint256 public constant GAS_LIMIT = 300_000;
+    uint256 public constant MIN_GAS_LIMIT = 300_000;
     // Max gas limit for sending a message to L1
     // Several bridges consider this value as a maximum gas limit
     uint256 public constant MAX_GAS_LIMIT = 2_000_000;
