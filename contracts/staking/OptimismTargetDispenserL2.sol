@@ -36,7 +36,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
 
     /// @dev OptimismTargetDispenserL2 constructor.
     /// @param _olas OLAS token address.
@@ -54,22 +54,22 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
 
     /// @inheritdoc DefaultTargetDispenserL2
     function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
+        uint256 gasLimitMessage;
+
         // Check for the bridge payload length
-        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
-            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
+        if (bridgePayload.length == BRIDGE_PAYLOAD_LENGTH) {
+            // Decode bridge payload
+            gasLimitMessage = abi.decode(bridgePayload, (uint256));
+
+            // Check the gas limit value for the maximum recommended one
+            if (gasLimitMessage > MAX_GAS_LIMIT) {
+                gasLimitMessage = MAX_GAS_LIMIT;
+            }
         }
 
-        // Extract bridge cost and gas limit from the bridge payload
-        // TODO: remove first parameter field
-        (, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
-
-        // Check the gas limit values for both ends
+        // Check the gas limit value for the minimum recommended one
         if (gasLimitMessage < MIN_GAS_LIMIT) {
             gasLimitMessage = MIN_GAS_LIMIT;
-        }
-
-        if (gasLimitMessage > MAX_GAS_LIMIT) {
-            gasLimitMessage = MAX_GAS_LIMIT;
         }
 
         // Assemble data payload

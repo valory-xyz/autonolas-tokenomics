@@ -58,7 +58,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
     // OLAS address on L2
     address public immutable olasL2;
 
@@ -98,11 +98,6 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         bytes memory bridgePayload,
         uint256 transferAmount
     ) internal override returns (uint256 sequence) {
-        // Check for the bridge payload length
-        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
-            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
-        }
-
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -115,17 +110,16 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
                 uint32(TOKEN_GAS_LIMIT), "");
         }
 
-        // Decode cost related data
-        // TODO: remove first parameter field
-        (, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
-        // Check for zero values
-        if (gasLimitMessage == 0) {
-            revert ZeroValue();
+        uint256 gasLimitMessage;
+        // Check for the bridge payload length
+        if (bridgePayload.length == BRIDGE_PAYLOAD_LENGTH) {
+            // Decode bridge payload
+            gasLimitMessage = abi.decode(bridgePayload, (uint256));
         }
 
-        // Check for the max message gas limit
-        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
-            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        // Check for the recommended message gas limit
+        if (gasLimitMessage < MESSAGE_GAS_LIMIT) {
+            gasLimitMessage = MESSAGE_GAS_LIMIT;
         }
 
         // Assemble data payload

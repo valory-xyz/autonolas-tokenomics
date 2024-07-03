@@ -723,25 +723,28 @@ describe("StakingBridging", async () => {
             const stakingTarget = stakingInstance.address;
             const stakingIncentive = defaultAmount;
 
-            // Try to send a message with a zero or incorrect payload
-            await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
-                    stakingIncentive)
-            ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "IncorrectDataLength");
+            // Send a message with a zero or incorrect payload
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
+                stakingIncentive);
 
-            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"],
-                [defaultCost, defaultGasLimit]);
-
-            // Send a message on L2 with funds
+            // Send a message with a zero cost gas limit
+            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            // Send a message to the wrong address such that the amount is withheld
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+                stakingIncentive);
+
+            // Use the default gas limit
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [defaultGasLimit]);
+            // Send a message on L2 with funds
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive,
+                bridgePayload, stakingIncentive);
 
             // Get the current staking batch nonce
             const stakingBatchNonce = await optimismTargetDispenserL2.stakingBatchNonce();
 
             // Send a message on L2 without enough funds
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
-                0, {value: defaultMsgValue});
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive,
+                bridgePayload, 0);
 
             // Add more funds for the L2 target dispenser - a simulation of a late transfer incoming
             await olas.mint(optimismTargetDispenserL2.address, stakingIncentive);
@@ -750,61 +753,31 @@ describe("StakingBridging", async () => {
             await optimismTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
 
             // Send a message on L2 with funds for a wrong address
-            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive,
+                bridgePayload, stakingIncentive);
 
             // Check the withheld amount
             const withheldAmount = await optimismTargetDispenserL2.withheldAmount();
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
-            // Send withheld amount from L2 to L1
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
-            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultCost});
-        });
+            // Send withheld amount from L2 to L1 with the zero gas limit set
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
+            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload);
 
-        it("Checks during a message sending on L1 and L2", async function () {
-            // Encode the staking data to emulate it being received on L2
-            const stakingTarget = stakingInstance.address;
-            const stakingIncentive = defaultAmount;
-
-            // Try to send a message with a zero cost gas limit
-            let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [0, 0]);
-            await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "ZeroValue");
-
-            // Try to send a message with a zero gas limit
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
-            await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "ZeroValue");
-
-            // Try to send a message without a proper msg.value
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, defaultGasLimit]);
-            await expect(
-                dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(optimismDepositProcessorL1, "LowerThan");
-
-            // Send a message to the wrong address such that the amount is withheld
+            // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+                stakingIncentive);
 
-            // Try to sync a withheld amount with providing incorrect data
-            await expect(
-                optimismTargetDispenserL2.syncWithheldTokens(HashZero)
-            ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "IncorrectDataLength");
+            // Send withheld amount from L2 to L1 with the more than recommended gas limit
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [moreThanMaxUint96]);
+            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload);
 
-            // Trying to set a zero cost
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [0, 0]);
-            await expect(
-                optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
-            ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "ZeroValue");
+            // Send a message on L2 with funds for a wrong address
+            await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
+                stakingIncentive);
 
-
-            bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [defaultCost, 0]);
-            await expect(
-                optimismTargetDispenserL2.syncWithheldTokens(bridgePayload)
-            ).to.be.revertedWithCustomError(optimismTargetDispenserL2, "LowerThan");
+            // Send withheld amount from L2 to L1 without any bridge payload
+            await optimismTargetDispenserL2.syncWithheldTokens("0x");
         });
     });
 
