@@ -188,7 +188,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
-            maxSubmissionCostMessage, refundAccount, refundAccount, gasLimitMessage, gasPriceBid, data);
+            maxSubmissionCostMessage, refundAccount, address(0), gasLimitMessage, gasPriceBid, data);
     }
 
     /// @dev Process message received from L2.
