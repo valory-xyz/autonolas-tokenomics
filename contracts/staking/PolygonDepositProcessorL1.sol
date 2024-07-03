@@ -111,13 +111,16 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         // Set L1 deposit processor address
         fxChildTunnel = l2Dispenser;
 
+        _setL2TargetDispenser(l2Dispenser);
+
         emit FxChildTunnelUpdated(l2Dispenser);
     }
 
     /// @dev Sets L2 target dispenser address.
+    /// @notice The call to this function is fully equivalent to just calling setFxChildTunnel, since
+    ///         setFxChildTunnel is a required public function imported from fx-portal.
     /// @param l2Dispenser L2 target dispenser address.
     function setL2TargetDispenser(address l2Dispenser) external override {
         setFxChildTunnel(l2Dispenser);
-        _setL2TargetDispenser(l2Dispenser);
     }
 }
