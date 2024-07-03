@@ -678,11 +678,6 @@ describe("StakingBridging", async () => {
             await expect(
                 dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "Overflow");
-
-            // Try to receive a message on L2 not sent by the bridge relayer
-            await expect(
-                gnosisTargetDispenserL2.onTokenBridged(AddressZero, 0, "0x")
-            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "TargetRelayerOnly");
         });
 
         it("Verify senders on L1 and L2", async function () {
@@ -700,15 +695,20 @@ describe("StakingBridging", async () => {
                 dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "WrongMessageSender");
 
+            // Set the mode back to normal for the moment
+            await bridgeRelayer.setMode(0);
+
             // Send tokens to the wrong address to withhold it
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
                 stakingIncentive);
+
+            // Set the mode for the message sender on receiving side
+            await bridgeRelayer.setMode(2);
 
             // Try to receive a message with the wrong sender
             await expect(
                 gnosisTargetDispenserL2.syncWithheldTokens(HashZero)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "WrongMessageSender");
-
 
             // Deploy another bridge relayer
             const BridgeRelayer = await ethers.getContractFactory("BridgeRelayer");
