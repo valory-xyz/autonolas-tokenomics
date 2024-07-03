@@ -37,8 +37,8 @@ const main = async () => {
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
-//    console.log(await sepoliaProvider.getTransactionCount(EOAsepolia.address));
-//    return;
+    //    console.log(await sepoliaProvider.getTransactionCount(EOAsepolia.address));
+    //    return;
 
     const gasPrice = ethers.utils.parseUnits("100", "gwei");
     // This is a contract-level message gas limit for L2 - capable of processing around 200 targets + amounts
