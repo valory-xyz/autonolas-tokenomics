@@ -4,6 +4,16 @@ pragma solidity ^0.8.25;
 import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 
+interface IBridge {
+    // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/interfaces/IWormholeRelayer.sol#L442
+    // Doc: https://docs.wormhole.com/wormhole/quick-start/cross-chain-dev/standard-relayer
+    function quoteEVMDeliveryPrice(
+        uint16 targetChain,
+        uint256 receiverValue,
+        uint256 gasLimit
+    ) external returns (uint256 nativePriceQuote, uint256 targetChainRefundPerGasUnused);
+}
+
 /// @title WormholeDepositProcessorL1 - Smart contract for sending tokens and data via Wormhole bridge from L1 to L2 and processing data received from L2.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -96,7 +106,10 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             gasLimitMessage, olas, transferAmount, uint16(wormholeTargetChainId), refundAccount);
 
-        leftovers = msg.value;// - cost;
+        // Get the message cost in order to adjust leftovers
+        (uint256 cost, ) = IBridge(l1MessageRelayer).quoteEVMDeliveryPrice(uint16(wormholeTargetChainId), 0,
+            gasLimitMessage);
+        leftovers = msg.value - cost;
     }
 
     /// @dev Processes a message received from L2 via the L1 Wormhole Relayer contract.

@@ -154,7 +154,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         if (leftovers > 0) {
             // If the call fails, ignore to avoid the attack that would prevent this function from executing
             // solhint-disable-next-line avoid-low-level-calls
-            tx.origin.call{value: leftovers, gas: 21_000}("");
+            tx.origin.call{value: leftovers}("");
         }
 
         // Increase the staking batch nonce
@@ -187,7 +187,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         if (leftovers > 0) {
             // If the call fails, ignore to avoid the attack that would prevent this function from executing
             // solhint-disable-next-line avoid-low-level-calls
-            tx.origin.call{value: leftovers, gas: 21_000}("");
+            tx.origin.call{value: leftovers}("");
         }
 
         // Increase the staking batch nonce

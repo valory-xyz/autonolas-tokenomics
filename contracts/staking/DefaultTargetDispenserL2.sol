@@ -350,7 +350,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             // If the call fails, ignore to avoid the attack that would prevent this function from executing
             // All the undelivered funds can be drained
             // solhint-disable-next-line avoid-low-level-calls
-            msg.sender.call{value: leftovers, gas: 21_000}("");
+            msg.sender.call{value: leftovers}("");
         }
 
         emit WithheldAmountSynced(msg.sender, amount);
