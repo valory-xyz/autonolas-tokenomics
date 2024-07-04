@@ -10,8 +10,8 @@
       },
       {
         "name": "Tokenomics",
-        "artifact": "abis/0.8.20/Tokenomics.json",
-        "address": "0xD599ED4a5c45Fa66AA3C474b00701Fd452a2C30e"
+        "artifact": "abis/0.8.25/Tokenomics.json",
+        "address": "0x2C1633765c66a7CF0EC801a1046347bBee7344C9"
       },
       {
         "name": "TokenomicsProxy",
