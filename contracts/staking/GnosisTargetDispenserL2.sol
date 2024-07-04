@@ -55,7 +55,11 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override returns (uint256 leftovers) {
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         uint256 gasLimitMessage;
 
         // Check for the bridge payload length
@@ -75,14 +79,13 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         }
 
         // Assemble AMB data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount, batchHash));
 
         // Send message to L1
         bytes32 iMsg = IBridge(l2MessageRelayer).requireToPassMessage(l1DepositProcessor, data, gasLimitMessage);
+        sequence = uint256(iMsg);
 
         leftovers = msg.value;
-
-        emit MessagePosted(uint256(iMsg), msg.sender, l1DepositProcessor, amount);
     }
 
     /// @dev Processes a message received from the AMB Contract Proxy (Home) contract.

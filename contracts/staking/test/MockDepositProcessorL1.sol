@@ -36,9 +36,8 @@ contract MockDepositProcessorL1 is DefaultDepositProcessorL1 {
             data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
         }
 
-        sequence = stakingBatchNonce;
+        sequence = uint256(batchHash);
         leftovers = msg.value;
-        emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
 
     /// @dev Process message received from L2.

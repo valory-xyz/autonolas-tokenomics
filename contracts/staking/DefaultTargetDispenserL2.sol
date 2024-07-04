@@ -45,14 +45,13 @@ interface IToken {
 abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
-    event StakingTargetDeposited(address indexed target, uint256 amount, bytes32 batchHash);
+    event StakingTargetDeposited(address indexed target, uint256 amount, bytes32 indexed batchHash);
     event AmountWithheld(address indexed target, uint256 amount);
     event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
-        bytes32 batchHash, uint256 paused);
-    event MessagePosted(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
-        uint256 amount);
+        bytes32 indexed batchHash, uint256 paused);
+    event MessagePosted(uint256 indexed sequence, address indexed messageSender, uint256 amount,
+        bytes32 indexed batchHash);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
-    event WithheldAmountSynced(address indexed sender, uint256 amount);
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
@@ -90,9 +89,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     uint8 internal _locked;
 
     // Processed batch hashes
-    mapping(bytes32 => bool) public stakingProcessedHashes;
+    mapping(bytes32 => bool) public processedHashes;
     // Queued hashes of (target, amount, batchHash)
-    mapping(bytes32 => bool) public stakingQueuedHashes;
+    mapping(bytes32 => bool) public queuedHashes;
 
     /// @dev DefaultTargetDispenserL2 constructor.
     /// @param _olas OLAS token address on L2.
@@ -152,11 +151,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         // Check that the batch hash has not yet being processed
         // Possible scenario: bridge failed to deliver from L1 to L2, maintenance function is called by the DAO,
         // and the bridge somehow re-delivers the same message that has already been processed
-        bool processed = stakingProcessedHashes[batchHash];
-        if (processed) {
+        if (processedHashes[batchHash]) {
             revert AlreadyDelivered(batchHash);
         }
-        stakingProcessedHashes[batchHash] = true;
+        processedHashes[batchHash] = true;
 
         uint256 localWithheldAmount = 0;
         uint256 localPaused = paused;
@@ -208,7 +206,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 // Hash of target + amount + batchHash + current target dispenser address (migration-proof)
                 bytes32 queueHash = keccak256(abi.encode(target, amount, batchHash, block.chainid, address(this)));
                 // Queue the hash for further redeem
-                stakingQueuedHashes[queueHash] = true;
+                queuedHashes[queueHash] = true;
 
                 emit StakingRequestQueued(queueHash, target, amount, batchHash, localPaused);
             }
@@ -225,8 +223,14 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev Sends message to L1 to sync the withheld amount.
     /// @param amount Amount to sync.
     /// @param bridgePayload Payload data for the bridge relayer.
+    /// @param batchHash Unique batch hash for each message transfer.
+    /// @return sequence Unique message sequence (if applicable) or the batch hash converted to number.
     /// @return leftovers Native token leftovers from unused msg.value.
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal virtual returns (uint256 leftovers);
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal virtual returns (uint256 sequence, uint256 leftovers);
 
     /// @dev Receives a message from L1.
     /// @param messageRelayer L2 bridge message relayer address.
@@ -288,7 +292,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
         // Hash of target + amount + batchHash + chainId + current target dispenser address (migration-proof)
         bytes32 queueHash = keccak256(abi.encode(target, amount, batchHash, block.chainid, address(this)));
-        bool queued = stakingQueuedHashes[queueHash];
+        bool queued = queuedHashes[queueHash];
         // Check if the target and amount are queued
         if (!queued) {
             revert TargetAmountNotQueued(target, amount, batchHash);
@@ -304,7 +308,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             emit StakingTargetDeposited(target, amount, batchHash);
 
             // Remove processed queued nonce
-            stakingQueuedHashes[queueHash] = false;
+            queuedHashes[queueHash] = false;
         } else {
             // OLAS balance is not enough for redeem
             revert InsufficientBalance(olasBalance, amount);
@@ -315,6 +319,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Processes the data manually provided by the DAO in order to restore the data that was not delivered from L1.
     /// @notice All the staking target addresses encoded in the data must follow the undelivered ones, and thus be unique.
+    ///         The data payload here must correspond to the exact data failed to be delivered (targets, incentives, batch).
     ///         Here are possible bridge failure scenarios and the way to act via the DAO vote:
     ///         - Both token and message delivery fails: re-send OLAS to the contract (separate vote), call this function;
     ///         - Token transfer succeeds, message fails: call this function;
@@ -366,8 +371,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         // Pure amount is always bigger or equal than the normalized one
         withheldAmount = amount - normalizedAmount;
 
+        // Get the batch hash
+        uint256 batchNonce = stakingBatchNonce;
+        bytes32 batchHash = keccak256(abi.encode(batchNonce, block.chainid, address(this)));
+
         // Send a message to sync the normalized withheld amount
-        uint256 leftovers = _sendMessage(normalizedAmount, bridgePayload);
+        (uint256 sequence, uint256 leftovers) = _sendMessage(normalizedAmount, bridgePayload, batchHash);
 
         // Send leftover amount back to the sender, if any
         if (leftovers > 0) {
@@ -377,7 +386,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             msg.sender.call{value: leftovers}("");
         }
 
-        emit WithheldAmountSynced(msg.sender, normalizedAmount);
+        stakingBatchNonce = batchNonce + 1;
+
+        emit MessagePosted(sequence, msg.sender, normalizedAmount, batchHash);
 
         _locked = 1;
     }

@@ -38,6 +38,10 @@ interface IDepositProcessor {
     /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
     /// @return Number of supported decimals.
     function getBridgingDecimals() external pure returns (uint256);
+
+    /// @dev Updated the batch hash of a failed message, if applicable.
+    /// @param batchHash Unique batch hash for each message transfer.
+    function updateHashMaintenance(bytes32 batchHash) external;
 }
 
 // ERC20 token interface
@@ -268,7 +272,7 @@ contract Dispenser {
         uint256 returnAmount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
-    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount);
+    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
     event PauseDispenser(Pause pauseState);
 
     // Maximum chain Id as per EVM specs
@@ -1172,7 +1176,8 @@ contract Dispenser {
     ///         Note that by design only a normalized withheld amount is delivered from L2.
     /// @param chainId L2 chain Id the withheld amount data is communicated from.
     /// @param amount Withheld OLAS token amount.
-    function syncWithheldAmount(uint256 chainId, uint256 amount) external {
+    /// @param batchHash Unique batch hash for each message transfer.
+    function syncWithheldAmount(uint256 chainId, uint256 amount, bytes32 batchHash) external {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
 
         // Check L1 deposit processor address
@@ -1189,15 +1194,17 @@ contract Dispenser {
         // Update the withheld amount
         mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
-        emit WithheldAmountSynced(chainId, amount, withheldAmount);
+        emit WithheldAmountSynced(chainId, amount, withheldAmount, batchHash);
     }
 
     /// @dev Syncs the withheld amount manually by the DAO in order to restore the data that was not delivered from L2.
-    /// @notice The possible bridge failure scenario that requires to act via the DAO vote includes:
+    /// @notice The parameters here must correspond to the exact data failed to be delivered (amount, batch).
+    ///         The possible bridge failure scenario that requires to act via the DAO vote includes:
     ///         - Message from L2 to L1 fails: need to call this function.
     /// @param chainId L2 chain Id.
     /// @param amount Withheld amount that was not delivered from L2.
-    function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount) external {
+    /// @param batchHash Unique batch hash for each message transfer.
+    function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount, bytes32 batchHash) external {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -1213,20 +1220,9 @@ contract Dispenser {
             revert WrongChainId(chainId);
         }
 
-        // Get bridging decimals for a specified chain Id
-        address depositProcessor = mapChainIdDepositProcessors[chainId];
-        uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
-
-        // Normalize the synced withheld amount via maintenance is correct
-        if (bridgingDecimals < 18) {
-            uint256 normalizedAmount = amount / (10 ** (18 - bridgingDecimals));
-            normalizedAmount *= 10 ** (18 - bridgingDecimals);
-            // Downsize staking incentive to a specified number of bridging decimals
-            amount = normalizedAmount;
-        }
-
-        // The overall amount is bound by the OLAS projected maximum amount for years to come
+        // Note: all the amounts coming from events of undelivered messages are already normalized
         uint256 withheldAmount = mapChainIdWithheldAmounts[chainId] + amount;
+        // The overall amount is bound by the OLAS projected maximum amount for years to come
         if (withheldAmount > type(uint96).max) {
             revert Overflow(withheldAmount, type(uint96).max);
         }
@@ -1234,7 +1230,13 @@ contract Dispenser {
         // Add to the withheld amount
         mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
-        emit WithheldAmountSynced(chainId, amount, withheldAmount);
+        // Get deposit processor address corresponding to the specified chain Id
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
+
+        // Update the batch hash on deposit processor side
+        IDepositProcessor(depositProcessor).updateHashMaintenance(batchHash);
+
+        emit WithheldAmountSynced(chainId, amount, withheldAmount, batchHash);
     }
 
     /// @dev Sets the pause state.
