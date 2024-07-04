@@ -121,6 +121,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),
             l1DepositProcessor, abi.encode(amount), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
 
+        // Return value leftovers
         leftovers = msg.value - cost;
 
         emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
@@ -168,5 +169,10 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
         // Process the data
         _receiveMessage(msg.sender, processor, data);
+    }
+
+    /// @inheritdoc DefaultTargetDispenserL2
+    function getBridgingDecimals() public pure override returns (uint256) {
+        return 8;
     }
 }

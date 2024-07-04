@@ -88,12 +88,12 @@ interface ITokenomics {
 
     // Struct for service staking epoch info
     struct StakingPoint {
-        // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+        // Amount of OLAS that funds service staking incentives for the epoch based on the inflation schedule
         // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 stakingIncentive;
         // Max allowed service staking incentive threshold
         // This value is never bigger than the stakingIncentive
-        uint96 maxStakingAmount;
+        uint96 maxStakingIncentive;
         // Service staking vote weighting threshold
         // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
         uint16 minStakingWeight;
@@ -917,8 +917,8 @@ contract Dispenser {
                 // Calculate initial return amount, if stakingDiff > 0
                 returnAmount = (stakingDiff * stakingWeight) / 1e18;
 
-                // availableStakingAmount is not used anymore and can serve as a local maxStakingAmount
-                availableStakingAmount = stakingPoint.maxStakingAmount;
+                // availableStakingAmount is not used anymore and can serve as a local maxStakingIncentive
+                availableStakingAmount = stakingPoint.maxStakingIncentive;
                 if (stakingIncentive > availableStakingAmount) {
                     // Adjust the return amount
                     returnAmount += stakingIncentive - availableStakingAmount;
@@ -1169,6 +1169,7 @@ contract Dispenser {
 
     /// @dev Syncs the withheld amount according to the data received from L2.
     /// @notice Only a corresponding chain Id deposit processor is able to communicate the withheld amount data.
+    ///         Note that by design only a normalized withheld amount is delivered from L2.
     /// @param chainId L2 chain Id the withheld amount data is communicated from.
     /// @param amount Withheld OLAS token amount.
     function syncWithheldAmount(uint256 chainId, uint256 amount) external {

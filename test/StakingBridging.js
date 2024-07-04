@@ -934,6 +934,16 @@ describe("StakingBridging", async () => {
             const withheldAmount = await wormholeTargetDispenserL2.withheldAmount();
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
+            // Try to send withheld amount from L2 to L1 with insufficient normalized withheld amount
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
+            await expect(
+                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
+            ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroValue");
+
+            // Send a message on L2 with funds for a wrong address with a bigger amount
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, ethers.utils.parseEther("1"),
+                bridgePayload, ethers.utils.parseEther("1"), {value: defaultMsgValue});
+
             // Try to send withheld amount from L2 to L1 with a zero refund address
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
@@ -950,12 +960,12 @@ describe("StakingBridging", async () => {
             const stakingTarget = stakingInstance.address;
             const stakingIncentive = defaultAmount;
 
-            // Try to send a message with a zero cost gas limit
+            // Try to send a message withhout any payment for the message cost
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, 0]);
             await expect(
                 dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload, 0)
-            ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "ZeroValue");
+            ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "LowerThan");
 
             // Try to receive a message by a wrong chain Id
             await expect(
@@ -963,11 +973,11 @@ describe("StakingBridging", async () => {
             ).to.be.revertedWithCustomError(wormholeDepositProcessorL1, "WrongChainId");
 
 
-            // Send a message on L2 with funds for a wrong address
+            // Send a message on L2 with funds for a wrong address with enough funds for the normalized withheld amount
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, defaultGasLimit]);
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, ethers.utils.parseEther("1"),
+                bridgePayload, ethers.utils.parseEther("1"), {value: defaultMsgValue});
 
             // Try to send withheld tokens with an incorrect payload
             await expect(
@@ -1029,10 +1039,10 @@ describe("StakingBridging", async () => {
                     stakingIncentive, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "AlreadyDelivered");
 
-            // Send a message on L2 with funds for the wrong address
+            // Send a message on L2 with funds for the wrong address with enough funds for the normalized withheld amount
             await bridgeRelayer.setMode(0);
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, ethers.utils.parseEther("1"),
+                bridgePayload, ethers.utils.parseEther("1"), {value: defaultMsgValue});
 
             // Try to send withheld amount from L2 to L1 with the wrong chain Id
             await bridgeRelayer.setMode(3);
@@ -1048,8 +1058,8 @@ describe("StakingBridging", async () => {
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, defaultGasLimit]);
             // Need to create a withheld condition again by sending another staking to a wrong address
-            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
-                stakingIncentive, {value: defaultMsgValue});
+            await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, ethers.utils.parseEther("1"),
+                bridgePayload, ethers.utils.parseEther("1"), {value: defaultMsgValue});
             // Now the delivery hash will fail
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(

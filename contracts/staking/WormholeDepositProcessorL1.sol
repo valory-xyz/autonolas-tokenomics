@@ -85,18 +85,22 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
             revert ZeroAddress();
         }
 
-        // Check for zero value
-        if (gasLimitMessage == 0) {
-            revert ZeroValue();
-        }
-
-        // Check for the max message gas limit
-        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
-            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
+        // Check for the message gas limit
+        if (gasLimitMessage < MESSAGE_GAS_LIMIT) {
+            gasLimitMessage = MESSAGE_GAS_LIMIT;
         }
 
         // Encode target addresses and amounts
         bytes memory data = abi.encode(targets, stakingIncentives);
+
+        // Get the message cost in order to adjust leftovers
+        (uint256 cost, ) = IBridge(l1MessageRelayer).quoteEVMDeliveryPrice(uint16(wormholeTargetChainId), 0,
+            gasLimitMessage);
+
+        // Check fot msg.value to cover the cost
+        if (cost > msg.value) {
+            revert LowerThan(msg.value, cost);
+        }
 
         // Source: https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/b9e129e65d34827d92fceeed8c87d3ecdfc801d0/src/TokenBase.sol#L125
         // Additional token source: https://github.com/wormhole-foundation/wormhole/blob/b18a7e61eb9316d620c888e01319152b9c8790f4/ethereum/contracts/bridge/Bridge.sol#L203
@@ -106,9 +110,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         sequence = sendTokenWithPayloadToEvm(uint16(wormholeTargetChainId), l2TargetDispenser, data, 0,
             gasLimitMessage, olas, transferAmount, uint16(wormholeTargetChainId), refundAccount);
 
-        // Get the message cost in order to adjust leftovers
-        (uint256 cost, ) = IBridge(l1MessageRelayer).quoteEVMDeliveryPrice(uint16(wormholeTargetChainId), 0,
-            gasLimitMessage);
+        // Return value leftovers
         leftovers = msg.value - cost;
     }
 

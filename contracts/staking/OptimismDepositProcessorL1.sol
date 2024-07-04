@@ -132,6 +132,7 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         // Since there is no returned message sequence, use the staking batch nonce
         sequence = stakingBatchNonce;
 
+        // Return msg.value, if provided by mistake
         leftovers = msg.value;
     }
 
