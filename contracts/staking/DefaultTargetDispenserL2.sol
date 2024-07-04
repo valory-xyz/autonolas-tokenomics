@@ -335,17 +335,30 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             revert Paused();
         }
 
-        // Check the withheld amount to be greater than zero
+        // Get withheld amount
         uint256 amount = withheldAmount;
-        if (amount == 0) {
+
+        // Get bridging decimals
+        uint256 bridgingDecimals = getBridgingDecimals();
+        // Normalized amount is equal to the withheld amount by default
+        uint256 normalizedAmount = amount;
+        // Normalize withheld amount
+        if (bridgingDecimals < 18) {
+            normalizedAmount = amount / (10 ** (18 - bridgingDecimals));
+            normalizedAmount *= 10 ** (18 - bridgingDecimals);
+        }
+
+        // Check the normalized withheld amount to be greater than zero
+        if (normalizedAmount == 0) {
             revert ZeroValue();
         }
 
-        // Zero the withheld amount
-        withheldAmount = 0;
+        // Adjust the actual withheld amount
+        // Pure amount is always bigger or equal than the normalized one
+        withheldAmount = amount - normalizedAmount;
 
-        // Send a message to sync the withheld amount
-        uint256 leftovers = _sendMessage(amount, bridgePayload);
+        // Send a message to sync the normalized withheld amount
+        uint256 leftovers = _sendMessage(normalizedAmount, bridgePayload);
 
         // Send leftover amount back to the sender, if any
         if (leftovers > 0) {
@@ -355,7 +368,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             msg.sender.call{value: leftovers}("");
         }
 
-        emit WithheldAmountSynced(msg.sender, amount);
+        emit WithheldAmountSynced(msg.sender, normalizedAmount);
 
         _locked = 1;
     }
@@ -463,6 +476,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit Migrated(msg.sender, newL2TargetDispenser, amount);
 
         // _locked is now set to 2 for good
+    }
+
+    /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
+    /// @return Number of supported decimals.
+    function getBridgingDecimals() public pure virtual returns (uint256) {
+        return 18;
     }
 
     /// @dev Receives native network token.

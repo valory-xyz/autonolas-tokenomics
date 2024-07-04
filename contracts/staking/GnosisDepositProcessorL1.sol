@@ -70,6 +70,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
 
         sequence = uint256(iMsg);
 
+        // Return msg.value, if provided by mistake
         leftovers = msg.value;
     }
 

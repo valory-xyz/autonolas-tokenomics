@@ -186,6 +186,7 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
             maxSubmissionCostMessage, refundAccount, address(0), gasLimitMessage, gasPriceBid, data);
 
+        // Calculate value leftovers
         leftovers = msg.value - totalCost;
     }
 
