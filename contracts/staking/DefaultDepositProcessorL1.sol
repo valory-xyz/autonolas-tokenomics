@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IBridgeErrors} from "../interfaces/IBridgeErrors.sol";
 
 interface IDispenser {
-    function syncWithheldAmount(uint256 chainId, uint256 amount) external;
+    function syncWithheldAmount(uint256 chainId, uint256 amount, bytes32 batchHash) external;
 }
 
 interface IToken {
@@ -136,7 +136,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         processedHashes[batchHash] = true;
 
         // Sync withheld tokens in the dispenser contract
-        IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount);
+        IDispenser(l1Dispenser).syncWithheldAmount(l2TargetChainId, amount, batchHash);
     }
 
     /// @dev Sends a single message to the L2 side via a corresponding bridge.

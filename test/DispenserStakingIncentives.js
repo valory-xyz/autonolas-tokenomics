@@ -859,7 +859,7 @@ describe("DispenserStakingIncentives", async () => {
 
             // Try to sync the withheld amount not via the L2-L1 communication
             await expect(
-                dispenser.syncWithheldAmount(gnosisChainId, 100)
+                dispenser.syncWithheldAmount(gnosisChainId, 100, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "DepositProcessorOnly");
 
             // Sync back the withheld amount
