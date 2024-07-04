@@ -45,10 +45,10 @@ interface IToken {
 abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event OwnerUpdated(address indexed owner);
     event FundsReceived(address indexed sender, uint256 value);
-    event StakingTargetDeposited(address indexed target, uint256 amount);
+    event StakingTargetDeposited(address indexed target, uint256 amount, bytes32 batchHash);
     event AmountWithheld(address indexed target, uint256 amount);
     event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
-        uint256 batchNonce, uint256 paused);
+        bytes32 batchHash, uint256 paused);
     event MessagePosted(uint256 indexed sequence, address indexed messageSender, address indexed l1Processor,
         uint256 amount);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
@@ -89,8 +89,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     // Reentrancy lock
     uint8 internal _locked;
 
-    // Queueing hashes of (target, amount, stakingBatchNonce)
-    mapping(bytes32 => bool) public stakingQueueingNonces;
+    // Processed batch hashes
+    mapping(bytes32 => bool) public stakingProcessedHashes;
+    // Queued hashes of (target, amount, batchHash)
+    mapping(bytes32 => bool) public stakingQueuedHashes;
 
     /// @dev DefaultTargetDispenserL2 constructor.
     /// @param _olas OLAS token address on L2.
@@ -144,9 +146,18 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         _locked = 2;
 
         // Decode received data
-        (address[] memory targets, uint256[] memory amounts) = abi.decode(data, (address[], uint256[]));
+        (address[] memory targets, uint256[] memory amounts, bytes32 batchHash) =
+            abi.decode(data, (address[], uint256[], bytes32));
 
-        uint256 batchNonce = stakingBatchNonce;
+        // Check that the batch hash has not yet being processed
+        // Possible scenario: bridge failed to deliver from L1 to L2, maintenance function is called by the DAO,
+        // and the bridge somehow re-delivers the same message that has already been processed
+        bool processed = stakingProcessedHashes[batchHash];
+        if (processed) {
+            revert AlreadyDelivered(batchHash);
+        }
+        stakingProcessedHashes[batchHash] = true;
+
         uint256 localWithheldAmount = 0;
         uint256 localPaused = paused;
 
@@ -192,18 +203,16 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 IToken(olas).approve(target, amount);
                 IStaking(target).deposit(amount);
 
-                emit StakingTargetDeposited(target, amount);
+                emit StakingTargetDeposited(target, amount, batchHash);
             } else {
-                // Hash of target + amount + batchNonce
-                bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
+                // Hash of target + amount + batchHash + current target dispenser address (migration-proof)
+                bytes32 queueHash = keccak256(abi.encode(target, amount, batchHash, block.chainid, address(this)));
                 // Queue the hash for further redeem
-                stakingQueueingNonces[queueHash] = true;
+                stakingQueuedHashes[queueHash] = true;
 
-                emit StakingRequestQueued(queueHash, target, amount, batchNonce, localPaused);
+                emit StakingRequestQueued(queueHash, target, amount, batchHash, localPaused);
             }
         }
-        // Increase the staking batch nonce
-        stakingBatchNonce = batchNonce + 1;
 
         // Adjust withheld amount, if at least one target has not passed the validity check
         if (localWithheldAmount > 0) {
@@ -264,8 +273,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     /// @dev Redeems queued staking incentive.
     /// @param target Staking target address.
     /// @param amount Staking incentive amount.
-    /// @param batchNonce Batch nonce.
-    function redeem(address target, uint256 amount, uint256 batchNonce) external {
+    /// @param batchHash Batch hash.
+    function redeem(address target, uint256 amount, bytes32 batchHash) external {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -277,12 +286,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             revert Paused();
         }
 
-        // Hash of target + amount + batchNonce
-        bytes32 queueHash = keccak256(abi.encode(target, amount, batchNonce));
-        bool queued = stakingQueueingNonces[queueHash];
+        // Hash of target + amount + batchHash + chainId + current target dispenser address (migration-proof)
+        bytes32 queueHash = keccak256(abi.encode(target, amount, batchHash, block.chainid, address(this)));
+        bool queued = stakingQueuedHashes[queueHash];
         // Check if the target and amount are queued
         if (!queued) {
-            revert TargetAmountNotQueued(target, amount, batchNonce);
+            revert TargetAmountNotQueued(target, amount, batchHash);
         }
 
         // Get the current contract OLAS balance
@@ -292,10 +301,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             IToken(olas).approve(target, amount);
             IStaking(target).deposit(amount);
 
-            emit StakingTargetDeposited(target, amount);
+            emit StakingTargetDeposited(target, amount, batchHash);
 
             // Remove processed queued nonce
-            stakingQueueingNonces[queueHash] = false;
+            stakingQueuedHashes[queueHash] = false;
         } else {
             // OLAS balance is not enough for redeem
             revert InsufficientBalance(olasBalance, amount);

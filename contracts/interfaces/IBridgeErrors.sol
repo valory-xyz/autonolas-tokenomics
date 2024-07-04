@@ -51,8 +51,8 @@ interface IBridgeErrors {
     /// @dev Target and its corresponding amount are not found in the queue.
     /// @param target Target address.
     /// @param amount Token amount.
-    /// @param batchNonce Reference batch nonce.
-    error TargetAmountNotQueued(address target, uint256 amount, uint256 batchNonce);
+    /// @param batchHash Reference batch hash.
+    error TargetAmountNotQueued(address target, uint256 amount, bytes32 batchHash);
 
     /// @dev Insufficient token balance.
     /// @param provided Provided balance.

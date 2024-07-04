@@ -92,13 +92,15 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
     /// @param stakingIncentives Corresponding set of staking incentives.
     /// @param bridgePayload Bridge payload necessary (if required) for a specific bridging relayer.
     /// @param transferAmount Actual total OLAS amount to be transferred.
+    /// @param batchHash Unique batch hash for each message transfer.
     /// @return sequence Unique message sequence (if applicable) or the batch number.
     /// @return leftovers ETH leftovers from unused msg.value.
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
-        uint256 transferAmount
+        uint256 transferAmount,
+        bytes32 batchHash
     ) internal virtual returns (uint256 sequence, uint256 leftovers);
 
     /// @dev Receives a message on L1 sent from L2 target dispenser side to sync withheld OLAS amount on L2.
@@ -147,8 +149,13 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         uint256[] memory stakingIncentives = new uint256[](1);
         stakingIncentives[0] = stakingIncentive;
 
+        // Get the batch hash
+        uint256 batchNonce = stakingBatchNonce;
+        bytes32 batchHash = keccak256(abi.encode(batchNonce, block.chainid, address(this)));
+
         // Send the message to L2
-        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount,
+            batchHash);
 
         // Send leftover amount back to the sender, if any
         if (leftovers > 0) {
@@ -158,7 +165,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         }
 
         // Increase the staking batch nonce
-        stakingBatchNonce++;
+        stakingBatchNonce = batchNonce + 1;
 
         emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
@@ -180,8 +187,13 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
             revert ManagerOnly(l1Dispenser, msg.sender);
         }
 
+        // Get the batch hash
+        uint256 batchNonce = stakingBatchNonce;
+        bytes32 batchHash = keccak256(abi.encode(batchNonce, address(this)));
+
         // Send the message to L2
-        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount);
+        (uint256 sequence, uint256 leftovers) = _sendMessage(targets, stakingIncentives, bridgePayload, transferAmount,
+            batchHash);
 
         // Send leftover amount back to the sender, if any
         if (leftovers > 0) {
@@ -191,7 +203,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         }
 
         // Increase the staking batch nonce
-        stakingBatchNonce++;
+        stakingBatchNonce = batchNonce + 1;
 
         emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
