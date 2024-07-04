@@ -14,7 +14,7 @@ interface IDepositProcessor {
 
 /// @title MockStakingDispenser - Smart contract for mocking the service staking part of a Dispenser contract
 contract MockStakingDispenser {
-    event WithheldAmountSynced(uint256 chainId, uint256 amount);
+    event WithheldAmountSynced(uint256 chainId, uint256 amount, bytes32 batchHash);
 
     // Token contract address
     address public immutable token;
@@ -62,10 +62,10 @@ contract MockStakingDispenser {
             bridgePayload, transferAmount);
     }
 
-    function syncWithheldAmount(uint256 chainId, uint256 amount) external {
+    function syncWithheldAmount(uint256 chainId, uint256 amount, bytes32 batchHash) external {
         // Add to the withheld amount
         mapChainIdWithheldAmounts[chainId] += amount;
 
-        emit WithheldAmountSynced(chainId, amount);
+        emit WithheldAmountSynced(chainId, amount, batchHash);
     }
 }
