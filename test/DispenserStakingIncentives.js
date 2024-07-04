@@ -23,6 +23,7 @@ describe("DispenserStakingIncentives", async () => {
     const maxUint256 = ethers.constants.MaxUint256;
     const defaultGasLimit = "2000000";
     const retainer = "0x" + "0".repeat(24) + "5".repeat(40);
+    const defaultHash = "0x" + "7".repeat(64);
 
     let signers;
     let deployer;
@@ -731,37 +732,39 @@ describe("DispenserStakingIncentives", async () => {
 
             // Trying to sync withheld amount maintenance not by the owner (DAO)
             await expect(
-                dispenser.connect(signers[1]).syncWithheldAmountMaintenance(0, 0)
+                dispenser.connect(signers[1]).syncWithheldAmountMaintenance(0, 0, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
             // Trying to sync withheld amount maintenance with a zero chain Id
             await expect(
-                dispenser.syncWithheldAmountMaintenance(0, 0)
+                dispenser.syncWithheldAmountMaintenance(0, 0, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
             // Trying to sync withheld amount maintenance with a zero amount
             await expect(
-                dispenser.syncWithheldAmountMaintenance(1, 0)
+                dispenser.syncWithheldAmountMaintenance(1, 0, HashZero)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Trying to sync withheld amount maintenance with a zero batch hash
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(chainId, 1, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
             // Trying to sync withheld amount maintenance with the same chain Id as the dispenser contract is deployed on
             await expect(
-                dispenser.syncWithheldAmountMaintenance(chainId, 1)
+                dispenser.syncWithheldAmountMaintenance(chainId, 1, defaultHash)
             ).to.be.revertedWithCustomError(dispenser, "WrongChainId");
             
             // Set the deposit processor
-            await dispenser.setDepositProcessorChainIds([ethereumDepositProcessor.address], [chainId + 1]);
+            await dispenser.setDepositProcessorChainIds([gnosisDepositProcessorL1.address], [gnosisChainId]);
             
             // Trying to sync withheld amount with an overflow value
             await expect(
-                dispenser.syncWithheldAmountMaintenance(chainId + 1, maxUint256)
+                dispenser.syncWithheldAmountMaintenance(gnosisChainId, maxUint256, defaultHash)
             ).to.be.revertedWithCustomError(dispenser, "Overflow");
 
             // Sync withheld amount maintenance
-            await dispenser.syncWithheldAmountMaintenance(chainId + 1, 100);
-
-            // Sync withheld amount maintenance with bridging decimals lower than 18
-            await dispenser.syncWithheldAmountMaintenance(wormholeChainId, 100);
+            await dispenser.syncWithheldAmountMaintenance(gnosisChainId, 100, defaultHash);
 
             // Restore to the state of the snapshot
             await snapshot.restore();

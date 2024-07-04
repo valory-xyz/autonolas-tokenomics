@@ -1211,7 +1211,7 @@ contract Dispenser {
         }
 
         // Check zero value chain Id and amount
-        if (chainId == 0 || amount == 0) {
+        if (chainId == 0 || amount == 0 || batchHash == 0) {
             revert ZeroValue();
         }
 
