@@ -10,7 +10,10 @@ describe("DispenserDevIncentives", async () => {
     const oneMonth = 86400 * 30;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
+    const defaultMinStakingWeight = 100;
+    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const retainer = "0x" + "5".repeat(64);
+    const moreThanMaxUint96 = "79228162514264337593543950337";
 
     let signers;
     let deployer;
@@ -53,7 +56,7 @@ describe("DispenserDevIncentives", async () => {
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
         dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            retainer, maxNumClaimingEpochs, maxNumStakingTargets);
+            retainer, maxNumClaimingEpochs, maxNumStakingTargets, defaultMinStakingWeight, defaultMaxStakingIncentive);
         await dispenser.deployed();
 
         const Treasury = await ethers.getContractFactory("Treasury");
@@ -139,26 +142,40 @@ describe("DispenserDevIncentives", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, HashZero, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, HashZero, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 0, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 0)
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 0, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10, 0, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10, 10, 0)
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10,
+                    moreThanMaxUint96, moreThanMaxUint96)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            await expect(
+                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10,
+                    10, moreThanMaxUint96)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
         });
 
         it("Should fail when trying to claim during the paused statke", async function () {

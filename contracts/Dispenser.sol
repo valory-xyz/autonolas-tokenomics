@@ -277,6 +277,8 @@ contract Dispenser {
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
+    uint256 public immutable defaultMinStakingWeight;
+    uint256 public immutable defaultMaxStakingIncentive;
     // OLAS token address
     address public immutable olas;
     // Retainer address in bytes32 form
@@ -310,6 +312,8 @@ contract Dispenser {
     mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
+    // Mapping for epoch number => refunded all the staking inflation due to zero total voting power
+    mapping(uint256 => bool) public mapZeroWeightEpochRefunded;
 
     /// @dev Dispenser constructor.
     /// @param _olas OLAS token address.
@@ -323,7 +327,9 @@ contract Dispenser {
         address _voteWeighting,
         bytes32 _retainer,
         uint256 _maxNumClaimingEpochs,
-        uint256 _maxNumStakingTargets
+        uint256 _maxNumStakingTargets,
+        uint256 _defaultMinStakingWeight,
+        uint256 _defaultMaxStakingIncentive
     ) {
         owner = msg.sender;
         _locked = 1;
@@ -337,8 +343,17 @@ contract Dispenser {
         }
 
         // Check for zero value staking parameters
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0 || _defaultMinStakingWeight == 0 ||
+            _defaultMaxStakingIncentive == 0) {
             revert ZeroValue();
+        }
+
+        // Check for maximum values
+        if (_defaultMinStakingWeight > type(uint16).max) {
+            revert Overflow(_defaultMinStakingWeight, type(uint16).max);
+        }
+        if (_defaultMaxStakingIncentive > type(uint96).max) {
+            revert Overflow(_defaultMaxStakingIncentive, type(uint96).max);
         }
 
         olas = _olas;
@@ -350,6 +365,8 @@ contract Dispenser {
         retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
         maxNumClaimingEpochs = _maxNumClaimingEpochs;
         maxNumStakingTargets = _maxNumStakingTargets;
+        defaultMinStakingWeight = _defaultMinStakingWeight;
+        defaultMaxStakingIncentive = _defaultMaxStakingIncentive;
     }
 
     /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
@@ -883,9 +900,27 @@ contract Dispenser {
 
         // Traverse all the claimed epochs
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // Check if epoch had zero total vote weights and all its staking incentives have been already refunded
+            // back to tokenomics inflation
+            if (mapZeroWeightEpochRefunded[j]) {
+                continue;
+            }
+
             // Get service staking info
             ITokenomics.StakingPoint memory stakingPoint =
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
+
+            // Check for staking parameters to all make sense
+            if (stakingPoint.stakingFraction > 0) {
+                // Check for unset values
+                if (stakingPoint.minStakingWeight == 0 && stakingPoint.maxStakingIncentive == 0) {
+                    stakingPoint.minStakingWeight = uint16(defaultMinStakingWeight);
+                    stakingPoint.maxStakingIncentive = uint96(defaultMaxStakingIncentive);
+                }
+            } else {
+                // No staking incentives in this epoch
+                continue;
+            }
 
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
@@ -895,6 +930,13 @@ contract Dispenser {
             // totalWeightSum is the overall veOLAS power (bias) across all the voting nominees
             (uint256 stakingWeight, uint256 totalWeightSum) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(stakingTarget, chainId, endTime);
+
+            // Check if the totalWeightSum is zero, then all staking incentives must be returned back to tokenomics
+            if (totalWeightSum == 0) {
+                mapZeroWeightEpochRefunded[j] = true;
+                totalReturnAmount += stakingPoint.stakingIncentive;
+                continue;
+            }
 
             uint256 stakingIncentive;
             uint256 returnAmount;

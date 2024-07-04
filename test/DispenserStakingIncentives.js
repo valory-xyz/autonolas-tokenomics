@@ -20,6 +20,8 @@ describe("DispenserStakingIncentives", async () => {
     const delta = 100;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
+    const defaultMinStakingWeight = 100;
+    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const maxUint256 = ethers.constants.MaxUint256;
     const defaultGasLimit = "2000000";
     const retainer = "0x" + "0".repeat(24) + "5".repeat(40);
@@ -70,7 +72,7 @@ describe("DispenserStakingIncentives", async () => {
 
         const Dispenser = await ethers.getContractFactory("Dispenser");
         dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            retainer, maxNumClaimingEpochs, maxNumStakingTargets);
+            retainer, maxNumClaimingEpochs, maxNumStakingTargets, defaultMinStakingWeight, defaultMaxStakingIncentive);
         await dispenser.deployed();
 
         // Vote Weighting mock
