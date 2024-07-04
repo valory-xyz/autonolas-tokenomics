@@ -800,7 +800,7 @@ describe("DispenserStakingIncentives", async () => {
 
             const stakingTarget = convertAddressToBytes32(stakingInstance.address);
             // Claim for the first epoch
-            dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload)
+            dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
 
             // Check that the target contract got OLAS
             expect(await olas.balanceOf(stakingInstance.address)).to.gt(0);

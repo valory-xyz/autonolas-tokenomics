@@ -619,6 +619,11 @@ contract Dispenser {
             stakingIncentives[i] = new uint256[](stakingTargets[i].length);
             // Traverse all staking targets
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
+                // Check that staking target is not a retainer address
+                if (stakingTargets[i][j] == retainer) {
+                    revert WrongAccount(retainer);
+                }
+
                 // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
                 (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
                     calculateStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
@@ -886,6 +891,11 @@ contract Dispenser {
         // Check for the zero address
         if (stakingTarget == 0) {
             revert ZeroAddress();
+        }
+
+        // Check that staking target is not a retainer address
+        if (stakingTarget == retainer) {
+            revert WrongAccount(retainer);
         }
 
         // Get the staking target nominee hash
@@ -1182,6 +1192,9 @@ contract Dispenser {
         // Get first and last claimed epochs
         (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
             _checkpointNomineeAndGetClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
+
+        // Checkpoint staking target nominee in the Vote Weighting contract
+        IVoteWeighting(voteWeighting).checkpointNominee(retainer, block.chainid);
 
         // Write last claimed epoch counter to start retaining from the next time
         mapLastClaimedStakingEpochs[retainerHash] = lastClaimedEpoch;
