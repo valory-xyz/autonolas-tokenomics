@@ -794,6 +794,17 @@ describe("DispenserStakingIncentives", async () => {
             // Vote for the nominee
             await vw.setNomineeRelativeWeight(stakingInstance.address, chainId, defaultWeight);
 
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const stakingTarget = convertAddressToBytes32(stakingInstance.address);
+            // Claim for the first epoch
+            dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload)
+
+            // Check that the target contract got OLAS
+            expect(await olas.balanceOf(stakingInstance.address)).to.gt(0);
+
             // Remove staking contract from the nominees
             await vw.removeNominee(stakingInstance.address, chainId);
 
@@ -801,18 +812,7 @@ describe("DispenserStakingIncentives", async () => {
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
 
-            const stakingTarget = convertAddressToBytes32(stakingInstance.address);
-            // Still possible to claim staking incentives (try for 2 epochs and get limit by just one)
-            await dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTarget, bridgePayload);
-
-            // Check that the target contract got OLAS
-            expect(await olas.balanceOf(stakingInstance.address)).to.gt(0);
-
-            // Checkpoint to start the new epoch and able to claim
-            await helpers.time.increase(epochLen);
-            await tokenomics.checkpoint();
-
-            // Claiming is not possible as it's the second epoch after the staking contract was removed from nominees
+            // Claiming is not possible as it's the epoch after the staking contract was removed from nominees
             await expect(
                 dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload)
             ).to.be.revertedWithCustomError(dispenser, "Overflow");

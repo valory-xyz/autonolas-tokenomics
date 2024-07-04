@@ -397,12 +397,12 @@ contract Dispenser {
             revert Overflow(firstClaimedEpoch, eCounter - 1);
         }
 
-        // We still need to claim for the epoch number following the one when the nominee was removed
-        uint256 epochAfterRemoved = mapRemovedNomineeEpochs[nomineeHash] + 1;
+        // Get epoch when the nominee was removed
+        uint256 epochRemoved = mapRemovedNomineeEpochs[nomineeHash];
         // If the nominee is not removed, its value in the map is always zero, unless removed
         // The staking contract nominee cannot be removed in the zero-th epoch by default
-        if (epochAfterRemoved > 1 && firstClaimedEpoch >= epochAfterRemoved) {
-            revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
+        if (epochRemoved > 1 && firstClaimedEpoch >= epochRemoved) {
+            revert Overflow(firstClaimedEpoch, epochRemoved - 1);
         }
 
         // Get a number of epochs to claim for based on the maximum number of epochs claimed
@@ -410,8 +410,8 @@ contract Dispenser {
 
         // Limit last claimed epoch by the number following the nominee removal epoch
         // The condition for is lastClaimedEpoch strictly > because the lastClaimedEpoch is not included in claiming
-        if (epochAfterRemoved > 1 && lastClaimedEpoch > epochAfterRemoved) {
-            lastClaimedEpoch = epochAfterRemoved;
+        if (epochRemoved > 1 && lastClaimedEpoch > epochRemoved) {
+            lastClaimedEpoch = epochRemoved;
         }
 
         // Also limit by the current counter, if the nominee was removed in the current epoch
