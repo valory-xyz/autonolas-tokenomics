@@ -110,3 +110,5 @@ c1ebdf6ee1d58b2a7aa8ece47be8aaf70e4768ec:audits/internal4/analysis/contracts/dif
 49edd56685ab74767e25b7a427aa5349e1bb3e46:scripts/deployment/globals_mainnet.json:generic-api-key:2
 613f448aa91f0679f82affe37db9d9431f3e6071:scripts/deployment/globals_mainnet.json:generic-api-key:1
 613f448aa91f0679f82affe37db9d9431f3e6071:scripts/deployment/globals_mainnet.json:generic-api-key:2
+f78d4539c80abb33ea04dce4d561af5302033235:scripts/deployment/staking/globals_sepolia.json:generic-api-key:1
+f78d4539c80abb33ea04dce4d561af5302033235:scripts/deployment/staking/globals_sepolia.json:generic-api-key:2
