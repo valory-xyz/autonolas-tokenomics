@@ -8,7 +8,7 @@ describe("StakingBridging", async () => {
     const AddressZero = ethers.constants.AddressZero;
     const HashZero = ethers.constants.HashZero;
     const moreThanMaxUint96 = "79228162514264337593543950337";
-    const chainId = 1;
+    const chainId = 31337;
     const defaultAmount = 100;
     const defaultCost = 100;
     const defaultGasPrice = 100;
@@ -373,8 +373,10 @@ describe("StakingBridging", async () => {
             await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
                 stakingIncentive, {value: defaultMsgValue});
 
-            // Get the current staking batch nonce
-            let stakingBatchNonce = await arbitrumTargetDispenserL2.stakingBatchNonce();
+            // Get the current staking batch hash
+            let stakingBatchNonce = await arbitrumDepositProcessorL1.stakingBatchNonce();
+            let batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, arbitrumDepositProcessorL1.address]));
 
             // Send a message on L2 without enough funds
             await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
@@ -385,11 +387,11 @@ describe("StakingBridging", async () => {
 
             // Try to redeem funds with a wrong staking batch nonce
             await expect(
-                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, 0)
+                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, HashZero)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "TargetAmountNotQueued");
 
             // Redeem funds
-            await arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(arbitrumDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
@@ -407,12 +409,14 @@ describe("StakingBridging", async () => {
                 arbitrumTargetDispenserL2.syncWithheldTokens("0x")
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
-            // Get the updated staking batch nonce
-            stakingBatchNonce = await arbitrumTargetDispenserL2.stakingBatchNonce();
+            // Get staking batch hash
+            stakingBatchNonce = await arbitrumDepositProcessorL1.stakingBatchNonce();
+            batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, arbitrumDepositProcessorL1.address]));
 
             // Process data maintenance by the owner
-            const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]"],
-                [[stakingTarget], [stakingIncentive * 2]]);
+            const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]", "bytes32"],
+                [[stakingTarget], [stakingIncentive * 2], batchHash]);
             await arbitrumTargetDispenserL2.processDataMaintenance(payload);
 
             // Try to do it not from the owner
@@ -422,7 +426,7 @@ describe("StakingBridging", async () => {
 
             // Try to redeem, but there are no funds
             await expect(
-                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive * 2, stakingBatchNonce)
+                arbitrumTargetDispenserL2.redeem(stakingTarget, stakingIncentive * 2, batchHash)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "InsufficientBalance");
 
             // Try to send a batch message on L2 with funds
@@ -604,8 +608,10 @@ describe("StakingBridging", async () => {
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
 
-            // Get the current staking batch nonce
-            let stakingBatchNonce = await gnosisTargetDispenserL2.connect(deployer).stakingBatchNonce();
+            // Get the current staking batch hash
+            let stakingBatchNonce = await gnosisDepositProcessorL1.stakingBatchNonce();
+            let batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, gnosisDepositProcessorL1.address]));
 
             // Send a message on L2 with funds when the contract is paused - it must queue the amount
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
@@ -613,15 +619,17 @@ describe("StakingBridging", async () => {
 
             // Try to redeem
             await expect(
-                gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce)
+                gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash)
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
 
             // Unpause and redeem
             await gnosisTargetDispenserL2.unpause();
-            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
-            // Get the current staking batch nonce
-            stakingBatchNonce = await gnosisTargetDispenserL2.stakingBatchNonce();
+            // Get the current staking batch hash
+            stakingBatchNonce = await gnosisDepositProcessorL1.stakingBatchNonce();
+            batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, gnosisDepositProcessorL1.address]));
 
             // Send a message on L2 without enough funds
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x", 0);
@@ -630,7 +638,7 @@ describe("StakingBridging", async () => {
             await olas.mint(gnosisTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await gnosisTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
@@ -748,8 +756,10 @@ describe("StakingBridging", async () => {
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive,
                 bridgePayload, stakingIncentive);
 
-            // Get the current staking batch nonce
-            const stakingBatchNonce = await optimismTargetDispenserL2.stakingBatchNonce();
+            // Get the current staking batch hash
+            let stakingBatchNonce = await optimismDepositProcessorL1.stakingBatchNonce();
+            let batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, optimismDepositProcessorL1.address]));
 
             // Send a message on L2 without enough funds
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, stakingTarget, stakingIncentive,
@@ -759,7 +769,7 @@ describe("StakingBridging", async () => {
             await olas.mint(optimismTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await optimismTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await optimismTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive,
@@ -816,8 +826,10 @@ describe("StakingBridging", async () => {
             await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x",
                 stakingIncentive);
 
-            // Get the current staking batch nonce
-            const stakingBatchNonce = await polygonTargetDispenserL2.stakingBatchNonce();
+            // Get the current staking batch hash
+            let stakingBatchNonce = await polygonDepositProcessorL1.stakingBatchNonce();
+            let batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, polygonDepositProcessorL1.address]));
 
             // Send a message on L2 without enough funds
             await dispenser.mintAndSend(polygonDepositProcessorL1.address, stakingTarget, stakingIncentive, "0x", 0);
@@ -826,7 +838,7 @@ describe("StakingBridging", async () => {
             await olas.mint(polygonTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await polygonTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await polygonTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(polygonDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
@@ -913,8 +925,10 @@ describe("StakingBridging", async () => {
             await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
                 stakingIncentive, {value: defaultMsgValue});
 
-            // Get the current staking batch nonce
-            const stakingBatchNonce = await wormholeTargetDispenserL2.stakingBatchNonce();
+            // Get the current staking batch hash
+            let stakingBatchNonce = await wormholeDepositProcessorL1.stakingBatchNonce();
+            let batchHash = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "uint256", "address"],
+                [stakingBatchNonce, chainId, wormholeDepositProcessorL1.address]));
 
             // Send a message on L2 without enough funds
             await dispenser.mintAndSend(wormholeDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
@@ -924,7 +938,7 @@ describe("StakingBridging", async () => {
             await olas.mint(wormholeTargetDispenserL2.address, stakingIncentive);
 
             // Redeem funds
-            await wormholeTargetDispenserL2.redeem(stakingTarget, stakingIncentive, stakingBatchNonce);
+            await wormholeTargetDispenserL2.redeem(stakingTarget, stakingIncentive, batchHash);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(wormholeDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
