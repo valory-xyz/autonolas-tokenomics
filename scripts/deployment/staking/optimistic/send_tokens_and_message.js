@@ -15,9 +15,9 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x11acc5866363CAbeAB8EA57C0da64D85fDa92887";
-    const l2TargetDispenserAddress = "0x9385d4E53c72a858C451D41f58Fcb8C070bDd18A";
-    const targetInstance = "0x42C002Bc981A47d4143817BD9eA6A898a9916285";
+    const l1DepositProcessorAddress = "0x79A469c291cF7867eba1882e9F05E84A14dC378F";
+    const l2TargetDispenserAddress = "0x5AEf43F1B212DF954f60C62C1F14333c28F44Ce2";
+    const targetInstance = "0xCae661c929EC23e695e904d871C8D623f83bAC38";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -40,22 +40,21 @@ const main = async () => {
     //    console.log(await sepoliaProvider.getTransactionCount(EOAsepolia.address));
     //    return;
 
-    const gasPrice = ethers.utils.parseUnits("100", "gwei");
-    // This is a contract-level message gas limit for L2 - capable of processing around 200 targets + amounts
+    const gasPrice = ethers.utils.parseUnits("20", "gwei");
+    // This is a contract-level message gas limit for L2 - capable of processing around 100 targets + amounts
     const minGasLimit = "2000000";
-    const cost = 0;//ethers.BigNumber.from("1000000").mul(gasPrice);
-    const bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], [cost, minGasLimit]);
+    // The default bridge payload is empty, uncomment if need to set gas limit more than 2M
+    const bridgePayload = "0x";//ethers.utils.defaultAbiCoder.encode(["uint256"], [minGasLimit]);
 
     const transferAmount = defaultAmount;
     // Must be at least 20% bigger for the gas limit than the calculated one
-    const finalCost = ethers.BigNumber.from("1200000").mul(gasPrice);
     const gasLimit = "1000000";
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
         bridgePayload, transferAmount, { gasLimit, gasPrice });
     console.log("TX hash", tx.hash);
     await tx.wait();
 
-    // tx back: https://sepolia-optimism.etherscan.io/tx/0xad20c00a32969e6e819e4b5e47c7aba272b94d783e37db4706db56f414fc0db4
+    // tx back: https://sepolia-optimism.etherscan.io/tx/0x299a1cb1d3811ce2addcc48e50eeb923ba1b9a16cacca5fd4ec83bd3af0961ee
     // tx result:
 
     // https://docs.optimism.io/builders/app-developers/tutorials/cross-dom-solidity#interact-with-the-l2-greeter
@@ -64,7 +63,7 @@ const main = async () => {
     // cp .env.sample .env
     // Assign the private key in .env
     // Might change both L1 and L2 RPCs in src/index.js
-    // export L2_TX=0x6ef9bb50e9a70077ddb00d978b0baf93e3ba17e5f36a3978b225e97f7b613884
+    // export L2_TX=0x299a1cb1d3811ce2addcc48e50eeb923ba1b9a16cacca5fd4ec83bd3af0961ee
     // env $(cat .env) L2_TX=$L2_TX node src/index.js
 
     // This must be called as IBridge.relayMessage() after the transaction challenge period has passed
