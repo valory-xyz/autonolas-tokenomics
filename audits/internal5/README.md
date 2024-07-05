@@ -97,11 +97,15 @@ https://github.com/code-423n4/2024-05-olas-findings/issues/107
 ```
 [N-44] Missing event for critical changes addNomenee in Dispenser
 ```
+[x] fixed
+
 110. QA Report #110
 https://github.com/code-423n4/2024-05-olas-findings/issues/110
 ```
 [NonCritical-9] Missing events in sensitive function setL2TargetDispenser(address l2Dispenser)
 ```
+[x] fixed
+
 113. QA Report #113
 https://github.com/code-423n4/2024-05-olas-findings/issues/113
 ```

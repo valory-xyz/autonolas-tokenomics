@@ -274,6 +274,8 @@ contract Dispenser {
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
     event PauseDispenser(Pause pauseState);
+    event AddNomineeHash(bytes32 indexed nomineeHash);
+    event RemoveNomineeHash(bytes32 indexed nomineeHash);
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
@@ -769,6 +771,8 @@ contract Dispenser {
         }
 
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+
+        emit AddNomineeHash(nomineeHash);
     }
 
     /// @dev Records nominee removal epoch number.
@@ -803,6 +807,8 @@ contract Dispenser {
 
         // Set the removed nominee epoch number
         mapRemovedNomineeEpochs[nomineeHash] = eCounter;
+
+        emit RemoveNomineeHash(nomineeHash);
     }
 
     /// @dev Claims incentives for the owner of components / agents.
