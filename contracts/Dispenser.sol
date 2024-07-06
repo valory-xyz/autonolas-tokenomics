@@ -767,6 +767,12 @@ contract Dispenser {
     }
 
     /// @dev Records nominee removal epoch number.
+    /// @notice The staking contract nominee cannot be removed starting from one week before the end of epoch.
+    ///         Since the epoch end time is unknown and the nominee removal is applied in the following week,
+    ///         it is prohibited to remove nominee one week before the foreseen epoch end to correctly reflect
+    ///         the removal epoch number.
+    ///         If the staking contract nominee must not get incentives in the ongoing ending epoch as well,
+    ///         the DAO is advised to use the removeInstance() function in the corresponding StakingFactory contract.
     /// @param nomineeHash Nominee hash.
     function removeNominee(bytes32 nomineeHash) external {
         // Check for the contract ownership
