@@ -15,11 +15,9 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x82Fd26D73a311CDc5C4D6cDC92c8F1731f2b57b3";
-    const l2TargetDispenserAddress = "0x7ED124AF35f5e12318C898ba35b63863908e1eB8";
-    //    const l1DepositProcessorAddress = "0xc72334A2b928e8c681E6359E981E50E0004739De";
-    //    const l2TargetDispenserAddress = "0x696b624d8BFFe7B4CeebE30F1f7Ee29d1aB52242";
-    const targetInstance = "0x4172a7f2888B8071b0df177f69d8FC61df0c164d";
+    const l1DepositProcessorAddress = "0x6Adfd6736f37AC88356e862B962d1737EA7104d4";
+    const l2TargetDispenserAddress = "0x1F4C3134aFB97DE2BfBBF28894d24F58D0A95eFC";
+    const targetInstance = "0x3c55f970d62d70dda9c3f9c7664e6f89010685ca";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);

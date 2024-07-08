@@ -15,9 +15,9 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x23CBf7653A73b5a46E6EAec382c532ed6D9AB730";
-    const l2TargetDispenserAddress = "0x670Ac235EE13C0B2a5065282bBB0c61cfB354592";
-    const targetInstance = "0xdbd5DA0FC7920Cc80875640fb296Ce2751d36929";
+    const l1DepositProcessorAddress = "0x60C3c81b855a6734312bF02256D496F5faec745A";
+    const l2TargetDispenserAddress = "0x118173028162C1b7c6Bf8488bd5dA2abd7c30F9D";
+    const targetInstance = "0xa28327f6b308f1a04e565025400311f48275c0fc";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -47,8 +47,8 @@ const main = async () => {
     // List of addresses: https://contracts.decentraland.org/links
 
     // L2 to L1 tracking:
-    // tx: https://amoy.polygonscan.com/tx/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d
-    // proof link: https://proof-generator.polygon.technology/api/v1/amoy/exit-payload/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d?eventSignature=0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036
+    // tx: https://amoy.polygonscan.com/tx/0x41523761a3a93f087920da294fc620f6f4ee2e1b8ad2acceb0d877bac60ea5cf
+    // proof link: https://proof-generator.polygon.technology/api/v1/amoy/exit-payload/0x41523761a3a93f087920da294fc620f6f4ee2e1b8ad2acceb0d877bac60ea5cf?eventSignature=0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036
 };
 
 main()

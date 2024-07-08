@@ -132,8 +132,7 @@ describe("DispenserStakingIncentives", async () => {
 
         const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
         gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
-            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
-            bridgeRelayer.address);
+            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId);
         await gnosisTargetDispenserL2.deployed();
 
         // Set the gnosisTargetDispenserL2 address in gnosisDepositProcessorL1

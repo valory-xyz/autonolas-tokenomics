@@ -49,7 +49,7 @@ const main = async () => {
     const transferAmount = defaultAmount;
     // Must be at least 20% bigger for the gas limit than the calculated one
     const gasLimit = "1000000";
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
         bridgePayload, transferAmount, { gasLimit, gasPrice });
     console.log("TX hash", tx.hash);
     await tx.wait();

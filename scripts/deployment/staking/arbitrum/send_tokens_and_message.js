@@ -29,8 +29,8 @@ const main = async () => {
         console.log("Correct wallet setup");
     }
 
-    const l1DepositProcessorAddress = "0x62f698468d9eb1Ed8c33f4DfE2e643b1a2D2980F";
-    const l2TargetDispenserAddress = "0xbb244EA713C065Ae54dC3A8eeeA765deEEDD8Df4";
+    const l1DepositProcessorAddress = "0x332Bf72e6aB661427d36993AF04cA26DfD9eF0E5";
+    const l2TargetDispenserAddress = "0xf91962bEEF99cc53adD71Aa035CBEFF9Ec062728";
     //const erc20Token = (await ethers.getContractAt("ERC20Token", tokenAddress)).connect(EOAarbitrumSepolia);
     //console.log(erc20Token.address);
 
@@ -45,7 +45,7 @@ const main = async () => {
 
     // To be able to estimate the gas related params to our L1-L2 message, we need to know how many bytes of calldata out
     // retryable ticket will require
-    const targetInstance = "0x33A23Cb1Df4810f4D1B932D85E78a8Fd6b9C9659";
+    const targetInstance = "0x5a7b2c6f38ee2f3203273dd3dd67942144b804fb";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -60,7 +60,7 @@ const main = async () => {
     const RetryablesGasOverrides = {
         gasLimit: {
             base: undefined, // when undefined, the value will be estimated from rpc
-            min: ethers.BigNumber.from(10000), // set a minimum gas limit, using 10000 as an example
+            min: ethers.BigNumber.from(2000000), // set a minimum gas limit, using 2M as a default minimum
             percentIncrease: ethers.BigNumber.from(30), // how much to increase the base for buffer
         },
         maxSubmissionFee: {
@@ -121,7 +121,7 @@ const main = async () => {
         ethers.utils.hexDataLength(tokenCalldata));
     console.log("maxSubmissionCostToken:", maxSubmissionCostToken.toString());
 
-    // Add 100k to the overall deposit to reflect the gasLimitMessage as well
+    // Add 100k to the overall deposit of original 300k to reflect the gasLimitMessage as well
     const tokenGasLimit = ethers.BigNumber.from("400000");
     const tokenGasCost = gasPriceBid.mul(tokenGasLimit);
     const totalCost = L1ToL2MessageGasParams.deposit.add(maxSubmissionCostToken).add(tokenGasCost);
@@ -141,28 +141,29 @@ const main = async () => {
     const dispenserABI = parsedFile["abi"];
     const dispenser = new ethers.Contract(dispenserAddress, dispenserABI, sepoliaProvider);
 
-    const olasAddress = "0x2AeD71638128A3811F5e5971a397fFe6A8587caa";
-    const olasJSON = "artifacts/contracts/test/ERC20TokenOwnerless.sol/ERC20TokenOwnerless.json";
-    contractFromJSON = fs.readFileSync(olasJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
-    const olasABI = parsedFile["abi"];
-    const olas = new ethers.Contract(olasAddress, olasABI, arbitrumSepoliaProvider);
-    const totalSupply = await olas.totalSupply();
+    //const olasAddress = "0x2AeD71638128A3811F5e5971a397fFe6A8587caa";
+    //const olasJSON = "artifacts/contracts/test/ERC20TokenOwnerless.sol/ERC20TokenOwnerless.json";
+    //contractFromJSON = fs.readFileSync(olasJSON, "utf8");
+    //parsedFile = JSON.parse(contractFromJSON);
+    //const olasABI = parsedFile["abi"];
+    //const olas = new ethers.Contract(olasAddress, olasABI, arbitrumSepoliaProvider);
+    //const totalSupply = await olas.totalSupply();
     //console.log("totalSupply on L2:", totalSupply);
-    let balance = await olas.balanceOf(l2TargetDispenserAddress);
+    //let balance = await olas.balanceOf(l2TargetDispenserAddress);
     //console.log("balance of L2 target dispenser:", balance);
-    balance = await olas.balanceOf(targetInstance);
+    //balance = await olas.balanceOf(targetInstance);
     //console.log("balance of L2 proxy:", balance);
 
     const transferAmount = defaultAmount;
     const gasLimit = 3000000;
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
+    console.log(totalCost);
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
         finalPayload, transferAmount, { value: totalCost, gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
 
-    // tx back to L1: https://sepolia.arbiscan.io/tx/0x2140d182185f9a9b97f8b5a70c85ebddc41a5cdfeea188895cca572309455bc5
-    // Finalized tx on L1: https://sepolia.etherscan.io/tx/0x7a916dde5984de4951cde7a61549646d5d36f4eb4d845d941c86e2b0ae299181
+    // tx back to L1: https://sepolia.arbiscan.io/tx/0xccdadecd6b46be264f2dc674eaabf41db5ba79c3ab9691eea7f36860cc1df26a
+    // Finalized tx on L1:
 
     // Use the following script to finalize L2-L1 transaction:
     // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js

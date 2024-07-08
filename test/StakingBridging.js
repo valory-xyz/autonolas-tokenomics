@@ -93,8 +93,7 @@ describe("StakingBridging", async () => {
 
         const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
         gnosisTargetDispenserL2 = await GnosisTargetDispenserL2.deploy(olas.address,
-            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId,
-            bridgeRelayer.address);
+            stakingProxyFactory.address, bridgeRelayer.address, gnosisDepositProcessorL1.address, chainId);
         await gnosisTargetDispenserL2.deployed();
 
         // Set the gnosisTargetDispenserL2 address in gnosisDepositProcessorL1
@@ -586,16 +585,6 @@ describe("StakingBridging", async () => {
     });
 
     context("Gnosis", async function () {
-        it("Should fail with incorrect constructor parameters for L2", async function () {
-            const GnosisTargetDispenserL2 = await ethers.getContractFactory("GnosisTargetDispenserL2");
-
-            // Zero L2 token relayer address
-            await expect(
-                GnosisTargetDispenserL2.deploy(olas.address, stakingProxyFactory.address, bridgeRelayer.address,
-                    gnosisDepositProcessorL1.address, chainId, AddressZero)
-            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "ZeroAddress");
-        });
-
         it("Send message with single target and amount from L1 to L2 and back", async function () {
             // Encode the staking data to emulate it being received on L2
             const stakingTarget = stakingInstance.address;
