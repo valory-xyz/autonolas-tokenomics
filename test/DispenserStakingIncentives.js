@@ -434,8 +434,6 @@ describe("DispenserStakingIncentives", async () => {
 
             // Set staking fraction to 100%
             await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
-            // Changing staking parameters
-            await tokenomics.changeStakingParams(50, 10);
 
             // Checkpoint to apply changes
             await helpers.time.increase(epochLen);
@@ -728,6 +726,44 @@ describe("DispenserStakingIncentives", async () => {
             await snapshot.restore();
         });
 
+        it("Should fail when trying to claim staking incentives for a retainer", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Add deployer as a retainer nominee
+            await vw.addNominee(convertBytes32ToAddress(retainer), chainId);
+
+            // Vote for the retainer
+            await vw.setNomineeRelativeWeight(convertBytes32ToAddress(retainer), chainId, defaultWeight);
+
+            // Checkpoint to get to the next epoch
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Try to claim incentives for the retainer
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs, chainId, retainer, bridgePayload)
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
+
+            // Try to claim incentives for the retainer in the batch
+            await expect(
+                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[retainer]], [bridgePayload], [0])
+            ).to.be.revertedWithCustomError(dispenser, "WrongAccount");
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
         it("Sync withheld amount maintenance (DAO)", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
@@ -814,7 +850,15 @@ describe("DispenserStakingIncentives", async () => {
 
             // Claiming is not possible as it's the epoch after the staking contract was removed from nominees
             await expect(
-                dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload)
+                dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTarget, bridgePayload)
+            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+
+            // Wait for one more epoch and try again
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            await expect(
+                dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTarget, bridgePayload)
             ).to.be.revertedWithCustomError(dispenser, "Overflow");
 
             // Restore to the state of the snapshot
@@ -865,7 +909,7 @@ describe("DispenserStakingIncentives", async () => {
             ).to.be.revertedWithCustomError(dispenser, "DepositProcessorOnly");
 
             // Sync back the withheld amount
-            await gnosisTargetDispenserL2.syncWithheldTokens(gnosisBridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldAmount(gnosisBridgePayload);
 
             // Add a valid staking target nominee
             await vw.addNominee(stakingInstance.address, gnosisChainId);
@@ -894,6 +938,90 @@ describe("DispenserStakingIncentives", async () => {
 
             // Claim again with withheld amount being accounted for
             await dispenser.claimStakingIncentives(numClaimedEpochs, gnosisChainId, stakingTarget, gnosisBridgePayload);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Should not claim anything is staking fraction is zero", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set all fractions to zero
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 0);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Add a non-whitelisted staking instance as a nominee
+            await vw.addNominee(stakingInstance.address, chainId);
+
+            const stakingTarget = convertAddressToBytes32(stakingInstance.address);
+
+            // Vote for the nominee
+            await vw.setNomineeRelativeWeight(stakingInstance.address, chainId, defaultWeight);
+
+            // Checkpoint to account for weights
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Get the staking inflation for the previous epoch
+            const lastPoint = await tokenomics.epochCounter() - 1;
+            // Get the staking point of the last epoch
+            let sp = await tokenomics.mapEpochStakingPoints(lastPoint);
+            const sIncentive = sp.stakingIncentive;
+
+            // Claim with withheld amount being accounted for
+            await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
+
+            // Check that no OLAS has been distributed
+            expect(await olas.balanceOf(stakingInstance.address)).to.equal(0);
+
+            // All the staking incentives must be returned into current epoch
+            sp = await tokenomics.mapEpochStakingPoints(lastPoint + 1);
+            expect(sp.stakingIncentive).to.equal(sIncentive);
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Return all the staking inflation if there is no nominee", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // Set staking fraction to 100%
+            await tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 100);
+            // Changing staking parameters
+            await tokenomics.changeStakingParams(100, 10);
+
+            // Checkpoint to apply changes
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Unpause the dispenser
+            await dispenser.setPauseState(0);
+
+            // Add a non-whitelisted staking instance as a nominee
+            await vw.addNominee(stakingInstance.address, chainId);
+
+            const stakingTarget = convertAddressToBytes32(stakingInstance.address);
+
+            // Vote for the nominee
+            await vw.setNomineeRelativeWeight(stakingInstance.address, chainId, 0);
+
+            // Checkpoint to account for weights
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            // Claim with withheld amount being accounted for
+            await dispenser.claimStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgePayload);
+
+            // Check that no OLAS has been distributed
+            expect(await olas.balanceOf(stakingInstance.address)).to.equal(0);
 
             // Restore to the state of the snapshot
             await snapshot.restore();
@@ -986,7 +1114,7 @@ describe("DispenserStakingIncentives", async () => {
             expect(await gnosisTargetDispenserL2.withheldAmount()).to.gt(0);
 
             // Sync back the withheld amount
-            await gnosisTargetDispenserL2.syncWithheldTokens(gnosisBridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldAmount(gnosisBridgePayload);
 
             // Get another staking instance
             const MockStakingProxy = await ethers.getContractFactory("MockStakingProxy");

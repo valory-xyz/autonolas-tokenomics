@@ -402,11 +402,11 @@ describe("StakingBridging", async () => {
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            await arbitrumTargetDispenserL2.syncWithheldTokens("0x");
+            await arbitrumTargetDispenserL2.syncWithheldAmount("0x");
 
             // Try to send withheld amount from L2 to L1 when there is none
             await expect(
-                arbitrumTargetDispenserL2.syncWithheldTokens("0x")
+                arbitrumTargetDispenserL2.syncWithheldAmount("0x")
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
             // Get staking batch hash
@@ -653,7 +653,7 @@ describe("StakingBridging", async () => {
 
             // Trying to sync withheld tokens when paused
             await expect(
-                gnosisTargetDispenserL2.syncWithheldTokens("0x")
+                gnosisTargetDispenserL2.syncWithheldAmount("0x")
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
 
             // Unpause and send withheld amount from L2 to L1
@@ -661,14 +661,14 @@ describe("StakingBridging", async () => {
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted from zero
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
-            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldAmount(bridgePayload);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted without any payload
-            await gnosisTargetDispenserL2.syncWithheldTokens("0x");
+            await gnosisTargetDispenserL2.syncWithheldAmount("0x");
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
@@ -676,7 +676,7 @@ describe("StakingBridging", async () => {
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted from being too high
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [moreThanMaxUint96]);
-            await gnosisTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await gnosisTargetDispenserL2.syncWithheldAmount(bridgePayload);
         });
 
         it("Verify senders on L1 and L2", async function () {
@@ -704,7 +704,7 @@ describe("StakingBridging", async () => {
 
             // Try to receive a message with the wrong sender
             await expect(
-                gnosisTargetDispenserL2.syncWithheldTokens(HashZero)
+                gnosisTargetDispenserL2.syncWithheldAmount(HashZero)
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "WrongMessageSender");
 
             // Deploy another bridge relayer
@@ -781,7 +781,7 @@ describe("StakingBridging", async () => {
 
             // Send withheld amount from L2 to L1 with the zero gas limit set
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
-            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await optimismTargetDispenserL2.syncWithheldAmount(bridgePayload);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
@@ -789,14 +789,14 @@ describe("StakingBridging", async () => {
 
             // Send withheld amount from L2 to L1 with the more than recommended gas limit
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [moreThanMaxUint96]);
-            await optimismTargetDispenserL2.syncWithheldTokens(bridgePayload);
+            await optimismTargetDispenserL2.syncWithheldAmount(bridgePayload);
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(optimismDepositProcessorL1.address, deployer.address, stakingIncentive, bridgePayload,
                 stakingIncentive);
 
             // Send withheld amount from L2 to L1 without any bridge payload
-            await optimismTargetDispenserL2.syncWithheldTokens("0x");
+            await optimismTargetDispenserL2.syncWithheldAmount("0x");
         });
     });
 
@@ -849,7 +849,7 @@ describe("StakingBridging", async () => {
             expect(Number(withheldAmount)).to.equal(stakingIncentive);
 
             // Send withheld amount from L2 to L1
-            await polygonTargetDispenserL2.syncWithheldTokens("0x");
+            await polygonTargetDispenserL2.syncWithheldAmount("0x");
         });
     });
 
@@ -951,7 +951,7 @@ describe("StakingBridging", async () => {
             // Try to send withheld amount from L2 to L1 with insufficient normalized withheld amount
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
+                wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroValue");
 
             // Send a message on L2 with funds for a wrong address with a bigger amount
@@ -961,12 +961,12 @@ describe("StakingBridging", async () => {
             // Try to send withheld amount from L2 to L1 with a zero refund address
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [AddressZero, 0]);
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
+                wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "ZeroAddress");
 
             // Send withheld amount from L2 to L1
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
-            await wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue});
+            await wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue});
         });
 
         it("Checks during a message sending on L1 and L2", async function () {
@@ -995,13 +995,13 @@ describe("StakingBridging", async () => {
 
             // Try to send withheld tokens with an incorrect payload
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens("0x")
+                wormholeTargetDispenserL2.syncWithheldAmount("0x")
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "IncorrectDataLength");
 
             // Try to send withheld tokens without any msg.value covering the cost
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload)
+                wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload)
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "LowerThan");
         });
 
@@ -1062,13 +1062,13 @@ describe("StakingBridging", async () => {
             await bridgeRelayer.setMode(3);
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
+                wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "WrongChainId");
 
             // Try to send withheld amount from L2 to L1 with already used hash
             await bridgeRelayer.setMode(6);
             // Sync withheld once with the correct nonce
-            await wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue});
+            await wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue});
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"],
                 [deployer.address, defaultGasLimit]);
             // Need to create a withheld condition again by sending another staking to a wrong address
@@ -1077,7 +1077,7 @@ describe("StakingBridging", async () => {
             // Now the delivery hash will fail
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256"], [deployer.address, 0]);
             await expect(
-                wormholeTargetDispenserL2.syncWithheldTokens(bridgePayload, {value: defaultMsgValue})
+                wormholeTargetDispenserL2.syncWithheldAmount(bridgePayload, {value: defaultMsgValue})
             ).to.be.revertedWithCustomError(wormholeTargetDispenserL2, "AlreadyDelivered");
         });
     });
