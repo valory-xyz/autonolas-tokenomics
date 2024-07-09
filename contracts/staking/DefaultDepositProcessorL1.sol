@@ -24,6 +24,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
         uint256 transferAmount, bytes32 indexed batchHash);
     event MessageReceived(address indexed l1Relayer, uint256 indexed chainId, bytes data);
     event L2TargetDispenserUpdated(address indexed l2TargetDispenser);
+    event LeftoversRefunded(address indexed sender, uint256 leftovers);
 
     // receiveMessage selector to be executed on L2
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -174,6 +175,8 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
             // If the call fails, ignore to avoid the attack that would prevent this function from executing
             // solhint-disable-next-line avoid-low-level-calls
             tx.origin.call{value: leftovers}("");
+
+            emit LeftoversRefunded(msg.sender, leftovers);
         }
 
         // Increase the staking batch nonce

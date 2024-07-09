@@ -56,6 +56,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
     event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
+    event LeftoversRefunded(address indexed sender, uint256 leftovers);
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -385,6 +386,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             // All the undelivered funds can be drained
             // solhint-disable-next-line avoid-low-level-calls
             msg.sender.call{value: leftovers}("");
+
+            emit LeftoversRefunded(msg.sender, leftovers);
         }
 
         stakingBatchNonce = batchNonce + 1;
