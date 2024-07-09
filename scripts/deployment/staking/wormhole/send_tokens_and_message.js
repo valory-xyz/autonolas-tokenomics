@@ -15,7 +15,7 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOApolygon = new ethers.Wallet(account, polygonProvider);
 
-    const l1DepositProcessorAddress = "0xab217B10Fb8800Aa709fEECa19341eDF41853018";
+    const l1DepositProcessorAddress = "0x6d9b08701Af43D68D991c074A27E4d90Af7f2276";
     const l2TargetDispenserAddress = "0x7a6ca5BD19EE9182BEe5662008dFF05c60C3A76f";
     const targetInstance = "0x49DB8Be279e8eEc6975f30A3beCC57CAC9922cBB";
     const defaultAmount = ethers.utils.parseEther("100.0");
@@ -26,7 +26,7 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0xc2c7E40674f1C7Bb99eFe5680Efd79842502bED4";
+    const dispenserAddress = "0x0338893fB1A1D9Df03F72CC53D8f786487d3D03E";
     const dispenserJSON = "artifacts/contracts/staking/test/MockStakingDispenser.sol/MockStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);

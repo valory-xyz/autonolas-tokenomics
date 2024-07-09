@@ -803,6 +803,11 @@ describe("DispenserStakingIncentives", async () => {
             // Sync withheld amount maintenance
             await dispenser.syncWithheldAmountMaintenance(gnosisChainId, 100, defaultHash);
 
+            // Try to sync again with the same hash
+            await expect(
+                dispenser.syncWithheldAmountMaintenance(gnosisChainId, 100, defaultHash)
+            ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "AlreadyDelivered");
+
             // Restore to the state of the snapshot
             await snapshot.restore();
         });

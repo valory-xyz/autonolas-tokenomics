@@ -29,8 +29,8 @@ const main = async () => {
         console.log("Correct wallet setup");
     }
 
-    const l1DepositProcessorAddress = "0x332Bf72e6aB661427d36993AF04cA26DfD9eF0E5";
-    const l2TargetDispenserAddress = "0xf91962bEEF99cc53adD71Aa035CBEFF9Ec062728";
+    const l1DepositProcessorAddress = "0xACd410f51DA5aAe1fF925565FBCB6B6eedbB00E2";
+    const l2TargetDispenserAddress = "0xF66E23209074FA7946E41f45f43d765281af2207";
     //const erc20Token = (await ethers.getContractAt("ERC20Token", tokenAddress)).connect(EOAarbitrumSepolia);
     //console.log(erc20Token.address);
 
@@ -157,7 +157,7 @@ const main = async () => {
     const transferAmount = defaultAmount;
     const gasLimit = 3000000;
     console.log(totalCost);
-    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, EOAsepolia.address, defaultAmount,
+    const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
         finalPayload, transferAmount, { value: totalCost, gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
