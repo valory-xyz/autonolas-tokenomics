@@ -15,8 +15,8 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x79A469c291cF7867eba1882e9F05E84A14dC378F";
-    const l2TargetDispenserAddress = "0x5AEf43F1B212DF954f60C62C1F14333c28F44Ce2";
+    const l1DepositProcessorAddress = "0xDc6B77e32e751C7d6e1d1c39A64c64a8F0049E21";
+    const l2TargetDispenserAddress = "0x239193FB66D22E358f1c094831aB771669Eb3C4F";
     const targetInstance = "0xCae661c929EC23e695e904d871C8D623f83bAC38";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
@@ -40,7 +40,7 @@ const main = async () => {
     //    console.log(await sepoliaProvider.getTransactionCount(EOAsepolia.address));
     //    return;
 
-    const gasPrice = ethers.utils.parseUnits("20", "gwei");
+    const gasPrice = ethers.utils.parseUnits("5", "gwei");
     // This is a contract-level message gas limit for L2 - capable of processing around 100 targets + amounts
     const minGasLimit = "2000000";
     // The default bridge payload is empty, uncomment if need to set gas limit more than 2M
@@ -48,13 +48,13 @@ const main = async () => {
 
     const transferAmount = defaultAmount;
     // Must be at least 20% bigger for the gas limit than the calculated one
-    const gasLimit = "1000000";
+    const gasLimit = "5000000";
     const tx = await dispenser.connect(EOAsepolia).mintAndSend(l1DepositProcessorAddress, targetInstance, defaultAmount,
         bridgePayload, transferAmount, { gasLimit, gasPrice });
     console.log("TX hash", tx.hash);
     await tx.wait();
 
-    // tx back: https://sepolia-optimism.etherscan.io/tx/0x299a1cb1d3811ce2addcc48e50eeb923ba1b9a16cacca5fd4ec83bd3af0961ee
+    // tx back: https://sepolia-optimism.etherscan.io/tx/0x08ff60b3ef506e0f34e5941953608fa5bec1a13d7e0a175084245aa622edf7e0
     // tx result:
 
     // https://docs.optimism.io/builders/app-developers/tutorials/cross-dom-solidity#interact-with-the-l2-greeter

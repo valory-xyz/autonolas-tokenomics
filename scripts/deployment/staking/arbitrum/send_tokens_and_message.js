@@ -162,7 +162,7 @@ const main = async () => {
     console.log("TX hash", tx.hash);
     await tx.wait();
 
-    // tx back to L1: https://sepolia.arbiscan.io/tx/0xccdadecd6b46be264f2dc674eaabf41db5ba79c3ab9691eea7f36860cc1df26a
+    // tx back to L1: https://sepolia.arbiscan.io/tx/0xea8119b1030bb223a896680d9c4ea03877beee08927ef1b8a9532ce48db68c55
     // Finalized tx on L1:
 
     // Use the following script to finalize L2-L1 transaction:
