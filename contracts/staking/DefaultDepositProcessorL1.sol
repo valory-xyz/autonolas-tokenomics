@@ -176,7 +176,7 @@ abstract contract DefaultDepositProcessorL1 is IBridgeErrors {
             // solhint-disable-next-line avoid-low-level-calls
             tx.origin.call{value: leftovers}("");
 
-            emit LeftoversRefunded(msg.sender, leftovers);
+            emit LeftoversRefunded(tx.origin, leftovers);
         }
 
         // Increase the staking batch nonce
