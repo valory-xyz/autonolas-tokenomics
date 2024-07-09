@@ -134,7 +134,7 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
+    const dispenserAddress = "0x42f43be9E5E50df51b86C5c6427223ff565f40C6";
     const dispenserJSON = "artifacts/contracts/staking/test/MockStakingDispenser.sol/MockStakingDispenser.json";
     let contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);

@@ -489,6 +489,13 @@ describe("StakingBridging", async () => {
                     stakingIncentive)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "ZeroValue");
 
+            bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
+                [deployer.address, defaultGasPrice, defaultCost, 2, defaultCost]);
+            await expect(
+                dispenser.mintAndSend(arbitrumDepositProcessorL1.address, stakingTarget, stakingIncentive, bridgePayload,
+                    stakingIncentive)
+            ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "LowerThan");
+
             // Not enough msg.value to cover the cost
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["address", "uint256", "uint256", "uint256", "uint256"],
                 [deployer.address, defaultGasPrice, defaultCost, defaultGasLimit, defaultCost]);
