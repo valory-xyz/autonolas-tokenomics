@@ -54,6 +54,7 @@ struct Product {
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
+    // Supply 
 }
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -66,7 +67,7 @@ contract Depository is IErrorsTokenomics {
     event BondCalculatorUpdated(address indexed bondCalculator);
     event CreateBond(address indexed token, uint256 indexed productId, address indexed owner, uint256 bondId,
         uint256 amountOLAS, uint256 tokenAmount, uint256 maturity);
-    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId);
+    event RedeemBond(uint256 indexed productId, address indexed owner, uint256 bondId, uint256 payout);
     event CreateProduct(address indexed token, uint256 indexed productId, uint256 supply, uint256 priceLP,
         uint256 vesting);
     event CloseProduct(address indexed token, uint256 indexed productId, uint256 supply);
@@ -74,16 +75,18 @@ contract Depository is IErrorsTokenomics {
     // Minimum bond vesting value
     uint256 public constant MIN_VESTING = 1 days;
     // Depository version number
-    string public constant VERSION = "1.0.1";
+    string public constant VERSION = "1.1.0";
     
     // Owner address
     address public owner;
     // Individual bond counter
     // We assume that the number of bonds will not be bigger than the number of seconds
-    uint32 public bondCounter;
+    uint256 public bondCounter;
     // Bond product counter
     // We assume that the number of products will not be bigger than the number of seconds
-    uint32 public productCounter;
+    uint256 public productCounter;
+    // Minimum amount of supply that is given to the
+    uint256 public minOLASLeftoverAmount;
 
     // OLAS token address
     address public immutable olas;
@@ -326,13 +329,19 @@ contract Depository is IErrorsTokenomics {
 
         // Decrease the supply for the amount of payout
         supply -= payout;
+        // Adjust payout and set supply to zero if supply drops below the min defined value
+        if (supply < minOLASLeftoverAmount) {
+            payout += supply;
+            supply = 0;
+        }
         product.supply = uint96(supply);
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
         mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(maturity), uint32(productId));
-        bondCounter = uint32(bondId + 1);
+        bondCounter = bondId + 1;
 
+        // TODO OLAS balance check before and after
         // Deposit that token amount to mint OLAS tokens in exchange
         ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
 
@@ -377,7 +386,7 @@ contract Depository is IErrorsTokenomics {
 
             // Delete the Bond struct and release the gas
             delete mapUserBonds[bondIds[i]];
-            emit RedeemBond(productId, msg.sender, bondIds[i]);
+            emit RedeemBond(productId, msg.sender, bondIds[i], pay);
         }
 
         // Check for the non-zero payout
