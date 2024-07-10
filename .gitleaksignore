@@ -134,3 +134,5 @@ f78d4539c80abb33ea04dce4d561af5302033235:scripts/deployment/staking/globals_sepo
 602cfa1ef3933707828398ee42b0d923abfe39ff:scripts/deployment/staking/wormhole/globals_polygon_mainnet.json:generic-api-key:1
 9fa4b1fb81ba553ed48ef4a9b22c53ecdf4d2242:scripts/deployment/staking/globals_sepolia.json:generic-api-key:1
 9fa4b1fb81ba553ed48ef4a9b22c53ecdf4d2242:scripts/deployment/staking/globals_sepolia.json:generic-api-key:2
+001d71fc7c216c593faebdd3d6f353efaf80605f:scripts/deployment/staking/globals_sepolia.json:generic-api-key:1
+001d71fc7c216c593faebdd3d6f353efaf80605f:scripts/deployment/staking/globals_sepolia.json:generic-api-key:2
