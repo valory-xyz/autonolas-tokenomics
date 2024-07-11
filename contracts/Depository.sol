@@ -54,7 +54,9 @@ struct Product {
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
-    // Supply 
+    // Current OLAS payout
+    // This value is bound by the initial total supply
+    uint96 payout;
 }
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -232,7 +234,7 @@ contract Depository is IErrorsTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply));
+        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply), 0);
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
         productCounter = uint32(productId + 1);
         emit CreateProduct(token, productId, supply, priceLP, vesting);
@@ -335,6 +337,7 @@ contract Depository is IErrorsTokenomics {
             supply = 0;
         }
         product.supply = uint96(supply);
+        product.payout += uint96(payout);
 
         // Create and add a new bond, update the bond counter
         bondId = bondCounter;
