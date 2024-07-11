@@ -92,14 +92,7 @@ contract GenericBondCalculator {
         ve = _ve;
         tokenomics = _tokenomics;
         owner = msg.sender;
-
-        // Check discount factor limits
-        if (_discountParams.targetVotingPower > type(uint96).max) {
-            revert Overflow(_discountParams.targetVotingPower, type(uint96).max);
-        }
-        if (_discountParams.targetNewUnits > type(uint64).max) {
-            revert Overflow(_discountParams.targetNewUnits, type(uint64).max);
-        }
+        
         // Check the sum of factors that cannot exceed the value of 10_000 (100% with a 0.01% step)
         uint256 sumWeights;
         for (uint256 i = 0; i < _discountParams.weightFactors.length; ++i) {
@@ -136,13 +129,6 @@ contract GenericBondCalculator {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check discount factor limits
-        if (newDiscountParams.targetVotingPower > type(uint96).max) {
-            revert Overflow(newDiscountParams.targetVotingPower, type(uint96).max);
-        }
-        if (newDiscountParams.targetNewUnits > type(uint64).max) {
-            revert Overflow(newDiscountParams.targetNewUnits, type(uint64).max);
-        }
         // Check the sum of factors that cannot exceed the value of 10_000 (100% with a 0.01% step)
         uint256 sumWeights;
         for (uint256 i = 0; i < newDiscountParams.weightFactors.length; ++i) {
