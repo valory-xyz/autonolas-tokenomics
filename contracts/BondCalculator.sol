@@ -32,17 +32,17 @@ struct Product {
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
     // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
     uint160 priceLP;
-    // Bond vesting time
-    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
-    uint32 vesting;
-    // Token to accept as a payment
-    address token;
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
+    // Token to accept as a payment
+    address token;
     // Current OLAS payout
     // This value is bound by the initial total supply
     uint96 payout;
+    // Max bond vesting time
+    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
+    uint32 vesting;
 }
 
 /// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
@@ -104,11 +104,21 @@ contract GenericBondCalculator {
     /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
+    /// @param bondVestingTime Bond vesting time.
+    /// @param productMaxVestingTime Product max vesting time.
+    /// @param productSupply Current product supply.
+    /// @param productPayout Current product payout.
     /// @return amountOLAS Resulting amount of OLAS tokens.
     /// #if_succeeds {:msg "LP price limit"} priceLP * tokenAmount <= type(uint192).max;
-    function calculatePayoutOLAS(address account, uint256 tokenAmount, uint256 vestingTime, Product memory product) external view
-        returns (uint256 amountOLAS)
-    {
+    function calculatePayoutOLAS(
+        address account,
+        uint256 tokenAmount,
+        uint256 priceLP,
+        uint256 bondVestingTime,
+        uint256 productMaxVestingTime,
+        uint256 productSupply,
+        uint256 productPayout
+    ) external view returns (uint256 amountOLAS) {
         // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
         // The resulting amountDF can not overflow by the following calculations: idf = 64 bits;
         // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
@@ -124,17 +134,19 @@ contract GenericBondCalculator {
         }
 
         // Calculate the dynamic inverse discount factor
-        uint256 idf = calculateIDF();
+        uint256 idf = calculateIDF(account, bondVestingTime, productMaxVestingTime, productSupply, productPayout);
 
         // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
         // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
-        amountOLAS = idf * totalTokenValue / 1e36;
+        amountOLAS = (idf * totalTokenValue) / 1e36;
     }
 
     function calculateIDF(
         address account,
-        uint256 vestingTime,
-        Product memory product
+        uint256 bondVestingTime,
+        uint256 productMaxVestingTime,
+        uint256 productSupply,
+        uint256 productPayout
     ) public view returns (uint256 idf) {
         // Get the copy of the discount params
         DiscountParams memory localParams = discountParams;
@@ -152,11 +164,11 @@ contract GenericBondCalculator {
         }
 
         // Add vesting time discount booster
-        discountBooster += (localParams.weightFactors[1] * vestingTime * 1e18) / product.vesting;
+        discountBooster += (localParams.weightFactors[1] * bondVestingTime * 1e18) / productMaxVestingTime;
 
         // Add product supply discount booster
-        uint256 productSupply = product.payout + product.supply;
-        discountBooster += localParams.weightFactors[2] * (1e18 - ((product.payout * 1e18) / productSupply));
+        productSupply = productSupply + productPayout;
+        discountBooster += localParams.weightFactors[2] * (1e18 - ((productPayout * 1e18) / productSupply));
 
         // Check the veOLAS balance of a bonding account
         if (localParams.targetVotingPower > 0) {

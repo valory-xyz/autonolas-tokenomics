@@ -2,10 +2,31 @@
 pragma solidity ^0.8.20;
 
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
-import {IGenericBondCalculator} from "./interfaces/IGenericBondCalculator.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {ITokenomics} from "./interfaces/ITokenomics.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
+
+interface IBondCalculator {
+    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
+    /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
+    /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
+    /// @param tokenAmount LP token amount.
+    /// @param priceLP LP token price.
+    /// @param bondVestingTime Bond vesting time.
+    /// @param productMaxVestingTime Product max vesting time.
+    /// @param productSupply Current product supply.
+    /// @param productPayout Current product payout.
+    /// @return amountOLAS Resulting amount of OLAS tokens.
+    function calculatePayoutOLAS(
+        address account,
+        uint256 tokenAmount,
+        uint256 priceLP,
+        uint256 bondVestingTime,
+        uint256 productMaxVestingTime,
+        uint256 productSupply,
+        uint256 productPayout
+    ) external view returns (uint256 amountOLAS);
+}
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
@@ -40,23 +61,23 @@ struct Bond {
     uint32 productId;
 }
 
-// The size of the struct is 160 + 32 + 160 + 96 = 256 + 192 (2 slots)
+// The size of the struct is 160 + 96 + 160 + 96 + 32 = 2 * 256 + 32 (3 slots)
 struct Product {
     // priceLP (reserve0 / totalSupply or reserve1 / totalSupply) with 18 additional decimals
     // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
     // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced)
     uint160 priceLP;
-    // Bond vesting time
-    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
-    uint32 vesting;
-    // Token to accept as a payment
-    address token;
     // Supply of remaining OLAS tokens
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 supply;
+    // Token to accept as a payment
+    address token;
     // Current OLAS payout
     // This value is bound by the initial total supply
     uint96 payout;
+    // Max bond vesting time
+    // 2^32 - 1 is enough to count 136 years starting from the year of 1970. This counter is safe until the year of 2106
+    uint32 vesting;
 }
 
 /// @title Bond Depository - Smart contract for OLAS Bond Depository
@@ -234,9 +255,9 @@ contract Depository is IErrorsTokenomics {
 
         // Push newly created bond product into the list of products
         productId = productCounter;
-        mapBondProducts[productId] = Product(uint160(priceLP), uint32(vesting), token, uint96(supply), 0);
+        mapBondProducts[productId] = Product(uint160(priceLP), uint96(supply), token, 0, uint32(vesting));
         // Even if we create a bond product every second, 2^32 - 1 is enough for the next 136 years
-        productCounter = uint32(productId + 1);
+        productCounter = productId + 1;
         emit CreateProduct(token, productId, supply, priceLP, vesting);
     }
 
@@ -293,7 +314,7 @@ contract Depository is IErrorsTokenomics {
     /// #if_succeeds {:msg "bond Id"} bondCounter == old(bondCounter) + 1 && bondCounter <= type(uint32).max;
     /// #if_succeeds {:msg "payout"} old(mapBondProducts[productId].supply) == mapBondProducts[productId].supply + payout;
     /// #if_succeeds {:msg "OLAS balances"} IToken(mapBondProducts[productId].token).balanceOf(treasury) == old(IToken(mapBondProducts[productId].token).balanceOf(treasury)) + tokenAmount;
-    function deposit(uint256 productId, uint256 tokenAmount) external
+    function deposit(uint256 productId, uint256 tokenAmount, uint256 bondVestingTime) external
         returns (uint256 payout, uint256 maturity, uint256 bondId)
     {
         // Check the token amount
@@ -310,8 +331,16 @@ contract Depository is IErrorsTokenomics {
             revert ProductClosed(productId);
         }
 
+        uint256 productMaxVestingTime = product.vesting;
+        // Calculate vesting limits
+        if (bondVestingTime < MIN_VESTING) {
+            revert LowerThan(bondVestingTime, MIN_VESTING);
+        }
+        if (vestingTime > productMaxVestingTime) {
+            revert Overflow(vestingTime, productMaxVestingTime);
+        }
         // Calculate the bond maturity based on its vesting time
-        maturity = block.timestamp + product.vesting;
+        maturity = block.timestamp + productMaxVestingTime;
         // Check for the time limits
         if (maturity > type(uint32).max) {
             revert Overflow(maturity, type(uint32).max);
@@ -322,7 +351,8 @@ contract Depository is IErrorsTokenomics {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
-        payout = IGenericBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP);
+        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP, bondVestingTime,
+            productMaxVestingTime, supply, product.payout);
 
         // Check for the sufficient supply
         if (payout > supply) {
