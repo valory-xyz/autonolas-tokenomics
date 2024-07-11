@@ -2,13 +2,18 @@
 pragma solidity ^0.8.25;
 
 import {mulDiv} from "@prb/math/src/Common.sol";
-import {IVotingEscrow} from "../interfaces/IVotingEscrow.sol";
+import {IVotingEscrow} from "./interfaces/IVotingEscrow.sol";
 
 interface ITokenomics {
     /// @dev Gets number of new units that were donated in the last epoch.
     /// @return Number of new units.
     function getLastEpochNumNewUnits() external view returns (uint256);
 }
+
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
 
 /// @dev Value overflow.
 /// @param provided Overflow value.
@@ -19,10 +24,16 @@ error Overflow(uint256 provided, uint256 max);
 error ZeroAddress();
 
 // Struct for discount factor params
-// The size of the struct is 96 + 32 + 64 = 192 (1 slot)
+// The size of the struct is 96 + 64 + 64 = 224 (1 slot)
 struct DiscountParams {
+    // DAO set voting power limit for the bonding account
+    // This value is bound by the veOLAS total voting power
     uint96 targetVotingPower;
-    uint32 targetNewUnits;
+    // DAO set number of new units per epoch limit
+    // This number is bound by the total number of possible components and agents
+    uint64 targetNewUnits;
+    // DAO set weight factors
+    // The sum of factors cannot exceed the value of 10_000 (100% with a 0.01% step)
     uint16[4] weightFactors;
 }
 
@@ -51,6 +62,7 @@ struct Product {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 contract GenericBondCalculator {
     event OwnerUpdated(address indexed owner);
+    event DiscountParamsUpdated(DiscountParams newDiscountParams);
 
     // Maximum sum of discount factor weights
     uint256 public constant MAX_SUM_WEIGHTS = 10_000;
@@ -72,7 +84,7 @@ contract GenericBondCalculator {
     /// @param _tokenomics Tokenomics contract address.
     constructor(address _olas, address _ve, address _tokenomics, DiscountParams memory _discountParams) {
         // Check for at least one zero contract address
-        if (_olas == address(0) || _ve == address(0)|| _tokenomics == address(0)) {
+        if (_olas == address(0) || _ve == address(0) || _tokenomics == address(0)) {
             revert ZeroAddress();
         }
 
@@ -80,6 +92,23 @@ contract GenericBondCalculator {
         ve = _ve;
         tokenomics = _tokenomics;
         owner = msg.sender;
+
+        // Check discount factor limits
+        if (_discountParams.targetVotingPower > type(uint96).max) {
+            revert Overflow(_discountParams.targetVotingPower, type(uint96).max);
+        }
+        if (_discountParams.targetNewUnits > type(uint64).max) {
+            revert Overflow(_discountParams.targetNewUnits, type(uint64).max);
+        }
+        // Check the sum of factors that cannot exceed the value of 10_000 (100% with a 0.01% step)
+        uint256 sumWeights;
+        for (uint256 i = 0; i < _discountParams.weightFactors.length; ++i) {
+            sumWeights += _discountParams.weightFactors[i];
+        }
+        if (sumWeights > MAX_SUM_WEIGHTS) {
+            revert Overflow(sumWeights, MAX_SUM_WEIGHTS);
+        }
+        discountParams = _discountParams;
     }
 
     /// @dev Changes contract owner address.
@@ -97,6 +126,35 @@ contract GenericBondCalculator {
 
         owner = newOwner;
         emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changed inverse discount factor parameters.
+    /// @param newDiscountParams Struct of new discount parameters.
+    function changeDiscountParams(DiscountParams memory newDiscountParams) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check discount factor limits
+        if (newDiscountParams.targetVotingPower > type(uint96).max) {
+            revert Overflow(newDiscountParams.targetVotingPower, type(uint96).max);
+        }
+        if (newDiscountParams.targetNewUnits > type(uint64).max) {
+            revert Overflow(newDiscountParams.targetNewUnits, type(uint64).max);
+        }
+        // Check the sum of factors that cannot exceed the value of 10_000 (100% with a 0.01% step)
+        uint256 sumWeights;
+        for (uint256 i = 0; i < newDiscountParams.weightFactors.length; ++i) {
+            sumWeights += newDiscountParams.weightFactors[i];
+        }
+        if (sumWeights > MAX_SUM_WEIGHTS) {
+            revert Overflow(sumWeights, MAX_SUM_WEIGHTS);
+        }
+
+        discountParams = newDiscountParams;
+
+        emit DiscountParamsUpdated(newDiscountParams);
     }
 
     /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
@@ -141,6 +199,13 @@ contract GenericBondCalculator {
         amountOLAS = (idf * totalTokenValue) / 1e36;
     }
 
+    /// @dev Calculated inverse discount factor based on bonding and account parameters.
+    /// @param account Bonding account address.
+    /// @param bondVestingTime Bonding desired vesting time.
+    /// @param productMaxVestingTime Product max vesting time.
+    /// @param productSupply Current product supply.
+    /// @param productPayout Current product payout.
+    /// @return idf Inverse discount factor in 18 decimals format.
     function calculateIDF(
         address account,
         uint256 bondVestingTime,
@@ -152,6 +217,7 @@ contract GenericBondCalculator {
         DiscountParams memory localParams = discountParams;
         uint256 discountBooster;
 
+        // First discount booster: booster = k1 * NumNewUnits(previous epoch) / TargetNewUnits(previous epoch)
         // Check the number of new units coming from tokenomics vs the target number of new units
         if (localParams.targetNewUnits > 0) {
             uint256 numNewUnits = ITokenomics(tokenomics).getLastEpochNumNewUnits();
@@ -163,13 +229,16 @@ contract GenericBondCalculator {
             discountBooster = (localParams.weightFactors[0] * numNewUnits * 1e18) / localParams.targetNewUnits;
         }
 
+        // Second discount booster: booster += k2 * bondVestingTime / productMaxVestingTime
         // Add vesting time discount booster
         discountBooster += (localParams.weightFactors[1] * bondVestingTime * 1e18) / productMaxVestingTime;
 
+        // Third discount booster: booster += k3 * (1 - productPayout(at bonding time) / productSupply)
         // Add product supply discount booster
         productSupply = productSupply + productPayout;
         discountBooster += localParams.weightFactors[2] * (1e18 - ((productPayout * 1e18) / productSupply));
 
+        // Fourth discount booster: booster += k4 * getVotes(bonding account) / targetVotingPower
         // Check the veOLAS balance of a bonding account
         if (localParams.targetVotingPower > 0) {
             uint256 vPower = IVotingEscrow(ve).getVotes(account);
@@ -181,8 +250,10 @@ contract GenericBondCalculator {
             discountBooster += (localParams.weightFactors[3] * vPower * 1e18) / localParams.targetVotingPower;
         }
 
+        // Normalize discount booster by the max sum of weights
         discountBooster /= MAX_SUM_WEIGHTS;
 
+        // IDF = 1 + normalized booster
         idf = 1e18 + discountBooster;
     }
 }    

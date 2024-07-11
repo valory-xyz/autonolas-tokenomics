@@ -677,7 +677,7 @@ contract Tokenomics is TokenomicsConstants {
 
         // Set the flag that tokenomics parameters are requested to be updated (1st bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x01;
-        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _codePerDev, _epsilonRate, _epochLen,
+        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _codePerDev, _epochLen,
             _veOLASThreshold);
     }
 
@@ -1412,7 +1412,8 @@ contract Tokenomics is TokenomicsConstants {
     /// @return Number of new units.
     function getLastEpochNumNewUnits() external view returns (uint256) {
         uint256 eCounter = epochCounter - 1;
-        return mapEpochTokenomics[eCounter].unitPoints[0] + mapEpochTokenomics[eCounter].unitPoints[1];
+        return mapEpochTokenomics[eCounter].unitPoints[0].numNewUnits +
+            mapEpochTokenomics[eCounter].unitPoints[1].numNewUnits;
     }
 
     /// @dev Gets epoch end time.

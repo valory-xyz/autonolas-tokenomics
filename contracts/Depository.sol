@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.25;
 
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
 import {IToken} from "./interfaces/IToken.sol";
@@ -27,6 +27,11 @@ interface IBondCalculator {
         uint256 productPayout
     ) external view returns (uint256 amountOLAS);
 }
+
+/// @dev Wrong amount received / provided.
+/// @param provided Provided amount.
+/// @param expected Expected amount.
+error WrongAmount(uint256 provided, uint256 expected);
 
 /*
 * In this contract we consider OLAS tokens. The initial numbers will be as follows:
@@ -336,8 +341,8 @@ contract Depository is IErrorsTokenomics {
         if (bondVestingTime < MIN_VESTING) {
             revert LowerThan(bondVestingTime, MIN_VESTING);
         }
-        if (vestingTime > productMaxVestingTime) {
-            revert Overflow(vestingTime, productMaxVestingTime);
+        if (bondVestingTime > productMaxVestingTime) {
+            revert Overflow(bondVestingTime, productMaxVestingTime);
         }
         // Calculate the bond maturity based on its vesting time
         maturity = block.timestamp + productMaxVestingTime;
@@ -351,8 +356,8 @@ contract Depository is IErrorsTokenomics {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
-        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP, bondVestingTime,
-            productMaxVestingTime, supply, product.payout);
+        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(msg.sender, tokenAmount, product.priceLP,
+            bondVestingTime, productMaxVestingTime, supply, product.payout);
 
         // Check for the sufficient supply
         if (payout > supply) {
@@ -374,9 +379,16 @@ contract Depository is IErrorsTokenomics {
         mapUserBonds[bondId] = Bond(msg.sender, uint96(payout), uint32(maturity), uint32(productId));
         bondCounter = bondId + 1;
 
-        // TODO OLAS balance check before and after
+        uint256 olasBalance = IToken(olas).balanceOf(address(this));
         // Deposit that token amount to mint OLAS tokens in exchange
         ITreasury(treasury).depositTokenForOLAS(msg.sender, tokenAmount, token, payout);
+
+        // Check the balance after the OLAS mint
+        olasBalance = IToken(olas).balanceOf(address(this)) - olasBalance;
+
+        if (olasBalance != payout) {
+            revert WrongAmount(olasBalance, payout);
+        }
 
         // Close the product if the supply becomes zero
         if (supply == 0) {
@@ -525,12 +537,5 @@ contract Depository is IErrorsTokenomics {
         if (payout > 0) {
             matured = block.timestamp >= mapUserBonds[bondId].maturity;
         }
-    }
-
-    /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
-    /// @param token Token address.
-    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
-    function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
-        return IGenericBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
 }

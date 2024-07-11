@@ -120,7 +120,7 @@ contract TestTokenomics {
 
         // Enable LP token in treasury
         treasury.enableToken(pair);
-        priceLP = depository.getCurrentPriceLP(pair);
+        priceLP = genericBondCalculator.getCurrentPriceLP(pair);
 
         // Give a large approval for treasury
         ZuniswapV2Pair(pair).approve(address(treasury), largeApproval);
@@ -129,7 +129,7 @@ contract TestTokenomics {
         productId = depository.create(pair, priceLP, supplyProductOLAS, vesting);
 
         // Deposit to one bond
-        (, , bondId) = depository.deposit(productId, 1_000 ether);
+        (, , bondId) = depository.deposit(productId, 1_000 ether, vesting);
     }
 
 
@@ -172,25 +172,25 @@ contract TestTokenomics {
     /// @dev Deposit LP token to the bond product with the max of uint96 tokenAmount.
     function depositBond96Id0(uint96 tokenAmount) external {
         if (tokenAmount < ZuniswapV2Pair(pair).balanceOf(address(this))) {
-            depository.deposit(0, tokenAmount);
+            depository.deposit(0, tokenAmount, vesting);
         }
     }
 
     /// @dev Deposit LP token to the bond product with the max of uint96 tokenAmount.
     function depositBond96(uint96 tokenAmount) external {
         if (tokenAmount < ZuniswapV2Pair(pair).balanceOf(address(this))) {
-            depository.deposit(productId, tokenAmount);
+            depository.deposit(productId, tokenAmount, vesting);
         }
     }
 
     /// @dev Deposit LP token to the bond product.
     function depositBond256Id0(uint256 tokenAmount) external {
-        depository.deposit(0, tokenAmount);
+        depository.deposit(0, tokenAmount, vesting);
     }
 
     /// @dev Deposit LP token to the bond product.
     function depositBond256(uint256 tokenAmount) external {
-        depository.deposit(productId, tokenAmount);
+        depository.deposit(productId, tokenAmount, vesting);
     }
 
     /// @dev Redeem OLAS from the bond program.
