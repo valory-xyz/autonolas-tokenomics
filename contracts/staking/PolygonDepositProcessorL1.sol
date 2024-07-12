@@ -58,8 +58,9 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory,
-        uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+        uint256 transferAmount,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -72,15 +73,18 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         }
 
         // Assemble data payload
-        bytes memory data = abi.encode(targets, stakingIncentives);
+        bytes memory data = abi.encode(targets, stakingIncentives, batchHash);
 
         // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/FxRoot.sol#L29
         // Doc: https://docs.polygon.technology/pos/how-to/bridging/l1-l2-communication/state-transfer/#root-tunnel-contract
         // Send message to L2
         _sendMessageToChild(data);
 
-        // Since there is no returned message sequence, use the staking batch nonce
-        sequence = stakingBatchNonce;
+        // Since there is no returned message sequence, use the batch hash
+        sequence = uint256(batchHash);
+
+        // Return msg.value, if provided by mistake
+        leftovers = msg.value;
     }
 
     // Source: https://github.com/0xPolygon/fx-portal/blob/731959279a77b0779f8a1eccdaea710e0babee19/contracts/tunnel/FxBaseRootTunnel.sol#L175
@@ -109,13 +113,16 @@ contract PolygonDepositProcessorL1 is DefaultDepositProcessorL1, FxBaseRootTunne
         // Set L1 deposit processor address
         fxChildTunnel = l2Dispenser;
 
+        _setL2TargetDispenser(l2Dispenser);
+
         emit FxChildTunnelUpdated(l2Dispenser);
     }
 
     /// @dev Sets L2 target dispenser address.
+    /// @notice The call to this function is fully equivalent to just calling setFxChildTunnel, since
+    ///         setFxChildTunnel is a required public function imported from fx-portal.
     /// @param l2Dispenser L2 target dispenser address.
     function setL2TargetDispenser(address l2Dispenser) external override {
         setFxChildTunnel(l2Dispenser);
-        _setL2TargetDispenser(l2Dispenser);
     }
 }

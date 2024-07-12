@@ -49,8 +49,9 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory,
-        uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
+        uint256 transferAmount,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Transfer OLAS tokens
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
@@ -61,7 +62,7 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble AMB data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 
         // Send message to L2
         // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
@@ -69,6 +70,9 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
         bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
 
         sequence = uint256(iMsg);
+
+        // Return msg.value, if provided by mistake
+        leftovers = msg.value;
     }
 
     /// @dev Process message received from L2.
