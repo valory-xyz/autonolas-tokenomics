@@ -53,7 +53,11 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
     ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override {
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         uint256 gasLimitMessage;
 
         // Check for the bridge payload length
@@ -73,13 +77,15 @@ contract OptimismTargetDispenserL2 is DefaultTargetDispenserL2 {
         }
 
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount, batchHash));
 
         // Send the message to L1 deposit processor
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l2MessageRelayer).sendMessage(l1DepositProcessor, data, uint32(gasLimitMessage));
 
-        emit MessagePosted(0, msg.sender, l1DepositProcessor, amount);
+        sequence = uint256(batchHash);
+
+        leftovers = msg.value;
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.
