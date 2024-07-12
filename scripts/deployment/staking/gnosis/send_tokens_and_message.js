@@ -15,11 +15,9 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x82Fd26D73a311CDc5C4D6cDC92c8F1731f2b57b3";
-    const l2TargetDispenserAddress = "0x7ED124AF35f5e12318C898ba35b63863908e1eB8";
-    //    const l1DepositProcessorAddress = "0xc72334A2b928e8c681E6359E981E50E0004739De";
-    //    const l2TargetDispenserAddress = "0x696b624d8BFFe7B4CeebE30F1f7Ee29d1aB52242";
-    const targetInstance = "0x4172a7f2888B8071b0df177f69d8FC61df0c164d";
+    const l1DepositProcessorAddress = "0x679Ce81a7bab6808534137585850dc81F90Ea8a4";
+    const l2TargetDispenserAddress = "0xA126bf628f1fa7B922D0681733CbCE9236ca44Af";
+    const targetInstance = "0x3c55f970d62d70dda9c3f9c7664e6f89010685ca";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -32,8 +30,8 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
-    const dispenserJSON = "artifacts/contracts/staking/test/MockServiceStakingDispenser.sol/MockServiceStakingDispenser.json";
+    const dispenserAddress = "0x42f43be9E5E50df51b86C5c6427223ff565f40C6";
+    const dispenserJSON = "artifacts/contracts/staking/test/MockStakingDispenser.sol/MockStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);
     const dispenserABI = parsedFile["abi"];
@@ -48,6 +46,11 @@ const main = async () => {
         "0x", transferAmount, { gasLimit });
     console.log("TX hash", tx.hash);
     await tx.wait();
+
+    // tx back: https://gnosis-chiado.blockscout.com/tx/0x27e3b114b076cba6830d027a88bc8ccfb1af88d52f6c0d54cfab860cfb3cb687
+    // To finalize, need to go to the AMBHelper contract, call getSignatures() with the encodedData from the UserRequestForSignature event
+    // On AMBForeign, call the executeSignatures() function with the encodedData and obtained signatures
+    // Finalizing tx on L1: https://sepolia.etherscan.io/tx/0x4e5cbcfa1342ca579c96d39a53470e4089abb42158524b89baece94e698ce1de
 };
 
 main()

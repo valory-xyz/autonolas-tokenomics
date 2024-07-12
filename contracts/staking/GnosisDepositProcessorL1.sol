@@ -15,10 +15,9 @@ interface IBridge {
     function requireToPassMessage(address target, bytes memory data, uint256 maxGasLimit) external returns (bytes32);
 
     // Contract: Omnibridge Multi-Token Mediator Proxy
-    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L80
-    // Flattened: https://vscode.blockscan.com/gnosis/0x2dbdcc6cad1a5a11fd6337244407bc06162aaf92
+    // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/upgradeable_contracts/components/common/TokensRelayer.sol#L54
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/omnibridge
-    function relayTokensAndCall(address token, address receiver, uint256 amount, bytes memory payload) external;
+    function relayTokens(address token, address receiver, uint256 amount) external;
 
     // Source: https://github.com/omni/omnibridge/blob/c814f686487c50462b132b9691fd77cc2de237d3/contracts/interfaces/IAMB.sol#L14
     // Doc: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#security-considerations-for-receiving-a-call
@@ -30,8 +29,6 @@ interface IBridge {
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
-    // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
 
     /// @dev GnosisDepositProcessorL1 constructor.
     /// @param _olas OLAS token address.
@@ -51,46 +48,31 @@ contract GnosisDepositProcessorL1 is DefaultDepositProcessorL1 {
     function _sendMessage(
         address[] memory targets,
         uint256[] memory stakingIncentives,
-        bytes memory bridgePayload,
-        uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
-        // Check for the bridge payload length
-        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
-            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
-        }
-
-        // Transfer OLAS together with message, or just a message
+        bytes memory,
+        uint256 transferAmount,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
+        // Transfer OLAS tokens
         if (transferAmount > 0) {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1TokenRelayer, transferAmount);
 
-            bytes memory data = abi.encode(targets, stakingIncentives);
-            IBridge(l1TokenRelayer).relayTokensAndCall(olas, l2TargetDispenser, transferAmount, data);
-
-            sequence = stakingBatchNonce;
-        } else {
-            // Assemble AMB data payload
-            bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
-
-            // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
-            // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
-            uint256 gasLimitMessage = abi.decode(bridgePayload, (uint256));
-
-            // Check for zero value
-            if (gasLimitMessage == 0) {
-                revert ZeroValue();
-            }
-
-            // Check for the max gas limit
-            if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
-                revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
-            }
-
-            // Send message to L2
-            bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, gasLimitMessage);
-
-            sequence = uint256(iMsg);
+            // Transfer tokens
+            IBridge(l1TokenRelayer).relayTokens(olas, l2TargetDispenser, transferAmount);
         }
+
+        // Assemble AMB data payload
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
+
+        // Send message to L2
+        // In the current configuration, maxGasPerTx is set to 4000000 on Ethereum and 2000000 on Gnosis Chain.
+        // Source: https://docs.gnosischain.com/bridges/Token%20Bridge/amb-bridge#how-to-check-if-amb-is-down-not-relaying-message
+        bytes32 iMsg = IBridge(l1MessageRelayer).requireToPassMessage(l2TargetDispenser, data, MESSAGE_GAS_LIMIT);
+
+        sequence = uint256(iMsg);
+
+        // Return msg.value, if provided by mistake
+        leftovers = msg.value;
     }
 
     /// @dev Process message received from L2.

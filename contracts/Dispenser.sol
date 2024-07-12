@@ -38,6 +38,10 @@ interface IDepositProcessor {
     /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
     /// @return Number of supported decimals.
     function getBridgingDecimals() external pure returns (uint256);
+
+    /// @dev Updated the batch hash of a failed message, if applicable.
+    /// @param batchHash Unique batch hash for each message transfer.
+    function updateHashMaintenance(bytes32 batchHash) external;
 }
 
 // ERC20 token interface
@@ -88,12 +92,12 @@ interface ITokenomics {
 
     // Struct for service staking epoch info
     struct StakingPoint {
-        // Amount of OLAS that funds service staking for the epoch based on the inflation schedule
+        // Amount of OLAS that funds service staking incentives for the epoch based on the inflation schedule
         // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
         uint96 stakingIncentive;
         // Max allowed service staking incentive threshold
         // This value is never bigger than the stakingIncentive
-        uint96 maxStakingAmount;
+        uint96 maxStakingIncentive;
         // Service staking vote weighting threshold
         // This number is bound by 10_000, ranging from 0 to 100% with the step of 0.01%
         uint16 minStakingWeight;
@@ -268,11 +272,15 @@ contract Dispenser {
         uint256 returnAmount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
-    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount);
+    event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
     event PauseDispenser(Pause pauseState);
+    event AddNomineeHash(bytes32 indexed nomineeHash);
+    event RemoveNomineeHash(bytes32 indexed nomineeHash);
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
+    uint256 public immutable defaultMinStakingWeight;
+    uint256 public immutable defaultMaxStakingIncentive;
     // OLAS token address
     address public immutable olas;
     // Retainer address in bytes32 form
@@ -306,6 +314,8 @@ contract Dispenser {
     mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
+    // Mapping for epoch number => refunded all the staking inflation due to zero total voting power
+    mapping(uint256 => bool) public mapZeroWeightEpochRefunded;
 
     /// @dev Dispenser constructor.
     /// @param _olas OLAS token address.
@@ -319,7 +329,9 @@ contract Dispenser {
         address _voteWeighting,
         bytes32 _retainer,
         uint256 _maxNumClaimingEpochs,
-        uint256 _maxNumStakingTargets
+        uint256 _maxNumStakingTargets,
+        uint256 _defaultMinStakingWeight,
+        uint256 _defaultMaxStakingIncentive
     ) {
         owner = msg.sender;
         _locked = 1;
@@ -333,8 +345,17 @@ contract Dispenser {
         }
 
         // Check for zero value staking parameters
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0 || _defaultMinStakingWeight == 0 ||
+            _defaultMaxStakingIncentive == 0) {
             revert ZeroValue();
+        }
+
+        // Check for maximum values
+        if (_defaultMinStakingWeight > type(uint16).max) {
+            revert Overflow(_defaultMinStakingWeight, type(uint16).max);
+        }
+        if (_defaultMaxStakingIncentive > type(uint96).max) {
+            revert Overflow(_defaultMaxStakingIncentive, type(uint96).max);
         }
 
         olas = _olas;
@@ -346,6 +367,8 @@ contract Dispenser {
         retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
         maxNumClaimingEpochs = _maxNumClaimingEpochs;
         maxNumStakingTargets = _maxNumStakingTargets;
+        defaultMinStakingWeight = _defaultMinStakingWeight;
+        defaultMaxStakingIncentive = _defaultMaxStakingIncentive;
     }
 
     /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
@@ -376,12 +399,12 @@ contract Dispenser {
             revert Overflow(firstClaimedEpoch, eCounter - 1);
         }
 
-        // We still need to claim for the epoch number following the one when the nominee was removed
-        uint256 epochAfterRemoved = mapRemovedNomineeEpochs[nomineeHash] + 1;
-        // If the nominee is not removed, its value in the map is always zero, unless removed
+        // Get epoch number when the nominee was removed
+        uint256 epochRemoved = mapRemovedNomineeEpochs[nomineeHash];
+        // If the nominee is not removed, its value in the map is always zero
         // The staking contract nominee cannot be removed in the zero-th epoch by default
-        if (epochAfterRemoved > 1 && firstClaimedEpoch >= epochAfterRemoved) {
-            revert Overflow(firstClaimedEpoch, epochAfterRemoved - 1);
+        if (epochRemoved > 0 && firstClaimedEpoch >= epochRemoved) {
+            revert Overflow(firstClaimedEpoch, epochRemoved - 1);
         }
 
         // Get a number of epochs to claim for based on the maximum number of epochs claimed
@@ -389,8 +412,8 @@ contract Dispenser {
 
         // Limit last claimed epoch by the number following the nominee removal epoch
         // The condition for is lastClaimedEpoch strictly > because the lastClaimedEpoch is not included in claiming
-        if (epochAfterRemoved > 1 && lastClaimedEpoch > epochAfterRemoved) {
-            lastClaimedEpoch = epochAfterRemoved;
+        if (epochRemoved > 0 && lastClaimedEpoch > epochRemoved) {
+            lastClaimedEpoch = epochRemoved;
         }
 
         // Also limit by the current counter, if the nominee was removed in the current epoch
@@ -464,6 +487,11 @@ contract Dispenser {
                     positions[j] = true;
                     ++numActualTargets;
                 }
+            }
+
+            // Skip if there are no actual staking targets
+            if (numActualTargets == 0) {
+                continue;
             }
 
             // Allocate updated arrays accounting only for nonzero staking incentives
@@ -598,6 +626,11 @@ contract Dispenser {
             stakingIncentives[i] = new uint256[](stakingTargets[i].length);
             // Traverse all staking targets
             for (uint256 j = 0; j < stakingTargets[i].length; ++j) {
+                // Check that staking target is not a retainer address
+                if (stakingTargets[i][j] == retainer) {
+                    revert WrongAccount(retainer);
+                }
+
                 // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
                 (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
                     calculateStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
@@ -743,9 +776,17 @@ contract Dispenser {
         }
 
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+
+        emit AddNomineeHash(nomineeHash);
     }
 
     /// @dev Records nominee removal epoch number.
+    /// @notice The staking contract nominee cannot be removed starting from one week before the end of epoch.
+    ///         Since the epoch end time is unknown and the nominee removal is applied in the following week,
+    ///         it is prohibited to remove nominee one week before the foreseen epoch end to correctly reflect
+    ///         the removal epoch number.
+    ///         If the staking contract nominee must not get incentives in the ongoing ending epoch as well,
+    ///         the DAO is advised to use the removeInstance() function in the corresponding StakingFactory contract.
     /// @param nomineeHash Nominee hash.
     function removeNominee(bytes32 nomineeHash) external {
         // Check for the contract ownership
@@ -777,6 +818,8 @@ contract Dispenser {
 
         // Set the removed nominee epoch number
         mapRemovedNomineeEpochs[nomineeHash] = eCounter;
+
+        emit RemoveNomineeHash(nomineeHash);
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -867,6 +910,11 @@ contract Dispenser {
             revert ZeroAddress();
         }
 
+        // Check that staking target is not a retainer address
+        if (stakingTarget == retainer) {
+            revert WrongAccount(retainer);
+        }
+
         // Get the staking target nominee hash
         nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
 
@@ -879,9 +927,27 @@ contract Dispenser {
 
         // Traverse all the claimed epochs
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // Check if epoch had zero total vote weights and all its staking incentives have been already refunded
+            // back to tokenomics inflation
+            if (mapZeroWeightEpochRefunded[j]) {
+                continue;
+            }
+
             // Get service staking info
             ITokenomics.StakingPoint memory stakingPoint =
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
+
+            // Check for staking parameters to all make sense
+            if (stakingPoint.stakingFraction > 0) {
+                // Check for unset values
+                if (stakingPoint.minStakingWeight == 0 && stakingPoint.maxStakingIncentive == 0) {
+                    stakingPoint.minStakingWeight = uint16(defaultMinStakingWeight);
+                    stakingPoint.maxStakingIncentive = uint96(defaultMaxStakingIncentive);
+                }
+            } else {
+                // No staking incentives in this epoch
+                continue;
+            }
 
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
@@ -891,6 +957,13 @@ contract Dispenser {
             // totalWeightSum is the overall veOLAS power (bias) across all the voting nominees
             (uint256 stakingWeight, uint256 totalWeightSum) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(stakingTarget, chainId, endTime);
+
+            // Check if the totalWeightSum is zero, then all staking incentives must be returned back to tokenomics
+            if (totalWeightSum == 0) {
+                mapZeroWeightEpochRefunded[j] = true;
+                totalReturnAmount += stakingPoint.stakingIncentive;
+                continue;
+            }
 
             uint256 stakingIncentive;
             uint256 returnAmount;
@@ -917,8 +990,8 @@ contract Dispenser {
                 // Calculate initial return amount, if stakingDiff > 0
                 returnAmount = (stakingDiff * stakingWeight) / 1e18;
 
-                // availableStakingAmount is not used anymore and can serve as a local maxStakingAmount
-                availableStakingAmount = stakingPoint.maxStakingAmount;
+                // availableStakingAmount is not used anymore and can serve as a local maxStakingIncentive
+                availableStakingAmount = stakingPoint.maxStakingIncentive;
                 if (stakingIncentive > availableStakingAmount) {
                     // Adjust the return amount
                     returnAmount += stakingIncentive - availableStakingAmount;
@@ -1137,6 +1210,9 @@ contract Dispenser {
         (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
             _checkpointNomineeAndGetClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
 
+        // Checkpoint staking target nominee in the Vote Weighting contract
+        IVoteWeighting(voteWeighting).checkpointNominee(retainer, block.chainid);
+
         // Write last claimed epoch counter to start retaining from the next time
         mapLastClaimedStakingEpochs[retainerHash] = lastClaimedEpoch;
 
@@ -1167,11 +1243,13 @@ contract Dispenser {
         _locked = 1;
     }
 
-    /// @dev Syncs the withheld amount according to the data received from L2.
+    /// @dev Syncs the withheld token amount according to the data received from L2.
     /// @notice Only a corresponding chain Id deposit processor is able to communicate the withheld amount data.
+    ///         Note that by design only a normalized withheld amount is delivered from L2.
     /// @param chainId L2 chain Id the withheld amount data is communicated from.
     /// @param amount Withheld OLAS token amount.
-    function syncWithheldAmount(uint256 chainId, uint256 amount) external {
+    /// @param batchHash Unique batch hash for each message transfer.
+    function syncWithheldAmount(uint256 chainId, uint256 amount, bytes32 batchHash) external {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
 
         // Check L1 deposit processor address
@@ -1188,22 +1266,24 @@ contract Dispenser {
         // Update the withheld amount
         mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
-        emit WithheldAmountSynced(chainId, amount, withheldAmount);
+        emit WithheldAmountSynced(chainId, amount, withheldAmount, batchHash);
     }
 
     /// @dev Syncs the withheld amount manually by the DAO in order to restore the data that was not delivered from L2.
-    /// @notice The possible bridge failure scenario that requires to act via the DAO vote includes:
+    /// @notice The parameters here must correspond to the exact data failed to be delivered (amount, batch).
+    ///         The possible bridge failure scenario that requires to act via the DAO vote includes:
     ///         - Message from L2 to L1 fails: need to call this function.
     /// @param chainId L2 chain Id.
     /// @param amount Withheld amount that was not delivered from L2.
-    function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount) external {
+    /// @param batchHash Unique batch hash for each message transfer.
+    function syncWithheldAmountMaintenance(uint256 chainId, uint256 amount, bytes32 batchHash) external {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
         // Check zero value chain Id and amount
-        if (chainId == 0 || amount == 0) {
+        if (chainId == 0 || amount == 0 || batchHash == 0) {
             revert ZeroValue();
         }
 
@@ -1212,20 +1292,9 @@ contract Dispenser {
             revert WrongChainId(chainId);
         }
 
-        // Get bridging decimals for a specified chain Id
-        address depositProcessor = mapChainIdDepositProcessors[chainId];
-        uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
-
-        // Normalize the synced withheld amount via maintenance is correct
-        if (bridgingDecimals < 18) {
-            uint256 normalizedAmount = amount / (10 ** (18 - bridgingDecimals));
-            normalizedAmount *= 10 ** (18 - bridgingDecimals);
-            // Downsize staking incentive to a specified number of bridging decimals
-            amount = normalizedAmount;
-        }
-
-        // The overall amount is bound by the OLAS projected maximum amount for years to come
+        // Note: all the amounts coming from events of undelivered messages are already normalized
         uint256 withheldAmount = mapChainIdWithheldAmounts[chainId] + amount;
+        // The overall amount is bound by the OLAS projected maximum amount for years to come
         if (withheldAmount > type(uint96).max) {
             revert Overflow(withheldAmount, type(uint96).max);
         }
@@ -1233,7 +1302,13 @@ contract Dispenser {
         // Add to the withheld amount
         mapChainIdWithheldAmounts[chainId] = withheldAmount;
 
-        emit WithheldAmountSynced(chainId, amount, withheldAmount);
+        // Get deposit processor address corresponding to the specified chain Id
+        address depositProcessor = mapChainIdDepositProcessors[chainId];
+
+        // Update the batch hash on deposit processor side
+        IDepositProcessor(depositProcessor).updateHashMaintenance(batchHash);
+
+        emit WithheldAmountSynced(chainId, amount, withheldAmount, batchHash);
     }
 
     /// @dev Sets the pause state.

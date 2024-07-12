@@ -133,9 +133,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "batchNonce",
-          "type": "uint256"
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "TargetAmountNotQueued",
@@ -335,6 +335,25 @@
       "inputs": [
         {
           "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "leftovers",
+          "type": "uint256"
+        }
+      ],
+      "name": "LeftoversRefunded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
           "internalType": "uint256",
           "name": "sequence",
           "type": "uint256"
@@ -346,16 +365,16 @@
           "type": "address"
         },
         {
-          "indexed": true,
-          "internalType": "address",
-          "name": "l1Processor",
-          "type": "address"
-        },
-        {
           "indexed": false,
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "MessagePosted",
@@ -446,9 +465,15 @@
           "type": "uint256"
         },
         {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
+        },
+        {
           "indexed": false,
           "internalType": "uint256",
-          "name": "batchNonce",
+          "name": "olasBalance",
           "type": "uint256"
         },
         {
@@ -475,6 +500,12 @@
           "internalType": "uint256",
           "name": "amount",
           "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "StakingTargetDeposited",
@@ -493,38 +524,6 @@
       "type": "event"
     },
     {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "sender",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "WithheldAmountSynced",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "GAS_LIMIT",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [],
       "name": "MAX_CHAIN_ID",
       "outputs": [
@@ -540,6 +539,19 @@
     {
       "inputs": [],
       "name": "MAX_GAS_LIMIT",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "MIN_GAS_LIMIT",
       "outputs": [
         {
           "internalType": "uint256",
@@ -587,6 +599,19 @@
         }
       ],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getBridgingDecimals",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
       "type": "function"
     },
     {
@@ -703,6 +728,44 @@
     {
       "inputs": [
         {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "processedHashes",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "queuedHashes",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "target",
           "type": "address"
@@ -713,9 +776,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "batchNonce",
-          "type": "uint256"
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "redeem",
@@ -752,31 +815,12 @@
     {
       "inputs": [
         {
-          "internalType": "bytes32",
-          "name": "",
-          "type": "bytes32"
-        }
-      ],
-      "name": "stakingQueueingNonces",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
           "internalType": "bytes",
           "name": "bridgePayload",
           "type": "bytes"
         }
       ],
-      "name": "syncWithheldTokens",
+      "name": "syncWithheldAmount",
       "outputs": [],
       "stateMutability": "payable",
       "type": "function"

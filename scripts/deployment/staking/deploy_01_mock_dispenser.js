@@ -27,7 +27,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("1. EOA to deploy Mock Dispenser");
-    const Dispenser = await ethers.getContractFactory("MockServiceStakingDispenser");
+    const Dispenser = await ethers.getContractFactory("MockStakingDispenser");
     console.log("You are signing the following transaction: Dispenser.connect(EOA).deploy()");
     const dispenser = await Dispenser.connect(EOA).deploy(parsedData.olasAddress);
     const result = await dispenser.deployed();

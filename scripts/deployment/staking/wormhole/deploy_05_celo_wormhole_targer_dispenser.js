@@ -44,9 +44,9 @@ async function main() {
     const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
     console.log("You are signing the following transaction: WormholeTargetDispenserL2.connect(EOA).deploy()");
     const wormholeTargetDispenserL2 = await WormholeTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress,
-        parsedData.wormholeL2MessageRelayer, parsedData.celoWormholeDepositProcessorL1Address,
-        parsedData.wormholel1ChainId, parsedData.wormholeL2CoreAddress, parsedData.wormholeL2TokenRelayerAddress);
+        parsedData.serviceStakingFactoryAddress, parsedData.wormholeL2MessageRelayer,
+        parsedData.celoWormholeDepositProcessorL1Address, parsedData.wormholel1ChainId,
+        parsedData.wormholeL2CoreAddress, parsedData.wormholeL2TokenRelayerAddress);
     const result = await wormholeTargetDispenserL2.deployed();
 
     // Transaction details
