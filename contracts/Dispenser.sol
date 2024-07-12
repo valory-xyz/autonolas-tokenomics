@@ -487,6 +487,11 @@ contract Dispenser {
                 }
             }
 
+            // Skip if there are no actual staking targets
+            if (numActualTargets == 0) {
+                continue;
+            }
+
             // Allocate updated arrays accounting only for nonzero staking incentives
             bytes32[] memory updatedStakingTargets = new bytes32[](numActualTargets);
             uint256[] memory updatedStakingAmounts = new uint256[](numActualTargets);
@@ -1226,7 +1231,7 @@ contract Dispenser {
         _locked = 1;
     }
 
-    /// @dev Syncs the withheld amount according to the data received from L2.
+    /// @dev Syncs the withheld token amount according to the data received from L2.
     /// @notice Only a corresponding chain Id deposit processor is able to communicate the withheld amount data.
     ///         Note that by design only a normalized withheld amount is delivered from L2.
     /// @param chainId L2 chain Id the withheld amount data is communicated from.
