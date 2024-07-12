@@ -8,25 +8,21 @@ import {ITokenomics} from "./interfaces/ITokenomics.sol";
 import {ITreasury} from "./interfaces/ITreasury.sol";
 
 interface IBondCalculator {
-    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
-    /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
-    /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
+    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism accounting for dynamic IDF.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
-    /// @param bondVestingTime Bond vesting time.
-    /// @param productMaxVestingTime Product max vesting time.
-    /// @param productSupply Current product supply.
-    /// @param productPayout Current product payout.
+    /// @param data Custom data that is used to calculate the IDF.
     /// @return amountOLAS Resulting amount of OLAS tokens.
     function calculatePayoutOLAS(
-        address account,
         uint256 tokenAmount,
         uint256 priceLP,
-        uint256 bondVestingTime,
-        uint256 productMaxVestingTime,
-        uint256 productSupply,
-        uint256 productPayout
+        bytes memory data
     ) external view returns (uint256 amountOLAS);
+
+    /// @dev Gets current reserves of OLAS / totalSupply of Uniswap V2-like LP tokens.
+    /// @param token Token address.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP);
 }
 
 /// @dev Wrong amount received / provided.
@@ -372,10 +368,11 @@ contract Depository is ERC721, IErrorsTokenomics {
         // Get the LP token address
         address token = product.token;
 
-        // Calculate the payout in OLAS tokens based on the LP pair with the discount factor (DF) calculation
+        // Calculate the payout in OLAS tokens based on the LP pair with the inverse discount factor (IDF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
-        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(msg.sender, tokenAmount, product.priceLP,
-            bondVestingTime, productMaxVestingTime, supply, product.payout);
+        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP,
+            // Encode parameters required for the IDF calculation
+            abi.encode(msg.sender, bondVestingTime, productMaxVestingTime, supply, product.payout));
 
         // Check for the sufficient supply
         if (payout > supply) {
@@ -563,6 +560,13 @@ contract Depository is ERC721, IErrorsTokenomics {
         if (payout > 0) {
             matured = block.timestamp >= mapUserBonds[bondId].maturity;
         }
+    }
+
+    /// @dev Gets current reserves of OLAS / totalSupply of Uniswap L2-like LP tokens.
+    /// @param token Token address.
+    /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
+    function getCurrentPriceLP(address token) external view returns (uint256 priceLP) {
+        return IBondCalculator(bondCalculator).getCurrentPriceLP(token);
     }
 
     /// @dev Gets the valid bond Id from the provided index.

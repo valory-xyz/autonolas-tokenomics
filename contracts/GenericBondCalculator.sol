@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.25;
 
 import {mulDiv} from "@prb/math/src/Common.sol";
-import "./interfaces/ITokenomics.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 
 /// @dev Value overflow.
@@ -13,17 +12,17 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev Provided zero address.
 error ZeroAddress();
 
-/// @title GenericBondSwap - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
-/// @dev The bond calculation mechanism is based on the UniswapV2Pair contract.
-/// @author AL
+/// @title GenericBondCalculator - Smart contract for generic bond calculation mechanisms in exchange for OLAS tokens.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract GenericBondCalculator {
     // OLAS contract address
     address public immutable olas;
     // Tokenomics contract address
     address public immutable tokenomics;
 
-    /// @dev Generic Bond Calcolator constructor
+    /// @dev Generic Bond Calculator constructor
     /// @param _olas OLAS contract address.
     /// @param _tokenomics Tokenomics contract address.
     constructor(address _olas, address _tokenomics) {
@@ -43,7 +42,7 @@ contract GenericBondCalculator {
     /// @param priceLP LP token price.
     /// @return amountOLAS Resulting amount of OLAS tokens.
     /// #if_succeeds {:msg "LP price limit"} priceLP * tokenAmount <= type(uint192).max;
-    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP) external view
+    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP, bytes memory) external view virtual
         returns (uint256 amountOLAS)
     {
         // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
@@ -60,15 +59,15 @@ contract GenericBondCalculator {
             revert Overflow(totalTokenValue, type(uint192).max);
         }
         // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
-        // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
-        amountOLAS = ITokenomics(tokenomics).getLastIDF() * totalTokenValue / 1e36;
+        // Note IDF in Tokenomics is deprecated, and can be assumed as equal to 1e18 by default
+        amountOLAS = totalTokenValue / 1e18;
     }
 
-    /// @dev Gets current reserves of OLAS / totalSupply of LP tokens.
+    /// @dev Gets current reserves of OLAS / totalSupply of Uniswap V2-like LP tokens.
+    /// @notice The price LP calculation is based on the UniswapV2Pair contract.
     /// @param token Token address.
     /// @return priceLP Resulting reserveX / totalSupply ratio with 18 decimals.
-    function getCurrentPriceLP(address token) external view returns (uint256 priceLP)
-    {
+    function getCurrentPriceLP(address token) external view virtual returns (uint256 priceLP) {
         IUniswapV2Pair pair = IUniswapV2Pair(token);
         uint256 totalSupply = pair.totalSupply();
         if (totalSupply > 0) {

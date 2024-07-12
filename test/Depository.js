@@ -11,6 +11,7 @@ describe("Depository LP", async () => {
     const initialMint = "1" + "0".repeat(6) + decimals;
     const AddressZero = "0x" + "0".repeat(40);
     const oneWeek = 86400 * 7;
+    const baseURI = "https://localhost/depository/";
 
     let deployer, alice, bob;
     let erc20Token;
@@ -78,8 +79,8 @@ describe("Depository LP", async () => {
         genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
         await genericBondCalculator.deployed();
         // Deploy depository contract
-        depository = await depositoryFactory.deploy(olas.address, tokenomics.address, treasury.address,
-            genericBondCalculator.address);
+        depository = await depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address,
+            tokenomics.address, treasury.address, genericBondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 
@@ -345,7 +346,7 @@ describe("Depository LP", async () => {
             await helpers.time.increaseTo(Number(maxUint32) - 100);
 
             await expect(
-                depository.connect(bob).deposit(productId, 1)
+                depository.connect(bob).deposit(productId, 1, vesting)
             ).to.be.revertedWithCustomError(depository, "Overflow");
 
             // Restore to the state of the snapshot
@@ -734,12 +735,12 @@ describe("Depository LP", async () => {
 
             // Try to deposit zero amount of LP tokens
             await expect(
-                depository.connect(bob).deposit(productId, 0)
+                depository.connect(bob).deposit(productId, 0, vesting)
             ).to.be.revertedWithCustomError(depository, "ZeroValue");
 
             // Get the full amount of LP tokens and deposit them
             const bamount = (await pairODAI.balanceOf(bob.address));
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             expect(Array(await depository.callStatic.getBonds(bob.address, false)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
             // The default IDF without any incentivized coefficient or epsilon rate is 1
@@ -759,18 +760,18 @@ describe("Depository LP", async () => {
             const product = await depository.mapBondProducts(0);
             const e18 = ethers.BigNumber.from("1" + decimals);
             const numLP = (ethers.BigNumber.from(product.supply).mul(e18)).div(priceLP);
-            await depository.connect(bob).deposit(productId, numLP);
+            await depository.connect(bob).deposit(productId, numLP, vesting);
 
             // Trying to supply more to the depleted product
             await expect(
-                depository.connect(bob).deposit(productId, 1)
+                depository.connect(bob).deposit(productId, 1, vesting)
             ).to.be.revertedWithCustomError(depository, "ProductClosed");
         });
 
         it("Should not allow a deposit with insufficient allowance", async () => {
             let amount = (await pairODAI.balanceOf(bob.address));
             await expect(
-                depository.connect(deployer).deposit(productId, amount)
+                depository.connect(deployer).deposit(productId, amount, vesting)
             ).to.be.revertedWithCustomError(treasury, "InsufficientAllowance");
         });
 
@@ -781,14 +782,14 @@ describe("Depository LP", async () => {
             await pairODAI.connect(deployer).approve(treasury.address, LARGE_APPROVAL);
 
             await expect(
-                depository.connect(deployer).deposit(productId, amount)
+                depository.connect(deployer).deposit(productId, amount, vesting)
             ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
         });
 
         it("Should fail a deposit with the priceLP * tokenAmount overflow", async () => {
             await expect(
                 // maxUint96 + maxUint96 in string will give a value of more than max of uint192
-                depository.connect(deployer).deposit(productId, maxUint96 + maxUint96)
+                depository.connect(deployer).deposit(productId, maxUint96 + maxUint96, vesting)
             ).to.be.revertedWithCustomError(treasury, "Overflow");
         });
     });
@@ -798,7 +799,7 @@ describe("Depository LP", async () => {
             let balance = await olas.balanceOf(bob.address);
             let bamount = (await pairODAI.balanceOf(bob.address));
             // console.log("bob LP:%s depoist:%s",bamount,amount);
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             await expect(
                 depository.connect(bob).redeem([0])
             ).to.be.revertedWithCustomError(depository, "BondNotRedeemable");
@@ -820,9 +821,9 @@ describe("Depository LP", async () => {
 
             // Deposit LP tokens
             let amount = (await pairODAI.balanceOf(bob.address));
-            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, amount);
+            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, amount, vesting);
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
-            await depository.connect(bob).deposit(productId, amount);
+            await depository.connect(bob).deposit(productId, amount, vesting);
 
             // Increase the time to a half vesting
             await helpers.time.increase(vesting / 2);
@@ -868,7 +869,7 @@ describe("Depository LP", async () => {
             await pairODAI.connect(deployer).transfer(bob.address, amountTo);
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             await depository.close([productId]);
         });
 
@@ -879,7 +880,7 @@ describe("Depository LP", async () => {
 
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // The product is now closed as its supply has been depleted
             expect(await depository.isActiveProduct(productId)).to.equal(false);
@@ -900,8 +901,8 @@ describe("Depository LP", async () => {
 
             // Deposit for the full amount of OLAS
             const bamount = "1" + "0".repeat(3) + decimals;
-            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount);
-            await depository.connect(bob).deposit(productId, bamount);
+            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount, vesting);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // The product is still open, let's close it
             expect(await depository.isActiveProduct(productId)).to.equal(true);
@@ -937,8 +938,8 @@ describe("Depository LP", async () => {
 
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount);
-            await depository.connect(bob).deposit(productId, bamount);
+            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount, vesting);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // Close the product right away
             await depository.close([productId]);
@@ -982,13 +983,13 @@ describe("Depository LP", async () => {
             // Try to create bond with expired products
             for (let i = 0; i < 2; i++) {
                 await expect(
-                    depository.connect(bob).deposit(i, 10)
+                    depository.connect(bob).deposit(i, 10, vesting)
                 ).to.be.revertedWithCustomError(depository, "ProductClosed");
             }
             // Create bond
             let bamount = (await pairODAI.balanceOf(bob.address));
             const productId = 2;
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // Redeem created bond
             await helpers.time.increase(2 * vesting);
@@ -1009,13 +1010,13 @@ describe("Depository LP", async () => {
             const amounts = [amount.add(deviation), amount, amount.add(deviation).add(deviation)];
 
             // Deposit a bond for bob (bondId == 0)
-            await depository.connect(bob).deposit(productId, amounts[0]);
+            await depository.connect(bob).deposit(productId, amounts[0], vesting);
             // Transfer LP tokens from bob to alice
-            await pairODAI.connect(bob).transfer(alice.address, amount);
+            await pairODAI.connect(bob).transfer(alice.address, amount, vesting);
             // Deposit from alice to the same product (bondId == 1)
-            await depository.connect(alice).deposit(productId, amounts[1]);
+            await depository.connect(alice).deposit(productId, amounts[1], vesting);
             // Deposit to another bond for bob (bondId == 2)
-            await depository.connect(bob).deposit(productId, amounts[2]);
+            await depository.connect(bob).deposit(productId, amounts[2], vesting);
 
             // Get bond statuses
             let bondStatus;

@@ -11,6 +11,7 @@ describe("Depository LP 2", async () => {
     const initialMint = "4" + "0".repeat(4) + decimals;
     const AddressZero = "0x" + "0".repeat(40);
     const oneWeek = 86400 * 7;
+    const baseURI = "https://localhost/depository/";
 
     let deployer, alice, bob;
     let erc20Token;
@@ -77,8 +78,8 @@ describe("Depository LP 2", async () => {
         genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
         await genericBondCalculator.deployed();
         // Deploy depository contract
-        depository = await depositoryFactory.deploy(olas.address, tokenomics.address, treasury.address,
-            genericBondCalculator.address);
+        depository = await depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address,
+            tokenomics.address, treasury.address, genericBondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 
@@ -428,10 +429,10 @@ describe("Depository LP 2", async () => {
             await dai.approve(router.address, LARGE_APPROVAL);
 
             const bamount = (await pairODAI.balanceOf(bob.address));
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             expect(Array(await depository.callStatic.getBonds(bob.address, false)).length).to.equal(1);
             const res = await depository.getBondStatus(0);
-            // The default IDF without any incentivized coefficient or epsilon rate is 1
+            // The default IDF now is 1
             // 1250 * 1.0 = 1250 * e18 =  1.25 * e21
             expect(Number(res.payout)).to.equal(1.25e+21);
         });
@@ -448,17 +449,17 @@ describe("Depository LP 2", async () => {
             const product = await depository.mapBondProducts(0);
             const e18 = ethers.BigNumber.from("1" + decimals);
             const numLP = (ethers.BigNumber.from(product.supply).mul(e18)).div(priceLP);
-            await depository.connect(bob).deposit(productId, numLP);
+            await depository.connect(bob).deposit(productId, numLP, vesting);
 
             await expect(
-                depository.connect(bob).deposit(productId, 1)
+                depository.connect(bob).deposit(productId, 1, vesting)
             ).to.be.revertedWithCustomError(depository, "ProductClosed");
         });
 
         it("Should not allow a deposit with insufficient allowance", async () => {
             let amount = (await pairODAI.balanceOf(bob.address));
             await expect(
-                depository.connect(deployer).deposit(productId, amount)
+                depository.connect(deployer).deposit(productId, amount, vesting)
             ).to.be.revertedWithCustomError(treasury, "InsufficientAllowance");
         });
 
@@ -469,7 +470,7 @@ describe("Depository LP 2", async () => {
             await pairODAI.connect(deployer).approve(treasury.address, LARGE_APPROVAL);
 
             await expect(
-                depository.connect(deployer).deposit(productId, amount)
+                depository.connect(deployer).deposit(productId, amount, vesting)
             ).to.be.revertedWithCustomError(depository, "ProductSupplyLow");
         });
     });
@@ -479,7 +480,7 @@ describe("Depository LP 2", async () => {
             let balance = await olas.balanceOf(bob.address);
             let bamount = (await pairODAI.balanceOf(bob.address));
             // console.log("bob LP:%s depoist:%s",bamount,amount);
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             await expect(
                 depository.connect(bob).redeem([0])
             ).to.be.revertedWithCustomError(depository, "BondNotRedeemable");
@@ -490,9 +491,9 @@ describe("Depository LP 2", async () => {
 
         it("Redeem OLAS after the product is vested", async () => {
             let amount = (await pairODAI.balanceOf(bob.address));
-            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, amount);
+            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, amount, vesting);
             // console.log("[expectedPayout, expiry, index]:",[expectedPayout, expiry, index]);
-            await depository.connect(bob).deposit(productId, amount);
+            await depository.connect(bob).deposit(productId, amount, vesting);
 
             // Increase the time to a half vesting
             await helpers.time.increase(vesting / 2);
@@ -538,7 +539,7 @@ describe("Depository LP 2", async () => {
             await pairODAI.connect(deployer).transfer(bob.address, amountTo);
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
             await depository.close([productId]);
         });
 
@@ -549,7 +550,7 @@ describe("Depository LP 2", async () => {
 
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            await depository.connect(bob).deposit(productId, bamount);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // The product is now closed as its supply has been depleted
             expect(await depository.isActiveProduct(productId)).to.equal(false);
@@ -572,8 +573,8 @@ describe("Depository LP 2", async () => {
 
             // Deposit for the full amount of OLAS
             const bamount = "2" + "0".repeat(3) + decimals;
-            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount);
-            await depository.connect(bob).deposit(productId, bamount);
+            let [expectedPayout,,] = await depository.connect(bob).callStatic.deposit(productId, bamount, vesting);
+            await depository.connect(bob).deposit(productId, bamount, vesting);
 
             // Close the product right away
             await depository.close([productId]);
@@ -594,13 +595,13 @@ describe("Depository LP 2", async () => {
             const amounts = [amount.add(deviation), amount, amount.add(deviation).add(deviation)];
 
             // Deposit a bond for bob (bondId == 0)
-            await depository.connect(bob).deposit(productId, amounts[0]);
+            await depository.connect(bob).deposit(productId, amounts[0], vesting);
             // Transfer LP tokens from bob to alice
             await pairODAI.connect(bob).transfer(alice.address, amount);
             // Deposit from alice to the same product (bondId == 1)
-            await depository.connect(alice).deposit(productId, amounts[1]);
+            await depository.connect(alice).deposit(productId, amounts[1], vesting);
             // Deposit to another bond for bob (bondId == 2)
-            await depository.connect(bob).deposit(productId, amounts[2]);
+            await depository.connect(bob).deposit(productId, amounts[2], vesting);
 
             // Get bond statuses
             let bondStatus;
@@ -699,12 +700,12 @@ describe("Depository LP 2", async () => {
             await pairODAI.connect(bob).transfer(attackDeposit.address, amountTo);
 
             // Trying to deposit the amount that would result in an overflow payout for the LP supply
-            const payout = await attackDeposit.callStatic.flashAttackDepositImmuneClone(depository.address, treasury.address,
-                pairODAI.address, olas.address, productId, amountTo, router.address);
+            const payout = await attackDeposit.callStatic.flashAttackDepositImmuneClone(depository.address,
+                treasury.address, pairODAI.address, olas.address, productId, amountTo, router.address);
 
             // Try to attack via flash loan
-            await attackDeposit.flashAttackDepositImmuneClone(depository.address, treasury.address, pairODAI.address, olas.address,
-                productId, amountTo, router.address);
+            await attackDeposit.flashAttackDepositImmuneClone(depository.address, treasury.address, pairODAI.address,
+                olas.address, productId, amountTo, router.address);
 
             // Check that the flash attack did not do anything but obtained the same bond as everybody
             const res = await depository.getBondStatus(0);
