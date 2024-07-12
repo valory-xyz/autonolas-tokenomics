@@ -133,9 +133,9 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "batchNonce",
-          "type": "uint256"
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "TargetAmountNotQueued",
@@ -291,6 +291,25 @@
       "inputs": [
         {
           "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "leftovers",
+          "type": "uint256"
+        }
+      ],
+      "name": "LeftoversRefunded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
           "internalType": "uint256",
           "name": "sequence",
           "type": "uint256"
@@ -312,6 +331,12 @@
           "internalType": "uint256",
           "name": "transferAmount",
           "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
         }
       ],
       "name": "MessagePosted",
@@ -501,6 +526,25 @@
     {
       "inputs": [
         {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "processedHashes",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "target",
           "type": "address"
@@ -578,6 +622,19 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "batchHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "updateHashMaintenance",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     }
   ],

@@ -86,7 +86,12 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         l1SourceChainId = _l1SourceChainId;
     }
 
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override returns (uint256 leftovers) {
+    /// @inheritdoc DefaultTargetDispenserL2
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
@@ -118,13 +123,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         }
 
         // Send the message to L1
-        uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),
-            l1DepositProcessor, abi.encode(amount), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
+        sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId), l1DepositProcessor,
+            abi.encode(amount, batchHash), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
 
         // Return value leftovers
         leftovers = msg.value - cost;
-
-        emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.

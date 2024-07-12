@@ -19,7 +19,8 @@ contract MockDepositProcessorL1 is DefaultDepositProcessorL1 {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory,
-        uint256 transferAmount
+        uint256 transferAmount,
+        bytes32 batchHash
     ) internal override returns (uint256 sequence, uint256 leftovers) {
 
         bytes memory data;
@@ -29,15 +30,14 @@ contract MockDepositProcessorL1 is DefaultDepositProcessorL1 {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1TokenRelayer, transferAmount);
 
-            data = abi.encode(targets, stakingIncentives);
+            data = abi.encode(targets, stakingIncentives, batchHash);
         } else {
             // Assemble AMB data payload
-            data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+            data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
         }
 
-        sequence = stakingBatchNonce;
+        sequence = uint256(batchHash);
         leftovers = msg.value;
-        emit MessagePosted(sequence, targets, stakingIncentives, transferAmount);
     }
 
     /// @dev Process message received from L2.

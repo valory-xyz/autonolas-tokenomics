@@ -70,7 +70,8 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
-        uint256 transferAmount
+        uint256 transferAmount,
+        bytes32 batchHash
     ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
@@ -91,7 +92,7 @@ contract WormholeDepositProcessorL1 is DefaultDepositProcessorL1, TokenSender {
         }
 
         // Encode target addresses and amounts
-        bytes memory data = abi.encode(targets, stakingIncentives);
+        bytes memory data = abi.encode(targets, stakingIncentives, batchHash);
 
         // Get the message cost in order to adjust leftovers
         (uint256 cost, ) = IBridge(l1MessageRelayer).quoteEVMDeliveryPrice(uint16(wormholeTargetChainId), 0,
