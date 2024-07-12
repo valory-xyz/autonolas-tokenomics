@@ -58,7 +58,7 @@ interface IBridge {
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
     // Bridge payload length
-    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 64;
+    uint256 public constant BRIDGE_PAYLOAD_LENGTH = 32;
     // OLAS address on L2
     address public immutable olasL2;
 
@@ -96,13 +96,9 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
-        uint256 transferAmount
-    ) internal override returns (uint256 sequence) {
-        // Check for the bridge payload length
-        if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
-            revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
-        }
-
+        uint256 transferAmount,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
             // Deposit OLAS
@@ -115,32 +111,30 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
                 uint32(TOKEN_GAS_LIMIT), "");
         }
 
-        // Decode cost related data
-        (uint256 cost, uint256 gasLimitMessage) = abi.decode(bridgePayload, (uint256, uint256));
-        // Check for zero values
-        if (cost == 0 || gasLimitMessage == 0) {
-            revert ZeroValue();
+        uint256 gasLimitMessage;
+        // Check for the bridge payload length
+        if (bridgePayload.length == BRIDGE_PAYLOAD_LENGTH) {
+            // Decode bridge payload
+            gasLimitMessage = abi.decode(bridgePayload, (uint256));
         }
 
-        // Check for the max message gas limit
-        if (gasLimitMessage > MESSAGE_GAS_LIMIT) {
-            revert Overflow(gasLimitMessage, MESSAGE_GAS_LIMIT);
-        }
-
-        // Check that provided msg.value is enough to cover the cost
-        if (cost > msg.value) {
-            revert LowerThan(msg.value, cost);
+        // Check for the recommended message gas limit
+        if (gasLimitMessage < MESSAGE_GAS_LIMIT) {
+            gasLimitMessage = MESSAGE_GAS_LIMIT;
         }
 
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 
         // Send message to L2
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
-        IBridge(l1MessageRelayer).sendMessage{value: cost}(l2TargetDispenser, data, uint32(gasLimitMessage));
+        IBridge(l1MessageRelayer).sendMessage(l2TargetDispenser, data, uint32(gasLimitMessage));
 
-        // Since there is no returned message sequence, use the staking batch nonce
-        sequence = stakingBatchNonce;
+        // Since there is no returned message sequence, use the batch hash
+        sequence = uint256(batchHash);
+
+        // Return msg.value, if provided by mistake
+        leftovers = msg.value;
     }
 
     /// @dev Process message received from L2.

@@ -163,7 +163,7 @@ contract EthereumDepositProcessor {
             revert ManagerOnly(dispenser, msg.sender);
         }
 
-        // Send the message to L2
+        // Deposit OLAS to staking contracts
         _deposit(targets, stakingIncentives);
     }
 

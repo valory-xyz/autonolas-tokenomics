@@ -50,14 +50,18 @@ contract ArbitrumTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory) internal override {
+    function _sendMessage(
+        uint256 amount,
+        bytes memory,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(amount, batchHash));
 
         // Send message to L1
-        uint256 sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
+        sequence = IBridge(l2MessageRelayer).sendTxToL1(l1DepositProcessor, data);
 
-        emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
+        leftovers = msg.value;
     }
 
     /// @dev Processes a message received from L1 deposit processor contract.
