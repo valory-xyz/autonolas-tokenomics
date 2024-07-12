@@ -11,6 +11,7 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
+    const gasPriceInGwei = parsedData.gasPriceInGwei;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -43,9 +44,10 @@ async function main() {
     console.log("3. EOA to deploy PolygonTargetDispenserL2");
     const PolygonTargetDispenserL2 = await ethers.getContractFactory("PolygonTargetDispenserL2");
     console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).deploy()");
+    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const polygonTargetDispenserL2 = await PolygonTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.serviceStakingFactoryAddress, parsedData.polygonFXChildAddress,
-        parsedData.polygonDepositProcessorL1Address, parsedData.l1ChainId);
+        parsedData.polygonDepositProcessorL1Address, parsedData.l1ChainId, { gasPrice });
     const result = await polygonTargetDispenserL2.deployed();
 
     // Transaction details
