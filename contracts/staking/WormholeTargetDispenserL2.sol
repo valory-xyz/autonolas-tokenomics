@@ -58,7 +58,7 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
     /// @param _proxyFactory Service staking proxy factory address.
     /// @param _l2MessageRelayer L2 message relayer bridging contract address (Relayer).
     /// @param _l1DepositProcessor L1 deposit processor address.
-    /// @param _l1SourceChainId L1 wormhole standard source chain Id.
+    /// @param _l1SourceChainId L1 wormhole format source chain Id.
     /// @param _wormholeCore L2 Wormhole Core contract address.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address (Token Bridge).
     constructor(
@@ -86,7 +86,12 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         l1SourceChainId = _l1SourceChainId;
     }
 
-    function _sendMessage(uint256 amount, bytes memory bridgePayload) internal override returns (uint256 leftovers) {
+    /// @inheritdoc DefaultTargetDispenserL2
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
@@ -94,9 +99,10 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
         // Extract refundAccount and gasLimitMessage from bridgePayload
         (address refundAccount, uint256 gasLimitMessage) = abi.decode(bridgePayload, (address, uint256));
-        // If refundAccount is zero, default to msg.sender
+
+        // Check for refund account address
         if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
+            revert ZeroAddress();
         }
 
         // Check the gas limit values for both ends
@@ -117,12 +123,11 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
         }
 
         // Send the message to L1
-        uint64 sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId),
-            l1DepositProcessor, abi.encode(amount), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
+        sequence = IBridge(l2MessageRelayer).sendPayloadToEvm{value: cost}(uint16(l1SourceChainId), l1DepositProcessor,
+            abi.encode(amount, batchHash), 0, gasLimitMessage, uint16(l1SourceChainId), refundAccount);
 
+        // Return value leftovers
         leftovers = msg.value - cost;
-
-        emit MessagePosted(sequence, msg.sender, l1DepositProcessor, amount);
     }
     
     /// @dev Processes a message received from L2 Wormhole Relayer contract.
@@ -167,5 +172,10 @@ contract WormholeTargetDispenserL2 is DefaultTargetDispenserL2, TokenReceiver {
 
         // Process the data
         _receiveMessage(msg.sender, processor, data);
+    }
+
+    /// @inheritdoc DefaultTargetDispenserL2
+    function getBridgingDecimals() public pure override returns (uint256) {
+        return 8;
     }
 }

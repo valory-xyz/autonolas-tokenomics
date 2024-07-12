@@ -63,6 +63,14 @@ interface IBridge {
     function l2ToL1Sender() external view returns (address);
 }
 
+struct BridgeParams {
+    address refundAccount;
+    uint256 gasPriceBid;
+    uint256 maxSubmissionCostToken;
+    uint256 gasLimitMessage;
+    uint256 maxSubmissionCostMessage;
+}
+
 /// @title ArbitrumDepositProcessorL1 - Smart contract for sending tokens and data via Arbitrum bridge from L1 to L2 and processing data received from L2.
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -120,47 +128,50 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
-        uint256 transferAmount
+        uint256 transferAmount,
+        bytes32 batchHash
     ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the bridge payload length
         if (bridgePayload.length != BRIDGE_PAYLOAD_LENGTH) {
             revert IncorrectDataLength(BRIDGE_PAYLOAD_LENGTH, bridgePayload.length);
         }
 
-        // Decode the staking contract supplemental payload required for bridging tokens
-        (address refundAccount, uint256 gasPriceBid, uint256 maxSubmissionCostToken, uint256 gasLimitMessage,
-            uint256 maxSubmissionCostMessage) = abi.decode(bridgePayload, (address, uint256, uint256, uint256, uint256));
+        // Decode staking contract supplemental payload required for bridging tokens and messages
+        BridgeParams memory params;
+        (params.refundAccount, params.gasPriceBid, params.maxSubmissionCostToken, params.gasLimitMessage,
+            params.maxSubmissionCostMessage) = abi.decode(bridgePayload, (address, uint256, uint256, uint256, uint256));
 
-        // If refundAccount is zero, default to msg.sender
-        if (refundAccount == address(0)) {
-            refundAccount = msg.sender;
+        // Check for refund account address
+        if (params.refundAccount == address(0)) {
+            revert ZeroAddress();
         }
 
         // Check for the tx param limits
         // See the function description for the magic values of 1
-        if (gasPriceBid < 2 || maxSubmissionCostMessage == 0) {
+        if (params.gasPriceBid < 2 || params.maxSubmissionCostMessage == 0) {
             revert ZeroValue();
         }
 
         // Check for the message gas limit
-        if (gasLimitMessage < MESSAGE_GAS_LIMIT) {
-            gasLimitMessage = MESSAGE_GAS_LIMIT;
+        // Revert if the gas limit is smaller than the recommended one, since otherwise the cost is calculated incorrectly
+        if (params.gasLimitMessage < MESSAGE_GAS_LIMIT) {
+            revert LowerThan(params.gasLimitMessage, MESSAGE_GAS_LIMIT);
         }
 
         // Calculate token and message transfer cost
         // Reference: https://docs.arbitrum.io/arbos/l1-to-l2-messaging#submission
         uint256[] memory cost = new uint256[](2);
         if (transferAmount > 0) {
-            if (maxSubmissionCostToken == 0) {
+            if (params.maxSubmissionCostToken == 0) {
                 revert ZeroValue();
             }
 
             // Calculate token transfer gas cost
-            cost[0] = maxSubmissionCostToken + TOKEN_GAS_LIMIT * gasPriceBid;
+            cost[0] = params.maxSubmissionCostToken + TOKEN_GAS_LIMIT * params.gasPriceBid;
         }
 
         // Calculate cost for the message transfer
-        cost[1] = maxSubmissionCostMessage + gasLimitMessage * gasPriceBid;
+        cost[1] = params.maxSubmissionCostMessage + params.gasLimitMessage * params.gasPriceBid;
         // Get the total cost
         uint256 totalCost = cost[0] + cost[1];
 
@@ -173,19 +184,24 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
             // Approve tokens for the bridge contract
             IToken(olas).approve(l1ERC20Gateway, transferAmount);
 
+            // Construct the data for token transfer consisting of 2 pieces:
+            // uint256 maxSubmissionCost: Max gas deducted from user's L2 balance to cover base submission fee
+            // bytes memory extraData: empty data
+            bytes memory submissionCostData = abi.encode(params.maxSubmissionCostToken, "");
+
             // Transfer OLAS to the staking dispenser contract across the bridge
-            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas, refundAccount,
-                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, gasPriceBid,
-                abi.encode(maxSubmissionCostToken, ""));
+            IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas, params.refundAccount,
+                l2TargetDispenser, transferAmount, TOKEN_GAS_LIMIT, params.gasPriceBid, submissionCostData);
         }
 
-        // Assemble message data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 
         // Send a message to the staking dispenser contract on L2 to reflect the transferred OLAS amount
         sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser, 0,
-            maxSubmissionCostMessage, refundAccount, address(0), gasLimitMessage, gasPriceBid, data);
+            params.maxSubmissionCostMessage, params.refundAccount, address(0), params.gasLimitMessage,
+            params.gasPriceBid, data);
 
+        // Calculate value leftovers
         leftovers = msg.value - totalCost;
     }
 

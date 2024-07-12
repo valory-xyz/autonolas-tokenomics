@@ -64,7 +64,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/verify_05_wormhole_deposit_processor.js --network " + providerName + " " + wormholeDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/verify_05_polygon_wormhole_deposit_processor.js --network " + providerName + " " + wormholeDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 

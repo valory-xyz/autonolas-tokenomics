@@ -96,7 +96,8 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         address[] memory targets,
         uint256[] memory stakingIncentives,
         bytes memory bridgePayload,
-        uint256 transferAmount
+        uint256 transferAmount,
+        bytes32 batchHash
     ) internal override returns (uint256 sequence, uint256 leftovers) {
         // Check for the transferAmount > 0
         if (transferAmount > 0) {
@@ -123,15 +124,16 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Assemble data payload
-        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives));
+        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 
         // Send message to L2
         // Reference: https://docs.optimism.io/builders/app-developers/bridging/messaging#for-l1-to-l2-transactions-1
         IBridge(l1MessageRelayer).sendMessage(l2TargetDispenser, data, uint32(gasLimitMessage));
 
-        // Since there is no returned message sequence, use the staking batch nonce
-        sequence = stakingBatchNonce;
+        // Since there is no returned message sequence, use the batch hash
+        sequence = uint256(batchHash);
 
+        // Return msg.value, if provided by mistake
         leftovers = msg.value;
     }
 

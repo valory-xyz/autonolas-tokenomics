@@ -15,9 +15,9 @@ const main = async () => {
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAsepolia = new ethers.Wallet(account, sepoliaProvider);
 
-    const l1DepositProcessorAddress = "0x23CBf7653A73b5a46E6EAec382c532ed6D9AB730";
-    const l2TargetDispenserAddress = "0x670Ac235EE13C0B2a5065282bBB0c61cfB354592";
-    const targetInstance = "0xdbd5DA0FC7920Cc80875640fb296Ce2751d36929";
+    const l1DepositProcessorAddress = "0x36c1beAFBeaf65DFcF16De60867BF9525455bf4E";
+    const l2TargetDispenserAddress = "0xab217B10Fb8800Aa709fEECa19341eDF41853018";
+    const targetInstance = "0xa28327f6b308f1a04e565025400311f48275c0fc";
     const defaultAmount = 100;
     const stakingTargets = [targetInstance];
     const stakingAmounts = new Array(stakingTargets.length).fill(defaultAmount);
@@ -30,7 +30,7 @@ const main = async () => {
 
     // TESTING OF SENDING TOKEN AND MESSAGE
     const fs = require("fs");
-    const dispenserAddress = "0x210af5b2FD68b3cdB94843C8e3462Daa52cCfe8F";
+    const dispenserAddress = "0x42f43be9E5E50df51b86C5c6427223ff565f40C6";
     const dispenserJSON = "artifacts/contracts/staking/test/MockStakingDispenser.sol/MockStakingDispenser.json";
     const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);
@@ -47,8 +47,8 @@ const main = async () => {
     // List of addresses: https://contracts.decentraland.org/links
 
     // L2 to L1 tracking:
-    // tx: https://amoy.polygonscan.com/tx/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d
-    // proof link: https://proof-generator.polygon.technology/api/v1/amoy/exit-payload/0xe85cf44c1f307d1ec2dee3bc3f3ecab65a8b2d862a17a374a0d69b542a00de6d?eventSignature=0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036
+    // tx: https://amoy.polygonscan.com/tx/0x81bc4fde6431bbe0d40ede89f3e06603fde4e686790a3a44ef08505c6e803d16
+    // proof link: https://proof-generator.polygon.technology/api/v1/amoy/exit-payload/0x81bc4fde6431bbe0d40ede89f3e06603fde4e686790a3a44ef08505c6e803d16?eventSignature=0x8c5261668696ce22758910d05bab8f186d6eb247ceac2af2e82c7dc17669b036
 };
 
 main()
