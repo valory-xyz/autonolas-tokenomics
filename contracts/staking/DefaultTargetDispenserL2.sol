@@ -48,7 +48,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event StakingTargetDeposited(address indexed target, uint256 amount, bytes32 indexed batchHash);
     event AmountWithheld(address indexed target, uint256 amount);
     event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
-        bytes32 indexed batchHash, uint256 paused);
+        bytes32 indexed batchHash, uint256 olasBalance, uint256 paused);
     event MessagePosted(uint256 indexed sequence, address indexed messageSender, uint256 amount,
         bytes32 indexed batchHash);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
@@ -56,6 +56,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
     event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
+    event LeftoversRefunded(address indexed sender, uint256 leftovers);
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -195,8 +196,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 emit AmountWithheld(target, targetWithheldAmount);
             }
 
+            uint256 olasBalance = IToken(olas).balanceOf(address(this));
             // Check the OLAS balance and the contract being unpaused
-            if (IToken(olas).balanceOf(address(this)) >= amount && localPaused == 1) {
+            if (olasBalance >= amount && localPaused == 1) {
                 // Approve and transfer OLAS to the service staking target
                 IToken(olas).approve(target, amount);
                 IStaking(target).deposit(amount);
@@ -208,7 +210,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 // Queue the hash for further redeem
                 queuedHashes[queueHash] = true;
 
-                emit StakingRequestQueued(queueHash, target, amount, batchHash, localPaused);
+                emit StakingRequestQueued(queueHash, target, amount, batchHash, olasBalance, localPaused);
             }
         }
 
@@ -337,7 +339,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Syncs withheld token amount with L1.
     /// @param bridgePayload Payload data for the bridge relayer.
-    function syncWithheldTokens(bytes memory bridgePayload) external payable {
+    function syncWithheldAmount(bytes memory bridgePayload) external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -384,6 +386,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             // All the undelivered funds can be drained
             // solhint-disable-next-line avoid-low-level-calls
             msg.sender.call{value: leftovers}("");
+
+            emit LeftoversRefunded(msg.sender, leftovers);
         }
 
         stakingBatchNonce = batchNonce + 1;

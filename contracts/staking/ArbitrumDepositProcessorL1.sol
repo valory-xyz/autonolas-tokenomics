@@ -153,8 +153,9 @@ contract ArbitrumDepositProcessorL1 is DefaultDepositProcessorL1 {
         }
 
         // Check for the message gas limit
+        // Revert if the gas limit is smaller than the recommended one, since otherwise the cost is calculated incorrectly
         if (params.gasLimitMessage < MESSAGE_GAS_LIMIT) {
-            params.gasLimitMessage = MESSAGE_GAS_LIMIT;
+            revert LowerThan(params.gasLimitMessage, MESSAGE_GAS_LIMIT);
         }
 
         // Calculate token and message transfer cost
