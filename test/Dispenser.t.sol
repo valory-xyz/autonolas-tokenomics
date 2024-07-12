@@ -55,7 +55,7 @@ contract BaseSetup is Test {
         componentRegistry = new MockRegistry();
         agentRegistry = new MockRegistry();
         serviceRegistry = new MockRegistry();
-        dispenser = new Dispenser(address(olas), deployer, deployer, deployer, retainer, 100, 100);
+        dispenser = new Dispenser(address(olas), deployer, deployer, deployer, retainer, 100, 100, 100, 1 ether);
 
         // Depository contract is irrelevant here, so we are using a deployer's address
         // Correct tokenomics address will be added below
