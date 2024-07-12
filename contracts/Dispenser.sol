@@ -487,6 +487,11 @@ contract Dispenser {
                 }
             }
 
+            // Skip if there are no actual staking targets
+            if (numActualTargets == 0) {
+                continue;
+            }
+
             // Allocate updated arrays accounting only for nonzero staking incentives
             bytes32[] memory updatedStakingTargets = new bytes32[](numActualTargets);
             uint256[] memory updatedStakingAmounts = new uint256[](numActualTargets);
