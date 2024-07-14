@@ -109,7 +109,7 @@ contract Depository is ERC721, IErrorsTokenomics {
     // Bond product counter
     // We assume that the number of products will not be bigger than the number of seconds
     uint256 public productCounter;
-    // Minimum amount of supply that is given to the
+    // Minimum amount of supply such that any value below is given to the bonding account in order to close the product
     uint256 public minOLASLeftoverAmount;
 
     // OLAS token address
