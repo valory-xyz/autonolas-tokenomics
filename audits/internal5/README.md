@@ -33,7 +33,8 @@ File                             |  % Stmts | % Branch |  % Funcs |  % Lines |Un
  
 ---------------------------------|----------|----------|----------|----------|----------------|
 ```
-Please, pay attention.
+Please, pay attention. <br>
+[x] Noted. Missing 100% is not an obvious problem.
 
 #### Checking the corrections made after C4A
 ##### Bridging
@@ -118,3 +119,12 @@ grep -r encodeWithSelec ./contracts/
 ./contracts/staking/ArbitrumDepositProcessorL1.sol:        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 ./contracts/staking/GnosisDepositProcessorL1.sol:        bytes memory data = abi.encodeWithSelector(RECEIVE_MESSAGE, abi.encode(targets, stakingIncentives, batchHash));
 ```
+[x] Noted. The fact that codebase hasn't been changed is not a problem.
+
+### Catch up on changes. 15.07.24
+https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.2-pre-internal-audit...v1.2.2-pre-audit <br>
+The changes to the codebase appear to be correct.
+
+
+
+
