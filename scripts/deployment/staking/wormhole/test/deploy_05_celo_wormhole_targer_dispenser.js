@@ -40,31 +40,31 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy WormholeDepositProcessorL1");
-    const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
-    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).deploy()");
-    const wormholeDepositProcessorL1 = await WormholeDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.wormholeL1TokenRelayerAddress,
-        parsedData.wormholeL1MessageRelayerAddress, parsedData.celoL2TargetChainId,
-        parsedData.wormholeL1CoreAddress, parsedData.celoWormholeL2TargetChainId);
-    const result = await wormholeDepositProcessorL1.deployed();
+    console.log("5. EOA to deploy WormholeTargetDispenserL2");
+    const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
+    console.log("You are signing the following transaction: WormholeTargetDispenserL2.connect(EOA).deploy()");
+    const wormholeTargetDispenserL2 = await WormholeTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.wormholeL2MessageRelayer,
+        parsedData.celoWormholeDepositProcessorL1Address, parsedData.wormholel1ChainId,
+        parsedData.wormholeL2CoreAddress, parsedData.wormholeL2TokenRelayerAddress);
+    const result = await wormholeTargetDispenserL2.deployed();
 
     // Transaction details
-    console.log("Contract deployment: WormholeDepositProcessorL1");
-    console.log("Contract address:", wormholeDepositProcessorL1.address);
+    console.log("Contract deployment: WormholeTargetDispenserL2");
+    console.log("Contract address:", wormholeTargetDispenserL2.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.celoWormholeDepositProcessorL1Address = wormholeDepositProcessorL1.address;
+    parsedData.celoWormholeTargetDispenserL2Address = wormholeTargetDispenserL2.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/verify_05_polygon_wormhole_deposit_processor.js --network " + providerName + " " + wormholeDepositProcessorL1.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/test/verify_05_celo_wormhole_target_dispenser.js --network " + providerName + " " + wormholeTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 
