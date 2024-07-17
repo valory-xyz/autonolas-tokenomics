@@ -146,3 +146,7 @@ b17bdd0ebae90b769b8756da81d831a70fcb4af3:scripts/deployment/globals_mainnet.json
 b17bdd0ebae90b769b8756da81d831a70fcb4af3:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
 b17bdd0ebae90b769b8756da81d831a70fcb4af3:scripts/deployment/globals_mainnet.json:generic-api-key:2
 b17bdd0ebae90b769b8756da81d831a70fcb4af3:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
+c5ba11d1b46a6fa9644c0de28b4b0f7b154156ee:scripts/deployment/globals_mainnet.json:generic-api-key:1
+c5ba11d1b46a6fa9644c0de28b4b0f7b154156ee:scripts/deployment/globals_mainnet.json:generic-api-key:2
+c5ba11d1b46a6fa9644c0de28b4b0f7b154156ee:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
+c5ba11d1b46a6fa9644c0de28b4b0f7b154156ee:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
