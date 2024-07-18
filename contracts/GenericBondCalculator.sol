@@ -35,16 +35,23 @@ contract GenericBondCalculator {
         tokenomics = _tokenomics;
     }
 
-    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism.
-    /// @notice Currently there is only one implementation of a bond calculation mechanism based on the UniswapV2 LP.
-    /// @notice IDF has a 10^18 multiplier and priceLP has the same as well, so the result must be divided by 10^36.
+    /// @dev Calculated inverse discount factor.
+    /// @return idf Inverse discount factor in 18 decimals format.
+    function calculateIDF(bytes memory) public view virtual returns (uint256 idf) {
+        // Note: IDF is deprecated in Tokenomics, and can be assumed as equal to 1e18 by default
+        idf = 1e18;
+    }
+
+    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism accounting for dynamic IDF.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
+    /// @param data Custom data to calculate the IDF.
     /// @return amountOLAS Resulting amount of OLAS tokens.
-    /// #if_succeeds {:msg "LP price limit"} priceLP * tokenAmount <= type(uint192).max;
-    function calculatePayoutOLAS(uint256 tokenAmount, uint256 priceLP, bytes memory) external view virtual
-        returns (uint256 amountOLAS)
-    {
+    function calculatePayoutOLAS(
+        uint256 tokenAmount,
+        uint256 priceLP,
+        bytes memory data
+    ) external view virtual returns (uint256 amountOLAS) {
         // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
         // The resulting amountDF can not overflow by the following calculations: idf = 64 bits;
         // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
@@ -58,9 +65,13 @@ contract GenericBondCalculator {
         if (totalTokenValue > type(uint192).max) {
             revert Overflow(totalTokenValue, type(uint192).max);
         }
+
+        // Calculate the dynamic inverse discount factor
+        uint256 idf = calculateIDF(data);
+
         // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
-        // Note IDF in Tokenomics is deprecated, and can be assumed as equal to 1e18 by default
-        amountOLAS = totalTokenValue / 1e18;
+        // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
+        amountOLAS = (idf * totalTokenValue) / 1e36;
     }
 
     /// @dev Gets current reserves of OLAS / totalSupply of Uniswap V2-like LP tokens.

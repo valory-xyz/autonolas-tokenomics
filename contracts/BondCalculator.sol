@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
-
+import "hardhat/console.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {GenericBondCalculator} from "./GenericBondCalculator.sol";
 import {IVotingEscrow} from "./interfaces/IVotingEscrow.sol";
@@ -153,38 +153,6 @@ contract BondCalculator is GenericBondCalculator {
         emit DiscountParamsUpdated(newDiscountParams);
     }
 
-    /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism accounting for dynamic IDF.
-    /// @param tokenAmount LP token amount.
-    /// @param priceLP LP token price.
-    /// @param data Custom data that is used to calculate the IDF.
-    /// @return amountOLAS Resulting amount of OLAS tokens.
-    function calculatePayoutOLAS(
-        uint256 tokenAmount,
-        uint256 priceLP,
-        bytes memory data
-    ) external view override returns (uint256 amountOLAS) {
-        // The result is divided by additional 1e18, since it was multiplied by in the current LP price calculation
-        // The resulting amountDF can not overflow by the following calculations: idf = 64 bits;
-        // priceLP = 2 * r0/L * 10^18 = 2*r0*10^18/sqrt(r0*r1) ~= 61 + 96 - sqrt(96 * 112) ~= 53 bits (if LP is balanced)
-        // or 2* r0/sqrt(r0) * 10^18 => 87 bits + 60 bits = 147 bits (if LP is unbalanced);
-        // tokenAmount is of the order of sqrt(r0*r1) ~ 104 bits (if balanced) or sqrt(96) ~ 10 bits (if max unbalanced);
-        // overall: 64 + 53 + 104 = 221 < 256 - regular case if LP is balanced, and 64 + 147 + 10 = 221 < 256 if unbalanced
-        // mulDiv will correctly fit the total amount up to the value of max uint256, i.e., max of priceLP and max of tokenAmount,
-        // however their multiplication can not be bigger than the max of uint192
-        uint256 totalTokenValue = mulDiv(priceLP, tokenAmount, 1);
-        // Check for the cumulative LP tokens value limit
-        if (totalTokenValue > type(uint192).max) {
-            revert Overflow(totalTokenValue, type(uint192).max);
-        }
-
-        // Calculate the dynamic inverse discount factor
-        uint256 idf = calculateIDF(data);
-
-        // Amount with the discount factor is IDF * priceLP * tokenAmount / 1e36
-        // At this point of time IDF is bound by the max of uint64, and totalTokenValue is no bigger than the max of uint192
-        amountOLAS = (idf * totalTokenValue) / 1e36;
-    }
-
     /// @dev Calculated inverse discount factor based on bonding and account parameters.
     /// @param data Custom data that is used to calculate the IDF:
     ///        - account Account address.
@@ -193,7 +161,7 @@ contract BondCalculator is GenericBondCalculator {
     ///        - productSupply Current product supply.
     ///        - productPayout Current product payout.
     /// @return idf Inverse discount factor in 18 decimals format.
-    function calculateIDF(bytes memory data) public view virtual returns (uint256 idf) {
+    function calculateIDF(bytes memory data) public view override returns (uint256 idf) {
         // Decode the required data
         (address account, uint256 bondVestingTime, uint256 productMaxVestingTime, uint256 productSupply,
             uint256 productPayout) = abi.decode(data, (address, uint256, uint256, uint256, uint256));
@@ -209,22 +177,33 @@ contract BondCalculator is GenericBondCalculator {
 
             // If the number of new units exceeds the target, bound by the target number
             if (numNewUnits >= localParams.targetNewUnits) {
-                numNewUnits = localParams.targetNewUnits;
+                discountBooster = uint256(localParams.weightFactors[0]) * 1e18;
+            } else {
+                discountBooster = (uint256(localParams.weightFactors[0]) * numNewUnits * 1e18) /
+                    uint256(localParams.targetNewUnits);
             }
-            discountBooster = (localParams.weightFactors[0] * numNewUnits * 1e18) / localParams.targetNewUnits;
         }
 
         // Second discount booster: booster += k2 * bondVestingTime / productMaxVestingTime
         // Add vesting time discount booster
         if (localParams.weightFactors[1] > 0) {
-            discountBooster += (localParams.weightFactors[1] * bondVestingTime * 1e18) / productMaxVestingTime;
+            if (bondVestingTime == productMaxVestingTime) {
+                discountBooster += uint256(localParams.weightFactors[1]) * 1e18;
+            } else {
+                discountBooster += (uint256(localParams.weightFactors[1]) * bondVestingTime * 1e18) / productMaxVestingTime;
+            }
         }
 
         // Third discount booster: booster += k3 * (1 - productPayout(at bonding time) / productSupply)
         // Add product supply discount booster
         if (localParams.weightFactors[2] > 0) {
-            productSupply = productSupply + productPayout;
-            discountBooster += localParams.weightFactors[2] * (1e18 - ((productPayout * 1e18) / productSupply));
+            if (productPayout == 0) {
+                discountBooster += uint256(localParams.weightFactors[2]) * 1e18;
+            } else {
+                // Get the total product supply
+                productSupply = productSupply + productPayout;
+                discountBooster += uint256(localParams.weightFactors[2]) * (1e18 - ((productPayout * 1e18) / productSupply));
+            }
         }
 
         // Fourth discount booster: booster += k4 * getVotes(bonding account) / targetVotingPower
@@ -234,9 +213,11 @@ contract BondCalculator is GenericBondCalculator {
 
             // If the number of new units exceeds the target, bound by the target number
             if (vPower >= localParams.targetVotingPower) {
-                vPower = localParams.targetVotingPower;
+                discountBooster += uint256(localParams.weightFactors[3]) * 1e18;
+            } else {
+                discountBooster += (uint256(localParams.weightFactors[3]) * vPower * 1e18) /
+                    uint256(localParams.targetVotingPower);
             }
-            discountBooster += (localParams.weightFactors[3] * vPower * 1e18) / localParams.targetVotingPower;
         }
 
         // Normalize discount booster by the max sum of weights
@@ -244,5 +225,9 @@ contract BondCalculator is GenericBondCalculator {
 
         // IDF = 1 + normalized booster
         idf = 1e18 + discountBooster;
+    }
+
+    function getDiscountParams() external view returns (DiscountParams memory) {
+        return discountParams;
     }
 }    
