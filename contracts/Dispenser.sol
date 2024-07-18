@@ -268,8 +268,11 @@ contract Dispenser {
     event VoteWeightingUpdated(address indexed voteWeighting);
     event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
-    event StakingIncentivesClaimed(address indexed account, uint256 stakingIncentive, uint256 transferAmount,
-        uint256 returnAmount);
+    event StakingIncentivesClaimed(address indexed account, uint256 chainId, bytes32 stakingTarget,
+        uint256 stakingIncentive, uint256 transferAmount, uint256 returnAmount);
+    event StakingIncentivesBatchClaimed(address indexed account, uint256[] chainIds, bytes32[][] stakingTargets,
+        uint256[][] stakingIncentives, uint256 totalStakingIncentive, uint256 totalTransferAmount,
+        uint256 totalReturnAmount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
@@ -1114,7 +1117,7 @@ contract Dispenser {
             _distributeStakingIncentives(chainId, stakingTarget, stakingIncentive, bridgePayload, transferAmount);
         }
 
-        emit StakingIncentivesClaimed(msg.sender, stakingIncentive, transferAmount, returnAmount);
+        emit StakingIncentivesClaimed(msg.sender, chainId, stakingTarget, stakingIncentive, transferAmount, returnAmount);
 
         _locked = 1;
     }
@@ -1193,7 +1196,8 @@ contract Dispenser {
                 valueAmounts);
         }
 
-        emit StakingIncentivesClaimed(msg.sender, totalAmounts[0], totalAmounts[1], totalAmounts[2]);
+        emit StakingIncentivesBatchClaimed(msg.sender, chainIds, stakingTargets, stakingIncentives, totalAmounts[0],
+            totalAmounts[1], totalAmounts[2]);
 
         _locked = 1;
     }
