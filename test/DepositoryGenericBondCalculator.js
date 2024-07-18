@@ -207,20 +207,29 @@ describe("Depository LP Generic Bond Calculator", async () => {
 
         it("Should fail when deploying with zero addresses", async function () {
             await expect(
-                depositoryFactory.deploy(AddressZero, AddressZero, AddressZero, AddressZero)
+                depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, AddressZero, AddressZero, AddressZero,
+                    AddressZero)
             ).to.be.revertedWithCustomError(depository, "ZeroAddress");
 
             await expect(
-                depositoryFactory.deploy(olas.address, AddressZero, AddressZero, AddressZero)
+                depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address, AddressZero, AddressZero,
+                    AddressZero)
             ).to.be.revertedWithCustomError(depository, "ZeroAddress");
 
             await expect(
-                depositoryFactory.deploy(olas.address, deployer.address, AddressZero, AddressZero)
+                depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address, deployer.address, AddressZero,
+                    AddressZero)
             ).to.be.revertedWithCustomError(depository, "ZeroAddress");
 
             await expect(
-                depositoryFactory.deploy(olas.address, deployer.address, deployer.address, AddressZero)
+                depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address, deployer.address,
+                    deployer.address, AddressZero)
             ).to.be.revertedWithCustomError(depository, "ZeroAddress");
+
+            await expect(
+                depositoryFactory.deploy("Depository", "OLAS_BOND", "", olas.address, deployer.address,
+                    deployer.address, deployer.address)
+            ).to.be.revertedWithCustomError(depository, "ZeroValue");
         });
 
         it("Changing Bond Calculator contract", async function () {
@@ -910,8 +919,8 @@ describe("Depository LP Generic Bond Calculator", async () => {
             expect(await depository.isActiveProduct(productId)).to.equal(false);
 
             // Now change the depository contract address
-            const newDepository = await depositoryFactory.deploy(olas.address, tokenomics.address, treasury.address,
-                genericBondCalculator.address);
+            const newDepository = await depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address,
+                tokenomics.address, treasury.address, genericBondCalculator.address);
 
             // Change to a new depository address
             await treasury.changeManagers(AddressZero, newDepository.address, AddressZero);
@@ -963,8 +972,8 @@ describe("Depository LP Generic Bond Calculator", async () => {
             // Check product and bond counters at this point of time
             const productCounter = await depository.productCounter();
             expect(productCounter).to.equal(3);
-            const bondCounter = await depository.bondCounter();
-            expect(bondCounter).to.equal(0);
+            const totalSupply = await depository.totalSupply();
+            expect(totalSupply).to.equal(0);
 
             // Close tree products
             await depository.connect(deployer).close([0, 1]);
@@ -1012,7 +1021,7 @@ describe("Depository LP Generic Bond Calculator", async () => {
             // Deposit a bond for bob (bondId == 0)
             await depository.connect(bob).deposit(productId, amounts[0], vesting);
             // Transfer LP tokens from bob to alice
-            await pairODAI.connect(bob).transfer(alice.address, amount, vesting);
+            await pairODAI.connect(bob).transfer(alice.address, amount);
             // Deposit from alice to the same product (bondId == 1)
             await depository.connect(alice).deposit(productId, amounts[1], vesting);
             // Deposit to another bond for bob (bondId == 2)
