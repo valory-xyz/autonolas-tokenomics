@@ -59,7 +59,8 @@ contract BaseSetup is Test {
         // Deploy generic bond calculator contract
         genericBondCalculator = new GenericBondCalculator(address(olas), address(tokenomics));
         // Deploy depository contract
-        depository = new Depository(address(olas), address(tokenomics), address(treasury), address(genericBondCalculator));
+        depository = new Depository("Depository", "OLAS_BOND", "baseURI", address(olas), address(tokenomics),
+            address(treasury), address(genericBondCalculator));
         // Change depository contract addresses to the correct ones
         treasury.changeManagers(address(0), address(depository), address(0));
 
