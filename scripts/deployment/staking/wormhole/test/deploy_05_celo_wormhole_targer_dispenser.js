@@ -40,30 +40,31 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("1. EOA to deploy Mock Dispenser");
-    const Dispenser = await ethers.getContractFactory("MockStakingDispenser");
-    console.log("You are signing the following transaction: Dispenser.connect(EOA).deploy()");
-    const dispenser = await Dispenser.connect(EOA).deploy(parsedData.olasAddress);
-    const result = await dispenser.deployed();
+    console.log("5. EOA to deploy WormholeTargetDispenserL2");
+    const WormholeTargetDispenserL2 = await ethers.getContractFactory("WormholeTargetDispenserL2");
+    console.log("You are signing the following transaction: WormholeTargetDispenserL2.connect(EOA).deploy()");
+    const wormholeTargetDispenserL2 = await WormholeTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.wormholeL2MessageRelayer,
+        parsedData.celoWormholeDepositProcessorL1Address, parsedData.wormholel1ChainId,
+        parsedData.wormholeL2CoreAddress, parsedData.wormholeL2TokenRelayerAddress);
+    const result = await wormholeTargetDispenserL2.deployed();
 
     // Transaction details
-    console.log("Contract deployment: Dispenser");
-    console.log("Contract address:", dispenser.address);
+    console.log("Contract deployment: WormholeTargetDispenserL2");
+    console.log("Contract address:", wormholeTargetDispenserL2.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
-    // If on sepolia, wait a minute for the transaction completion
-    if (providerName === "sepolia") {
-        await new Promise(r => setTimeout(r, 30000));
-    }
+    // Wait for half a minute for the transaction completion
+    await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.dispenserAddress = dispenser.address;
+    parsedData.celoWormholeTargetDispenserL2Address = wormholeTargetDispenserL2.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/verify_01_mock_dispenser.js --network " + providerName + " " + dispenser.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/test/verify_05_celo_wormhole_target_dispenser.js --network " + providerName + " " + wormholeTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 
