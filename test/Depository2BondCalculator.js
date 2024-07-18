@@ -47,7 +47,7 @@ describe("Depository LP 2 Bond Calculator", async () => {
         targetVotingPower: ethers.utils.parseEther("10"),
         targetNewUnits: 10,
         weightFactors: new Array(4).fill(100)
-    }
+    };
 
     /**
      * Everything in this block is only run once before all tests.
@@ -202,7 +202,7 @@ describe("Depository LP 2 Bond Calculator", async () => {
                 targetVotingPower: 0,
                 targetNewUnits: 0,
                 weightFactors: new Array(4).fill(2550)
-            }
+            };
 
             // Trying to deploy with the zero veOLAS address
             const BondCalculator = await ethers.getContractFactory("BondCalculator");
@@ -235,7 +235,7 @@ describe("Depository LP 2 Bond Calculator", async () => {
                 targetVotingPower: 0,
                 targetNewUnits: 0,
                 weightFactors: new Array(4).fill(2550)
-            }
+            };
 
             // Trying to change discount params not by the owner
             await expect(
