@@ -164,3 +164,5 @@ cfe4b8064bfda91d83bd5bdc5af44f2155859ef3:scripts/deployment/staking/wormhole/glo
 cfe4b8064bfda91d83bd5bdc5af44f2155859ef3:scripts/deployment/staking/wormhole/globals_celo_mainnet.json:generic-api-key:2
 e09cdb5c34a402545d5a67d65ea31760f7c0fd19:scripts/deployment/globals_mainnet.json:generic-api-key:1
 e09cdb5c34a402545d5a67d65ea31760f7c0fd19:scripts/deployment/globals_mainnet.json:generic-api-key:2
+02f626605f59ee89a44152d2d8723c848174e44:scripts/deployment/staking/globals_sepolia.json:generic-api-key:2
+f02f626605f59ee89a44152d2d8723c848174e44:scripts/deployment/globals_mainnet.json:generic-api-key:2
