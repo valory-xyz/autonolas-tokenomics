@@ -267,7 +267,7 @@ contract Dispenser {
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
     event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
-    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
+    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp, uint256[] unitTypes, uint256[] unitIds);
     event StakingIncentivesClaimed(address indexed account, uint256 chainId, bytes32 stakingTarget,
         uint256 stakingIncentive, uint256 transferAmount, uint256 returnAmount);
     event StakingIncentivesBatchClaimed(address indexed account, uint256[] chainIds, bytes32[][] stakingTargets,
@@ -877,7 +877,7 @@ contract Dispenser {
             revert ClaimIncentivesFailed(msg.sender, reward, topUp);
         }
 
-        emit IncentivesClaimed(msg.sender, reward, topUp);
+        emit IncentivesClaimed(msg.sender, reward, topUp, unitTypes, unitIds);
 
         _locked = 1;
     }
