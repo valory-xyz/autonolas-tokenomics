@@ -43,7 +43,7 @@ async function main() {
     const celoDepositProcessorL1 = await ethers.getContractAt("WormholeDepositProcessorL1", celoDepositProcessorL1Address);
     const gnosisDepositProcessorL1 = await ethers.getContractAt("GnosisDepositProcessorL1", gnosisDepositProcessorL1Address);
     const optimismDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", optimismDepositProcessorL1Address);
-    const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1);
+    const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
 
     // Transaction signing and execution
     console.log("9. EOA to set TargetDispenserL2 in DepositProcessorL1");
