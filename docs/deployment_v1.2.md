@@ -4,7 +4,7 @@ Steps for deploying the tokenomics version 1.2 contracts are as follows:
 2. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsThree)`;
 3. EOA to deploy Dispenser with VoteWeighting contract being deployed before that in `autonolas-governance`;
 4. EOA to change Dispenser address in VoteWeighting calling `changeDispenser(Dispenser)`;
-5. DAO to unpause staking incentives in Dispenser calling `setPauseState(0)`;
+5. EOA to unpause staking incentives in Dispenser calling `setPauseState(0)`;
 6. EOA to add a retainer address as a nominee in VoteWeighting;
 7. EOA to deploy staking bridging contracts on L1 and L2 with StakingFactory contract being deployed before that in `autonolas-registries`;
 8. EOA to transfer ownership rights of Dispenser to Timelock calling `changeOwner(Timelock)`;

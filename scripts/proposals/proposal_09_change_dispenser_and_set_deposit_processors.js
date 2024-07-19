@@ -40,10 +40,10 @@ async function main() {
         tokenomics.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
         tokenomics.interface.encodeFunctionData("changeStakingParams", [maxStakingIncentive, minStakingWeight]),
         treasury.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
-        dispenser.interface.encodeFunctionData([arbitrumDepositProcessorL1Address, baseDepositProcessorL1Address,
-            celoDepositProcessorL1Address, ethereumDepositProcessorAddress, gnosisDepositProcessorL1Address,
-            optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
-            [42161, 8453, 42220, 1, 100, 10, 137])
+        dispenser.interface.encodeFunctionData("setDepositProcessorChainIds", [[arbitrumDepositProcessorL1Address,
+            baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
+            gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
+            [42161, 8453, 42220, 1, 100, 10, 137]])
     ];
 
     const description = "Change Dispenser address in Tokenomics and Treasury, manage deposit processors";
