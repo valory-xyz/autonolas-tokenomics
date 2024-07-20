@@ -12,17 +12,11 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const arbitrumDepositProcessorL1Address = parsedData.arbitrumDepositProcessorL1Address;
-    const arbitrumTargetDispenserL2Address = parsedData.arbitrumTargetDispenserL2Address;
     const baseDepositProcessorL1Address = parsedData.baseDepositProcessorL1Address;
-    const baseTargetDispenserL2Address = parsedData.baseTargetDispenserL2Address;
     const celoDepositProcessorL1Address = parsedData.celoDepositProcessorL1Address;
-    const celoTargetDispenserL2Address = parsedData.celoTargetDispenserL2Address;
     const gnosisDepositProcessorL1Address = parsedData.gnosisDepositProcessorL1Address;
-    const gnosisTargetDispenserL2Address = parsedData.gnosisTargetDispenserL2Address;
     const optimismDepositProcessorL1Address = parsedData.optimismDepositProcessorL1Address;
-    const optimismTargetDispenserL2Address = parsedData.optimismTargetDispenserL2Address;
     const polygonDepositProcessorL1Address = parsedData.polygonDepositProcessorL1Address;
-    const polygonTargetDispenserL2Address = parsedData.polygonTargetDispenserL2Address;
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
@@ -46,30 +40,14 @@ async function main() {
     const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
 
     // Transaction signing and execution
-    console.log("9. EOA to set TargetDispenserL2 in DepositProcessorL1");
-
-    console.log("You are signing the following transaction: ArbitrumDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    let result = await arbitrumDepositProcessorL1.connect(EOA).setL2TargetDispenser(arbitrumTargetDispenserL2Address);
-    console.log("Transaction:", result.hash);
-
-    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    result = await baseDepositProcessorL1.connect(EOA).setL2TargetDispenser(baseTargetDispenserL2Address);
-    console.log("Transaction:", result.hash);
-
-    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    result = await celoDepositProcessorL1.connect(EOA).setL2TargetDispenser(celoTargetDispenserL2Address);
-    console.log("Transaction:", result.hash);
-
-    console.log("You are signing the following transaction: GnosisDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    result = await gnosisDepositProcessorL1.connect(EOA).setL2TargetDispenser(gnosisTargetDispenserL2Address);
-    console.log("Transaction:", result.hash);
-
-    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    result = await optimismDepositProcessorL1.connect(EOA).setL2TargetDispenser(optimismTargetDispenserL2Address);
-    console.log("Transaction:", result.hash);
-
-    console.log("You are signing the following transaction: PolygonDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
-    result = await polygonDepositProcessorL1.connect(EOA).setL2TargetDispenser(polygonTargetDispenserL2Address);
+    console.log("10. EOA to set deposit processors in Dispenser");
+    console.log("You are signing the following transaction: Dispenser.connect(EOA).setDepositProcessorChainIds()");
+    const ethereumChainId = (await provider.getNetwork()).chainId;
+    const result = await setL2TargetDispenser.connect(EOA).setDepositProcessorChainIds([arbitrumDepositProcessorL1Address,
+        baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
+        gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
+        [parsedData.arbitrumL2TargetChainId, parsedData.baseL2TargetChainId, parsedData.celoL2TargetChainId, ethereumChainId,
+        parsedData.gnosisL2TargetChainId, parsedData.optimisticL2TargetChainId, parsedData.polygonL2TargetChainId]);
     console.log("Transaction:", result.hash);
 }
 

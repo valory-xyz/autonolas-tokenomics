@@ -28,25 +28,31 @@ async function main() {
     // Get contract instances
     const tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
-    const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
+
+    const oldDispenserAddress = "0xeED0000fE94d7cfeF4Dc0CA86a223f0F603A61B8";
+    const dispenserJSON = "abis/0.8.18/Dispenser.json";
+    const contractFromJSON = fs.readFileSync(dispenserJSON, "utf8");
+    const parsedFile = JSON.parse(contractFromJSON);
+    const abi = parsedFile["abi"];
+    const oldDispenser = new ethers.Contract(oldDispenserAddress, abi, provider);
 
     const AddressZero = ethers.constants.AddressZero;
+    const AddressNull = "0x000000000000000000000000000000000000dEaD";
 
     // Proposal preparation
-    console.log("Proposal 9. Change dispenser address in tokenomics and treasury, manage deposit processors");
-    const targets = [tokenomicsProxyAddress, tokenomicsProxyAddress, treasuryAddress, dispenserAddress];
-    const values = [0, 0, 0, 0];
+    console.log("Proposal 9. Change dispenser address in tokenomics and treasury, disable old Dispenser");
+    const targets = [tokenomicsProxyAddress, tokenomicsProxyAddress, treasuryAddress, oldDispenserAddress,
+        oldDispenserAddress];
+    const values = [0, 0, 0, 0, 0];
     const callDatas = [
         tokenomics.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
         tokenomics.interface.encodeFunctionData("changeStakingParams", [maxStakingIncentive, minStakingWeight]),
         treasury.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
-        dispenser.interface.encodeFunctionData("setDepositProcessorChainIds", [[arbitrumDepositProcessorL1Address,
-            baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
-            gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
-            [42161, 8453, 42220, 1, 100, 10, 137]])
+        oldDispenser.interface.encodeFunctionData("changeManagers", [AddressNull, AddressNull]),
+        oldDispenser.interface.encodeFunctionData("changeOwner", [AddressNull])
     ];
 
-    const description = "Change Dispenser address in Tokenomics and Treasury, manage deposit processors";
+    const description = "Change Dispenser address in Tokenomics and Treasury, disable old Dispenser";
 
     // Proposal details
     console.log("targets:", targets);
