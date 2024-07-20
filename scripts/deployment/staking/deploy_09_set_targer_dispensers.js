@@ -46,7 +46,7 @@ async function main() {
     const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
 
     // Transaction signing and execution
-    console.log("9. EOA to set TargetDispenserL2 in DepositProcessorL1");
+    console.log("9. EOA to set TargetDispenserL2 in DepositProcessorL1-s");
 
     console.log("You are signing the following transaction: ArbitrumDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
     let result = await arbitrumDepositProcessorL1.connect(EOA).setL2TargetDispenser(arbitrumTargetDispenserL2Address);
