@@ -47,10 +47,10 @@ async function main() {
     console.log("You are signing the following transaction: Dispenser.connect(EOA).setDepositProcessorChainIds()");
     const ethereumChainId = (await provider.getNetwork()).chainId;
     const result = await dispenser.connect(EOA).setDepositProcessorChainIds([arbitrumDepositProcessorL1Address,
-    baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
-    gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
+        baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
+        gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
     [parsedData.arbitrumL2TargetChainId, parsedData.baseL2TargetChainId, parsedData.celoL2TargetChainId, ethereumChainId,
-    parsedData.gnosisL2TargetChainId, parsedData.optimisticL2TargetChainId, parsedData.polygonL2TargetChainId]);
+        parsedData.gnosisL2TargetChainId, parsedData.optimisticL2TargetChainId, parsedData.polygonL2TargetChainId]);
     console.log("Transaction:", result.hash);
 }
 
