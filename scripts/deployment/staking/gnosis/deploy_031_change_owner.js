@@ -30,7 +30,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("31. EOA to change owner in GnosisTargetDispenserL2");
-    const GnosisTargetDispenserL2 = await ethers.getContractAt("GnosisTargetDispenserL2", gnosisTargetDispenserL2Address);
+    const gnosisTargetDispenserL2 = await ethers.getContractAt("GnosisTargetDispenserL2", gnosisTargetDispenserL2Address);
     console.log("You are signing the following transaction: GnosisTargetDispenserL2.connect(EOA).changeOwner()");
     const result = await gnosisTargetDispenserL2.connect(EOA).changeOwner(bridgeMediatorAddress);
 

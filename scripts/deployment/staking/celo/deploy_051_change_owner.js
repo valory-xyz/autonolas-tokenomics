@@ -30,7 +30,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("51. EOA to change owner in WormholeTargetDispenserL2 (Celo)");
-    const WormholeTargetDispenserL2 = await ethers.getContractAt("WormholeTargetDispenserL2", celoTargetDispenserL2Address);
+    const celoTargetDispenserL2 = await ethers.getContractAt("WormholeTargetDispenserL2", celoTargetDispenserL2Address);
     console.log("You are signing the following transaction: WormholeTargetDispenserL2.connect(EOA).changeOwner()");
     const result = await celoTargetDispenserL2.connect(EOA).changeOwner(bridgeMediatorAddress);
 

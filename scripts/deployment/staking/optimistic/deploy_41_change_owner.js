@@ -30,7 +30,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("41. EOA to change owner in OptimismTargetDispenserL2");
-    const OptimismTargetDispenserL2 = await ethers.getContractAt("OptimismTargetDispenserL2", optimismTargetDispenserL2Address);
+    const optimismTargetDispenserL2 = await ethers.getContractAt("OptimismTargetDispenserL2", optimismTargetDispenserL2Address);
     console.log("You are signing the following transaction: OptimismTargetDispenserL2.connect(EOA).changeOwner()");
     const result = await optimismTargetDispenserL2.connect(EOA).changeOwner(bridgeMediatorAddress);
 

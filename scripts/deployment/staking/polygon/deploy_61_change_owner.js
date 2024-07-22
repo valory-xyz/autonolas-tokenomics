@@ -30,7 +30,7 @@ async function main() {
 
     // Transaction signing and execution
     console.log("61. EOA to change owner in PolygonTargetDispenserL2");
-    const PolygonTargetDispenserL2 = await ethers.getContractAt("PolygonTargetDispenserL2", polygonTargetDispenserL2Address);
+    const polygonTargetDispenserL2 = await ethers.getContractAt("PolygonTargetDispenserL2", polygonTargetDispenserL2Address);
     console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).changeOwner()");
     const result = await polygonTargetDispenserL2.connect(EOA).changeOwner(bridgeMediatorAddress);
 
