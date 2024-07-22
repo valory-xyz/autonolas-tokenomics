@@ -249,8 +249,8 @@ async function checkDepository(chainId, provider, globalsInstance, configContrac
 
 async function main() {
     // Check for the API keys
-    if (!process.env.ALCHEMY_API_KEY_MAINNET || !process.env.ALCHEMY_API_KEY_GOERLI ||
-        !process.env.ALCHEMY_API_KEY_MATIC || !process.env.ALCHEMY_API_KEY_MUMBAI) {
+    if (!process.env.ALCHEMY_API_KEY_MAINNET || !process.env.ALCHEMY_API_KEY_SEPOLIA ||
+        !process.env.ALCHEMY_API_KEY_MATIC || !process.env.ALCHEMY_API_KEY_AMOY) {
         console.log("Check API keys!");
         return;
     }
@@ -260,49 +260,33 @@ async function main() {
     const dataFromJSON = fs.readFileSync(configFile, "utf8");
     const configs = JSON.parse(dataFromJSON);
 
-    const numChains = configs.length;
     // ################################# VERIFY CONTRACTS WITH REPO #################################
-    // For now gnosis chains are not supported
-    const networks = {
-        "mainnet": "etherscan",
-        "goerli": "goerli.etherscan",
-    };
-
     console.log("\nVerifying deployed contracts vs the repo... If no error is output, then the contracts are correct.");
 
-    // Traverse all chains
-    for (let i = 0; i < numChains; i++) {
-        // Skip gnosis chains
-        if (!networks[configs[i]["name"]]) {
+    // Currently the verification is fo mainnet only
+    const network = "etherscan";
+    const contracts = configs[0]["contracts"];
+
+    // Verify contracts
+    for (let i = 0; i < contracts.length; i++) {
+        console.log("Checking " + contracts[i]["name"]);
+        const execSync = require("child_process").execSync;
+        try {
+            execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[i]["name"] + " " + contracts[i]["address"]);
+        } catch (error) {
             continue;
         }
-
-        console.log("\n\nNetwork:", configs[i]["name"]);
-        const network = networks[configs[i]["name"]];
-        const contracts = configs[i]["contracts"];
-
-        // Verify contracts
-        for (let j = 0; j < contracts.length; j++) {
-            console.log("Checking " + contracts[j]["name"]);
-            const execSync = require("child_process").execSync;
-            try {
-                execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[j]["name"] + " " + contracts[j]["address"]);
-            } catch (error) {
-                continue;
-            }
-        }
     }
+    return;
     // ################################# /VERIFY CONTRACTS WITH REPO #################################
 
     // ################################# VERIFY CONTRACTS SETUP #################################
     const globalNames = {
-        "mainnet": "scripts/deployment/globals_mainnet.json",
-        "goerli": "scripts/deployment/globals_goerli.json",
+        "mainnet": "scripts/deployment/globals_mainnet.json"
     };
 
     const providerLinks = {
-        "mainnet": "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MAINNET,
-        "goerli": "https://eth-goerli.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_GOERLI,
+        "mainnet": "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MAINNET
     };
 
     // Get all the globals processed
@@ -318,29 +302,27 @@ async function main() {
     console.log("\nVerifying deployed contracts setup... If no error is output, then the contracts are correct.");
 
     // L1 contracts
-    for (let i = 0; i < 2; i++) {
-        console.log("\n######## Verifying setup on CHAIN ID", configs[i]["chainId"]);
+    console.log("\n######## Verifying setup on CHAIN ID", configs[i]["chainId"]);
 
-        const initLog = "ChainId: " + configs[i]["chainId"] + ", network: " + configs[i]["name"];
+    const initLog = "ChainId: " + configs[i]["chainId"] + ", network: " + configs[i]["name"];
 
-        let log = initLog + ", contract: " + "DonatorBlacklist";
-        await checkDonatorBlacklist(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "DonatorBlacklist", log);
+    let log = initLog + ", contract: " + "DonatorBlacklist";
+    await checkDonatorBlacklist(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "DonatorBlacklist", log);
 
-        log = initLog + ", contract: " + "TokenomicsProxy";
-        await checkTokenomicsProxy(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "TokenomicsProxy", log);
+    log = initLog + ", contract: " + "TokenomicsProxy";
+    await checkTokenomicsProxy(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "TokenomicsProxy", log);
 
-        log = initLog + ", contract: " + "Treasury";
-        await checkTreasury(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Treasury", log);
+    log = initLog + ", contract: " + "Treasury";
+    await checkTreasury(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Treasury", log);
 
-        log = initLog + ", contract: " + "GenericBondCalculator";
-        await checkGenericBondCalculator(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "GenericBondCalculator", log);
+    log = initLog + ", contract: " + "GenericBondCalculator";
+    await checkGenericBondCalculator(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "GenericBondCalculator", log);
 
-        log = initLog + ", contract: " + "Dispenser";
-        await checkDispenser(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Dispenser", log);
+    log = initLog + ", contract: " + "Dispenser";
+    await checkDispenser(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Dispenser", log);
 
-        log = initLog + ", contract: " + "Depository";
-        await checkDepository(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Depository", log);
-    }
+    log = initLog + ", contract: " + "Depository";
+    await checkDepository(configs[i]["chainId"], providers[i], globals[i], configs[i]["contracts"], "Depository", log);
     // ################################# /VERIFY CONTRACTS SETUP #################################
 }
 

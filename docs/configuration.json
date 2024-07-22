@@ -30,8 +30,8 @@
       },
       {
         "name": "Dispenser",
-        "artifact": "abis/0.8.18/Dispenser.json",
-        "address": "0xeED0000fE94d7cfeF4Dc0CA86a223f0F603A61B8"
+        "artifact": "abis/0.8.25/Dispenser.json",
+        "address": "0x5650300fCBab43A0D7D02F8Cb5d0f039402593f0"
       },
       {
         "name": "Depository",
