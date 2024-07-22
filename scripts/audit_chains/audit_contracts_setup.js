@@ -636,22 +636,22 @@ async function main() {
     const configs = JSON.parse(dataFromJSON);
 
     // ################################# VERIFY CONTRACTS WITH REPO #################################
-//    console.log("\nVerifying deployed contracts vs the repo... If no error is output, then the contracts are correct.");
-//
-//    // Currently the verification is fo mainnet only
-//    const network = "etherscan";
-//    const contracts = configs[0]["contracts"];
-//
-//    // Verify contracts
-//    for (let i = 0; i < contracts.length; i++) {
-//        console.log("Checking " + contracts[i]["name"]);
-//        const execSync = require("child_process").execSync;
-//        try {
-//            execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[i]["name"] + " " + contracts[i]["address"]);
-//        } catch (error) {
-//            continue;
-//        }
-//    }
+    console.log("\nVerifying deployed contracts vs the repo... If no error is output, then the contracts are correct.");
+
+    // Currently the verification is fo mainnet only
+    const network = "etherscan";
+    const contracts = configs[0]["contracts"];
+
+    // Verify contracts
+    for (let i = 0; i < contracts.length; i++) {
+        console.log("Checking " + contracts[i]["name"]);
+        const execSync = require("child_process").execSync;
+        try {
+            execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[i]["name"] + " " + contracts[i]["address"]);
+        } catch (error) {
+            continue;
+        }
+    }
     // ################################# /VERIFY CONTRACTS WITH REPO #################################
 
     // ################################# VERIFY CONTRACTS SETUP #################################
