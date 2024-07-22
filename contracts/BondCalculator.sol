@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {mulDiv} from "@prb/math/src/Common.sol";
 import {GenericBondCalculator} from "./GenericBondCalculator.sol";
 import {IVotingEscrow} from "./interfaces/IVotingEscrow.sol";
 
