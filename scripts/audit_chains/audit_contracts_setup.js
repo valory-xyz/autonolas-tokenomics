@@ -306,6 +306,10 @@ async function checkArbitrumDepositProcessorL1(chainId, provider, globalsInstanc
     // Check L1 bridge
     const bridge = await arbitrumDepositProcessorL1.bridge();
     customExpect(bridge, globalsInstance["arbitrumBridgeAddress"], log + ", function: bridge()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await arbitrumDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["arbitrumTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check checkEthereumDepositProcessor: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -356,6 +360,10 @@ async function checkGnosisDepositProcessorL1(chainId, provider, globalsInstance,
     // Check L2 target chain Id
     const l2TargetChainId = await gnosisDepositProcessorL1.l2TargetChainId();
     customExpect(l2TargetChainId.toString(), globalsInstance["gnosisL2TargetChainId"], log + ", function: l2TargetChainId()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await gnosisDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["gnosisTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check OptimismDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -384,6 +392,10 @@ async function checkOptimismDepositProcessorL1(chainId, provider, globalsInstanc
     // Check L2 OLAS address
     const olasL2 = await optimismDepositProcessorL1.olasL2();
     customExpect(olasL2, globalsInstance["optimisticOLASAddress"], log + ", function: olasL2()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await optimismDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["optimismTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check BaseDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -412,6 +424,10 @@ async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, c
     // Check L2 OLAS address
     const olasL2 = await baseDepositProcessorL1.olasL2();
     customExpect(olasL2, globalsInstance["baseOLASAddress"], log + ", function: olasL2()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await baseDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["baseTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check PolygonDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -444,6 +460,10 @@ async function checkPolygonDepositProcessorL1(chainId, provider, globalsInstance
     // Check L1 predicate
     const predicate = await polygonDepositProcessorL1.predicate();
     customExpect(predicate, globalsInstance["polygonERC20PredicateAddress"], log + ", function: predicate()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await polygonDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["polygonTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check CeloDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -476,6 +496,10 @@ async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, c
     // Check L2 wormhole chain Id format
     const wormholeTargetChainId = await celoDepositProcessorL1.wormholeTargetChainId();
     customExpect(wormholeTargetChainId.toString(), globalsInstance["celoWormholeL2TargetChainId"], log + ", function: wormholeTargetChainId()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await celoDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["celoTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check TargetDispenserL2: contract, globalsInstance
@@ -756,12 +780,6 @@ async function main() {
     log = initLog + ", contract: " + "ArbitrumTargetDispenserL2";
     await checkArbitrumTargetDispenserL2(configs[1]["chainId"], providers[3], globals[3], configs[1]["contracts"], "ArbitrumTargetDispenserL2", log);
 
-    // Optimism
-    console.log("\n######## Verifying setup on CHAIN ID", configs[9]["chainId"]);
-    initLog = "ChainId: " + configs[9]["chainId"] + ", network: " + configs[9]["name"];
-    log = initLog + ", contract: " + "OptimismTargetDispenserL2";
-    await checkOptimismTargetDispenserL2(configs[9]["chainId"], providers[4], globals[4], configs[9]["contracts"], "OptimismTargetDispenserL2", log);
-
     // Base
     console.log("\n######## Verifying setup on CHAIN ID", configs[3]["chainId"]);
     initLog = "ChainId: " + configs[3]["chainId"] + ", network: " + configs[3]["name"];
@@ -773,6 +791,12 @@ async function main() {
     initLog = "ChainId: " + configs[5]["chainId"] + ", network: " + configs[5]["name"];
     log = initLog + ", contract: " + "CeloTargetDispenserL2";
     await checkCeloTargetDispenserL2(configs[5]["chainId"], providers[6], globals[6], configs[5]["contracts"], "WormholeTargetDispenserL2", log);
+
+    // Optimism
+    console.log("\n######## Verifying setup on CHAIN ID", configs[9]["chainId"]);
+    initLog = "ChainId: " + configs[9]["chainId"] + ", network: " + configs[9]["name"];
+    log = initLog + ", contract: " + "OptimismTargetDispenserL2";
+    await checkOptimismTargetDispenserL2(configs[9]["chainId"], providers[4], globals[4], configs[9]["contracts"], "OptimismTargetDispenserL2", log);
     // ################################# /VERIFY CONTRACTS SETUP #################################
 }
 
