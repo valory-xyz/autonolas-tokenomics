@@ -9,14 +9,22 @@ import {ITreasury} from "./interfaces/ITreasury.sol";
 
 interface IBondCalculator {
     /// @dev Calculates the amount of OLAS tokens based on the bonding calculator mechanism accounting for dynamic IDF.
+    /// @param account Account address.
     /// @param tokenAmount LP token amount.
     /// @param priceLP LP token price.
-    /// @param data Custom data that is used to calculate the IDF.
+    /// @param bondVestingTime Bond vesting time.
+    /// @param productMaxVestingTime Product max vesting time.
+    /// @param productSupply Current product supply.
+    /// @param productPayout Current product payout.
     /// @return amountOLAS Resulting amount of OLAS tokens.
     function calculatePayoutOLAS(
+        address account,
         uint256 tokenAmount,
         uint256 priceLP,
-        bytes memory data
+        uint256 bondVestingTime,
+        uint256 productMaxVestingTime,
+        uint256 productSupply,
+        uint256 productPayout
     ) external view returns (uint256 amountOLAS);
 
     /// @dev Gets current reserves of OLAS / totalSupply of Uniswap V2-like LP tokens.
@@ -114,7 +122,7 @@ contract Depository is ERC721, IErrorsTokenomics {
 
     // OLAS token address
     address public immutable olas;
-    // Tkenomics contract address
+    // Tokenomics contract address
     address public tokenomics;
     // Treasury contract address
     address public treasury;
@@ -370,9 +378,8 @@ contract Depository is ERC721, IErrorsTokenomics {
 
         // Calculate the payout in OLAS tokens based on the LP pair with the inverse discount factor (IDF) calculation
         // Note that payout cannot be zero since the price LP is non-zero, otherwise the product would not be created
-        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(tokenAmount, product.priceLP,
-            // Encode parameters required for the IDF calculation
-            abi.encode(msg.sender, bondVestingTime, productMaxVestingTime, supply, product.payout));
+        payout = IBondCalculator(bondCalculator).calculatePayoutOLAS(msg.sender, tokenAmount, product.priceLP,
+            bondVestingTime, productMaxVestingTime, supply, product.payout);
 
         // Check for the sufficient supply
         if (payout > supply) {
