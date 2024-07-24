@@ -950,13 +950,6 @@ contract Tokenomics is TokenomicsConstants {
                     if (!mapNewUnits[unitType][serviceUnitIds[j]]) {
                         mapNewUnits[unitType][serviceUnitIds[j]] = true;
                         mapEpochTokenomics[curEpoch].unitPoints[unitType].numNewUnits++;
-                        // Check if the owner has introduced component / agent for the first time
-                        // This is done together with the new unit check, otherwise it could be just a new unit owner
-                        address unitOwner = IToken(registries[unitType]).ownerOf(serviceUnitIds[j]);
-                        if (!mapNewOwners[unitOwner]) {
-                            mapNewOwners[unitOwner] = true;
-                            mapEpochTokenomics[curEpoch].epochPoint.numNewOwners++;
-                        }
                     }
                 }
             }
@@ -974,7 +967,6 @@ contract Tokenomics is TokenomicsConstants {
     /// ==> mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + donationETH;
     /// #if_succeeds {:msg "sumUnitTopUpsOLAS for components can only increase"} mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS);
     /// #if_succeeds {:msg "sumUnitTopUpsOLAS for agents can only increase"} mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS);
-    /// #if_succeeds {:msg "numNewOwners can only increase"} mapEpochTokenomics[epochCounter].epochPoint.numNewOwners >= old(mapEpochTokenomics[epochCounter].epochPoint.numNewOwners);
     function trackServiceDonations(
         address donator,
         uint256[] memory serviceIds,
