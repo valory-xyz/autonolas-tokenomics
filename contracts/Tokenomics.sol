@@ -901,14 +901,17 @@ contract Tokenomics is TokenomicsConstants {
         uint256 vPower;
         if (incentiveFlags[2] || incentiveFlags[3]) {
             vPower = IVotingEscrow(ve).getVotes(donator);
+            bytes32 donatorPowerHash = keccak256(abi.encode(epochCounter, donator));
             // Check the donator voting power
-            if (vPower < veOLASThreshold || mapEpochDonatorPowerHashes[keccak256(abi.encode(epochCounter, donator))]) {
+            if (vPower < veOLASThreshold || mapEpochDonatorPowerHashes[donatorPowerHash]) {
                 // If voting power is below the threshold or has been already utilized during the on-going epoch,
                 // top-ups are not eligible
                 vPower = 0;
             } else {
                 // Otherwise, split them to the corresponding number of services
                 vPower /= numServices;
+                // Add donator voting power to the map
+                mapEpochDonatorPowerHashes[donatorPowerHash] = true;
             }
         }
 
