@@ -1,0 +1,134 @@
+'solc --version' running
+'solc ./BondCalculator-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+'solc --version' running
+'solc ./Depository-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+Compilation warnings/errors on ./Depository-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> Depository-flatten.sol:84:5:
+   |
+84 |     error WrongAmount(uint256 provided, uint256 expected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> Depository-flatten.sol:528:1:
+    |
+528 | error WrongAmount(uint256 provided, uint256 expected);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+INFO:Printers:
++ Contract IUniswapV2Pair (Most derived contract)
+  - From IUniswapV2Pair
+    - getReserves() (external)
+    - token0() (external)
+    - token1() (external)
+    - totalSupply() (external)
+
++ Contract IVotingEscrow (Most derived contract)
+  - From IVotingEscrow
+    - getVotes(address) (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - getLastEpochNumNewUnits() (external)
+
++ Contract BondCalculator (Most derived contract)
+  - From BondCalculator
+    - calculateIDF(address,uint256,uint256,uint256,uint256) (public)
+    - calculatePayoutOLAS(address,uint256,uint256,uint256,uint256,uint256,uint256) (external)
+    - changeDiscountParams(DiscountParams) (external)
+    - changeOwner(address) (external)
+    - constructor(address,address,address,DiscountParams) (public)
+    - getCurrentPriceLP(address) (external)
+    - getDiscountParams() (external)
+
+INFO:Printers:
++ Contract IErrorsTokenomics
+
++ Contract IToken (Most derived contract)
+  - From IToken
+    - allowance(address,address) (external)
+    - approve(address,uint256) (external)
+    - balanceOf(address) (external)
+    - ownerOf(uint256) (external)
+    - totalSupply() (external)
+    - transfer(address,uint256) (external)
+    - transferFrom(address,address,uint256) (external)
+
++ Contract ITokenomics (Most derived contract)
+  - From ITokenomics
+    - accountOwnerIncentives(address,uint256[],uint256[]) (external)
+    - checkpoint() (external)
+    - effectiveBond() (external)
+    - getLastIDF() (external)
+    - refundFromBondProgram(uint256) (external)
+    - reserveAmountForBondProgram(uint256) (external)
+    - serviceRegistry() (external)
+    - trackServiceDonations(address,uint256[],uint256[],uint256) (external)
+
++ Contract ITreasury (Most derived contract)
+  - From ITreasury
+    - depositServiceDonationsETH(uint256[],uint256[]) (external)
+    - depositTokenForOLAS(address,uint256,address,uint256) (external)
+    - isEnabled(address) (external)
+    - rebalanceTreasury(uint256) (external)
+    - withdrawToAccount(address,uint256,uint256) (external)
+
++ Contract ERC721
+  - From ERC721
+    - _burn(uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _safeMint(address,uint256) (internal)
+    - _safeMint(address,uint256,bytes) (internal)
+    - approve(address,uint256) (public)
+    - balanceOf(address) (public)
+    - constructor(string,string) (internal)
+    - ownerOf(uint256) (public)
+    - safeTransferFrom(address,address,uint256) (public)
+    - safeTransferFrom(address,address,uint256,bytes) (public)
+    - setApprovalForAll(address,bool) (public)
+    - supportsInterface(bytes4) (public)
+    - tokenURI(uint256) (public)
+    - transferFrom(address,address,uint256) (public)
+
++ Contract ERC721TokenReceiver (Most derived contract)
+  - From ERC721TokenReceiver
+    - onERC721Received(address,address,uint256,bytes) (external)
+
++ Contract IBondCalculator (Most derived contract)
+  - From IBondCalculator
+    - calculatePayoutOLAS(address,uint256,uint256,uint256,uint256,uint256,uint256) (external)
+    - getCurrentPriceLP(address) (external)
+
++ Contract Depository (Most derived contract)
+  - From ERC721
+    - _burn(uint256) (internal)
+    - _mint(address,uint256) (internal)
+    - _safeMint(address,uint256) (internal)
+    - _safeMint(address,uint256,bytes) (internal)
+    - approve(address,uint256) (public)
+    - balanceOf(address) (public)
+    - constructor(string,string) (internal)
+    - ownerOf(uint256) (public)
+    - safeTransferFrom(address,address,uint256) (public)
+    - safeTransferFrom(address,address,uint256,bytes) (public)
+    - setApprovalForAll(address,bool) (public)
+    - supportsInterface(bytes4) (public)
+    - transferFrom(address,address,uint256) (public)
+  - From Depository
+    - changeBondCalculator(address) (external)
+    - changeManagers(address,address) (external)
+    - changeOwner(address) (external)
+    - close(uint256[]) (external)
+    - constructor(string,string,string,address,address,address,address) (public)
+    - create(address,uint256,uint256,uint256) (external)
+    - deposit(uint256,uint256,uint256) (external)
+    - getBondStatus(uint256) (external)
+    - getBonds(address,bool) (external)
+    - getCurrentPriceLP(address) (external)
+    - getProducts(bool) (external)
+    - isActiveProduct(uint256) (external)
+    - redeem(uint256[]) (external)
+    - tokenByIndex(uint256) (external)
+    - tokenURI(uint256) (public)
+
+INFO:Slither:. analyzed (12 contracts)
