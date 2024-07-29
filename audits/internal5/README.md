@@ -36,6 +36,8 @@ All automatic warnings are listed in the following file, concerns of which we ad
     // Minimum amount of supply such that any value below is given to the bonding account in order to close the product
     uint256 public minOLASLeftoverAmount;
 ```
+[x] fixed
+
 2. Reentrancy after ERC721 "safe" mint in deposit
 ```
 	External calls:
@@ -44,10 +46,14 @@ All automatic warnings are listed in the following file, concerns of which we ad
 	After adding _safeMint(msg.sender, bondId), it became clearly susceptible reentrancy attack.
     We need to add explicit protection against reentrancy.
 ```
-#### Genaral notes: more tests need to be done, needed re-audit later
+[x] fixed
+
+#### General notes: more tests need to be done, needed re-audit later
 ```
 trackServiceDonations requires a large number of tests and coverage of all scenarios.
 ```
+[x] noted
+
 #### Notes for discussion: epsilonRate
 ```
 in this implementation epsilonRate is deprecated and simply not used. perhaps it makes sense (?) to use this dimensionless coefficient as a limiter.
