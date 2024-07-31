@@ -64,4 +64,5 @@ idf = 1e18 + discountBooster;
 maybe idf = min(1e18 + discountBooster, 1e18 + epsilonRate)
 Moreover, according to calculations discountBooster <= 1e18 << max(epsilonRate)
 ```
+[x] IDF is never bigger than 2e18 by design
 
