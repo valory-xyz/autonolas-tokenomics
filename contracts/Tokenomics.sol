@@ -381,7 +381,7 @@ contract Tokenomics is TokenomicsConstants {
     // Mapping of epoch => service staking point
     mapping(uint256 => StakingPoint) public mapEpochStakingPoints;
     // Mapping of hash(epoch + donator address) => true the voting power has been utilized in the on-going epoch
-    mapping(bytes32 => bool) public mapEpochDonatorPowerHashes;
+    mapping(bytes32 => bool) public mapEpochDonationPowerHashes;
     // Mapping of epoch => donation point
     mapping(uint256 => DonationPoint) mapDonationPoints;
 
@@ -864,20 +864,20 @@ contract Tokenomics is TokenomicsConstants {
         // The pendingRelativeTopUp can be zero if the service owner did not stake enough veOLAS
         // The topUpUnitFraction was checked before and if it were zero, pendingRelativeTopUp would be zero as well
         if (totalIncentives > 0) {
-            uint256 sumTopUpUnitFractions = mapDonationPoints[epochNum].sumTopUpUnitFractions;
+            DonationPoint memory donationPoint = mapDonationPoints[epochNum];
+            //uint256 sumTopUpUnitFractions = mapDonationPoints[epochNum].sumTopUpUnitFractions;
             //totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
             // Summation of all the unit top-ups and total amount of top-ups per epoch
             // TODO: update the formula
             // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
-            uint256 totalTopUpsOLAS = mapDonationPoints[epochNum].totalUnitTopUps;
-            uint256 totalDonationPower = mapDonationPoints[epochNum].totalDonationPower;
             totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
-            if (totalDonationPower > totalTopUpsOLAS) {
-                totalIncentives *= totalTopUpsOLAS;
+            if (donationPoint.totalDonationPower > donationPoint.totalUnitTopUps) {
                 totalIncentives = mapUnitIncentives[unitType][unitId].topUp +
-                    (totalIncentives / (totalDonationPower * sumTopUpUnitFractions));
+                    (totalIncentives * donationPoint.totalUnitTopUps) /
+                    (donationPoint.totalDonationPower * donationPoint.sumTopUpUnitFractions);
             } else {
-                totalIncentives = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumTopUpUnitFractions;
+                totalIncentives = mapUnitIncentives[unitType][unitId].topUp +
+                    totalIncentives / donationPoint.sumTopUpUnitFractions;
             }
             mapUnitIncentives[unitType][unitId].topUp = uint96(totalIncentives);
             // Setting pending top-up to zero
@@ -918,7 +918,7 @@ contract Tokenomics is TokenomicsConstants {
             vPower = IVotingEscrow(ve).getVotes(donator);
             bytes32 donatorPowerHash = keccak256(abi.encode(epochCounter, donator));
             // Check the donator voting power
-            if (vPower < veOLASThreshold || mapEpochDonatorPowerHashes[donatorPowerHash]) {
+            if (vPower < veOLASThreshold || mapEpochDonationPowerHashes[donatorPowerHash]) {
                 // If voting power is below the threshold or has been already utilized during the on-going epoch,
                 // top-ups are not eligible
                 vPower = 0;
@@ -928,7 +928,7 @@ contract Tokenomics is TokenomicsConstants {
                 // Otherwise, split them to the corresponding number of services
                 vPower /= numServices;
                 // Add donator voting power to the map
-                mapEpochDonatorPowerHashes[donatorPowerHash] = true;
+                mapEpochDonationPowerHashes[donatorPowerHash] = true;
             }
         }
 
@@ -1415,18 +1415,19 @@ contract Tokenomics is TokenomicsConstants {
                 // Add the final top-up for the last epoch
                 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp;
                 if (totalIncentives > 0) {
+                    DonationPoint memory donationPoint = mapDonationPoints[lastEpoch];
                     // Summation of all the unit top-ups and total amount of top-ups per epoch
                     // TODO: update the formula
                     // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
                     // Accumulate to the final top-up for the last epoch
-                    uint256 totalTopUpsOLAS = mapDonationPoints[lastEpoch].totalUnitTopUps;
-                    uint256 totalDonationPower = mapDonationPoints[lastEpoch].totalDonationPower;
+                    //uint256 totalTopUpsOLAS = mapDonationPoints[lastEpoch].totalUnitTopUps;
+                    //uint256 totalDonationPower = mapDonationPoints[lastEpoch].totalDonationPower;
                     totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
-                    if (totalDonationPower > totalTopUpsOLAS) {
-                        totalIncentives *= totalTopUpsOLAS;
-                        topUp += (totalIncentives / (totalDonationPower * mapDonationPoints[lastEpoch].sumTopUpUnitFractions));
+                    if (donationPoint.totalDonationPower > donationPoint.totalUnitTopUps) {
+                        topUp += (totalIncentives * donationPoint.totalUnitTopUps) /
+                            (donationPoint.totalDonationPower * donationPoint.sumTopUpUnitFractions);
                     } else {
-                        topUp += totalIncentives / mapDonationPoints[lastEpoch].sumTopUpUnitFractions;
+                        topUp += totalIncentives / donationPoint.sumTopUpUnitFractions;
                     }
                 }
             }
