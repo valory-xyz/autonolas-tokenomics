@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
 import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
-import "hardhat/console.sol";
 
 // IOLAS interface
 interface IOLAS {
@@ -252,8 +251,7 @@ struct StakingPoint {
 struct DonationPoint {
     uint96 totalUnitTopUps;
     uint96 totalDonationPower;
-    bool moreDonationPower;
-    uint8 unitSumFraction;
+    uint8 sumTopUpUnitFractions;
 }
 
 /// @title Tokenomics - Smart contract for tokenomics logic with incentives for unit owners, discount factor
@@ -866,26 +864,20 @@ contract Tokenomics is TokenomicsConstants {
         // The pendingRelativeTopUp can be zero if the service owner did not stake enough veOLAS
         // The topUpUnitFraction was checked before and if it were zero, pendingRelativeTopUp would be zero as well
         if (totalIncentives > 0) {
-            uint256 fractionNormalizer = mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction +
-                mapEpochTokenomics[epochNum].unitPoints[(unitType + 1) % 2].topUpUnitFraction;
+            uint256 sumTopUpUnitFractions = mapDonationPoints[epochNum].sumTopUpUnitFractions;
             //totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
             // Summation of all the unit top-ups and total amount of top-ups per epoch
             // TODO: update the formula
             // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
-            console.log("totalIncentives", totalIncentives);
-            if (mapDonationPoints[epochNum].moreDonationPower) {
-                // TODO: calculate top-ups for components and agents before this function call, before the loop if possible
-                uint256 totalTopUpsOLAS = mapDonationPoints[epochNum].totalUnitTopUps;
-                // TODO: pass this as a function parameter in order to optimize on gas
-                uint256 totalDonationPower = mapDonationPoints[epochNum].totalDonationPower;
-                console.log("totalTopUpsOLAS", totalTopUpsOLAS);
-                console.log("totalDonationPower", totalDonationPower);
-                totalIncentives *= totalTopUpsOLAS * mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
-                totalIncentives = mapUnitIncentives[unitType][unitId].topUp + (totalIncentives / (totalDonationPower * fractionNormalizer));
+            uint256 totalTopUpsOLAS = mapDonationPoints[epochNum].totalUnitTopUps;
+            uint256 totalDonationPower = mapDonationPoints[epochNum].totalDonationPower;
+            totalIncentives *= mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction;
+            if (totalDonationPower > totalTopUpsOLAS) {
+                totalIncentives *= totalTopUpsOLAS;
+                totalIncentives = mapUnitIncentives[unitType][unitId].topUp +
+                    (totalIncentives / (totalDonationPower * sumTopUpUnitFractions));
             } else {
-                totalIncentives = mapUnitIncentives[unitType][unitId].topUp + (totalIncentives * mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction) / fractionNormalizer;
-                //console.log("fraction", mapEpochTokenomics[epochNum].unitPoints[unitType].topUpUnitFraction);
-                console.log("topUp", totalIncentives);
+                totalIncentives = mapUnitIncentives[unitType][unitId].topUp + totalIncentives / sumTopUpUnitFractions;
             }
             mapUnitIncentives[unitType][unitId].topUp = uint96(totalIncentives);
             // Setting pending top-up to zero
@@ -924,7 +916,6 @@ contract Tokenomics is TokenomicsConstants {
         uint256 vPower;
         if (incentiveFlags[2] || incentiveFlags[3]) {
             vPower = IVotingEscrow(ve).getVotes(donator);
-            console.log("vPower original:", vPower);
             bytes32 donatorPowerHash = keccak256(abi.encode(epochCounter, donator));
             // Check the donator voting power
             if (vPower < veOLASThreshold || mapEpochDonatorPowerHashes[donatorPowerHash]) {
@@ -940,8 +931,6 @@ contract Tokenomics is TokenomicsConstants {
                 mapEpochDonatorPowerHashes[donatorPowerHash] = true;
             }
         }
-
-        console.log("vPower:", vPower);
 
         // Loop over service Ids to calculate their partial contributions
         for (uint256 i = 0; i < numServices; ++i) {
@@ -988,7 +977,6 @@ contract Tokenomics is TokenomicsConstants {
                         // to the overall voting power for top-ups calculation correction
                         if (vPowerUnit > 0 && incentiveFlags[unitType + 2]) {
                             mapUnitIncentives[unitType][serviceUnitIds[j]].pendingRelativeTopUp += vPowerUnit;
-                            console.log("vPowerUnit:", vPowerUnit);
                         }
                     }
                 }
@@ -1220,11 +1208,11 @@ contract Tokenomics is TokenomicsConstants {
         // we still record the amount of OLAS allocated for component / agent owner top-ups from the inflation schedule.
         // This amount will appear in the EpochSettled event, and thus can be tracked historically
         uint256 accountTopUps = incentives[5] + incentives[6];
-        // Record donation power state in a settled epoch
-        if (mapDonationPoints[eCounter].totalDonationPower > accountTopUps) {
-            mapDonationPoints[eCounter].moreDonationPower = true;
-        }
+        
+        // Record total unit top-ups and fractions in a settled epoch
         mapDonationPoints[eCounter].totalUnitTopUps = uint96(accountTopUps);
+        mapDonationPoints[eCounter].sumTopUpUnitFractions = tp.unitPoints[0].topUpUnitFraction +
+            tp.unitPoints[1].topUpUnitFraction;
 
         // Service staking funding
         // Refunded amount during the epoch
@@ -1358,7 +1346,6 @@ contract Tokenomics is TokenomicsConstants {
             topUp += mapUnitIncentives[unitTypes[i]][unitIds[i]].topUp;
             mapUnitIncentives[unitTypes[i]][unitIds[i]].topUp = 0;
         }
-        console.log("account topUp:", topUp);
     }
 
     /// @dev Gets the component / agent owner incentives.
@@ -1428,21 +1415,18 @@ contract Tokenomics is TokenomicsConstants {
                 // Add the final top-up for the last epoch
                 totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].pendingRelativeTopUp;
                 if (totalIncentives > 0) {
-                    uint256 fractionNormalizer = mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction +
-                        mapEpochTokenomics[lastEpoch].unitPoints[(unitTypes[i] + 1) % 2].topUpUnitFraction;
                     // Summation of all the unit top-ups and total amount of top-ups per epoch
                     // TODO: update the formula
                     // topUp = (pendingRelativeTopUp * totalTopUpsOLAS * topUpUnitFraction) / (100 * sumUnitTopUpsOLAS)
                     // Accumulate to the final top-up for the last epoch
-                    if (mapDonationPoints[lastEpoch].moreDonationPower) {
-                        // TODO: calculate top-ups for components and agents before this function call, before the loop if possible
-                        uint256 totalTopUpsOLAS = mapEpochTokenomics[lastEpoch].epochPoint.totalTopUpsOLAS;
-                        // TODO: pass this as a function parameter in order to optimize on gas
-                        //uint256 totalDonationPower = mapDonationPoints[lastEpoch].totalDonationPower;
-                        totalIncentives *= totalTopUpsOLAS * mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
-                        totalIncentives = mapUnitIncentives[unitTypes[i]][unitIds[i]].topUp + (totalIncentives / (mapDonationPoints[lastEpoch].totalDonationPower * fractionNormalizer * 100));
+                    uint256 totalTopUpsOLAS = mapDonationPoints[lastEpoch].totalUnitTopUps;
+                    uint256 totalDonationPower = mapDonationPoints[lastEpoch].totalDonationPower;
+                    totalIncentives *= mapEpochTokenomics[lastEpoch].unitPoints[unitTypes[i]].topUpUnitFraction;
+                    if (totalDonationPower > totalTopUpsOLAS) {
+                        totalIncentives *= totalTopUpsOLAS;
+                        topUp += (totalIncentives / (totalDonationPower * mapDonationPoints[lastEpoch].sumTopUpUnitFractions));
                     } else {
-                        topUp += totalIncentives / fractionNormalizer;
+                        topUp += totalIncentives / mapDonationPoints[lastEpoch].sumTopUpUnitFractions;
                     }
                 }
             }
