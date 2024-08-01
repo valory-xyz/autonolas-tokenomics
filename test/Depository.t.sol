@@ -6,8 +6,9 @@ import {ZuniswapV2Factory} from "zuniswapv2/ZuniswapV2Factory.sol";
 import {ZuniswapV2Router} from "zuniswapv2/ZuniswapV2Router.sol";
 import {ZuniswapV2Pair} from "zuniswapv2/ZuniswapV2Pair.sol";
 import {Depository} from "../contracts/Depository.sol";
-import {GenericBondCalculator} from "../contracts/GenericBondCalculator.sol";
+import {BondCalculator, DiscountParams} from "../contracts/BondCalculator.sol";
 import {MockTokenomics} from "../contracts/test/MockTokenomics.sol";
+import {MockVE} from "../contracts/test/MockVE.sol";
 import {Treasury} from "../contracts/Treasury.sol";
 import {MockERC20} from "../lib/zuniswapv2/lib/solmate/src/test/utils/mocks/MockERC20.sol";
 
@@ -20,7 +21,8 @@ contract BaseSetup is Test {
     MockTokenomics internal tokenomics;
     Treasury internal treasury;
     Depository internal depository;
-    GenericBondCalculator internal genericBondCalculator;
+    BondCalculator internal bondCalculator;
+    MockVE internal ve;
 
     address payable[] internal users;
     address internal deployer;
@@ -56,11 +58,16 @@ contract BaseSetup is Test {
         tokenomics = new MockTokenomics();
         // Correct depository address is missing here, it will be defined just one line below
         treasury = new Treasury(address(olas), address(tokenomics), deployer, deployer);
+        // veOLAS
+        ve = new MockVE();
         // Deploy generic bond calculator contract
-        genericBondCalculator = new GenericBondCalculator(address(olas), address(tokenomics));
+        DiscountParams memory discountParams;
+        discountParams.targetVotingPower = 10 ether;
+        discountParams.targetNewUnits = 10;
+        bondCalculator = new BondCalculator(address(olas), address(tokenomics), address(ve), discountParams);
         // Deploy depository contract
         depository = new Depository("Depository", "OLAS_BOND", "baseURI", address(olas), address(tokenomics),
-            address(treasury), address(genericBondCalculator));
+            address(treasury), address(bondCalculator));
         // Change depository contract addresses to the correct ones
         treasury.changeManagers(address(0), address(depository), address(0));
 
