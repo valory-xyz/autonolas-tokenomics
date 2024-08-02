@@ -388,7 +388,7 @@ contract Tokenomics is TokenomicsConstants {
     // Mapping of hash(epoch + donator address) => true the voting power has been utilized in the on-going epoch
     mapping(bytes32 => bool) public mapEpochDonationPowerHashes;
     // Mapping of epoch => donation point
-    mapping(uint256 => DonationPoint) mapDonationPoints;
+    mapping(uint256 => DonationPoint) public mapDonationPoints;
 
     /// @dev Tokenomics constructor.
     constructor()

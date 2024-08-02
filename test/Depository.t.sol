@@ -60,7 +60,7 @@ contract BaseSetup is Test {
         treasury = new Treasury(address(olas), address(tokenomics), deployer, deployer);
         // veOLAS
         ve = new MockVE();
-        // Deploy generic bond calculator contract
+        // Deploy bond calculator contract
         DiscountParams memory discountParams;
         discountParams.targetVotingPower = 10 ether;
         discountParams.targetNewUnits = 10;
