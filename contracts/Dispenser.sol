@@ -267,13 +267,18 @@ contract Dispenser {
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
     event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
-    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp);
-    event StakingIncentivesClaimed(address indexed account, uint256 stakingIncentive, uint256 transferAmount,
-        uint256 returnAmount);
+    event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp, uint256[] unitTypes, uint256[] unitIds);
+    event StakingIncentivesClaimed(address indexed account, uint256 chainId, bytes32 stakingTarget,
+        uint256 stakingIncentive, uint256 transferAmount, uint256 returnAmount);
+    event StakingIncentivesBatchClaimed(address indexed account, uint256[] chainIds, bytes32[][] stakingTargets,
+        uint256[][] stakingIncentives, uint256 totalStakingIncentive, uint256 totalTransferAmount,
+        uint256 totalReturnAmount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
     event PauseDispenser(Pause pauseState);
+    event AddNomineeHash(bytes32 indexed nomineeHash);
+    event RemoveNomineeHash(bytes32 indexed nomineeHash);
 
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
@@ -397,11 +402,11 @@ contract Dispenser {
             revert Overflow(firstClaimedEpoch, eCounter - 1);
         }
 
-        // Get epoch when the nominee was removed
+        // Get epoch number when the nominee was removed
         uint256 epochRemoved = mapRemovedNomineeEpochs[nomineeHash];
-        // If the nominee is not removed, its value in the map is always zero, unless removed
+        // If the nominee is not removed, its value in the map is always zero
         // The staking contract nominee cannot be removed in the zero-th epoch by default
-        if (epochRemoved > 1 && firstClaimedEpoch >= epochRemoved) {
+        if (epochRemoved > 0 && firstClaimedEpoch >= epochRemoved) {
             revert Overflow(firstClaimedEpoch, epochRemoved - 1);
         }
 
@@ -410,7 +415,7 @@ contract Dispenser {
 
         // Limit last claimed epoch by the number following the nominee removal epoch
         // The condition for is lastClaimedEpoch strictly > because the lastClaimedEpoch is not included in claiming
-        if (epochRemoved > 1 && lastClaimedEpoch > epochRemoved) {
+        if (epochRemoved > 0 && lastClaimedEpoch > epochRemoved) {
             lastClaimedEpoch = epochRemoved;
         }
 
@@ -485,6 +490,11 @@ contract Dispenser {
                     positions[j] = true;
                     ++numActualTargets;
                 }
+            }
+
+            // Skip if there are no actual staking targets
+            if (numActualTargets == 0) {
+                continue;
             }
 
             // Allocate updated arrays accounting only for nonzero staking incentives
@@ -769,9 +779,17 @@ contract Dispenser {
         }
 
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+
+        emit AddNomineeHash(nomineeHash);
     }
 
     /// @dev Records nominee removal epoch number.
+    /// @notice The staking contract nominee cannot be removed starting from one week before the end of epoch.
+    ///         Since the epoch end time is unknown and the nominee removal is applied in the following week,
+    ///         it is prohibited to remove nominee one week before the foreseen epoch end to correctly reflect
+    ///         the removal epoch number.
+    ///         If the staking contract nominee must not get incentives in the ongoing ending epoch as well,
+    ///         the DAO is advised to use the removeInstance() function in the corresponding StakingFactory contract.
     /// @param nomineeHash Nominee hash.
     function removeNominee(bytes32 nomineeHash) external {
         // Check for the contract ownership
@@ -803,6 +821,8 @@ contract Dispenser {
 
         // Set the removed nominee epoch number
         mapRemovedNomineeEpochs[nomineeHash] = eCounter;
+
+        emit RemoveNomineeHash(nomineeHash);
     }
 
     /// @dev Claims incentives for the owner of components / agents.
@@ -857,7 +877,7 @@ contract Dispenser {
             revert ClaimIncentivesFailed(msg.sender, reward, topUp);
         }
 
-        emit IncentivesClaimed(msg.sender, reward, topUp);
+        emit IncentivesClaimed(msg.sender, reward, topUp, unitTypes, unitIds);
 
         _locked = 1;
     }
@@ -1097,7 +1117,7 @@ contract Dispenser {
             _distributeStakingIncentives(chainId, stakingTarget, stakingIncentive, bridgePayload, transferAmount);
         }
 
-        emit StakingIncentivesClaimed(msg.sender, stakingIncentive, transferAmount, returnAmount);
+        emit StakingIncentivesClaimed(msg.sender, chainId, stakingTarget, stakingIncentive, transferAmount, returnAmount);
 
         _locked = 1;
     }
@@ -1176,7 +1196,8 @@ contract Dispenser {
                 valueAmounts);
         }
 
-        emit StakingIncentivesClaimed(msg.sender, totalAmounts[0], totalAmounts[1], totalAmounts[2]);
+        emit StakingIncentivesBatchClaimed(msg.sender, chainIds, stakingTargets, stakingIncentives, totalAmounts[0],
+            totalAmounts[1], totalAmounts[2]);
 
         _locked = 1;
     }
