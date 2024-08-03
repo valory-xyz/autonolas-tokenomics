@@ -26,24 +26,34 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
+    const olasAddress = parsedData.olasAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const treasuryAddress = parsedData.treasuryAddress;
+    const voteWeightingAddress = parsedData.voteWeightingAddress;
+    const retainerAddress = parsedData.retainerAddress;
+    const maxNumClaimingEpochs = parsedData.maxNumClaimingEpochs;
+    const maxNumStakingTargets = parsedData.maxNumStakingTargets;
+    const minStakingWeight = parsedData.minStakingWeight;
+    const maxStakingIncentive = parsedData.maxStakingIncentive;
 
     // Transaction signing and execution
     console.log("7. EOA to deploy Dispenser");
     const Dispenser = await ethers.getContractFactory("Dispenser");
     console.log("You are signing the following transaction: Dispenser.connect(EOA).deploy()");
-    const dispenser = await Dispenser.connect(EOA).deploy(tokenomicsProxyAddress, treasuryAddress);
+    const dispenser = await Dispenser.connect(EOA).deploy(olasAddress, tokenomicsProxyAddress, treasuryAddress,
+        voteWeightingAddress, retainerAddress, maxNumClaimingEpochs, maxNumStakingTargets, minStakingWeight,
+        maxStakingIncentive);
     const result = await dispenser.deployed();
-    // If on goerli, wait a minute for the transaction completion
-    if (providerName === "goerli") {
-        await new Promise(r => setTimeout(r, 60000));
-    }
 
     // Transaction details
     console.log("Contract deployment: Dispenser");
     console.log("Contract address:", dispenser.address);
     console.log("Transaction:", result.deployTransaction.hash);
+
+    // If on sepolia, wait half a minute for the transaction completion
+    if (providerName === "sepolia") {
+        await new Promise(r => setTimeout(r, 30000));
+    }
 
     // Contract verification
     if (parsedData.contractVerification) {

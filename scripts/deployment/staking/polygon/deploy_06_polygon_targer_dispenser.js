@@ -48,7 +48,7 @@ async function main() {
     const polygonTargetDispenserL2 = await PolygonTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.serviceStakingFactoryAddress, parsedData.polygonFXChildAddress,
         parsedData.polygonDepositProcessorL1Address, parsedData.l1ChainId, { gasPrice });
-    const result = await polygonTargetDispenserL2.deployed();
+    let result = await polygonTargetDispenserL2.deployed();
 
     // Transaction details
     console.log("Contract deployment: PolygonTargetDispenserL2");
@@ -61,6 +61,10 @@ async function main() {
     // Writing updated parameters back to the JSON file
     parsedData.polygonTargetDispenserL2Address = polygonTargetDispenserL2.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
+
+    console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).setFxRootTunnel()");
+    result = await polygonTargetDispenserL2.setFxRootTunnel(parsedData.polygonDepositProcessorL1Address);
+    console.log("Transaction:", result.hash);
 
     // Contract verification
     if (parsedData.contractVerification) {
