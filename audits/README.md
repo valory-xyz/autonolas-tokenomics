@@ -10,7 +10,9 @@ An internal audit with a focus on depository implementation v.1.0.1 is located i
 
 An internal audit with a focus on PoAA Staking is located in this folder: [internal audit 4](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4).
 
-An internal audit with a focus on AIP-1 (bonding) is located in this folder: [internal audit 5](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal5).
+An internal audit with a focus on PoAA Staking fixing after C4A is located in this folder: [internal audit 5](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal5).
+
+An internal audit with a focus on AIP-1 (bonding) is located in this folder: [internal audit 6](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal6).
 
 ### External audit
 Audit reports: [v1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf) and [v2](https://sourcehat.com/audits/AutonolasTokenomics/).

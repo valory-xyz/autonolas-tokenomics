@@ -128,6 +128,8 @@ contract Depository is ERC721, IErrorsTokenomics {
     address public treasury;
     // Bond Calculator contract address
     address public bondCalculator;
+    // Reentrancy lock
+    uint8 internal _locked;
 
     // Mapping of bond Id => account bond instance
     mapping(uint256 => Bond) public mapUserBonds;
@@ -223,6 +225,17 @@ contract Depository is ERC721, IErrorsTokenomics {
             bondCalculator = _bondCalculator;
             emit BondCalculatorUpdated(_bondCalculator);
         }
+    }
+
+    /// @dev Sets minimum OLAS leftover amount for the product to keep the supply.
+    /// @param _minOLASLeftoverAmount Updated minimum OLAS leftover amount.
+    function setMinOLASLeftoverAmount(uint256 _minOLASLeftoverAmount) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        minOLASLeftoverAmount = _minOLASLeftoverAmount;
     }
 
     /// @dev Creates a new bond product.
@@ -344,6 +357,12 @@ contract Depository is ERC721, IErrorsTokenomics {
     function deposit(uint256 productId, uint256 tokenAmount, uint256 bondVestingTime) external
         returns (uint256 payout, uint256 maturity, uint256 bondId)
     {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
         // Check the token amount
         if (tokenAmount == 0) {
             revert ZeroValue();
@@ -423,6 +442,8 @@ contract Depository is ERC721, IErrorsTokenomics {
         }
 
         emit CreateBond(token, productId, msg.sender, bondId, payout, tokenAmount, maturity);
+
+        _locked = 1;
     }
 
     /// @dev Redeems account bonds.

@@ -264,6 +264,10 @@ describe("Depository LP 2 Bond Calculator", async () => {
             defaultDiscountParams.weightFactors[3] = 1000;
             // Now able to change discount params
             await bondCalculator.changeDiscountParams(defaultDiscountParams);
+
+
+            const checkDiscountParams = await bondCalculator.getDiscountParams();
+            expect(checkDiscountParams.weightFactors[3]).to.equal(defaultDiscountParams.weightFactors[3]);
         });
     });
 

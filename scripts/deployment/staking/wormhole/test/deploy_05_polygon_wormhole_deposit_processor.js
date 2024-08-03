@@ -11,7 +11,6 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    const gasPriceInGwei = parsedData.gasPriceInGwei;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -41,35 +40,31 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("3. EOA to deploy PolygonTargetDispenserL2");
-    const PolygonTargetDispenserL2 = await ethers.getContractFactory("PolygonTargetDispenserL2");
-    console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).deploy()");
-    const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
-    const polygonTargetDispenserL2 = await PolygonTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.polygonFXChildAddress,
-        parsedData.polygonDepositProcessorL1Address, parsedData.l1ChainId, { gasPrice });
-    let result = await polygonTargetDispenserL2.deployed();
+    console.log("5. EOA to deploy WormholeDepositProcessorL1");
+    const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
+    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).deploy()");
+    const wormholeDepositProcessorL1 = await WormholeDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.dispenserAddress, parsedData.wormholeL1TokenRelayerAddress,
+        parsedData.wormholeL1MessageRelayerAddress, parsedData.celoL2TargetChainId,
+        parsedData.wormholeL1CoreAddress, parsedData.celoWormholeL2TargetChainId);
+    const result = await wormholeDepositProcessorL1.deployed();
 
     // Transaction details
-    console.log("Contract deployment: PolygonTargetDispenserL2");
-    console.log("Contract address:", polygonTargetDispenserL2.address);
+    console.log("Contract deployment: WormholeDepositProcessorL1");
+    console.log("Contract address:", wormholeDepositProcessorL1.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
     // Wait for half a minute for the transaction completion
     await new Promise(r => setTimeout(r, 30000));
 
     // Writing updated parameters back to the JSON file
-    parsedData.polygonTargetDispenserL2Address = polygonTargetDispenserL2.address;
+    parsedData.celoWormholeDepositProcessorL1Address = wormholeDepositProcessorL1.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
-
-    console.log("You are signing the following transaction: PolygonTargetDispenserL2.connect(EOA).setFxRootTunnel()");
-    result = await polygonTargetDispenserL2.setFxRootTunnel(parsedData.polygonDepositProcessorL1Address);
-    console.log("Transaction:", result.hash);
 
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/polygon/verify_06_polygon_target_dispenser.js --network " + providerName + " " + polygonTargetDispenserL2.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/test/verify_05_polygon_wormhole_deposit_processor.js --network " + providerName + " " + wormholeDepositProcessorL1.address, { encoding: "utf-8" });
     }
 }
 
