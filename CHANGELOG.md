@@ -4,10 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+[1.2.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.3...v1.2.2
 [1.0.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/valory-xyz/autonolas-tokenomics/releases/tag/v1.0.0
+
+## [1.2.2] - 2024-07-29
+
+### Changed
+
+- Introducing Service Staking according to [PoAA Whitepaper](https://staking.olas.network/poaa-whitepaper.pdf)
+- Refactored  and re-deployed `Tokenomics.sol` and `Dispenser.sol` to address service staking inflation and claiming capability ([#156](https://github.com/valory-xyz/autonolas-registries/pull/156)), with the subsequent internal audit ([#168](https://github.com/valory-xyz/autonolas-registries/pull/168))
+- Created and deployed `ArbitrumDepositProcessorL1.sol`, `ArbitrumTargetDispenserL2.sol`, `DefaultDepositProcessorL1.sol`, `DefaultTargetDispenserL2.sol`, `EthereumDepositProcessor.sol`, `GnosisDepositProcessorL1.sol` , `GnosisTargetDispenserL2.sol`, `OptimismDepositProcessorL1.sol`, `OptimismTargetDispenserL2.sol`, `PolygonDepositProcessorL1.sol`, `PolygonTargetDispenserL2.sol`, `WormholeDepositProcessorL1.sol`, and `WormholeTargetDispenserL2.sol` contracts
+- Participated in a complete [C4R audit competition](https://github.com/code-423n4/2024-05-olas-findings) and addressed findings
 
 ## [1.0.3] - 2023-10-05
 

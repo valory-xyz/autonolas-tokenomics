@@ -1,0 +1,81 @@
+'solc --version' running
+'solc ./BondCalculator-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+'solc --version' running
+'solc ./Depository-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+Compilation warnings/errors on ./Depository-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> Depository-flatten.sol:84:5:
+   |
+84 |     error WrongAmount(uint256 provided, uint256 expected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> Depository-flatten.sol:528:1:
+    |
+528 | error WrongAmount(uint256 provided, uint256 expected);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IUniswapV2Pair
+
++ IVotingEscrow
+
++ ITokenomics
+
++ BondCalculator
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IUniswapV2Pair
+
++ IVotingEscrow
+
++ ITokenomics
+
++ BondCalculator
+
+INFO:Printers:Inheritance
+Child_Contract -> Immediate_Base_Contracts [Not_Immediate_Base_Contracts]
++ IErrorsTokenomics
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ ERC721
+
++ ERC721TokenReceiver
+
++ IBondCalculator
+
++ Depository
+ -> ERC721, IErrorsTokenomics
+
+
+Base_Contract -> Immediate_Child_Contracts
+ [Not_Immediate_Child_Contracts]
+
++ IErrorsTokenomics
+ -> Depository
+
++ IToken
+
++ ITokenomics
+
++ ITreasury
+
++ ERC721
+ -> Depository
+
++ ERC721TokenReceiver
+
++ IBondCalculator
+
++ Depository
+
+INFO:Slither:. analyzed (12 contracts)

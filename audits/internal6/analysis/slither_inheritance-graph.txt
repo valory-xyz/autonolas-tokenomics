@@ -1,0 +1,22 @@
+'solc --version' running
+'solc ./BondCalculator-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+'solc --version' running
+'solc ./Depository-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+Compilation warnings/errors on ./Depository-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> Depository-flatten.sol:84:5:
+   |
+84 |     error WrongAmount(uint256 provided, uint256 expected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> Depository-flatten.sol:528:1:
+    |
+528 | error WrongAmount(uint256 provided, uint256 expected);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+INFO:Printers:Inheritance Graph: ./BondCalculator-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./Depository-flatten.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (12 contracts)

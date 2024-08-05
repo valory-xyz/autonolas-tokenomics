@@ -18,7 +18,7 @@ describe("Depository LP 2 Generic Bond Calculator", async () => {
     let olasFactory;
     let depositoryFactory;
     let tokenomicsFactory;
-    let genericBondCalculator;
+    let bondCalculator;
     let router;
     let factory;
 
@@ -29,6 +29,7 @@ describe("Depository LP 2 Generic Bond Calculator", async () => {
     let treasury;
     let treasuryFactory;
     let tokenomics;
+    let ve;
     let epochLen = 86400 * 10;
     let defaultPriceLP = "2" + decimals;
 
@@ -40,9 +41,15 @@ describe("Depository LP 2 Generic Bond Calculator", async () => {
 
     let vesting = oneWeek;
 
-    var productId = 0;
+    let productId = 0;
     let first;
     let id;
+
+    const discountParams = {
+        targetVotingPower: ethers.utils.parseEther("10"),
+        targetNewUnits: 10,
+        weightFactors: new Array(4).fill(0)
+    };
 
     let attackDepositFactory;
     let attackDeposit;
@@ -64,22 +71,28 @@ describe("Depository LP 2 Generic Bond Calculator", async () => {
 
         dai = await erc20Token.deploy();
         olas = await olasFactory.deploy();
+
+        // Voting Escrow mock
+        const VE = await ethers.getContractFactory("MockVE");
+        ve = await VE.deploy();
+        await ve.deployed();
+
         // Correct treasury address is missing here, it will be defined just one line below
         tokenomics = await tokenomicsFactory.deploy();
         await tokenomics.initializeTokenomics(olas.address, deployer.address, deployer.address, deployer.address,
-            deployer.address, epochLen, deployer.address, deployer.address, deployer.address, AddressZero);
+            ve.address, epochLen, deployer.address, deployer.address, deployer.address, AddressZero);
         // Correct depository address is missing here, it will be defined just one line below
         treasury = await treasuryFactory.deploy(olas.address, tokenomics.address, deployer.address, deployer.address);
         // Change bond fraction to 100% in these tests
         await tokenomics.changeIncentiveFractions(66, 34, 100, 0, 0, 0);
 
         // Deploy generic bond calculator contract
-        const GenericBondCalculator = await ethers.getContractFactory("GenericBondCalculator");
-        genericBondCalculator = await GenericBondCalculator.deploy(olas.address, tokenomics.address);
-        await genericBondCalculator.deployed();
+        const BondCalculator = await ethers.getContractFactory("BondCalculator");
+        bondCalculator = await BondCalculator.deploy(olas.address, tokenomics.address, ve.address, discountParams);
+        await bondCalculator.deployed();
         // Deploy depository contract
         depository = await depositoryFactory.deploy("Depository", "OLAS_BOND", baseURI, olas.address,
-            tokenomics.address, treasury.address, genericBondCalculator.address);
+            tokenomics.address, treasury.address, bondCalculator.address);
         // Deploy Attack example
         attackDeposit = await attackDepositFactory.deploy();
 
@@ -220,7 +233,7 @@ describe("Depository LP 2 Generic Bond Calculator", async () => {
 
             // Trying to change bond calculator to a zero address that results in no change
             await depository.connect(deployer).changeBondCalculator(AddressZero);
-            expect(await depository.bondCalculator()).to.equal(genericBondCalculator.address);
+            expect(await depository.bondCalculator()).to.equal(bondCalculator.address);
 
             // Change bond calculator address
             await depository.connect(deployer).changeBondCalculator(account.address);

@@ -1,0 +1,107 @@
+'solc --version' running
+'solc ./BondCalculator-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+'solc --version' running
+'solc ./Depository-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal5/analysis/contracts' running
+Compilation warnings/errors on ./Depository-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> Depository-flatten.sol:84:5:
+   |
+84 |     error WrongAmount(uint256 provided, uint256 expected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> Depository-flatten.sol:528:1:
+    |
+528 | error WrongAmount(uint256 provided, uint256 expected);
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+INFO:Printers:
+##############################
+####### BondCalculator #######
+##############################
+
+## Constructor Call Sequence
+	- BondCalculator
+
+## Constructor Definitions
+
+### BondCalculator
+
+     tructor(address _olas, address _tokenomics, address _ve, DiscountParams memory _discountParams) {
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _ve == address(0)) {
+            revert ZeroAddress();
+        }
+
+        olas = _olas;
+        tokenomics = _tokenomics;
+        ve = _ve;
+        owner = msg.sender;
+
+        // Check for zero values
+        if (_discountParams.targetNewUnits == 0 || _discountParams.targetVotingPower == 0) {
+            revert ZeroValue();
+        }
+        // Check the sum of factors that cannot exceed the value of 10_000 (100% with a 0.01% step)
+        uint256 sumWeights;
+        for (uint256 i = 0; i < _discountParams.weightFactors.length; ++i) {
+            sumWeights += _discountParams.weightFactors[i];
+        }
+        if (sumWeights > MAX_SUM_WEIGHTS) {
+            revert Overflow(sumWeights, MAX_SUM_WEIGHTS);
+        }
+        discountParams = _discountParams;
+    }
+
+  
+
+INFO:Printers:
+##########################
+####### Depository #######
+##########################
+
+## Constructor Call Sequence
+	- ERC721
+	- Depository
+
+## Constructor Definitions
+
+### ERC721
+
+     constructor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
+    }
+
+### Depository
+
+     constructor(
+        string memory _name,
+        string memory _symbol,
+        string memory _baseURI,
+        address _olas,
+        address _tokenomics,
+        address _treasury,
+        address _bondCalculator
+    )
+        ERC721(_name, _symbol)
+    {
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) || _bondCalculator == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for base URI zero value
+        if (bytes(_baseURI).length == 0) {
+            revert ZeroValue();
+        }
+
+        olas = _olas;
+        tokenomics = _tokenomics;
+        treasury = _treasury;
+        bondCalculator = _bondCalculator;
+        baseURI = _baseURI;
+        owner = msg.sender;
+    }
+
+INFO:Slither:. analyzed (12 contracts)

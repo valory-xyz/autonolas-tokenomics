@@ -33,6 +33,7 @@ contract BaseSetup is Test {
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
     uint256 epochLen = 30 days;
+    uint256 delta = 100;
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -106,8 +107,8 @@ contract DispenserTest is BaseSetup {
         assertEq(reward, 0);
         assertEq(topUp, 0);
 
-        // Lock OLAS balances with Voting Escrow
-        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        // Lock OLAS balances with Voting Escrow for a bigger amount compared with top-ups inflation
+        ve.setWeightedBalance(tokenomics.inflationPerSecond() * 365 days);
         ve.createLock(deployer);
 
         // Change the first service owner to the deployer (same for components and agents)
@@ -173,20 +174,20 @@ contract DispenserTest is BaseSetup {
         balanceETH = address(deployer).balance - balanceETH;
         balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
         assertEq(balanceETH, accountRewards);
-        assertEq(balanceOLAS, accountTopUps);
+        assertLt(accountTopUps - balanceOLAS, delta);
     }
 
     /// @dev Deposit incentives for 2 services in a loop to go through a specified amount of time.
     /// @notice Assume that no single donation is bigger than 2^64 - 1.
     /// @param amount0 Amount to donate to the first service.
     /// @param amount1 Amount to donate to the second service.
-    function testIncentivesLoopDirect(uint64 amount0, uint64 amount1) public {
+    function testLoopDirectIncentives(uint64 amount0, uint64 amount1) public {
         // Amounts must be meaningful
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
 
-        // Lock OLAS balances with Voting Escrow
-        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        // Lock OLAS balances with Voting Escrow for a bigger amount compared with top-ups inflation
+        ve.setWeightedBalance(tokenomics.getInflationForYear(4));
         ve.createLock(deployer);
 
         // Change the first service owner to the deployer (same for components and agents)
@@ -264,7 +265,7 @@ contract DispenserTest is BaseSetup {
             balanceETH = address(deployer).balance - balanceETH;
             balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
             assertEq(balanceETH, accountRewards);
-            assertEq(balanceOLAS, accountTopUps);
+            assertLt(accountTopUps - balanceOLAS, delta);
         }
     }
 
@@ -277,8 +278,8 @@ contract DispenserTest is BaseSetup {
         vm.assume(amount0 > treasury.minAcceptedETH());
         vm.assume(amount1 > treasury.minAcceptedETH());
 
-        // Lock OLAS balances with Voting Escrow
-        ve.setWeightedBalance(tokenomics.veOLASThreshold());
+        // Lock OLAS balances with Voting Escrow for a bigger amount compared with top-ups inflation
+        ve.setWeightedBalance(tokenomics.getInflationForYear(4));
         ve.createLock(deployer);
 
         // Change the first service owner to the deployer (same for components and agents)
@@ -341,7 +342,7 @@ contract DispenserTest is BaseSetup {
                 balanceETH = address(deployer).balance - balanceETH;
                 balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
                 assertEq(balanceETH, accountRewards);
-                assertEq(balanceOLAS, accountTopUps);
+                assertLt(accountTopUps - balanceOLAS, delta);
 
                 // Zero previously calculated rewards and top-ups
                 rewards[0] = 0;

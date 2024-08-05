@@ -1020,7 +1020,7 @@ describe("Tokenomics", async () => {
             await snapshot.restore();
         });
 
-        it("Get to the epoch before the end of the OLAS year and try to change maxBond or epochLen", async () => {
+        it("Get to two epochs before the end of the OLAS year and try to change epochLen", async () => {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();
 
@@ -1030,7 +1030,7 @@ describe("Tokenomics", async () => {
             const yearChangeTime = timeLaunch + oneYear;
 
             // Get to the time of more than one epoch length before the year change (1.5 epoch length)
-            let timeEpochBeforeYearChange = yearChangeTime - epochLen - epochLen / 2;
+            const timeEpochBeforeYearChange = yearChangeTime - epochLen - epochLen / 2;
             await helpers.time.increaseTo(timeEpochBeforeYearChange);
             await tokenomics.checkpoint();
 
@@ -1041,12 +1041,23 @@ describe("Tokenomics", async () => {
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
             expect(await tokenomics.epochLen()).to.equal(2 * epochLen);
-            // Restore the state of the blockchain back to the time half of the epoch before one epoch left for the current year
-            snapshotInternal.restore();
+
+            // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("Get to the epoch before the end of the OLAS year and try to change epochLen", async () => {
+            // Take a snapshot of the current state of the blockchain
+            const snapshot = await helpers.takeSnapshot();
+
+            // OLAS starting time
+            const timeLaunch = Number(await tokenomics.timeLaunch());
+            // One year time from the launch
+            const yearChangeTime = timeLaunch + oneYear;
 
             // Get to the time of the half epoch length before the year change
             // Meaning that the year does not change yet during the current epoch, but it will during the next one
-            timeEpochBeforeYearChange += epochLen;
+            const timeEpochBeforeYearChange = yearChangeTime - epochLen / 2;
             await helpers.time.increaseTo(timeEpochBeforeYearChange);
             await tokenomics.checkpoint();
 

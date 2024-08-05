@@ -58,6 +58,10 @@ contract ReentrancyAttacker {
         attackMode = _attackMode;
     }
 
+    /// @dev Makes a deposit from an attacker in order to get top-ups from the inflation
+    function depositServiceDonationsETH(uint256[] memory serviceIds, uint256[] memory amounts) external payable {
+        ITokenomics(treasury).depositServiceDonationsETH{value: msg.value}(serviceIds, amounts);
+    }
 
     /// @dev Lets the attacker call back its contract to get back to the claimOwnerIncentives() function.
     function badClaimOwnerIncentives(bool attack, uint256[] memory unitTypes, uint256[] memory unitIds) external

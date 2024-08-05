@@ -163,7 +163,7 @@ const main = async () => {
     await tx.wait();
 
     // tx back to L1: https://sepolia.arbiscan.io/tx/0xea8119b1030bb223a896680d9c4ea03877beee08927ef1b8a9532ce48db68c55
-    // Finalized tx on L1:
+    // Finalized tx on L1: https://sepolia.etherscan.io/tx/0x5f61dd72b5feb31af563f7af76402e523e1e871bdac7f1a82bb0ffefcd333ebb
 
     // Use the following script to finalize L2-L1 transaction:
     // https://github.com/OffchainLabs/arbitrum-tutorials/blob/master/packages/outbox-execute/scripts/exec.js

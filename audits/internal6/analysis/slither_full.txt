@@ -1,0 +1,452 @@
+Notes: False positive
+INFO:Detectors:
+BondCalculator.calculateIDF(address,uint256,uint256,uint256,uint256).discountBooster (BondCalculator-flatten.sol#868) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+Notes: by design
+INFO:Detectors:
+BondCalculator.getCurrentPriceLP(address) (BondCalculator-flatten.sol#971-992) ignores return value by (reserve0,reserve1,None) = pair.getReserves() (BondCalculator-flatten.sol#980)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+
+Notes: out of scope
+INFO:Detectors:
+exp2(uint256) (BondCalculator-flatten.sol#55-293) has a high cyclomatic complexity (73).
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#cyclomatic-complexity
+
+Notes: out of scope, external lib
+INFO:Detectors:
+exp2(uint256) (BondCalculator-flatten.sol#55-293) is never used and should be removed
+msb(uint256) (BondCalculator-flatten.sol#321-370) is never used and should be removed
+mulDiv18(uint256,uint256) (BondCalculator-flatten.sol#496-527) is never used and should be removed
+mulDivSigned(int256,int256,int256) (BondCalculator-flatten.sol#546-583) is never used and should be removed
+sqrt(uint256) (BondCalculator-flatten.sol#596-673) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+
+Notes: by design
+INFO:Detectors:
+Function BondCalculator.calculateIDF(address,uint256,uint256,uint256,uint256) (BondCalculator-flatten.sol#863-925) contains magic numbers: 3, 3, 3
+Function BondCalculator.calculatePayoutOLAS(address,uint256,uint256,uint256,uint256,uint256,uint256) (BondCalculator-flatten.sol#936-965) contains magic number: 1e36
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/magic_number.md
+
+Notes: ignore
+INFO:Detectors:
+Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) ignores return value by IToken(olas).transfer(msg.sender,payout) (Depository-flatten.sol#963)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+INFO:Detectors:
+
+Notes: OK, ref to real issue.
+Depository.minOLASLeftoverAmount (Depository-flatten.sol#610) is never initialized. It is used in:
+	- Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-state-variables
+
+Notes: False positive.
+INFO:Detectors:
+Potential vulnerable to readonly-reentrancy function (if read in other function) Depository.getBondStatus(uint256) (Depository-flatten.sol#1053-1059):
+	State variables read that were written after the external call(s):
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at payout = mapUserBonds[bondId].payout (Depository-flatten.sol#1054)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at payout > 0 (Depository-flatten.sol#1056)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at matured = block.timestamp >= mapUserBonds[bondId].maturity (Depository-flatten.sol#1057)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at END_IF (Depository-flatten.sol#1056-1058)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+Potential vulnerable to readonly-reentrancy function (if read in other function) Depository.getBonds(address,bool) (Depository-flatten.sol#1008-1047):
+	State variables read that were written after the external call(s):
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at ! matured || block.timestamp >= mapUserBonds[i].maturity (Depository-flatten.sol#1026-1028)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at positions[i] = true (Depository-flatten.sol#1030)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at ++ numAccountBonds (Depository-flatten.sol#1031)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at payout += mapUserBonds[i].payout (Depository-flatten.sol#1033)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at END_IF (Depository-flatten.sol#1026-1034)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at END_IF (Depository-flatten.sol#1024-1035)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.mapUserBonds (Depository-flatten.sol#622) was read at ++ i (Depository-flatten.sol#1021)
+		 This variable was written at (after external call):
+			- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at numBonds = totalSupply (Depository-flatten.sol#1018)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at positions = new bool[](numBonds) (Depository-flatten.sol#1019)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at BEGIN_LOOP (Depository-flatten.sol#1021-1036)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_LOOP (Depository-flatten.sol#1021-1036)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at i = 0 (Depository-flatten.sol#1021)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at i < numBonds (Depository-flatten.sol#1021)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at _ownerOf[i] == account (Depository-flatten.sol#1024)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at ! matured || block.timestamp >= mapUserBonds[i].maturity (Depository-flatten.sol#1026-1028)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at positions[i] = true (Depository-flatten.sol#1030)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at ++ numAccountBonds (Depository-flatten.sol#1031)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at payout += mapUserBonds[i].payout (Depository-flatten.sol#1033)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_IF (Depository-flatten.sol#1026-1034)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_IF (Depository-flatten.sol#1024-1035)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at ++ i (Depository-flatten.sol#1021)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at bondIds = new uint256[](numAccountBonds) (Depository-flatten.sol#1039)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at NEW VARIABLE numPos (Depository-flatten.sol#1040)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at BEGIN_LOOP (Depository-flatten.sol#1041-1046)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_LOOP (Depository-flatten.sol#1041-1046)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at i_scope_0 = 0 (Depository-flatten.sol#1041)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at i_scope_0 < numBonds (Depository-flatten.sol#1041)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at positions[i_scope_0] (Depository-flatten.sol#1042)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at bondIds[numPos] = i_scope_0 (Depository-flatten.sol#1043)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at ++ numPos (Depository-flatten.sol#1044)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_IF (Depository-flatten.sol#1042-1045)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at ++ i_scope_0 (Depository-flatten.sol#1041)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+Potential vulnerable to readonly-reentrancy function (if read in other function) Depository.getProducts(bool) (Depository-flatten.sol#969-992):
+	State variables read that were written after the external call(s):
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at (active && mapBondProducts[i].supply > 0) || (! active && mapBondProducts[i].supply == 0) (Depository-flatten.sol#977)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at positions[i] = true (Depository-flatten.sol#978)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at ++ numSelectedProducts (Depository-flatten.sol#979)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at END_IF (Depository-flatten.sol#977-980)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at ++ i (Depository-flatten.sol#975)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at numProducts = productCounter (Depository-flatten.sol#971)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at positions = new bool[](numProducts) (Depository-flatten.sol#972)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at NEW VARIABLE numSelectedProducts (Depository-flatten.sol#973)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at BEGIN_LOOP (Depository-flatten.sol#975-981)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at END_LOOP (Depository-flatten.sol#975-981)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at i = 0 (Depository-flatten.sol#975)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at i < numProducts (Depository-flatten.sol#975)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at (active && mapBondProducts[i].supply > 0) || (! active && mapBondProducts[i].supply == 0) (Depository-flatten.sol#977)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at positions[i] = true (Depository-flatten.sol#978)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at ++ numSelectedProducts (Depository-flatten.sol#979)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at END_IF (Depository-flatten.sol#977-980)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at ++ i (Depository-flatten.sol#975)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at productIds = new uint256[](numSelectedProducts) (Depository-flatten.sol#984)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at NEW VARIABLE numPos (Depository-flatten.sol#985)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at BEGIN_LOOP (Depository-flatten.sol#986-991)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at END_LOOP (Depository-flatten.sol#986-991)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at i_scope_0 = 0 (Depository-flatten.sol#986)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at i_scope_0 < numProducts (Depository-flatten.sol#986)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at positions[i_scope_0] (Depository-flatten.sol#987)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at productIds[numPos] = i_scope_0 (Depository-flatten.sol#988)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at ++ numPos (Depository-flatten.sol#989)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at END_IF (Depository-flatten.sol#987-990)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+	- Depository.productCounter (Depository-flatten.sol#608) was read at ++ i_scope_0 (Depository-flatten.sol#986)
+		 This variable was written at (after external call):
+			- productCounter = productId + 1 (Depository-flatten.sol#776)
+Potential vulnerable to readonly-reentrancy function (if read in other function) Depository.isActiveProduct(uint256) (Depository-flatten.sol#997-999):
+	State variables read that were written after the external call(s):
+	- Depository.mapBondProducts (Depository-flatten.sol#624) was read at status = (mapBondProducts[productId].supply > 0) (Depository-flatten.sol#998)
+		 This variable was written at (after external call):
+			- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+			- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+			- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+Potential vulnerable to readonly-reentrancy function (if read in other function) Depository.tokenByIndex(uint256) (Depository-flatten.sol#1071-1077):
+	State variables read that were written after the external call(s):
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at id >= totalSupply (Depository-flatten.sol#1072)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at revert Overflow(uint256,uint256)(id,totalSupply - 1) (Depository-flatten.sol#1073)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at END_IF (Depository-flatten.sol#1072-1074)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	- Depository.totalSupply (Depository-flatten.sol#605) was read at id (Depository-flatten.sol#1076)
+		 This variable was written at (after external call):
+			- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/readonly_reentrancy.md
+
+Notes: False positive
+INFO:Detectors:
+IToken (Depository-flatten.sol#136-175) has incorrect ERC721 function interface:IToken.approve(address,uint256) (Depository-flatten.sol#167)
+IToken (Depository-flatten.sol#136-175) has incorrect ERC721 function interface:IToken.transferFrom(address,address,uint256) (Depository-flatten.sol#174)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-erc721-interface
+
+Notes: False positive
+INFO:Detectors:
+Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) uses a dangerous strict equality:
+	- pay == 0 || ! matured (Depository-flatten.sol#932)
+Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) uses a dangerous strict equality:
+	- payout == 0 (Depository-flatten.sol#957)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+
+Notes: False positive
+INFO:Detectors:
+Reentrancy in Depository.close(uint256[]) (Depository-flatten.sol#786-819):
+	External calls:
+	- ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository-flatten.sol#804)
+	State variables written after the call(s):
+	- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+	Depository.mapBondProducts (Depository-flatten.sol#624) can be used in cross function reentrancies:
+	- Depository.close(uint256[]) (Depository-flatten.sol#786-819)
+	- Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778)
+	- Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915)
+	- Depository.getProducts(bool) (Depository-flatten.sol#969-992)
+	- Depository.isActiveProduct(uint256) (Depository-flatten.sol#997-999)
+	- Depository.mapBondProducts (Depository-flatten.sol#624)
+
+Notes: OK, real siiue
+Reentrancy in Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915):
+	External calls:
+	- _safeMint(msg.sender,bondId) (Depository-flatten.sol#891)
+		- require(bool,string)(ERC721TokenReceiver(to).onERC721Received(msg.sender,address(0),id,) == ERC721TokenReceiver.onERC721Received.selector,UNSAFE_RECIPIENT) (Depository-flatten.sol#461-465)
+	State variables written after the call(s):
+	- totalSupply = bondId + 1 (Depository-flatten.sol#895)
+	Depository.totalSupply (Depository-flatten.sol#605) can be used in cross function reentrancies:
+	- Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915)
+	- Depository.getBonds(address,bool) (Depository-flatten.sol#1008-1047)
+	- Depository.tokenByIndex(uint256) (Depository-flatten.sol#1071-1077)
+	- Depository.totalSupply (Depository-flatten.sol#605)
+Reentrancy in Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915):
+	External calls:
+	- _safeMint(msg.sender,bondId) (Depository-flatten.sol#891)
+		- require(bool,string)(ERC721TokenReceiver(to).onERC721Received(msg.sender,address(0),id,) == ERC721TokenReceiver.onERC721Received.selector,UNSAFE_RECIPIENT) (Depository-flatten.sol#461-465)
+	- ITreasury(treasury).depositTokenForOLAS(msg.sender,tokenAmount,token,payout) (Depository-flatten.sol#899)
+	State variables written after the call(s):
+	- delete mapBondProducts[productId] (Depository-flatten.sol#910)
+	Depository.mapBondProducts (Depository-flatten.sol#624) can be used in cross function reentrancies:
+	- Depository.close(uint256[]) (Depository-flatten.sol#786-819)
+	- Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778)
+	- Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915)
+	- Depository.getProducts(bool) (Depository-flatten.sol#969-992)
+	- Depository.isActiveProduct(uint256) (Depository-flatten.sol#997-999)
+	- Depository.mapBondProducts (Depository-flatten.sol#624)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+Notes: ignore
+INFO:Detectors:
+Depository.getProducts(bool).numSelectedProducts (Depository-flatten.sol#973) is a local variable never initialized
+Depository.getBonds(address,bool).numPos (Depository-flatten.sol#1040) is a local variable never initialized
+Depository.getProducts(bool).numPos (Depository-flatten.sol#985) is a local variable never initialized
+Depository.getBonds(address,bool).numAccountBonds (Depository-flatten.sol#1016) is a local variable never initialized
+Depository.close(uint256[]).numClosedProducts (Depository-flatten.sol#795) is a local variable never initialized
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-local-variables
+
+Notes: Ignore
+INFO:Detectors:
+Dubious typecast in Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778):
+	uint256 => uint160 casting occurs in mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+	uint256 => uint96 casting occurs in mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+	uint256 => uint32 casting occurs in mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+Dubious typecast in Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915):
+	uint256 => uint96 casting occurs in product.supply = uint96(supply) (Depository-flatten.sol#885)
+	uint256 => uint96 casting occurs in product.payout += uint96(payout) (Depository-flatten.sol#886)
+	uint256 => uint96 casting occurs in mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	uint256 => uint32 casting occurs in mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+	uint256 => uint32 casting occurs in mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/dubious_typecast.md
+
+Notes: by design
+INFO:Detectors:
+Depository.close(uint256[]) (Depository-flatten.sol#786-819) has external calls inside a loop: ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository-flatten.sol#804)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation/#calls-inside-a-loop
+
+Notes: False positive
+INFO:Detectors:
+Reentrancy in Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778):
+	External calls:
+	- ! ITokenomics(tokenomics).reserveAmountForBondProgram(supply) (Depository-flatten.sol#768)
+	State variables written after the call(s):
+	- mapBondProducts[productId] = Product(uint160(priceLP),uint96(supply),token,0,uint32(vesting)) (Depository-flatten.sol#774)
+	- productCounter = productId + 1 (Depository-flatten.sol#776)
+Notes: correct
+Reentrancy in Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915):
+	External calls:
+	- _safeMint(msg.sender,bondId) (Depository-flatten.sol#891)
+		- require(bool,string)(ERC721TokenReceiver(to).onERC721Received(msg.sender,address(0),id,) == ERC721TokenReceiver.onERC721Received.selector,UNSAFE_RECIPIENT) (Depository-flatten.sol#461-465)
+	State variables written after the call(s):
+	- mapUserBonds[bondId] = Bond(uint96(payout),uint32(maturity),uint32(productId)) (Depository-flatten.sol#892)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+Notes: Ignore
+INFO:Detectors:
+Reentrancy in Depository.close(uint256[]) (Depository-flatten.sol#786-819):
+	External calls:
+	- ITokenomics(tokenomics).refundFromBondProgram(supply) (Depository-flatten.sol#804)
+	Event emitted after the call(s):
+	- CloseProduct(token,productId,supply) (Depository-flatten.sol#810)
+Notes: Ignore
+Reentrancy in Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778):
+	External calls:
+	- ! ITokenomics(tokenomics).reserveAmountForBondProgram(supply) (Depository-flatten.sol#768)
+	Event emitted after the call(s):
+	- CreateProduct(token,productId,supply,priceLP,vesting) (Depository-flatten.sol#777)
+Notes: Correct
+Reentrancy in Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915):
+	External calls:
+	- _safeMint(msg.sender,bondId) (Depository-flatten.sol#891)
+		- require(bool,string)(ERC721TokenReceiver(to).onERC721Received(msg.sender,address(0),id,) == ERC721TokenReceiver.onERC721Received.selector,UNSAFE_RECIPIENT) (Depository-flatten.sol#461-465)
+	- ITreasury(treasury).depositTokenForOLAS(msg.sender,tokenAmount,token,payout) (Depository-flatten.sol#899)
+	Event emitted after the call(s):
+	- CloseProduct(token,productId,supply) (Depository-flatten.sol#911)
+	- CreateBond(token,productId,msg.sender,bondId,payout,tokenAmount,maturity) (Depository-flatten.sol#914)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+Notes: ignore
+INFO:Detectors:
+Depository.create(address,uint256,uint256,uint256) (Depository-flatten.sol#725-778) uses timestamp for comparisons
+	Dangerous comparisons:
+	- maturity > type()(uint32).max (Depository-flatten.sol#758)
+Depository.deposit(uint256,uint256,uint256) (Depository-flatten.sol#833-915) uses timestamp for comparisons
+	Dangerous comparisons:
+	- maturity > type()(uint32).max (Depository-flatten.sol#861)
+Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) uses timestamp for comparisons
+	Dangerous comparisons:
+	- matured = block.timestamp >= mapUserBonds[bondIds[i]].maturity (Depository-flatten.sol#929)
+	- pay == 0 || ! matured (Depository-flatten.sol#932)
+	- payout == 0 (Depository-flatten.sol#957)
+Depository.getBonds(address,bool) (Depository-flatten.sol#1008-1047) uses timestamp for comparisons
+	Dangerous comparisons:
+	- ! matured || block.timestamp >= mapUserBonds[i].maturity (Depository-flatten.sol#1026-1028)
+Depository.getBondStatus(uint256) (Depository-flatten.sol#1053-1059) uses timestamp for comparisons
+	Dangerous comparisons:
+	- payout > 0 (Depository-flatten.sol#1056)
+	- matured = block.timestamp >= mapUserBonds[bondId].maturity (Depository-flatten.sol#1057)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+Notes: ignore
+INFO:Detectors:
+Depository.close(uint256[]) (Depository-flatten.sol#786-819) has costly operations inside a loop:
+	- delete mapBondProducts[productId] (Depository-flatten.sol#806)
+ERC721._burn(uint256) (Depository-flatten.sol#436-451) has costly operations inside a loop:
+	- delete _ownerOf[id] (Depository-flatten.sol#446)
+ERC721._burn(uint256) (Depository-flatten.sol#436-451) has costly operations inside a loop:
+	- delete getApproved[id] (Depository-flatten.sol#448)
+Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) has costly operations inside a loop:
+	- delete mapUserBonds[bondIds[i]] (Depository-flatten.sol#952)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#costly-operations-inside-a-loop
+Notes: ignore
+INFO:Detectors:
+ERC721._safeMint(address,uint256,bytes) (Depository-flatten.sol#468-481) is never used and should be removed
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dead-code
+Notes: ignore
+INFO:Detectors:
+Variable ERC721._ownerOf (Depository-flatten.sol#295) is not in mixedCase
+Variable ERC721._balanceOf (Depository-flatten.sol#297) is not in mixedCase
+Parameter Depository.changeManagers(address,address)._tokenomics (Depository-flatten.sol#685) is not in mixedCase
+Parameter Depository.changeManagers(address,address)._treasury (Depository-flatten.sol#685) is not in mixedCase
+Parameter Depository.changeBondCalculator(address)._bondCalculator (Depository-flatten.sol#705) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+Notes: incorrect
+INFO:Detectors:
+Depository.minOLASLeftoverAmount (Depository-flatten.sol#610) should be constant 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-constant
+Notes: ignore
+INFO:Detectors:
+In a function Depository.close(uint256[]) (Depository-flatten.sol#786-819) variable Depository.mapBondProducts (Depository-flatten.sol#624) is read multiple times
+In a function Depository.redeem(uint256[]) (Depository-flatten.sol#925-964) variable Depository.mapUserBonds (Depository-flatten.sol#622) is read multiple times
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/multiple_storage_read.md
+

@@ -63,7 +63,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/verify_01_mock_dispenser.js --network " + providerName + " " + dispenser.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/wormhole/test/verify_01_mock_dispenser.js --network " + providerName + " " + dispenser.address, { encoding: "utf-8" });
     }
 }
 
