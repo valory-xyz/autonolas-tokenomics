@@ -14,4 +14,8 @@ An internal audit with a focus on PoAA Staking fixing after C4A is located in th
 
 
 ### External audit
-Audit reports: [v1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf) and [v2](https://sourcehat.com/audits/AutonolasTokenomics/).
+Final audit reports are listed in their historical order:
+- [v1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
+- [v2](https://sourcehat.com/audits/AutonolasTokenomics/);
+- [v3](https://code4rena.com/reports/2023-12-autonolas);
+- [v4](https://code4rena.com/reports/2024-05-olas).
