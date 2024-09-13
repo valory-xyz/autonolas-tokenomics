@@ -87,7 +87,7 @@ contract Depository is IErrorsTokenomics {
 
     // OLAS token address
     address public immutable olas;
-    // Tkenomics contract address
+    // Tokenomics contract address
     address public tokenomics;
     // Treasury contract address
     address public treasury;

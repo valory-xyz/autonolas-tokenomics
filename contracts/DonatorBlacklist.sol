@@ -60,11 +60,17 @@ contract DonatorBlacklist {
         }
 
         // Check for the array length
-        if (accounts.length != statuses.length) {
-            revert WrongArrayLength(accounts.length, statuses.length);
+        uint256 accountsLength = accounts.length;
+        if (accountsLength != statuses.length) {
+            revert WrongArrayLength(accountsLength, statuses.length);
         }
 
-        for (uint256 i = 0; i < accounts.length; ++i) {
+        // Check if arrays are not empty
+        if (accountsLength == 0) {
+            revert WrongArrayLength(0, 0);
+        }
+
+        for (uint256 i = 0; i < accountsLength; ++i) {
             // Check for the zero address
             if (accounts[i] == address(0)) {
                 revert ZeroAddress();

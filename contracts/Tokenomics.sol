@@ -1388,8 +1388,14 @@ contract Tokenomics is TokenomicsConstants {
         uint256[] memory unitIds
     ) external view returns (uint256 reward, uint256 topUp) {
         // Check array lengths
-        if (unitTypes.length != unitIds.length) {
-            revert WrongArrayLength(unitTypes.length, unitIds.length);
+        uint256 unitIdsLength = unitIds.length;
+        if (unitTypes.length != unitIdsLength) {
+            revert WrongArrayLength(unitTypes.length, unitIdsLength);
+        }
+        
+        // Check if arrays are not empty
+        if (unitTypes.length == 0) {
+            revert WrongArrayLength(0, 0);
         }
 
         // Component / agent registry addresses
@@ -1404,7 +1410,7 @@ contract Tokenomics is TokenomicsConstants {
 
         // Check the input data
         uint256[] memory lastIds = new uint256[](2);
-        for (uint256 i = 0; i < unitIds.length; ++i) {
+        for (uint256 i = 0; i < unitIdsLength; ++i) {
             // Check for the unit type to be component / agent only
             if (unitTypes[i] > 1) {
                 revert Overflow(unitTypes[i], 1);
@@ -1426,7 +1432,7 @@ contract Tokenomics is TokenomicsConstants {
         // Get the current epoch counter
         uint256 curEpoch = epochCounter;
 
-        for (uint256 i = 0; i < unitIds.length; ++i) {
+        for (uint256 i = 0; i < unitIdsLength; ++i) {
             // Get the last epoch number the incentives were accumulated for
             uint256 lastEpoch = mapUnitIncentives[unitTypes[i]][unitIds[i]].lastEpoch;
             // Calculate rewards and top-ups if there were pending ones from the previous epoch
