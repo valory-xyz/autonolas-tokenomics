@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.25;
 
+import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
 import "../interfaces/IToken.sol";
 import "../interfaces/IUniswapV2Pair.sol";
 
 interface IDepository {
-    function deposit(uint256 productId, uint256 tokenAmount) external
+    function deposit(uint256 productId, uint256 tokenAmount, uint256 vestingTime) external
         returns (uint256 payout, uint256 expiry, uint256 bondId);
 }
 
@@ -29,7 +30,7 @@ interface IZRouter {
 }
 
 /// @title DepositAttacker - Smart contract to prove that the deposit attack via price manipulation is not possible
-contract DepositAttacker {
+contract DepositAttacker is ERC721TokenReceiver {
     uint256 public constant LARGE_APPROVAL = 1_000_000 * 1e18;
     
     constructor() {}
@@ -80,7 +81,7 @@ contract DepositAttacker {
         // console.log("AttackDeposit ## OLAS reserved after swap", balanceOLA);
         // console.log("AttackDeposit ## DAI reserved before swap", balanceDAI);
 
-        (payout, , ) = IDepository(depository).deposit(bid, amountTo);
+        (payout, , ) = IDepository(depository).deposit(bid, amountTo, 1 weeks);
         
         // DAI approve 
         IToken(path[1]).approve(swapRouter, LARGE_APPROVAL);
@@ -145,7 +146,7 @@ contract DepositAttacker {
         // console.log("AttackDeposit ## OLAS reserved after swap", balanceOLA);
         // console.log("AttackDeposit ## DAI reserved before swap", balanceDAI);
 
-        (payout, , ) = IDepository(depository).deposit(bid, amountTo);
+        (payout, , ) = IDepository(depository).deposit(bid, amountTo, 1 weeks);
 
         // DAI approve
         IToken(path[1]).approve(swapRouter, LARGE_APPROVAL);

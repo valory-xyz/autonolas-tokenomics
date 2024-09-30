@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
 import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
@@ -182,6 +181,7 @@ struct EpochPoint {
     // After 10 years, the OLAS inflation rate is 2% per year. It would take 220+ years to reach 2^96 - 1
     uint96 totalTopUpsOLAS;
     // Inverse of the discount factor
+    // NOTE: This is a legacy parameter now and not used throughout the tokenomics logic
     // IDF is bound by a factor of 18, since (2^64 - 1) / 10^18 > 18
     // IDF uses a multiplier of 10^18 by default, since it is a rational number and must be accounted for divisions
     // The IDF depends on the epsilonRate value, idf = 1 + epsilonRate, and epsilonRate is bound by 17 with 18 decimals
@@ -259,9 +259,8 @@ contract Tokenomics is TokenomicsConstants {
     event EpochLengthUpdated(uint256 epochLen);
     event EffectiveBondUpdated(uint256 indexed epochNumber, uint256 effectiveBond);
     event StakingRefunded(uint256 indexed epochNumber, uint256 amount);
-    event IDFUpdated(uint256 idf);
     event TokenomicsParametersUpdateRequested(uint256 indexed epochNumber, uint256 devsPerCapital, uint256 codePerDev,
-        uint256 epsilonRate, uint256 epochLen, uint256 veOLASThreshold);
+        uint256 epochLen, uint256 veOLASThreshold);
     event TokenomicsParametersUpdated(uint256 indexed epochNumber);
     event IncentiveFractionsUpdateRequested(uint256 indexed epochNumber, uint256 rewardComponentFraction,
         uint256 rewardAgentFraction, uint256 maxBondFraction, uint256 topUpComponentFraction,
@@ -318,6 +317,7 @@ contract Tokenomics is TokenomicsConstants {
     // Component Registry
     address public componentRegistry;
     // Default epsilon rate that contributes to the interest rate: 10% or 0.1
+    // NOTE: This is a legacy parameter now and not used throughout the tokenomics logic
     // We assume that for the IDF calculation epsilonRate must be lower than 17 (with 18 decimals)
     // (2^64 - 1) / 10^18 > 18, however IDF = 1 + epsilonRate, thus we limit epsilonRate by 17 with 18 decimals at most
     uint64 public epsilonRate;
@@ -627,19 +627,16 @@ contract Tokenomics is TokenomicsConstants {
     /// @notice Parameter values are not updated for those that are passed as zero or out of defined bounds.
     /// @param _devsPerCapital Number of valuable devs can be paid per units of capital per epoch.
     /// @param _codePerDev Number of units of useful code that can be built by a developer during one epoch.
-    /// @param _epsilonRate Epsilon rate that contributes to the interest rate value.
     /// @param _epochLen New epoch length.
     /// #if_succeeds {:msg "ep is correct endTime"} epochCounter > 1
     /// ==> mapEpochTokenomics[epochCounter - 1].epochPoint.endTime > mapEpochTokenomics[epochCounter - 2].epochPoint.endTime;
     /// #if_succeeds {:msg "epochLen"} old(_epochLen > MIN_EPOCH_LENGTH && _epochLen <= ONE_YEAR && epochLen != _epochLen) ==> nextEpochLen == _epochLen;
     /// #if_succeeds {:msg "devsPerCapital"} _devsPerCapital > MIN_PARAM_VALUE && _devsPerCapital <= type(uint72).max ==> devsPerCapital == _devsPerCapital;
     /// #if_succeeds {:msg "codePerDev"} _codePerDev > MIN_PARAM_VALUE && _codePerDev <= type(uint72).max ==> codePerDev == _codePerDev;
-    /// #if_succeeds {:msg "epsilonRate"} _epsilonRate > 0 && _epsilonRate < 17e18 ==> epsilonRate == _epsilonRate;
     /// #if_succeeds {:msg "veOLASThreshold"} _veOLASThreshold > 0 && _veOLASThreshold <= type(uint96).max ==> nextVeOLASThreshold == _veOLASThreshold;
     function changeTokenomicsParameters(
         uint256 _devsPerCapital,
         uint256 _codePerDev,
-        uint256 _epsilonRate,
         uint256 _epochLen,
         uint256 _veOLASThreshold
     ) external {
@@ -664,15 +661,6 @@ contract Tokenomics is TokenomicsConstants {
             _codePerDev = codePerDev;
         }
 
-        // Check the epsilonRate value for idf to fit in its size
-        // 2^64 - 1 < 18.5e18, idf is equal at most 1 + epsilonRate < 18e18, which fits in the variable size
-        // epsilonRate is the part of the IDF calculation and thus its change will be accounted for in the next epoch
-        if (_epsilonRate > 0 && _epsilonRate <= 17e18) {
-            epsilonRate = uint64(_epsilonRate);
-        } else {
-            _epsilonRate = epsilonRate;
-        }
-
         // Check for the epochLen value to change
         if (uint32(_epochLen) >= MIN_EPOCH_LENGTH && uint32(_epochLen) <= MAX_EPOCH_LENGTH) {
             nextEpochLen = uint32(_epochLen);
@@ -689,7 +677,7 @@ contract Tokenomics is TokenomicsConstants {
 
         // Set the flag that tokenomics parameters are requested to be updated (1st bit is set to one)
         tokenomicsParametersUpdated = tokenomicsParametersUpdated | 0x01;
-        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _codePerDev, _epsilonRate, _epochLen,
+        emit TokenomicsParametersUpdateRequested(epochCounter + 1, _devsPerCapital, _codePerDev, _epochLen,
             _veOLASThreshold);
     }
 
@@ -962,13 +950,6 @@ contract Tokenomics is TokenomicsConstants {
                     if (!mapNewUnits[unitType][serviceUnitIds[j]]) {
                         mapNewUnits[unitType][serviceUnitIds[j]] = true;
                         mapEpochTokenomics[curEpoch].unitPoints[unitType].numNewUnits++;
-                        // Check if the owner has introduced component / agent for the first time
-                        // This is done together with the new unit check, otherwise it could be just a new unit owner
-                        address unitOwner = IToken(registries[unitType]).ownerOf(serviceUnitIds[j]);
-                        if (!mapNewOwners[unitOwner]) {
-                            mapNewOwners[unitOwner] = true;
-                            mapEpochTokenomics[curEpoch].epochPoint.numNewOwners++;
-                        }
                     }
                 }
             }
@@ -986,7 +967,6 @@ contract Tokenomics is TokenomicsConstants {
     /// ==> mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH == old(mapEpochTokenomics[epochCounter].epochPoint.totalDonationsETH) + donationETH;
     /// #if_succeeds {:msg "sumUnitTopUpsOLAS for components can only increase"} mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[0].sumUnitTopUpsOLAS);
     /// #if_succeeds {:msg "sumUnitTopUpsOLAS for agents can only increase"} mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS >= old(mapEpochTokenomics[epochCounter].unitPoints[1].sumUnitTopUpsOLAS);
-    /// #if_succeeds {:msg "numNewOwners can only increase"} mapEpochTokenomics[epochCounter].epochPoint.numNewOwners >= old(mapEpochTokenomics[epochCounter].epochPoint.numNewOwners);
     function trackServiceDonations(
         address donator,
         uint256[] memory serviceIds,
@@ -1026,41 +1006,6 @@ contract Tokenomics is TokenomicsConstants {
         lastDonationBlockNumber = uint32(block.number);
     }
 
-    /// @dev Gets the inverse discount factor value.
-    /// @param treasuryRewards Treasury rewards.
-    /// @param numNewOwners Number of new owners of components / agents registered during the epoch.
-    /// @return idf IDF value.
-    function _calculateIDF(uint256 treasuryRewards, uint256 numNewOwners) internal view returns (uint256 idf) {
-        idf = 0;
-        // Calculate the inverse discount factor based on the tokenomics parameters and values of units per epoch
-        // df = 1 / (1 + iterest_rate), idf = (1 + iterest_rate) >= 1.0
-        // Calculate IDF from epsilon rate and f(K,D)
-        // f(K(e), D(e)) = d * k * K(e) + d * D(e),
-        // where d corresponds to codePerDev and k corresponds to devPerCapital
-        // codeUnits (codePerDev) is the estimated value of the code produced by a single developer for epoch
-        UD60x18 codeUnits = UD60x18.wrap(codePerDev);
-        // fKD = codeUnits * devsPerCapital * treasuryRewards + codeUnits * newOwners;
-        // Convert all the necessary values to fixed-point numbers considering OLAS decimals (18 by default)
-        UD60x18 fp = UD60x18.wrap(treasuryRewards);
-        // Convert devsPerCapital
-        UD60x18 fpDevsPerCapital = UD60x18.wrap(devsPerCapital);
-        fp = fp.mul(fpDevsPerCapital);
-        UD60x18 fpNumNewOwners = convert(numNewOwners);
-        fp = fp.add(fpNumNewOwners);
-        fp = fp.mul(codeUnits);
-        // fp = fp / 100 - calculate the final value in fixed point
-        fp = fp.div(UD60x18.wrap(100e18));
-        // fKD in the state that is comparable with epsilon rate
-        uint256 fKD = UD60x18.unwrap(fp);
-
-        // Compare with epsilon rate and choose the smallest one
-        if (fKD > epsilonRate) {
-            fKD = epsilonRate;
-        }
-        // 1 + fKD in the system where 1e18 is equal to a whole unit (18 decimals)
-        idf = 1e18 + fKD;
-    }
-
     /// @dev Record global data with a new checkpoint.
     /// @notice Note that even though a specific epoch can last longer than the epochLen, it is practically
     ///         not valid not to call a checkpoint for longer than a year. Thus, the function will return false otherwise.
@@ -1072,7 +1017,6 @@ contract Tokenomics is TokenomicsConstants {
     /// #if_succeeds {:msg "when the year is the same, the adjusted maxBond (incentives[4]) will never be lower than the epoch maxBond"}
     ///$result == true && (block.timestamp - timeLaunch) / ONE_YEAR == old(currentYear)
     /// ==> old((inflationPerSecond * (block.timestamp - mapEpochTokenomics[epochCounter - 1].epochPoint.endTime) * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100) >= old(maxBond);
-    /// #if_succeeds {:msg "idf check"} $result == true ==> mapEpochTokenomics[epochCounter].epochPoint.idf >= 1e18 && mapEpochTokenomics[epochCounter].epochPoint.idf <= 18e18;
     /// #if_succeeds {:msg "devsPerCapital check"} $result == true ==> devsPerCapital > MIN_PARAM_VALUE;
     /// #if_succeeds {:msg "codePerDev check"} $result == true ==> codePerDev > MIN_PARAM_VALUE;
     /// #if_succeeds {:msg "sum of reward fractions must result in 100"} $result == true
@@ -1270,17 +1214,6 @@ contract Tokenomics is TokenomicsConstants {
         curMaxBond += effectiveBond;
         effectiveBond = uint96(curMaxBond);
 
-        // Update the IDF value for the next epoch or assign a default one if there are no ETH donations
-        if (incentives[0] > 0) {
-            // Calculate IDF based on the incoming donations
-            uint256 idf = _calculateIDF(incentives[1], tp.epochPoint.numNewOwners);
-            nextEpochPoint.epochPoint.idf = uint64(idf);
-            emit IDFUpdated(idf);
-        } else {
-            // Assign a default IDF value
-            nextEpochPoint.epochPoint.idf = 1e18;
-        }
-
         // Treasury contract rebalances ETH funds depending on the treasury rewards
         if (incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1])) {
             // Emit settled epoch written to the last economics point
@@ -1467,10 +1400,12 @@ contract Tokenomics is TokenomicsConstants {
         return mapEpochTokenomics[epoch].unitPoints[unitType];
     }
 
-    /// @dev Gets inverse discount factor with the multiple of 1e18 of the last epoch.
-    /// @return Discount factor with the multiple of 1e18.
-    function getLastIDF() external view returns (uint256) {
-        return mapEpochTokenomics[epochCounter].epochPoint.idf;
+    /// @dev Gets number of new units that were donated in the last epoch.
+    /// @return Number of new units.
+    function getLastEpochNumNewUnits() external view returns (uint256) {
+        uint256 eCounter = epochCounter - 1;
+        return mapEpochTokenomics[eCounter].unitPoints[0].numNewUnits +
+            mapEpochTokenomics[eCounter].unitPoints[1].numNewUnits;
     }
 
     /// @dev Gets epoch end time.
