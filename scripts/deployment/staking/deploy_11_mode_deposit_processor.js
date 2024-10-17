@@ -32,7 +32,7 @@ async function main() {
     const modeDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
         parsedData.dispenserAddress, parsedData.modeL1StandardBridgeProxyAddress,
         parsedData.modeL1CrossDomainMessengerProxyAddress, parsedData.modeL2TargetChainId,
-        parsedData.modeOLASAddress);
+        parsedData.modeOLASAddress, {gasLimit: 2000000});
     const result = await modeDepositProcessorL1.deployed();
 
     // Transaction details
