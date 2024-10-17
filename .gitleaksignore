@@ -192,3 +192,5 @@ b616524545db2768fb9a3772ffd05c6e0a7f2d8b:scripts/deployment/staking/celo/globals
 5e43d545806f8e2d6e8ffd8190d7d704bf663d5f:scripts/deployment/staking/celo/globals_celo_mainnet.json:generic-api-key:2
 661ae65a4a5dfcd602d65b13da8391517b582199:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
 661ae65a4a5dfcd602d65b13da8391517b582199:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
+141c8cc48eeb630fd089881fe56a2112f66319e9:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
+141c8cc48eeb630fd089881fe56a2112f66319e9:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
