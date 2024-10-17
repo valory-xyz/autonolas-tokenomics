@@ -27,7 +27,7 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("11. EOA to deploy OptimismTargetDispenserL2 for Base");
+    console.log("11. EOA to deploy OptimismTargetDispenserL2 for Mode");
     const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
     console.log("You are signing the following transaction: OptimismTargetDispenserL2.connect(EOA).deploy()");
     const modeTargetDispenserL2 = await OptimismTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
