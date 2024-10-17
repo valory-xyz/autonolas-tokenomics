@@ -43,7 +43,7 @@ module.exports = {
         },
         mainnet: {
             url: "https://eth-mainnet.g.alchemy.com/v2/" + ALCHEMY_API_KEY_MAINNET,
-            accounts,
+            accounts: accounts,
             chainId: 1,
         },
         polygon: {
@@ -76,9 +76,14 @@ module.exports = {
             accounts: accounts,
             chainId: 42220,
         },
+        mode: {
+            url: "https://mainnet.mode.network",
+            accounts: accounts,
+            chainId: 34443,
+        },
         sepolia: {
             url: "https://eth-sepolia.g.alchemy.com/v2/" + ALCHEMY_API_KEY_SEPOLIA,
-            accounts,
+            accounts: accounts,
             chainId: 11155111,
         },
         polygonAmoy: {
@@ -110,6 +115,11 @@ module.exports = {
             url: "https://alfajores-forno.celo-testnet.org",
             accounts: accounts,
             chainId: 44787,
+        },
+        modeSepolia: {
+            url: "https://sepolia.mode.network",
+            accounts: accounts,
+            chainId: 919,
         },
         hardhat: {
             allowUnlimitedContractSize: true,
@@ -155,7 +165,7 @@ module.exports = {
                 chainId: 10,
                 urls: {
                     apiURL: "https://api-optimistic.etherscan.io/api",
-                    browserURL: "https://sepolia-optimistic.etherscan.io"
+                    browserURL: "https://optimistic.etherscan.io"
                 },
             },
             {
@@ -198,6 +208,22 @@ module.exports = {
                     browserURL: "https://alfajores-blockscout.celo-testnet.org/"
                 },
             },
+            {
+                network: "mode",
+                chainId: 34443,
+                urls: {
+                    apiURL: "https://explorer.mode.network/api",
+                    browserURL: "https://explorer.mode.network"
+                },
+            },
+            {
+                network: "modeSepolia",
+                chainId: 919,
+                urls: {
+                    apiURL: "https://sepolia.explorer.mode.network/api",
+                    browserURL: "https://sepolia.explorer.mode.network"
+                },
+            },
         ],
         apiKey: {
             mainnet: ETHERSCAN_API_KEY,
@@ -213,13 +239,15 @@ module.exports = {
             arbitrumSepolia: ARBISCAN_API_KEY,
             optimisticSepolia: OPSCAN_API_KEY,
             baseSepolia: OPSCAN_API_KEY,
-            celoAlfajores: CELOSCAN_API_KEY
+            celoAlfajores: CELOSCAN_API_KEY,
+            mode: OPSCAN_API_KEY,
+            modeSepolia: OPSCAN_API_KEY,
         }
     },
     solidity: {
         compilers: [
             {
-                version: "0.8.25",
+                version: "0.8.28",
                 settings: {
                     optimizer: {
                         enabled: true,
