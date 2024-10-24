@@ -62,7 +62,7 @@ module.exports = {
             chainId: 42161,
         },
         optimistic: {
-            url: "https://optimism.drpc.org",
+            url: "https://optimism.llamarpc.com",
             accounts: accounts,
             chainId: 10,
         },
