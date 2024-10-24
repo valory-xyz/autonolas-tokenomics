@@ -39,9 +39,29 @@
         "address": "0xfF8697d8d2998d6AA2e09B405795C6F4BEeB0C81"
       },
       {
+        "name": "EthereumDepositProcessor",
+        "artifact": "abis/0.8.25/EthereumDepositProcessor.json",
+        "address": "0x15CD7fAeE048c7673aB818C9e582630F1a924593"
+      },
+      {
+        "name": "PolygonDepositProcessorL1",
+        "artifact": "abis/0.8.25/PolygonDepositProcessorL1.json",
+        "address": "0x4Ce43b82EF1298E1466D3b3Cee67BA6680bF82FB"
+      },
+      {
+        "name": "GnosisDepositProcessorL1",
+        "artifact": "abis/0.8.25/GnosisDepositProcessorL1.json",
+        "address": "0xEEf2c02cFC445bFFf1c891D486424Ef3aBc66AB0"
+      },
+      {
         "name": "ArbitrumDepositProcessorL1",
         "artifact": "abis/0.8.25/ArbitrumDepositProcessorL1.json",
         "address": "0x5e13E07006D68B097DCb5979ef5545C4f9156162"
+      },
+      {
+        "name": "OptimismDepositProcessorL1",
+        "artifact": "abis/0.8.25/OptimismDepositProcessorL1.json",
+        "address": "0xAB787ceebe8F2b8dca44e3bB744D6e63003ee978"
       },
       {
         "name": "OptimismDepositProcessorL1",
@@ -54,139 +74,9 @@
         "address": "0x223902b6C583f18E8dc84AF4E6a8fa523d088B78"
       },
       {
-        "name": "EthereumDepositProcessor",
-        "artifact": "abis/0.8.25/EthereumDepositProcessor.json",
-        "address": "0x15CD7fAeE048c7673aB818C9e582630F1a924593"
-      },
-      {
-        "name": "GnosisDepositProcessorL1",
-        "artifact": "abis/0.8.25/GnosisDepositProcessorL1.json",
-        "address": "0xEEf2c02cFC445bFFf1c891D486424Ef3aBc66AB0"
-      },
-      {
-        "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.25/OptimismDepositProcessorL1.json",
-        "address": "0xAB787ceebe8F2b8dca44e3bB744D6e63003ee978"
-      },
-      {
-        "name": "PolygonDepositProcessorL1",
-        "artifact": "abis/0.8.25/PolygonDepositProcessorL1.json",
-        "address": "0x4Ce43b82EF1298E1466D3b3Cee67BA6680bF82FB"
-      },
-      {
         "name": "OptimismDepositProcessorL1",
         "artifact": "abis/0.8.28/OptimismDepositProcessorL1.json",
         "address": "0x792CDB3c195E688F6dCEB0B7631510D03144087F"
-      }
-    ]
-  },
-  {
-    "name": "arbitrumOne",
-    "chainId": "42161",
-    "contracts": [
-      {
-        "name": "ArbitrumTargetDispenserL2",
-        "artifact": "abis/0.8.25/ArbitrumTargetDispenserL2.json",
-        "address": "0x10c5525F77F13b28f42c5626240c001c2D57CAd4"
-      }
-    ]
-  },
-  {
-    "name": "arbitrumSepolia",
-    "chainId": "421614",
-    "contracts": [
-      {
-        "name": "ArbitrumTargetDispenserL2",
-        "artifact": "abis/0.8.25/ArbitrumTargetDispenserL2.json",
-        "address": ""
-      }
-    ]
-  },
-  {
-    "name": "base",
-    "chainId": "8453",
-    "contracts": [
-      {
-        "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": "0xcDdD9D9ABaB36fFa882530D69c73FeE5D4001C2d"
-      }
-    ]
-  },
-  {
-    "name": "baseSepolia",
-    "chainId": "84532",
-    "contracts": [
-      {
-        "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": ""
-      }
-    ]
-  },
-  {
-    "name": "celo",
-    "chainId": "42220",
-    "contracts": [
-      {
-        "name": "WormholeTargetDispenserL2",
-        "artifact": "abis/0.8.25/WormholeTargetDispenserL2.json",
-        "address": "0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
-      }
-    ]
-  },
-  {
-    "name": "celoAlfajores",
-    "chainId": "44787",
-    "contracts": [
-      {
-        "name": "WormholeTargetDispenserL2",
-        "artifact": "abis/0.8.25/WormholeTargetDispenserL2.json",
-        "address": ""
-      }
-    ]
-  },
-  {
-    "name": "gnosis",
-    "chainId": "100",
-    "contracts": [
-      {
-        "name": "GnosisTargetDispenserL2",
-        "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
-        "address": "0x67722c823010CEb4BED5325fE109196C0f67D053"
-      }
-    ]
-  },
-  {
-    "name": "chiado",
-    "chainId": "10200",
-    "contracts": [
-      {
-        "name": "GnosisTargetDispenserL2",
-        "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
-        "address": ""
-      }
-    ]
-  },
-  {
-    "name": "optimistic",
-    "chainId": "10",
-    "contracts": [
-      {
-        "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": "0x04b0007b2aFb398015B76e5f22993a1fddF83644"
-      }
-    ]
-  },
-  {
-    "name": "optimisticSepolia",
-    "chainId": "11155420",
-    "contracts": [
-      {
-        "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": ""
       }
     ]
   },
@@ -202,19 +92,63 @@
     ]
   },
   {
-    "name": "polygonAmoy",
-    "chainId": "80002",
+    "name": "gnosis",
+    "chainId": "100",
     "contracts": [
       {
-        "name": "PolygonTargetDispenserL2",
-        "artifact": "abis/0.8.25/PolygonTargetDispenserL2.json",
-        "address": ""
+        "name": "GnosisTargetDispenserL2",
+        "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
+        "address": "0x67722c823010CEb4BED5325fE109196C0f67D053"
+      }
+    ]
+  },
+  {
+    "name": "arbitrumOne",
+    "chainId": "42161",
+    "contracts": [
+      {
+        "name": "ArbitrumTargetDispenserL2",
+        "artifact": "abis/0.8.25/ArbitrumTargetDispenserL2.json",
+        "address": "0x10c5525F77F13b28f42c5626240c001c2D57CAd4"
+      }
+    ]
+  },
+  {
+    "name": "optimistic",
+    "chainId": "10",
+    "contracts": [
+      {
+        "name": "OptimismTargetDispenserL2",
+        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
+        "address": "0x04b0007b2aFb398015B76e5f22993a1fddF83644"
+      }
+    ]
+  },
+  {
+    "name": "base",
+    "chainId": "8453",
+    "contracts": [
+      {
+        "name": "OptimismTargetDispenserL2",
+        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
+        "address": "0xcDdD9D9ABaB36fFa882530D69c73FeE5D4001C2d"
+      }
+    ]
+  },
+  {
+    "name": "celo",
+    "chainId": "42220",
+    "contracts": [
+      {
+        "name": "WormholeTargetDispenserL2",
+        "artifact": "abis/0.8.25/WormholeTargetDispenserL2.json",
+        "address": "0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
       }
     ]
   },
   {
     "name": "mode",
-    "chainId": "137",
+    "chainId": "34443",
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
