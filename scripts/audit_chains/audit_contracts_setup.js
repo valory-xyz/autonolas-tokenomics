@@ -819,7 +819,7 @@ async function main() {
     await checkModeDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "OptimismDepositProcessorL1", log);
 
     // L2 contracts
-    let chainNumber = 1
+    let chainNumber = 1;
     // Polygon
     console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
     initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
@@ -843,9 +843,9 @@ async function main() {
 
     // Optimism
     console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
-//    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
-//    log = initLog + ", contract: " + "OptimismTargetDispenserL2";
-//    await checkOptimismTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+    log = initLog + ", contract: " + "OptimismTargetDispenserL2";
+    await checkOptimismTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
     chainNumber++;
 
     // Base
