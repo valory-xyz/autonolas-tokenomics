@@ -96,5 +96,63 @@ current deployed: <br>
 [Tokenomics-storage-current](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/Tokenomics.png) <br>
 The new slot allocation for Tokenomics (critical as proxy pattern) does not affect the previous one.
 
+### ERC721
+```
+slither-check-erc --erc ERC721 Depository-flatten.sol Depository     
+# Check Depository
+
+## Check functions
+[✓] balanceOf(address) is present
+        [✓] balanceOf(address) -> (uint256) (correct return type)
+        [✓] balanceOf(address) is view
+[✓] ownerOf(uint256) is present
+        [✓] ownerOf(uint256) -> (address) (correct return type)
+        [✓] ownerOf(uint256) is view
+[✓] safeTransferFrom(address,address,uint256,bytes) is present
+        [✓] safeTransferFrom(address,address,uint256,bytes) -> () (correct return type)
+        [✓] Transfer(address,address,uint256) is emitted
+[✓] safeTransferFrom(address,address,uint256) is present
+        [✓] safeTransferFrom(address,address,uint256) -> () (correct return type)
+        [✓] Transfer(address,address,uint256) is emitted
+[✓] transferFrom(address,address,uint256) is present
+        [✓] transferFrom(address,address,uint256) -> () (correct return type)
+        [✓] Transfer(address,address,uint256) is emitted
+[✓] approve(address,uint256) is present
+        [✓] approve(address,uint256) -> () (correct return type)
+        [✓] Approval(address,address,uint256) is emitted
+[✓] setApprovalForAll(address,bool) is present
+        [✓] setApprovalForAll(address,bool) -> () (correct return type)
+        [✓] ApprovalForAll(address,address,bool) is emitted
+[✓] getApproved(uint256) is present
+        [✓] getApproved(uint256) -> (address) (correct return type)
+        [✓] getApproved(uint256) is view
+[✓] isApprovedForAll(address,address) is present
+        [✓] isApprovedForAll(address,address) -> (bool) (correct return type)
+        [✓] isApprovedForAll(address,address) is view
+[✓] supportsInterface(bytes4) is present
+        [✓] supportsInterface(bytes4) -> (bool) (correct return type)
+        [✓] supportsInterface(bytes4) is view
+[✓] name() is present
+        [✓] name() -> (string) (correct return type)
+        [✓] name() is view
+[✓] symbol() is present
+        [✓] symbol() -> (string) (correct return type)
+[✓] tokenURI(uint256) is present
+        [✓] tokenURI(uint256) -> (string) (correct return type)
+
+## Check events
+[✓] Transfer(address,address,uint256) is present
+        [✓] parameter 0 is indexed
+        [✓] parameter 1 is indexed
+        [✓] parameter 2 is indexed
+[✓] Approval(address,address,uint256) is present
+        [✓] parameter 0 is indexed
+        [✓] parameter 1 is indexed
+        [✓] parameter 2 is indexed
+[✓] ApprovalForAll(address,address,bool) is present
+        [✓] parameter 0 is indexed
+        [✓] parameter 1 is indexed
+```
+
 ### Issue
 I don't see any problems.
