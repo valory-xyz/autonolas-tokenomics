@@ -372,7 +372,7 @@ async function checkOptimismDepositProcessorL1(chainId, provider, globalsInstanc
     await checkBytecode(provider, configContracts, contractName, log);
 
     // Get the contract instance
-    const optimismDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 1);
+    const optimismDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + optimismDepositProcessorL1.address;
     await checkDepositProcessorL1(optimismDepositProcessorL1, globalsInstance, log);
@@ -404,7 +404,7 @@ async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, c
     await checkBytecode(provider, configContracts, contractName, log);
 
     // Get the contract instance
-    const baseDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName);
+    const baseDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 1);
 
     log += ", address: " + baseDepositProcessorL1.address;
     await checkDepositProcessorL1(baseDepositProcessorL1, globalsInstance, log);
@@ -428,6 +428,38 @@ async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, c
     // Check L2 target dispenser
     const l2TargetDispenser = await baseDepositProcessorL1.l2TargetDispenser();
     customExpect(l2TargetDispenser, globalsInstance["baseTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
+}
+
+// Check ModeDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
+async function checkModeDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    // Check the bytecode
+    await checkBytecode(provider, configContracts, contractName, log);
+
+    // Get the contract instance
+    const modeDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 2);
+
+    log += ", address: " + modeDepositProcessorL1.address;
+    await checkDepositProcessorL1(modeDepositProcessorL1, globalsInstance, log);
+
+    // Check L1 token relayer
+    const l1TokenRelayer = await modeDepositProcessorL1.l1TokenRelayer();
+    customExpect(l1TokenRelayer, globalsInstance["modeL1StandardBridgeProxyAddress"], log + ", function: l1TokenRelayer()");
+
+    // Check L1 message relayer
+    const l1MessageRelayer = await modeDepositProcessorL1.l1MessageRelayer();
+    customExpect(l1MessageRelayer, globalsInstance["modeL1CrossDomainMessengerProxyAddress"], log + ", function: l1MessageRelayer()");
+
+    // Check L2 target chain Id
+    const l2TargetChainId = await modeDepositProcessorL1.l2TargetChainId();
+    customExpect(l2TargetChainId.toString(), globalsInstance["modeL2TargetChainId"], log + ", function: l2TargetChainId()");
+
+    // Check L2 OLAS address
+    const olasL2 = await modeDepositProcessorL1.olasL2();
+    customExpect(olasL2, globalsInstance["modeOLASAddress"], log + ", function: olasL2()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await modeDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["modeTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check PolygonDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -622,6 +654,26 @@ async function checkBaseTargetDispenserL2(chainId, provider, globalsInstance, co
     customExpect(l1DepositProcessor, globalsInstance["baseDepositProcessorL1Address"], log + ", function: l1DepositProcessor()");
 }
 
+// Check ModeTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name
+async function checkModeTargetDispenserL2(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    // Check the bytecode
+    await checkBytecode(provider, configContracts, contractName, log);
+
+    // Get the contract instance
+    const modeTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
+
+    log += ", address: " + modeTargetDispenserL2.address;
+    await checkTargetDispenserL2(modeTargetDispenserL2, globalsInstance, log);
+
+    // Check L2 message relayer
+    const l2MessageRelayer = await modeTargetDispenserL2.l2MessageRelayer();
+    customExpect(l2MessageRelayer, globalsInstance["modeL2CrossDomainMessengerAddress"], log + ", function: l2MessageRelayer()");
+
+    // Check L1 deposit processor
+    const l1DepositProcessor = await modeTargetDispenserL2.l1DepositProcessor();
+    customExpect(l1DepositProcessor, globalsInstance["modeDepositProcessorL1Address"], log + ", function: l1DepositProcessor()");
+}
+
 // Check CeloTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkCeloTargetDispenserL2(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
@@ -686,7 +738,8 @@ async function main() {
         "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_one.json",
         "optimistic": "scripts/deployment/staking/optimistic/globals_optimistic_mainnet.json",
         "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
-        "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json"
+        "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
+        "mode": "scripts/deployment/staking/mode/globals_mode_mainnet.json"
     };
 
     const globals = new Array();
@@ -706,7 +759,8 @@ async function main() {
         "arbitrumOne": "https://arb1.arbitrum.io/rpc",
         "optimistic": "https://optimism.drpc.org",
         "base": "https://mainnet.base.org",
-        "celo": "https://forno.celo.org"
+        "celo": "https://forno.celo.org",
+        "mode": "https://mainnet.mode.network"
     };
 
     const providers = new Array();
@@ -761,42 +815,58 @@ async function main() {
     log = initLog + ", contract: " + "CeloDepositProcessorL1";
     await checkCeloDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "WormholeDepositProcessorL1", log);
 
+    log = initLog + ", contract: " + "ModeDepositProcessorL1";
+    await checkModeDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "OptimismDepositProcessorL1", log);
+
     // L2 contracts
+    let chainNumber = 1;
     // Polygon
-    console.log("\n######## Verifying setup on CHAIN ID", configs[11]["chainId"]);
-    initLog = "ChainId: " + configs[11]["chainId"] + ", network: " + configs[11]["name"];
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
     log = initLog + ", contract: " + "PolygonTargetDispenserL2";
-    await checkPolygonTargetDispenserL2(configs[11]["chainId"], providers[1], globals[1], configs[11]["contracts"], "PolygonTargetDispenserL2", log);
+    await checkPolygonTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "PolygonTargetDispenserL2", log);
+    chainNumber++;
 
     // Gnosis
-    console.log("\n######## Verifying setup on CHAIN ID", configs[7]["chainId"]);
-    initLog = "ChainId: " + configs[7]["chainId"] + ", network: " + configs[7]["name"];
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
     log = initLog + ", contract: " + "GnosisTargetDispenserL2";
-    await checkGnosisTargetDispenserL2(configs[7]["chainId"], providers[2], globals[2], configs[7]["contracts"], "GnosisTargetDispenserL2", log);
+    await checkGnosisTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "GnosisTargetDispenserL2", log);
+    chainNumber++;
 
     // Arbitrum
-    console.log("\n######## Verifying setup on CHAIN ID", configs[1]["chainId"]);
-    initLog = "ChainId: " + configs[1]["chainId"] + ", network: " + configs[1]["name"];
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
     log = initLog + ", contract: " + "ArbitrumTargetDispenserL2";
-    await checkArbitrumTargetDispenserL2(configs[1]["chainId"], providers[3], globals[3], configs[1]["contracts"], "ArbitrumTargetDispenserL2", log);
-
-    // Base
-    console.log("\n######## Verifying setup on CHAIN ID", configs[3]["chainId"]);
-    initLog = "ChainId: " + configs[3]["chainId"] + ", network: " + configs[3]["name"];
-    log = initLog + ", contract: " + "BaseTargetDispenserL2";
-    await checkBaseTargetDispenserL2(configs[3]["chainId"], providers[5], globals[5], configs[3]["contracts"], "OptimismTargetDispenserL2", log);
-
-    // Celo
-    console.log("\n######## Verifying setup on CHAIN ID", configs[5]["chainId"]);
-    initLog = "ChainId: " + configs[5]["chainId"] + ", network: " + configs[5]["name"];
-    log = initLog + ", contract: " + "CeloTargetDispenserL2";
-    await checkCeloTargetDispenserL2(configs[5]["chainId"], providers[6], globals[6], configs[5]["contracts"], "WormholeTargetDispenserL2", log);
+    await checkArbitrumTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "ArbitrumTargetDispenserL2", log);
+    chainNumber++;
 
     // Optimism
-    console.log("\n######## Verifying setup on CHAIN ID", configs[9]["chainId"]);
-    initLog = "ChainId: " + configs[9]["chainId"] + ", network: " + configs[9]["name"];
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
     log = initLog + ", contract: " + "OptimismTargetDispenserL2";
-    await checkOptimismTargetDispenserL2(configs[9]["chainId"], providers[4], globals[4], configs[9]["contracts"], "OptimismTargetDispenserL2", log);
+    await checkOptimismTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
+    chainNumber++;
+
+    // Base
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+    log = initLog + ", contract: " + "BaseTargetDispenserL2";
+    await checkBaseTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
+    chainNumber++;
+
+    // Celo
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+    log = initLog + ", contract: " + "CeloTargetDispenserL2";
+    await checkCeloTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "WormholeTargetDispenserL2", log);
+    chainNumber++;
+
+    // Mode
+    console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+    initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+    log = initLog + ", contract: " + "OptimismTargetDispenserL2";
+    await checkModeTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
     // ################################# /VERIFY CONTRACTS SETUP #################################
 }
 
