@@ -7,7 +7,7 @@ pragma solidity ^0.8.25;
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
-    string public constant VERSION = "1.2.0";
+    string public constant VERSION = "1.3.0";
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;

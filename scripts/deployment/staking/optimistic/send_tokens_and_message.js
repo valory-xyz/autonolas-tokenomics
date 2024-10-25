@@ -55,7 +55,7 @@ const main = async () => {
     await tx.wait();
 
     // tx back: https://sepolia-optimism.etherscan.io/tx/0x08ff60b3ef506e0f34e5941953608fa5bec1a13d7e0a175084245aa622edf7e0
-    // tx result:
+    // tx result: https://sepolia.etherscan.io/tx/0xcd6ad253a6f869899f25f5d69d8261dbabd1fe49d9fce69cbcd3672064bb49dc
 
     // https://docs.optimism.io/builders/app-developers/tutorials/cross-dom-solidity#interact-with-the-l2-greeter
     // https://github.com/t4sk/notes/tree/main/op

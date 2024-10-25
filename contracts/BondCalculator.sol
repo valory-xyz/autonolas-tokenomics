@@ -30,13 +30,17 @@ error ZeroValue();
 // Struct for discount factor params
 // The size of the struct is 96 + 64 + 64 = 224 (1 slot)
 struct DiscountParams {
-    // DAO set voting power limit for the bonding account
+    // DAO-set voting power limit for the bonding account in order to provide a maximum discount for veOLAS holdings
     // This value is bound by the veOLAS total voting power
     uint96 targetVotingPower;
-    // DAO set number of new units per epoch limit
+    // DAO-set number of new units per epoch limit that were donated for the first time
     // This number is bound by the total number of possible components and agents
     uint64 targetNewUnits;
-    // DAO set weight factors
+    // DAO-set weight factors that correspond to:
+    //     0: a number of the new useful code registered throughout the epoch;
+    //     1: a vesting time in bonding vs the max vesting time set by the bonding product;
+    //     2: a supply left for the bonding product vs its initial product value;
+    //     3: a voting power represented by bonding account veOLAS holdings.
     // The sum of factors cannot exceed the value of 10_000 (100% with a 0.01% step)
     uint16[4] weightFactors;
 }
