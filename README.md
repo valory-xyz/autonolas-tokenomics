@@ -82,8 +82,14 @@ forge test --hh -vv
 ```
 
 ### Audits
-The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf).
+- The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
+- A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf).
+
+#### Static audit
+The static audit checks all the deployed contracts on-chain info correctness and can be run using the following script:
+```
+node scripts/audit_chains/audit_contracts_setup.js
+```
 
 ### Linters
 - [`ESLint`](https://eslint.org) is used for JS code.
