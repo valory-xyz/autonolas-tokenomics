@@ -200,3 +200,5 @@ ec017f7f1095f26fe63906ec36c9ede28030ea8a:scripts/deployment/staking/globals_main
 ec017f7f1095f26fe63906ec36c9ede28030ea8a:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
 1cb55f645a6f055a343fe46c4836b8353d3dfa3a:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
 1cb55f645a6f055a343fe46c4836b8353d3dfa3a:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
+1926300a5ccfafa48b72a6a5aaf7ad481e9a8b8b:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
+1926300a5ccfafa48b72a6a5aaf7ad481e9a8b8b:scripts/deployment/staking/globals_mainnet.json:generic-api-key:2
