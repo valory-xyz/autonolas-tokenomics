@@ -5,7 +5,7 @@ These scripts correspond to the steps in the full deployment procedure (as descr
 For the Tokenomics 1.2, refer to the following deployment procedure: [deployment_v1.2.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment_v1.2.md).
 
 ## Observations
-- There are several files with global parameters based on the corresponding network. In order to work with the configuration, please copy `gobals_network.json` file to file the `gobals.json` one, where `network` is the corresponding network. For example: `cp gobals_goerli.json gobals.json`.
+- There are several files with global parameters based on the corresponding network. In order to work with the configuration, please copy `gobals_network.json` file to file the `gobals.json` one, where `network` is the corresponding network. For example: `cp gobals_mainnet.json gobals.json`.
 - Please note: if you encounter the `Unknown Error 0x6b0c`, then it is likely because the ledger is not connected or logged in.
 
 ## Steps to engage

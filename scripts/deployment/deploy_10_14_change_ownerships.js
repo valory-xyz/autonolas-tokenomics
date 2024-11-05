@@ -38,7 +38,7 @@ async function main() {
     const donatorBlacklist = await ethers.getContractAt("DonatorBlacklist", donatorBlacklistAddress);
     console.log("You are signing the following transaction: DonatorBlacklist.connect(EOA).changeOwner()");
     let result = await donatorBlacklist.connect(EOA).changeOwner(timelockAddress);
-    if (providerName === "goerli") {
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
@@ -50,7 +50,7 @@ async function main() {
     const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).changeOwner()");
     result = await tokenomicsProxy.connect(EOA).changeOwner(timelockAddress);
-    if (providerName === "goerli") {
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
@@ -62,7 +62,7 @@ async function main() {
     const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
     console.log("You are signing the following transaction: Treasury.connect(EOA).changeOwner()");
     result = await treasury.connect(EOA).changeOwner(timelockAddress);
-    if (providerName === "goerli") {
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
@@ -74,7 +74,7 @@ async function main() {
     const depository = await ethers.getContractAt("Depository", depositoryAddress);
     console.log("You are signing the following transaction: Depository.connect(EOA).changeOwner()");
     result = await depository.connect(EOA).changeOwner(timelockAddress);
-    if (providerName === "goerli") {
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
@@ -86,7 +86,7 @@ async function main() {
     const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
     console.log("You are signing the following transaction: Dispenser.connect(EOA).changeOwner()");
     result = await dispenser.connect(EOA).changeOwner(timelockAddress);
-    if (providerName === "goerli") {
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details

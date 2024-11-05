@@ -31,8 +31,8 @@ async function main() {
     console.log("You are signing the following transaction: DonatorBlacklist.connect(EOA).deploy()");
     const donatorBlacklist = await DonatorBlacklist.connect(EOA).deploy();
     const result = await donatorBlacklist.deployed();
-    // If on goerli, wait a minute for the transaction completion
-    if (providerName === "goerli") {
+    // If on sepolia, wait a minute for the transaction completion
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
 

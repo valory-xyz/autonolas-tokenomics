@@ -35,8 +35,8 @@ async function main() {
     console.log("You are signing the following transaction: GenericBondCalculator.connect(EOA).deploy()");
     const genericBondCalculator = await GenericBondCalculator.connect(EOA).deploy(olasAddress, tokenomicsProxyAddress);
     const result = await genericBondCalculator.deployed();
-    // If on goerli, wait a minute for the transaction completion
-    if (providerName === "goerli") {
+    // If on sepolia, wait a minute for the transaction completion
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
 

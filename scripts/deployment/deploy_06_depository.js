@@ -38,8 +38,8 @@ async function main() {
     const depository = await Depository.connect(EOA).deploy(olasAddress, tokenomicsProxyAddress, treasuryAddress,
         genericBondCalculatorAddress);
     const result = await depository.deployed();
-    // If on goerli, wait a minute for the transaction completion
-    if (providerName === "goerli") {
+    // If on sepolia, wait a minute for the transaction completion
+    if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
 
