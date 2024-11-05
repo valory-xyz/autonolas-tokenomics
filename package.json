@@ -29,7 +29,7 @@
     "@typechain/hardhat": "^9.1.0",
     "@types/mocha": "^10.0.9",
     "chai": "^4.5.0",
-    "eslint": "^9.14.0",
+    "eslint": "^8.57.0",
     "solhint": "^5.0.3",
     "ethers": "^5.7.2",
     "hardhat": "^2.22.15",
