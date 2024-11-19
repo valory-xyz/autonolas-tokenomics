@@ -43,13 +43,21 @@ async function main() {
     // Bridge mediator to migrate TargetDispenserL2 funds and execute the undelivered data
     const value = 0;
     let target = oldTargetDispenserL2Address;
-    let rawPayload = oldTargetDispenserL2.interface.encodeFunctionData("migrate", [targetDispenserL2Address]);
+    let rawPayload = oldTargetDispenserL2.interface.encodeFunctionData("pause", []);
     // Pack the second part of data
     let payload = ethers.utils.arrayify(rawPayload);
     let data = ethers.utils.solidityPack(
         ["address", "uint96", "uint32", "bytes"],
         [target, value, payload.length, payload]
     );
+
+    rawPayload = oldTargetDispenserL2.interface.encodeFunctionData("migrate", [targetDispenserL2Address]);
+    // Pack the second part of data
+    payload = ethers.utils.arrayify(rawPayload);
+    data += ethers.utils.solidityPack(
+        ["address", "uint96", "uint32", "bytes"],
+        [target, value, payload.length, payload]
+    ).slice(2);
 
     target = targetDispenserL2Address;
     // Original un-delivered data:
