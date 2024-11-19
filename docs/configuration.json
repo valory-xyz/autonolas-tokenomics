@@ -76,7 +76,7 @@
       {
         "name": "OptimismDepositProcessorL1",
         "artifact": "abis/0.8.28/OptimismDepositProcessorL1.json",
-        "address": "0x792CDB3c195E688F6dCEB0B7631510D03144087F"
+        "address": "0x1bCAE95aF8ce25b44Af3F8aA781a4E743eB4522f"
       }
     ]
   },
@@ -153,7 +153,7 @@
       {
         "name": "OptimismTargetDispenserL2",
         "artifact": "abis/0.8.28/OptimismTargetDispenserL2.json",
-        "address": "0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4"
+        "address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
       }
     ]
   }
