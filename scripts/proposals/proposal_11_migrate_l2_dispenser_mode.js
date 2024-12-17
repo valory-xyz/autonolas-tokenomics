@@ -9,13 +9,13 @@ async function main() {
     let parsedData = JSON.parse(dataFromJSON);
     const provider = await ethers.providers.getDefaultProvider("mainnet");
 
-    const optimisticURL = "https://optimism.drpc.org";
-    const optimisticProvider = new ethers.providers.JsonRpcProvider(optimisticURL);
+    const modeURL = "https://mainnet.mode.network";
+    const modeProvider = new ethers.providers.JsonRpcProvider(modeURL);
     
     // Get EOAs
     const account = ethers.utils.HDNode.fromMnemonic(process.env.TESTNET_MNEMONIC).derivePath("m/44'/60'/0'/0/0");
     const EOAmainnet = new ethers.Wallet(account, provider);
-    const EOAoptimistic = new ethers.Wallet(account, optimisticProvider);
+    const EOAmode = new ethers.Wallet(account, modeProvider);
 
     // CDMProxy address on mainnet
     const CDMProxyAddress = parsedData.modeL1CrossDomainMessengerProxyAddress;
@@ -30,7 +30,7 @@ async function main() {
     contractFromJSON = fs.readFileSync(optimismMessengerJSON, "utf8");
     let parsedFile = JSON.parse(contractFromJSON);
     const optimismMessengerABI = parsedFile["abi"];
-    const optimismMessenger = new ethers.Contract(optimismMessengerAddress, optimismMessengerABI, optimisticProvider);
+    const optimismMessenger = new ethers.Contract(optimismMessengerAddress, optimismMessengerABI, modeProvider);
 
     // Get all the necessary contract addresses
     const oldTargetDispenserL2Address = "0x47135D1Cf850d7Df7f7f563F300cc7022F7978a4";
@@ -38,7 +38,7 @@ async function main() {
 
     // Get TargetDispenserL2 contracts
     const oldTargetDispenserL2 = (await ethers.getContractAt("OptimismTargetDispenserL2", oldTargetDispenserL2Address));
-    const targetDispenserL2 = (await ethers.getContractAt("OptimismTargetDispenserL2", targetDispenserL2Address)).connect(EOAoptimistic);
+    const targetDispenserL2 = (await ethers.getContractAt("OptimismTargetDispenserL2", targetDispenserL2Address)).connect(EOAmode);
 
     // Bridge mediator to migrate TargetDispenserL2 funds and execute the undelivered data
     const value = 0;
