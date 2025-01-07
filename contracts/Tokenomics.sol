@@ -1296,7 +1296,8 @@ contract Tokenomics is TokenomicsConstants {
         return true;
     }
 
-    /// @dev Updates inflation per second if .
+    /// @dev Updates inflation per second.
+    /// @notice Call this function if the inflation curve changes starting from the current year.
     function updateInflationPerSecond() external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -1313,21 +1314,23 @@ contract Tokenomics is TokenomicsConstants {
         }
 
         // Ensure effectiveBond is bigger than maxBond
+        // maxBond is issued as a credit for the upcoming epoch and is part of the effectiveBond
         uint256 curEffectiveBond = effectiveBond;
         uint256 curMaxBond = maxBond;
         if (curMaxBond > curEffectiveBond) {
             revert Overflow(curMaxBond, curEffectiveBond);
         }
 
-        // Adjust effective bond by reducing it with the on-going epoch maxBond value
+        // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
         curEffectiveBond -= curMaxBond;
 
         // Recalculate inflation per second based on the updated current year inflation
+        // If the curve has not changed, the inflation per second value will be the same as before
         uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
 
         // maxBond has to be recalculated
         curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
-        // Adjust effective bond with a new maxBond value
+        // Adjust effective bond with a new maxBond value issued for the on-going epoch
         curEffectiveBond += curMaxBond;
 
         // Update state variables
