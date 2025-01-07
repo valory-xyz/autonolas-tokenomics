@@ -1296,6 +1296,46 @@ contract Tokenomics is TokenomicsConstants {
         return true;
     }
 
+    /// @dev Updates inflation per second if .
+    function updateInflationPerSecond() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get current epoch length
+        uint256 curEpochLen = epochLen;
+        // Find if the year changes within the epoch
+        uint256 numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR;
+        // Revert if the year changes within the next epoch as it requires more complicated set of calculations
+        if (numYears > currentYear) {
+            revert Overflow(numYears, currentYear);
+        }
+
+        // Ensure effectiveBond is bigger than maxBond
+        uint256 curEffectiveBond = effectiveBond;
+        uint256 curMaxBond = maxBond;
+        if (curMaxBond > curEffectiveBond) {
+            revert Overflow(curMaxBond, curEffectiveBond);
+        }
+
+        // Adjust effective bond by reducing it with the on-going epoch maxBond value
+        curEffectiveBond -= curMaxBond;
+
+        // Recalculate inflation per second based on the updated current year inflation
+        uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
+
+        // maxBond has to be recalculated
+        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
+        // Adjust effective bond with a new maxBond value
+        curEffectiveBond += curMaxBond;
+
+        // Update state variables
+        maxBond = uint96(curMaxBond);
+        effectiveBond = uint96(curEffectiveBond);
+        inflationPerSecond = uint96(curInflationPerSecond);
+    }
+
     /// @dev Gets component / agent owner incentives and clears the balances.
     /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
