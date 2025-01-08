@@ -1313,6 +1313,8 @@ contract Tokenomics is TokenomicsConstants {
             revert Overflow(numYears, currentYear);
         }
 
+        // TODO Adjust effective bond to lower it?
+
         // Ensure effectiveBond is bigger than maxBond
         // maxBond is issued as a credit for the upcoming epoch and is part of the effectiveBond
         uint256 curEffectiveBond = effectiveBond;
@@ -1324,9 +1326,18 @@ contract Tokenomics is TokenomicsConstants {
         // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
         curEffectiveBond -= curMaxBond;
 
+        // Calculate seconds passed in this year
+        uint256 secondsInThisYear = block.timestamp - timeLaunch - numYears * ONE_YEAR;
+        uint256 secondsBeforeNextYear = (numYears + 1) * ONE_YEAR - block.timestamp;
+
+        // Get current inflation per second
+        uint256 curInflationPerSecond = inflationPerSecond;
+
+        // TODO Check when this can be called again if needed
         // Recalculate inflation per second based on the updated current year inflation
+        // inflation per second = (updated inflation - used inflation in this year) / seconds left in this year
         // If the curve has not changed, the inflation per second value will be the same as before
-        uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
+        curInflationPerSecond = (getInflationForYear(currentYear) - curInflationPerSecond * secondsInThisYear) / secondsBeforeNextYear;
 
         // maxBond has to be recalculated
         curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
