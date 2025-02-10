@@ -101,7 +101,7 @@ describe("Depository LP", async () => {
         const wethFactory = await ethers.getContractFactory("WETH9");
         const weth = await wethFactory.deploy();
         await weth.deployed();
-        
+
         // Deploy Uniswap factory
         const Factory = await ethers.getContractFactory("UniswapV2Factory");
         factory = await Factory.deploy(deployer.address);
