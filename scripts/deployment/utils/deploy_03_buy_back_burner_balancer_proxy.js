@@ -44,8 +44,8 @@ async function main() {
     // Assemble the contributors proxy data
     const buyBackBurner = await ethers.getContractAt("BuyBackBurnerBalancer", buyBackBurnerAddress);
     const proxyPayload = ethers.utils.defaultAbiCoder.encode(["address[]", "bytes32", "uint256"],
-         [[parsedData.olasAddress, parsedData.nativeTokenAddress, parsedData.balancerPriceOracleAddress,
-         parsedData.balancerVaultAddress], parsedData.balancerPoolId, parsedData.maxBuyBackSlippage]);
+        [[parsedData.olasAddress, parsedData.nativeTokenAddress, parsedData.balancerPriceOracleAddress,
+        parsedData.balancerVaultAddress], parsedData.balancerPoolId, parsedData.maxBuyBackSlippage]);
     const proxyData = buyBackBurner.interface.encodeFunctionData("initialize", [proxyPayload]);
 
     // Transaction signing and execution
