@@ -1328,7 +1328,7 @@ contract Tokenomics is TokenomicsConstants {
 
         // Calculate seconds passed in this year
         uint256 secondsInThisYear = block.timestamp - timeLaunch - numYears * ONE_YEAR;
-        uint256 secondsBeforeNextYear = (numYears + 1) * ONE_YEAR - block.timestamp;
+        uint256 secondsBeforeNextYear = timeLaunch + (numYears + 1) * ONE_YEAR - block.timestamp;
 
         // Get current inflation per second
         uint256 curInflationPerSecond = inflationPerSecond;
