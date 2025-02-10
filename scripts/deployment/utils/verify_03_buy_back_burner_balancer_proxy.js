@@ -6,7 +6,7 @@ const parsedData = JSON.parse(dataFromJSON);
 const buyBackBurnerAddress = parsedData.buyBackBurnerAddress;
 const proxyPayload = ethers.utils.defaultAbiCoder.encode(["address[]", "bytes32", "uint256"],
     [[parsedData.olasAddress, parsedData.nativeTokenAddress, parsedData.balancerPriceOracleAddress,
-    parsedData.balancerVaultAddress], parsedData.balancerPoolId, parsedData.maxBuyBackSlippage]);
+        parsedData.balancerVaultAddress], parsedData.balancerPoolId, parsedData.maxBuyBackSlippage]);
 const iface = new ethers.utils.Interface(["function initialize(bytes memory payload)"]);
 const proxyData = iface.encodeFunctionData("initialize", [proxyPayload]);
 
