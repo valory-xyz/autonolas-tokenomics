@@ -38,9 +38,9 @@ async function main() {
     // TargetDispenserL2 contract instance
     const targetDispenserL2 = (await ethers.getContractAt("GnosisTargetDispenserL2", targetDispenserL2Address)).connect(EOAgnosis);
 
-    const stakingAddresses = ["0x88eB38FF79fBa8C19943C0e5Acfa67D5876AdCC1", "0x6c65430515c70a3f5E62107CC301685B7D46f991"];
-    // Emissions needed: 45534246575342515200000
-    const stakingAmounts = Array(stakingAddresses.length).fill("45534246575342515200000");
+    const stakingAddresses = ["0x6C6D01e8eA8f806eF0c22F0ef7ed81D868C1aB39", "0x17dbae44bc5618cc254055b386a29576b4f87015", "0xb0ef657b8302bd2c74b6e6d9b2b4b39145b19c6f", "0x3112c1613eac3dbae3d4e38cef023eb9e2c91cf7", "0xf4a75f476801b3fbb2e7093acdcc3576593cc1fc"];
+    // Emissions needed: 9022*10^18, 12553*10^18, 12662*10^18, 12342*10^18, 12902*10^18```
+    const stakingAmounts = ["9022000000000000000000", "12553000000000000000000", "12662000000000000000000", "12342000000000000000000", "12902000000000000000000"];
 
     // Bridge mediator to migrate TargetDispenserL2 funds and execute the undelivered data
     const value = 0;
