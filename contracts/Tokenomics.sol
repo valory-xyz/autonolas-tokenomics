@@ -1296,6 +1296,60 @@ contract Tokenomics is TokenomicsConstants {
         return true;
     }
 
+    /// @dev Updates inflation per second.
+    /// @notice Call this function if the inflation curve changes starting from the current year.
+    function updateInflationPerSecond() external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get current epoch length
+        uint256 curEpochLen = epochLen;
+        // Find if the year changes within the epoch
+        uint256 numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR;
+        // Revert if the year changes within the next epoch as it requires more complicated set of calculations
+        if (numYears > currentYear) {
+            revert Overflow(numYears, currentYear);
+        }
+
+        // TODO Adjust effective bond to lower it?
+
+        // Ensure effectiveBond is bigger than maxBond
+        // maxBond is issued as a credit for the upcoming epoch and is part of the effectiveBond
+        uint256 curEffectiveBond = effectiveBond;
+        uint256 curMaxBond = maxBond;
+        if (curMaxBond > curEffectiveBond) {
+            revert Overflow(curMaxBond, curEffectiveBond);
+        }
+
+        // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
+        curEffectiveBond -= curMaxBond;
+
+        // Calculate seconds passed in this year
+        uint256 secondsInThisYear = block.timestamp - timeLaunch - numYears * ONE_YEAR;
+        uint256 secondsBeforeNextYear = timeLaunch + (numYears + 1) * ONE_YEAR - block.timestamp;
+
+        // Get current inflation per second
+        uint256 curInflationPerSecond = inflationPerSecond;
+
+        // TODO Check when this can be called again if needed
+        // Recalculate inflation per second based on the updated current year inflation
+        // inflation per second = (updated inflation - used inflation in this year) / seconds left in this year
+        // If the curve has not changed, the inflation per second value will be the same as before
+        curInflationPerSecond = (getInflationForYear(currentYear) - curInflationPerSecond * secondsInThisYear) / secondsBeforeNextYear;
+
+        // maxBond has to be recalculated
+        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
+        // Adjust effective bond with a new maxBond value issued for the on-going epoch
+        curEffectiveBond += curMaxBond;
+
+        // Update state variables
+        maxBond = uint96(curMaxBond);
+        effectiveBond = uint96(curEffectiveBond);
+        inflationPerSecond = uint96(curInflationPerSecond);
+    }
+
     /// @dev Gets component / agent owner incentives and clears the balances.
     /// @notice `account` must be the owner of components / agents Ids, otherwise the function will revert.
     /// @notice If not all `unitIds` belonging to `account` were provided, they will be untouched and keep accumulating.
