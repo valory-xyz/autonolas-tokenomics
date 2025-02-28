@@ -212,3 +212,4 @@ ec017f7f1095f26fe63906ec36c9ede28030ea8a:scripts/deployment/staking/globals_main
 63706f7d2ec9f1e56d875ee941f925b4b5994dd6:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:1
 4687a1d8ccccf230469eceb47980248ce0baa066:scripts/deployment/oracles/globals_gnosis_mainnet.json:generic-api-key:1
 4687a1d8ccccf230469eceb47980248ce0baa066:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:1
+1cb597188de8051615b1505f25763ebc7462fa6b:scripts/deployment/globals_mainnet.json:generic-api-key:1
