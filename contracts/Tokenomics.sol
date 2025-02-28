@@ -1326,9 +1326,11 @@ contract Tokenomics is TokenomicsConstants {
         // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
         curEffectiveBond -= curMaxBond;
 
-        // Calculate seconds passed in this year
-        uint256 secondsInThisYear = block.timestamp - timeLaunch - numYears * ONE_YEAR;
-        uint256 secondsBeforeNextYear = timeLaunch + (numYears + 1) * ONE_YEAR - block.timestamp;
+        uint256 lastEpochEndTime = mapEpochTokenomics[epochCounter].epochPoint.endTime;
+        // Calculate seconds passed in this year until the beginning of current epoch
+        uint256 secondsInThisYear = lastEpochEndTime + numYears * ONE_YEAR - timeLaunch;
+        // Calculate seconds passed from beginning of current epoch until this year end
+        uint256 secondsBeforeNextYear = timeLaunch + (numYears + 1) * ONE_YEAR - lastEpochEndTime;
 
         // Get current inflation per second
         uint256 curInflationPerSecond = inflationPerSecond;
@@ -1337,7 +1339,13 @@ contract Tokenomics is TokenomicsConstants {
         // Recalculate inflation per second based on the updated current year inflation
         // inflation per second = (updated inflation - used inflation in this year) / seconds left in this year
         // If the curve has not changed, the inflation per second value will be the same as before
-        curInflationPerSecond = (getInflationForYear(currentYear) - curInflationPerSecond * secondsInThisYear) / secondsBeforeNextYear;
+        uint256 oldYearInflation = curInflationPerSecond * ONE_YEAR;
+        uint256 reductionInflation = oldYearInflation - getInflationForYear(currentYear);
+        if (reductionInflation > curEffectiveBond) {
+            revert Overflow(reductionInflation, curEffectiveBond);
+        }
+        curEffectiveBond -= reductionInflation;
+        curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
 
         // maxBond has to be recalculated
         curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
