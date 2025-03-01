@@ -1296,8 +1296,8 @@ contract Tokenomics is TokenomicsConstants {
         return true;
     }
 
-    /// @dev Updates inflation per second.
-    /// @notice Call this function if the inflation curve changes starting from the current year.
+    /// @dev Updates inflation per second due to inflation curve decrease.
+    /// @notice Call this function if the inflation curve decreases starting from the current year.
     function updateInflationPerSecond() external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -1313,8 +1313,6 @@ contract Tokenomics is TokenomicsConstants {
             revert Overflow(numYears, currentYear);
         }
 
-        // TODO Adjust effective bond to lower it?
-
         // Ensure effectiveBond is bigger than maxBond
         // maxBond is issued as a credit for the upcoming epoch and is part of the effectiveBond
         uint256 curEffectiveBond = effectiveBond;
@@ -1326,28 +1324,32 @@ contract Tokenomics is TokenomicsConstants {
         // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
         curEffectiveBond -= curMaxBond;
 
-        uint256 lastEpochEndTime = mapEpochTokenomics[epochCounter].epochPoint.endTime;
-        // Calculate seconds passed in this year until the beginning of current epoch
-        uint256 secondsInThisYear = lastEpochEndTime + numYears * ONE_YEAR - timeLaunch;
-        // Calculate seconds passed from beginning of current epoch until this year end
-        uint256 secondsBeforeNextYear = timeLaunch + (numYears + 1) * ONE_YEAR - lastEpochEndTime;
-
+        // Recalculate inflation per second based on the updated current year inflation
+        // If the inflation curve has not changed, the inflation per second value will be the same as before
         // Get current inflation per second
         uint256 curInflationPerSecond = inflationPerSecond;
+        // Get old inflation per year
+        uint256 oldInflationPerYear = curInflationPerSecond * ONE_YEAR;
+        // Get new inflation per year
+        uint256 newInflationPerYear = getInflationForYear(currentYear);
+        // Check for inflation reduction
+        if (newInflationPerYear > oldInflationPerYear) {
+            revert Overflow(newInflationPerYear, oldInflationPerYear);
+        }
 
-        // TODO Check when this can be called again if needed
-        // Recalculate inflation per second based on the updated current year inflation
-        // inflation per second = (updated inflation - used inflation in this year) / seconds left in this year
-        // If the curve has not changed, the inflation per second value will be the same as before
-        uint256 oldYearInflation = curInflationPerSecond * ONE_YEAR;
-        uint256 reductionInflation = oldYearInflation - getInflationForYear(currentYear);
+        // Calculate inflation reduction
+        uint256 reductionInflation = oldInflationPerYear - newInflationPerYear;
+        // Check for effective bond cut in favor of inflation difference
         if (reductionInflation > curEffectiveBond) {
             revert Overflow(reductionInflation, curEffectiveBond);
         }
-        curEffectiveBond -= reductionInflation;
-        curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
 
-        // maxBond has to be recalculated
+        // Update effective bond
+        curEffectiveBond -= reductionInflation;
+        // Calculate updated inflation per second
+        curInflationPerSecond = newInflationPerYear / ONE_YEAR;
+
+        // Recalculate maxBond
         curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
         // Adjust effective bond with a new maxBond value issued for the on-going epoch
         curEffectiveBond += curMaxBond;
