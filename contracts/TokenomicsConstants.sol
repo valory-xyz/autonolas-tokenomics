@@ -36,19 +36,20 @@ abstract contract TokenomicsConstants {
             uint96[10] memory supplyCaps = [
                 529_659_000e18,
                 569_913_084e18,
-                610_313_084e18,
-                666_313_084e18,
-                746_313_084e18,
-                818_313_084e18,
-                882_313_084e18,
-                930_313_084e18,
-                970_313_084e18,
-                1_000_000_000e18
+                594_437_378e18,
+                619_697_401e18,
+                645_715_224e18,
+                672_513_582e18,
+                700_115_891e18,
+                728_546_269e18,
+                757_829_558e18,
+                787_991_346e18
             ];
             supplyCap = supplyCaps[numYears];
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
+            // TODO Shall it be 787_991_346e18 as a starting number?
             // Max cap for the first 10 years
             supplyCap = 1_000_000_000e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
@@ -73,19 +74,20 @@ abstract contract TokenomicsConstants {
             uint88[10] memory inflationAmounts = [
                 3_159_000e18,
                 40_254_084e18,
-                40_400_000e18,
-                56_000_000e18,
-                80_000_000e18,
-                72_000_000e18,
-                64_000_000e18,
-                48_000_000e18,
-                40_000_000e18,
-                29_686_916e18
+                24_524_294e18,
+                25_260_023e18,
+                26_017_823e18,
+                26_798_358e18,
+                27_602_309e18,
+                28_430_378e18,
+                29_283_289e18,
+                30_161_788e18
             ];
             inflationAmount = inflationAmounts[numYears];
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
+            // TODO Shall it be 787_991_346e18 as a starting number?
             // Max cap for the first 10 years
             uint256 supplyCap = 1_000_000_000e18;
             // After that the inflation is 2% per year as defined by the OLAS contract

@@ -1328,17 +1328,24 @@ contract Tokenomics is TokenomicsConstants {
         // If the inflation curve has not changed, the inflation per second value will be the same as before
         // Get current inflation per second
         uint256 curInflationPerSecond = inflationPerSecond;
-        // Get old inflation per year
-        uint256 oldInflationPerYear = curInflationPerSecond * ONE_YEAR;
-        // Get new inflation per year
-        uint256 newInflationPerYear = getInflationForYear(currentYear);
+        // Get last epoch end time
+        uint256 cureEpochCounter = epochCounter;
+        uint256 endTime = mapEpochTokenomics[cureEpochCounter - 1].epochPoint.endTime;
+        // Calculate seconds passed in a year until last epoch end time
+        uint256 secondsInYearUntilEndTime = endTime - numYears * ONE_YEAR - timeLaunch;
+        // Get old inflation from beginning of the year until end of last epoch
+        uint256 oldInflationUntilEpochEnd = curInflationPerSecond * secondsInYearUntilEndTime;
+        // Calculate updated inflation per second
+        curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
+        // Get new inflation from beginning of the year until end of last epoch
+        uint256 newInflationUntilEpochEnd = curInflationPerSecond * secondsInYearUntilEndTime;
         // Check for inflation reduction
-        if (newInflationPerYear > oldInflationPerYear) {
-            revert Overflow(newInflationPerYear, oldInflationPerYear);
+        if (newInflationUntilEpochEnd > oldInflationUntilEpochEnd) {
+            revert Overflow(newInflationUntilEpochEnd, oldInflationUntilEpochEnd);
         }
 
         // Calculate inflation reduction
-        uint256 reductionInflation = oldInflationPerYear - newInflationPerYear;
+        uint256 reductionInflation = oldInflationUntilEpochEnd - newInflationUntilEpochEnd;
         // Check for effective bond cut in favor of inflation difference
         if (reductionInflation > curEffectiveBond) {
             revert Overflow(reductionInflation, curEffectiveBond);
@@ -1346,11 +1353,9 @@ contract Tokenomics is TokenomicsConstants {
 
         // Update effective bond
         curEffectiveBond -= reductionInflation;
-        // Calculate updated inflation per second
-        curInflationPerSecond = newInflationPerYear / ONE_YEAR;
 
         // Recalculate maxBond
-        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[epochCounter].epochPoint.maxBondFraction) / 100;
+        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[cureEpochCounter].epochPoint.maxBondFraction) / 100;
         // Adjust effective bond with a new maxBond value issued for the on-going epoch
         curEffectiveBond += curMaxBond;
 
