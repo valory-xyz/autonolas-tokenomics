@@ -26,11 +26,87 @@ abstract contract TokenomicsConstants {
     /// @param numYears Number of years passed from the launch date.
     /// @return supplyCap Supply cap.
     /// supplyCap = 1e27 * (1.02)^(x-9) for x >= 10
-    /// if_succeeds {:msg "correct supplyCap"} (numYears >= 10) ==> (supplyCap > 1e27);  
+    /// if_succeeds {:msg "correct supplyCap"} (numYears >= 10) ==> (supplyCap > 1e27);
     /// There is a bug in scribble tools, a broken instrumented version is as follows:
     /// function getSupplyCapForYear(uint256 numYears) public returns (uint256 supplyCap)
     /// And the test is waiting for a view / pure function, which would be correct
     function getSupplyCapForYear(uint256 numYears) public pure returns (uint256 supplyCap) {
+        // For the first 10 years the supply caps are pre-defined
+        if (numYears < 10) {
+            uint96[10] memory supplyCaps = [
+                529_659_000e18,
+                569_913_084e18,
+                594_437_378e18,
+                619_697_401e18,
+                645_715_224e18,
+                672_513_582e18,
+                700_115_891e18,
+                728_546_269e18,
+                757_829_558e18,
+                787_991_346e18
+            ];
+            supplyCap = supplyCaps[numYears];
+        } else {
+            // Number of years after ten years have passed (including ongoing ones)
+            numYears -= 9;
+            // TODO Shall it be 787_991_346e18 as a starting number?
+            // Max cap for the first 10 years
+            supplyCap = 1_000_000_000e18;
+            // After that the inflation is 2% per year as defined by the OLAS contract
+            uint256 maxMintCapFraction = 2;
+
+            // Get the supply cap until the current year
+            for (uint256 i = 0; i < numYears; ++i) {
+                supplyCap += (supplyCap * maxMintCapFraction) / 100;
+            }
+            // Return the difference between last two caps (inflation for the current year)
+            return supplyCap;
+        }
+    }
+
+    /// @dev Gets an inflation amount for a specific year.
+    /// @param numYears Number of years passed from the launch date.
+    /// @return inflationAmount Inflation limit amount.
+    function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount) {
+        // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
+        if (numYears < 10) {
+            // Initial OLAS allocation is 526_500_000_0e17
+            uint88[10] memory inflationAmounts = [
+                3_159_000e18,
+                40_254_084e18,
+                24_524_294e18,
+                25_260_023e18,
+                26_017_823e18,
+                26_798_358e18,
+                27_602_309e18,
+                28_430_378e18,
+                29_283_289e18,
+                30_161_788e18
+            ];
+            inflationAmount = inflationAmounts[numYears];
+        } else {
+            // Number of years after ten years have passed (including ongoing ones)
+            numYears -= 9;
+            // TODO Shall it be 787_991_346e18 as a starting number?
+            // Max cap for the first 10 years
+            uint256 supplyCap = 1_000_000_000e18;
+            // After that the inflation is 2% per year as defined by the OLAS contract
+            uint256 maxMintCapFraction = 2;
+
+            // Get the supply cap until the year before the current year
+            for (uint256 i = 1; i < numYears; ++i) {
+                supplyCap += (supplyCap * maxMintCapFraction) / 100;
+            }
+
+            // Inflation amount is the difference between last two caps (inflation for the current year)
+            inflationAmount = (supplyCap * maxMintCapFraction) / 100;
+        }
+    }
+
+    /// @dev Gets actual inflation cap for a specific year.
+    /// @param numYears Number of years passed from the launch date.
+    /// @return supplyCap Supply cap.
+    function getActualSupplyCapForYear(uint256 numYears) public pure returns (uint256 supplyCap) {
         // For the first 10 years the supply caps are pre-defined
         if (numYears < 10) {
             uint96[10] memory supplyCaps = [
@@ -64,10 +140,10 @@ abstract contract TokenomicsConstants {
         }
     }
 
-    /// @dev Gets an inflation amount for a specific year.
+    /// @dev Gets actual inflation amount for a specific year.
     /// @param numYears Number of years passed from the launch date.
     /// @return inflationAmount Inflation limit amount.
-    function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount) {
+    function getActualInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount) {
         // For the first 10 years the inflation caps are pre-defined as differences between next year cap and current year one
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
