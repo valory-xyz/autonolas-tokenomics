@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
 import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
@@ -1547,5 +1547,54 @@ contract Tokenomics is TokenomicsConstants {
     /// @return Epoch end time.
     function getEpochEndTime(uint256 epoch) external view returns (uint256) {
         return mapEpochTokenomics[epoch].epochPoint.endTime;
+    }
+
+    /// @dev Gets a historical inflation amount for a specific year.
+    /// @param numYears Number of years passed from the launch date.
+    /// @return inflationAmount Inflation limit amount.
+    function getHistoricalInflationForYear(uint256 numYears) external view returns (uint256 inflationAmount) {
+        uint256 actualEpochLength;
+        uint256 inflationPerEpoch;
+        if (numYears == 0) {
+
+            uint256 tokenomicsStartTime = mapEpochTokenomics[0].epochPoint.endTime;
+            actualEpochLength = mapEpochTokenomics[1].epochPoint.endTime - tokenomicsStartTime;
+            inflationPerEpoch = mapEpochTokenomics[1].epochPoint.totalTopUpsOLAS;
+            uint256 infPerSecond = inflationPerEpoch / actualEpochLength;
+            uint256 numSecondsInYear = timeLaunch + ONE_YEAR - tokenomicsStartTime;
+            inflationAmount = infPerSecond * numSecondsInYear;
+
+        } else if (numYears < currentYear) {
+            // Pick middle of yeach year
+            uint256 midYearTime = timeLaunch + (numYears * ONE_YEAR) + (ONE_YEAR / 2);
+            uint256 minEpochNumber;
+            uint256 maxEpochNumber = epochCounter;
+
+            // Binary search to find epoch end time
+            for (uint256 i = 0; i < 128; ++i) {
+                if ((minEpochNumber + 1) > maxEpochNumber) {
+                    break;
+                }
+                uint256 mid = (minEpochNumber + maxEpochNumber + 1) / 2;
+
+                uint256 endTime = mapEpochTokenomics[mid].epochPoint.endTime;
+
+                if (endTime <= midYearTime) {
+                    minEpochNumber = mid;
+                } else {
+                    maxEpochNumber = mid - 1;
+                }
+            }
+
+            actualEpochLength = mapEpochTokenomics[minEpochNumber + 1].epochPoint.endTime -
+                mapEpochTokenomics[minEpochNumber].epochPoint.endTime;
+            inflationPerEpoch = mapEpochTokenomics[minEpochNumber + 1].epochPoint.totalTopUpsOLAS;
+            inflationAmount = (inflationPerEpoch * ONE_YEAR) / actualEpochLength;
+
+        } else if (numYears == currentYear) {
+            inflationAmount = inflationPerSecond * ONE_YEAR;
+        } else {
+            inflationAmount = getInflationForYear(numYears);
+        }
     }
 }

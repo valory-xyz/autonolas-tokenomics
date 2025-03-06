@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.28;
 
 /// @title TokenomicsConstants - Smart contract with tokenomics constants
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -34,22 +34,22 @@ abstract contract TokenomicsConstants {
         // For the first 10 years the supply caps are pre-defined
         if (numYears < 10) {
             uint96[10] memory supplyCaps = [
-                529_659_000e18,
-                569_913_084e18,
-                594_437_378e18,
-                619_697_401e18,
-                645_715_224e18,
-                672_513_582e18,
-                700_115_891e18,
-                728_546_269e18,
-                757_829_558e18,
-                787_991_346e18
+                526_500_000e18,
+                543_648_331e18,
+                568_172_625e18,
+                593_432_648e18,
+                619_450_471e18,
+                646_248_829e18,
+                673_851_138e18,
+                702_281_516e18,
+                731_564_805e18,
+                761_726_593e18
             ];
             supplyCap = supplyCaps[numYears];
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 787_991_346e18 as a starting number?
+            // TODO Shall it be 761_726_593e18 as a starting number?
             // Max cap for the first 10 years
             supplyCap = 1_000_000_000e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
@@ -72,8 +72,8 @@ abstract contract TokenomicsConstants {
         if (numYears < 10) {
             // Initial OLAS allocation is 526_500_000_0e17
             uint88[10] memory inflationAmounts = [
-                3_159_000e18,
-                40_254_084e18,
+                0,
+                17_148_331e18,
                 24_524_294e18,
                 25_260_023e18,
                 26_017_823e18,
@@ -87,7 +87,7 @@ abstract contract TokenomicsConstants {
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 787_991_346e18 as a starting number?
+            // TODO Shall it be 761_726_593e18 as a starting number?
             // Max cap for the first 10 years
             uint256 supplyCap = 1_000_000_000e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
