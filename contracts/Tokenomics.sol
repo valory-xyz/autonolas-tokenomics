@@ -1329,8 +1329,8 @@ contract Tokenomics is TokenomicsConstants {
         // Get current inflation per second
         uint256 curInflationPerSecond = inflationPerSecond;
         // Get last epoch end time
-        uint256 cureEpochCounter = epochCounter;
-        uint256 endTime = mapEpochTokenomics[cureEpochCounter - 1].epochPoint.endTime;
+        uint256 curEpochCounter = epochCounter;
+        uint256 endTime = mapEpochTokenomics[curEpochCounter - 1].epochPoint.endTime;
         // Calculate seconds passed in a year until last epoch end time
         uint256 secondsInYearUntilEndTime = endTime - numYears * ONE_YEAR - timeLaunch;
         // Get old inflation from beginning of the year until end of last epoch
@@ -1355,7 +1355,7 @@ contract Tokenomics is TokenomicsConstants {
         curEffectiveBond -= reductionInflation;
 
         // Recalculate maxBond
-        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[cureEpochCounter].epochPoint.maxBondFraction) / 100;
+        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[curEpochCounter].epochPoint.maxBondFraction) / 100;
         // Adjust effective bond with a new maxBond value issued for the on-going epoch
         curEffectiveBond += curMaxBond;
 

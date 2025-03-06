@@ -41,7 +41,7 @@ async function main() {
 
     // Get bytecode
     const contractBytecode = parsedFile["bytecode"]
-    const tx = await wallet.sendTransaction({
+    let tx = await wallet.sendTransaction({
         data: contractBytecode,
         gasLimit: 10000000,
     });
@@ -51,12 +51,14 @@ async function main() {
     console.log(tokenomicsImplementationAddress);
 
     // Change tokenomics implementation
-    await tokenomics.connect(signer).changeTokenomicsImplementation(tokenomicsImplementationAddress);
+    tx = await tokenomics.changeTokenomicsImplementation(tokenomicsImplementationAddress);
+    await tx.wait();
 
-    await wallet.sendTransaction({to: signer.address, value: ethers.utils.parseEther("1")});
+    await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     // Update tokenomics inflation
-    await tokenomics.connect(signer).updateInflationPerSecond();
+    tx = await tokenomics.updateInflationPerSecond();
+    await tx.wait();
 
     // Get inflation per second
     const inflationPerSecond = await tokenomics.inflationPerSecond();
