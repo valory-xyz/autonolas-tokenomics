@@ -64,12 +64,11 @@ async function main() {
     const inflationPerSecond = await tokenomics.inflationPerSecond();
     console.log(inflationPerSecond.toString());
 
-    // Get historical inflation per epoch
-    const nextYear = Number(await tokenomics.currentYear()) + 1;
-    for (let i = 0; i <= nextYear; i++) {
-        const inflationPerEpoch = await tokenomics.getHistoricalInflationForYear(i);
-        console.log(`Year ${i} inflation:`, inflationPerEpoch.toString());
-    }
+    // Get current effective bond
+    const effectiveBond = await tokenomics.effectiveBond();
+    const maxBond = await tokenomics.maxBond();
+    console.log("Updated effective bond:", effectiveBond.toString());
+    console.log("Updated max bond:", maxBond.toString());
 }
 
 main()
