@@ -40,7 +40,7 @@ async function main() {
     console.log(tokenomics.address);
 
     // Get bytecode
-    const contractBytecode = parsedFile["bytecode"]
+    const contractBytecode = parsedFile["bytecode"];
     let tx = await wallet.sendTransaction({
         data: contractBytecode,
         gasLimit: 10000000,
@@ -63,6 +63,13 @@ async function main() {
     // Get inflation per second
     const inflationPerSecond = await tokenomics.inflationPerSecond();
     console.log(inflationPerSecond.toString());
+
+    // Get historical inflation per epoch
+    const nextYear = Number(await tokenomics.currentYear()) + 1;
+    for (let i = 0; i <= nextYear; i++) {
+        const inflationPerEpoch = await tokenomics.getHistoricalInflationForYear(i);
+        console.log(`Year ${i} inflation:`, inflationPerEpoch.toString());
+    }
 }
 
 main()
