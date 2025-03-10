@@ -6,6 +6,12 @@ import {TokenomicsConstants} from "./TokenomicsConstants.sol";
 import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
 
+// IDispenser interface
+interface IDispenser {
+    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
+    function retain() external;
+}
+
 // IOLAS interface
 interface IOLAS {
     /// @dev Provides OLA token time launch.
@@ -699,6 +705,7 @@ contract Tokenomics is TokenomicsConstants {
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
+    /// @param _stakingFraction Fraction for staking.
     /// #if_succeeds {:msg "maxBond"} mapEpochTokenomics[epochCounter + 1].epochPoint.maxBondFraction == _maxBondFraction;
     function changeIncentiveFractions(
         uint256 _rewardComponentFraction,
@@ -1298,7 +1305,12 @@ contract Tokenomics is TokenomicsConstants {
 
     /// @dev Updates inflation per second due to inflation curve decrease.
     /// @notice Call this function if the inflation curve decreases starting from the current year.
-    function updateInflationPerSecond() external {
+    function updateInflationPerSecond(
+        uint256 _maxBondFraction,
+        uint256 _topUpComponentFraction,
+        uint256 _topUpAgentFraction,
+        uint256 _stakingFraction
+    ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -1313,55 +1325,52 @@ contract Tokenomics is TokenomicsConstants {
             revert Overflow(numYears, currentYear);
         }
 
-        // Ensure effectiveBond is bigger than maxBond
-        // maxBond is issued as a credit for the upcoming epoch and is part of the effectiveBond
-        uint256 curEffectiveBond = effectiveBond;
-        uint256 curMaxBond = maxBond;
-        if (curMaxBond > curEffectiveBond) {
-            revert Overflow(curMaxBond, curEffectiveBond);
-        }
-
-        // Adjust effective bond by reducing it with the on-going epoch maxBond value, resetting current epoch maxBond
-        curEffectiveBond -= curMaxBond;
-
-        // Recalculate inflation per second based on the updated current year inflation
-        // If the inflation curve has not changed, the inflation per second value will be the same as before
-        // Get current inflation per second
-        uint256 curInflationPerSecond = inflationPerSecond;
         // Get last epoch end time
         uint256 curEpochCounter = epochCounter;
         uint256 endTime = mapEpochTokenomics[curEpochCounter - 1].epochPoint.endTime;
-        // Calculate seconds passed in a year until last epoch end time
-        uint256 secondsInYearUntilEndTime = endTime - numYears * ONE_YEAR - timeLaunch;
-        // Get old inflation from beginning of the year until end of last epoch
-        uint256 oldInflationUntilEpochEnd = curInflationPerSecond * secondsInYearUntilEndTime;
+        // Find if this epoch is the year change epoch
+        uint256 lastEpochYear = (endTime - timeLaunch) / ONE_YEAR;
+        if (numYears > lastEpochYear) {
+            revert Overflow(numYears, lastEpochYear);
+        }
+
+        // Reset staking inflation
+        // Assume there are no more than 100 epochs to clear retained staking amount
+        for (uint256 i = 0; i < 100; ++i) {
+            // This is a low level call since it must never revert
+            (bool success, ) = dispenser.call(abi.encodeCall(IDispenser.retain, ()));
+
+            // Break when all the retains are executed
+            if (!success) {
+                break;
+            }
+        }
+        mapEpochStakingPoints[curEpochCounter].stakingIncentive = 0;
+
+        // Update top-up fractions
+        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _stakingFraction;
+        if (sumTopUpFractions > 100) {
+            revert WrongAmount(sumTopUpFractions, 100);
+        }
+
+        // All the adjustments will be accounted for in this epoch
+        TokenomicsPoint storage tp = mapEpochTokenomics[curEpochCounter];
+
+        tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
+        tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
+        tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
+        mapEpochStakingPoints[curEpochCounter].stakingFraction = uint8(_stakingFraction);
+
         // Calculate updated inflation per second
-        curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
-        // Get new inflation from beginning of the year until end of last epoch
-        uint256 newInflationUntilEpochEnd = curInflationPerSecond * secondsInYearUntilEndTime;
-        // Check for inflation reduction
-        if (newInflationUntilEpochEnd > oldInflationUntilEpochEnd) {
-            revert Overflow(newInflationUntilEpochEnd, oldInflationUntilEpochEnd);
-        }
+        uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
 
-        // Calculate inflation reduction
-        uint256 reductionInflation = oldInflationUntilEpochEnd - newInflationUntilEpochEnd;
-        // Check for effective bond cut in favor of inflation difference
-        if (reductionInflation > curEffectiveBond) {
-            revert Overflow(reductionInflation, curEffectiveBond);
-        }
-
-        // Update effective bond
-        curEffectiveBond -= reductionInflation;
-
-        // Recalculate maxBond
-        curMaxBond = (curEpochLen * curInflationPerSecond * mapEpochTokenomics[curEpochCounter].epochPoint.maxBondFraction) / 100;
-        // Adjust effective bond with a new maxBond value issued for the on-going epoch
-        curEffectiveBond += curMaxBond;
+        // Recalculate maxBond, which is issued as a credit for the upcoming epoch and is part of the effectiveBond
+        uint256 curMaxBond = (curEpochLen * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
 
         // Update state variables
         maxBond = uint96(curMaxBond);
-        effectiveBond = uint96(curEffectiveBond);
+        // Adjust effective bond with a new maxBond value issued for the on-going epoch
+        effectiveBond = uint96(curMaxBond);
         inflationPerSecond = uint96(curInflationPerSecond);
     }
 
