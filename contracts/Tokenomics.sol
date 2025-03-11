@@ -283,6 +283,8 @@ contract Tokenomics is TokenomicsConstants {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
         uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
+    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 maxBondFraction,
+        uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 stakingFraction);
 
     // Owner address
     address public owner;
@@ -1305,11 +1307,11 @@ contract Tokenomics is TokenomicsConstants {
 
     /// @dev Updates inflation per second due to inflation curve decrease.
     /// @notice Call this function if the inflation curve decreases starting from the current year.
-    function updateInflationPerSecond(
-        uint256 _maxBondFraction,
-        uint256 _topUpComponentFraction,
-        uint256 _topUpAgentFraction,
-        uint256 _stakingFraction
+    function updateInflationPerSecondAndFractions(
+        uint256 maxBondFraction,
+        uint256 topUpComponentFraction,
+        uint256 topUpAgentFraction,
+        uint256 stakingFraction
     ) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -1347,19 +1349,19 @@ contract Tokenomics is TokenomicsConstants {
         }
         mapEpochStakingPoints[curEpochCounter].stakingIncentive = 0;
 
-        // Update top-up fractions
-        uint256 sumTopUpFractions = _maxBondFraction + _topUpComponentFraction + _topUpAgentFraction + _stakingFraction;
-        if (sumTopUpFractions > 100) {
-            revert WrongAmount(sumTopUpFractions, 100);
+        // Update OLAS inflation fractions
+        uint256 sumFractions = maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction;
+        if (sumFractions > 100) {
+            revert WrongAmount(sumFractions, 100);
         }
 
         // All the adjustments will be accounted for in this epoch
         TokenomicsPoint storage tp = mapEpochTokenomics[curEpochCounter];
 
-        tp.epochPoint.maxBondFraction = uint8(_maxBondFraction);
-        tp.unitPoints[0].topUpUnitFraction = uint8(_topUpComponentFraction);
-        tp.unitPoints[1].topUpUnitFraction = uint8(_topUpAgentFraction);
-        mapEpochStakingPoints[curEpochCounter].stakingFraction = uint8(_stakingFraction);
+        tp.epochPoint.maxBondFraction = uint8(maxBondFraction);
+        tp.unitPoints[0].topUpUnitFraction = uint8(topUpComponentFraction);
+        tp.unitPoints[1].topUpUnitFraction = uint8(topUpAgentFraction);
+        mapEpochStakingPoints[curEpochCounter].stakingFraction = uint8(stakingFraction);
 
         // Calculate updated inflation per second
         uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
@@ -1372,6 +1374,9 @@ contract Tokenomics is TokenomicsConstants {
         // Adjust effective bond with a new maxBond value issued for the on-going epoch
         effectiveBond = uint96(curMaxBond);
         inflationPerSecond = uint96(curInflationPerSecond);
+
+        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, maxBondFraction, topUpComponentFraction,
+            topUpAgentFraction, stakingFraction);
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
