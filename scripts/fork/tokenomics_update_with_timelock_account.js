@@ -63,7 +63,7 @@ async function main() {
     // Get inflation per second
     const inflationPerSecond = await tokenomics.inflationPerSecond();
     console.log("Updated inflation per second", inflationPerSecond.toString());
-    const inflationPerYear = inflationPerSecond.mul(365).mul(86400)
+    const inflationPerYear = inflationPerSecond.mul(365).mul(86400);
     console.log("Updated inflation per year", inflationPerYear.toString());
 
     // Get current effective bond
