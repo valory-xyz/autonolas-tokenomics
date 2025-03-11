@@ -283,7 +283,7 @@ contract Tokenomics is TokenomicsConstants {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
         uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
-    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 maxBondFraction,
+    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 maxBond, uint256 maxBondFraction,
         uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 stakingFraction);
 
     // Owner address
@@ -1375,8 +1375,8 @@ contract Tokenomics is TokenomicsConstants {
         effectiveBond = uint96(curMaxBond);
         inflationPerSecond = uint96(curInflationPerSecond);
 
-        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, maxBondFraction, topUpComponentFraction,
-            topUpAgentFraction, stakingFraction);
+        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, curMaxBond, maxBondFraction,
+            topUpComponentFraction, topUpAgentFraction, stakingFraction);
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
