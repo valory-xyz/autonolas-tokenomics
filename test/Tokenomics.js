@@ -251,6 +251,28 @@ describe("Tokenomics", async () => {
             }
         });
 
+        it("Check actual inflation numbers", async function () {
+            const initInflation = ethers.BigNumber.from("5265" + "0".repeat(23));
+            let totalInflation = initInflation;
+            // Check the inflation increase
+            for (let i = 0; i < 10; i++) {
+                totalInflation = totalInflation.add(ethers.BigNumber.from(await tokenomics.getActualInflationForYear(i)));
+            }
+
+            // The overall inflation for 10 years must be equal to 1^27 OLAS
+            // Deprecated for now
+            //expect(totalInflation).to.equal("1" + "0".repeat(27));
+
+            // Get the zero year inflation check
+            let diff = ethers.BigNumber.from(await tokenomics.getActualSupplyCapForYear(0)).sub(ethers.BigNumber.from(initInflation));
+            expect(diff).to.equal(await tokenomics.getActualInflationForYear(0));
+            // Calculate inflation for each year as the different of supplies
+            for (let i = 1; i < 10; i++) {
+                diff = ethers.BigNumber.from(await tokenomics.getActualSupplyCapForYear(i)).sub(ethers.BigNumber.from(await tokenomics.getActualSupplyCapForYear(i - 1)));
+                expect(diff).to.equal(await tokenomics.getActualInflationForYear(i));
+            }
+        });
+
         it("Changing tokenomics parameters", async function () {
             // Take a snapshot of the current state of the blockchain
             const snapshot = await helpers.takeSnapshot();

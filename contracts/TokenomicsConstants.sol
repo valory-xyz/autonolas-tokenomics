@@ -7,7 +7,7 @@ pragma solidity ^0.8.28;
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 abstract contract TokenomicsConstants {
     // Tokenomics version number
-    string public constant VERSION = "1.2.0";
+    string public constant VERSION = "1.3.0";
     // Tokenomics proxy address slot
     // keccak256("PROXY_TOKENOMICS") = "0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f"
     bytes32 public constant PROXY_TOKENOMICS = 0xbd5523e7c3b6a94aa0e3b24d1120addc2f95c7029e097b466b2bedc8d4b4362f;
@@ -36,22 +36,21 @@ abstract contract TokenomicsConstants {
             uint96[10] memory supplyCaps = [
                 529_659_000e18,
                 569_913_084e18,
-                594_437_378e18,
-                619_697_401e18,
-                645_715_224e18,
-                672_513_582e18,
-                700_115_891e18,
-                728_546_269e18,
-                757_829_558e18,
-                787_991_346e18
+                610_313_084e18,
+                635_573_107e18,
+                661_590_930e18,
+                688_389_288e18,
+                715_991_597e18,
+                744_421_975e18,
+                773_705_264e18,
+                803_867_052e18
             ];
             supplyCap = supplyCaps[numYears];
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 787_991_346e18 as a starting number?
             // Max cap for the first 10 years
-            supplyCap = 1_000_000_000e18;
+            supplyCap = 803_867_052e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
@@ -74,7 +73,7 @@ abstract contract TokenomicsConstants {
             uint88[10] memory inflationAmounts = [
                 3_159_000e18,
                 40_254_084e18,
-                24_524_294e18,
+                40_400_000e18,
                 25_260_023e18,
                 26_017_823e18,
                 26_798_358e18,
@@ -87,9 +86,8 @@ abstract contract TokenomicsConstants {
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 787_991_346e18 as a starting number?
             // Max cap for the first 10 years
-            uint256 supplyCap = 1_000_000_000e18;
+            uint256 supplyCap = 803_867_052e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
@@ -125,9 +123,8 @@ abstract contract TokenomicsConstants {
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 761_726_593e18 as a starting number?
             // Max cap for the first 10 years
-            supplyCap = 1_000_000_000e18;
+            supplyCap = 761_726_593e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
@@ -163,9 +160,8 @@ abstract contract TokenomicsConstants {
         } else {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
-            // TODO Shall it be 761_726_593e18 as a starting number?
             // Max cap for the first 10 years
-            uint256 supplyCap = 1_000_000_000e18;
+            uint256 supplyCap = 761_726_593e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 

@@ -1364,7 +1364,7 @@ contract Tokenomics is TokenomicsConstants {
         mapEpochStakingPoints[curEpochCounter].stakingFraction = uint8(stakingFraction);
 
         // Calculate updated inflation per second
-        uint256 curInflationPerSecond = getInflationForYear(currentYear) / ONE_YEAR;
+        uint256 curInflationPerSecond = getActualInflationForYear(currentYear) / ONE_YEAR;
 
         // Recalculate maxBond, which is issued as a credit for the upcoming epoch and is part of the effectiveBond
         uint256 curMaxBond = (curEpochLen * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
