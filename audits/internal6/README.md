@@ -23,7 +23,7 @@ OK.
 ```
 Perhaps a more complex algorithm is needed so that the staking limit is not exceeded in the year of the change. To discussion.
 ```
-[]
+[x] Fixed
 
 #### Medium/Notes. Not fixed TODO
 ```
@@ -33,7 +33,7 @@ grep -r TODO ./contracts/
 ./contracts/TokenomicsConstants.sol:            // TODO Shall it be 761_726_593e18 as a starting number?
 ./contracts/TokenomicsConstants.sol:            // TODO Shall it be 761_726_593e18 as a starting number?
 ```
-[]
+[x] Fixed
 
 #### Low/Notes. Update version?
 ```
@@ -41,7 +41,7 @@ abstract contract TokenomicsConstants {
     // Tokenomics version number
     string public constant VERSION = "1.2.0";
 ```
-[]
+[x] Fixed
 
 #### Low/Notes, No events for updateInflationPerSecond
 ```
@@ -52,5 +52,5 @@ maxBond = uint96(curMaxBond);
 effectiveBond = uint96(curEffectiveBond);
 inflationPerSecond = uint96(curInflationPerSecond);
 ```
-[]
+[x] Fixed
 

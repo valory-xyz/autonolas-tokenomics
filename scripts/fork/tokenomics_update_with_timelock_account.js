@@ -57,12 +57,14 @@ async function main() {
     await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     // Update tokenomics inflation
-    tx = await tokenomics.updateInflationPerSecond();
+    tx = await tokenomics.updateInflationPerSecondAndFractions(6, 9, 3, 53);
     await tx.wait();
 
     // Get inflation per second
     const inflationPerSecond = await tokenomics.inflationPerSecond();
-    console.log(inflationPerSecond.toString());
+    console.log("Updated inflation per second", inflationPerSecond.toString());
+    const inflationPerYear = inflationPerSecond.mul(365).mul(86400);
+    console.log("Updated inflation per year", inflationPerYear.toString());
 
     // Get current effective bond
     const effectiveBond = await tokenomics.effectiveBond();

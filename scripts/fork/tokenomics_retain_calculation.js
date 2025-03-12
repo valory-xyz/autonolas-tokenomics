@@ -51,7 +51,7 @@ async function main() {
 
     const epochCounter = await tokenomics.epochCounter();
 
-    // Retain through all the not retained epochs
+    // Retain through all the not retained epochs (max of 8)
     for (let i = 0; i < 8; i++) {
         await dispenser.retain();
     }
