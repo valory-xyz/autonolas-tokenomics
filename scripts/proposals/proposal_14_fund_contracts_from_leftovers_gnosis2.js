@@ -44,11 +44,13 @@ async function main() {
 
     // Bridge mediator to migrate TargetDispenserL2 funds and execute the undelivered data
     const value = 0;
-    const batchHash = "0x" + "0".repeat(62) + "01";
+    const batchHash = "0x" + "0".repeat(62) + "02";
     let target = targetDispenserL2Address;
     const dataToProcess = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]", "bytes32"],
         [stakingAddresses, stakingAmounts, batchHash]);
     let rawPayload = targetDispenserL2.interface.encodeFunctionData("processDataMaintenance", [dataToProcess]);
+    console.log("dataToProcess:", dataToProcess);
+
     // Pack the second part of data
     let payload = ethers.utils.arrayify(rawPayload);
     let data = ethers.utils.solidityPack(
