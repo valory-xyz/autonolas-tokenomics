@@ -59,7 +59,8 @@ contract BaseSetup is Test {
         // Deploy generic bond calculator contract
         genericBondCalculator = new GenericBondCalculator(address(olas), address(tokenomics));
         // Deploy depository contract
-        depository = new Depository(address(olas), address(tokenomics), address(treasury), address(genericBondCalculator));
+        depository = new Depository("Depository", "OLAS_BOND", "baseURI", address(olas), address(tokenomics),
+            address(treasury), address(genericBondCalculator));
         // Change depository contract addresses to the correct ones
         treasury.changeManagers(address(0), address(depository), address(0));
 
@@ -131,7 +132,7 @@ contract DepositoryTest is BaseSetup {
         uint256 bamount = ZuniswapV2Pair(pair).balanceOf(deployer);
         // Deposit to the product Id 0
         vm.prank(deployer);
-        depository.deposit(0, bamount);
+        depository.deposit(0, bamount, vesting);
         // Check the size of pending bond array
         (uint256[] memory bondIds, ) = depository.getBonds(deployer, false);
         assertEq(bondIds.length, 1);
@@ -148,7 +149,7 @@ contract DepositoryTest is BaseSetup {
 
         // Make a bond deposit for the product Id 0
         vm.prank(deployer);
-        depository.deposit(0, bamount);
+        depository.deposit(0, bamount, vesting);
 
         // Increase time such that the vesting is complete
         vm.warp(block.timestamp + vesting + 60);

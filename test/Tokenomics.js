@@ -271,13 +271,13 @@ describe("Tokenomics", async () => {
             const lessThanMinEpochLen = Number(await tokenomics.MIN_EPOCH_LENGTH()) - 1;
             // Trying to change tokenomics parameters from a non-owner account address
             await expect(
-                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, 10, epochLen * 2, 10)
+                tokenomics.connect(signers[1]).changeTokenomicsParameters(10, 10, epochLen * 2, 10)
             ).to.be.revertedWithCustomError(tokenomics, "OwnerOnly");
 
             // Trying to set epoch length smaller than the minimum allowed value
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, lessThanMinEpochLen, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, lessThanMinEpochLen, 10);
             // Trying to set epoch length bigger than one year
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, oneYear + 1, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, oneYear + 1, 10);
             // Move one epoch in time and finish the epoch
             await helpers.time.increase(epochLen + 100);
             await tokenomics.checkpoint();
@@ -285,7 +285,7 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.epochLen()).to.equal(epochLen);
 
             // Change epoch length to a bigger number
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, epochLen * 2, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen * 2, 10);
             // The change will take effect in the next epoch
             expect(await tokenomics.epochLen()).to.equal(epochLen);
             // Move one epoch in time and finish the epoch
@@ -294,7 +294,7 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.epochLen()).to.equal(epochLen * 2);
 
             // Change epoch len to a smaller value
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, epochLen, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
             // The change will take effect in the next epoch
             expect(await tokenomics.epochLen()).to.equal(epochLen * 2);
             // Move one epoch in time and finish the epoch
@@ -303,10 +303,10 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.epochLen()).to.equal(epochLen);
 
             // Leave the epoch length untouched
-            await tokenomics.changeTokenomicsParameters(10, 10, 10, epochLen, 10);
+            await tokenomics.changeTokenomicsParameters(10, 10, epochLen, 10);
             // And then change back to the bigger one and change other parameters
             const genericParam = "1" + "0".repeat(17);
-            await tokenomics.changeTokenomicsParameters(genericParam, genericParam, 10, epochLen + 100, 10);
+            await tokenomics.changeTokenomicsParameters(genericParam, genericParam, epochLen + 100, 10);
             // The change will take effect in the next epoch
             expect(await tokenomics.epochLen()).to.equal(epochLen);
             // Move one epoch in time and finish the epoch
@@ -314,14 +314,9 @@ describe("Tokenomics", async () => {
             await tokenomics.checkpoint();
             expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
 
-            // Trying to set epsilonRate bigger than 17e18
-            await tokenomics.changeTokenomicsParameters(0, 0, "171"+"0".repeat(17), 0, 0);
-            expect(await tokenomics.epsilonRate()).to.equal(10);
-
             // Trying to set all zeros
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, 0, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, 0, 0);
             // Check that parameters were not changed
-            expect(await tokenomics.epsilonRate()).to.equal(10);
             expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
             expect(await tokenomics.veOLASThreshold()).to.equal(10);
 
@@ -514,10 +509,6 @@ describe("Tokenomics", async () => {
         });
 
         it("Checkpoint with revenues", async () => {
-            // Get IDF of the first epoch
-            let lastIDF = Number(await tokenomics.getLastIDF()) / E18;
-            expect(lastIDF).to.equal(1);
-
             // Send the revenues to services
             await treasury.connect(deployer).depositServiceDonationsETH([1, 2], [regDepositFromServices,
                 regDepositFromServices], {value: twoRegDepositFromServices});
@@ -525,14 +516,6 @@ describe("Tokenomics", async () => {
             await helpers.time.increase(epochLen + 10);
             // Start new epoch and calculate tokenomics parameters and rewards
             await tokenomics.connect(deployer).checkpoint();
-
-            // Get IDF of the last epoch
-            const idf = Number(await tokenomics.getLastIDF()) / E18;
-            expect(idf).to.greaterThan(0);
-            
-            // Get last IDF that must match the idf of the last epoch
-            lastIDF = Number(await tokenomics.getLastIDF()) / E18;
-            expect(idf).to.equal(lastIDF);
         });
 
         it("Checkpoint with inability to re-balance treasury rewards", async () => {
@@ -568,10 +551,6 @@ describe("Tokenomics", async () => {
             // Start new epoch and calculate tokenomics parameters and rewards
             await helpers.time.increase(epochLen + 10);
             await tokenomics.connect(deployer).checkpoint();
-
-            // Get IDF
-            const idf = Number(await tokenomics.getLastIDF()) / E18;
-            expect(idf).to.greaterThan(Number(await tokenomics.epsilonRate()) / E18);
         });
     });
 
@@ -729,8 +708,8 @@ describe("Tokenomics", async () => {
             ];
             const accountTopUps = topUps[1].add(topUps[2]);
 
-            expect(result.events[1].args.accountRewards).to.equal(accountRewards);
-            expect(result.events[1].args.accountTopUps).to.equal(accountTopUps);
+            expect(result.events[0].args.accountRewards).to.equal(accountRewards);
+            expect(result.events[0].args.accountTopUps).to.equal(accountTopUps);
 
             // Restore the state of the blockchain back to the very beginning of this test
             snapshot.restore();
@@ -766,7 +745,7 @@ describe("Tokenomics", async () => {
 
             // Change the epoch length
             let newEpochLen = 2 * epochLen;
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
 
@@ -788,7 +767,7 @@ describe("Tokenomics", async () => {
 
             // Change now maxBondFraction and epoch length at the same time
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
 
@@ -903,7 +882,7 @@ describe("Tokenomics", async () => {
             await tokenomics.checkpoint();
 
             // Change the epoch length
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
             // Calculate the maxBond manually and compare with the tokenomics one
             let inflationPerSecond = ethers.BigNumber.from(await tokenomics.inflationPerSecond());
             // Get the part of a max bond before the year change
@@ -944,7 +923,7 @@ describe("Tokenomics", async () => {
 
             // Change now maxBondFraction and epoch length at the same time
             await tokenomics.connect(deployer).changeIncentiveFractions(0, 0, 100, 0, 0, 0);
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, newEpochLen, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, newEpochLen, 0);
             // Calculate the maxBond manually and compare with the tokenomics one
             let inflationPerSecond = ethers.BigNumber.from(await tokenomics.inflationPerSecond());
             // Get the part of a max bond before the year change
@@ -1057,7 +1036,7 @@ describe("Tokenomics", async () => {
 
             let snapshotInternal = await helpers.takeSnapshot();
             // Try to change the epoch length now such that the next epoch will immediately have the year change
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, 2 * epochLen, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, 2 * epochLen, 0);
             // Move to the end of epoch and check the updated epoch length
             await helpers.time.increase(epochLen);
             await tokenomics.checkpoint();
@@ -1083,7 +1062,7 @@ describe("Tokenomics", async () => {
             await tokenomics.checkpoint();
 
             // The maxBond lock flag must be set to true, now try to change the epochLen
-            await tokenomics.changeTokenomicsParameters(0, 0, 0, epochLen + 100, 0);
+            await tokenomics.changeTokenomicsParameters(0, 0, epochLen + 100, 0);
             // Try to change the maxBondFraction as well
             await tokenomics.changeIncentiveFractions(30, 40, 60, 40, 0, 0);
 
