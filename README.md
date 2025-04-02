@@ -129,7 +129,13 @@ In order to participate in bonding with LPs from different chains, the LP owner 
 and deposit via a [Depository](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Depository.sol) contract
 directly, or by using the [Bonding UI](https://tokenomics.olas.network/bonding-products).
 
-For more information about bonding enabled LP tokens and bridging see [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_bridging.md)
+For more information about bonding enabled LP tokens and bridging see [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_bridging.md).
+
+
+## Tokenomics inflation update
+Several reviews of tokenomics inflation have been performed. The up-to-date tokenomics inflation update documentation
+can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Update_tokenomics_inflation.pdf).
+
 
 ## Acknowledgements
 The tokenomics contracts were inspired and based on the following sources:
