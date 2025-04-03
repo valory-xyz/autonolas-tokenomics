@@ -50,7 +50,8 @@ abstract contract TokenomicsConstants {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
             // Max cap for the first 10 years
-            supplyCap = 803_867_052e18;
+            // This number must follow the actual supply cap after 10 years of inflation
+            supplyCap = 761_726_593e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
@@ -87,7 +88,8 @@ abstract contract TokenomicsConstants {
             // Number of years after ten years have passed (including ongoing ones)
             numYears -= 9;
             // Max cap for the first 10 years
-            uint256 supplyCap = 803_867_052e18;
+            // This number must follow the actual supply cap after 10 years of inflation
+            uint256 supplyCap = 761_726_593e18;
             // After that the inflation is 2% per year as defined by the OLAS contract
             uint256 maxMintCapFraction = 2;
 
