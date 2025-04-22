@@ -1307,6 +1307,10 @@ contract Tokenomics is TokenomicsConstants {
 
     /// @dev Updates inflation per second due to inflation curve decrease.
     /// @notice Call this function if the inflation curve decreases starting from the current year.
+    /// @param maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
+    /// @param topUpComponentFraction Fraction for component owners OLAS top-up.
+    /// @param topUpAgentFraction Fraction for agent owners OLAS top-up.
+    /// @param stakingFraction Fraction for staking.
     function updateInflationPerSecondAndFractions(
         uint256 maxBondFraction,
         uint256 topUpComponentFraction,
