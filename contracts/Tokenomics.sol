@@ -283,8 +283,8 @@ contract Tokenomics is TokenomicsConstants {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
         uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
-    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 maxBond, uint256 maxBondFraction,
-        uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 stakingFraction);
+    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 effectiveBond, uint256 returnedStakingIncentive,
+        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 stakingFraction);
 
     // Owner address
     address public owner;
@@ -1331,11 +1331,10 @@ contract Tokenomics is TokenomicsConstants {
             revert Overflow(numYears, currentYear);
         }
 
-        // Get last epoch end time
+        // Get current epoch counter
         uint256 curEpochCounter = epochCounter;
-        uint256 endTime = mapEpochTokenomics[curEpochCounter - 1].epochPoint.endTime;
         // Find if this epoch is the year change epoch
-        uint256 lastEpochYear = (endTime - timeLaunch) / ONE_YEAR;
+        uint256 lastEpochYear = (mapEpochTokenomics[curEpochCounter - 1].epochPoint.endTime - timeLaunch) / ONE_YEAR;
         if (numYears > lastEpochYear) {
             revert Overflow(numYears, lastEpochYear);
         }
@@ -1351,7 +1350,6 @@ contract Tokenomics is TokenomicsConstants {
                 break;
             }
         }
-        mapEpochStakingPoints[curEpochCounter].stakingIncentive = 0;
 
         // Update OLAS inflation fractions
         uint256 sumFractions = maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction;
@@ -1373,14 +1371,17 @@ contract Tokenomics is TokenomicsConstants {
         // Recalculate maxBond, which is issued as a credit for the upcoming epoch and is part of the effectiveBond
         uint256 curMaxBond = (curEpochLen * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
 
+        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, effectiveBond,
+            mapEpochStakingPoints[curEpochCounter].stakingIncentive, maxBondFraction, topUpComponentFraction,
+            topUpAgentFraction, stakingFraction);
+
         // Update state variables
         maxBond = uint96(curMaxBond);
         // Adjust effective bond with a new maxBond value issued for the on-going epoch
         effectiveBond = uint96(curMaxBond);
         inflationPerSecond = uint96(curInflationPerSecond);
-
-        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, curMaxBond, maxBondFraction,
-            topUpComponentFraction, topUpAgentFraction, stakingFraction);
+        // Reset returned staking incentive
+        mapEpochStakingPoints[curEpochCounter].stakingIncentive = 0;
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
