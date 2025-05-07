@@ -28,7 +28,7 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    
+
     // Fund timelock
     await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
@@ -55,11 +55,6 @@ async function main() {
     // Change tokenomics implementation
     tx = await tokenomics.changeTokenomicsImplementation(tokenomicsImplementationAddress);
     await tx.wait();
-
-//    // Fund timelock
-//    tx = await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
-//    await tx.wait();
-//    return;
 
     // Update tokenomics inflation
     console.log("\nUpdating tokenomics inflation");
