@@ -86,7 +86,7 @@ async function main() {
 
     // Update tokenomics inflation a second time (must not change values)
     console.log("\nUpdating tokenomics inflation again without tokenomics implementation change");
-    tx = await tokenomics.updateInflationPerSecondAndFractions(35, 9, 3, 53);
+    tx = await tokenomics.updateInflationPerSecondAndFractions(25, 4, 2, 69);
     await tx.wait();
 
     // Get inflation per second and effective bond values
