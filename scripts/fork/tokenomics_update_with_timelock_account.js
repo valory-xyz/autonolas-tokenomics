@@ -58,7 +58,7 @@ async function main() {
 
     // Update tokenomics inflation
     console.log("\nUpdating tokenomics inflation");
-    tx = await tokenomics.updateInflationPerSecondAndFractions(35, 9, 3, 53);
+    tx = await tokenomics.updateInflationPerSecondAndFractions(25, 4, 2, 69);
     let res = await tx.wait();
 
     console.log("\nUpdate inflation events", res.logs);
