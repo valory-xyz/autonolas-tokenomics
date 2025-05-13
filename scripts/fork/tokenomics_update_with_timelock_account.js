@@ -58,8 +58,19 @@ async function main() {
 
     // Update tokenomics inflation
     console.log("\nUpdating tokenomics inflation");
-    tx = await tokenomics.updateInflationPerSecondAndFractions(6, 9, 3, 53);
-    await tx.wait();
+    tx = await tokenomics.updateInflationPerSecondAndFractions(35, 9, 3, 53);
+    let res = await tx.wait();
+
+    console.log("\nUpdate inflation events", res.logs);
+    // Epoch number where first staking claim is possible
+    const eNum = 14;
+    let j = 0;
+    for (let i = 1; i < 30; i += 3) {
+        const retained = ethers.utils.defaultAbiCoder.decode(["uint256"], res.logs[i].data);
+        console.log("retained in epoch:", eNum + j);
+        console.log("retained amount:", retained.toString());
+        j++;
+    }
 
     // Get inflation per second
     let inflationPerSecond = await tokenomics.inflationPerSecond();
@@ -75,7 +86,7 @@ async function main() {
 
     // Update tokenomics inflation a second time (must not change values)
     console.log("\nUpdating tokenomics inflation again without tokenomics implementation change");
-    tx = await tokenomics.updateInflationPerSecondAndFractions(6, 9, 3, 53);
+    tx = await tokenomics.updateInflationPerSecondAndFractions(35, 9, 3, 53);
     await tx.wait();
 
     // Get inflation per second and effective bond values
