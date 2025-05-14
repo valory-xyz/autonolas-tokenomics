@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
