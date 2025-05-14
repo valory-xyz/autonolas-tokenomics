@@ -251,9 +251,9 @@ module.exports = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 20,
+                        runs: 100,
                     },
-                    evmVersion: "cancun"
+                    evmVersion: "prague"
                 },
             },
             {
