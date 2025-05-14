@@ -99,6 +99,21 @@
         "name": "GnosisTargetDispenserL2",
         "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
         "address": "0x67722c823010CEb4BED5325fE109196C0f67D053"
+      },
+      {
+        "name": "BalancerPriceOracle",
+        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
+        "address": "0xFa4dD5CE7A99E86a45a45250ca4EB18Ba3d16187"
+      },
+      {
+        "name": "BuyBackBurnerBalancer",
+        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
+        "address": "0x47Cb42216f08AB8E69F1321ACfEFd435b3c36943"
+      },
+      {
+        "name": "BuyBackBurnerProxy",
+        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "address": "0x153196110040A0c729227C603Db3A6c6D91851B2"
       }
     ]
   },
@@ -132,6 +147,21 @@
         "name": "OptimismTargetDispenserL2",
         "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
         "address": "0xcDdD9D9ABaB36fFa882530D69c73FeE5D4001C2d"
+      },
+      {
+        "name": "BalancerPriceOracle",
+        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
+        "address": "0x586D916819d9B707101f81e4cDD22cE119D1C220"
+      },
+      {
+        "name": "BuyBackBurnerBalancer",
+        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
+        "address": "0xEea5F1e202dc43607273d54101fF8b58FB008A99"
+      },
+      {
+        "name": "BuyBackBurnerProxy",
+        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "address": "0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426"
       }
     ]
   },

@@ -188,8 +188,8 @@ module.exports = {
                 network: "baseSepolia",
                 chainId: 84532,
                 urls: {
-                    apiURL: "https://base-sepolia.blockscout.com/api",
-                    browserURL: "https://base-sepolia.blockscout.com/"
+                    apiURL: "https://api-sepolia.basescan.org/api",
+                    browserURL: "https://sepolia.basescan.org"
                 },
             },
             {
@@ -238,7 +238,7 @@ module.exports = {
             chiado: GNOSISSCAN_API_KEY,
             arbitrumSepolia: ARBISCAN_API_KEY,
             optimisticSepolia: OPSCAN_API_KEY,
-            baseSepolia: OPSCAN_API_KEY,
+            baseSepolia: BASESCAN_API_KEY,
             celoAlfajores: CELOSCAN_API_KEY,
             mode: OPSCAN_API_KEY,
             modeSepolia: OPSCAN_API_KEY,
@@ -247,13 +247,13 @@ module.exports = {
     solidity: {
         compilers: [
             {
-                version: "0.8.28",
+                version: "0.8.30",
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 1500,
+                        runs: 100,
                     },
-                    evmVersion: "cancun"
+                    evmVersion: "prague"
                 },
             },
             {

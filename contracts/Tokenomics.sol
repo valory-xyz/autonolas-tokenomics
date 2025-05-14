@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.30;
 
 import {convert, UD60x18} from "@prb/math/src/UD60x18.sol";
 import {TokenomicsConstants} from "./TokenomicsConstants.sol";
 import {IDonatorBlacklist} from "./interfaces/IDonatorBlacklist.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
+
+// IDispenser interface
+interface IDispenser {
+    /// @dev Retains staking incentives according to the retainer address to return it back to the staking inflation.
+    function retain() external;
+}
 
 // IOLAS interface
 interface IOLAS {
@@ -277,6 +283,8 @@ contract Tokenomics is TokenomicsConstants {
     event EpochSettled(uint256 indexed epochCounter, uint256 treasuryRewards, uint256 accountRewards,
         uint256 accountTopUps, uint256 effectiveBond, uint256 returnedStakingIncentive, uint256 totalStakingIncentive);
     event TokenomicsImplementationUpdated(address indexed implementation);
+    event InflationPerSecondFractionsUpdated(uint256 inflationPerSecond, uint256 effectiveBond, uint256 returnedStakingIncentive,
+        uint256 maxBondFraction, uint256 topUpComponentFraction, uint256 topUpAgentFraction, uint256 stakingFraction);
 
     // Owner address
     address public owner;
@@ -699,6 +707,7 @@ contract Tokenomics is TokenomicsConstants {
     /// @param _maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
     /// @param _topUpComponentFraction Fraction for component owners OLAS top-up.
     /// @param _topUpAgentFraction Fraction for agent owners OLAS top-up.
+    /// @param _stakingFraction Fraction for staking.
     /// #if_succeeds {:msg "maxBond"} mapEpochTokenomics[epochCounter + 1].epochPoint.maxBondFraction == _maxBondFraction;
     function changeIncentiveFractions(
         uint256 _rewardComponentFraction,
@@ -1294,6 +1303,85 @@ contract Tokenomics is TokenomicsConstants {
         }
 
         return true;
+    }
+
+    /// @dev Updates inflation per second due to inflation curve decrease.
+    /// @notice Call this function if the inflation curve decreases starting from the current year.
+    /// @param maxBondFraction Fraction for the maxBond that depends on the OLAS inflation.
+    /// @param topUpComponentFraction Fraction for component owners OLAS top-up.
+    /// @param topUpAgentFraction Fraction for agent owners OLAS top-up.
+    /// @param stakingFraction Fraction for staking.
+    function updateInflationPerSecondAndFractions(
+        uint256 maxBondFraction,
+        uint256 topUpComponentFraction,
+        uint256 topUpAgentFraction,
+        uint256 stakingFraction
+    ) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get current epoch length
+        uint256 curEpochLen = epochLen;
+        // Find if the year changes within the epoch
+        uint256 numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR;
+        // Revert if the year changes within the next epoch as it requires more complicated set of calculations
+        if (numYears > currentYear) {
+            revert Overflow(numYears, currentYear);
+        }
+
+        // Get current epoch counter
+        uint256 curEpochCounter = epochCounter;
+        // Find if this epoch is the year change epoch
+        uint256 lastEpochYear = (mapEpochTokenomics[curEpochCounter - 1].epochPoint.endTime - timeLaunch) / ONE_YEAR;
+        if (numYears > lastEpochYear) {
+            revert Overflow(numYears, lastEpochYear);
+        }
+
+        // Reset staking inflation
+        // Assume there are no more than 100 epochs to clear retained staking amount
+        for (uint256 i = 0; i < 100; ++i) {
+            // This is a low level call since it must never revert
+            (bool success, ) = dispenser.call(abi.encodeCall(IDispenser.retain, ()));
+
+            // Break when all the retains are executed
+            if (!success) {
+                break;
+            }
+        }
+
+        // Update OLAS inflation fractions
+        uint256 sumFractions = maxBondFraction + topUpComponentFraction + topUpAgentFraction + stakingFraction;
+        if (sumFractions > 100) {
+            revert WrongAmount(sumFractions, 100);
+        }
+
+        // All the adjustments will be accounted for in this epoch
+        TokenomicsPoint storage tp = mapEpochTokenomics[curEpochCounter];
+
+        tp.epochPoint.maxBondFraction = uint8(maxBondFraction);
+        tp.unitPoints[0].topUpUnitFraction = uint8(topUpComponentFraction);
+        tp.unitPoints[1].topUpUnitFraction = uint8(topUpAgentFraction);
+        mapEpochStakingPoints[curEpochCounter].stakingFraction = uint8(stakingFraction);
+
+        // Calculate updated inflation per second
+        uint256 curInflationPerSecond = getActualInflationForYear(currentYear) / ONE_YEAR;
+
+        // Recalculate maxBond, which is issued as a credit for the upcoming epoch and is part of the effectiveBond
+        uint256 curMaxBond = (curEpochLen * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100;
+
+        emit InflationPerSecondFractionsUpdated(curInflationPerSecond, effectiveBond,
+            mapEpochStakingPoints[curEpochCounter].stakingIncentive, maxBondFraction, topUpComponentFraction,
+            topUpAgentFraction, stakingFraction);
+
+        // Update state variables
+        maxBond = uint96(curMaxBond);
+        // Adjust effective bond with a new maxBond value issued for the on-going epoch
+        effectiveBond = uint96(curMaxBond);
+        inflationPerSecond = uint96(curInflationPerSecond);
+        // Reset returned staking incentive
+        mapEpochStakingPoints[curEpochCounter].stakingIncentive = 0;
     }
 
     /// @dev Gets component / agent owner incentives and clears the balances.
