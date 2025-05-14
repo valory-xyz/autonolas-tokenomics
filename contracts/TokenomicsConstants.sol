@@ -22,7 +22,7 @@ abstract contract TokenomicsConstants {
     // Max staking weight amount
     uint256 public constant MAX_STAKING_WEIGHT = 10_000;
     // Year 10 supply cap
-    uint256 public constant YEAR10_SUPPLY_CAP = 761_726_593e18;
+    uint256 public constant SUPPLY_CAP_YEAR10 = 761_726_593e18;
     // After 10 years the inflation is 2% per year as defined by the OLAS contract
     uint256 public constant MAX_MINT_CAP_FRACTION = 2;
 
@@ -36,13 +36,13 @@ abstract contract TokenomicsConstants {
 
         // Max cap for the first 10 years
         // This number must follow the actual supply cap after 10 years of inflation
-        uint256 supplyCap = YEAR10_SUPPLY_CAP;
+        uint256 supplyCap = SUPPLY_CAP_YEAR10;
 
         // Get the supply cap until the current year
         for (uint256 i = firstYear; i < lastYear; ++i) {
             supplyCap += (supplyCap * MAX_MINT_CAP_FRACTION) / 100;
         }
-        
+
         return supplyCap;
     }
 
