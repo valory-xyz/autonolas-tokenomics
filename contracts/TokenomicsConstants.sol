@@ -26,19 +26,23 @@ abstract contract TokenomicsConstants {
     // After 10 years the inflation is 2% per year as defined by the OLAS contract
     uint256 public constant MAX_MINT_CAP_FRACTION = 2;
 
-    function _calculateSupplyCap(uint256 startYear, uint256 endYear) internal pure returns (uint256) {
+    /// @dev Calculates inflation supply cap after year 10.
+    /// @param firstYear First year.
+    /// @param lastYear Last year.
+    /// @return Calculated current year supply cap.
+    function _calculateSupplyCapAfterYear10(uint256 firstYear, uint256 lastYear) internal pure returns (uint256) {
         // Number of years after ten years have passed (including ongoing ones)
-        endYear -= 9;
+        lastYear -= 9;
 
         // Max cap for the first 10 years
         // This number must follow the actual supply cap after 10 years of inflation
         uint256 supplyCap = YEAR10_SUPPLY_CAP;
 
         // Get the supply cap until the current year
-        for (uint256 i = startYear; i < endYear; ++i) {
+        for (uint256 i = firstYear; i < lastYear; ++i) {
             supplyCap += (supplyCap * MAX_MINT_CAP_FRACTION) / 100;
         }
-        // Return the difference between last two caps (inflation for the current year)
+        
         return supplyCap;
     }
 
@@ -67,7 +71,7 @@ abstract contract TokenomicsConstants {
             ];
             supplyCap = supplyCaps[numYears];
         } else {
-            return _calculateSupplyCap(0, numYears);
+            return _calculateSupplyCapAfterYear10(0, numYears);
         }
     }
 
@@ -92,7 +96,8 @@ abstract contract TokenomicsConstants {
             ];
             inflationAmount = inflationAmounts[numYears];
         } else {
-            uint256 supplyCap = _calculateSupplyCap(1, numYears);
+            // Get the supply cap until the year before the current year
+            uint256 supplyCap = _calculateSupplyCapAfterYear10(1, numYears);
 
             // Inflation amount is the difference between last two caps (inflation for the current year)
             inflationAmount = (supplyCap * MAX_MINT_CAP_FRACTION) / 100;
@@ -119,7 +124,7 @@ abstract contract TokenomicsConstants {
             ];
             supplyCap = supplyCaps[numYears];
         } else {
-            return _calculateSupplyCap(0, numYears);
+            return _calculateSupplyCapAfterYear10(0, numYears);
         }
     }
 
@@ -144,7 +149,8 @@ abstract contract TokenomicsConstants {
             ];
             inflationAmount = inflationAmounts[numYears];
         } else {
-            uint256 supplyCap = _calculateSupplyCap(1, numYears);
+            // Get the supply cap until the year before the current year
+            uint256 supplyCap = _calculateSupplyCapAfterYear10(1, numYears);
 
             // Inflation amount is the difference between last two caps (inflation for the current year)
             inflationAmount = (supplyCap * MAX_MINT_CAP_FRACTION) / 100;
