@@ -29,7 +29,7 @@ async function main() {
 
     let privateKey = process.env.PRIVATE_KEY;
     let wallet = new ethers.Wallet(privateKey, provider);
-    //wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
+    //await wallet.sendTransaction({to: timelockAddress, value: ethers.utils.parseEther("1")});
 
     const tokenomicsJSON = "artifacts/contracts/Tokenomics.sol/Tokenomics.json";
     let contractFromJSON = fs.readFileSync(tokenomicsJSON, "utf8");
