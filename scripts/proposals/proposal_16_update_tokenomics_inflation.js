@@ -19,25 +19,16 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Get all the necessary contract addresses
-    const governorTwoAddress = parsedData.governorTwoAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    const tokenomicsFourAddress = parsedData.tokenomicsFourAddress;
-
-    // Get the GovernorOLAS instance via its ABI
-    const GovernorOLASJSON = "abis/misc/GovernorOLAS.json";
-    let contractFromJSON = fs.readFileSync(GovernorOLASJSON, "utf8");
-    let contract = JSON.parse(contractFromJSON);
-    const GovernorOLASABI = contract["abi"];
-    const governor = await ethers.getContractAt(GovernorOLASABI, governorTwoAddress);
 
     const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
 
     // Proposal preparation
-    console.log("Proposal 1. TokenomicsProxy to change Tokenomics implementation calling `changeTokenomicsImplementation(TokenomicsFour)`");
+    console.log("Proposal 16. TokenomicsProxy to update and reset inflation, reset unused bonding and staking inflation");
     const targets = [tokenomicsProxyAddress];
     const values = [0];
-    const callDatas = [tokenomicsProxy.interface.encodeFunctionData("changeTokenomicsImplementation", [tokenomicsFourAddress])];
-    const description = "Change Tokenomics implementation to the version 1.3.0";
+    const callDatas = [tokenomicsProxy.interface.encodeFunctionData("updateInflationPerSecondAndFractions", [25, 4, 2, 69])];
+    const description = "Update and reset tokenomics inflation, reset unused bonding and staking inflation";
 
     // Proposal details
     console.log("targets:", targets);
