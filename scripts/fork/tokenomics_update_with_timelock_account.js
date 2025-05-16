@@ -49,7 +49,9 @@ async function main() {
     });
 
     const receipt = await tx.wait();
-    const tokenomicsImplementationAddress = receipt.contractAddress;
+    let tokenomicsImplementationAddress = receipt.contractAddress;
+    // Currently deployed address
+    //tokenomicsImplementationAddress = parsedData.tokenomicsFourAddress;
     console.log("New tokenomics implementation address:", tokenomicsImplementationAddress);
 
     // Change tokenomics implementation
@@ -60,17 +62,18 @@ async function main() {
     console.log("\nUpdating tokenomics inflation");
     tx = await tokenomics.updateInflationPerSecondAndFractions(25, 4, 2, 69);
     let res = await tx.wait();
+    console.log(res);
 
-    console.log("\nUpdate inflation events", res.logs);
-    // Epoch number where first staking claim is possible
-    const eNum = 14;
-    let j = 0;
-    for (let i = 1; i < 30; i += 3) {
-        const retained = ethers.utils.defaultAbiCoder.decode(["uint256"], res.logs[i].data);
-        console.log("retained in epoch:", eNum + j);
-        console.log("retained amount:", retained.toString());
-        j++;
-    }
+//    console.log("\nUpdate inflation events", res.logs);
+//    // Epoch number where first staking claim is possible
+//    const eNum = 14;
+//    let j = 0;
+//    for (let i = 1; i < 30; i += 3) {
+//        const retained = ethers.utils.defaultAbiCoder.decode(["uint256"], res.logs[i].data);
+//        console.log("retained in epoch:", eNum + j);
+//        console.log("retained amount:", retained.toString());
+//        j++;
+//    }
 
     // Get inflation per second
     let inflationPerSecond = await tokenomics.inflationPerSecond();
