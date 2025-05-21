@@ -16,7 +16,7 @@ jobs:
           submodules: recursive
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
 
       # Install modules
       - name: Install modules
