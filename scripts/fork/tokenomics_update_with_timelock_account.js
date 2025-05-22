@@ -49,7 +49,9 @@ async function main() {
     });
 
     const receipt = await tx.wait();
-    const tokenomicsImplementationAddress = receipt.contractAddress;
+    let tokenomicsImplementationAddress = receipt.contractAddress;
+    // Currently deployed address
+    //tokenomicsImplementationAddress = parsedData.tokenomicsFourAddress;
     console.log("New tokenomics implementation address:", tokenomicsImplementationAddress);
 
     // Change tokenomics implementation
@@ -60,6 +62,7 @@ async function main() {
     console.log("\nUpdating tokenomics inflation");
     tx = await tokenomics.updateInflationPerSecondAndFractions(25, 4, 2, 69);
     let res = await tx.wait();
+    //console.log(res);
 
     console.log("\nUpdate inflation events", res.logs);
     // Epoch number where first staking claim is possible
