@@ -25,7 +25,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          version: nightly-a93c000a5f18a57e6c927e45fb088604ad42d656
 
       # Run linters
       - name: Run ESLint
