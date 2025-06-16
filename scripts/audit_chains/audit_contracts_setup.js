@@ -136,7 +136,7 @@ async function checkTokenomicsProxy(chainId, provider, globalsInstance, configCo
     const implementationHash = await tokenomics.PROXY_TOKENOMICS();
     const implementation = await provider.getStorageAt(tokenomics.address, implementationHash);
     // Need to extract address size of bytes from the storage return value
-    customExpect("0x" + implementation.slice(-40), globalsInstance["tokenomicsThreeAddress"].toLowerCase(),
+    customExpect("0x" + implementation.slice(-40), globalsInstance["tokenomicsFourAddress"].toLowerCase(),
         log + ", function: PROXY_TOKENOMICS()");
 }
 

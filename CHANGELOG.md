@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+[1.3.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.4...v1.3.2
+[1.2.4]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.3...v1.2.2
 [1.0.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.2...v1.0.3
@@ -12,7 +14,25 @@ The format is based on [Common Changelog](https://common-changelog.org).
 [1.0.0]: https://github.com/valory-xyz/autonolas-tokenomics/releases/tag/v1.0.0
 
 
+## [v1.3.2] - 2025-05-22
+
+### Changed
+
+- Update tokenomics inflation curve ([#200](https://github.com/valory-xyz/autonolas-tokenomics/pull/200))
+- Deploy Tokenomcis implementation with a new inflation curve
+
+## [v1.2.4] - 2025-03-25
+
+### Changed
+
+- Development of `BalancerPriceOracle`, `UniswapPriceOracle` and `BuyBackBurner` contracts
+- Deployment of contracts on Gnosis and Base ([#203](https://github.com/valory-xyz/autonolas-tokenomics/pull/203))
+
+
 ## [v1.2.3] - 2024-11-01
+
+_No bytecode changes_.
+
 - Deploying `OptimismDepositProcessorL1` for Mode on Ethereum mainnet, `OptimismTargetDispenserL2` on Mode ([#189](https://github.com/valory-xyz/autonolas-tokenomics/pull/189))
 - Adjusting static audit
 
