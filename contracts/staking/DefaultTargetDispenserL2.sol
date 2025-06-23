@@ -140,7 +140,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Processes the data received from L1.
     /// @param data Bytes message data sent from L1.
-    function _processData(bytes memory data) internal {
+    function _processData(bytes memory data) internal returns (uint256 totalAmount) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -197,6 +197,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
                 emit AmountWithheld(target, targetWithheldAmount);
             }
+
+            // Update total to-be-deposited amount
+            totalAmount += amount;
 
             uint256 olasBalance = IToken(olas).balanceOf(address(this));
             // Check the OLAS balance and the contract being unpaused
@@ -329,14 +332,31 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         - Token transfer succeeds, message fails: call this function;
     ///         - Token transfer fails, message succeeds: re-send OLAS to the contract (separate vote).
     /// @param data Bytes message data that was not delivered from L1.
-    function processDataMaintenance(bytes memory data) external {
+    /// @param updateWithheldAmount True, if withheld amount update is required.
+    function processDataMaintenance(bytes memory data, bool updateWithheldAmount) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Process the data
-        _processData(data);
+        // Process the data and calculate deposited amounts
+        uint256 totalAmount = _processData(data);
+
+        // Update withheld amount
+        if (updateWithheldAmount) {
+            uint256 localWithheldAmount = withheldAmount;
+
+            // Check for overflow
+            if (totalAmount > localWithheldAmount) {
+                revert Overflow(totalAmount, localWithheldAmount);
+            }
+
+            // Update withheld amount
+            localWithheldAmount -= totalAmount;
+            withheldAmount = localWithheldAmount;
+
+            emit WithheldAmountUpdated(localWithheldAmount);
+        }
 
         emit StakingMaintenanceDataProcessed(data);
     }
@@ -406,9 +426,13 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         _locked = 1;
     }
 
-    /// @dev Updates withheld amount manually by the DAO in order to account for `processDataMaintenance()` amounts.
-    /// @notice The amount here must correspond to the exact withheldAmount minus the accumulation of all the previous
-    ///         unique amounts deposited via `processDataMaintenance()` function execution.
+    /// @dev Updates withheld amount manually by the DAO in order to:
+    ///         [1] Account for not recorded `processDataMaintenance()` amounts;
+    ///         [2] Withheld amount update after balance migration to a new contract.
+    /// @notice The amount here must correspond to:
+    ///         [1] The exact withheldAmount minus the accumulation of all the previous
+    ///             unique amounts deposited via `processDataMaintenance()` function execution;
+    ///         [2] Final OLAS balance of this contract address.
     /// @param amount Updated withheld amount.
     function updateWithheldAmountMaintenance(uint256 amount) external {
         // Check the contract ownership
