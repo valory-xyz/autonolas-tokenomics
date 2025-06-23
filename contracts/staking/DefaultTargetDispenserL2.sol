@@ -350,6 +350,11 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
         _locked = 2;
 
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
         // Pause check
         if (paused == 2) {
             revert Paused();

@@ -17,4 +17,4 @@ It zeroid withheldAmount = amount - normalizedAmount;
 They need to be given equal rights (OwnerOnly).
 To discussion!
 ```
-[] 
+[x] Fixed 
