@@ -4,7 +4,7 @@ The review has been performed based on the contract code in the following reposi
 commit: `4d543af4efefea0380a1c5b1d79f5e574b4c26f0` or `tag: v1.3.3-pre-internal-audit`<br> 
 
 ## Objectives
-The audit focused on WithheldAmount fixing in PoAA Staking in tokonomics contract in this repo.
+The audit focused on WithheldAmount fix in TargetDispenserL2 contract
 
 ## Issue
 ### Medium. Logical issue
