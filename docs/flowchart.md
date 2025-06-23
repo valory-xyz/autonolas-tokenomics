@@ -6,6 +6,7 @@ graph TD
     subgraph tokenomics [Tokenomics]
     Treasury[Treasury]
     Dispenser[Dispenser]
+    DonatorBlacklist[DonatorBlacklist]
     Tokenomics[Tokenomics]
     Depository[Depository]
     GenericBondCalculator[Generic Bond Calculator]
@@ -52,6 +53,7 @@ graph TD
     Tokenomics-->|getComponentIdsOfServiceId, getAgentIdsOfServiceId|ServiceRegistry
     Tokenomics-->|inflationRemainder, totalSupply|OLAS_Token
     Tokenomics-->|getVotes|veOLAS
+    Tokenomics-->|isDonatorBlacklisted|DonatorBlacklist
     Treasury-->|drain|ServiceRegistry
     Treasury-->|transferFrom|LP_Token
     Treasury-->|mint, transfer|OLAS_Token
