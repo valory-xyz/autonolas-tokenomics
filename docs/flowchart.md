@@ -1,3 +1,6 @@
+# Tokenomics Flowchart
+
+```mermaid
 graph TD
     %% Tokenomics
     subgraph tokenomics [Tokenomics]
@@ -52,3 +55,4 @@ graph TD
     Treasury-->|drain|ServiceRegistry
     Treasury-->|transferFrom|LP_Token
     Treasury-->|mint, transfer|OLAS_Token
+```
