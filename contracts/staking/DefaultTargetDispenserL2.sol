@@ -332,7 +332,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         - Token transfer succeeds, message fails: call this function;
     ///         - Token transfer fails, message succeeds: re-send OLAS to the contract (separate vote).
     /// @param data Bytes message data that was not delivered from L1.
-    /// @param updateWithheldAmount True, if update withheld amount is required.
+    /// @param updateWithheldAmount True, if withheld amount update is required.
     function processDataMaintenance(bytes memory data, bool updateWithheldAmount) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
