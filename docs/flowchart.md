@@ -27,7 +27,7 @@ graph TD
     
     LP_Token[LP Token]
     Owner([OLAS or LP Token owner])
-    OwnerAgent[Component or Agent Owner]
+    OwnerAgent[[Component or Agent Owner]]
     AnyWallet([Any Wallet or Contract])
     
     AnyWallet-->|depositServiceDonationETH|Treasury
