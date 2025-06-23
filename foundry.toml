@@ -5,7 +5,7 @@ src = "contracts"
 out = "out"
 libs = ["lib"]
 optimizer = true
-optimizer_runs = 1000000
+optimizer_runs = 100
 evm_version = "prague"
 
 remappings = [
