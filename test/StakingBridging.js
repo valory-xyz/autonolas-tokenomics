@@ -677,6 +677,11 @@ describe("StakingBridging", async () => {
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
 
+            // Trying to sync withheld tokens not by the owner
+            await expect(
+                gnosisTargetDispenserL2.connect(signers[1]).syncWithheldAmount("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "OwnerOnly");
+
             // Trying to sync withheld tokens when paused
             await expect(
                 gnosisTargetDispenserL2.syncWithheldAmount("0x")
