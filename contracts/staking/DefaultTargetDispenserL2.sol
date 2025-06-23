@@ -49,9 +49,11 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event AmountWithheld(address indexed target, uint256 amount);
     event StakingRequestQueued(bytes32 indexed queueHash, address indexed target, uint256 amount,
         bytes32 indexed batchHash, uint256 olasBalance, uint256 paused);
+    event StakingMaintenanceDataProcessed(bytes data);
     event MessagePosted(uint256 indexed sequence, address indexed messageSender, uint256 amount,
         bytes32 indexed batchHash);
     event MessageReceived(address indexed sender, uint256 chainId, bytes data);
+    event WithheldAmountUpdated(uint256 amount);
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
@@ -335,6 +337,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
         // Process the data
         _processData(data);
+
+        emit StakingMaintenanceDataProcessed(data);
     }
 
     /// @dev Syncs withheld token amount with L1.
@@ -395,6 +399,21 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit MessagePosted(sequence, msg.sender, normalizedAmount, batchHash);
 
         _locked = 1;
+    }
+
+    /// @dev Updates withheld amount manually by the DAO in order to account for `processDataMaintenance()` amounts.
+    /// @notice The amount here must correspond to the exact withheldAmount minus the accumulation of all the previous
+    ///         unique amounts deposited via `processDataMaintenance()` function execution.
+    /// @param amount Updated withheld amount.
+    function updateWithheldAmountMaintenance(uint256 amount) external {
+        // Check the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        withheldAmount = amount;
+
+        emit WithheldAmountUpdated(amount);
     }
 
     /// @dev Pause the contract.
