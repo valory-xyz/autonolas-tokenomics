@@ -603,7 +603,7 @@ describe("StakingBridging", async () => {
             // Deploy another contract
             const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
             const bridgedRelayerDeAliased = await bridgeRelayer.l1ToL2AliasedSender();
-            newArbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
+            const newArbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
                 stakingProxyFactory.address, bridgeRelayer.address, bridgedRelayerDeAliased, chainId);
             await newArbitrumTargetDispenserL2.deployed();
 
