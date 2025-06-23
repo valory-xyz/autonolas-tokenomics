@@ -198,15 +198,15 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
                 emit AmountWithheld(target, targetWithheldAmount);
             }
 
+            // Update total to-be-deposited amount
+            totalAmount += amount;
+
             uint256 olasBalance = IToken(olas).balanceOf(address(this));
             // Check the OLAS balance and the contract being unpaused
             if (olasBalance >= amount && localPaused == 1) {
                 // Approve and transfer OLAS to the service staking target
                 IToken(olas).approve(target, amount);
                 IStaking(target).deposit(amount);
-
-                // Update total deposited amount
-                totalAmount += amount;
 
                 emit StakingTargetDeposited(target, amount, batchHash);
             } else {
