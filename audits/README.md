@@ -14,6 +14,7 @@ An internal audit with a focus on PoAA Staking fixing after C4A is located in th
 
 An internal audit with a focus on tokenimics inflation update is located in this folder: [internal audit 6](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal6).
 
+An internal audit with a focus on WithheldAmount fixing in PoAA Staking is located in this folder: [internal audit 7](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal7).
 
 ### External audit
 Final audit reports are listed in their historical order:
