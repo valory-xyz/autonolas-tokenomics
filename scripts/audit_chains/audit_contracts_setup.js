@@ -735,7 +735,7 @@ async function main() {
         "mainnet": "scripts/deployment/globals_mainnet.json",
         "polygon": "scripts/deployment/staking/polygon/globals_polygon_mainnet.json",
         "gnosis": "scripts/deployment/staking/gnosis/globals_gnosis_mainnet.json",
-        "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_one.json",
+        "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_mainnet.json",
         "optimistic": "scripts/deployment/staking/optimistic/globals_optimistic_mainnet.json",
         "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
         "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
