@@ -1,4 +1,5 @@
 out
+out_static_audit
 node_modules
 .env
 coverage
