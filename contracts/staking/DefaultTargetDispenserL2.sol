@@ -183,15 +183,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             // If the limit amount is zero, withhold OLAS amount and continue
             if (limitAmount == 0) {
                 // Since the updateWithheldAmount is requested, no additional withheldAmount must be accounted for
-                // to avoid double accounting as there was no funds deposited. All the amounts must be calculated
-                // precisely such that limitAmount is always equal to its corresponding amount
-                if (updateWithheldAmount) {
-                    revert LowerThan(limitAmount, amount);
+                // to avoid double accounting as there was no funds deposited.
+                if (!updateWithheldAmount) {
+                    // Withhold OLAS for further usage
+                    localWithheldAmount += amount;
+                    emit AmountWithheld(target, amount);
                 }
-
-                // Withhold OLAS for further usage
-                localWithheldAmount += amount;
-                emit AmountWithheld(target, amount);
 
                 // Proceed to the next target
                 continue;
@@ -200,16 +197,16 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             // Check the amount limit and adjust, if necessary
             if (amount > limitAmount) {
                 // Since the updateWithheldAmount is requested, no additional withheldAmount must be accounted for
-                if (updateWithheldAmount) {
-                    revert LowerThan(limitAmount, amount);
+                // to avoid double accounting as there was no funds deposited.
+                if (!updateWithheldAmount) {
+                    // Withhold OLAS for further usage
+                    uint256 targetWithheldAmount = amount - limitAmount;
+                    localWithheldAmount += targetWithheldAmount;
+
+                    emit AmountWithheld(target, targetWithheldAmount);
                 }
 
-                // Withhold OLAS for further usage
-                uint256 targetWithheldAmount = amount - limitAmount;
-                localWithheldAmount += targetWithheldAmount;
                 amount = limitAmount;
-
-                emit AmountWithheld(target, targetWithheldAmount);
             }
 
             // Update total to-be-deposited amount
