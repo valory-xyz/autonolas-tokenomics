@@ -4,9 +4,9 @@
 
 This repository contains the tokenomics part of Autonolas onchain-protocol contracts.
 
-A graphical overview is available here:
+A graphical overview is available [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/flowchart.md).
 
-![architecture](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png)
+For reference purposes only, an older version of the general Autonolas architecture is available [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png).
 
 An overview of the Autonolas tokenomics model is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf). A description of the tokenomics contracts related to Olas staking is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/StakingSmartContracts.pdf).
 

@@ -416,11 +416,11 @@ describe("StakingBridging", async () => {
             // Process data maintenance by the owner
             const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]", "bytes32"],
                 [[stakingTarget], [stakingIncentive * 2], batchHash]);
-            await arbitrumTargetDispenserL2.processDataMaintenance(payload);
+            await arbitrumTargetDispenserL2.processDataMaintenance(payload, false);
 
             // Try to do it not from the owner
             await expect(
-                arbitrumTargetDispenserL2.connect(signers[1]).processDataMaintenance("0x")
+                arbitrumTargetDispenserL2.connect(signers[1]).processDataMaintenance("0x", false)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
 
             // Try to redeem, but there are no funds
@@ -676,6 +676,11 @@ describe("StakingBridging", async () => {
 
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
+
+            // Trying to sync withheld tokens not by the owner
+            await expect(
+                gnosisTargetDispenserL2.connect(signers[1]).syncWithheldAmount("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "OwnerOnly");
 
             // Trying to sync withheld tokens when paused
             await expect(
