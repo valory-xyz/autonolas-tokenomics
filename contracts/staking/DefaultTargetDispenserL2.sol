@@ -140,7 +140,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Processes the data received from L1.
     /// @param data Bytes message data sent from L1.
-    function _processData(bytes memory data) internal returns (uint256 totalAmount) {
+    /// @param updateWithheldAmount True, if withheld amount update is required.
+    function _processData(bytes memory data, bool updateWithheldAmount) internal returns (uint256 totalAmount) {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -181,6 +182,13 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
             // If the limit amount is zero, withhold OLAS amount and continue
             if (limitAmount == 0) {
+                // Since the updateWithheldAmount is requested, no additional withheldAmount must be accounted for
+                // to avoid double accounting as there was no funds deposited. All the amounts must be calculated
+                // precisely such that limitAmount is always equal to its corresponding amount
+                if (updateWithheldAmount) {
+                    revert LowerThan(limitAmount, amount);
+                }
+
                 // Withhold OLAS for further usage
                 localWithheldAmount += amount;
                 emit AmountWithheld(target, amount);
@@ -191,6 +199,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
             // Check the amount limit and adjust, if necessary
             if (amount > limitAmount) {
+                // Since the updateWithheldAmount is requested, no additional withheldAmount must be accounted for
+                if (updateWithheldAmount) {
+                    revert LowerThan(limitAmount, amount);
+                }
+
+                // Withhold OLAS for further usage
                 uint256 targetWithheldAmount = amount - limitAmount;
                 localWithheldAmount += targetWithheldAmount;
                 amount = limitAmount;
@@ -261,7 +275,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit MessageReceived(l1DepositProcessor, l1SourceChainId, data);
 
         // Process the data
-        _processData(data);
+        _processData(data, false);
     }
 
     /// @dev Changes the owner address.
@@ -332,7 +346,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         - Token transfer succeeds, message fails: call this function;
     ///         - Token transfer fails, message succeeds: re-send OLAS to the contract (separate vote).
     /// @param data Bytes message data that was not delivered from L1.
-    /// @param updateWithheldAmount True, if withheld amount update is required.
+    /// @param updateWithheldAmount True, if withheld amount update is required (must be used if there is no bridge issue).
     function processDataMaintenance(bytes memory data, bool updateWithheldAmount) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
@@ -340,7 +354,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         }
 
         // Process the data and calculate deposited amounts
-        uint256 totalAmount = _processData(data);
+        uint256 totalAmount = _processData(data, updateWithheldAmount);
 
         // Update withheld amount
         if (updateWithheldAmount) {
