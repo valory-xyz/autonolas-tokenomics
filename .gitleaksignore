@@ -214,3 +214,11 @@ ec017f7f1095f26fe63906ec36c9ede28030ea8a:scripts/deployment/staking/globals_main
 4687a1d8ccccf230469eceb47980248ce0baa066:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:1
 1cb597188de8051615b1505f25763ebc7462fa6b:scripts/deployment/globals_mainnet.json:generic-api-key:1
 15c084ccb4422fb624472ce949732729e4462480:scripts/deployment/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/staking/globals_sepolia.json:generic-api-key:29
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/staking/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/staking/celo/globals_celo_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/globals_mainnet.json:generic-api-key:1
+1452292a62d5bec69d746eb71d103a5263bc1c26:scripts/deployment/globals_mainnet.json:generic-api-key:1
