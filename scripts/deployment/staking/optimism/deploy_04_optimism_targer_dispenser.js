@@ -44,7 +44,7 @@ async function main() {
     const OptimismTargetDispenserL2 = await ethers.getContractFactory("OptimismTargetDispenserL2");
     console.log("You are signing the following transaction: OptimismTargetDispenserL2.connect(EOA).deploy()");
     const optimismTargetDispenserL2 = await OptimismTargetDispenserL2.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.serviceStakingFactoryAddress, parsedData.optimisticL2CrossDomainMessengerAddress,
+        parsedData.serviceStakingFactoryAddress, parsedData.optimismL2CrossDomainMessengerAddress,
         parsedData.optimismDepositProcessorL1Address, parsedData.l1ChainId);
     const result = await optimismTargetDispenserL2.deployed();
 
@@ -63,7 +63,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/optimistic/verify_04_optimism_target_dispenser.js --network " + providerName + " " + optimismTargetDispenserL2.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/optimism/verify_04_optimism_target_dispenser.js --network " + providerName + " " + optimismTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 

@@ -63,7 +63,7 @@ async function main() {
     // Contract verification
     if (parsedData.contractVerification) {
         const execSync = require("child_process").execSync;
-        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/optimistic/verify_07_base_target_dispenser.js --network " + providerName + " " + baseTargetDispenserL2.address, { encoding: "utf-8" });
+        execSync("npx hardhat verify --constructor-args scripts/deployment/staking/optimism/verify_07_base_target_dispenser.js --network " + providerName + " " + baseTargetDispenserL2.address, { encoding: "utf-8" });
     }
 }
 
