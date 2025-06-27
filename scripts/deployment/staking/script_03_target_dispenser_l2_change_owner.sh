@@ -1,5 +1,9 @@
 #!/bin/bash
 
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+reset=$(tput sgr0)
+
 # Get globals file
 globals="$(dirname "$0")/${1%_*}/globals_$1.json"
 if [ ! -f $globals ]; then
@@ -44,7 +48,7 @@ fi
 # Cast command
 echo "${green}Casting from: $deployer${reset}"
 echo "RPC: $networkURL"
-echo "EOA to change owner in TargetDispenserL2"
+echo "${green}EOA to change owner in TargetDispenserL2${reset}"
 
 castHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
