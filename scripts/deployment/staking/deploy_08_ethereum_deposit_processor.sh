@@ -73,6 +73,7 @@ fi
 
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"ethereumDepositProcessorAddress":"'$ethereumDepositProcessorAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"aa":"aa"}' globals_mainnet.json)" > globals_mainnet.json
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
