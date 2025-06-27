@@ -46,7 +46,7 @@ elif [ $chainId == 11155111 ]; then
     fi
 fi
 
-contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
+contractPath="contracts/staking/GnosisDepositProcessorL1.sol:GnosisDepositProcessorL1"
 constructorArgs="$olasAddress $dispenserAddress $gnosisOmniBridgeAddress $gnosisAMBForeignAddress $gnosisL2TargetChainId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
