@@ -3,14 +3,14 @@
 # Get globals file
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
-  echo "!!! $globals is not found"
+  echo "${red}!!! $globals is not found${reset}"
   exit 0
 fi
 
 # Get globals file for L2
 globalsL2="$(dirname "$0")/gnosis/globals_gnosis_$1.json"
 if [ ! -f $globalsL2 ]; then
-  echo "!!! $globalsL2 is not found"
+  echo "${red}!!! $globalsL2 is not found${reset}"
   exit 0
 fi
 
@@ -57,9 +57,9 @@ else
 fi
 
 # Deployment message
-echo "Deploying from: $deployer"
+echo "${green}Deploying from: $deployer${reset}"
 echo "RPC: $networkURL"
-echo "Deployment of: $contractArgs"
+echo "${green}Deployment of: $contractArgs{reset}"
 
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
@@ -71,7 +71,7 @@ outputLength=${#gnosisDepositProcessorL1Address}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
-  echo "!!! The contract was not deployed..."
+  echo "${red}!!! The contract was not deployed...${reset}"
   exit 0
 fi
 
@@ -85,12 +85,12 @@ if [ "$contractVerification" == "true" ]; then
   contractParams="$gnosisDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
-  echo "Verifying contract on Etherscan..."
+  echo "${green}Verifying contract on Etherscan...${reset}"
   forge verify-contract --chain-id "$chainId" --etherscan-api-key "$ETHERSCAN_API_KEY" $contractParams
 
   blockscoutURL=$(jq -r '.blockscoutURL' $globals)
   if [ "$blockscoutURL" != "null" ]; then
-    echo "Verifying contract on Blockscout..."
+    echo "${green}Verifying contract on Blockscout...${reset}"
     forge verify-contract --verifier blockscout --verifier-url "$blockscoutURL/api" $contractParams
   fi
 fi

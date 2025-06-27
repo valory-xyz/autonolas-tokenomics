@@ -3,7 +3,7 @@
 # Get globals file
 globals="$(dirname "$0")/${1%_*}/globals_$1.json"
 if [ ! -f $globals ]; then
-  echo "!!! $globals is not found"
+  echo "${red}!!! $globals is not found${reset}"
   exit 0
 fi
 
@@ -42,7 +42,7 @@ else
 fi
 
 # Cast command
-echo "Casting from: $deployer"
+echo "${green}Casting from: $deployer${reset}"
 echo "RPC: $networkURL"
 echo "EOA to change owner in TargetDispenserL2"
 

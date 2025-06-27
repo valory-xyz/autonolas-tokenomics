@@ -3,7 +3,7 @@
 # Get globals file
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
-  echo "!!! $globals is not found"
+  echo "${red}!!! $globals is not found${reset}"
   exit 0
 fi
 
@@ -54,7 +54,7 @@ else
 fi
 
 # Cast command
-echo "Casting from: $deployer"
+echo "${green}Casting from: $deployer${reset}"
 echo "RPC: $networkURL"
 echo "EOA to TargetDispenserL2 in DepositProcessorL1 and zero the owner"
 
@@ -66,7 +66,7 @@ addressZero=$(cast address-zero)
 # Check for assigned l2TargetDispenser value
 echo "ARBITRUM"
 if [ "$arbitrumDepositProcessorL1Address" == "null" ]; then
-  echo "!!!arbitrumDepositProcessorL1Address is not set"
+  echo "!!!arbitrumDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking arbitrumTargetDispenserL2Address address in $arbitrumDepositProcessorL1Address"
@@ -95,7 +95,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "BASE"
 if [ "$baseDepositProcessorL1Address" == "null" ]; then
-  echo "!!!baseDepositProcessorL1Address is not set"
+  echo "!!!baseDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking baseTargetDispenserL2Address address in $baseDepositProcessorL1Address"
@@ -124,7 +124,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "CELO"
 if [ "$celoDepositProcessorL1Address" == "null" ]; then
-  echo "!!!celoDepositProcessorL1Address is not set"
+  echo "!!!celoDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking celoTargetDispenserL2Address address in $celoDepositProcessorL1Address"
@@ -153,7 +153,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "GNOSIS"
 if [ "$gnosisDepositProcessorL1Address" == "null" ]; then
-  echo "!!!gnosisDepositProcessorL1Address is not set"
+  echo "!!!gnosisDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking gnosisTargetDispenserL2Address address in $gnosisDepositProcessorL1Address"
@@ -182,7 +182,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "MODE"
 if [ "$modeDepositProcessorL1Address" == "null" ]; then
-  echo "!!!modeDepositProcessorL1Address is not set"
+  echo "!!!modeDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking modeTargetDispenserL2Address address in $modeDepositProcessorL1Address"
@@ -211,7 +211,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "OPTIMISM"
 if [ "$optimismDepositProcessorL1Address" == "null" ]; then
-  echo "!!!optimismDepositProcessorL1Address is not set"
+  echo "!!!optimismDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking optimismTargetDispenserL2Address address in $optimismDepositProcessorL1Address"
@@ -240,7 +240,7 @@ fi
 # Check for assigned l2TargetDispenser value
 echo "POLYGON"
 if [ "$polygonDepositProcessorL1Address" == "null" ]; then
-  echo "!!!polygonDepositProcessorL1Address is not set"
+  echo "!!!polygonDepositProcessorL1Address is not set${reset}"
   echo ""
 else
   echo "Checking polygonTargetDispenserL2Address address in $polygonDepositProcessorL1Address"
