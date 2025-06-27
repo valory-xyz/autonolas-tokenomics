@@ -416,11 +416,11 @@ describe("StakingBridging", async () => {
             // Process data maintenance by the owner
             const payload = ethers.utils.defaultAbiCoder.encode(["address[]", "uint256[]", "bytes32"],
                 [[stakingTarget], [stakingIncentive * 2], batchHash]);
-            await arbitrumTargetDispenserL2.processDataMaintenance(payload);
+            await arbitrumTargetDispenserL2.processDataMaintenance(payload, false);
 
             // Try to do it not from the owner
             await expect(
-                arbitrumTargetDispenserL2.connect(signers[1]).processDataMaintenance("0x")
+                arbitrumTargetDispenserL2.connect(signers[1]).processDataMaintenance("0x", false)
             ).to.be.revertedWithCustomError(arbitrumDepositProcessorL1, "OwnerOnly");
 
             // Try to redeem, but there are no funds
@@ -589,6 +589,36 @@ describe("StakingBridging", async () => {
                 arbitrumTargetDispenserL2.unpause()
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
         });
+
+        it("Migrate functionality on L2 with the withheld amount recovery", async function () {
+            // Pause the deposit processor
+            await arbitrumTargetDispenserL2.pause();
+
+            // Deposit some OLAS to the contract
+            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
+
+            // Update withheldAmount by the DAO
+            await arbitrumTargetDispenserL2.updateWithheldAmountMaintenance(defaultAmount);
+
+            // Deploy another contract
+            const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
+            const bridgedRelayerDeAliased = await bridgeRelayer.l1ToL2AliasedSender();
+            const newArbitrumTargetDispenserL2 = await ArbitrumTargetDispenserL2.deploy(olas.address,
+                stakingProxyFactory.address, bridgeRelayer.address, bridgedRelayerDeAliased, chainId);
+            await newArbitrumTargetDispenserL2.deployed();
+
+            // Initial withheld amount is zero
+            expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(0);
+
+            // Migrate the contract to a new one
+            await arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address);
+
+            // Update withheldAmount by the DAO
+            const withheldAmount = await olas.balanceOf(newArbitrumTargetDispenserL2.address);
+            await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldAmount);
+
+            expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(withheldAmount);
+        });
     });
 
     context("Gnosis", async function () {
@@ -646,6 +676,11 @@ describe("StakingBridging", async () => {
 
             // Pause the L2 contract
             await gnosisTargetDispenserL2.pause();
+
+            // Trying to sync withheld tokens not by the owner
+            await expect(
+                gnosisTargetDispenserL2.connect(signers[1]).syncWithheldAmount("0x")
+            ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "OwnerOnly");
 
             // Trying to sync withheld tokens when paused
             await expect(

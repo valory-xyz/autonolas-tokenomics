@@ -32,7 +32,7 @@
     "eslint": "^8.57.0",
     "solhint": "^5.0.3",
     "ethers": "^5.7.2",
-    "hardhat": "^2.24.0",
+    "hardhat": "^2.25.0",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.11.43",
     "hardhat-deploy-ethers": "^0.3.0-beta.13",
@@ -58,7 +58,7 @@
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "canonical-weth": "^1.4.0",
     "eth-permit": "^0.2.3",
-    "ethereum-sources-downloader": "^0.1.21",
+    "ethereum-sources-downloader": "^0.2.1",
     "wormhole-solidity-sdk": "^0.0.4"
   }
 }

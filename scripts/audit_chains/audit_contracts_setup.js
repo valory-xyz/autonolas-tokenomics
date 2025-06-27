@@ -711,21 +711,27 @@ async function main() {
     const dataFromJSON = fs.readFileSync(configFile, "utf8");
     const configs = JSON.parse(dataFromJSON);
 
+    const numChains = configs.length;
+
     // ################################# VERIFY CONTRACTS WITH REPO #################################
     console.log("\nVerifying deployed contracts vs the repo... If no error is output, then the contracts are correct.");
 
-    // Currently the verification is fo mainnet only
-    const network = "etherscan";
-    const contracts = configs[0]["contracts"];
+    // Traverse all chains
+    for (let i = 0; i < numChains; i++) {
+        console.log("\n\nNetwork:", configs[i]["name"]);
+        const contracts = configs[i]["contracts"];
+        const chainId = configs[i]["chainId"];
+        console.log("chainId", chainId);
 
-    // Verify contracts
-    for (let i = 0; i < contracts.length; i++) {
-        console.log("Checking " + contracts[i]["name"]);
-        const execSync = require("child_process").execSync;
-        try {
-            execSync("scripts/audit_chains/audit_repo_contract.sh " + network + " " + contracts[i]["name"] + " " + contracts[i]["address"]);
-        } catch (error) {
-            continue;
+        // Verify contracts
+        for (let j = 0; j < contracts.length; j++) {
+            console.log("Checking " + contracts[j]["name"]);
+            const execSync = require("child_process").execSync;
+            try {
+                execSync("scripts/audit_chains/audit_repo_contract.sh " + chainId + " " + contracts[j]["name"] + " " + contracts[j]["address"]);
+            } catch (err) {
+                err.stderr.toString();
+            }
         }
     }
     // ################################# /VERIFY CONTRACTS WITH REPO #################################
@@ -735,7 +741,7 @@ async function main() {
         "mainnet": "scripts/deployment/globals_mainnet.json",
         "polygon": "scripts/deployment/staking/polygon/globals_polygon_mainnet.json",
         "gnosis": "scripts/deployment/staking/gnosis/globals_gnosis_mainnet.json",
-        "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_one.json",
+        "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_mainnet.json",
         "optimistic": "scripts/deployment/staking/optimistic/globals_optimistic_mainnet.json",
         "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
         "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
