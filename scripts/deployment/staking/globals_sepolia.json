@@ -30,6 +30,11 @@
   "baseOLASAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
   "baseL2TargetChainId": "84532",
   "baseDepositProcessorL1Address": "0xfB646D8fB41369574274469654f761c18e1160C9",
+  "modeL1StandardBridgeProxyAddress": "0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1",
+  "modeL1CrossDomainMessengerProxyAddress": "0x58Cc85b8D04EA49cC6DBd3CbFFd00B4B8D6cb3ef",
+  "modeOLASAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
+  "modeL2TargetChainId": "84532",
+  "modeDepositProcessorL1Address": "0x93504d2275998a4fCa666000A906067648edC723",
   "wormholeL1CoreAddress": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
   "wormholeL1TokenRelayerAddress": "0xDB5492265f6038831E89f495670FF909aDe94bd9",
   "wormholeL1MessageRelayerAddress": "0x7B1bD7a6b4E61c2a123AC6BC2cbfC614437D0470",
@@ -48,5 +53,6 @@
   "arbitrumTargetDispenserL2Address": "0x239193FB66D22E358f1c094831aB771669Eb3C4F",
   "celoDepositProcessorL1Address": "0xEF4C8b24C6e8a168Fb4FD8345Bc52Db34569034D",
   "celoTargetDispenserL2Address": "0x6d9b08701Af43D68D991c074A27E4d90Af7f2276",
-  "gnosisTargetDispenserL2Address": "0xcc7BA184FeFec4c806f698b118b138Eb7EaE946d"
+  "gnosisTargetDispenserL2Address": "0xcc7BA184FeFec4c806f698b118b138Eb7EaE946d",
+  "modeTargetDispenserL2Address": "0x43d28764bB39936185c84906983fB57A8A905a4F"
 }

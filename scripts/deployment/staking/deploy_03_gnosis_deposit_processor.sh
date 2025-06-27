@@ -99,4 +99,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $gnosisDepositProcessorL1Address"
+echo "${green}Contract deployed at: $gnosisDepositProcessorL1Address${reset}"

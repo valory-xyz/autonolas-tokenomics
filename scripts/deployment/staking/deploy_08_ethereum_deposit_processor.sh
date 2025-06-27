@@ -89,4 +89,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $ethereumDepositProcessorAddress"
+echo "${green}Contract deployed at: $ethereumDepositProcessorAddress${reset}"

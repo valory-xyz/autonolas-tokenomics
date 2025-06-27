@@ -1,0 +1,17 @@
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "modeSepolia",
+  "chainId": "919",
+  "networkURL": "https://sepolia.mode.network",
+  "blockscoutURL": "https://sepolia.explorer.mode.network",
+  "gasPriceInGwei": "1",
+  "olasAddress": "0xcfD1D50ce23C46D3Cf6407487B2F8934e96DC8f9",
+  "serviceStakingFactoryAddress": "0x75D529FAe220bC8db714F0202193726b46881B76",
+  "bridgeMediatorAddress": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
+  "modeL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
+  "l1ChainId": "1",
+  "modeDepositProcessorL1Address": "0x93504d2275998a4fCa666000A906067648edC723",
+  "modeTargetDispenserL2Address": "0x43d28764bB39936185c84906983fB57A8A905a4F"
+}

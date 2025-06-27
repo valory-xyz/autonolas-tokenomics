@@ -99,4 +99,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $optimismTargetDispenserL2Address"
+echo "${green}Contract deployed at: $optimismTargetDispenserL2Address${reset}"

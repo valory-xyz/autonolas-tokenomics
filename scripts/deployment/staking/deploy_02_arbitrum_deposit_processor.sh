@@ -103,4 +103,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $arbitrumDepositProcessorL1Address"
+echo "${green}Contract deployed at: $arbitrumDepositProcessorL1Address${reset}"

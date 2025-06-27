@@ -101,4 +101,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "Contract deployed at: $celoDepositProcessorL1Address"
+echo "${green}Contract deployed at: $celoDepositProcessorL1Address${reset}"
