@@ -80,7 +80,7 @@ else
 
   # Assign l2TargetDispenser value if it is still not set
   if [ "$resultAddress" == "$addressZero" ]; then
-    echo "${green}Setting arbitrumTargetDispenserL2Address address${reset}"
+    echo "${green}Setting ${network}TargetDispenserL2Address address${reset}"
     castArgs="$depositProcessorL1Address setL2TargetDispenser(address) $targetDispenserL2Address"
     echo $castArgs
     castCmd="$castSendHeader $castArgs"

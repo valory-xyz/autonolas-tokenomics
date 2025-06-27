@@ -48,7 +48,7 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/staking/OptimismTargetDispenserL2.sol:OptimismTargetDispenserL2"
+contractPath="contracts/staking/WormholeTargetDispenserL2.sol:WormholeTargetDispenserL2"
 constructorArgs="$olasAddress $serviceStakingFactoryAddress $wormholeL2MessageRelayer $celoDepositProcessorL1Address $wormholel1ChainId $wormholeL2CoreAddress $wormholeL2TokenRelayerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
