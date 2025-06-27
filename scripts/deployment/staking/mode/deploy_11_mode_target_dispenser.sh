@@ -63,7 +63,7 @@ fi
 # Deployment message
 echo "${green}Deploying from: $deployer${reset}"
 echo "RPC: $networkURL"
-echo "${green}Deployment of: $contractArgs{reset}"
+echo "${green}Deployment of: $contractArgs${reset}"
 
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"

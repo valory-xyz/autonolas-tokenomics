@@ -25,6 +25,11 @@
   "optimismOLASAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
   "optimismL2TargetChainId": "11155420",
   "optimismDepositProcessorL1Address": "0xc2aC97E4b7273C64a929fA8459B41b634acbD846",
+  "baseL1StandardBridgeProxyAddress": "0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1",
+  "baseL1CrossDomainMessengerProxyAddress": "0x58Cc85b8D04EA49cC6DBd3CbFFd00B4B8D6cb3ef",
+  "baseOLASAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
+  "baseL2TargetChainId": "84532",
+  "baseDepositProcessorL1Address": "0xfB646D8fB41369574274469654f761c18e1160C9",
   "wormholeL1CoreAddress": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
   "wormholeL1TokenRelayerAddress": "0xDB5492265f6038831E89f495670FF909aDe94bd9",
   "wormholeL1MessageRelayerAddress": "0x7B1bD7a6b4E61c2a123AC6BC2cbfC614437D0470",
@@ -39,5 +44,5 @@
   "polygonDepositProcessorL1Address": "0x36c1beAFBeaf65DFcF16De60867BF9525455bf4E",
   "serviceStakingFactoryAddress": "0x01187451346d46D6fd2e6647a2980E0d6C06d4Da",
   "optimismTargetDispenserL2Address": "0xc53B500b4d8FcC6865ec91b977651eec045ad8D1",
-  "optimismProcessorL1AddressName": "0xC6F17B5096597380d99Fd91FB124F485A723Ab7C"
+  "baseTargetDispenserL2Address": "0xa2f99579d33b5585873d31a30d33ad4d10D70e3d"
 }
