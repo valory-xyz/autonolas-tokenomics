@@ -1,5 +1,9 @@
 #!/bin/bash
 
+red=$(tput setaf 1)
+green=$(tput setaf 2)
+reset=$(tput sgr0)
+
 # Get globals file
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
