@@ -1,0 +1,18 @@
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "chiado",
+  "chainId": "10200",
+  "networkURL": "https://rpc.chiadochain.net",
+  "blockscoutURL": "https://gnosis-chiado.blockscout.com",
+  "gasPriceInGwei": "5",
+  "olasAddress": "0x9b03e7D8B3c3ea3B56431baD5f9aA16070E10cE2",
+  "serviceStakingFactoryAddress": "0x164192772C363DD391d1fb3D396cd1d9FB10def1",
+  "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
+  "gnosisAMBHomeAddress": "0x8448E15d0e706C0298dECA99F0b4744030e59d7d",
+  "gnosisHomeOmnibridgeAddress": "0x82f63B9730f419CbfEEF10d58a522203838d74c8",
+  "gnosisDepositProcessorL1Address": "0x709085Bf3232893c3be0A164024bf9A8bcb367A3",
+  "l1ChainId": "11155111",
+  "gnosisTargetDispenserL2Address": "0xcc7BA184FeFec4c806f698b118b138Eb7EaE946d"
+}

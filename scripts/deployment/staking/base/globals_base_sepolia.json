@@ -1,0 +1,18 @@
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "baseSepolia",
+  "chainId": "84532",
+  "networkURL": "https://sepolia.base.org",
+  "blockscoutURL": "https://base-sepolia.blockscout.com",
+  "gasPriceInGwei": "2",
+  "olasAddress": "0x54330d28ca3357F294334BDC454a032e7f353416",
+  "bridgeMediatorAddress": "0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA",
+  "serviceStakingFactoryAddress": "0x1cEe30D08943EB58EFF84DD1AB44a6ee6FEff63a",
+  "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
+  "baseL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
+  "baseDepositProcessorL1Address": "0xfB646D8fB41369574274469654f761c18e1160C9",
+  "l1ChainId": "11155111",
+  "baseTargetDispenserL2Address": "0xa2f99579d33b5585873d31a30d33ad4d10D70e3d"
+}

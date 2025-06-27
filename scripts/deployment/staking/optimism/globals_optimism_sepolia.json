@@ -1,0 +1,18 @@
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "optimismSepolia",
+  "chainId": "11155420",
+  "networkURL": "https://sepolia.optimism.io",
+  "blockscoutURL": "https://optimism-sepolia.blockscout.com",
+  "gasPriceInGwei": "2",
+  "olasAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
+  "bridgeMediatorAddress": "0x87c511c8aE3fAF0063b3F3CF9C6ab96c4AA5C60c",
+  "serviceStakingFactoryAddress": "0x3ac32cE492d2bDaf11C8f43Edc16FCa9b4b65675",
+  "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
+  "optimismL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
+  "optimismDepositProcessorL1Address": "0xc2aC97E4b7273C64a929fA8459B41b634acbD846",
+  "l1ChainId": "11155111",
+  "optimismTargetDispenserL2Address": "0xc53B500b4d8FcC6865ec91b977651eec045ad8D1"
+}

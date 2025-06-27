@@ -55,7 +55,7 @@ jobs:
 
       # Compile the code and run foundry tests
       - name: Run foundry tests
-        run: forge test --hh -vvv
+        run: forge test -vvv
 
   scan:
     name: gitleaks

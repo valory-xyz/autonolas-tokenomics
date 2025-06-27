@@ -50,7 +50,7 @@ async function main() {
         baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
         gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
     [parsedData.arbitrumL2TargetChainId, parsedData.baseL2TargetChainId, parsedData.celoL2TargetChainId, ethereumChainId,
-        parsedData.gnosisL2TargetChainId, parsedData.optimisticL2TargetChainId, parsedData.polygonL2TargetChainId]);
+        parsedData.gnosisL2TargetChainId, parsedData.optimismL2TargetChainId, parsedData.polygonL2TargetChainId]);
     console.log("Transaction:", result.hash);
 }
 

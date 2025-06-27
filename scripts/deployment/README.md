@@ -44,15 +44,22 @@ The script file name identifies the number of deployment steps taken from / to t
 - `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment.md).
 - `deploy_10_14_change_ownerships.js` will complete steps 10 to 14.
 
+## Run scripts
 NOTE: All the scripts MUST be strictly run in the sequential order from smallest to biggest numbers.
 
-To run the script, use the following command:
+To run the script with Hardhat, use the following command:
 `npx hardhat run scripts/deployment/script_name --network network_type`,
 where `script_name` is a script name, i.e. `deploy_01_donator_blacklist.js`, `network_type` is a network type corresponding to the `hardhat.config.js` network configuration.
+
+To run the script with Forge, use the following command:
+`./scripts/deployment/script_name network_type`,
+where `script_name` is a shell script name, i.e. `deploy_02_arbitrum_deposit_processor.sh`, `network_type` is a network type corresponding to the network name and mainnet / testnet specification.
 
 ## Validity checks and contract verification
 Each script controls the obtained values by checking them against the expected ones. Also, each script has a contract verification procedure.
 If a contract is deployed with arguments, these arguments are taken from the corresponding `verify_number_and_name` file, where `number_and_name` corresponds to the deployment script number and name.
+
+Forge scripts deploy and verify contracts in the same workflow within a single file.
 
 
 

@@ -68,7 +68,7 @@ test
 ```
 
 ### Compile the code and run
-Compile the code:
+Compile the code with Hardhat:
 ```
 npm run compile
 ```
@@ -76,9 +76,13 @@ Run tests with Hardhat:
 ```
 npx hardhat test
 ```
+Compile the code with Foundry:
+```
+forge build
+```
 Run tests with Foundry:
 ```
-forge test --hh -vv
+forge test
 ```
 
 ### Audits

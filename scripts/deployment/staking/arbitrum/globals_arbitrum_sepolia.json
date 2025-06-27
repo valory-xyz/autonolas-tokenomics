@@ -1,1 +1,17 @@
-{"contractVerification":true,"useLedger":false,"derivationPath":"m/44'/60'/2'/0/0","providerName":"arbitrumSepolia","networkURL":"https://sepolia-rollup.arbitrum.io/rpc","gasPriceInGwei":"5","olasAddress":"0x2AeD71638128A3811F5e5971a397fFe6A8587caa","serviceStakingFactoryAddress":"0xd64Cf67500b7d15A41E02DDeb40F3A73CB533eB5","timelockAddress":"0x52370eE170c0E2767B32687166791973a0dE7966","arbitrumArbSysAddress":"0x0000000000000000000000000000000000000064","arbitrumDepositProcessorL1Address":"0xACd410f51DA5aAe1fF925565FBCB6B6eedbB00E2","l1ChainId":"11155111","arbitrumTargetDispenserL2Address":"0xF66E23209074FA7946E41f45f43d765281af2207"}
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "arbitrumSepolia",
+  "chainId": "421614",
+  "networkURL": "https://sepolia-rollup.arbitrum.io/rpc",
+  "blockscoutURL": "https://arbitrum-sepolia.blockscout.com",
+  "gasPriceInGwei": "5",
+  "olasAddress": "0x2AeD71638128A3811F5e5971a397fFe6A8587caa",
+  "serviceStakingFactoryAddress": "0xd64Cf67500b7d15A41E02DDeb40F3A73CB533eB5",
+  "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
+  "arbitrumArbSysAddress": "0x0000000000000000000000000000000000000064",
+  "arbitrumDepositProcessorL1Address": "0xA4EdDA3c932748025323E5031A2277697BB4860f",
+  "l1ChainId": "11155111",
+  "arbitrumTargetDispenserL2Address": "0x239193FB66D22E358f1c094831aB771669Eb3C4F"
+}

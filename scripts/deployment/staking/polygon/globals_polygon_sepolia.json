@@ -1,0 +1,16 @@
+{
+  "contractVerification": true,
+  "useLedger": false,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "polygonAmoy",
+  "chainId": "80002",
+  "networkURL": "https://polygon-amoy.g.alchemy.com/v2/",
+  "gasPriceInGwei": "5",
+  "olasAddress": "0xeCD870085AA3bab4aE12F675811122da4173C6a9",
+  "serviceStakingFactoryAddress": "0xc2c7E40674f1C7Bb99eFe5680Efd79842502bED4",
+  "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
+  "polygonFXChildAddress": "0xE5930336866d0388f0f745A2d9207C7781047C0f",
+  "polygonDepositProcessorL1Address": "0x725a9BfFD2d3C22420b6bE85C58E73a8D99eE6B7",
+  "l1ChainId": "11155111",
+  "polygonTargetDispenserL2Address": "0x0338893fB1A1D9Df03F72CC53D8f786487d3D03E"
+}
