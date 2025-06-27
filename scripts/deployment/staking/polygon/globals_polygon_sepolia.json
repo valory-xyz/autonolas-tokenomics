@@ -10,7 +10,7 @@
   "serviceStakingFactoryAddress": "0xc2c7E40674f1C7Bb99eFe5680Efd79842502bED4",
   "timelockAddress": "0x52370eE170c0E2767B32687166791973a0dE7966",
   "polygonFXChildAddress": "0xE5930336866d0388f0f745A2d9207C7781047C0f",
-  "polygonDepositProcessorL1Address": "0xBc592052db7661A3A5bB550ba4CcAb58192F4d58",
+  "polygonDepositProcessorL1Address": "0x725a9BfFD2d3C22420b6bE85C58E73a8D99eE6B7",
   "l1ChainId": "11155111",
-  "polygonTargetDispenserL2Address": "0x4cEB52802ef86edF8796632546d89e55c87a0901"
+  "polygonTargetDispenserL2Address": "0x0338893fB1A1D9Df03F72CC53D8f786487d3D03E"
 }

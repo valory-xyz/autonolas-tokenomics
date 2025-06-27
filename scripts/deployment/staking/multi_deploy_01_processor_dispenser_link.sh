@@ -12,3 +12,8 @@ network=${1%_*}
 
 # Set TargetDispenserL2 in DepositProcessorL1
 ./scripts/deployment/staking/script_01_set_target_dispenser_l2.sh $1
+
+# Set fxRootTunnel as DepositProcessorL1 in TargetDispenserL2 on Polygon
+if [ "$network" == "polygon" ]; then
+  ./scripts/deployment/staking/script_03_set_deposit_processor_l1_polygon.sh $1
+fi

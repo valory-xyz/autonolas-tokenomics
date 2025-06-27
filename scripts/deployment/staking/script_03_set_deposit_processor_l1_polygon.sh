@@ -24,24 +24,24 @@ fi
 # Read variables using jq
 useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
-chainId=$(jq -r '.chainId' $globals)
-networkURL=$(jq -r '.networkURL' $globals)
+chainId=$(jq -r '.chainId' $globalsL2)
+networkURL=$(jq -r '.networkURL' $globalsL2)
 
 
 depositProcessorL1Address=$(jq -r ".${network}DepositProcessorL1Address" $globals)
 targetDispenserL2Address=$(jq -r ".${network}TargetDispenserL2Address" $globalsL2)
 
-# Getting L1 Alchemy API key
-if [ $chainId == 1 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MAINNET
+# Check for Polygon keys only since on other networks those are not needed
+if [ $chainId == 137 ]; then
+  API_KEY=$ALCHEMY_API_KEY_MATIC
   if [ "$API_KEY" == "" ]; then
-      echo "set ALCHEMY_API_KEY_MAINNET env variable"
+      echo "set ALCHEMY_API_KEY_MATIC env variable"
       exit 0
   fi
-elif [ $chainId == 11155111 ]; then
-    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
+elif [ $chainId == 80002 ]; then
+    API_KEY=$ALCHEMY_API_KEY_AMOY
     if [ "$API_KEY" == "" ]; then
-        echo "set ALCHEMY_API_KEY_SEPOLIA env variable"
+        echo "set ALCHEMY_API_KEY_AMOY env variable"
         exit 0
     fi
 fi
@@ -59,7 +59,7 @@ fi
 # Cast command
 echo "${green}Casting from: $deployer${reset}"
 echo "RPC: $networkURL"
-echo "${green}EOA to set TargetDispenserL2 in DepositProcessorL1 and zero the owner${reset}"
+echo "${green}EOA to set fxRootTunnel as DepositProcessorL1 in TargetDispenserL2${reset}"
 
 castCallHeader="cast call --rpc-url $networkURL$API_KEY"
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
@@ -67,21 +67,21 @@ addressZero=$(cast address-zero)
 
 # Check for assigned l2TargetDispenser value
 echo "Network: ${network}"
-if [ "$depositProcessorL1Address" == "null" ]; then
-  echo "${red}!!!${network}DepositProcessorL1Address is not set${reset}"
+if [ "$targetDispenserL2Address" == "null" ]; then
+  echo "${red}!!!${network}TargetDispenserL2Address is not set${reset}"
   echo ""
 else
-  echo "${green}Checking ${network}TargetDispenserL2Address address in $depositProcessorL1Address${reset}"
-  castArgs="$depositProcessorL1Address l2TargetDispenser()"
+  echo "${green}Checking fxRootTunnel address in ${network}TargetDispenserL2Address${reset}"
+  castArgs="$targetDispenserL2Address fxRootTunnel()"
   castCmd="$castCallHeader $castArgs"
   # Get l2TargetDispenser address
   resultBytes32=$($castCmd)
   resultAddress=$(cast parse-bytes32-address $resultBytes32)
 
-  # Assign l2TargetDispenser value if it is still not set
+  # Assign fxRootTunnel as l1DepositProcessor  value if it is still not set
   if [ "$resultAddress" == "$addressZero" ]; then
-    echo "${green}Setting ${network}TargetDispenserL2 address${reset}"
-    castArgs="$depositProcessorL1Address setL2TargetDispenser(address) $targetDispenserL2Address"
+    echo "${green}Setting fxRootTunnel as ${network}DepositProcessorL1 address${reset}"
+    castArgs="$targetDispenserL2Address setFxRootTunnel(address) $depositProcessorL1Address"
     echo $castArgs
     castCmd="$castSendHeader $castArgs"
     result=$($castCmd)
