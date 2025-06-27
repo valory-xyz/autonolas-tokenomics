@@ -46,7 +46,7 @@
   "polygonCheckpointManagerAddress": "0xbd07D7E1E93c8d4b2a261327F3C28a8EA7167209",
   "polygonERC20PredicateAddress": "0x4258c75b752c812b7fa586bdeb259f2d4bd17f4f",
   "polygonL2TargetChainId": "80002",
-  "polygonDepositProcessorL1Address": "0x36c1beAFBeaf65DFcF16De60867BF9525455bf4E",
+  "polygonDepositProcessorL1Address": "0xBc592052db7661A3A5bB550ba4CcAb58192F4d58",
   "serviceStakingFactoryAddress": "0x01187451346d46D6fd2e6647a2980E0d6C06d4Da",
   "optimismTargetDispenserL2Address": "0xc53B500b4d8FcC6865ec91b977651eec045ad8D1",
   "baseTargetDispenserL2Address": "0xa2f99579d33b5585873d31a30d33ad4d10D70e3d",
@@ -54,5 +54,6 @@
   "celoDepositProcessorL1Address": "0xEF4C8b24C6e8a168Fb4FD8345Bc52Db34569034D",
   "celoTargetDispenserL2Address": "0x6d9b08701Af43D68D991c074A27E4d90Af7f2276",
   "gnosisTargetDispenserL2Address": "0xcc7BA184FeFec4c806f698b118b138Eb7EaE946d",
-  "modeTargetDispenserL2Address": "0x43d28764bB39936185c84906983fB57A8A905a4F"
+  "modeTargetDispenserL2Address": "0x43d28764bB39936185c84906983fB57A8A905a4F",
+  "polygonTargetDispenserL2Address": "0x4cEB52802ef86edF8796632546d89e55c87a0901"
 }

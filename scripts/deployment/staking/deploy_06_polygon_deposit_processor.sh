@@ -48,7 +48,7 @@ elif [ $chainId == 11155111 ]; then
     fi
 fi
 
-contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
+contractPath="contracts/staking/PolygonDepositProcessorL1.sol:PolygonDepositProcessorL1"
 constructorArgs="$olasAddress $dispenserAddress $polygonRootChainManagerProxyAddress $polygonFXRootAddress $polygonL2TargetChainId $polygonCheckpointManagerAddress $polygonERC20PredicateAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 

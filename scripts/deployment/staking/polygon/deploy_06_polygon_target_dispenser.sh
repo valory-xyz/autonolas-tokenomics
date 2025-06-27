@@ -46,7 +46,7 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/staking/OptimismTargetDispenserL2.sol:OptimismTargetDispenserL2"
+contractPath="contracts/staking/PolygonTargetDispenserL2.sol:PolygonTargetDispenserL2"
 constructorArgs="$olasAddress $serviceStakingFactoryAddress $polygonFXChildAddress $polygonDepositProcessorL1Address $l1ChainId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
