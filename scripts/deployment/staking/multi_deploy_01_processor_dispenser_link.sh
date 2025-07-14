@@ -7,6 +7,11 @@ network=${1%_*}
 # Get mainnet or testnet string from network_mainnet or network_sepolia or another testnet
 ./scripts/deployment/staking/deploy_*_${network}_deposit_processor.sh ${1#*_}
 
+# No further L2 deployment is needed for ethereum
+if [ "$network" == "eth" ]; then
+  exit 0
+fi
+
 # Deploy Target Dispenser L2
 ./scripts/deployment/staking/${network}/deploy_*_${network}_target_dispenser.sh $1
 
