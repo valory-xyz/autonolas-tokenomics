@@ -45,13 +45,22 @@ async function checkBytecode(provider, configContracts, contractName, log) {
             // Get the contract instance
             const contractFromJSON = fs.readFileSync(configContracts[i]["artifact"], "utf8");
             const parsedFile = JSON.parse(contractFromJSON);
-            const bytecode = parsedFile["deployedBytecode"];
+            // Forge JSON
+            let bytecode = parsedFile["deployedBytecode"]["object"];
+            if (bytecode === undefined) {
+                // Hardhat JSON
+                bytecode = parsedFile["deployedBytecode"];
+            }
             const onChainCreationCode = await provider.getCode(configContracts[i]["address"]);
+            // Bytecode DEBUG
+            //if (contractName === "ContractName") {
+            //    console.log("onChainCreationCode", onChainCreationCode);
+            //    console.log("bytecode", bytecode);
+            //}
 
-            // Compare last 8-th part of deployed bytecode bytes (wveOLAS can't manage more)
+            // Compare last 43 bytes as they reflect the deployed contract metadata hash
             // We cannot compare the full one since the repo deployed bytecode does not contain immutable variable info
-            const slicePart = -bytecode.length / 8;
-            customExpectContain(onChainCreationCode, bytecode.slice(slicePart),
+            customExpectContain(onChainCreationCode, bytecode.slice(-86),
                 log + ", address: " + configContracts[i]["address"] + ", failed bytecode comparison");
             return;
         }
@@ -379,19 +388,19 @@ async function checkOptimismDepositProcessorL1(chainId, provider, globalsInstanc
 
     // Check L1 token relayer
     const l1TokenRelayer = await optimismDepositProcessorL1.l1TokenRelayer();
-    customExpect(l1TokenRelayer, globalsInstance["optimisticL1StandardBridgeProxyAddress"], log + ", function: l1TokenRelayer()");
+    customExpect(l1TokenRelayer, globalsInstance["optimismL1StandardBridgeProxyAddress"], log + ", function: l1TokenRelayer()");
 
     // Check L1 message relayer
     const l1MessageRelayer = await optimismDepositProcessorL1.l1MessageRelayer();
-    customExpect(l1MessageRelayer, globalsInstance["optimisticL1CrossDomainMessengerProxyAddress"], log + ", function: l1MessageRelayer()");
+    customExpect(l1MessageRelayer, globalsInstance["optimismL1CrossDomainMessengerProxyAddress"], log + ", function: l1MessageRelayer()");
 
     // Check L2 target chain Id
     const l2TargetChainId = await optimismDepositProcessorL1.l2TargetChainId();
-    customExpect(l2TargetChainId.toString(), globalsInstance["optimisticL2TargetChainId"], log + ", function: l2TargetChainId()");
+    customExpect(l2TargetChainId.toString(), globalsInstance["optimismL2TargetChainId"], log + ", function: l2TargetChainId()");
 
     // Check L2 OLAS address
     const olasL2 = await optimismDepositProcessorL1.olasL2();
-    customExpect(olasL2, globalsInstance["optimisticOLASAddress"], log + ", function: olasL2()");
+    customExpect(olasL2, globalsInstance["optimismOLASAddress"], log + ", function: olasL2()");
 
     // Check L2 target dispenser
     const l2TargetDispenser = await optimismDepositProcessorL1.l2TargetDispenser();
@@ -627,7 +636,7 @@ async function checkOptimismTargetDispenserL2(chainId, provider, globalsInstance
 
     // Check L2 message relayer
     const l2MessageRelayer = await optimismTargetDispenserL2.l2MessageRelayer();
-    customExpect(l2MessageRelayer, globalsInstance["optimisticL2CrossDomainMessengerAddress"], log + ", function: l2MessageRelayer()");
+    customExpect(l2MessageRelayer, globalsInstance["optimismL2CrossDomainMessengerAddress"], log + ", function: l2MessageRelayer()");
 
     // Check L1 deposit processor
     const l1DepositProcessor = await optimismTargetDispenserL2.l1DepositProcessor();
@@ -742,7 +751,7 @@ async function main() {
         "polygon": "scripts/deployment/staking/polygon/globals_polygon_mainnet.json",
         "gnosis": "scripts/deployment/staking/gnosis/globals_gnosis_mainnet.json",
         "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_mainnet.json",
-        "optimistic": "scripts/deployment/staking/optimistic/globals_optimistic_mainnet.json",
+        "optimism": "scripts/deployment/staking/optimism/globals_optimism_mainnet.json",
         "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
         "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
         "mode": "scripts/deployment/staking/mode/globals_mode_mainnet.json"
@@ -763,7 +772,7 @@ async function main() {
         "polygon": "https://polygon-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MATIC,
         "gnosis": "https://rpc.gnosischain.com",
         "arbitrumOne": "https://arb1.arbitrum.io/rpc",
-        "optimistic": "https://optimism.drpc.org",
+        "optimism": "https://optimism.drpc.org",
         "base": "https://mainnet.base.org",
         "celo": "https://forno.celo.org",
         "mode": "https://mainnet.mode.network"
