@@ -45,38 +45,38 @@
       },
       {
         "name": "PolygonDepositProcessorL1",
-        "artifact": "abis/0.8.25/PolygonDepositProcessorL1.json",
-        "address": "0x4Ce43b82EF1298E1466D3b3Cee67BA6680bF82FB"
+        "artifact": "abis/0.8.30/PolygonDepositProcessorL1.json",
+        "address": "0x7EB5824Bb78e971284e2140059f8755B3d2BB525"
       },
       {
         "name": "GnosisDepositProcessorL1",
-        "artifact": "abis/0.8.25/GnosisDepositProcessorL1.json",
+        "artifact": "abis/0.8.30/GnosisDepositProcessorL1.json",
         "address": "0xEEf2c02cFC445bFFf1c891D486424Ef3aBc66AB0"
       },
       {
         "name": "ArbitrumDepositProcessorL1",
-        "artifact": "abis/0.8.25/ArbitrumDepositProcessorL1.json",
-        "address": "0x5e13E07006D68B097DCb5979ef5545C4f9156162"
+        "artifact": "abis/0.8.30/ArbitrumDepositProcessorL1.json",
+        "address": "0xFceFB015372e84FC465Cf2778889ee231a6E2e67"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.25/OptimismDepositProcessorL1.json",
-        "address": "0xAB787ceebe8F2b8dca44e3bB744D6e63003ee978"
+        "artifact": "abis/0.8.30/OptimismDepositProcessorL1.json",
+        "address": "0x990aBa4b05adc3761EfAf38FB871b93C7b162D03"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.25/OptimismDepositProcessorL1.json",
-        "address": "0x42BA1BbD797E4C90F386F03a544F3b62C1f917d0"
+        "artifact": "abis/0.8.30/OptimismDepositProcessorL1.json",
+        "address": "0x16d24D9A9c73133262d2Db83e1bB34FF7cB952Da"
       },
       {
         "name": "WormholeDepositProcessorL1",
-        "artifact": "abis/0.8.25/WormholeDepositProcessorL1.json",
-        "address": "0x223902b6C583f18E8dc84AF4E6a8fa523d088B78"
+        "artifact": "abis/0.8.30/WormholeDepositProcessorL1.json",
+        "address": "0x24150C763aBC34e8b8630C6570d2DbA265d8020A"
       },
       {
         "name": "OptimismDepositProcessorL1",
         "artifact": "abis/0.8.28/OptimismDepositProcessorL1.json",
-        "address": "0x1bCAE95aF8ce25b44Af3F8aA781a4E743eB4522f"
+        "address": "0x6A5F38aAdCc1c049E39D80147b64a9Ff947d208B"
       }
     ]
   },
@@ -86,8 +86,8 @@
     "contracts": [
       {
         "name": "PolygonTargetDispenserL2",
-        "artifact": "abis/0.8.25/PolygonTargetDispenserL2.json",
-        "address": "0xf76953444C35F1FcE2F6CA1b167173357d3F5C17"
+        "artifact": "abis/0.8.30/PolygonTargetDispenserL2.json",
+        "address": "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8"
       }
     ]
   },
@@ -97,7 +97,7 @@
     "contracts": [
       {
         "name": "GnosisTargetDispenserL2",
-        "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
+        "artifact": "abis/0.8.30/GnosisTargetDispenserL2.json",
         "address": "0x67722c823010CEb4BED5325fE109196C0f67D053"
       },
       {
@@ -123,8 +123,8 @@
     "contracts": [
       {
         "name": "ArbitrumTargetDispenserL2",
-        "artifact": "abis/0.8.25/ArbitrumTargetDispenserL2.json",
-        "address": "0x10c5525F77F13b28f42c5626240c001c2D57CAd4"
+        "artifact": "abis/0.8.30/ArbitrumTargetDispenserL2.json",
+        "address": "0x5953f21495BD9aF1D78e87bb42AcCAA55C1e896C"
       }
     ]
   },
@@ -134,8 +134,8 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": "0x04b0007b2aFb398015B76e5f22993a1fddF83644"
+        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "address": "0xaea9ef993d8a1A164397642648DF43F053d43D85"
       }
     ]
   },
@@ -145,8 +145,8 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
-        "address": "0xcDdD9D9ABaB36fFa882530D69c73FeE5D4001C2d"
+        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "address": "0x9Ec97Be9FF55ff11606ce7c589956f7Bf3D0b241"
       },
       {
         "name": "BalancerPriceOracle",
@@ -171,8 +171,8 @@
     "contracts": [
       {
         "name": "WormholeTargetDispenserL2",
-        "artifact": "abis/0.8.25/WormholeTargetDispenserL2.json",
-        "address": "0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
+        "artifact": "abis/0.8.30/WormholeTargetDispenserL2.json",
+        "address": "0x22bE6fDcd3e29851B29b512F714C328A00A96B83"
       }
     ]
   },
@@ -183,7 +183,7 @@
       {
         "name": "OptimismTargetDispenserL2",
         "artifact": "abis/0.8.28/OptimismTargetDispenserL2.json",
-        "address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
+        "address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
       }
     ]
   }
