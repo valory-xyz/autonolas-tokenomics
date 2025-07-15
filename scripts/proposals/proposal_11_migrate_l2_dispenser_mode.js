@@ -74,7 +74,7 @@ async function main() {
     //    [["0x5fc25f50e96857373c64dc0edb1abcbed4587e91"], ["1597983869041054358564"], "0xe16c2d52963fd5d073b1f3907986b0a183c6e39399e5d8ef866c954b73886d72"]);
     //rawPayload = targetDispenserL2.interface.encodeFunctionData("processDataMaintenance", [dataToProcess]);
 
-    olasBalance = await olas.balanceOf(targetDispenserL2Address);
+    const olasBalance = await olas.balanceOf(targetDispenserL2Address);
     rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [olasBalance]);
     payload = ethers.utils.arrayify(rawPayload);
     data += ethers.utils.solidityPack(
