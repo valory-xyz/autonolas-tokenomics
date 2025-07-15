@@ -10,6 +10,7 @@
   "olasAddress": "0xcfD1D50ce23C46D3Cf6407487B2F8934e96DC8f9",
   "serviceStakingFactoryAddress": "0x75D529FAe220bC8db714F0202193726b46881B76",
   "bridgeMediatorAddress": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
+  "modeL1CrossDomainMessengerProxyAddress": "0x95bDCA6c8EdEB69C98Bd5bd17660BaCef1298A6f",
   "modeL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
   "l1ChainId": "1",
   "modeDepositProcessorL1Address": "0x6A5F38aAdCc1c049E39D80147b64a9Ff947d208B",
