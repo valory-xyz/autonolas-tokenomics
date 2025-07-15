@@ -129,7 +129,7 @@
     ]
   },
   {
-    "name": "optimistic",
+    "name": "optimism",
     "chainId": "10",
     "contracts": [
       {
@@ -182,7 +182,7 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.28/OptimismTargetDispenserL2.json",
+        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
         "address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
       }
     ]
