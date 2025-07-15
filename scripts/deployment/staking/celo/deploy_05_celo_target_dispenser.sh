@@ -29,7 +29,7 @@ olasAddress=$(jq -r '.olasAddress' $globals)
 serviceStakingFactoryAddress=$(jq -r '.serviceStakingFactoryAddress' $globals)
 wormholeL2MessageRelayer=$(jq -r '.wormholeL2MessageRelayer' $globals)
 celoDepositProcessorL1Address=$(jq -r '.celoDepositProcessorL1Address' $globals)
-wormholel1ChainId=$(jq -r '.wormholel1ChainId' $globals)
+l1ChainId=$(jq -r '.l1ChainId' $globals)
 wormholeL2CoreAddress=$(jq -r '.wormholeL2CoreAddress' $globals)
 wormholeL2TokenRelayerAddress=$(jq -r '.wormholeL2TokenRelayerAddress' $globals)
 
@@ -49,7 +49,7 @@ elif [ $chainId == 80002 ]; then
 fi
 
 contractPath="contracts/staking/WormholeTargetDispenserL2.sol:WormholeTargetDispenserL2"
-constructorArgs="$olasAddress $serviceStakingFactoryAddress $wormholeL2MessageRelayer $celoDepositProcessorL1Address $wormholel1ChainId $wormholeL2CoreAddress $wormholeL2TokenRelayerAddress"
+constructorArgs="$olasAddress $serviceStakingFactoryAddress $wormholeL2MessageRelayer $celoDepositProcessorL1Address $l1ChainId $wormholeL2CoreAddress $wormholeL2TokenRelayerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

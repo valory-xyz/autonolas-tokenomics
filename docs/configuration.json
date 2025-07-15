@@ -51,7 +51,7 @@
       {
         "name": "GnosisDepositProcessorL1",
         "artifact": "abis/0.8.30/GnosisDepositProcessorL1.json",
-        "address": "0xEEf2c02cFC445bFFf1c891D486424Ef3aBc66AB0"
+        "address": "0x48d4631f24dAce505c04D5A39458BED209e80A3c"
       },
       {
         "name": "ArbitrumDepositProcessorL1",
@@ -98,7 +98,7 @@
       {
         "name": "GnosisTargetDispenserL2",
         "artifact": "abis/0.8.30/GnosisTargetDispenserL2.json",
-        "address": "0x67722c823010CEb4BED5325fE109196C0f67D053"
+        "address": "0x5b6c538C7b2E0b44Fa8A3B7a0532EF797b07d0E9"
       },
       {
         "name": "BalancerPriceOracle",
