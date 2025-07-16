@@ -4,8 +4,11 @@ red=$(tput setaf 1)
 green=$(tput setaf 2)
 reset=$(tput sgr0)
 
+# Get network name from network_mainnet or network_sepolia or another testnet
+network=${1%_*}
+
 # Get globals file
-globals="$(dirname "$0")/${1%_*}/globals_$1.json"
+globals="$(dirname "$0")/${network}/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
   exit 0
@@ -17,7 +20,7 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-optimismTargetDispenserL2Address=$(jq -r '.optimismTargetDispenserL2Address' $globals)
+targetDispenserL2Address=$(jq -r ".${network}TargetDispenserL2Address" $globals)
 bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
@@ -52,7 +55,7 @@ echo "${green}EOA to change owner in TargetDispenserL2${reset}"
 
 castHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-castArgs="$optimismTargetDispenserL2Address changeOwner(address) $bridgeMediatorAddress"
+castArgs="$targetDispenserL2Address changeOwner(address) $bridgeMediatorAddress"
 echo $castArgs
 castCmd="$castHeader $castArgs"
 result=$($castCmd)
