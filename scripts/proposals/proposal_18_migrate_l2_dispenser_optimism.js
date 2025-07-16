@@ -66,7 +66,7 @@ async function main() {
         [target, value, payload.length, payload]
     ).slice(2);
 
-    const olasBalance = await olas.balanceOf(targetDispenserL2Address);
+    const olasBalance = await olas.balanceOf(oldTargetDispenserL2Address);
     target = targetDispenserL2Address;
     rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [olasBalance]);
     payload = ethers.utils.arrayify(rawPayload);
