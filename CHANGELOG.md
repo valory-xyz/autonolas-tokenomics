@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+[1.3.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.4...v1.3.2
 [1.2.4]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.2...v1.2.3
@@ -13,6 +14,13 @@ The format is based on [Common Changelog](https://common-changelog.org).
 [1.0.1]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/valory-xyz/autonolas-tokenomics/releases/tag/v1.0.0
 
+
+## [v1.3.3] - 2025-07-16
+
+### Changed
+
+- Enhancements of `DefaultTargetDispenserL2` ([#213](https://github.com/valory-xyz/autonolas-tokenomics/pull/213))
+- Deployment of `ArbitrumDepositProcessorL1`, `ArbitrumTargetDispenserL2`, `GnosisDepositProcessorL1` , `GnosisTargetDispenserL2`, `OptimismDepositProcessorL1` (for Optimism, Base, Mode), `OptimismTargetDispenserL2` (on Optimism, Base, Mode), `PolygonDepositProcessorL1`, `PolygonTargetDispenserL2`, `WormholeDepositProcessorL1` (for Celo), and `WormholeTargetDispenserL2` (on Celo) contracts ([#224](https://github.com/valory-xyz/autonolas-tokenomics/pull/224))
 
 ## [v1.3.2] - 2025-05-22
 
