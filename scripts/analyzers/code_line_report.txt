@@ -1,23 +1,20 @@
       | Contract                                                                                                                 |   CodeLine |
 ----------------------------------------------------------------------------------------------------------------------------------------------
-    1 | contracts/staking/ArbitrumDepositProcessorL1.sol                                                                         |         98 |
-    2 | contracts/staking/ArbitrumTargetDispenserL2.sol                                                                          |         33 |
-    3 | contracts/staking/DefaultDepositProcessorL1.sol                                                                          |        112 |
-    4 | contracts/staking/DefaultTargetDispenserL2.sol                                                                           |        253 |
+    1 | contracts/staking/ArbitrumDepositProcessorL1.sol                                                                         |        109 |
+    2 | contracts/staking/ArbitrumTargetDispenserL2.sol                                                                          |         37 |
+    3 | contracts/staking/DefaultDepositProcessorL1.sol                                                                          |        142 |
+    4 | contracts/staking/DefaultTargetDispenserL2.sol                                                                           |        305 |
     5 | contracts/staking/EthereumDepositProcessor.sol                                                                           |         87 |
-    6 | contracts/staking/GnosisDepositProcessorL1.sol                                                                           |         48 |
-    7 | contracts/staking/GnosisTargetDispenserL2.sol                                                                            |         50 |
-    8 | contracts/staking/OptimismDepositProcessorL1.sol                                                                         |         69 |
-    9 | contracts/staking/OptimismTargetDispenserL2.sol                                                                          |         45 |
-   10 | contracts/staking/PolygonDepositProcessorL1.sol                                                                          |         58 |
-   11 | contracts/staking/PolygonTargetDispenserL2.sol                                                                           |         34 |
-   12 | contracts/staking/WormholeDepositProcessorL1.sol                                                                         |         78 |
-   13 | contracts/staking/WormholeTargetDispenserL2.sol                                                                          |         88 |
-   14 | contracts/TokenomicsConstants.sol                                                                                        |         60 |
-   15 | contracts/Tokenomics.sol                                                                                                 |        733 |
-   16 | contracts/Dispenser.sol                                                                                                  |        644 |
-   17 | contracts/interfaces/IDonatorBlacklist.sol                                                                               |          4 |
-   18 | contracts/interfaces/IErrorsTokenomics.sol                                                                               |         31 |
-   19 | contracts/interfaces/IBridgeErrors.sol                                                                                   |         23 |
+    6 | contracts/staking/GnosisDepositProcessorL1.sol                                                                           |         36 |
+    7 | contracts/staking/GnosisTargetDispenserL2.sol                                                                            |         42 |
+    8 | contracts/staking/OptimismDepositProcessorL1.sol                                                                         |         65 |
+    9 | contracts/staking/OptimismTargetDispenserL2.sol                                                                          |         44 |
+   10 | contracts/staking/PolygonDepositProcessorL1.sol                                                                          |         60 |
+   11 | contracts/staking/PolygonTargetDispenserL2.sol                                                                           |         39 |
+   12 | contracts/staking/WormholeDepositProcessorL1.sol                                                                         |         89 |
+   13 | contracts/staking/WormholeTargetDispenserL2.sol                                                                          |         95 |
+   14 | contracts/TokenomicsConstants.sol                                                                                        |         98 |
+   15 | contracts/oracles/BalancerPriceOracle.sol                                                                                |         89 |
+   16 | contracts/oracles/UniswapPriceOracle.sol                                                                                 |         51 |
 ----------------------------------------------------------------------------------------------------------------------------------------------
-   19 | All Tokenomics contract                                                                                                  |       2548 |
+   16 | All Tokenomics contract                                                                                                  |       1388 |

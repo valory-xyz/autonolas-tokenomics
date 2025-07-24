@@ -61,11 +61,8 @@ function generateReport() {
     // Manually specified contracts in contracts/ directory
     const contractsInContractsDir = [
         "TokenomicsConstants.sol",
-        "Tokenomics.sol",
-        "Dispenser.sol",
-        "interfaces/IDonatorBlacklist.sol", 
-        "interfaces/IErrorsTokenomics.sol",
-        "interfaces/IBridgeErrors.sol"
+        "oracles/BalancerPriceOracle.sol",
+        "oracles/UniswapPriceOracle.sol",
     ];
 
     contractsInContractsDir.forEach(contractName => {
