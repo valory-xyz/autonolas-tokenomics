@@ -4,7 +4,7 @@ import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {Dispenser} from "../contracts/Dispenser.sol";
 import "../contracts/Tokenomics.sol";
-import {TokenomicsProxy} from "../contracts/TokenomicsProxy.sol";
+import {TokenomicsProxy} from "../contracts/proxies/TokenomicsProxy.sol";
 import {Treasury} from "../contracts/Treasury.sol";
 import {ERC20Token} from "../contracts/test/ERC20Token.sol";
 import {MockRegistry} from "../contracts/test/MockRegistry.sol";
