@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IUniswapV2Pair} from "./interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "./interfaces/IUniswapV3.sol";
 
+// BuyBackBurner interface
+interface IBuyBackBurner {
+    function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 fee) external view;
+}
+
+// OLAS interface
 interface IOlas {
     /// @dev Burns OLAS tokens.
     /// @param amount OLAS token amount to burn.
@@ -47,6 +54,12 @@ interface IPositionManager {
     /// @return amount1 The amount of token1 to achieve resulting liquidity
     function increaseLiquidity(IncreaseLiquidityParams calldata params)
         external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1);
+
+    /// @dev Transfers position.
+    /// @param from Account address to transfer from.
+    /// @param to Account address to transfer to.
+    /// @param positionId Position Id.
+    function transferFrom(address from, address to, uint256 positionId) external;
 }
 
 struct PoolSettings {
@@ -62,7 +75,7 @@ struct PoolSettings {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-abstract contract LiquidityManagerCore is IErrorsTokenomics {
+abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
 
@@ -83,6 +96,8 @@ abstract contract LiquidityManagerCore is IErrorsTokenomics {
     address public immutable timelock;
     // Treasury contract address
     address public immutable treasury;
+    // Buy Back Burner address
+    address public immutable buyBackBurner;
     // Uniswap V2 Router address
     address public immutable routerV2;
     // V3 position manager address
@@ -100,10 +115,17 @@ abstract contract LiquidityManagerCore is IErrorsTokenomics {
     /// @param _olas OLAS token address.
     /// @param _timelock Timelock or its representative address.
     /// @param _treasury Treasury address.
+    /// @param _buyBackBurner Buy Back Burner address.
     /// @param _routerV2 Uniswap V2 Router address.
     /// @param _positionManagerV3 Uniswap V3 position manager address.
-    constructor(address _olas, address _timelock, address _treasury, address _routerV2, address _positionManagerV3)
-    {
+    constructor(
+        address _olas,
+        address _timelock,
+        address _treasury,
+        address _buyBackBurner,
+        address _routerV2,
+        address _positionManagerV3
+    ) {
         owner = msg.sender;
 
         // Check for zero addresses
@@ -116,6 +138,7 @@ abstract contract LiquidityManagerCore is IErrorsTokenomics {
         olas = _olas;
         timelock = _timelock;
         treasury = _treasury;
+        buyBackBurner = _buyBackBurner;
         routerV2 = _routerV2;
         positionManagerV3 = _positionManagerV3;
 
@@ -357,7 +380,27 @@ abstract contract LiquidityManagerCore is IErrorsTokenomics {
             // Transfer another token amount
             IToken(token0).transfer(timelock, amount0);
         }
-        
+
+        _locked = 1;
+    }
+
+    /// @dev Transfers position Id to a specified address.
+    /// @param to Account address to transfer to.
+    /// @param positionId Position Id.
+    function transfer(address to, uint256 positionId) external {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Transfer position Id
+        IPositionManager(positionManagerV3).transferFrom(address(this), to, positionId);
+
         _locked = 1;
     }
 }
