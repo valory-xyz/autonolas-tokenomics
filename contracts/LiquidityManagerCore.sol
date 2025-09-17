@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
+import {ERC721TokenReceiver} from "../lib/solmate/src/tokens/ERC721.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
 import {IToken} from "./interfaces/IToken.sol";
@@ -33,6 +33,39 @@ interface IUniswapV2 {
 }
 
 interface IPositionManager {
+    /// @notice Returns the position information associated with a given token ID.
+    /// @dev Throws if the token ID is not valid.
+    /// @param tokenId The ID of the token that represents the position
+    /// @return nonce The nonce for permits
+    /// @return operator The address that is approved for spending
+    /// @return token0 The address of the token0 for a specific pool
+    /// @return token1 The address of the token1 for a specific pool
+    /// @return fee The fee associated with the pool
+    /// @return tickLower The lower end of the tick range for the position
+    /// @return tickUpper The higher end of the tick range for the position
+    /// @return liquidity The liquidity of the position
+    /// @return feeGrowthInside0LastX128 The fee growth of token0 as of the last action on the individual position
+    /// @return feeGrowthInside1LastX128 The fee growth of token1 as of the last action on the individual position
+    /// @return tokensOwed0 The uncollected amount of token0 owed to the position as of the last computation
+    /// @return tokensOwed1 The uncollected amount of token1 owed to the position as of the last computation
+    function positions(uint256 tokenId)
+    external
+    view
+    returns (
+        uint96 nonce,
+        address operator,
+        address token0,
+        address token1,
+        uint24 fee,
+        int24 tickLower,
+        int24 tickUpper,
+        uint128 liquidity,
+        uint256 feeGrowthInside0LastX128,
+        uint256 feeGrowthInside1LastX128,
+        uint128 tokensOwed0,
+        uint128 tokensOwed1
+    );
+
     struct IncreaseLiquidityParams {
         uint256 tokenId;
         uint256 amount0Desired;
@@ -55,6 +88,25 @@ interface IPositionManager {
     function increaseLiquidity(IncreaseLiquidityParams calldata params)
         external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1);
 
+    struct DecreaseLiquidityParams {
+        uint256 tokenId;
+        uint128 liquidity;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        uint256 deadline;
+    }
+
+    /// @notice Decreases the amount of liquidity in a position and accounts it to the position
+    /// @param params tokenId The ID of the token for which liquidity is being decreased,
+    /// amount The amount by which liquidity will be decreased,
+    /// amount0Min The minimum amount of token0 that should be accounted for the burned liquidity,
+    /// amount1Min The minimum amount of token1 that should be accounted for the burned liquidity,
+    /// deadline The time by which the transaction must be included to effect the change
+    /// @return amount0 The amount of token0 accounted to the position's tokens owed
+    /// @return amount1 The amount of token1 accounted to the position's tokens owed
+    function decreaseLiquidity(DecreaseLiquidityParams calldata params)
+        external payable returns (uint256 amount0, uint256 amount1);
+
     /// @dev Transfers position.
     /// @param from Account address to transfer from.
     /// @param to Account address to transfer to.
@@ -63,11 +115,11 @@ interface IPositionManager {
 }
 
 struct PoolSettings {
-    // Pool position Id
-    uint256 positionId;
-    /// Minimum tick
+    // Fee tier
+    uint24 feeTier;
+    // Minimum tick
     int24 minTick;
-    /// Maximum tick
+    // Maximum tick
     int24 maxTick;
 }
 
@@ -110,6 +162,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
     // V3 pool settings
     mapping(address => PoolSettings) public mapPoolSettings;
+    // V3 position Ids
+    mapping(address => uint256) public mapPoolAddressPositionIds;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
@@ -264,7 +318,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 //        IUniswapV3(pool).increaseObservationCardinalityNext(_observationCardinalityNext());
 //    }
 
-    function convertToV3(address lpToken, uint24 feeTier, uint256 conversionRate) external returns (uint256 liquidity) {
+    function convertToV3(address lpToken, PoolSettings memory poolSettings, uint256 conversionRate, uint256 initPositionId) external returns (uint256 liquidity, uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -302,14 +356,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // V3
         // Get V3 pool
-        address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
+        address pool = IUniswapV3(factoryV3).getPool(token0, token1, poolSettings.feeTier);
 
         if (pool == address(0)) {
             revert ZeroAddress();
         }
-
-        // Get pool settings
-        PoolSettings memory poolSettings = mapPoolSettings(pool);
 
         // Manage utility amounts and recalculate amounts for adding position liquidity
         if (conversionRate < MAX_CONVERSION_VALUE) {
@@ -317,18 +368,45 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        IBuyBackBurner(buyBackBurner).checkPoolPrices(token0, token1, positionManagerV3, feeTier);
+        IBuyBackBurner(buyBackBurner).checkPoolPrices(token0, token1, positionManagerV3, poolSettings.feeTier);
 
-        IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
-            tokenId: poolSettings.positionId,
-            amount0Desired: amount0,
-            amount1Desired: amount1,
-            amount0Min: 0,
-            amount1Min: 0,
-            deadline: block.timestamp
-        });
+        // Approve tokens for position manager
+        IToken(token0).approve(positionManagerV3, amount0);
+        IToken(token1).approve(positionManagerV3, amount1);
 
-        (liquidity, amount0, amount1) = IPositionManager(positionManagerV3).increaseLiquidity(params);
+        // TODO Slippage
+        if (initPositionId == 0) {
+            // Add iquidity
+            IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
+                token0: token0,
+                token1: token1,
+                fee: poolSettings.feeTier,
+                tickLower: poolSettings.minTick,
+                tickUpper: poolSettings.maxTick,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                amount0Min: 0, // Accept any amount of token0
+                amount1Min: 0, // Accept any amount of token1
+                recipient: address(this),
+                deadline: block.timestamp
+            });
+
+            (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
+
+            mapPoolAddressPositionIds[pool] = positionId;
+        } else {
+            positionId = initPositionId;
+            IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
+                tokenId: initPositionId,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: block.timestamp
+            });
+
+            (liquidity, amount0, amount1) = IPositionManager(positionManagerV3).increaseLiquidity(params);
+        }
 
         // TODO event
 
@@ -344,14 +422,19 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroAddress();
         }
 
-        // Get pool settings
-        PoolSettings memory poolSettings = mapPoolSettings(pool);
+        // Get position Id
+        uint256 positionId = mapPoolAddressPositionIds[pool];
+
+        // Check for zero value
+        if (positionId == 0) {
+            revert ZeroValue();
+        }
 
         // Check current pool prices
         IBuyBackBurner(buyBackBurner).checkPoolPrices(token0, token1, positionManagerV3, feeTier);
 
         IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
-            tokenId: poolSettings.positionId,
+            tokenId: positionId,
             recipient: address(this),
             amount0Max: type(uint128).max,
             amount1Max: type(uint128).max
@@ -380,6 +463,76 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             // Transfer another token amount
             IToken(token0).transfer(timelock, amount0);
         }
+
+        _locked = 1;
+    }
+
+    function changeRanges(address token0, address token1, uint24 feeTier, PoolSettings memory poolSettings) external returns (uint256 positionId) {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get V3 pool
+        address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
+
+        if (pool == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Get position Id
+        uint256 currentPositionId = mapPoolAddressPositionIds[pool];
+
+        // Check for zero value
+        if (currentPositionId == 0) {
+            revert ZeroValue();
+        }
+
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(currentPositionId);
+
+        // TODO Check for different poolSettings, otherwise revert
+
+        // TODO getAmountsForLiquidity()
+        uint256 amount0;
+        uint256 amount1;
+
+        // TODO Slippage
+        IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
+            tokenId: currentPositionId,
+            liquidity: liquidity,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: block.timestamp
+        });
+
+        // Decrease liquidity
+        (uint256 amount00, uint256 amount11) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+
+        // Add iquidity
+        IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: poolSettings.feeTier,
+            tickLower: poolSettings.minTick,
+            tickUpper: poolSettings.maxTick,
+            amount0Desired: amount00,
+            amount1Desired: amount11,
+            amount0Min: 0, // Accept any amount of token0
+            amount1Min: 0, // Accept any amount of token1
+            recipient: address(this),
+            deadline: block.timestamp
+        });
+
+        (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
+
+        mapPoolAddressPositionIds[pool] = positionId;
+
+        // TODO Event
 
         _locked = 1;
     }
