@@ -7,6 +7,7 @@ import {IErrorsTokenomics} from "./interfaces/IErrorsTokenomics.sol";
 import {IToken} from "./interfaces/IToken.sol";
 import {IUniswapV2Pair} from "./interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "./interfaces/IUniswapV3.sol";
+import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
 
 // BuyBackBurner interface
 interface IBuyBackBurner {
@@ -318,7 +319,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 //        IUniswapV3(pool).increaseObservationCardinalityNext(_observationCardinalityNext());
 //    }
 
-    function convertToV3(address lpToken, PoolSettings memory poolSettings, uint256 conversionRate, uint256 initPositionId) external returns (uint256 liquidity, uint256 positionId) {
+    function convertToV3(address lpToken, PoolSettings memory poolSettings, uint256 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -374,8 +375,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         IToken(token0).approve(positionManagerV3, amount0);
         IToken(token1).approve(positionManagerV3, amount1);
 
+        positionId = mapPoolAddressPositionIds[pool];
+
         // TODO Slippage
-        if (initPositionId == 0) {
+        if (positionId == 0) {
             // Add iquidity
             IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
                 token0: token0,
@@ -395,9 +398,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
             mapPoolAddressPositionIds[pool] = positionId;
         } else {
-            positionId = initPositionId;
             IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
-                tokenId: initPositionId,
+                tokenId: positionId,
                 amount0Desired: amount0,
                 amount1Desired: amount1,
                 amount0Min: 0,
@@ -505,13 +507,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
             tokenId: currentPositionId,
             liquidity: liquidity,
-            amount0Min: 0,
-            amount1Min: 0,
+            amount0Min: amount0,
+            amount1Min: amount1,
             deadline: block.timestamp
         });
 
         // Decrease liquidity
         (uint256 amount00, uint256 amount11) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+
+        // TODO Collect fees function
 
         // Add iquidity
         IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
@@ -537,10 +541,111 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
+    function decreaseLiquidity(address token0, address token1, uint24 feeTier, uint256 bps, uint256 utilityRate) external returns (uint256 positionId) {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get V3 pool
+        address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
+
+        if (pool == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Get position Id
+        uint256 positionId = mapPoolAddressPositionIds[pool];
+
+        // Check for zero value
+        if (positionId == 0) {
+            revert ZeroValue();
+        }
+
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+
+        // TODO getAmountsForLiquidity()
+        uint256 amount0;
+        uint256 amount1;
+
+        // TODO Slippage
+        IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
+            tokenId: positionId,
+            liquidity: liquidity,
+            amount0Min: amount0,
+            amount1Min: amount1,
+            deadline: block.timestamp
+        });
+
+        // Decrease liquidity
+        (uint256 amount00, uint256 amount11) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+
+        // Manage utility amounts and recalculate amounts for adding position liquidity
+        if (utilityRate > 0) {
+            // Calculate utility amounts
+            amount00 = amount00 * utilityRate / MAX_CONVERSION_VALUE;
+            amount11 = amount11 * utilityRate / MAX_CONVERSION_VALUE;
+
+            if (token0 == olas) {
+                // Burn olas tokens
+                IOlas(olas).burn(amount00);
+
+                // Transfer another token amount
+                IToken(token0).transfer(timelock, amount11);
+            } else {
+                // Burn olas tokens
+                IOlas(olas).burn(amount11);
+
+                // Transfer another token amount
+                IToken(token0).transfer(timelock, amount00);
+            }
+        }
+
+        // TODO Collect fees function call
+
+        // TODO Event
+
+        _locked = 1;
+    }
+
+    /// @dev Transfers token to a specified address.
+    /// @param token Token address.
+    /// @param to Account address to transfer to.
+    /// @param amount Token amount.
+    function transferToken(address token, address to, uint256 amount) external {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Get token balance
+        uint256 balance = IToken(token).balanceOf(address(this));
+        if (amount > balance) {
+            revert Overflow(amount, balance);
+        }
+
+        // Transfer token
+        SafeTransferLib.safeTransfer(token, to, amount);
+
+        // TODO Event
+
+        _locked = 1;
+    }
+
     /// @dev Transfers position Id to a specified address.
     /// @param to Account address to transfer to.
     /// @param positionId Position Id.
-    function transfer(address to, uint256 positionId) external {
+    function transferPositionId(address to, uint256 positionId) external {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -553,6 +658,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Transfer position Id
         IPositionManager(positionManagerV3).transferFrom(address(this), to, positionId);
+
+        // TODO Event
 
         _locked = 1;
     }
