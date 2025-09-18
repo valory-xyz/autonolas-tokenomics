@@ -552,6 +552,17 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Check bps and utility rate
+        if (bps == 0) {
+            revert ZeroValue();
+        }
+        if (bps > MAX_CONVERSION_VALUE) {
+            revert Overflow(bps, MAX_CONVERSION_VALUE);
+        }
+        if (utilityRate > MAX_CONVERSION_VALUE) {
+            revert Overflow(utilityRate, MAX_CONVERSION_VALUE);
+        }
+
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
@@ -568,6 +579,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+
+        // Apply bps
+        liquidity = uint128(uint256(liquidity) * bps / MAX_CONVERSION_VALUE);
 
         // TODO getAmountsForLiquidity()
         uint256 amount0;
