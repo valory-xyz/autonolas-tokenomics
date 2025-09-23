@@ -8,17 +8,25 @@ import {IToken} from "./interfaces/IToken.sol";
 import {IUniswapV2Pair} from "./interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "./interfaces/IUniswapV3.sol";
 import {SafeTransferLib} from "./utils/SafeTransferLib.sol";
-
-// BuyBackBurner interface
-interface IBuyBackBurner {
-    function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 fee) external view;
-}
+import {TickMath} from "../libraries/TickMath.sol";
+import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 
 // OLAS interface
 interface IOlas {
     /// @dev Burns OLAS tokens.
     /// @param amount OLAS token amount to burn.
     function burn(uint256 amount) external;
+}
+
+interface IOracle {
+    /// @dev Gets the current OLAS token price in 1e18 format.
+    function getPrice() external view returns (uint256);
+
+    /// @dev Validates price according to slippage.
+    function validatePrice(uint256 slippage) external view returns (bool);
+
+    /// @dev Updates the time-weighted average price.
+    function updatePrice() external returns (bool);
 }
 
 interface IUniswapV2 {
@@ -137,8 +145,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // LiquidityManager proxy address slot
     // keccak256("PROXY_LIQUIDITY_MANAGER") = "0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
     bytes32 public constant PROXY_LIQUIDITY_MANAGER = 0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
-    // Max conversion value from v2 to v3
-    uint256 public constant MAX_CONVERSION_VALUE = 10_000;
+    // Max conversion value from v2 to v3 in bps
+    uint256 public constant MAX_BPS = 10_000;
+    // Seconds ago to look back for TWAP pool values
+    uint32 public constant SECONDS_AGO = 1800;
+    // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
+    uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
 
     // Owner address
     address public owner;
@@ -153,10 +165,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     address public immutable buyBackBurner;
     // Uniswap V2 Router address
     address public immutable routerV2;
+    // V2 pool related oracle address
+    address public immutable oracleV2;
     // V3 position manager address
     address public immutable positionManagerV3;
     // V3 factory
     address public immutable factoryV3;
+
+    // Max slippage for pool operations
+    uint256 public maxSlippage;
 
     // Reentrancy lock
     uint256 internal _locked;
@@ -171,36 +188,51 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @param _timelock Timelock or its representative address.
     /// @param _treasury Treasury address.
     /// @param _buyBackBurner Buy Back Burner address.
+    /// @param _oracleV2 V2 pool related oracle address.
     /// @param _routerV2 Uniswap V2 Router address.
     /// @param _positionManagerV3 Uniswap V3 position manager address.
+    /// @param _maxSlippage Max slippage for operations.
     constructor(
         address _olas,
         address _timelock,
         address _treasury,
         address _buyBackBurner,
+        address _oracleV2,
         address _routerV2,
-        address _positionManagerV3
+        address _positionManagerV3,
+        uint256 _maxSlippage
     ) {
         owner = msg.sender;
 
         // Check for zero addresses
-        if (_olas == address(0) || _timelock == address(0) || _treasury == address(0) || _routerV2 == address(0) ||
-            _positionManagerV3 == address(0))
+        if (_olas == address(0) || _timelock == address(0) || _treasury == address(0) || _oracleV2 == address(0) ||
+            _routerV2 == address(0) || _positionManagerV3 == address(0))
         {
             revert ZeroAddress();
+        }
+
+        // Check for zero value
+        if (_maxSlippage == 0) {
+            revert ZeroValue();
+        }
+        // Check for max value
+        if (_maxSlippage > MAX_BPS) {
+            revert Overflow(_maxSlippage, MAX_BPS);
         }
 
         olas = _olas;
         timelock = _timelock;
         treasury = _treasury;
         buyBackBurner = _buyBackBurner;
+        oracleV2 = _oracleV2;
         routerV2 = _routerV2;
         positionManagerV3 = _positionManagerV3;
+        maxSlippage = _maxSlippage;
 
         // Get V3 factory address
         factoryV3 = IUniswapV3(positionManagerV3).factory();
     }
-
+    
     function _manageUtilityAmounts(
         address token0,
         address token1,
@@ -209,8 +241,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint256 conversionRate
     ) internal returns (uint256 amount0Position, uint256 amount1Position) {
         // Calculate position amounts
-        uint256 amount0Utility = amount0 * conversionRate / MAX_CONVERSION_VALUE;
-        uint256 amount1Utility = amount1 * conversionRate / MAX_CONVERSION_VALUE;
+        uint256 amount0Utility = amount0 * conversionRate / MAX_BPS;
+        uint256 amount1Utility = amount1 * conversionRate / MAX_BPS;
 
         // Adjust utility amounts
         amount0Position = amount0 - amount0Utility;
@@ -319,6 +351,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 //        IUniswapV3(pool).increaseObservationCardinalityNext(_observationCardinalityNext());
 //    }
 
+    function _ticksFromPercent(int24 centerTick, uint16 halfWidthBps, int24 spacing)
+        internal pure returns (int24 lo, int24 hi, uint160 sqrtA, uint160 sqrtB)
+    {
+        // For simplicity approximate: deltaTick ≈ ln(1±w)/ln(1.0001)
+        int24 dUp   = int24(int256(halfWidthBps) * 1e4 / 9210);
+        int24 dDown = -dUp;
+        int24 rawLo = centerTick + dDown;
+        int24 rawHi = centerTick + dUp;
+        lo = (rawLo / spacing) * spacing; // round down
+        if (rawLo < 0 && (rawLo % spacing != 0)) lo -= spacing; // fix floor for negatives
+        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
+        sqrtA = TickMath.getSqrtRatioAtTick(lo);
+        sqrtB = TickMath.getSqrtRatioAtTick(hi);
+    }
+
     function convertToV3(address lpToken, PoolSettings memory poolSettings, uint256 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -334,8 +381,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (conversionRate == 0) {
             revert ZeroValue();
         }
-        if (conversionRate > MAX_CONVERSION_VALUE) {
-            revert Overflow(conversionRate, MAX_CONVERSION_VALUE);
+        if (conversionRate > MAX_BPS) {
+            revert Overflow(conversionRate, MAX_BPS);
         }
 
         // Get this contract liquidity
@@ -350,7 +397,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         address token0 = pair.token0();
         address token1 = pair.token1();
 
-        // TODO Slippage
+        // Apply slippage protection
+        // BPS --> %
+        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
+            revert();
+        }
+
+        // TODO Check if need to calculate desired amounts
         // Remove liquidity
         (uint256 amount0, uint256 amount1) =
             IUniswapV2(routerV2).removeLiquidity(token0, token1, liquidity, 1, 1, address(this), block.timestamp);
@@ -364,12 +417,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Manage utility amounts and recalculate amounts for adding position liquidity
-        if (conversionRate < MAX_CONVERSION_VALUE) {
+        if (conversionRate < MAX_BPS) {
             (amount0, amount1) = _manageUtilityAmounts(token0, token1, amount0, amount1, conversionRate);
         }
 
         // Check current pool prices
-        IBuyBackBurner(buyBackBurner).checkPoolPrices(token0, token1, positionManagerV3, poolSettings.feeTier);
+        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, averageSqrtPriceX96);
 
         // Approve tokens for position manager
         IToken(token0).approve(positionManagerV3, amount0);
@@ -398,17 +452,33 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
             mapPoolAddressPositionIds[pool] = positionId;
         } else {
+            // Get current instant pool price
+            (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+
+            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+
+            // Compute expected amounts for increase (TWAP) -> slippage guards
+            uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+            uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+            uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
+            (uint256 amount0Min, uint256 amount1Min) =
+                LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
+            uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+
             IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
                 tokenId: positionId,
                 amount0Desired: amount0,
                 amount1Desired: amount1,
-                amount0Min: 0,
-                amount1Min: 0,
+                amount0Min: amount0Min,
+                amount1Min: amount1Min,
                 deadline: block.timestamp
             });
 
             (liquidity, amount0, amount1) = IPositionManager(positionManagerV3).increaseLiquidity(params);
         }
+
+        // TODO Manage dust
 
         // TODO event
 
@@ -433,7 +503,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        IBuyBackBurner(buyBackBurner).checkPoolPrices(token0, token1, positionManagerV3, feeTier);
+        (uint256 price, uint160 sqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, sqrtPriceX96);
 
         IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
             tokenId: positionId,
@@ -503,6 +574,19 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint256 amount0;
         uint256 amount1;
 
+        // Build percent band around TWAP center
+        // TODO
+        //int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(poolSettings.feeTier);
+        int24 tickSpacing = 60;
+        (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
+            _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
+
+        // TODO
+//        // 3) Read position & compute Lremove
+//        ( , , , , , int24 tL, int24 tU, uint128 Lcur, , , , ) = NFPM.positions(positionId);
+//        require(Lcur > 0, "no L");
+//        uint128 Lremove = uint128(uint256(Lcur) * _min(moveBps, policy.maxLiquidityDeltaBps) / 10_000);
+
         // TODO Slippage
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
             tokenId: currentPositionId,
@@ -556,11 +640,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (bps == 0) {
             revert ZeroValue();
         }
-        if (bps > MAX_CONVERSION_VALUE) {
-            revert Overflow(bps, MAX_CONVERSION_VALUE);
+        if (bps > MAX_BPS) {
+            revert Overflow(bps, MAX_BPS);
         }
-        if (utilityRate > MAX_CONVERSION_VALUE) {
-            revert Overflow(utilityRate, MAX_CONVERSION_VALUE);
+        if (utilityRate > MAX_BPS) {
+            revert Overflow(utilityRate, MAX_BPS);
         }
 
         // Get V3 pool
@@ -581,7 +665,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
 
         // Apply bps
-        liquidity = uint128(uint256(liquidity) * bps / MAX_CONVERSION_VALUE);
+        liquidity = uint128(uint256(liquidity) * bps / MAX_BPS);
 
         // TODO getAmountsForLiquidity()
         uint256 amount0;
@@ -602,8 +686,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage utility amounts and recalculate amounts for adding position liquidity
         if (utilityRate > 0) {
             // Calculate utility amounts
-            amount00 = amount00 * utilityRate / MAX_CONVERSION_VALUE;
-            amount11 = amount11 * utilityRate / MAX_CONVERSION_VALUE;
+            amount00 = amount00 * utilityRate / MAX_BPS;
+            amount11 = amount11 * utilityRate / MAX_BPS;
 
             if (token0 == olas) {
                 // Burn olas tokens
@@ -676,5 +760,56 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // TODO Event
 
         _locked = 1;
+    }
+
+    /// @dev Gets TWAP price via the built-in Uniswap V3 oracle.
+    /// @param pool Pool address.
+    /// @return price Calculated price.
+    function getTwapFromOracle(address pool) public view returns (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) {
+        // Query the pool for the current and historical tick
+        uint32[] memory secondsAgos = new uint32[](2);
+        // Start of the period
+        secondsAgos[0] = SECONDS_AGO;
+
+        // Fetch the tick cumulative values from the pool
+        (int56[] memory tickCumulatives, ) = IUniswapV3(pool).observe(secondsAgos);
+
+        // Calculate the average tick over the time period
+        int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
+        averageTick = int24(tickCumulativeDelta / int56(int32(SECONDS_AGO)));
+
+        // Convert the average tick to sqrtPriceX96
+        averageSqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
+
+        // Calculate the price using the sqrtPriceX96
+        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
+        price = FixedPointMathLib.mulDivDown(uint256(averageSqrtPriceX96), uint256(averageSqrtPriceX96), (1 << 64));
+    }
+    
+    /// @dev Checks pool prices via Uniswap V3 built-in oracle.
+    /// @param pool Pool address.
+    /// @param twapPrice TWAP price.
+    function checkPoolPrices(address pool, uint256 twapPrice) public view {
+        // Get current pool reserves and observation index
+        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+
+        // Check if the pool has sufficient observation history
+        (uint32 oldestTimestamp, , , ) = IUniswapV3(pool).observations(observationIndex);
+        if (oldestTimestamp + SECONDS_AGO < block.timestamp) {
+            return;
+        }
+
+        // Get instant price
+        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
+        uint256 instantPrice = FixedPointMathLib.mulDivDown(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
+
+        uint256 deviation;
+        if (twapPrice > 0) {
+            deviation = (instantPrice > twapPrice) ?
+                FixedPointMathLib.mulDivDown((instantPrice - twapPrice), 1e18, twapPrice) :
+                FixedPointMathLib.mulDivDown((twapPrice - instantPrice), 1e18, twapPrice);
+        }
+
+        require(deviation <= MAX_ALLOWED_DEVIATION, "Price deviation too high");
     }
 }
