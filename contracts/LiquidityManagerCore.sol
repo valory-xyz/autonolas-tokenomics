@@ -151,6 +151,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     uint32 public constant SECONDS_AGO = 1800;
     // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
     uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
+    // TODO Calculate steps - linear gas spending dependency
+    uint8 public constant SCAN_STEPS = 5;
 
     // Owner address
     address public owner;
@@ -178,8 +180,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // Reentrancy lock
     uint256 internal _locked;
 
-    // V3 pool settings
-    mapping(address => PoolSettings) public mapPoolSettings;
     // V3 position Ids
     mapping(address => uint256) public mapPoolAddressPositionIds;
 
@@ -433,6 +433,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // TODO Slippage
         if (positionId == 0) {
+            // Build percent band around TWAP center
+            // TODO
+            //int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(poolSettings.feeTier);
+            int24 tickSpacing = 60;
+            (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
+                _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
+
+            // Compute expected amounts for increase (TWAP) -> slippage guards
+            uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtA, sqrtB, amount0, amount1);
+            (uint256 amount0Min, uint256 amount1Min) =
+                LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, liquidityMin);
+            uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+
             // Add iquidity
             IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
                 token0: token0,
@@ -442,8 +456,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
                 tickUpper: poolSettings.maxTick,
                 amount0Desired: amount0,
                 amount1Desired: amount1,
-                amount0Min: 0, // Accept any amount of token0
-                amount1Min: 0, // Accept any amount of token1
+                amount0Min: amount0Min,
+                amount1Min: amount1Min,
                 recipient: address(this),
                 deadline: block.timestamp
             });
@@ -503,8 +517,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (uint256 price, uint160 sqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
-        checkPoolPrices(pool, sqrtPriceX96);
+        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, averageSqrtPriceX96);
 
         IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
             tokenId: positionId,
@@ -540,7 +554,51 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
-    function changeRanges(address token0, address token1, uint24 feeTier, PoolSettings memory poolSettings) external returns (uint256 positionId) {
+    // Build base asymmetric ticks from percent widths
+    function _asymmetricTicks(int24 centerTick, uint16 lowerBps, uint16 upperBps, int24 spacing)
+        internal pure returns (int24 lo, int24 hi)
+    {
+        // Approx convert bps → ticks
+        int24 dDown = - int24(int256(lowerBps) * 1e4 / 9210);
+        int24 dUp   = + int24(int256(upperBps) * 1e4 / 9210);
+        int24 rawLo = centerTick + dDown;
+        int24 rawHi = centerTick + dUp;
+
+        lo = (rawLo / spacing) * spacing;
+        if (rawLo < 0 && (rawLo % spacing != 0)) lo -= spacing;
+        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
+    }
+
+    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
+    function _scanNeighborhood(uint256 b0, uint256 b1, int24 tickSpacing, uint160 sqrtP, int24 baseLo, int24 baseHi, uint8 steps)
+        internal view returns (int24 bestLo, int24 bestHi)
+    {
+        uint256 bestDust = type(uint256).max;
+        bestLo = baseLo; bestHi = baseHi;
+
+        for (int i = -int(steps); i <= int(steps); i++) {
+            for (int j = -int(steps); j <= int(steps); j++) {
+                int24 lo = baseLo + int24(i) * tickSpacing;
+                int24 hi = baseHi + int24(j) * tickSpacing;
+                if (lo >= hi) continue;
+
+                uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
+                uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+
+                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sqrtA, sqrtB, b0);
+                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtP, sqrtA, sqrtB, b1);
+                uint128 Lm = L0 < L1 ? L0 : L1;
+                if (Lm == 0) continue;
+
+                (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtA, sqrtB, Lm);
+                uint256 dust = (b0 > need0 ? b0 - need0 : 0) + (b1 > need1 ? b1 - need1 : 0);
+
+                if (dust < bestDust) { bestDust = dust; bestLo = lo; bestHi = hi; }
+            }
+        }
+    }
+
+    function changeRanges(address token0, address token1, uint24 feeTier, uint16 lowerBps, uint16 upperBps) external returns (uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -566,13 +624,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroValue();
         }
 
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(currentPositionId);
-
         // TODO Check for different poolSettings, otherwise revert
 
-        // TODO getAmountsForLiquidity()
-        uint256 amount0;
-        uint256 amount1;
+        // Check current pool prices
+        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, averageSqrtPriceX96);
 
         // Build percent band around TWAP center
         // TODO
@@ -582,36 +638,66 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
 
         // TODO
-//        // 3) Read position & compute Lremove
-//        ( , , , , , int24 tL, int24 tU, uint128 Lcur, , , , ) = NFPM.positions(positionId);
-//        require(Lcur > 0, "no L");
-//        uint128 Lremove = uint128(uint256(Lcur) * _min(moveBps, policy.maxLiquidityDeltaBps) / 10_000);
+        // Read position & liquidity
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(currentPositionId);
+        // Check for zero value
+        if (liquidity == 0) {
+            revert ZeroValue();
+        }
+
+        // Get current pool reserves and observation index
+        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+
+        // Decrease + collect
+        (uint256 amount0Min, uint256 amount1Min) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
+        uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // TODO Slippage
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
             tokenId: currentPositionId,
             liquidity: liquidity,
-            amount0Min: amount0,
-            amount1Min: amount1,
+            amount0Min: amount0Min,
+            amount1Min: amount1Min,
             deadline: block.timestamp
         });
 
         // Decrease liquidity
-        (uint256 amount00, uint256 amount11) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+        (uint256 amount0, uint256 amount1) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
 
         // TODO Collect fees function
+
+        // Build asymmetric band candidates around TWAP and scan neighborhood
+        uint256 b0 = IToken(token0).balanceOf(address(this));
+        uint256 b1 = IToken(token1).balanceOf(address(this));
+
+        (int24 baseLo, int24 baseHi) = _asymmetricTicks(averageTick, lowerBps, upperBps, tickSpacing);
+        (int24 bestLo, int24 bestHi) = _scanNeighborhood(b0, b1, tickSpacing, averageSqrtPriceX96, baseLo, baseHi, SCAN_STEPS);
+
+        // Mint with best band
+        uint160 sqrtA = TickMath.getSqrtRatioAtTick(bestLo);
+        uint160 sqrtB = TickMath.getSqrtRatioAtTick(bestHi);
+        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(averageSqrtPriceX96, sqrtA, sqrtB, b0);
+        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(averageSqrtPriceX96, sqrtA, sqrtB, b1);
+        uint128 Lm = L0 < L1 ? L0 : L1;
+        if (Lm == 0) return;
+
+        (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, Lm);
+        uint256 min0 = need0 * (MAX_BPS - maxSlippage) / MAX_BPS;
+        uint256 min1 = need1 * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // Add iquidity
         IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
             token0: token0,
             token1: token1,
-            fee: poolSettings.feeTier,
-            tickLower: poolSettings.minTick,
-            tickUpper: poolSettings.maxTick,
-            amount0Desired: amount00,
-            amount1Desired: amount11,
-            amount0Min: 0, // Accept any amount of token0
-            amount1Min: 0, // Accept any amount of token1
+            fee: feeTier,
+            tickLower: bestLo,
+            tickUpper: bestHi,
+            amount0Desired: need0,
+            amount1Desired: need1,
+            amount0Min: min0,
+            amount1Min: min1,
             recipient: address(this),
             deadline: block.timestamp
         });
@@ -619,6 +705,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
         mapPoolAddressPositionIds[pool] = positionId;
+
+        // TODO Manage dust
 
         // TODO Event
 
@@ -662,49 +750,70 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroValue();
         }
 
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+        // Check current pool prices
+        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, averageSqrtPriceX96);
 
-        // Apply bps
-        liquidity = uint128(uint256(liquidity) * bps / MAX_BPS);
+        // Build percent band around TWAP center
+        // TODO
+        //int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(poolSettings.feeTier);
+        int24 tickSpacing = 60;
+        (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
+            _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
 
-        // TODO getAmountsForLiquidity()
-        uint256 amount0;
-        uint256 amount1;
+        // TODO
+        // Read position & liquidity
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(currentPositionId);
+        // Check for zero value
+        if (liquidity == 0) {
+            revert ZeroValue();
+        }
+
+        // Get current pool reserves and observation index
+        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+
+        // Decrease + collect
+        (uint256 amount0Min, uint256 amount1Min) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
+        uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // TODO Slippage
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
             tokenId: positionId,
             liquidity: liquidity,
-            amount0Min: amount0,
-            amount1Min: amount1,
+            amount0Min: amount0Min,
+            amount1Min: amount1Min,
             deadline: block.timestamp
         });
 
         // Decrease liquidity
-        (uint256 amount00, uint256 amount11) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+        (uint256 amount0, uint256 amount1) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
 
         // Manage utility amounts and recalculate amounts for adding position liquidity
         if (utilityRate > 0) {
             // Calculate utility amounts
-            amount00 = amount00 * utilityRate / MAX_BPS;
-            amount11 = amount11 * utilityRate / MAX_BPS;
+            amount0 = amount0 * utilityRate / MAX_BPS;
+            amount1 = amount1 * utilityRate / MAX_BPS;
 
             if (token0 == olas) {
                 // Burn olas tokens
-                IOlas(olas).burn(amount00);
+                IOlas(olas).burn(amount0);
 
                 // Transfer another token amount
-                IToken(token0).transfer(timelock, amount11);
+                IToken(token0).transfer(timelock, amount1);
             } else {
                 // Burn olas tokens
-                IOlas(olas).burn(amount11);
+                IOlas(olas).burn(amount1);
 
                 // Transfer another token amount
-                IToken(token0).transfer(timelock, amount00);
+                IToken(token0).transfer(timelock, amount0);
             }
         }
 
         // TODO Collect fees function call
+
+        // TODO + manage dust
 
         // TODO Event
 
