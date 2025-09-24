@@ -8,8 +8,8 @@ import {IToken} from "../interfaces/IToken.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "../interfaces/IUniswapV3.sol";
 import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
-import {TickMath} from "../../libraries/TickMath.sol";
-import {LiquidityAmounts} from "../../libraries/LiquidityAmounts.sol";
+import {TickMath} from "../libraries/TickMath.sol";
+import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 
 interface IFactory {
     /// @notice Returns the tick spacing for a given fee amount, if enabled, or 0 if not enabled
@@ -234,7 +234,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         factoryV3 = IUniswapV3(positionManagerV3).factory();
     }
 
-    function _burn(bytes memory bridgePayload) internal;
+    function _burn(bytes memory bridgePayload) internal virtual;
 
     function _manageUtilityAmounts(address token0, address token1) internal {
         // Get token balances
@@ -392,8 +392,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtA, sqrtB, amount0, amount1);
             (uint256 amount0Min, uint256 amount1Min) =
                 LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, liquidityMin);
-            uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-            uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
             // Add iquidity
             IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
@@ -425,8 +425,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
             (uint256 amount0Min, uint256 amount1Min) =
                 LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
-            uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-            uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+            amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
             IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
                 tokenId: positionId,
@@ -503,7 +503,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     {
         // Approx convert bps → ticks
         int24 dDown = - int24(int256(lowerBps) * 1e4 / 9210);
-        int24 dUp   = + int24(int256(upperBps) * 1e4 / 9210);
+        int24 dUp = int24(int256(upperBps) * 1e4 / 9210);
         int24 rawLo = centerTick + dDown;
         int24 rawHi = centerTick + dUp;
 
@@ -592,8 +592,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Decrease + collect
         (uint256 amount0Min, uint256 amount1Min) =
             LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
-        uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // TODO Slippage
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
@@ -674,8 +674,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (bps > MAX_BPS) {
             revert Overflow(bps, MAX_BPS);
         }
-        if (utilityRate > MAX_BPS) {
-            revert Overflow(utilityRate, MAX_BPS);
+        if (withdrawRate > MAX_BPS) {
+            revert Overflow(withdrawRate, MAX_BPS);
         }
 
         // Get V3 pool
@@ -686,7 +686,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Get position Id
-        uint256 positionId = mapPoolAddressPositionIds[pool];
+        positionId = mapPoolAddressPositionIds[pool];
 
         // Check for zero value
         if (positionId == 0) {
@@ -719,8 +719,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Decrease + collect
         (uint256 amount0Min, uint256 amount1Min) =
             LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
-        uint256 amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        uint256 amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
             tokenId: positionId,
