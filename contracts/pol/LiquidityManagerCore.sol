@@ -146,7 +146,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // keccak256("PROXY_LIQUIDITY_MANAGER") = "0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
     bytes32 public constant PROXY_LIQUIDITY_MANAGER = 0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
     // Max conversion value from v2 to v3 in bps
-    uint256 public constant MAX_BPS = 10_000;
+    uint16 public constant MAX_BPS = 10_000;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
     // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
@@ -176,7 +176,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     address public immutable factoryV3;
 
     // Max slippage for pool operations (in BPS, bound by 10_000)
-    uint256 public maxSlippage;
+    uint16 public maxSlippage;
 
     // Reentrancy lock
     uint256 internal _locked;
@@ -201,7 +201,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         address _oracleV2,
         address _routerV2,
         address _positionManagerV3,
-        uint256 _maxSlippage
+        uint16 _maxSlippage
     ) {
         owner = msg.sender;
 
@@ -294,7 +294,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function _ticksFromPercent(int24 centerTick, uint16 halfWidthBps, int24 spacing)
+    function _ticksFromPercent(int24 centerTick, uint256 halfWidthBps, int24 spacing)
         internal pure returns (int24 lo, int24 hi, uint160 sqrtA, uint160 sqrtB)
     {
         // For simplicity approximate: deltaTick ≈ ln(1±w)/ln(1.0001)
@@ -315,7 +315,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         sqrtB = TickMath.getSqrtRatioAtTick(hi);
     }
 
-    function convertToV3(address lpToken, uint24 feeTier, uint256 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
+    function convertToV3(address lpToken, uint24 feeTier, uint16 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -372,7 +372,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        (, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
         // Approve tokens for position manager
@@ -415,14 +415,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             mapPoolAddressPositionIds[pool] = positionId;
         } else {
             // Get current instant pool price
-            (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
 
-            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidityMin, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
 
             // Compute expected amounts for increase (TWAP) -> slippage guards
             uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
             uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-            uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
+            liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
             (uint256 amount0Min, uint256 amount1Min) =
                 LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
             amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
@@ -488,7 +488,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
         // Collect fees
@@ -497,30 +497,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
-    // Build base asymmetric ticks from percent widths
-    function _asymmetricTicks(int24 centerTick, uint16 lowerBps, uint16 upperBps, int24 spacing)
-        internal pure returns (int24 lo, int24 hi)
-    {
-        // Approx convert bps → ticks
-        int24 dDown = - int24(int256(lowerBps) * 1e4 / 9210);
-        int24 dUp = int24(int256(upperBps) * 1e4 / 9210);
-        int24 rawLo = centerTick + dDown;
-        int24 rawHi = centerTick + dUp;
-
-        lo = (rawLo / spacing) * spacing;
-        if (rawLo < 0 && (rawLo % spacing != 0)) lo -= spacing;
-        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
-    }
-
     // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
     function _scanNeighborhood(uint256 b0, uint256 b1, int24 tickSpacing, uint160 sqrtP, int24 baseLo, int24 baseHi, uint8 steps)
-        internal view returns (int24 bestLo, int24 bestHi)
+        internal pure returns (int24 bestLo, int24 bestHi)
     {
         uint256 bestDust = type(uint256).max;
         bestLo = baseLo; bestHi = baseHi;
 
-        for (int i = -int(steps); i <= int(steps); i++) {
-            for (int j = -int(steps); j <= int(steps); j++) {
+        for (int i = -int8(steps); i <= int8(steps); i++) {
+            for (int j = -int8(steps); j <= int8(steps); j++) {
                 int24 lo = baseLo + int24(i) * tickSpacing;
                 int24 hi = baseHi + int24(j) * tickSpacing;
                 if (lo >= hi) continue;
@@ -528,8 +513,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
                 uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
                 uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
 
-                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sqrtA, sqrtB, b0);
-                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtP, sqrtA, sqrtB, b1);
+                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
+                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
                 uint128 Lm = L0 < L1 ? L0 : L1;
                 if (Lm == 0) continue;
 
@@ -541,7 +526,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
     }
 
-    function changeRanges(address token0, address token1, uint24 feeTier, uint16 lowerBps, uint16 upperBps) external returns (uint256 positionId) {
+    function changeRanges(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi) external returns (uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -570,13 +555,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // TODO Check for different poolSettings, otherwise revert
 
         // Check current pool prices
-        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
-        // Build percent band around TWAP center
+        // Get tick spacing
         int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
-        (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
-            _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
 
         // TODO
         // Read position & liquidity
@@ -587,7 +570,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Get current pool reserves and observation index
-        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
 
         // Decrease + collect
         (uint256 amount0Min, uint256 amount1Min) =
@@ -614,16 +597,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint256 b0 = IToken(token0).balanceOf(address(this));
         uint256 b1 = IToken(token1).balanceOf(address(this));
 
-        (int24 baseLo, int24 baseHi) = _asymmetricTicks(averageTick, lowerBps, upperBps, tickSpacing);
         (int24 bestLo, int24 bestHi) = _scanNeighborhood(b0, b1, tickSpacing, averageSqrtPriceX96, baseLo, baseHi, SCAN_STEPS);
 
         // Mint with best band
         uint160 sqrtA = TickMath.getSqrtRatioAtTick(bestLo);
         uint160 sqrtB = TickMath.getSqrtRatioAtTick(bestHi);
-        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(averageSqrtPriceX96, sqrtA, sqrtB, b0);
-        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(averageSqrtPriceX96, sqrtA, sqrtB, b1);
+        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
+        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
         uint128 Lm = L0 < L1 ? L0 : L1;
-        if (Lm == 0) return;
+        // Check for zero value
+        if (Lm == 0) {
+            revert ZeroValue();
+        }
 
         (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, Lm);
         uint256 min0 = need0 * (MAX_BPS - maxSlippage) / MAX_BPS;
@@ -656,7 +641,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
-    function decreaseLiquidity(address token0, address token1, uint24 feeTier, uint256 bps, uint256 withdrawRate) external returns (uint256 positionId) {
+    function decreaseLiquidity(address token0, address token1, uint24 feeTier, uint16 bps, uint16 withdrawRate) external returns (uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -694,15 +679,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
+        (, uint160 averageSqrtPriceX96, ) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
-        // Build percent band around TWAP center
-        int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
-        (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
-            _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
-
-        // TODO
         // Read position & liquidity
         (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
         // Check for zero value
@@ -714,7 +693,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         liquidity = (liquidity * (MAX_BPS - bps)) / MAX_BPS;
 
         // Get current pool reserves and observation index
-        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
 
         // Decrease + collect
         (uint256 amount0Min, uint256 amount1Min) =
@@ -871,5 +850,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         require(deviation <= MAX_ALLOWED_DEVIATION, "Price deviation too high");
+    }
+
+    // Build base asymmetric ticks from percent widths
+    function asymmetricTicks(int24 centerTick, uint256 lowerBps, uint256 upperBps, int24 spacing)
+        external pure returns (int24 lo, int24 hi)
+    {
+        // Approx convert bps → ticks
+        int24 dDown = - int24(int256(lowerBps) * 1e4 / 9210);
+        int24 dUp = int24(int256(upperBps) * 1e4 / 9210);
+        int24 rawLo = centerTick + dDown;
+        int24 rawHi = centerTick + dUp;
+
+        lo = (rawLo / spacing) * spacing;
+        if (rawLo < 0 && (rawLo % spacing != 0)) lo -= spacing;
+        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
     }
 }
