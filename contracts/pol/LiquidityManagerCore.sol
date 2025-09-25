@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
 import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IErrorsTokenomics} from "../interfaces/IErrorsTokenomics.sol";
+import {IPositionManagerV3} from "../interfaces/IPositionManagerV3.sol";
 import {IToken} from "../interfaces/IToken.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "../interfaces/IUniswapV3.sol";
@@ -38,7 +39,7 @@ interface IOracle {
     function updatePrice() external returns (bool);
 }
 
-interface IUniswapV2 {
+interface IUniswapV2Router02 {
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -50,88 +51,6 @@ interface IUniswapV2 {
     ) external returns (uint256 amountA, uint256 amountB);
 }
 
-interface IPositionManager {
-    /// @notice Returns the position information associated with a given token ID.
-    /// @dev Throws if the token ID is not valid.
-    /// @param tokenId The ID of the token that represents the position
-    /// @return nonce The nonce for permits
-    /// @return operator The address that is approved for spending
-    /// @return token0 The address of the token0 for a specific pool
-    /// @return token1 The address of the token1 for a specific pool
-    /// @return fee The fee associated with the pool
-    /// @return tickLower The lower end of the tick range for the position
-    /// @return tickUpper The higher end of the tick range for the position
-    /// @return liquidity The liquidity of the position
-    /// @return feeGrowthInside0LastX128 The fee growth of token0 as of the last action on the individual position
-    /// @return feeGrowthInside1LastX128 The fee growth of token1 as of the last action on the individual position
-    /// @return tokensOwed0 The uncollected amount of token0 owed to the position as of the last computation
-    /// @return tokensOwed1 The uncollected amount of token1 owed to the position as of the last computation
-    function positions(uint256 tokenId)
-    external
-    view
-    returns (
-        uint96 nonce,
-        address operator,
-        address token0,
-        address token1,
-        uint24 fee,
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 liquidity,
-        uint256 feeGrowthInside0LastX128,
-        uint256 feeGrowthInside1LastX128,
-        uint128 tokensOwed0,
-        uint128 tokensOwed1
-    );
-
-    struct IncreaseLiquidityParams {
-        uint256 tokenId;
-        uint256 amount0Desired;
-        uint256 amount1Desired;
-        uint256 amount0Min;
-        uint256 amount1Min;
-        uint256 deadline;
-    }
-
-    /// @notice Increases the amount of liquidity in a position, with tokens paid by the `msg.sender`
-    /// @param params tokenId The ID of the token for which liquidity is being increased,
-    /// amount0Desired The desired amount of token0 to be spent,
-    /// amount1Desired The desired amount of token1 to be spent,
-    /// amount0Min The minimum amount of token0 to spend, which serves as a slippage check,
-    /// amount1Min The minimum amount of token1 to spend, which serves as a slippage check,
-    /// deadline The time by which the transaction must be included to effect the change
-    /// @return liquidity The new liquidity amount as a result of the increase
-    /// @return amount0 The amount of token0 to achieve resulting liquidity
-    /// @return amount1 The amount of token1 to achieve resulting liquidity
-    function increaseLiquidity(IncreaseLiquidityParams calldata params)
-        external payable returns (uint128 liquidity, uint256 amount0, uint256 amount1);
-
-    struct DecreaseLiquidityParams {
-        uint256 tokenId;
-        uint128 liquidity;
-        uint256 amount0Min;
-        uint256 amount1Min;
-        uint256 deadline;
-    }
-
-    /// @notice Decreases the amount of liquidity in a position and accounts it to the position
-    /// @param params tokenId The ID of the token for which liquidity is being decreased,
-    /// amount The amount by which liquidity will be decreased,
-    /// amount0Min The minimum amount of token0 that should be accounted for the burned liquidity,
-    /// amount1Min The minimum amount of token1 that should be accounted for the burned liquidity,
-    /// deadline The time by which the transaction must be included to effect the change
-    /// @return amount0 The amount of token0 accounted to the position's tokens owed
-    /// @return amount1 The amount of token1 accounted to the position's tokens owed
-    function decreaseLiquidity(DecreaseLiquidityParams calldata params)
-        external payable returns (uint256 amount0, uint256 amount1);
-
-    /// @dev Transfers position.
-    /// @param from Account address to transfer from.
-    /// @param to Account address to transfer to.
-    /// @param positionId Position Id.
-    function transferFrom(address from, address to, uint256 positionId) external;
-}
-
 /// @title Liquidity Manager Core - Smart contract for OLAS core Liquidity Manager functionality
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -139,29 +58,29 @@ interface IPositionManager {
 abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
+    event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount);
+    event ConvertedToV3(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
+    event FeesCollected(address indexed sender, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
+    event RangesChanged(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, int24 tickLower, int24 tickUpper);
+    event LiquidityDecreased(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, uint256 olasWithdrawAmount);
 
     // LiquidityManager version number
     string public constant VERSION = "0.1.0";
     // LiquidityManager proxy address slot
     // keccak256("PROXY_LIQUIDITY_MANAGER") = "0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
     bytes32 public constant PROXY_LIQUIDITY_MANAGER = 0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
-    // Max conversion value from v2 to v3 in bps
-    uint16 public constant MAX_BPS = 10_000;
-    // Seconds ago to look back for TWAP pool values
-    uint32 public constant SECONDS_AGO = 1800;
     // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
     uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
+    // Seconds ago to look back for TWAP pool values
+    uint32 public constant SECONDS_AGO = 1800;
+    // Max conversion value from v2 to v3 in bps
+    uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
     uint8 public constant SCAN_STEPS = 5;
 
-    // Owner address
-    address public owner;
-
     // OLAS token address
     address public immutable olas;
-    // Timelock token address
-    address public immutable timelock;
-    // Treasury contract address
+    // Treasury address (timelock or governing bridge mediator)
     address public immutable treasury;
     // TODO Extract to L2 contracts only
     // Bridge to Burner address
@@ -175,18 +94,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // V3 factory
     address public immutable factoryV3;
 
+    // Owner address
+    address public owner;
+
     // Max slippage for pool operations (in BPS, bound by 10_000)
     uint16 public maxSlippage;
 
     // Reentrancy lock
-    uint256 internal _locked;
+    uint8 internal _locked;
 
     // V3 position Ids
     mapping(address => uint256) public mapPoolAddressPositionIds;
 
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
-    /// @param _timelock Timelock or its representative address.
     /// @param _treasury Treasury address.
     /// @param _bridge2Burner Bridge to Burner address.
     /// @param _oracleV2 V2 pool related oracle address.
@@ -195,7 +116,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @param _maxSlippage Max slippage for operations.
     constructor(
         address _olas,
-        address _timelock,
         address _treasury,
         address _bridge2Burner,
         address _oracleV2,
@@ -206,7 +126,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         owner = msg.sender;
 
         // Check for zero addresses
-        if (_olas == address(0) || _timelock == address(0) || _treasury == address(0) || _oracleV2 == address(0) ||
+        if (_olas == address(0) || _treasury == address(0) || _oracleV2 == address(0) ||
             _routerV2 == address(0) || _positionManagerV3 == address(0))
         {
             revert ZeroAddress();
@@ -222,7 +142,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         olas = _olas;
-        timelock = _timelock;
         treasury = _treasury;
         bridge2Burner = _bridge2Burner;
         oracleV2 = _oracleV2;
@@ -237,23 +156,27 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     function _burn(bytes memory bridgePayload) internal virtual;
 
     function _manageUtilityAmounts(address token0, address token1) internal {
-        // Get token balances
-        uint256 amount0 = IToken(token0).balanceOf(address(this));
-        uint256 amount1 = IToken(token1).balanceOf(address(this));
-
         // Check for OLAS token
-        if (token0 == olas) {
-            // TODO change to _burn() - then separate between L1 and L2?
-            // Transfer to Burner
-            IToken(olas).transfer(bridge2Burner, amount0);
-            // Transfer to Timelock
-            IToken(token1).transfer(timelock, amount1);
-        } else {
-            // Transfer to Burner
-            IToken(olas).transfer(bridge2Burner, amount1);
-            // Transfer to Timelock
-            IToken(token0).transfer(timelock, amount0);
+        if (token1 == olas) {
+            token1 = token0;
         }
+
+        // Get token balances
+        uint256 olasAmount = IToken(olas).balanceOf(address(this));
+        uint256 tokenAmount = IToken(token1).balanceOf(address(this));
+
+        // TODO change to _burn() - then separate between L1 and L2?
+        // Transfer OLAS to Burner contract
+        if (olasAmount > 0) {
+            IToken(olas).transfer(bridge2Burner, olasAmount);
+        }
+
+        // Transfer to Treasury
+        if (tokenAmount > 0) {
+            IToken(token1).transfer(treasury, tokenAmount);
+        }
+
+        emit UtilityAmountsManaged(olas, token1, olasAmount, tokenAmount);
     }
 
     /// @dev Changes the owner address.
@@ -346,16 +269,22 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         address token0 = pair.token0();
         address token1 = pair.token1();
 
+        // TODO Shall we accept non-OLAS pairs?
+        // Check for OLAS in pair
+        if (token0 != olas && token1 != olas) {
+            revert();
+        }
+
         // Apply slippage protection
         // BPS --> %
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
             revert();
         }
 
-        // TODO Check if need to calculate desired amounts
-        // Remove liquidity
+        // Remove liquidity: note that at this point of time the price is validated with desired slippage,
+        // and thus min out amounts can be set to 1
         (uint256 amount0, uint256 amount1) =
-            IUniswapV2(routerV2).removeLiquidity(token0, token1, liquidity, 1, 1, address(this), block.timestamp);
+            IUniswapV2Router02(routerV2).removeLiquidity(token0, token1, liquidity, 1, 1, address(this), block.timestamp);
 
         // V3
         // Get V3 pool
@@ -367,8 +296,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Recalculate amounts for adding position liquidity
         if (conversionRate < MAX_BPS) {
-            amount0 = amount0 * (MAX_BPS - conversionRate) / MAX_BPS;
-            amount1 = amount1 * (MAX_BPS - conversionRate) / MAX_BPS;
+            amount0 = (amount0 * conversionRate) / MAX_BPS;
+            amount1 = (amount1 * conversionRate) / MAX_BPS;
         }
 
         // Check current pool prices
@@ -417,7 +346,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             // Get current instant pool price
             (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
 
-            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidityMin, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidityMin, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
 
             // Compute expected amounts for increase (TWAP) -> slippage guards
             uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
@@ -428,7 +357,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
             amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
-            IPositionManager.IncreaseLiquidityParams memory params = IPositionManager.IncreaseLiquidityParams({
+            IPositionManagerV3.IncreaseLiquidityParams memory params = IPositionManagerV3.IncreaseLiquidityParams({
                 tokenId: positionId,
                 amount0Desired: amount0,
                 amount1Desired: amount1,
@@ -437,13 +366,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
                 deadline: block.timestamp
             });
 
-            (liquidity, amount0, amount1) = IPositionManager(positionManagerV3).increaseLiquidity(params);
+            (liquidity, amount0, amount1) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
         }
 
         // Manage utility and dust
         _manageUtilityAmounts(token0, token1);
 
-        // TODO event
+        emit ConvertedToV3(positionId, token0, token1, amount0, amount1);
 
         _locked = 1;
     }
@@ -466,8 +395,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage collected fees
         _manageUtilityAmounts(token0, token1);
 
-        // TODO event
-        // emit FeesCollected(msg.sender,
+        emit FeesCollected(msg.sender, token0, token1, amount0, amount1);
     }
 
     /// @dev Collects fees from LP position, burns OLAS tokens transfers another token to BBB.
@@ -552,8 +480,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroValue();
         }
 
-        // TODO Check for different poolSettings, otherwise revert
-
         // Check current pool prices
         (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
@@ -561,12 +487,16 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get tick spacing
         int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
 
-        // TODO
         // Read position & liquidity
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(currentPositionId);
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(currentPositionId);
         // Check for zero value
         if (liquidity == 0) {
             revert ZeroValue();
+        }
+
+        // Check for different ticks
+        if (baseLo == tickLower && baseHi == tickUpper) {
+            revert();
         }
 
         // Get current pool reserves and observation index
@@ -578,8 +508,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
         amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
-        // TODO Slippage
-        IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
+        IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams = IPositionManagerV3.DecreaseLiquidityParams({
             tokenId: currentPositionId,
             liquidity: liquidity,
             amount0Min: amount0Min,
@@ -588,7 +517,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         });
 
         // Decrease liquidity
-        (uint256 amount0, uint256 amount1) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+        (uint256 amount0, uint256 amount1) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(decreaseParams);
 
         // Collect fees
         _collectFees(token0, token1, currentPositionId);
@@ -636,12 +565,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage fees and dust
         _manageUtilityAmounts(token0, token1);
 
-        // TODO Event
+        emit RangesChanged(positionId, token0, token1, amount0, amount1, bestLo, bestHi);
 
         _locked = 1;
     }
 
-    function decreaseLiquidity(address token0, address token1, uint24 feeTier, uint16 bps, uint16 withdrawRate) external returns (uint256 positionId) {
+    function decreaseLiquidity(address token0, address token1, uint24 feeTier, uint16 bps, uint16 olasWithdrawRate) external returns (uint256 positionId) {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -659,8 +588,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (bps > MAX_BPS) {
             revert Overflow(bps, MAX_BPS);
         }
-        if (withdrawRate > MAX_BPS) {
-            revert Overflow(withdrawRate, MAX_BPS);
+        if (olasWithdrawRate > MAX_BPS) {
+            revert Overflow(olasWithdrawRate, MAX_BPS);
         }
 
         // Get V3 pool
@@ -683,7 +612,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         checkPoolPrices(pool, averageSqrtPriceX96);
 
         // Read position & liquidity
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManager(positionManagerV3).positions(positionId);
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
         // Check for zero value
         if (liquidity == 0) {
             revert ZeroValue();
@@ -701,7 +630,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
         amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
-        IPositionManager.DecreaseLiquidityParams memory decreaseParams = IPositionManager.DecreaseLiquidityParams({
+        IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams = IPositionManagerV3.DecreaseLiquidityParams({
             tokenId: positionId,
             liquidity: liquidity,
             amount0Min: amount0Min,
@@ -710,20 +639,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         });
 
         // Decrease liquidity
-        (uint256 amount0, uint256 amount1) = IPositionManager(positionManagerV3).decreaseLiquidity(decreaseParams);
+        (uint256 amount0, uint256 amount1) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(decreaseParams);
 
-        // Manage withdraw amounts
-        if (withdrawRate > 0) {
-            // Calculate utility amounts
-            amount0 = amount0 * withdrawRate / MAX_BPS;
-            amount1 = amount1 * withdrawRate / MAX_BPS;
+        // Check for OLAS withdraw amount
+        uint256 olasWithdrawAmount;
+        if (olasWithdrawRate > 0) {
+            // Calculate OLAS withdraw amount
+            olasWithdrawAmount = (token0 == olas) ? amount0 : amount1;
+            olasWithdrawAmount = (olasWithdrawAmount * olasWithdrawRate) / MAX_BPS;
 
-            // Transfer amounts to timelock
-            if (amount0 > 0) {
-                IToken(token0).transfer(timelock, amount0);
-            }
-            if (amount1 > 0) {
-                IToken(token1).transfer(timelock, amount1);
+            // Transfer amounts to treasury
+            if (olasWithdrawAmount > 0) {
+                IToken(olas).transfer(treasury, olasWithdrawAmount);
             }
         }
 
@@ -733,7 +660,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage fees and dust
         _manageUtilityAmounts(token0, token1);
 
-        // TODO Event
+        emit LiquidityDecreased(positionId, token0, token1, amount0, amount1, olasWithdrawAmount);
 
         _locked = 1;
     }
@@ -762,7 +689,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Transfer token
         SafeTransferLib.safeTransfer(token, to, amount);
 
-        // TODO Event
+        // TODO Event?
 
         _locked = 1;
     }
@@ -792,11 +719,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         positionId = mapPoolAddressPositionIds[pool];
 
         // Transfer position Id
-        IPositionManager(positionManagerV3).transferFrom(address(this), to, positionId);
+        IPositionManagerV3(positionManagerV3).transferFrom(address(this), to, positionId);
 
         mapPoolAddressPositionIds[pool] = 0;
 
-        // TODO Event
+        // TODO Event?
 
         _locked = 1;
     }
