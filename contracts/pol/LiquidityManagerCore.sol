@@ -20,14 +20,6 @@ interface IFactory {
     function feeAmountTickSpacing(uint24 fee) external view returns (int24);
 }
 
-// Bridger Burner interface
-interface IOlas {
-    /// @dev (Bridges and) Burns OLAS tokens.
-    /// @param amount OLAS token amount to burn.
-    /// @param amount OLAS token amount to burn.
-    function burn(uint256 amount) external;
-}
-
 interface IOracle {
     /// @dev Gets the current OLAS token price in 1e18 format.
     function getPrice() external view returns (uint256);
@@ -59,9 +51,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount);
-    event ConvertedToV3(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
+    event PositionMinted(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
     event FeesCollected(address indexed sender, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
-    event RangesChanged(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, int24 tickLower, int24 tickUpper);
+    event RangesChanged(address indexed token0, address indexed token1, int24 tickLower, int24 tickUpper);
     event LiquidityDecreased(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, uint256 olasWithdrawAmount);
 
     // LiquidityManager version number
@@ -82,9 +74,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     address public immutable olas;
     // Treasury address (timelock or governing bridge mediator)
     address public immutable treasury;
-    // TODO Extract to L2 contracts only
-    // Bridge to Burner address
-    address public immutable bridge2Burner;
     // Uniswap V2 Router address
     address public immutable routerV2;
     // V2 pool related oracle address
@@ -109,7 +98,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @dev Depository constructor.
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
-    /// @param _bridge2Burner Bridge to Burner address.
     /// @param _oracleV2 V2 pool related oracle address.
     /// @param _routerV2 Uniswap V2 Router address.
     /// @param _positionManagerV3 Uniswap V3 position manager address.
@@ -117,7 +105,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     constructor(
         address _olas,
         address _treasury,
-        address _bridge2Burner,
         address _oracleV2,
         address _routerV2,
         address _positionManagerV3,
@@ -143,7 +130,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         olas = _olas;
         treasury = _treasury;
-        bridge2Burner = _bridge2Burner;
         oracleV2 = _oracleV2;
         routerV2 = _routerV2;
         positionManagerV3 = _positionManagerV3;
@@ -153,7 +139,28 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         factoryV3 = IUniswapV3(positionManagerV3).factory();
     }
 
-    function _burn(bytes memory bridgePayload) internal virtual;
+    function _burn(uint256 amount) internal virtual;
+
+    function _collectFees(address token0, address token1, uint256 positionId) internal {
+        IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
+            tokenId: positionId,
+            recipient: address(this),
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        });
+
+        // Get corresponding token fees
+        (uint256 amount0, uint256 amount1) = IUniswapV3(positionManagerV3).collect(params);
+        // Check for zero amounts
+        if (amount0 == 0 && amount1 == 0) {
+            revert ZeroValue();
+        }
+
+        // Manage collected fees
+        _manageUtilityAmounts(token0, token1);
+
+        emit FeesCollected(msg.sender, token0, token1, amount0, amount1);
+    }
 
     function _manageUtilityAmounts(address token0, address token1) internal {
         // Check for OLAS token
@@ -165,10 +172,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint256 olasAmount = IToken(olas).balanceOf(address(this));
         uint256 tokenAmount = IToken(token1).balanceOf(address(this));
 
-        // TODO change to _burn() - then separate between L1 and L2?
-        // Transfer OLAS to Burner contract
+        // Directly burns or Transfer OLAS to Burner contract
         if (olasAmount > 0) {
-            IToken(olas).transfer(bridge2Burner, olasAmount);
+            _burn(olasAmount);
         }
 
         // Transfer to Treasury
@@ -177,6 +183,58 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         emit UtilityAmountsManaged(olas, token1, olasAmount, tokenAmount);
+    }
+
+    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
+    function _scanNeighborhood(uint256 b0, uint256 b1, int24 tickSpacing, uint160 sqrtP, int24 baseLo, int24 baseHi, uint8 steps)
+    internal pure returns (int24 bestLo, int24 bestHi)
+    {
+        uint256 bestDust = type(uint256).max;
+        bestLo = baseLo; bestHi = baseHi;
+
+        for (int i = -int8(steps); i <= int8(steps); i++) {
+            for (int j = -int8(steps); j <= int8(steps); j++) {
+                int24 lo = baseLo + int24(i) * tickSpacing;
+                int24 hi = baseHi + int24(j) * tickSpacing;
+                if (lo >= hi) continue;
+
+                uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
+                uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+
+                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
+                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
+                uint128 Lm = L0 < L1 ? L0 : L1;
+                if (Lm == 0) continue;
+
+                (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtA, sqrtB, Lm);
+                uint256 dust = (b0 > need0 ? b0 - need0 : 0) + (b1 > need1 ? b1 - need1 : 0);
+
+                if (dust < bestDust) { bestDust = dust; bestLo = lo; bestHi = hi; }
+            }
+        }
+    }
+
+    function _ticksFromPercent(int24 centerTick, uint256 halfWidthBps, uint24 feeTier)
+        internal view returns (int24 lo, int24 hi, uint160 sqrtA, uint160 sqrtB)
+    {
+        int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+
+        // For simplicity approximate: deltaTick ≈ ln(1±w)/ln(1.0001)
+        int24 dUp = int24(int256(halfWidthBps) * 1e4 / 9210);
+        int24 dDown = -dUp;
+        int24 rawLo = centerTick + dDown;
+        int24 rawHi = centerTick + dUp;
+
+        // Round down
+        lo = (rawLo / spacing) * spacing;
+        // Fix floor for negatives
+        if (rawLo < 0 && (rawLo % spacing != 0)) {
+            lo -= spacing;
+        }
+
+        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
+        sqrtA = TickMath.getSqrtRatioAtTick(lo);
+        sqrtB = TickMath.getSqrtRatioAtTick(hi);
     }
 
     /// @dev Changes the owner address.
@@ -217,25 +275,63 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function _ticksFromPercent(int24 centerTick, uint256 halfWidthBps, int24 spacing)
-        internal pure returns (int24 lo, int24 hi, uint160 sqrtA, uint160 sqrtB)
+    function _calculateFirstPositionParams(address pool, uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, int24 averageTick, uint160 averageSqrtPriceX96)
+        internal returns (IUniswapV3.MintParams memory params)
     {
-        // For simplicity approximate: deltaTick ≈ ln(1±w)/ln(1.0001)
-        int24 dUp = int24(int256(halfWidthBps) * 1e4 / 9210);
-        int24 dDown = -dUp;
-        int24 rawLo = centerTick + dDown;
-        int24 rawHi = centerTick + dUp;
+        int24[] memory ticks = new int24[](2);
+        uint160[] memory sqrtAB = new uint160[](2);
+        // Build percent band around TWAP center
+        (ticks[0], ticks[1], sqrtAB[0], sqrtAB[1]) =
+            _ticksFromPercent(averageTick, MAX_BPS / 2, feeTier);
 
-        // Round down
-        lo = (rawLo / spacing) * spacing;
-        // Fix floor for negatives
-        if (rawLo < 0 && (rawLo % spacing != 0)) {
-            lo -= spacing;
-        }
+        // Compute expected amounts for increase (TWAP) -> slippage guards
+        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], amount0, amount1);
+        (uint256 amount0Min, uint256 amount1Min) =
+            LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
+        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
-        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
-        sqrtA = TickMath.getSqrtRatioAtTick(lo);
-        sqrtB = TickMath.getSqrtRatioAtTick(hi);
+        // Add iquidity
+        params = IUniswapV3.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: feeTier,
+            tickLower: ticks[0],
+            tickUpper: ticks[1],
+            amount0Desired: amount0,
+            amount1Desired: amount1,
+            amount0Min: amount0Min,
+            amount1Min: amount1Min,
+            recipient: address(this),
+            deadline: block.timestamp
+        });
+    }
+
+    function _calculateIncreaseLiquidityParams(address pool, uint256 positionId, uint256 amount0, uint256 amount1)
+        internal returns (IPositionManagerV3.IncreaseLiquidityParams memory params)
+    {
+        // Get current instant pool price
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
+
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidityMin, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
+
+        // Compute expected amounts for increase (TWAP) -> slippage guards
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
+        (uint256 amount0Min, uint256 amount1Min) =
+                            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
+        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+
+        params = IPositionManagerV3.IncreaseLiquidityParams({
+            tokenId: positionId,
+            amount0Desired: amount0,
+            amount1Desired: amount1,
+            amount0Min: amount0Min,
+            amount1Min: amount1Min,
+            deadline: block.timestamp
+        });
     }
 
     function convertToV3(address lpToken, uint24 feeTier, uint16 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
@@ -290,11 +386,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
+        // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();
         }
 
-        // Recalculate amounts for adding position liquidity
+        // Recalculate amounts for adding position liquidity depending on conversion rate
         if (conversionRate < MAX_BPS) {
             amount0 = (amount0 * conversionRate) / MAX_BPS;
             amount1 = (amount1 * conversionRate) / MAX_BPS;
@@ -312,59 +409,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
-            // Build percent band around TWAP center
-            int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
-            (int24 tickLower, int24 tickUpper, uint160 sqrtA, uint160 sqrtB) =
-                _ticksFromPercent(averageTick, MAX_BPS / 2, tickSpacing);
-
-            // Compute expected amounts for increase (TWAP) -> slippage guards
-            uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtA, sqrtB, amount0, amount1);
-            (uint256 amount0Min, uint256 amount1Min) =
-                LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, liquidityMin);
-            amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-            amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-            // Add iquidity
-            IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
-                token0: token0,
-                token1: token1,
-                fee: feeTier,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                amount0Desired: amount0,
-                amount1Desired: amount1,
-                amount0Min: amount0Min,
-                amount1Min: amount1Min,
-                recipient: address(this),
-                deadline: block.timestamp
-            });
+            IUniswapV3.MintParams memory params =
+                _calculateFirstPositionParams(pool, feeTier, token0, token1, amount0, amount1, averageTick, averageSqrtPriceX96);
 
             (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
             mapPoolAddressPositionIds[pool] = positionId;
         } else {
-            // Get current instant pool price
-            (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
-
-            (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidityMin, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
-
-            // Compute expected amounts for increase (TWAP) -> slippage guards
-            uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
-            uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-            liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
-            (uint256 amount0Min, uint256 amount1Min) =
-                LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
-            amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-            amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-            IPositionManagerV3.IncreaseLiquidityParams memory params = IPositionManagerV3.IncreaseLiquidityParams({
-                tokenId: positionId,
-                amount0Desired: amount0,
-                amount1Desired: amount1,
-                amount0Min: amount0Min,
-                amount1Min: amount1Min,
-                deadline: block.timestamp
-            });
+            IPositionManagerV3.IncreaseLiquidityParams memory params =
+                _calculateIncreaseLiquidityParams(pool, positionId, amount0, amount1);
 
             (liquidity, amount0, amount1) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
         }
@@ -372,30 +425,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage utility and dust
         _manageUtilityAmounts(token0, token1);
 
-        emit ConvertedToV3(positionId, token0, token1, amount0, amount1);
+        emit PositionMinted(positionId, token0, token1, amount0, amount1);
 
         _locked = 1;
-    }
-
-    function _collectFees(address token0, address token1, uint256 positionId) internal {
-        IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
-            tokenId: positionId,
-            recipient: address(this),
-            amount0Max: type(uint128).max,
-            amount1Max: type(uint128).max
-        });
-
-        // Get corresponding token fees
-        (uint256 amount0, uint256 amount1) = IUniswapV3(positionManagerV3).collect(params);
-        // Check for zero amounts
-        if (amount0 == 0 && amount1 == 0) {
-            revert ZeroValue();
-        }
-
-        // Manage collected fees
-        _manageUtilityAmounts(token0, token1);
-
-        emit FeesCollected(msg.sender, token0, token1, amount0, amount1);
     }
 
     /// @dev Collects fees from LP position, burns OLAS tokens transfers another token to BBB.
@@ -403,6 +435,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
+        // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();
         }
@@ -425,33 +458,92 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
-    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
-    function _scanNeighborhood(uint256 b0, uint256 b1, int24 tickSpacing, uint160 sqrtP, int24 baseLo, int24 baseHi, uint8 steps)
-        internal pure returns (int24 bestLo, int24 bestHi)
+    function _calculateDecreaseLiquidityParams(address pool, uint256 positionId, uint16 bps)
+        internal returns (IPositionManagerV3.DecreaseLiquidityParams memory params)
     {
-        uint256 bestDust = type(uint256).max;
-        bestLo = baseLo; bestHi = baseHi;
-
-        for (int i = -int8(steps); i <= int8(steps); i++) {
-            for (int j = -int8(steps); j <= int8(steps); j++) {
-                int24 lo = baseLo + int24(i) * tickSpacing;
-                int24 hi = baseHi + int24(j) * tickSpacing;
-                if (lo >= hi) continue;
-
-                uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
-                uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
-
-                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
-                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
-                uint128 Lm = L0 < L1 ? L0 : L1;
-                if (Lm == 0) continue;
-
-                (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtA, sqrtB, Lm);
-                uint256 dust = (b0 > need0 ? b0 - need0 : 0) + (b1 > need1 ? b1 - need1 : 0);
-
-                if (dust < bestDust) { bestDust = dust; bestLo = lo; bestHi = hi; }
-            }
+        // Read position & liquidity
+        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
+        // Check for zero value
+        if (liquidity == 0) {
+            revert ZeroValue();
         }
+
+        // Calculate liquidity based on provided BPS, if any
+        if (bps > 0) {
+            liquidity = (liquidity * (MAX_BPS - bps)) / MAX_BPS;
+        }
+
+        // Get current pool reserves and observation index
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
+
+        // Decrease liquidity
+        (uint256 amount0Min, uint256 amount1Min) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
+        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+
+        params = IPositionManagerV3.DecreaseLiquidityParams({
+            tokenId: positionId,
+            liquidity: liquidity,
+            amount0Min: amount0Min,
+            amount1Min: amount1Min,
+            deadline: block.timestamp
+        });
+    }
+
+    function _calculateLiquidity(int24 bestLo, int24 bestHi, uint256[] memory balances)
+        internal returns (uint160[] memory sqrtAB, uint128 liquidity)
+    {
+        // Mint with best band
+        sqrtAB = new uint160[](2);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(bestLo);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(bestHi);
+        liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
+        uint128 liquidity1 = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
+        liquidity = liquidity < liquidity1 ? liquidity : liquidity1;
+        // Check for zero value
+        if (liquidity == 0) {
+            revert ZeroValue();
+        }
+    }
+
+    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 bestLo, int24 bestHi, uint160 averageSqrtPriceX96)
+        internal returns (IUniswapV3.MintParams memory params)
+    {
+        // Get tick spacing
+        int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+
+        // Build asymmetric band candidates around TWAP and scan neighborhood
+        uint256[] memory balances = new uint256[](2);
+        balances[0] = IToken(token0).balanceOf(address(this));
+        balances[1] = IToken(token1).balanceOf(address(this));
+
+        (bestLo, bestHi) = _scanNeighborhood(balances[0], balances[1], tickSpacing, averageSqrtPriceX96, bestLo, bestHi, SCAN_STEPS);
+
+        (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLo, bestHi, balances);
+
+        uint256[] memory needs = new uint256[](2);
+        uint256[] memory mins = new uint256[](2);
+        (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
+        mins[0] = needs[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        mins[1] = needs[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+
+        // Add liquidity
+        params = IUniswapV3.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: feeTier,
+            tickLower: bestLo,
+            tickUpper: bestHi,
+            amount0Desired: needs[0],
+            amount1Desired: needs[1],
+            amount0Min: mins[0],
+            amount1Min: mins[1],
+            recipient: address(this),
+            deadline: block.timestamp
+        });
+
+        emit RangesChanged(token0, token1, bestLo, bestHi);
     }
 
     function changeRanges(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi) external returns (uint256 positionId) {
@@ -468,6 +560,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
+        // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();
         }
@@ -484,37 +577,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
-        // Get tick spacing
-        int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+        // TODO Check for different ticks?
+//        if (baseLo == tickLower && baseHi == tickUpper) {
+//            revert();
+//        }
 
-        // Read position & liquidity
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(currentPositionId);
-        // Check for zero value
-        if (liquidity == 0) {
-            revert ZeroValue();
-        }
-
-        // Check for different ticks
-        if (baseLo == tickLower && baseHi == tickUpper) {
-            revert();
-        }
-
-        // Get current pool reserves and observation index
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
-
-        // Decrease + collect
-        (uint256 amount0Min, uint256 amount1Min) =
-            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
-        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-        IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams = IPositionManagerV3.DecreaseLiquidityParams({
-            tokenId: currentPositionId,
-            liquidity: liquidity,
-            amount0Min: amount0Min,
-            amount1Min: amount1Min,
-            deadline: block.timestamp
-        });
+        IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams =
+            _calculateDecreaseLiquidityParams(pool, currentPositionId, 0);
 
         // Decrease liquidity
         (uint256 amount0, uint256 amount1) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(decreaseParams);
@@ -522,42 +591,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Collect fees
         _collectFees(token0, token1, currentPositionId);
 
-        // Build asymmetric band candidates around TWAP and scan neighborhood
-        uint256 b0 = IToken(token0).balanceOf(address(this));
-        uint256 b1 = IToken(token1).balanceOf(address(this));
+        (IUniswapV3.MintParams memory params) =
+            _calculateRepositionParams(token0, token1, feeTier, baseLo, baseHi, averageSqrtPriceX96);
 
-        (int24 bestLo, int24 bestHi) = _scanNeighborhood(b0, b1, tickSpacing, averageSqrtPriceX96, baseLo, baseHi, SCAN_STEPS);
-
-        // Mint with best band
-        uint160 sqrtA = TickMath.getSqrtRatioAtTick(bestLo);
-        uint160 sqrtB = TickMath.getSqrtRatioAtTick(bestHi);
-        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
-        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
-        uint128 Lm = L0 < L1 ? L0 : L1;
-        // Check for zero value
-        if (Lm == 0) {
-            revert ZeroValue();
-        }
-
-        (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtA, sqrtB, Lm);
-        uint256 min0 = need0 * (MAX_BPS - maxSlippage) / MAX_BPS;
-        uint256 min1 = need1 * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-        // Add iquidity
-        IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
-            token0: token0,
-            token1: token1,
-            fee: feeTier,
-            tickLower: bestLo,
-            tickUpper: bestHi,
-            amount0Desired: need0,
-            amount1Desired: need1,
-            amount0Min: min0,
-            amount1Min: min1,
-            recipient: address(this),
-            deadline: block.timestamp
-        });
-
+        uint128 liquidity;
         (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
         mapPoolAddressPositionIds[pool] = positionId;
@@ -565,7 +602,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage fees and dust
         _manageUtilityAmounts(token0, token1);
 
-        emit RangesChanged(positionId, token0, token1, amount0, amount1, bestLo, bestHi);
+        emit PositionMinted(positionId, token0, token1, amount0, amount1);
 
         _locked = 1;
     }
@@ -595,6 +632,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
+        // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();
         }
@@ -611,35 +649,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         (, uint160 averageSqrtPriceX96, ) = getTwapFromOracle(pool);
         checkPoolPrices(pool, averageSqrtPriceX96);
 
-        // Read position & liquidity
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
-        // Check for zero value
-        if (liquidity == 0) {
-            revert ZeroValue();
-        }
-
-        // Calculate liquidity based on provided BPS
-        liquidity = (liquidity * (MAX_BPS - bps)) / MAX_BPS;
-
-        // Get current pool reserves and observation index
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
-
-        // Decrease + collect
-        (uint256 amount0Min, uint256 amount1Min) =
-            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
-        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-        IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams = IPositionManagerV3.DecreaseLiquidityParams({
-            tokenId: positionId,
-            liquidity: liquidity,
-            amount0Min: amount0Min,
-            amount1Min: amount1Min,
-            deadline: block.timestamp
-        });
+        IPositionManagerV3.DecreaseLiquidityParams memory params = _calculateDecreaseLiquidityParams(pool, positionId, bps);
 
         // Decrease liquidity
-        (uint256 amount0, uint256 amount1) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(decreaseParams);
+        (uint256 amount0, uint256 amount1) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(params);
 
         // Check for OLAS withdraw amount
         uint256 olasWithdrawAmount;
@@ -711,6 +724,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get V3 pool
         address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
 
+        // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();
         }
