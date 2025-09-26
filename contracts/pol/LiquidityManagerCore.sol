@@ -69,6 +69,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
     int24 public constant SCAN_STEPS = 5;
+    /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
+    int24 internal constant MIN_TICK = -887272;
+    /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
+    int24 internal constant MAX_TICK = -MIN_TICK;
 
     // OLAS token address
     address public immutable olas;
@@ -221,27 +225,104 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
     }
 
-    function _ticksFromPercent(int24 centerTick, uint256 halfWidthBps, uint24 feeTier)
-        internal view returns (int24 lo, int24 hi, uint160 sqrtA, uint160 sqrtB)
+    /// @notice Integer sqrt for uint256 (Babylonian)
+    function _sqrt(uint256 x) private pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) >> 1;
+        y = x;
+        while (z < y) { y = z; z = (x / z + z) >> 1; }
+    }
+
+    /// @notice sqrt( num/den ) in Q96, computed as sqrt( (num<<192)/den ) then >>96
+    function _sqrtRatioX96(uint256 num, uint256 den) private pure returns (uint256) {
+        // factorX192 = (num/den) in Q192
+        uint256 factorX192 = (uint256(num) << 192) / den;
+        // sqrt in Q96
+        return _sqrt(factorX192);
+    }
+
+    /// @notice floor to multiple of spacing (works for negative ticks too)
+    function _floorToSpacing(int24 t, int24 spacing) private pure returns (int24) {
+        int24 q = t / spacing;
+        // In Solidity, division toward zero. If negative and not multiple — go one step lower.
+        if (t < 0 && (t % spacing != 0)) q -= 1;
+        return q * spacing;
+    }
+
+    /// @notice ceil to multiple of spacing (works for negative ticks too)
+    function _ceilToSpacing(int24 t, int24 spacing) private pure returns (int24) {
+        int24 q = t / spacing;
+        if (t > 0 && (t % spacing != 0)) q += 1;
+        if (t < 0 && (t % spacing != 0)) {
+            // e.g. t=-59, spacing=60 -> q=-0 (rounded toward 0), но нам нужен 0 → q += 1
+            q += 1;
+        }
+        return q * spacing;
+    }
+
+    /// @notice clamp tick to global min/max with spacing
+    function _clampToBounds(int24 t, int24 spacing) private pure returns (int24) {
+        // приведение глобальных границ к корректным spaced-границам
+        int24 minSp = _ceilToSpacing(MIN_TICK, spacing);
+        int24 maxSp = _floorToSpacing(MAX_TICK, spacing);
+        if (t < minSp) return minSp;
+        if (t > maxSp) return maxSp;
+        return t;
+    }
+
+    function _ticksFromPercent(uint160 centerSqrtPriceX96, int24 centerTick, uint32 lowerBps, uint32 upperBps,uint24 feeTier)
+        internal view returns (int24[] memory loHi)
     {
         int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
 
-        // For simplicity approximate: deltaTick ≈ ln(1±w)/ln(1.0001)
-        int24 dUp = int24(int256(halfWidthBps) * 1e4 / 9210);
-        int24 dDown = -dUp;
-        int24 rawLo = centerTick + dDown;
-        int24 rawHi = centerTick + dUp;
+        // sqrt factors in Q96: sqrt( (10000 ± bps) / 10000 )
+        //    factorDown = sqrt( (10000 - lowerBps) / 10000 )
+        //    factorUp   = sqrt( (10000 + upperBps) / 10000 )
+        if (lowerBps > 10_000 || upperBps > 1_000_000) {
+            revert();
+        }
+        uint256[] memory sqrtX96LoHi = new uint256[](2);
+        sqrtX96LoHi[0] = _sqrtRatioX96(10_000 - lowerBps, 10_000);
+        sqrtX96LoHi[1] = _sqrtRatioX96(10_000 + upperBps, 10_000);
 
-        // Round down
-        lo = (rawLo / spacing) * spacing;
-        // Fix floor for negatives
-        if (rawLo < 0 && (rawLo % spacing != 0)) {
-            lo -= spacing;
+        // target sqrt prices (Q96)
+        //    sqrtLower = sqrtPcenter * factorDown
+        //    sqrtUpper = sqrtPcenter * factorUp
+        sqrtX96LoHi[0] = (uint256(centerSqrtPriceX96) * sqrtX96LoHi[0]) / 2**96;
+        sqrtX96LoHi[1] = (uint256(centerSqrtPriceX96) * sqrtX96LoHi[1]) / 2**96;
+
+        // guard: clamp to min/max sqrt supported by TickMath
+        if (sqrtX96LoHi[0] < uint256(TickMath.MIN_SQRT_RATIO)) {
+            sqrtX96LoHi[0] = TickMath.MIN_SQRT_RATIO;
+        }
+        if (sqrtX96LoHi[1] > uint256(TickMath.MAX_SQRT_RATIO)) {
+            sqrtX96LoHi[1] = TickMath.MAX_SQRT_RATIO;
         }
 
-        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
-        sqrtA = TickMath.getSqrtRatioAtTick(lo);
-        sqrtB = TickMath.getSqrtRatioAtTick(hi);
+        loHi = new int24[](2);
+        // convert sqrt back to raw ticks
+        loHi[0] = TickMath.getTickAtSqrtRatio(uint160(sqrtX96LoHi[0]));
+        loHi[1] = TickMath.getTickAtSqrtRatio(uint160(sqrtX96LoHi[1]));
+
+        loHi[1] = -442_000;
+
+        // align to tickSpacing (floor lower, ceil upper)
+        loHi[0] = _floorToSpacing(loHi[0], spacing);
+        loHi[1] = _ceilToSpacing(loHi[1], spacing);
+
+        // clamp to global bounds with spacing
+        loHi[0] = _clampToBounds(loHi[0], spacing);
+        loHi[1] = _clampToBounds(loHi[1], spacing);
+
+        // 7) ensure non-empty interval and correct order
+        if (loHi[0] >= loHi[1]) {
+            // expand minimally by one spacing step around center
+            loHi[0] = _clampToBounds(loHi[0] - spacing, spacing);
+            loHi[1] = _clampToBounds(loHi[1] + spacing, spacing);
+            if (loHi[0] >= loHi[1]) {
+                revert();
+            }
+        }
     }
 
     /// @dev Changes the owner address.
@@ -285,18 +366,27 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, int24 averageTick, uint160 averageSqrtPriceX96)
         internal view returns (IUniswapV3.MintParams memory params)
     {
-        int24[] memory ticks = new int24[](2);
-        uint160[] memory sqrtAB = new uint160[](2);
+        uint32 lowerBps = 0;
+        uint32 upperBps = 500_000;
         // Build percent band around TWAP center
-        (ticks[0], ticks[1], sqrtAB[0], sqrtAB[1]) =
-            _ticksFromPercent(averageTick, MAX_BPS / 2, feeTier);
+        int24[] memory ticks = _ticksFromPercent(averageSqrtPriceX96, averageTick, lowerBps, upperBps, feeTier);
+
+        uint160[] memory sqrtAB = new uint160[](2);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
         // Compute expected amounts for increase (TWAP) -> slippage guards
         uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], amount0, amount1);
-        (uint256 amount0Min, uint256 amount1Min) =
+        // Check for zero value
+        if (liquidityMin == 0) {
+            revert ZeroValue();
+        }
+
+        uint256[] memory amountsMin = new uint256[](2);
+        (amountsMin[0], amountsMin[1]) =
             LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
-        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // Add iquidity
         params = IUniswapV3.MintParams({
@@ -307,8 +397,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             tickUpper: ticks[1],
             amount0Desired: amount0,
             amount1Desired: amount1,
-            amount0Min: amount0Min,
-            amount1Min: amount1Min,
+            amount0Min: amountsMin[0],
+            amount1Min: amountsMin[1],
             recipient: address(this),
             deadline: block.timestamp
         });
@@ -383,6 +473,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
             revert();
         }
+
+        // Approve V2 liquidity
+        IToken(lpToken).approve(routerV2, liquidity);
 
         // Remove liquidity: note that at this point of time the price is validated with desired slippage,
         // and thus min out amounts can be set to 1
@@ -802,20 +895,5 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         require(deviation <= MAX_ALLOWED_DEVIATION, "Price deviation too high");
-    }
-
-    // Build base asymmetric ticks from percent widths
-    function asymmetricTicks(int24 centerTick, uint256 lowerBps, uint256 upperBps, int24 spacing)
-        external pure returns (int24 lo, int24 hi)
-    {
-        // Approx convert bps → ticks
-        int24 dDown = - int24(int256(lowerBps) * 1e4 / 9210);
-        int24 dUp = int24(int256(upperBps) * 1e4 / 9210);
-        int24 rawLo = centerTick + dDown;
-        int24 rawHi = centerTick + dUp;
-
-        lo = (rawLo / spacing) * spacing;
-        if (rawLo < 0 && (rawLo % spacing != 0)) lo -= spacing;
-        hi = (rawHi % spacing == 0) ? rawHi : (rawHi + (spacing - (rawHi % spacing)));
     }
 }
