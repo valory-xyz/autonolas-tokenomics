@@ -68,7 +68,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // Max conversion value from v2 to v3 in bps
     uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
-    uint8 public constant SCAN_STEPS = 5;
+    int24 public constant SCAN_STEPS = 5;
 
     // OLAS token address
     address public immutable olas;
@@ -186,30 +186,37 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     }
 
     // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
-    function _scanNeighborhood(uint256 b0, uint256 b1, int24 tickSpacing, uint160 sqrtP, int24 baseLo, int24 baseHi, uint8 steps)
-    internal pure returns (int24 bestLo, int24 bestHi)
+    function _scanNeighborhood(uint256[] memory balances, int24 tickSpacing, uint160 sqrtP, int24[] memory baseLoHi)
+    internal pure returns (int24[] memory bestLoHi)
     {
         uint256 bestDust = type(uint256).max;
-        bestLo = baseLo; bestHi = baseHi;
 
-        for (int i = -int8(steps); i <= int8(steps); i++) {
-            for (int j = -int8(steps); j <= int8(steps); j++) {
-                int24 lo = baseLo + int24(i) * tickSpacing;
-                int24 hi = baseHi + int24(j) * tickSpacing;
-                if (lo >= hi) continue;
+        for (int24 i = - SCAN_STEPS; i <= SCAN_STEPS; ++i) {
+            for (int24 j = - SCAN_STEPS; j <= SCAN_STEPS; ++j) {
+                int24[] memory loHi = new int24[](2);
+                loHi[0] = baseLoHi[0] + i * tickSpacing;
+                loHi[1] = baseLoHi[1] + j * tickSpacing;
+                if (loHi[0] >= loHi[1]) continue;
 
-                uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
-                uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+                uint160[] memory sqrtAB = new uint160[](2);
+                sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
+                sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
 
-                uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtA, sqrtB, b0);
-                uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sqrtA, sqrtB, b1);
-                uint128 Lm = L0 < L1 ? L0 : L1;
-                if (Lm == 0) continue;
+                uint128[] memory liquidity = new uint128[](2);
+                liquidity[0] = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
+                liquidity[1] = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
+                liquidity[0] = liquidity[0] < liquidity[1] ? liquidity[0] : liquidity[1];
+                if (liquidity[0] == 0) continue;
 
-                (uint256 need0, uint256 need1) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtA, sqrtB, Lm);
-                uint256 dust = (b0 > need0 ? b0 - need0 : 0) + (b1 > need1 ? b1 - need1 : 0);
+                uint256[] memory needs = new uint256[](2);
+                (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity[0]);
+                uint256 dust = (balances[0] > needs[0] ? balances[0] - needs[0] : 0) + (balances[1] > needs[1] ? balances[1] - needs[1] : 0);
 
-                if (dust < bestDust) { bestDust = dust; bestLo = lo; bestHi = hi; }
+                if (dust < bestDust) {
+                    bestDust = dust;
+                    bestLoHi[0] = loHi[0];
+                    bestLoHi[1] = loHi[1];
+                }
             }
         }
     }
@@ -275,8 +282,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function _calculateFirstPositionParams(address pool, uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, int24 averageTick, uint160 averageSqrtPriceX96)
-        internal returns (IUniswapV3.MintParams memory params)
+    function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, int24 averageTick, uint160 averageSqrtPriceX96)
+        internal view returns (IUniswapV3.MintParams memory params)
     {
         int24[] memory ticks = new int24[](2);
         uint160[] memory sqrtAB = new uint160[](2);
@@ -308,7 +315,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     }
 
     function _calculateIncreaseLiquidityParams(address pool, uint256 positionId, uint256 amount0, uint256 amount1)
-        internal returns (IPositionManagerV3.IncreaseLiquidityParams memory params)
+        internal view returns (IPositionManagerV3.IncreaseLiquidityParams memory params)
     {
         // Get current instant pool price
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3(pool).slot0();
@@ -410,7 +417,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
             IUniswapV3.MintParams memory params =
-                _calculateFirstPositionParams(pool, feeTier, token0, token1, amount0, amount1, averageTick, averageSqrtPriceX96);
+                _calculateFirstPositionParams(feeTier, token0, token1, amount0, amount1, averageTick, averageSqrtPriceX96);
 
             (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
@@ -459,7 +466,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     }
 
     function _calculateDecreaseLiquidityParams(address pool, uint256 positionId, uint16 bps)
-        internal returns (IPositionManagerV3.DecreaseLiquidityParams memory params)
+        internal view returns (IPositionManagerV3.DecreaseLiquidityParams memory params)
     {
         // Read position & liquidity
         (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
@@ -491,13 +498,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         });
     }
 
-    function _calculateLiquidity(int24 bestLo, int24 bestHi, uint256[] memory balances)
-        internal returns (uint160[] memory sqrtAB, uint128 liquidity)
+    function _calculateLiquidity(int24[] memory bestLoHi, uint256[] memory balances)
+        internal pure returns (uint160[] memory sqrtAB, uint128 liquidity)
     {
         // Mint with best band
         sqrtAB = new uint160[](2);
-        sqrtAB[0] = TickMath.getSqrtRatioAtTick(bestLo);
-        sqrtAB[1] = TickMath.getSqrtRatioAtTick(bestHi);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(bestLoHi[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(bestLoHi[1]);
         liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
         uint128 liquidity1 = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
         liquidity = liquidity < liquidity1 ? liquidity : liquidity1;
@@ -507,7 +514,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
     }
 
-    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 bestLo, int24 bestHi, uint160 averageSqrtPriceX96)
+    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi, uint160 averageSqrtPriceX96)
         internal returns (IUniswapV3.MintParams memory params)
     {
         // Get tick spacing
@@ -518,9 +525,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         balances[0] = IToken(token0).balanceOf(address(this));
         balances[1] = IToken(token1).balanceOf(address(this));
 
-        (bestLo, bestHi) = _scanNeighborhood(balances[0], balances[1], tickSpacing, averageSqrtPriceX96, bestLo, bestHi, SCAN_STEPS);
+        int24[] memory bestLoHi = new int24[](2);
+        bestLoHi[0] = baseLo;
+        bestLoHi[1] = baseHi;
+        bestLoHi = _scanNeighborhood(balances, tickSpacing, averageSqrtPriceX96, bestLoHi);
 
-        (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLo, bestHi, balances);
+        // TODO Is this already calculated above?
+        (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLoHi, balances);
 
         uint256[] memory needs = new uint256[](2);
         uint256[] memory mins = new uint256[](2);
@@ -533,8 +544,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             token0: token0,
             token1: token1,
             fee: feeTier,
-            tickLower: bestLo,
-            tickUpper: bestHi,
+            tickLower: bestLoHi[0],
+            tickUpper: bestLoHi[1],
             amount0Desired: needs[0],
             amount1Desired: needs[1],
             amount0Min: mins[0],
@@ -543,7 +554,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             deadline: block.timestamp
         });
 
-        emit RangesChanged(token0, token1, bestLo, bestHi);
+        emit RangesChanged(token0, token1, bestLoHi[0], bestLoHi[1]);
     }
 
     function changeRanges(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi) external returns (uint256 positionId) {
