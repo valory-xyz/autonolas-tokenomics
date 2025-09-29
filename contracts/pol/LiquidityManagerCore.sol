@@ -79,7 +79,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // Steps near to tick boundaries
     int24 internal constant NEAR_STEPS = SAFETY_STEPS;
     // 2^96
-    uint256 public constant Q96 = 0x1000000000000000000000000;
+    uint160 public constant Q96 = 0x1000000000000000000000000;
 
     // OLAS token address
     address public immutable olas;
@@ -197,9 +197,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     }
 
     // sqrt(num/den) in Q96: sqrt((num<<192)/den), returns already scaled in Q96
-    function _sqrtRatioX96(uint256 num, uint256 den) private pure returns (uint256) {
+    function _sqrtRatioX96(uint256 num, uint256 den) private pure returns (uint160) {
         uint256 x192 = (num << 192) / den;
-        return FixedPointMathLib.sqrt(x192);
+        return uint160(FixedPointMathLib.sqrt(x192));
     }
 
     function _floorToSpacing(int24 t, int24 spacing) private pure returns (int24) {
@@ -213,11 +213,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (t > 0 && (t % spacing != 0)) q += 1;
         if (t < 0 && (t % spacing != 0)) q += 1; // proper ceil for negatives
         return q * spacing;
-    }
-
-    function _spacedBounds(int24 spacing) private pure returns (int24 minSp, int24 maxSp) {
-        minSp = _ceilToSpacing(MIN_TICK, spacing);
-        maxSp = _floorToSpacing(MAX_TICK, spacing);
     }
 
     // check if intermediate = floor(sqrtA * sqrtB / Q96) is non-zero
@@ -292,39 +287,32 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @notice Asymmetric ticks from bps around centerTick with WidenUp mode + binary search.
     /// Ensures non-zero intermediate for amount0 formula without linear loops.
     function _asymmetricTicksFromBpsWidenUp(
-        uint256 sqrtCenterX96,
-        uint32 lowerBps,   // down from center, bps (100 = -1.00%)
-        uint32 upperBps,   // up from center, bps (100 = +1.00%)
+        uint160 sqrtLowerX96,
+        uint160 sqrtUpperX96,
         uint24 feeTier
     ) internal view returns (int24 lo, int24 hi) {
         // Get tick spacing
         int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
-
-        require(spacing > 0, "BAD_SPACING");
-        require(lowerBps <= 10_000 && upperBps <= 1_000_000, "BPS_OOB");
-
-        // 2) factors sqrt((10000 ± bps)/10000) in Q96
-        uint256 sqrtLowerX96 = _sqrtRatioX96(10_000 - lowerBps, 10_000);
-        uint256 sqrtUpperX96   = _sqrtRatioX96(10_000 + upperBps, 10_000);
-
-        // 3) target sqrt-prices
-        sqrtLowerX96 = (sqrtCenterX96 * sqrtLowerX96) / Q96;
-        sqrtUpperX96 = (sqrtCenterX96 * sqrtUpperX96)   / Q96;
+        // Check for zero value
+        if (spacing == 0) {
+            revert ZeroValue();
+        }
 
         // 4) clamp to MIN/MAX sqrt
-        if (sqrtLowerX96 < uint256(TickMath.MIN_SQRT_RATIO)) {
-            sqrtLowerX96 = uint256(TickMath.MIN_SQRT_RATIO);
+        if (sqrtLowerX96 < TickMath.MIN_SQRT_RATIO) {
+            sqrtLowerX96 = TickMath.MIN_SQRT_RATIO;
         }
-        if (sqrtUpperX96 > uint256(TickMath.MAX_SQRT_RATIO)) {
-            sqrtUpperX96 = uint256(TickMath.MAX_SQRT_RATIO);
+        if (sqrtUpperX96 > TickMath.MAX_SQRT_RATIO) {
+            sqrtUpperX96 = TickMath.MAX_SQRT_RATIO;
         }
 
         // 5) raw ticks
-        int24 rawLo = TickMath.getTickAtSqrtRatio(uint160(sqrtLowerX96));
-        int24 rawHi = TickMath.getTickAtSqrtRatio(uint160(sqrtUpperX96));
+        int24 rawLo = TickMath.getTickAtSqrtRatio(sqrtLowerX96);
+        int24 rawHi = TickMath.getTickAtSqrtRatio(sqrtUpperX96);
 
         // 6) snap to spacing + safety margins
-        (int24 minSp, int24 maxSp) = _spacedBounds(spacing);
+        int24 minSp = _ceilToSpacing(MIN_TICK, spacing);
+        int24 maxSp = _floorToSpacing(MAX_TICK, spacing);
         int24 minSafe = minSp + SAFETY_STEPS * spacing;
         int24 maxSafe = maxSp - SAFETY_STEPS * spacing;
 
@@ -373,21 +361,38 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         require(_hasNonZeroIntermediate(lo, hi), "AMOUNT0_ZERO_LIQ");
     }
 
-    function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, uint160 centerSqrtPriceX96)
+    function _calculateFirstPositionParams(
+        uint24 feeTier,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint160 centerSqrtPriceX96,
+        uint32 lowerBps,
+        uint32 upperBps
+    )
         internal view returns (IUniswapV3.MintParams memory params)
     {
-        uint32 lowerBps = 10_000;
-        uint32 upperBps = 10_000;
+        //uint32 lowerBps,   // down from center, bps (100 = -1.00%)
+        //uint32 upperBps,   // up from center, bps (100 = +1.00%)
+        require(lowerBps <= MAX_BPS && upperBps <= 1_000_000, "BPS_OOB");
+
+        // 2) factors sqrt((10000 ± bps)/10000) in Q96
+        uint160[] memory sqrtAB = new uint160[](2);
+        sqrtAB[0] = _sqrtRatioX96(MAX_BPS - lowerBps, MAX_BPS);
+        sqrtAB[1] = _sqrtRatioX96(MAX_BPS + upperBps, MAX_BPS);
+
+        // 3) target sqrt-prices
+        sqrtAB[0] = (centerSqrtPriceX96 * sqrtAB[0]) / Q96;
+        sqrtAB[1] = (centerSqrtPriceX96 * sqrtAB[1]) / Q96;
+
         // Build percent band around TWAP center
         int24[] memory ticks = new int24[](2);
-        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), lowerBps, upperBps, feeTier);
+        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(sqrtAB[0], sqrtAB[1], feeTier);
 
-        uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
         // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], amount0, amount1);
+        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
         // Check for zero value
         if (liquidityMin == 0) {
             revert ZeroValue();
@@ -401,13 +406,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Add iquidity
         params = IUniswapV3.MintParams({
-            token0: token0,
-            token1: token1,
+            token0: tokens[0],
+            token1: tokens[1],
             fee: feeTier,
             tickLower: ticks[0],
             tickUpper: ticks[1],
-            amount0Desired: amount0,
-            amount1Desired: amount1,
+            amount0Desired: amounts[0],
+            amount1Desired: amounts[1],
             amount0Min: amountsMin[0],
             amount1Min: amountsMin[1],
             recipient: address(this),
@@ -480,7 +485,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function convertToV3(address lpToken, uint24 feeTier, uint16 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
+    function convertToV3(address lpToken, uint24 feeTier, uint16 conversionRate, uint32 lowerBps, uint32 upperBps)
+        external returns (uint256 positionId, uint256 liquidity)
+    {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -508,12 +515,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Get V2 pair tokens - assume they are in lexicographical order as per Uniswap convention
         IUniswapV2Pair pair = IUniswapV2Pair(lpToken);
-        address token0 = pair.token0();
-        address token1 = pair.token1();
+        address[] memory tokens = new address[](2);
+        tokens[0] = pair.token0();
+        tokens[1] = pair.token1();
 
         // TODO Shall we accept non-OLAS pairs?
         // Check for OLAS in pair
-        if (token0 != olas && token1 != olas) {
+        if (tokens[0] != olas && tokens[1] != olas) {
             revert();
         }
 
@@ -528,12 +536,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Remove liquidity: note that at this point of time the price is validated with desired slippage,
         // and thus min out amounts can be set to 1
-        (uint256 amount0, uint256 amount1) =
-            IUniswapV2Router02(routerV2).removeLiquidity(token0, token1, liquidity, 1, 1, address(this), block.timestamp);
+        uint256[] memory amounts = new uint256[](2);
+        (amounts[0], amounts[1]) = IUniswapV2Router02(routerV2).removeLiquidity(tokens[0], tokens[1], liquidity, 1, 1,
+            address(this), block.timestamp);
 
         // V3
         // Get V3 pool
-        address pool = IUniswapV3(factoryV3).getPool(token0, token1, feeTier);
+        address pool = IUniswapV3(factoryV3).getPool(tokens[0], tokens[1], feeTier);
 
         // Check for zero address
         if (pool == address(0)) {
@@ -542,8 +551,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Recalculate amounts for adding position liquidity depending on conversion rate
         if (conversionRate < MAX_BPS) {
-            amount0 = (amount0 * conversionRate) / MAX_BPS;
-            amount1 = (amount1 * conversionRate) / MAX_BPS;
+            amounts[0] = (amounts[0] * conversionRate) / MAX_BPS;
+            amounts[1] = (amounts[1] * conversionRate) / MAX_BPS;
         }
 
         // Check current pool prices
@@ -551,30 +560,30 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         checkPoolPrices(pool, centerSqrtPriceX96);
 
         // Approve tokens for position manager
-        IToken(token0).approve(positionManagerV3, amount0);
-        IToken(token1).approve(positionManagerV3, amount1);
+        IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
+        IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
 
         positionId = mapPoolAddressPositionIds[pool];
 
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
             IUniswapV3.MintParams memory params =
-                _calculateFirstPositionParams(feeTier, token0, token1, amount0, amount1, centerSqrtPriceX96);
+                _calculateFirstPositionParams(feeTier, tokens, amounts, centerSqrtPriceX96, lowerBps, upperBps);
 
-            (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
+            (positionId, liquidity, amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).mint(params);
 
             mapPoolAddressPositionIds[pool] = positionId;
         } else {
             IPositionManagerV3.IncreaseLiquidityParams memory params =
-                _calculateIncreaseLiquidityParams(pool, positionId, amount0, amount1);
+                _calculateIncreaseLiquidityParams(pool, positionId, amounts[0], amounts[1]);
 
-            (liquidity, amount0, amount1) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
+            (liquidity, amounts[0], amounts[1]) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
         }
 
         // Manage utility and dust
-        _manageUtilityAmounts(token0, token1);
+        _manageUtilityAmounts(tokens[0], tokens[1]);
 
-        emit PositionMinted(positionId, token0, token1, amount0, amount1);
+        emit PositionMinted(positionId, tokens[0], tokens[1], amounts[0], amounts[1]);
 
         _locked = 1;
     }
@@ -640,13 +649,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         });
     }
 
-    function _calculateLiquidity(int24[] memory bestLoHi, uint256[] memory balances)
+    function _calculateLiquidity(int24[] memory ticks, uint256[] memory balances)
         internal pure returns (uint160[] memory sqrtAB, uint128 liquidity)
     {
         // Mint with best band
         sqrtAB = new uint160[](2);
-        sqrtAB[0] = TickMath.getSqrtRatioAtTick(bestLoHi[0]);
-        sqrtAB[1] = TickMath.getSqrtRatioAtTick(bestLoHi[1]);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
         liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
         uint128 liquidity1 = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
         liquidity = liquidity < liquidity1 ? liquidity : liquidity1;
@@ -656,7 +665,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
     }
 
-    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi, uint160 centerSqrtPriceX96)
+    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, uint160 sqrtLowerX96, uint160 sqrtUpperX96, uint160 centerSqrtPriceX96)
         internal returns (IUniswapV3.MintParams memory params)
     {
         // Build asymmetric band candidates around TWAP and scan neighborhood
@@ -664,14 +673,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         balances[0] = IToken(token0).balanceOf(address(this));
         balances[1] = IToken(token1).balanceOf(address(this));
 
-        int24[] memory bestLoHi = new int24[](2);
-        bestLoHi[0] = baseLo;
-        bestLoHi[1] = baseHi;
-        // TODO
-        //(bestLoHi[0], bestLoHi[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), bestLoHi[0], bestLoHi[1], feeTier);
+        int24[] memory ticks = new int24[](2);
+        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(sqrtLowerX96, sqrtUpperX96, feeTier);
 
         // TODO Is this already calculated above?
-        (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLoHi, balances);
+        (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(ticks, balances);
 
         uint256[] memory needs = new uint256[](2);
         uint256[] memory mins = new uint256[](2);
@@ -684,8 +690,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             token0: token0,
             token1: token1,
             fee: feeTier,
-            tickLower: bestLoHi[0],
-            tickUpper: bestLoHi[1],
+            tickLower: ticks[0],
+            tickUpper: ticks[1],
             amount0Desired: needs[0],
             amount1Desired: needs[1],
             amount0Min: mins[0],
@@ -694,10 +700,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             deadline: block.timestamp
         });
 
-        emit RangesChanged(token0, token1, bestLoHi[0], bestLoHi[1]);
+        emit RangesChanged(token0, token1, ticks[0], ticks[1]);
     }
 
-    function changeRanges(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi) external returns (uint256 positionId) {
+    function changeRanges(address token0, address token1, uint24 feeTier, uint160 sqrtLowerX96, uint160 sqrtUpperX96)
+        external returns (uint256 positionId, uint128 liquidity)
+    {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -706,6 +714,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Check for contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Sanity checks
+        if (sqrtLowerX96 > sqrtUpperX96) {
+            revert Overflow(sqrtLowerX96, sqrtUpperX96);
         }
 
         // Get V3 pool
@@ -738,9 +751,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _collectFees(token0, token1, currentPositionId);
 
         (IUniswapV3.MintParams memory params) =
-            _calculateRepositionParams(token0, token1, feeTier, baseLo, baseHi, centerSqrtPriceX96);
+            _calculateRepositionParams(token0, token1, feeTier, sqrtLowerX96, sqrtUpperX96, centerSqrtPriceX96);
 
-        uint128 liquidity;
         (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
         mapPoolAddressPositionIds[pool] = positionId;
