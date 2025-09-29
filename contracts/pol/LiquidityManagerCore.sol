@@ -387,9 +387,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         internal view returns (IUniswapV3.MintParams memory params)
     {
         uint32 lowerBps = 0;
-        uint32 upperBps = 500_000;
+        uint32 upperBps = 10_000;
         // Build percent band around TWAP center
-        int24[] memory ticks;
+        int24[] memory ticks = new int24[](2);
         (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), lowerBps, upperBps, feeTier);
 
         uint160[] memory sqrtAB = new uint160[](2);
@@ -740,11 +740,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Check current pool prices
         (, uint160 centerSqrtPriceX96, ) = getTwapFromOracle(pool);
         checkPoolPrices(pool, centerSqrtPriceX96);
-
-        // TODO Check for different ticks?
-//        if (baseLo == tickLower && baseHi == tickUpper) {
-//            revert();
-//        }
 
         IPositionManagerV3.DecreaseLiquidityParams memory decreaseParams =
             _calculateDecreaseLiquidityParams(pool, currentPositionId, 0);
