@@ -220,16 +220,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         maxSp = _floorToSpacing(MAX_TICK, spacing);
     }
 
-    function _minSafe(int24 spacing) private pure returns (int24) {
-        (int24 minSp, ) = _spacedBounds(spacing);
-        return minSp + SAFETY_STEPS * spacing;
-    }
-
-    function _maxSafe(int24 spacing) private pure returns (int24) {
-        (, int24 maxSp) = _spacedBounds(spacing);
-        return maxSp - SAFETY_STEPS * spacing;
-    }
-
     // check if intermediate = floor(sqrtA * sqrtB / Q96) is non-zero
     function _hasNonZeroIntermediate(int24 lo, int24 hi) private pure returns (bool) {
         uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
@@ -335,8 +325,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // 6) snap to spacing + safety margins
         (int24 minSp, int24 maxSp) = _spacedBounds(spacing);
-        int24 minSafe = _minSafe(spacing);
-        int24 maxSafe = _maxSafe(spacing);
+        int24 minSafe = minSp + SAFETY_STEPS * spacing;
+        int24 maxSafe = maxSp - SAFETY_STEPS * spacing;
 
         lo = _floorToSpacing(rawLo, spacing);
         hi = _ceilToSpacing(rawHi, spacing);
@@ -386,7 +376,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, uint160 centerSqrtPriceX96)
         internal view returns (IUniswapV3.MintParams memory params)
     {
-        uint32 lowerBps = 0;
+        uint32 lowerBps = 10_000;
         uint32 upperBps = 10_000;
         // Build percent band around TWAP center
         int24[] memory ticks = new int24[](2);
@@ -669,9 +659,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi, uint160 centerSqrtPriceX96)
         internal returns (IUniswapV3.MintParams memory params)
     {
-        // Get tick spacing
-        int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
-
         // Build asymmetric band candidates around TWAP and scan neighborhood
         uint256[] memory balances = new uint256[](2);
         balances[0] = IToken(token0).balanceOf(address(this));
@@ -681,7 +668,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         bestLoHi[0] = baseLo;
         bestLoHi[1] = baseHi;
         // TODO
-        //(bestLoHi[0], bestLoHi[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), bestLoHi[0], bestLoHi[1], tickSpacing);
+        //(bestLoHi[0], bestLoHi[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), bestLoHi[0], bestLoHi[1], feeTier);
 
         // TODO Is this already calculated above?
         (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLoHi, balances);
