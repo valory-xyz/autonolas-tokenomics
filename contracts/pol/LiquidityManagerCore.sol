@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
 import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {mulDiv} from "@prb/math/src/Common.sol";
 import {IErrorsTokenomics} from "../interfaces/IErrorsTokenomics.sol";
 import {IPositionManagerV3} from "../interfaces/IPositionManagerV3.sol";
 import {IToken} from "../interfaces/IToken.sol";
@@ -68,11 +69,17 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // Max conversion value from v2 to v3 in bps
     uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
-    int24 public constant SCAN_STEPS = 5;
-    /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
+    int24 public constant MAX_NUM_STEPS = 32;
+    // The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     int24 internal constant MIN_TICK = -887272;
-    /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
+    // The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
     int24 internal constant MAX_TICK = -MIN_TICK;
+    // Safety steps
+    int24 internal constant SAFETY_STEPS = 2;
+    // Steps near to tick boundaries
+    int24 internal constant NEAR_STEPS = SAFETY_STEPS;
+    // 2^96
+    uint256 public constant Q96 = 0x1000000000000000000000000;
 
     // OLAS token address
     address public immutable olas;
@@ -189,194 +196,208 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit UtilityAmountsManaged(olas, token1, olasAmount, tokenAmount);
     }
 
-    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
-    function _scanNeighborhood(uint256[] memory balances, int24 tickSpacing, uint160 sqrtP, int24[] memory baseLoHi)
-    internal pure returns (int24[] memory bestLoHi)
-    {
-        uint256 bestDust = type(uint256).max;
-
-        for (int24 i = - SCAN_STEPS; i <= SCAN_STEPS; ++i) {
-            for (int24 j = - SCAN_STEPS; j <= SCAN_STEPS; ++j) {
-                int24[] memory loHi = new int24[](2);
-                loHi[0] = baseLoHi[0] + i * tickSpacing;
-                loHi[1] = baseLoHi[1] + j * tickSpacing;
-                if (loHi[0] >= loHi[1]) continue;
-
-                uint160[] memory sqrtAB = new uint160[](2);
-                sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
-                sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
-
-                uint128[] memory liquidity = new uint128[](2);
-                liquidity[0] = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
-                liquidity[1] = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
-                liquidity[0] = liquidity[0] < liquidity[1] ? liquidity[0] : liquidity[1];
-                if (liquidity[0] == 0) continue;
-
-                uint256[] memory needs = new uint256[](2);
-                (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity[0]);
-                uint256 dust = (balances[0] > needs[0] ? balances[0] - needs[0] : 0) + (balances[1] > needs[1] ? balances[1] - needs[1] : 0);
-
-                if (dust < bestDust) {
-                    bestDust = dust;
-                    bestLoHi[0] = loHi[0];
-                    bestLoHi[1] = loHi[1];
-                }
-            }
-        }
-    }
-
-    /// @notice Integer sqrt for uint256 (Babylonian)
-    function _sqrt(uint256 x) private pure returns (uint256 y) {
-        if (x == 0) return 0;
-        uint256 z = (x + 1) >> 1;
-        y = x;
-        while (z < y) { y = z; z = (x / z + z) >> 1; }
-    }
-
-    /// @notice sqrt( num/den ) in Q96, computed as sqrt( (num<<192)/den ) then >>96
+    // sqrt(num/den) in Q96: sqrt((num<<192)/den), returns already scaled in Q96
     function _sqrtRatioX96(uint256 num, uint256 den) private pure returns (uint256) {
-        // factorX192 = (num/den) in Q192
-        uint256 factorX192 = (uint256(num) << 192) / den;
-        // sqrt in Q96
-        return _sqrt(factorX192);
+        uint256 x192 = (num << 192) / den;
+        return FixedPointMathLib.sqrt(x192);
     }
 
-    /// @notice floor to multiple of spacing (works for negative ticks too)
     function _floorToSpacing(int24 t, int24 spacing) private pure returns (int24) {
         int24 q = t / spacing;
-        // In Solidity, division toward zero. If negative and not multiple — go one step lower.
         if (t < 0 && (t % spacing != 0)) q -= 1;
         return q * spacing;
     }
 
-    /// @notice ceil to multiple of spacing (works for negative ticks too)
     function _ceilToSpacing(int24 t, int24 spacing) private pure returns (int24) {
         int24 q = t / spacing;
         if (t > 0 && (t % spacing != 0)) q += 1;
-        if (t < 0 && (t % spacing != 0)) {
-            // e.g. t=-59, spacing=60 -> q=-0 (rounded toward 0), но нам нужен 0 → q += 1
-            q += 1;
-        }
+        if (t < 0 && (t % spacing != 0)) q += 1; // proper ceil for negatives
         return q * spacing;
     }
 
-    /// @notice clamp tick to global min/max with spacing
-    function _clampToBounds(int24 t, int24 spacing) private pure returns (int24) {
-        // приведение глобальных границ к корректным spaced-границам
-        int24 minSp = _ceilToSpacing(MIN_TICK, spacing);
-        int24 maxSp = _floorToSpacing(MAX_TICK, spacing);
-        if (t < minSp) return minSp;
-        if (t > maxSp) return maxSp;
-        return t;
+    function _spacedBounds(int24 spacing) private pure returns (int24 minSp, int24 maxSp) {
+        minSp = _ceilToSpacing(MIN_TICK, spacing);
+        maxSp = _floorToSpacing(MAX_TICK, spacing);
     }
 
-    function _ticksFromPercent(uint160 centerSqrtPriceX96, int24 centerTick, uint32 lowerBps, uint32 upperBps,uint24 feeTier)
-        internal view returns (int24[] memory loHi)
-    {
-        int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+    function _minSafe(int24 spacing) private pure returns (int24) {
+        (int24 minSp, ) = _spacedBounds(spacing);
+        return minSp + SAFETY_STEPS * spacing;
+    }
 
-        // sqrt factors in Q96: sqrt( (10000 ± bps) / 10000 )
-        //    factorDown = sqrt( (10000 - lowerBps) / 10000 )
-        //    factorUp   = sqrt( (10000 + upperBps) / 10000 )
-        if (lowerBps > 10_000 || upperBps > 1_000_000) {
-            revert();
-        }
-        uint256[] memory sqrtX96LoHi = new uint256[](2);
-        sqrtX96LoHi[0] = _sqrtRatioX96(10_000 - lowerBps, 10_000);
-        sqrtX96LoHi[1] = _sqrtRatioX96(10_000 + upperBps, 10_000);
+    function _maxSafe(int24 spacing) private pure returns (int24) {
+        (, int24 maxSp) = _spacedBounds(spacing);
+        return maxSp - SAFETY_STEPS * spacing;
+    }
 
-        // target sqrt prices (Q96)
-        //    sqrtLower = sqrtPcenter * factorDown
-        //    sqrtUpper = sqrtPcenter * factorUp
-        sqrtX96LoHi[0] = (uint256(centerSqrtPriceX96) * sqrtX96LoHi[0]) / 2**96;
-        sqrtX96LoHi[1] = (uint256(centerSqrtPriceX96) * sqrtX96LoHi[1]) / 2**96;
+    // check if intermediate = floor(sqrtA * sqrtB / Q96) is non-zero
+    function _hasNonZeroIntermediate(int24 lo, int24 hi) private pure returns (bool) {
+        uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
+        uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+        uint256 intermediate = mulDiv(uint256(sqrtA), uint256(sqrtB), Q96);
+        return (intermediate > 0);
+    }
 
-        // guard: clamp to min/max sqrt supported by TickMath
-        if (sqrtX96LoHi[0] < uint256(TickMath.MIN_SQRT_RATIO)) {
-            sqrtX96LoHi[0] = TickMath.MIN_SQRT_RATIO;
-        }
-        if (sqrtX96LoHi[1] > uint256(TickMath.MAX_SQRT_RATIO)) {
-            sqrtX96LoHi[1] = TickMath.MAX_SQRT_RATIO;
-        }
+    // ---------- binary search to raise hi ----------
+    // Finds minimal hi ∈ [hi0, hiMax], multiple of spacing, such that intermediate > 0.
+    // If not found, returns hiMax as "best possible".
+    function _bsearchRaiseHi(
+        int24 lo,
+        int24 hi0,
+        int24 hiMax,
+        int24 spacing
+    ) private pure returns (int24) {
+        hi0  = _ceilToSpacing(hi0, spacing);
+        hiMax = _floorToSpacing(hiMax, spacing);
+        if (hi0 > hiMax) hi0 = hiMax;
 
-        loHi = new int24[](2);
-        // convert sqrt back to raw ticks
-        loHi[0] = TickMath.getTickAtSqrtRatio(uint160(sqrtX96LoHi[0]));
-        loHi[1] = TickMath.getTickAtSqrtRatio(uint160(sqrtX96LoHi[1]));
+        int24 L = hi0;
+        int24 R = hiMax;
+        int24 ans = hiMax;
 
-        loHi[1] = -442_000;
+        while (L <= R) {
+            int24 mid = _floorToSpacing( (L + R) / 2, spacing );
+            if (mid < L) mid = L;
 
-        // align to tickSpacing (floor lower, ceil upper)
-        loHi[0] = _floorToSpacing(loHi[0], spacing);
-        loHi[1] = _ceilToSpacing(loHi[1], spacing);
-
-        // clamp to global bounds with spacing
-        loHi[0] = _clampToBounds(loHi[0], spacing);
-        loHi[1] = _clampToBounds(loHi[1], spacing);
-
-        // 7) ensure non-empty interval and correct order
-        if (loHi[0] >= loHi[1]) {
-            // expand minimally by one spacing step around center
-            loHi[0] = _clampToBounds(loHi[0] - spacing, spacing);
-            loHi[1] = _clampToBounds(loHi[1] + spacing, spacing);
-            if (loHi[0] >= loHi[1]) {
-                revert();
+            if (_hasNonZeroIntermediate(lo, mid)) {
+                ans = mid;
+                R = mid - spacing;         // search for smaller hi
+            } else {
+                L = mid + spacing;         // need to raise hi further
             }
         }
+        return ans;
     }
 
-    /// @dev Changes the owner address.
-    /// @param newOwner Address of a new owner.
-    function changeOwner(address newOwner) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
+    // ---------- binary search to raise lo ----------
+    // Finds minimal lo ∈ [loMin, hi - spacing], multiple of spacing, such that intermediate > 0 (with fixed hi).
+    // If not found, returns hi - spacing (maximum possible raise of lo).
+    function _bsearchRaiseLo(
+        int24 loMin,
+        int24 hi,
+        int24 spacing
+    ) private pure returns (int24) {
+        loMin = _ceilToSpacing(loMin, spacing);
+        int24 loMax = _floorToSpacing(hi - spacing, spacing);
+        if (loMin > loMax) loMin = loMax;
 
-        // Check for the zero address
-        if (newOwner == address(0)) {
-            revert ZeroAddress();
-        }
+        int24 L = loMin;
+        int24 R = loMax;
+        int24 ans = loMax;
 
-        owner = newOwner;
-        emit OwnerUpdated(newOwner);
+        while (L <= R) {
+            int24 mid = _ceilToSpacing( (L + R) / 2, spacing );
+            if (mid > loMax) mid = loMax;
+
+            if (_hasNonZeroIntermediate(mid, hi)) {
+                ans = mid;
+                R = mid - spacing;   // try smaller lo
+            } else {
+                L = mid + spacing;   // need to raise lo further
+            }
+        }
+        return ans;
     }
 
-    /// @dev Changes liquidity manager implementation contract address.
-    /// @notice Make sure the implementation contract has a function to change the implementation.
-    /// @param implementation LiquidityManager implementation contract address.
-    function changeImplementation(address implementation) external {
-        // Check for contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
+    /// @notice Asymmetric ticks from bps around centerTick with WidenUp mode + binary search.
+    /// Ensures non-zero intermediate for amount0 formula without linear loops.
+    function _asymmetricTicksFromBpsWidenUp(
+        uint256 sqrtCenterX96,
+        uint32 lowerBps,   // down from center, bps (100 = -1.00%)
+        uint32 upperBps,   // up from center, bps (100 = +1.00%)
+        uint24 feeTier
+    ) internal view returns (int24 lo, int24 hi) {
+        // Get tick spacing
+        int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+
+        require(spacing > 0, "BAD_SPACING");
+        require(lowerBps <= 10_000 && upperBps <= 1_000_000, "BPS_OOB");
+
+        // 2) factors sqrt((10000 ± bps)/10000) in Q96
+        uint256 sqrtLowerX96 = _sqrtRatioX96(10_000 - lowerBps, 10_000);
+        uint256 sqrtUpperX96   = _sqrtRatioX96(10_000 + upperBps, 10_000);
+
+        // 3) target sqrt-prices
+        sqrtLowerX96 = (sqrtCenterX96 * sqrtLowerX96) / Q96;
+        sqrtUpperX96 = (sqrtCenterX96 * sqrtUpperX96)   / Q96;
+
+        // 4) clamp to MIN/MAX sqrt
+        if (sqrtLowerX96 < uint256(TickMath.MIN_SQRT_RATIO)) {
+            sqrtLowerX96 = uint256(TickMath.MIN_SQRT_RATIO);
+        }
+        if (sqrtUpperX96 > uint256(TickMath.MAX_SQRT_RATIO)) {
+            sqrtUpperX96 = uint256(TickMath.MAX_SQRT_RATIO);
         }
 
-        // Check for the zero address
-        if (implementation == address(0)) {
-            revert ZeroAddress();
+        // 5) raw ticks
+        int24 rawLo = TickMath.getTickAtSqrtRatio(uint160(sqrtLowerX96));
+        int24 rawHi = TickMath.getTickAtSqrtRatio(uint160(sqrtUpperX96));
+
+        // 6) snap to spacing + safety margins
+        (int24 minSp, int24 maxSp) = _spacedBounds(spacing);
+        int24 minSafe = _minSafe(spacing);
+        int24 maxSafe = _maxSafe(spacing);
+
+        lo = _floorToSpacing(rawLo, spacing);
+        hi = _ceilToSpacing(rawHi, spacing);
+
+        if (lo < minSafe) lo = minSafe;
+        if (hi > maxSafe) hi = maxSafe;
+
+        // 7) ensure non-empty interval
+        if (lo >= hi) {
+            lo = minSafe;
+            hi = _ceilToSpacing(lo + spacing, spacing);
+            if (hi > maxSafe) hi = maxSafe;
+            require(lo < hi, "EMPTY_RANGE");
         }
 
-        // Store the implementation address under the designated storage slot
-        assembly {
-            sstore(PROXY_LIQUIDITY_MANAGER, implementation)
+        // if already non-zero, return
+        if (_hasNonZeroIntermediate(lo, hi)) return (lo, hi);
+
+        // 8) choose widening side based on closeness to global boundaries
+        bool nearMin = (lo - minSp) <= NEAR_STEPS * spacing;
+        bool nearMax = (maxSp - hi) <= NEAR_STEPS * spacing;
+
+        if (nearMin && !nearMax) {
+            // lower near MIN → raise hi (widen upwards)
+            hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
+            if (!_hasNonZeroIntermediate(lo, hi)) {
+                lo = _bsearchRaiseLo(minSafe, hi, spacing);
+            }
+        } else if (nearMax && !nearMin) {
+            // upper near MAX → raise lo
+            lo = _bsearchRaiseLo(minSafe, hi, spacing);
+            if (!_hasNonZeroIntermediate(lo, hi)) {
+                hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
+            }
+        } else {
+            // neither or both near boundaries: first try raising hi
+            hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
+            if (!_hasNonZeroIntermediate(lo, hi)) {
+                lo = _bsearchRaiseLo(minSafe, hi, spacing);
+            }
         }
-        emit ImplementationUpdated(implementation);
+
+        require(lo >= minSafe && hi <= maxSafe && lo < hi, "RANGE_BOUNDS");
+        require(_hasNonZeroIntermediate(lo, hi), "AMOUNT0_ZERO_LIQ");
     }
 
-    function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, int24 averageTick, uint160 averageSqrtPriceX96)
+    function _calculateFirstPositionParams(uint24 feeTier, address token0, address token1, uint256 amount0, uint256 amount1, uint160 centerSqrtPriceX96)
         internal view returns (IUniswapV3.MintParams memory params)
     {
         uint32 lowerBps = 0;
         uint32 upperBps = 500_000;
         // Build percent band around TWAP center
-        int24[] memory ticks = _ticksFromPercent(averageSqrtPriceX96, averageTick, lowerBps, upperBps, feeTier);
+        int24[] memory ticks;
+        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), lowerBps, upperBps, feeTier);
 
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
         // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], amount0, amount1);
+        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], amount0, amount1);
         // Check for zero value
         if (liquidityMin == 0) {
             revert ZeroValue();
@@ -384,7 +405,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         uint256[] memory amountsMin = new uint256[](2);
         (amountsMin[0], amountsMin[1]) =
-            LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
+            LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
         amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
@@ -429,6 +450,44 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             amount1Min: amount1Min,
             deadline: block.timestamp
         });
+    }
+
+    /// @dev Changes the owner address.
+    /// @param newOwner Address of a new owner.
+    function changeOwner(address newOwner) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (newOwner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        owner = newOwner;
+        emit OwnerUpdated(newOwner);
+    }
+
+    /// @dev Changes liquidity manager implementation contract address.
+    /// @notice Make sure the implementation contract has a function to change the implementation.
+    /// @param implementation LiquidityManager implementation contract address.
+    function changeImplementation(address implementation) external {
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (implementation == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Store the implementation address under the designated storage slot
+        assembly {
+            sstore(PROXY_LIQUIDITY_MANAGER, implementation)
+        }
+        emit ImplementationUpdated(implementation);
     }
 
     function convertToV3(address lpToken, uint24 feeTier, uint16 conversionRate) external returns (uint256 liquidity, uint256 positionId) {
@@ -498,8 +557,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (, uint160 averageSqrtPriceX96, int24 averageTick) = getTwapFromOracle(pool);
-        checkPoolPrices(pool, averageSqrtPriceX96);
+        (, uint160 centerSqrtPriceX96,) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, centerSqrtPriceX96);
 
         // Approve tokens for position manager
         IToken(token0).approve(positionManagerV3, amount0);
@@ -510,7 +569,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
             IUniswapV3.MintParams memory params =
-                _calculateFirstPositionParams(feeTier, token0, token1, amount0, amount1, averageTick, averageSqrtPriceX96);
+                _calculateFirstPositionParams(feeTier, token0, token1, amount0, amount1, centerSqrtPriceX96);
 
             (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
 
@@ -549,8 +608,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
-        checkPoolPrices(pool, averageSqrtPriceX96);
+        (, uint160 centerSqrtPriceX96,) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, centerSqrtPriceX96);
 
         // Collect fees
         _collectFees(token0, token1, positionId);
@@ -607,7 +666,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
     }
 
-    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi, uint160 averageSqrtPriceX96)
+    function _calculateRepositionParams(address token0, address token1, uint24 feeTier, int24 baseLo, int24 baseHi, uint160 centerSqrtPriceX96)
         internal returns (IUniswapV3.MintParams memory params)
     {
         // Get tick spacing
@@ -621,14 +680,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         int24[] memory bestLoHi = new int24[](2);
         bestLoHi[0] = baseLo;
         bestLoHi[1] = baseHi;
-        bestLoHi = _scanNeighborhood(balances, tickSpacing, averageSqrtPriceX96, bestLoHi);
+        // TODO
+        //(bestLoHi[0], bestLoHi[1]) = _asymmetricTicksFromBpsWidenUp(uint256(centerSqrtPriceX96), bestLoHi[0], bestLoHi[1], tickSpacing);
 
         // TODO Is this already calculated above?
         (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(bestLoHi, balances);
 
         uint256[] memory needs = new uint256[](2);
         uint256[] memory mins = new uint256[](2);
-        (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(averageSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
+        (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
         mins[0] = needs[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         mins[1] = needs[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
@@ -678,8 +738,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (, uint160 averageSqrtPriceX96,) = getTwapFromOracle(pool);
-        checkPoolPrices(pool, averageSqrtPriceX96);
+        (, uint160 centerSqrtPriceX96, ) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, centerSqrtPriceX96);
 
         // TODO Check for different ticks?
 //        if (baseLo == tickLower && baseHi == tickUpper) {
@@ -696,7 +756,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _collectFees(token0, token1, currentPositionId);
 
         (IUniswapV3.MintParams memory params) =
-            _calculateRepositionParams(token0, token1, feeTier, baseLo, baseHi, averageSqrtPriceX96);
+            _calculateRepositionParams(token0, token1, feeTier, baseLo, baseHi, centerSqrtPriceX96);
 
         uint128 liquidity;
         (positionId, liquidity, amount0, amount1) = IUniswapV3(positionManagerV3).mint(params);
@@ -750,8 +810,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check current pool prices
-        (, uint160 averageSqrtPriceX96, ) = getTwapFromOracle(pool);
-        checkPoolPrices(pool, averageSqrtPriceX96);
+        (, uint160 centerSqrtPriceX96, ) = getTwapFromOracle(pool);
+        checkPoolPrices(pool, centerSqrtPriceX96);
 
         IPositionManagerV3.DecreaseLiquidityParams memory params = _calculateDecreaseLiquidityParams(pool, positionId, bps);
 
@@ -849,7 +909,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @dev Gets TWAP price via the built-in Uniswap V3 oracle.
     /// @param pool Pool address.
     /// @return price Calculated price.
-    function getTwapFromOracle(address pool) public view returns (uint256 price, uint160 averageSqrtPriceX96, int24 averageTick) {
+    /// @return centerSqrtPriceX96 Calculated center SQRT price.
+    /// @return centerTick Calculated center tick.
+    function getTwapFromOracle(address pool) public view returns (uint256 price, uint160 centerSqrtPriceX96, int24 centerTick) {
         // Query the pool for the current and historical tick
         uint32[] memory secondsAgos = new uint32[](2);
         // Start of the period
@@ -860,14 +922,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Calculate the average tick over the time period
         int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
-        averageTick = int24(tickCumulativeDelta / int56(int32(SECONDS_AGO)));
+        centerTick = int24(tickCumulativeDelta / int56(int32(SECONDS_AGO)));
 
         // Convert the average tick to sqrtPriceX96
-        averageSqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
+        centerSqrtPriceX96 = TickMath.getSqrtRatioAtTick(centerTick);
 
         // Calculate the price using the sqrtPriceX96
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        price = FixedPointMathLib.mulDivDown(uint256(averageSqrtPriceX96), uint256(averageSqrtPriceX96), (1 << 64));
+        price = FixedPointMathLib.mulDivDown(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
     }
     
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
