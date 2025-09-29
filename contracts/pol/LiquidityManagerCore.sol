@@ -239,8 +239,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         int24 L = hi0;
         int24 R = hiMax;
         int24 ans = hiMax;
-
-        while (L <= R) {
+        
+        // Binary search while L <= R
+        for (uint256 i = 0; i < 100; ++i) {
             int24 mid = _floorToSpacing( (L + R) / 2, spacing );
             if (mid < L) mid = L;
 
@@ -250,6 +251,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             } else {
                 L = mid + spacing;         // need to raise hi further
             }
+
+            // Break condition: L > R
+            if (L > R) break;
         }
         return ans;
     }
