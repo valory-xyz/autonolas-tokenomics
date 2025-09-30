@@ -123,7 +123,7 @@ result=$($castCmd)
 echo "$result" | grep "status"
 
 echo "${green}Convert liquidity v2 to v3${reset}"
-castArgs="$liquidityManagerETHAddress convertToV3(address,uint24,uint16) $pairAddress 10000 10000"
+castArgs="$liquidityManagerETHAddress convertToV3(address,uint24,uint16,uint32,uint32) $pairAddress 10000 10000 10000 10000"
 echo $castArgs
 castCmd="$castSendHeader $castArgs --gas-limit 10000000"
 result=$($castCmd)

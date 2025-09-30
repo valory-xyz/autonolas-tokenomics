@@ -69,6 +69,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // Max conversion value from v2 to v3 in bps
     uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
+    int24 public constant SCAN_STEPS = 5;
+    // TODO Calculate steps - linear gas spending dependency
     int24 public constant MAX_NUM_STEPS = 32;
     // The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     int24 internal constant MIN_TICK = -887272;
@@ -239,7 +241,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         int24 L = hi0;
         int24 R = hiMax;
         int24 ans = hiMax;
-        
+
         // Binary search while L <= R
         for (uint256 i = 0; i < 100; ++i) {
             int24 mid = _floorToSpacing( (L + R) / 2, spacing );
@@ -291,14 +293,16 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @notice Asymmetric ticks from bps around centerTick with WidenUp mode + binary search.
     /// Ensures non-zero intermediate for amount0 formula without linear loops.
     function _asymmetricTicksFromBpsWidenUp(
+        uint160 centerSqrtPriceX96,
         uint160 sqrtLowerX96,
         uint160 sqrtUpperX96,
-        uint24 feeTier
-    ) internal view returns (int24 lo, int24 hi) {
+        uint24 feeTier,
+        uint256[] memory balances
+    ) internal view returns (int24[] memory loHi) {
         // Get tick spacing
-        int24 spacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
+        int24 tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(feeTier);
         // Check for zero value
-        if (spacing == 0) {
+        if (tickSpacing == 0) {
             revert ZeroValue();
         }
 
@@ -311,58 +315,62 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // 5) raw ticks
-        int24 rawLo = TickMath.getTickAtSqrtRatio(sqrtLowerX96);
-        int24 rawHi = TickMath.getTickAtSqrtRatio(sqrtUpperX96);
+        loHi = new int24[](2);
+        loHi[0] = TickMath.getTickAtSqrtRatio(sqrtLowerX96);
+        loHi[1] = TickMath.getTickAtSqrtRatio(sqrtUpperX96);
 
         // 6) snap to spacing + safety margins
-        int24 minSp = _ceilToSpacing(MIN_TICK, spacing);
-        int24 maxSp = _floorToSpacing(MAX_TICK, spacing);
-        int24 minSafe = minSp + SAFETY_STEPS * spacing;
-        int24 maxSafe = maxSp - SAFETY_STEPS * spacing;
+        int24 minSp = _ceilToSpacing(MIN_TICK, tickSpacing);
+        int24 maxSp = _floorToSpacing(MAX_TICK, tickSpacing);
+        int24 minSafe = minSp + SAFETY_STEPS * tickSpacing;
+        int24 maxSafe = maxSp - SAFETY_STEPS * tickSpacing;
 
-        lo = _floorToSpacing(rawLo, spacing);
-        hi = _ceilToSpacing(rawHi, spacing);
+        loHi[0] = _floorToSpacing(loHi[0], tickSpacing);
+        loHi[1] = _ceilToSpacing(loHi[1], tickSpacing);
 
-        if (lo < minSafe) lo = minSafe;
-        if (hi > maxSafe) hi = maxSafe;
+        if (loHi[0] < minSafe) loHi[0] = minSafe;
+        if (loHi[1] > maxSafe) loHi[1] = maxSafe;
 
         // 7) ensure non-empty interval
-        if (lo >= hi) {
-            lo = minSafe;
-            hi = _ceilToSpacing(lo + spacing, spacing);
-            if (hi > maxSafe) hi = maxSafe;
-            require(lo < hi, "EMPTY_RANGE");
+        if (loHi[0] >= loHi[1]) {
+            loHi[0] = minSafe;
+            loHi[1] = _ceilToSpacing(loHi[0] + tickSpacing, tickSpacing);
+            if (loHi[1] > maxSafe) loHi[1] = maxSafe;
+            require(loHi[0] < loHi[1], "EMPTY_RANGE");
         }
 
         // if already non-zero, return
-        if (_hasNonZeroIntermediate(lo, hi)) return (lo, hi);
+        if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+            loHi = _scanNeighborhood(tickSpacing, centerSqrtPriceX96, loHi, balances);
+            return loHi;
+        }
 
         // 8) choose widening side based on closeness to global boundaries
-        bool nearMin = (lo - minSp) <= NEAR_STEPS * spacing;
-        bool nearMax = (maxSp - hi) <= NEAR_STEPS * spacing;
+        bool nearMin = (loHi[0] - minSp) <= NEAR_STEPS * tickSpacing;
+        bool nearMax = (maxSp - loHi[1]) <= NEAR_STEPS * tickSpacing;
 
         if (nearMin && !nearMax) {
-            // lower near MIN → raise hi (widen upwards)
-            hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
-            if (!_hasNonZeroIntermediate(lo, hi)) {
-                lo = _bsearchRaiseLo(minSafe, hi, spacing);
+            // lower near MIN → raise loHi[1] (widen upwards)
+            loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
             }
         } else if (nearMax && !nearMin) {
-            // upper near MAX → raise lo
-            lo = _bsearchRaiseLo(minSafe, hi, spacing);
-            if (!_hasNonZeroIntermediate(lo, hi)) {
-                hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
+            // upper near MAX → raise loHi[0]
+            loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
             }
         } else {
-            // neither or both near boundaries: first try raising hi
-            hi = _bsearchRaiseHi(lo, hi, maxSafe, spacing);
-            if (!_hasNonZeroIntermediate(lo, hi)) {
-                lo = _bsearchRaiseLo(minSafe, hi, spacing);
+            // neither or both near boundaries: first try raising loHi[1]
+            loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
             }
         }
 
-        require(lo >= minSafe && hi <= maxSafe && lo < hi, "RANGE_BOUNDS");
-        require(_hasNonZeroIntermediate(lo, hi), "AMOUNT0_ZERO_LIQ");
+        require(loHi[0] >= minSafe && loHi[1] <= maxSafe && loHi[0] < loHi[1], "RANGE_BOUNDS");
+        require(_hasNonZeroIntermediate(loHi[0], loHi[1]), "AMOUNT0_ZERO_LIQ");
     }
 
     function _calculateFirstPositionParams(
@@ -388,9 +396,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         sqrtAB[0] = (centerSqrtPriceX96 * sqrtAB[0]) / Q96;
         sqrtAB[1] = (centerSqrtPriceX96 * sqrtAB[1]) / Q96;
 
+        uint256[] memory balances = new uint256[](2);
+        balances[0] = IToken(tokens[0]).balanceOf(address(this));
+        balances[1] = IToken(tokens[1]).balanceOf(address(this));
+
         // Build percent band around TWAP center
-        int24[] memory ticks = new int24[](2);
-        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(sqrtAB[0], sqrtAB[1], feeTier);
+        int24[] memory ticks = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], feeTier, balances);
 
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
@@ -449,6 +460,42 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             amount1Min: amount1Min,
             deadline: block.timestamp
         });
+    }
+
+    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
+    function _scanNeighborhood(int24 tickSpacing, uint160 sqrtP, int24[] memory baseLoHi, uint256[] memory balances)
+    internal pure returns (int24[] memory bestLoHi)
+    {
+        uint256 bestDust = type(uint256).max;
+
+        for (int24 i = - SCAN_STEPS; i <= SCAN_STEPS; ++i) {
+            for (int24 j = - SCAN_STEPS; j <= SCAN_STEPS; ++j) {
+                int24[] memory loHi = new int24[](2);
+                loHi[0] = baseLoHi[0] + i * tickSpacing;
+                loHi[1] = baseLoHi[1] + j * tickSpacing;
+                if (loHi[0] >= loHi[1]) continue;
+
+                uint160[] memory sqrtAB = new uint160[](2);
+                sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
+                sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
+
+                uint128[] memory liquidity = new uint128[](2);
+                liquidity[0] = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
+                liquidity[1] = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
+                liquidity[0] = liquidity[0] < liquidity[1] ? liquidity[0] : liquidity[1];
+                if (liquidity[0] == 0) continue;
+
+                uint256[] memory needs = new uint256[](2);
+                (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity[0]);
+                uint256 dust = (balances[0] > needs[0] ? balances[0] - needs[0] : 0) + (balances[1] > needs[1] ? balances[1] - needs[1] : 0);
+
+                if (dust < bestDust) {
+                    bestDust = dust;
+                    bestLoHi[0] = loHi[0];
+                    bestLoHi[1] = loHi[1];
+                }
+            }
+        }
     }
 
     /// @dev Changes the owner address.
@@ -677,8 +724,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         balances[0] = IToken(token0).balanceOf(address(this));
         balances[1] = IToken(token1).balanceOf(address(this));
 
-        int24[] memory ticks = new int24[](2);
-        (ticks[0], ticks[1]) = _asymmetricTicksFromBpsWidenUp(sqrtLowerX96, sqrtUpperX96, feeTier);
+        int24[] memory ticks = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtLowerX96, sqrtUpperX96, feeTier, balances);
 
         // TODO Is this already calculated above?
         (uint160[] memory sqrtAB, uint128 liquidity) = _calculateLiquidity(ticks, balances);
