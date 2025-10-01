@@ -13,9 +13,9 @@ import {FullMath} from "../libraries/FullMath.sol";
  *         - pickLoPreferNarrow:   fix hi, find maximal lo
  *
  * Theory (inside-range case, sa < sp < sb):
- *   amount0(L) = L * (sb - sp) / (sp * sb)
- *   amount1(L) = L * (sp - sa)
- * For a fixed L, amount0 is increasing in sb; amount1 is decreasing in sa.
+ *   amounts[0](L) = L * (sb - sp) / (sp * sb)
+ *   amounts[1](L) = L * (sp - sa)
+ * For a fixed L, amounts[0] is increasing in sb; amounts[1] is decreasing in sa.
  *
  * The routines below use that monotonicity to run a robust binary search on the
  * tick grid, privileging *narrower* ranges whenever multiple choices consume balances.
@@ -23,7 +23,7 @@ import {FullMath} from "../libraries/FullMath.sol";
  * Notes:
  * - These functions only do math (preview), they DO NOT mint liquidity.
  * - Caller should compare candidate solutions by a single numeraire (e.g., token1),
- *   e.g. value_used / value_total where value0_in_1 = amount0 * (sqrtP^2 / 2^192).
+ *   e.g. value_used / value_total where value0_in_1 = amounts[0] * (sqrtP^2 / 2^192).
  */
 
 /// @title Neighborhood Scanner - Smart contract for scanning neighborhood ticks to better fit liquidity
@@ -32,6 +32,11 @@ import {FullMath} from "../libraries/FullMath.sol";
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract NeighborhoodScanner {
     enum Mode { HiPreferNarrow, LoPreferNarrow }
+
+    // Max bps value
+    uint16 public constant MAX_BPS = 10_000;
+    // TODO Calculate steps - linear gas spending dependency
+    uint8 public constant MAX_NUM_STEPS = 32;
 
     // ------------------------------------------------------------------------
     // Public API
@@ -50,33 +55,30 @@ contract NeighborhoodScanner {
      * @param tickSpacing   pool tick spacing
      * @param sqrtP         current sqrtPriceX96 (Q64.96)
      * @param loCandidate   lower tick candidate (will be snapped down to the grid)
-     * @param amount0       available token0 (b0)
-     * @param amount1       available token1 (b1)
+     * @param amounts[0]       available token0 (b0)
+     * @param amounts[1]       available token1 (b1)
      * @param maxUpTicks    corridor upwards from current tick (search cap)
      * @param tolAbs0       absolute tolerance in token0 (e.g., 1..10 wei)
-     * @param maxIters      max binary steps (e.g., 32)
      *
      * @return loBest   chosen lower tick (grid-aligned)
      * @return hiBest   chosen upper tick (grid-aligned)
      * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used0    preview amount0 actually consumed by Lbest in [loBest, hiBest]
-     * @return used1    preview amount1 actually consumed by Lbest in [loBest, hiBest]
+     * @return used0    preview amounts[0] actually consumed by Lbest in [loBest, hiBest]
+     * @return used1    preview amounts[1] actually consumed by Lbest in [loBest, hiBest]
      */
     function pickHiPreferNarrow(
         int24 tickSpacing,
         uint160 sqrtP,
         int24 loCandidate,
-        uint256 amount0,
-        uint256 amount1,
+        uint256[] memory amounts,
         int24 maxUpTicks,
-        uint256 tolAbs0,
-        uint8 maxIters
+        uint256 tolAbs0
     )
     public
     pure
     returns (int24 loBest, int24 hiBest, uint128 Lbest, uint256 used0, uint256 used1)
     {
-        require(amount0 > 0 || amount1 > 0, "NSB: zero balances");
+        require(amounts[0] > 0 || amounts[1] > 0, "NSB: zero balances");
 
         // Snap lo to grid and compute sa
         int24 lo = _roundDownToSpacing(loCandidate, tickSpacing);
@@ -102,7 +104,7 @@ contract NeighborhoodScanner {
         uint160 sbMax = TickMath.getSqrtRatioAtTick(hiMax);
 
         // Liquidity limited by token1 in (sa, sqrtP): L1 = getLiquidityForAmount1(sa, sqrtP, b1)
-        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amount1);
+        uint128 L1 = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
         if (L1 == 0) {
             // No token1 -> cannot place inside-range liquidity with fixed lo
             return (lo, hiMin, 0, 0, 0);
@@ -114,8 +116,8 @@ contract NeighborhoodScanner {
 
         // Case A: even at the *narrowest* hiMin, we already require too much token0 -> token0-limited.
         // Stick to the narrow edge (hiMin) and cap L by b0 as well.
-        if (need0_min > amount0 + tolAbs0) {
-            uint128 Lcap0_narrow = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMin, amount0);
+        if (need0_min > amounts[0] + tolAbs0) {
+            uint128 Lcap0_narrow = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMin, amounts[0]);
             uint128 Lfin_narrow  = _min128(Lcap0_narrow, L1);
             if (Lfin_narrow == 0) return (lo, hiMin, 0, 0, 0);
 
@@ -125,8 +127,8 @@ contract NeighborhoodScanner {
 
         // Case B: even at the *widest* hiMax, token0 requirement is still below b0 -> token1-limited.
         // Prefer *narrowest* hi that works => pick hiMin.
-        if (need0_max + tolAbs0 < amount0) {
-            uint128 Lcap0_narrow2 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMin, amount0);
+        if (need0_max + tolAbs0 < amounts[0]) {
+            uint128 Lcap0_narrow2 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMin, amounts[0]);
             uint128 Lfin_narrow2  = _min128(Lcap0_narrow2, L1);
             (uint256 u0n2, uint256 u1n2) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMin, Lfin_narrow2);
             return (lo, hiMin, Lfin_narrow2, u0n2, u1n2);
@@ -137,14 +139,14 @@ contract NeighborhoodScanner {
         int24 right = hiMax; // valid: need0(right) >= b0 - tol
 
         uint8 it = 0;
-        while (left < right && it++ < maxIters) {
+        while (left < right && it++ < MAX_NUM_STEPS) {
             int24 mid = _midTickGridFloor(left, right, tickSpacing); // floor to grid
             if (mid <= left) break; // converged
 
             uint160 sbMid = TickMath.getSqrtRatioAtTick(mid);
             (uint256 need0_mid, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, L1);
 
-            if (need0_mid > amount0 + tolAbs0) {
+            if (need0_mid > amounts[0] + tolAbs0) {
                 // need too much token0 -> range still too narrow -> move hi downward (closer to price)
                 // In terms of ticks: we must *decrease* hi; hi lives in (left..mid-1]
                 right = mid - tickSpacing;
@@ -158,7 +160,7 @@ contract NeighborhoodScanner {
         uint160 sbFinal = TickMath.getSqrtRatioAtTick(hiFinal);
 
         // Cap liquidity by b0 as well (to absorb rounding)
-        uint128 Lcap0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbFinal, amount0);
+        uint128 Lcap0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbFinal, amounts[0]);
         uint128 Lfin  = _min128(Lcap0, L1);
         if (Lfin == 0) return (lo, hiFinal, 0, 0, 0);
 
@@ -179,33 +181,30 @@ contract NeighborhoodScanner {
      * @param tickSpacing   pool tick spacing
      * @param sqrtP         current sqrtPriceX96 (Q64.96)
      * @param hiCandidate   upper tick candidate (will be snapped down to the grid)
-     * @param amount0       available token0 (b0)
-     * @param amount1       available token1 (b1)
+     * @param amounts[0]       available token0 (b0)
+     * @param amounts[1]       available token1 (b1)
      * @param maxDownTicks  corridor downwards from current tick (search cap)
      * @param tolAbs1       absolute tolerance in token1 (e.g., 1..10 wei)
-     * @param maxIters      max binary steps (e.g., 32)
      *
      * @return loBest   chosen lower tick (grid-aligned)
      * @return hiBest   chosen upper tick (grid-aligned)
      * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used0    preview amount0 actually consumed by Lbest in [loBest, hiBest]
-     * @return used1    preview amount1 actually consumed by Lbest in [loBest, hiBest]
+     * @return used0    preview amounts[0] actually consumed by Lbest in [loBest, hiBest]
+     * @return used1    preview amounts[1] actually consumed by Lbest in [loBest, hiBest]
      */
     function pickLoPreferNarrow(
         int24 tickSpacing,
         uint160 sqrtP,
         int24 hiCandidate,
-        uint256 amount0,
-        uint256 amount1,
+        uint256[] memory amounts,
         int24 maxDownTicks,
-        uint256 tolAbs1,
-        uint8 maxIters
+        uint256 tolAbs1
     )
     public
     pure
     returns (int24 loBest, int24 hiBest, uint128 Lbest, uint256 used0, uint256 used1)
     {
-        require(amount0 > 0 || amount1 > 0, "NSB: zero balances");
+        require(amounts[0] > 0 || amounts[1] > 0, "NSB: zero balances");
 
         // Snap hi to grid and compute sb
         int24 hi = _roundDownToSpacing(hiCandidate, tickSpacing);
@@ -231,7 +230,7 @@ contract NeighborhoodScanner {
         uint160 saMax = TickMath.getSqrtRatioAtTick(loMax);
 
         // Liquidity limited by token0 in (sqrtP, sb): L0 = getLiquidityForAmount0(sqrtP, sb, b0)
-        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amount0);
+        uint128 L0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
         if (L0 == 0) {
             // No token0 -> cannot place inside-range liquidity with fixed hi
             return (loMax, hi, 0, 0, 0);
@@ -240,12 +239,12 @@ contract NeighborhoodScanner {
         // need1 at corridor extremes with fixed L0
         (/*uint256 need0_const*/, uint256 need1_max) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMin, sb, L0);
         (/*uint256 _        */,   uint256 need1_min) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMax, sb, L0);
-        // Note: with fixed L0, amount0 inside-range is constant (= b0); amount1 decreases as sa increases.
+        // Note: with fixed L0, amounts[0] inside-range is constant (= b0); amounts[1] decreases as sa increases.
 
         // Case A: even at the *narrowest* loMax, we require too much token1 -> token1-limited.
         // Stick to the narrow edge (loMax) and cap L by b1 as well.
-        if (need1_min > amount1 + tolAbs1) {
-            uint128 Lcap1_narrow = LiquidityAmounts.getLiquidityForAmount1(saMax, sqrtP, amount1);
+        if (need1_min > amounts[1] + tolAbs1) {
+            uint128 Lcap1_narrow = LiquidityAmounts.getLiquidityForAmount1(saMax, sqrtP, amounts[1]);
             uint128 Lfin_narrow  = _min128(Lcap1_narrow, L0);
             if (Lfin_narrow == 0) return (loMax, hi, 0, 0, 0);
 
@@ -255,8 +254,8 @@ contract NeighborhoodScanner {
 
         // Case B: even at the *widest* loMin, token1 requirement is still below b1 -> token0-limited.
         // Prefer *narrowest* lo that works => pick loMax.
-        if (need1_max + tolAbs1 < amount1) {
-            uint128 Lcap1_narrow2 = LiquidityAmounts.getLiquidityForAmount1(saMax, sqrtP, amount1);
+        if (need1_max + tolAbs1 < amounts[1]) {
+            uint128 Lcap1_narrow2 = LiquidityAmounts.getLiquidityForAmount1(saMax, sqrtP, amounts[1]);
             uint128 Lfin_narrow2  = _min128(Lcap1_narrow2, L0);
             (uint256 u0n2, uint256 u1n2) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMax, sb, Lfin_narrow2);
             return (loMax, hi, Lfin_narrow2, u0n2, u1n2);
@@ -267,14 +266,14 @@ contract NeighborhoodScanner {
         int24 right = loMax; // valid: need1(right) <= b1 + tol
 
         uint8 it = 0;
-        while (left < right && it++ < maxIters) {
+        while (left < right && it++ < MAX_NUM_STEPS) {
             int24 mid = _midTickGridCeil(left, right, tickSpacing); // ceil to grid
             if (mid >= right) break; // converged
 
             uint160 saMid = TickMath.getSqrtRatioAtTick(mid);
             (, uint256 need1_mid) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMid, sb, L0);
 
-            if (need1_mid > amount1 + tolAbs1) {
+            if (need1_mid > amounts[1] + tolAbs1) {
                 // need too much token1 -> lo too close to price (too narrow from below)
                 // We must *decrease* lo; lo lives in [left..mid - spacing]
                 right = mid - tickSpacing;
@@ -288,7 +287,7 @@ contract NeighborhoodScanner {
         uint160 saFinal = TickMath.getSqrtRatioAtTick(loFinal);
 
         // Cap liquidity by b1 as well (to absorb rounding)
-        uint128 Lcap1 = LiquidityAmounts.getLiquidityForAmount1(saFinal, sqrtP, amount1);
+        uint128 Lcap1 = LiquidityAmounts.getLiquidityForAmount1(saFinal, sqrtP, amounts[1]);
         uint128 Lfin  = _min128(Lcap1, L0);
         if (Lfin == 0) return (loFinal, hi, 0, 0, 0);
 
@@ -353,12 +352,12 @@ contract NeighborhoodScanner {
         return x < y ? x : y;
     }
 
-    /// @notice Стоимость amount0 в token1-номинации: amount0 * P, где P=(sqrtP^2)/2^192
-    function value0InToken1(uint256 amount0, uint160 sqrtP) internal pure returns (uint256) {
-        if (amount0 == 0) return 0;
+    /// @notice Стоимость amount в token1-номинации: amount * P, где P=(sqrtP^2)/2^192
+    function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (uint256) {
+        if (amount == 0) return 0;
         unchecked {
             uint256 num = uint256(sqrtP) * uint256(sqrtP);           // sqrtP^2 (до 256 бит)
-            return FullMath.mulDiv(amount0, num, 1 << 192);
+            return FullMath.mulDiv(amount, num, 1 << 192);
         }
     }
 
@@ -414,12 +413,10 @@ contract NeighborhoodScanner {
         uint160 sqrtP,
         int24 loCandidate,
         int24 hiCandidate,
-        uint256 b0,
-        uint256 b1,
+        uint256[] memory amounts,
         int24 corridorTicks, //  например 100_000
         uint256 tolAbs0,     // 1..10 wei
         uint256 tolAbs1,     // 1..10 wei
-        uint8  maxIters,     // 32
         uint16 epsilonBps    // 200
     )
     external
@@ -440,18 +437,18 @@ contract NeighborhoodScanner {
         uint256[] memory amountsMin = new uint256[](2);
 
         // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], b0, b1);
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
         // Check for zero value
         if (liquidity > 0) {
             (amountsMin[0], amountsMin[1]) =
                 LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
-            amountsMin[0] = amountsMin[0] * 9_000 / 10_000;//(MAX_BPS - maxSlippage) / MAX_BPS;
-            amountsMin[1] = amountsMin[1] * 9_000 / 10_000;//(MAX_BPS - maxSlippage) / MAX_BPS;
+            amountsMin[0] = amountsMin[0] * 9_000 / MAX_BPS;//(MAX_BPS - maxSlippage) / MAX_BPS;
+            amountsMin[1] = amountsMin[1] * 9_000 / MAX_BPS;//(MAX_BPS - maxSlippage) / MAX_BPS;
 
-            utilization1e18Before = utilization1e18(used0, used1, b0, b1, sqrtP);
+            utilization1e18Before = utilization1e18(used0, used1, amounts[0], amounts[1], sqrtP);
         }
 
-        Mode modeChosen = chooseMode(sqrtP, b0, b1, epsilonBps);
+        Mode modeChosen = chooseMode(sqrtP, amounts[0], amounts[1], epsilonBps);
 
         if (modeChosen == Mode.HiPreferNarrow) {
             (loBest, hiBest, Lbest, used0, used1) =
@@ -459,11 +456,9 @@ contract NeighborhoodScanner {
                 tickSpacing,
                 sqrtP,
                 loCandidate,
-                b0,
-                b1,
+                amounts,
                 corridorTicks,        // maxUpTicks
-                tolAbs0,
-                uint8(maxIters)
+                tolAbs0
             );
         } else {
             (loBest, hiBest, Lbest, used0, used1) =
@@ -471,15 +466,13 @@ contract NeighborhoodScanner {
                 tickSpacing,
                 sqrtP,
                 hiCandidate,
-                b0,
-                b1,
+                amounts,
                 corridorTicks,        // maxDownTicks
-                tolAbs1,
-                uint8(maxIters)
+                tolAbs1
             );
         }
 
-        uint256 utilization1e18After = utilization1e18(used0, used1, b0, b1, sqrtP);
+        uint256 utilization1e18After = utilization1e18(used0, used1, amounts[0], amounts[1], sqrtP);
 
         // Check for best outcome
         return (utilization1e18Before > utilization1e18After) ?

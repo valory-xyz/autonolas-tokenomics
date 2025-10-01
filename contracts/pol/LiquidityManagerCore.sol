@@ -34,12 +34,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
-    // Max conversion value from v2 to v3 in bps
+    // // Max bps value
     uint16 public constant MAX_BPS = 10_000;
-    // TODO Calculate steps - linear gas spending dependency
-    int24 public constant SCAN_STEPS = 5;
-    // TODO Calculate steps - linear gas spending dependency
-    int24 public constant MAX_NUM_STEPS = 32;
     // The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     int24 internal constant MIN_TICK = -887272;
     // The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
@@ -355,21 +351,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         require(_hasNonZeroIntermediate(loHi[0], loHi[1]), "AMOUNT0_ZERO_LIQ");
     }
 
-    function _calculateTicks(
-        address[] memory tokens,
-        int24 feeTierOrTickSpacing,
-        uint160 centerSqrtPriceX96,
-        uint160[] memory sqrtAB,
-        bool scan
-    ) internal view returns (int24[] memory ticks) {
-        uint256[] memory balances = new uint256[](2);
-        balances[0] = IToken(tokens[0]).balanceOf(address(this));
-        balances[1] = IToken(tokens[1]).balanceOf(address(this));
-
-        // Build percent band around TWAP center
-        ticks = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], feeTierOrTickSpacing, balances, scan);
-    }
-
     function _mint(
         address[] memory tokens,
         uint256[] memory amounts,
@@ -381,7 +362,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         internal returns (uint256 positionId, uint128 liquidity)
     {
         // Build percent band around TWAP center
-        int24[] memory ticks = _calculateTicks(tokens, feeTierOrTickSpacing, centerSqrtPriceX96, sqrtAB, scan);
+        int24[] memory ticks = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], feeTierOrTickSpacing, amounts, scan);
 
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
@@ -446,7 +427,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
         liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1);
         (uint256 amount0Min, uint256 amount1Min) =
-                            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtRatioAX96, sqrtRatioBX96, liquidityMin);
         amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
         amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
 
