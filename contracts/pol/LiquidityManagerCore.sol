@@ -322,7 +322,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // if already non-zero, return
         if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
             if (scan) {
-                loHi = _scanNeighborhood(tickSpacing, centerSqrtPriceX96, loHi, balances);
+                //loHi = _scanNeighborhood(tickSpacing, centerSqrtPriceX96, loHi, balances);
             }
             return loHi;
         }
@@ -458,43 +458,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             amount1Min: amount1Min,
             deadline: block.timestamp
         });
-    }
-
-    // Small neighborhood scan: try shifting lo/hi by ±k*spacing to minimize dust
-    function _scanNeighborhood(int24 tickSpacing, uint160 sqrtP, int24[] memory baseLoHi, uint256[] memory balances)
-    internal pure returns (int24[] memory bestLoHi)
-    {
-        uint256 bestDust = type(uint256).max;
-
-        bestLoHi = new int24[](2);
-        for (int24 i = - SCAN_STEPS; i <= SCAN_STEPS; ++i) {
-            for (int24 j = - SCAN_STEPS; j <= SCAN_STEPS; ++j) {
-                int24[] memory loHi = new int24[](2);
-                loHi[0] = baseLoHi[0] + i * tickSpacing;
-                loHi[1] = baseLoHi[1] + j * tickSpacing;
-                if (loHi[0] >= loHi[1]) continue;
-
-                uint160[] memory sqrtAB = new uint160[](2);
-                sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
-                sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
-
-                uint128[] memory liquidity = new uint128[](2);
-                liquidity[0] = LiquidityAmounts.getLiquidityForAmount0(sqrtAB[0], sqrtAB[1], balances[0]);
-                liquidity[1] = LiquidityAmounts.getLiquidityForAmount1(sqrtAB[0], sqrtAB[1], balances[1]);
-                liquidity[0] = liquidity[0] < liquidity[1] ? liquidity[0] : liquidity[1];
-                if (liquidity[0] == 0) continue;
-
-                uint256[] memory needs = new uint256[](2);
-                (needs[0], needs[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity[0]);
-                uint256 dust = (balances[0] > needs[0] ? balances[0] - needs[0] : 0) + (balances[1] > needs[1] ? balances[1] - needs[1] : 0);
-
-                if (dust < bestDust) {
-                    bestDust = dust;
-                    bestLoHi[0] = loHi[0];
-                    bestLoHi[1] = loHi[1];
-                }
-            }
-        }
     }
 
     /// @dev Changes the owner address.

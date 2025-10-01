@@ -129,7 +129,7 @@ feeTier=3000
 conversionRatio=10000
 scan="true"
 echo "${green}Convert liquidity v2 to v3${reset}"
-castArgs="$liquidityManagerETHAddress convertToV3(address,uint24,uint16,uint32,uint32,bool) $pairAddress $feeTier $conversionRatio $lowerBps $higherBps $scan"
+castArgs="$liquidityManagerETHAddress convertToV3(address,int24,uint16,uint32,uint32,bool) $pairAddress $feeTier $conversionRatio $lowerBps $higherBps $scan"
 echo $castArgs
 castCmd="$castSendHeader $castArgs --gas-limit 10000000"
 result=$($castCmd)
