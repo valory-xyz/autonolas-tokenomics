@@ -121,6 +121,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _positionManagerV3 Uniswap V3 position manager address.
+    /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
     /// @param _maxSlippage Max slippage for operations.
     /// @param _oracleV2 V2 pool related oracle address.
@@ -129,11 +130,12 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         address _olas,
         address _treasury,
         address _positionManagerV3,
+        address _neighborhoodScanner,
         uint16 _observationCardinality,
         uint16 _maxSlippage,
         address _routerV2,
         address _oracleV2
-    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _observationCardinality, _maxSlippage)
+    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality, _maxSlippage)
     {
         // Check for zero addresses
         if (_routerV2 == address(0) || _oracleV2 == address(0)) {

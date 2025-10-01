@@ -12,6 +12,23 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 
+interface INeighborhoodScanner {
+    function scanNeighborhood(
+        int24 tickSpacing,
+        uint160 sqrtP,
+        int24[] memory loHiCandidates,
+        uint256[] memory amounts,
+        uint16 maxSlippage
+    )
+    external
+    pure
+    returns (
+        int24[] memory loHiBest,
+        uint128 Lbest,
+        uint256[] memory used
+    );
+}
+
 /// @title Liquidity Manager Core - Smart contract for OLAS core Liquidity Manager functionality
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
@@ -55,6 +72,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     address public immutable positionManagerV3;
     // V3 factory
     address public immutable factoryV3;
+    // Neighborhood ticks scanner
+    address public immutable neighborhoodScanner;
     // Observations cardinality
     uint16 public immutable observationCardinality;
 
@@ -74,19 +93,22 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @param _olas OLAS token address.
     /// @param _treasury Treasury address.
     /// @param _positionManagerV3 Uniswap V3 position manager address.
+    /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
     /// @param _maxSlippage Max slippage for operations.
     constructor(
         address _olas,
         address _treasury,
         address _positionManagerV3,
+        address _neighborhoodScanner,
         uint16 _observationCardinality,
         uint16 _maxSlippage
     ) {
         owner = msg.sender;
 
         // Check for zero addresses
-        if (_olas == address(0) || _treasury == address(0) || _positionManagerV3 == address(0))
+        if (_olas == address(0) || _treasury == address(0) || _positionManagerV3 == address(0) ||
+            _neighborhoodScanner == address(0))
         {
             revert ZeroAddress();
         }
@@ -103,6 +125,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         olas = _olas;
         treasury = _treasury;
         positionManagerV3 = _positionManagerV3;
+        neighborhoodScanner = _neighborhoodScanner;
         observationCardinality = _observationCardinality;
         maxSlippage = _maxSlippage;
 
@@ -143,9 +166,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         if (amount0 == 0 && amount1 == 0) {
             revert ZeroValue();
         }
-
-        // Manage collected fees
-        _manageUtilityAmounts(token0, token1);
 
         emit FeesCollected(msg.sender, token0, token1, amount0, amount1);
     }
@@ -318,7 +338,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // if already non-zero, return
         if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
             if (scan) {
-                //loHi = _scanNeighborhood(tickSpacing, centerSqrtPriceX96, loHi, balances);
+                (loHi, , ) = INeighborhoodScanner(neighborhoodScanner).scanNeighborhood(tickSpacing, centerSqrtPriceX96,
+                    loHi, balances, maxSlippage);
             }
             return loHi;
         }
@@ -376,7 +397,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         uint256[] memory amountsMin = new uint256[](2);
         (amountsMin[0], amountsMin[1]) =
-        LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
+            LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
         amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
@@ -500,8 +521,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert Overflow(conversionRate, MAX_BPS);
         }
 
-        // Remove liquidity from V2 pool
-        (address[] memory tokens, uint256[] memory amounts) = _removeLiquidityV2(v2Pool);
+        //if (v2Pool == 0) {
+
+        //} else {
+            // Remove liquidity from V2 pool
+            (address[] memory tokens, uint256[] memory amounts) = _removeLiquidityV2(v2Pool);
+        //}
 
         // Get V3 pool
         address v3Pool = _getV3Pool(tokens[0], tokens[1], feeTierOrTickSpacing);
@@ -531,8 +556,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             (positionId, liquidity) =
                 _calculateFirstPositionParams(feeTierOrTickSpacing, tokens, amounts, centerSqrtPriceX96, lowerBps, upperBps, scan);
 
-            //(positionId, liquidity, amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).mint(params);
-
             mapPoolAddressPositionIds[v3Pool] = positionId;
 
             // Increase observation cardinality
@@ -544,7 +567,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             (liquidity, amounts[0], amounts[1]) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
         }
 
-        // Manage utility and dust
+        // TODO transfer both to treasury
+        // Manage fees and dust
         _manageUtilityAmounts(tokens[0], tokens[1]);
 
         emit PositionMinted(positionId, tokens[0], tokens[1], amounts[0], amounts[1]);
@@ -554,6 +578,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
     /// @dev Collects fees from LP position, burns OLAS tokens transfers another token to BBB.
     function collectFees(address token0, address token1, int24 feeTierOrTickSpacing) external {
+        // TODO reentrancy
         // Get V3 pool
         address pool = _getV3Pool(token0, token1, feeTierOrTickSpacing);
 
@@ -575,6 +600,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Collect fees
         _collectFees(token0, token1, positionId);
+
+        // Manage collected fees
+        _manageUtilityAmounts(token0, token1);
 
         _locked = 1;
     }
@@ -658,6 +686,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Collect fees
         _collectFees(token0, token1, currentPositionId);
+        // TODO burn fees or supply to a new position?
 
         address[] memory tokens = new address[](2);
         tokens[0] = token0;
@@ -670,6 +699,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         mapPoolAddressPositionIds[pool] = positionId;
 
+        // TODO transfer leftovers both to treasury
         // Manage fees and dust
         _manageUtilityAmounts(token0, token1);
 
@@ -735,10 +765,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             }
         }
 
+        // If full position is decreased, remove it such that there is a possibility to create a new one
+        if (bps == MAX_BPS) {
+            mapPoolAddressPositionIds[pool] = 0;
+        }
+
         // Collect fees
         _collectFees(token0, token1, positionId);
 
-        // Manage fees and dust
+        // Manage collected fees and dust
         _manageUtilityAmounts(token0, token1);
 
         emit LiquidityDecreased(positionId, token0, token1, amount0, amount1, olasWithdrawAmount);
