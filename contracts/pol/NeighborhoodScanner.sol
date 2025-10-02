@@ -441,8 +441,7 @@ contract NeighborhoodScanner {
         int24 tickSpacing,
         uint160 sqrtP,
         int24[] memory loHiCandidates,
-        uint256[] memory amounts,
-        uint16 maxSlippage
+        uint256[] memory amounts
     )
     external
     pure
@@ -471,8 +470,6 @@ contract NeighborhoodScanner {
         if (liquidity > 0) {
             (amountsMin[0], amountsMin[1]) =
                 LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
-            amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
-            amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
             utilization1e18BeforeAfter[0] = utilization1e18(amountsMin, amounts, sqrtP);
         }

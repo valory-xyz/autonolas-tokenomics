@@ -133,17 +133,17 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         address _neighborhoodScanner,
         uint16 _observationCardinality,
         uint16 _maxSlippage,
-        address _routerV2,
-        address _oracleV2
+        address _oracleV2,
+        address _routerV2
     ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality, _maxSlippage)
     {
         // Check for zero addresses
-        if (_routerV2 == address(0) || _oracleV2 == address(0)) {
+        if (_oracleV2 == address(0) || _routerV2 == address(0)) {
             revert ZeroAddress();
         }
 
-        routerV2 = _routerV2;
         oracleV2 = _oracleV2;
+        routerV2 = _routerV2;
     }
 
     /// @dev Burns OLAS.

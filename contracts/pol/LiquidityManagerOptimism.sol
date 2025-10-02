@@ -174,8 +174,8 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
     /// @param _maxSlippage Max slippage for operations.
-    /// @param _balancerVault Balancer vault address.
     /// @param _oracleV2 V2 pool related oracle address.
+    /// @param _balancerVault Balancer vault address.
     /// @param _bridge2Burner Bridge to Burner address.
     constructor(
         address _olas,
@@ -184,18 +184,18 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         address _neighborhoodScanner,
         uint16 _observationCardinality,
         uint16 _maxSlippage,
-        address _balancerVault,
         address _oracleV2,
+        address _balancerVault,
         address _bridge2Burner
     ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality, _maxSlippage)
     {
         // Check for zero address
-        if (_balancerVault == address(0) || _oracleV2 == address(0) || _bridge2Burner == address(0)) {
+        if (_oracleV2 == address(0) || _balancerVault == address(0) || _bridge2Burner == address(0)) {
             revert ZeroAddress();
         }
 
-        balancerVault = _balancerVault;
         oracleV2 = _oracleV2;
+        balancerVault = _balancerVault;
         bridge2Burner = _bridge2Burner;
     }
 

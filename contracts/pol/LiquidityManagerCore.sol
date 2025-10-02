@@ -17,8 +17,7 @@ interface INeighborhoodScanner {
         int24 tickSpacing,
         uint160 sqrtP,
         int24[] memory loHiCandidates,
-        uint256[] memory amounts,
-        uint16 maxSlippage
+        uint256[] memory amounts
     )
     external
     pure
@@ -37,7 +36,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount);
-    event PositionMinted(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
+    event PositionMinted(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, uint256 liquidiy);
     event FeesCollected(address indexed sender, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1);
     event TicksSet(address indexed token0, address indexed token1, int24 feeTierOrTickSpacing, int24 tickLower, int24 tickUpper);
     event LiquidityDecreased(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, uint256 olasWithdrawAmount);
@@ -289,12 +288,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// Ensures non-zero intermediate for amount0 formula without linear loops.
     function _asymmetricTicksFromBpsWidenUp(
         uint160 centerSqrtPriceX96,
-        uint160 sqrtLowerX96,
-        uint160 sqrtUpperX96,
+        uint160[] memory sqrtLowerUpperX96,
         int24 feeTierOrTickSpacing,
         uint256[] memory balances,
         bool scan
-    ) internal view returns (int24[] memory loHi) {
+    ) internal view returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
         // Get tick spacing
         int24 tickSpacing = _feeAmountTickSpacing(feeTierOrTickSpacing);
         // Check for zero value
@@ -303,17 +301,17 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // 4) clamp to MIN/MAX sqrt
-        if (sqrtLowerX96 < TickMath.MIN_SQRT_RATIO) {
-            sqrtLowerX96 = TickMath.MIN_SQRT_RATIO;
+        if (sqrtLowerUpperX96[0] < TickMath.MIN_SQRT_RATIO) {
+            sqrtLowerUpperX96[0] = TickMath.MIN_SQRT_RATIO;
         }
-        if (sqrtUpperX96 > TickMath.MAX_SQRT_RATIO) {
-            sqrtUpperX96 = TickMath.MAX_SQRT_RATIO;
+        if (sqrtLowerUpperX96[1] > TickMath.MAX_SQRT_RATIO) {
+            sqrtLowerUpperX96[1] = TickMath.MAX_SQRT_RATIO;
         }
 
         // 5) raw ticks
         loHi = new int24[](2);
-        loHi[0] = TickMath.getTickAtSqrtRatio(sqrtLowerX96);
-        loHi[1] = TickMath.getTickAtSqrtRatio(sqrtUpperX96);
+        loHi[0] = TickMath.getTickAtSqrtRatio(sqrtLowerUpperX96[0]);
+        loHi[1] = TickMath.getTickAtSqrtRatio(sqrtLowerUpperX96[1]);
 
         // 6) snap to spacing + safety margins
         int24 minSp = _ceilToSpacing(MIN_TICK, tickSpacing);
@@ -338,10 +336,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // if already non-zero, return
         if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
             if (scan) {
-                (loHi, , ) = INeighborhoodScanner(neighborhoodScanner).scanNeighborhood(tickSpacing, centerSqrtPriceX96,
-                    loHi, balances, maxSlippage);
+                (loHi, liquidity, amountsDesired) = INeighborhoodScanner(neighborhoodScanner).scanNeighborhood(tickSpacing, centerSqrtPriceX96,
+                    loHi, balances);
             }
-            return loHi;
+            amountsDesired = balances;
+            return (loHi, liquidity, amountsDesired);
         }
 
         // 8) choose widening side based on closeness to global boundaries
@@ -380,31 +379,34 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint160[] memory sqrtAB,
         bool scan
     )
-        internal returns (uint256 positionId, uint128 liquidity)
+        internal returns (uint256 positionId)
     {
         // Build percent band around TWAP center
-        int24[] memory ticks = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], feeTierOrTickSpacing, amounts, scan);
-
-        sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
-        sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
-
-        // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
-        // Check for zero value
-        if (liquidityMin == 0) {
-            revert ZeroValue();
-        }
+        (int24[] memory ticks, uint128 liquidity, uint256[] memory amountsDesired) =
+            _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB, feeTierOrTickSpacing, amounts, scan);
 
         uint256[] memory amountsMin = new uint256[](2);
-        (amountsMin[0], amountsMin[1]) =
-            LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidityMin);
+        if (!scan) {
+            sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
+            sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
+
+            // Compute expected amounts for increase (TWAP) -> slippage guards
+            liquidity = LiquidityAmounts.getLiquidityForAmounts(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
+            // Check for zero value
+            if (liquidity == 0) {
+                revert ZeroValue();
+            }
+
+            (amountsMin[0], amountsMin[1]) =
+                LiquidityAmounts.getAmountsForLiquidity(centerSqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
+        }
         amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         (positionId, liquidity, amounts) = _mintV3(tokens, amounts, amountsMin, ticks, feeTierOrTickSpacing, centerSqrtPriceX96);
 
         emit TicksSet(tokens[0], tokens[1], feeTierOrTickSpacing, ticks[0], ticks[1]);
-        emit PositionMinted(positionId, tokens[0], tokens[1], amounts[0], amounts[1]);
+        emit PositionMinted(positionId, tokens[0], tokens[1], amounts[0], amounts[1], liquidity);
     }
 
     function _calculateFirstPositionParams(
@@ -412,20 +414,19 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         address[] memory tokens,
         uint256[] memory amounts,
         uint160 centerSqrtPriceX96,
-        uint32 lowerBps,
-        uint32 upperBps,
+        uint32[] memory lowerHigherBps,
         bool scan
     )
-        internal returns (uint256 positionId, uint128 liquidity)
+        internal returns (uint256 positionId)
     {
         //uint32 lowerBps,   // down from center, bps (100 = -1.00%)
         //uint32 upperBps,   // up from center, bps (100 = +1.00%)
-        require(lowerBps <= MAX_BPS && upperBps <= 1_000_000, "BPS_OOB");
+        require(lowerHigherBps[0] <= MAX_BPS && lowerHigherBps[1] <= 1_000_000, "BPS_OOB");
 
         // 2) factors sqrt((10000 ± bps)/10000) in Q96
         uint160[] memory sqrtAB = new uint160[](2);
-        sqrtAB[0] = _sqrtRatioX96(MAX_BPS - lowerBps, MAX_BPS);
-        sqrtAB[1] = _sqrtRatioX96(MAX_BPS + upperBps, MAX_BPS);
+        sqrtAB[0] = _sqrtRatioX96(MAX_BPS - lowerHigherBps[0], MAX_BPS);
+        sqrtAB[1] = _sqrtRatioX96(MAX_BPS + lowerHigherBps[1], MAX_BPS);
 
         // 3) target sqrt-prices
         sqrtAB[0] = uint160(mulDiv(uint256(centerSqrtPriceX96), uint256(sqrtAB[0]), Q96));
@@ -500,7 +501,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function convertToV3(bytes32 v2Pool, int24 feeTierOrTickSpacing, uint16 conversionRate, uint32 lowerBps, uint32 upperBps, bool scan)
+    function convertToV3(bytes32 v2Pool, int24 feeTierOrTickSpacing, uint16 conversionRate, uint32[] memory lowerHigherBps, bool scan)
         external returns (uint256 positionId, uint256 liquidity)
     {
         if (_locked > 1) {
@@ -553,8 +554,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
-            (positionId, liquidity) =
-                _calculateFirstPositionParams(feeTierOrTickSpacing, tokens, amounts, centerSqrtPriceX96, lowerBps, upperBps, scan);
+            positionId = _calculateFirstPositionParams(feeTierOrTickSpacing, tokens, amounts, centerSqrtPriceX96,
+                lowerHigherBps, scan);
 
             mapPoolAddressPositionIds[v3Pool] = positionId;
 
@@ -571,7 +572,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage fees and dust
         _manageUtilityAmounts(tokens[0], tokens[1]);
 
-        emit PositionMinted(positionId, tokens[0], tokens[1], amounts[0], amounts[1]);
+        // TODO return liquidity and maybe amounts
 
         _locked = 1;
     }
@@ -695,7 +696,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         sqrtAB[0] = sqrtLowerX96;
         sqrtAB[1] = sqrtUpperX96;
         // Calculate and mint new position
-        (positionId, liquidity) = _mint(tokens, amounts, feeTierOrTickSpacing, centerSqrtPriceX96, sqrtAB, scan);
+        positionId = _mint(tokens, amounts, feeTierOrTickSpacing, centerSqrtPriceX96, sqrtAB, scan);
 
         mapPoolAddressPositionIds[pool] = positionId;
 
