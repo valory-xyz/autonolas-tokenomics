@@ -383,8 +383,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         internal returns (uint256 positionId)
     {
         // Build percent band around TWAP center
-        (int24[] memory ticks, uint128 liquidity, uint256[] memory amountsDesired) =
-            _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB, feeTierOrTickSpacing, amounts, scan);
+        (int24[] memory ticks, uint128 liquidity, uint256[] memory amountsDesired) = _asymmetricTicksFromBpsWidenUp(centerSqrtPriceX96, sqrtAB, feeTierOrTickSpacing, amounts, scan);
 
         uint256[] memory amountsMin = new uint256[](2);
         if (!scan) {

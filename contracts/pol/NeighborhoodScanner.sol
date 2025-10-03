@@ -71,51 +71,59 @@ contract NeighborhoodScanner {
         return ans;
     }
 
-    function _retTest(uint256 numIfs) internal pure returns (uint256) {
-        return numIfs;
-    }
-
     function _fafo(int24[] memory loHiBase, uint256[] memory amounts, int24 tickSpacing, uint160 sqrtP, uint128 liquidity)
         internal pure returns (int24[] memory loHiBest, uint128 Lbest, uint256[] memory usedBest)
     {
         usedBest = new uint256[](2);
-        uint256[] memory used = new uint256[](2);
+        loHiBest = new int24[](2);
+        usedBest = new uint256[](2);
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHiBase[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHiBase[1]);
 
-        loHiBest = loHiBase;
+        loHiBest[0] = loHiBase[0];
+        loHiBest[1] = loHiBase[1];
         Lbest = liquidity;
         (usedBest[0], usedBest[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
-        uint256[] memory utilizations = new uint256[](2);
-        utilizations[0] = utilization1e18(usedBest, amounts, sqrtP);
+        uint256[] memory utilizationMinMax = new uint256[](2);
+        utilizationMinMax[0] = utilization1e18(usedBest, amounts, sqrtP);
 
-        int24[] memory ij = new int24[](2);
-        for (ij[0] = - MAX_NUM_FAFO_STEPS; ij[0] < MAX_NUM_FAFO_STEPS; ++ij[0]) {
-            for (ij[1] = - MAX_NUM_FAFO_STEPS; ij[1] < MAX_NUM_FAFO_STEPS; ++ij[1]) {
-                loHiBase[0] += ij[0] * tickSpacing;
-                loHiBase[1] += ij[1] * tickSpacing;
+        int24 i = loHiBase[0] - MAX_NUM_FAFO_STEPS * tickSpacing;
+        for (; i <= loHiBase[0] + MAX_NUM_FAFO_STEPS * tickSpacing; i = i + tickSpacing) {
+            int24 j = loHiBase[1] - MAX_NUM_FAFO_STEPS * tickSpacing;
+            for (; j <= loHiBase[1] + MAX_NUM_FAFO_STEPS * tickSpacing; j = j + tickSpacing) {
+                if (i >= j) {
+                    continue;
+                }
+                if (i <= TickMath.MIN_TICK || j >= TickMath.MAX_TICK) {
+                    continue;
+                }
 
-                sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHiBase[0]);
-                sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHiBase[1]);
+                sqrtAB[0] = TickMath.getSqrtRatioAtTick(i);
+                sqrtAB[1] = TickMath.getSqrtRatioAtTick(j);
+                if (sqrtAB[0] >= sqrtP || sqrtAB[1] <= sqrtP) {
+                    continue;
+                }
 
                 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
+                if (liquidity == 0) {
+                    continue;
+                }
 
+                uint256[] memory used = new uint256[](2);
                 (used[0], used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
 
-                utilizations[1] = utilization1e18(used, amounts, sqrtP);
-                if (utilizations[1] > utilizations[0]) {
-                    loHiBest = loHiBase;
-                    usedBest = used;
+                utilizationMinMax[1] = utilization1e18(used, amounts, sqrtP);
+                if (utilizationMinMax[1] > utilizationMinMax[0]) {
+                    loHiBest[0] = i;
+                    loHiBest[1] = j;
+                    usedBest[0] = used[0];
+                    usedBest[1] = used[1];
                     Lbest = liquidity;
-                    utilizations[0] = utilizations[1];
-
-                    //numIfs++;
+                    utilizationMinMax[0] = utilizationMinMax[1];
                 }
             }
         }
-
-        //_retTest(numIfs);
     }
 
     /**
