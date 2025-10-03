@@ -40,135 +40,144 @@ walletArgs="--private-key $PRIVATE_KEY"
 deployer=$(cast wallet address $walletArgs)
 
 
-#contractName="NeighborhoodScanner"
-#contractPath="contracts/pol/$contractName.sol:$contractName"
-#contractArgs="$contractPath"
-#
-## Deployment message
-#echo "${green}Deploying from: $deployer${reset}"
-#echo "RPC: $networkURL"
-#echo "${green}Deployment of: $contractArgs${reset}"
-#
-## Deploy the contract and capture the address
-#execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
-#deploymentOutput=$($execCmd)
-#neighborhoodScannerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
-#
-## Get output length
-#outputLength=${#neighborhoodScannerAddress}
-#
-## Check for the deployed address
-#if [ $outputLength != 42 ]; then
-#  echo "${red}!!! The contract was not deployed...${reset}"
-#  exit 0
-#fi
-#
-## Verify contract
-#if [ "$contractVerification" == "true" ]; then
-#  contractParams="$neighborhoodScannerAddress $contractPath"
-#  echo "Verification contract params: $contractParams"
-#
-#  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
-#  echo "${green}Verifying contract on Etherscan...${reset}"
-#  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
-#fi
-#
-#echo "${green}$contractName deployed at: $neighborhoodScannerAddress${reset}"
-#
-#
-#contractName="UniswapPriceOracle"
-#contractPath="contracts/oracles/$contractName.sol:$contractName"
-#constructorArgs="$wethAddress $maxSlippageOracle $pairAddress"
-#contractArgs="$contractPath --constructor-args $constructorArgs"
-#
-## Deployment message
-#echo "${green}Deploying from: $deployer${reset}"
-#echo "RPC: $networkURL"
-#echo "${green}Deployment of: $contractArgs${reset}"
-#
-## Deploy the contract and capture the address
-#execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
-#deploymentOutput=$($execCmd)
-#oracleV2Address=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
-#
-## Get output length
-#outputLength=${#oracleV2Address}
-#
-## Check for the deployed address
-#if [ $outputLength != 42 ]; then
-#  echo "${red}!!! The contract was not deployed...${reset}"
-#  exit 0
-#fi
-#
-## Verify contract
-#if [ "$contractVerification" == "true" ]; then
-#  contractParams="$oracleV2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,uint256,address)" $constructorArgs)"
-#  echo "Verification contract params: $contractParams"
-#
-#  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
-#  echo "${green}Verifying contract on Etherscan...${reset}"
-#  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
-#fi
-#
-#echo "${green}$contractName deployed at: $oracleV2Address${reset}"
-#
-#
-##neighborhoodScannerAddress="0x17806E2a12d5E0F48C9803cd397DB3F044DA3b77"
-##oracleV2Address="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
-#contractName="LiquidityManagerETH"
-#contractPath="contracts/pol/$contractName.sol:$contractName"
-#constructorArgs="$olasAddress $timelockAddress $positionManagerV3 $neighborhoodScannerAddress $observationCardinality $maxSlippage $oracleV2Address $routerV2Address"
-#contractArgs="$contractPath --constructor-args $constructorArgs"
-#
-#
-## Deployment message
-#echo "${green}Deploying from: $deployer${reset}"
-#echo "RPC: $networkURL"
-#echo "${green}Deployment of: $contractArgs${reset}"
-#
-## Deploy the contract and capture the address
-#execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
-#deploymentOutput=$($execCmd)
-#liquidityManagerETHAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
-#
-## Get output length
-#outputLength=${#liquidityManagerETHAddress}
-#
-## Check for the deployed address
-#if [ $outputLength != 42 ]; then
-#  echo "${red}!!! The contract was not deployed...${reset}"
-#  exit 0
-#fi
-#
-## Verify contract
-#if [ "$contractVerification" == "true" ]; then
-#  contractParams="$liquidityManagerETHAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,uint16,address,address)" $constructorArgs)"
-#  echo "Verification contract params: $contractParams"
-#
-#  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
-#  echo "${green}Verifying contract on Etherscan...${reset}"
-#  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
-#fi
-#
-#echo "${green}$contractName deployed at: $liquidityManagerETHAddress${reset}"
+contractName="NeighborhoodScanner"
+contractPath="contracts/pol/$contractName.sol:$contractName"
+contractArgs="$contractPath"
+
+# Deployment message
+echo "${green}Deploying from: $deployer${reset}"
+echo "RPC: $networkURL"
+echo "${green}Deployment of: $contractArgs${reset}"
+
+# Deploy the contract and capture the address
+execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
+deploymentOutput=$($execCmd)
+neighborhoodScannerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+
+# Get output length
+outputLength=${#neighborhoodScannerAddress}
+
+# Check for the deployed address
+if [ $outputLength != 42 ]; then
+  echo "${red}!!! The contract was not deployed...${reset}"
+  exit 0
+fi
+
+# Verify contract
+if [ "$contractVerification" == "true" ]; then
+  contractParams="$neighborhoodScannerAddress $contractPath"
+  echo "Verification contract params: $contractParams"
+
+  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
+  echo "${green}Verifying contract on Etherscan...${reset}"
+  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
+fi
+
+echo "${green}$contractName deployed at: $neighborhoodScannerAddress${reset}"
+
+
+contractName="UniswapPriceOracle"
+contractPath="contracts/oracles/$contractName.sol:$contractName"
+constructorArgs="$wethAddress $maxSlippageOracle $pairAddress"
+contractArgs="$contractPath --constructor-args $constructorArgs"
+
+# Deployment message
+echo "${green}Deploying from: $deployer${reset}"
+echo "RPC: $networkURL"
+echo "${green}Deployment of: $contractArgs${reset}"
+
+# Deploy the contract and capture the address
+execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
+deploymentOutput=$($execCmd)
+oracleV2Address=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+
+# Get output length
+outputLength=${#oracleV2Address}
+
+# Check for the deployed address
+if [ $outputLength != 42 ]; then
+  echo "${red}!!! The contract was not deployed...${reset}"
+  exit 0
+fi
+
+# Verify contract
+if [ "$contractVerification" == "true" ]; then
+  contractParams="$oracleV2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,uint256,address)" $constructorArgs)"
+  echo "Verification contract params: $contractParams"
+
+  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
+  echo "${green}Verifying contract on Etherscan...${reset}"
+  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
+fi
+
+echo "${green}$contractName deployed at: $oracleV2Address${reset}"
+
+
+#neighborhoodScannerAddress="0x17806E2a12d5E0F48C9803cd397DB3F044DA3b77"
+#oracleV2Address="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
+contractName="LiquidityManagerETH"
+contractPath="contracts/pol/$contractName.sol:$contractName"
+constructorArgs="$olasAddress $timelockAddress $positionManagerV3 $neighborhoodScannerAddress $observationCardinality $maxSlippage $oracleV2Address $routerV2Address"
+contractArgs="$contractPath --constructor-args $constructorArgs"
+
+
+# Deployment message
+echo "${green}Deploying from: $deployer${reset}"
+echo "RPC: $networkURL"
+echo "${green}Deployment of: $contractArgs${reset}"
+
+# Deploy the contract and capture the address
+execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
+deploymentOutput=$($execCmd)
+liquidityManagerETHAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+
+# Get output length
+outputLength=${#liquidityManagerETHAddress}
+
+# Check for the deployed address
+if [ $outputLength != 42 ]; then
+  echo "${red}!!! The contract was not deployed...${reset}"
+  exit 0
+fi
+
+# Verify contract
+if [ "$contractVerification" == "true" ]; then
+  contractParams="$liquidityManagerETHAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,uint16,address,address)" $constructorArgs)"
+  echo "Verification contract params: $contractParams"
+
+  TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"
+  echo "${green}Verifying contract on Etherscan...${reset}"
+  forge verify-contract --verifier-url $TENDERLY_VERIFIER_URL --etherscan-api-key $TENDERLY_ACCESS_TOKEN $contractParams
+fi
+
+echo "${green}$contractName deployed at: $liquidityManagerETHAddress${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-#echo "${green}Transfer v2 liquidity to LiquidityManagerETH${reset}"
-#castArgs="$treasuryAddress withdraw(address,uint256,address) $liquidityManagerETHAddress 63657402469742352862258 $pairAddress"
-#echo $castArgs
-#castCmd="$castSendHeader $castArgs"
-#result=$($castCmd)
-#echo "$result" | grep "status"
+echo "${green}Transfer v2 liquidity to LiquidityManagerETH${reset}"
+castArgs="$treasuryAddress withdraw(address,uint256,address) $liquidityManagerETHAddress 63657402469742352862258 $pairAddress"
+echo $castArgs
+castCmd="$castSendHeader $castArgs"
+result=$($castCmd)
+echo "$result" | grep "status"
 
-liquidityManagerETHAddress="0x43d28764bb39936185c84906983fb57a8a905a4f"
-lowerBps=5000
-higherBps=5000
-feeTier=3000
-conversionRatio=10000
+sqrtPriceX96="562444884711515384868438111"
+feeTier="3000"
+echo "${green}Create v3 pool${reset}"
+castArgs="$positionManagerV3 createAndInitializePoolIfNecessary(address,address,uint24,uint160) $olasAddress $wethAddress $feeTier $sqrtPriceX96"
+echo $castArgs
+castCmd="$castSendHeader $castArgs --gas-limit 10000000"
+result=$($castCmd)
+echo "$result" | grep "status"
+
+liquidityManagerETHAddress="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
+feeTier="3000"
+lowerHigherBps="[5000,5000]"
+conversionRatio="10000"
 scan="true"
+tickShifts="[0,0]"
 echo "${green}Convert liquidity v2 to v3${reset}"
-castArgs="$liquidityManagerETHAddress convertToV3(bytes32,int24,uint16,uint32[],bool) $pairBytes32Address $feeTier $conversionRatio [$lowerBps,$higherBps] $scan"
+castArgs="$liquidityManagerETHAddress convertToV3(bytes32,int24,uint16,uint32[],bool,int24[]) $pairBytes32Address $feeTier $conversionRatio $lowerHigherBps $scan $tickShifts"
 echo $castArgs
 castCmd="$castSendHeader $castArgs --gas-limit 10000000"
 result=$($castCmd)
