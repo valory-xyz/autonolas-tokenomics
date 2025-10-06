@@ -2,8 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
-import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
-import {mulDiv} from "@prb/math/src/Common.sol";
+import {mulDiv, sqrt} from "@prb/math/src/Common.sol";
 import {IErrorsTokenomics} from "../interfaces/IErrorsTokenomics.sol";
 import {IPositionManagerV3} from "../interfaces/IPositionManagerV3.sol";
 import {IToken} from "../interfaces/IToken.sol";
@@ -195,7 +194,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     // sqrt(num/den) in Q96: sqrt((num<<192)/den), returns already scaled in Q96
     function _sqrtRatioX96(uint256 num, uint256 den) private pure returns (uint160) {
         uint256 x192 = (num << 192) / den;
-        return uint160(FixedPointMathLib.sqrt(x192));
+        return uint160(sqrt(x192));
     }
 
     function _floorToSpacing(int24 t, int24 spacing) private pure returns (int24) {
@@ -693,6 +692,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 //        _collectFees(token0, token1, currentPositionId);
 //        // TODO burn fees or supply to a new position?
 //
+//        // TODO if amounts == 0 => transfer all tokens to treasury (if flag is not set)
 //        address[] memory tokens = new address[](2);
 //        tokens[0] = token0;
 //        tokens[1] = token1;
@@ -872,7 +872,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Calculate the price using the sqrtPriceX96
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        price = FixedPointMathLib.mulDivDown(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
+        price = mulDiv(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
     }
     
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
@@ -901,13 +901,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         (twapPrice, centerSqrtPriceX96) = getTwapFromOracle(pool);
         // Get instant price
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        uint256 instantPrice = FixedPointMathLib.mulDivDown(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
+        uint256 instantPrice = mulDiv(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
 
         uint256 deviation;
         if (twapPrice > 0) {
             deviation = (instantPrice > twapPrice) ?
-                FixedPointMathLib.mulDivDown((instantPrice - twapPrice), 1e18, twapPrice) :
-                FixedPointMathLib.mulDivDown((twapPrice - instantPrice), 1e18, twapPrice);
+                mulDiv((instantPrice - twapPrice), 1e18, twapPrice) :
+                mulDiv((twapPrice - instantPrice), 1e18, twapPrice);
         }
 
         require(deviation <= MAX_ALLOWED_DEVIATION, "Price deviation too high");
