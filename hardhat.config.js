@@ -253,7 +253,8 @@ module.exports = {
                         enabled: true,
                         runs: 100,
                     },
-                    evmVersion: "prague"
+                    evmVersion: "prague",
+                    //viaIR: true,
                 },
             },
             {
