@@ -205,21 +205,21 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         IToken(olas).transfer(bridge2Burner, amount);
     }
 
-    function _removeLiquidityV2(bytes32 v2Pool)
-        internal virtual override returns (address[] memory tokens, uint256[] memory amounts)
+    function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool)
+        internal virtual override returns (uint256[] memory amounts)
     {
+        address[] memory tokensInPool = new address[](2);
         // Get V2 pool tokens and amounts
-        (tokens, amounts, ) = IBalancerV2(balancerVault).getPoolTokens(v2Pool);
+        (tokensInPool, amounts, ) = IBalancerV2(balancerVault).getPoolTokens(v2Pool);
+
+        // Check tokens
+        if (tokensInPool[0] != tokens[0] || tokensInPool[1] != tokens[1]) {
+            revert();
+        }
 
         // Check for zero balances
         if (amounts[0] == 0 || amounts[1] == 0) {
             revert ZeroValue();
-        }
-
-        // TODO Shall we accept non-OLAS pairs?
-        // Check for OLAS in pair
-        if (tokens[0] != olas && tokens[1] != olas) {
-            revert();
         }
 
         // Apply slippage protection
@@ -284,9 +284,9 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         (sqrtPriceX96, , observationIndex, , , ) = ISlipstreamV3(pool).slot0();
     }
 
-    function _getV3Pool(address token0, address token1, int24 tickSpacing)
+    function _getV3Pool(address[] memory tokens, int24 tickSpacing)
         internal view virtual override returns (address)
     {
-        return ICLFactory(factoryV3).getPool(token0, token1, tickSpacing);
+        return ICLFactory(factoryV3).getPool(tokens[0], tokens[1], tickSpacing);
     }
 }

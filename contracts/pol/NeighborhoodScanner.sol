@@ -39,10 +39,157 @@ contract NeighborhoodScanner {
     uint8 public constant MAX_NUM_BINARY_STEPS = 32;
     // Number of iterations to find the best liquidity for both tick ranges
     int8 public constant MAX_NUM_FAFO_STEPS = 4;
-    // Epsilon bps value
-    uint16 public constant EPSILON_BPS = 200;
-    // Absolute tolerance in tokens (wei)
-    uint256 public constant ABSOLUT_TOL = 10;
+    // Safety steps
+    int24 internal constant SAFETY_STEPS = 2;
+    // Steps near to tick boundaries
+    int24 internal constant NEAR_STEPS = SAFETY_STEPS;
+    // 2^96
+    uint160 public constant Q96 = 0x1000000000000000000000000;
+
+    // ---------- binary search to raise hi ----------
+    // Finds minimal hi ∈ [hi0, hiMax], multiple of spacing, such that intermediate > 0.
+    // If not found, returns hiMax as "best possible".
+    function _bsearchRaiseHi(
+        int24 lo,
+        int24 hi0,
+        int24 hiMax,
+        int24 spacing
+    ) private pure returns (int24) {
+        hi0  = _roundUpToSpacing(hi0, spacing);
+        hiMax = _roundDownToSpacing(hiMax, spacing);
+        if (hi0 > hiMax) hi0 = hiMax;
+
+        int24 L = hi0;
+        int24 R = hiMax;
+        int24 ans = hiMax;
+
+        // Binary search while L <= R
+        for (uint256 i = 0; i < 100; ++i) {
+            int24 mid = _roundDownToSpacing( (L + R) / 2, spacing );
+            if (mid < L) mid = L;
+
+            if (_hasNonZeroIntermediate(lo, mid)) {
+                ans = mid;
+                R = mid - spacing;         // search for smaller hi
+            } else {
+                L = mid + spacing;         // need to raise hi further
+            }
+
+            // Break condition: L > R
+            if (L > R) break;
+        }
+        return ans;
+    }
+
+    // ---------- binary search to raise lo ----------
+    // Finds minimal lo ∈ [loMin, hi - spacing], multiple of spacing, such that intermediate > 0 (with fixed hi).
+    // If not found, returns hi - spacing (maximum possible raise of lo).
+    function _bsearchRaiseLo(
+        int24 loMin,
+        int24 hi,
+        int24 spacing
+    ) private pure returns (int24) {
+        loMin = _roundUpToSpacing(loMin, spacing);
+        int24 loMax = _roundDownToSpacing(hi - spacing, spacing);
+        if (loMin > loMax) loMin = loMax;
+
+        int24 L = loMin;
+        int24 R = loMax;
+        int24 ans = loMax;
+
+        while (L <= R) {
+            int24 mid = _roundUpToSpacing( (L + R) / 2, spacing );
+            if (mid > loMax) mid = loMax;
+
+            if (_hasNonZeroIntermediate(mid, hi)) {
+                ans = mid;
+                R = mid - spacing;   // try smaller lo
+            } else {
+                L = mid + spacing;   // need to raise lo further
+            }
+        }
+        return ans;
+    }
+
+    // check if intermediate = floor(sqrtA * sqrtB / Q96) is non-zero
+    function _hasNonZeroIntermediate(int24 lo, int24 hi) private pure returns (bool) {
+        uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
+        uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+        uint256 intermediate = FullMath.mulDiv(uint256(sqrtA), uint256(sqrtB), Q96);
+        return (intermediate > 0);
+    }
+
+    /// @notice Asymmetric ticks from bps around centerTick with WidenUp mode + binary search.
+    /// Ensures non-zero intermediate for amount0 formula without linear loops.
+    function optimizeLiquidityAmounts(
+        uint160 centerSqrtPriceX96,
+        int24[] memory ticks,
+        int24 tickSpacing,
+        uint256[] memory balances,
+        bool scan
+    ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
+        // 5) raw ticks
+        loHi = new int24[](2);
+        loHi[0] = ticks[0];
+        loHi[1] = ticks[1];
+
+        // 6) snap to spacing + safety margins
+        int24 minSp = _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
+        int24 maxSp = _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
+        int24 minSafe = minSp + SAFETY_STEPS * tickSpacing;
+        int24 maxSafe = maxSp - SAFETY_STEPS * tickSpacing;
+
+        loHi[0] = _roundDownToSpacing(loHi[0], tickSpacing);
+        loHi[1] = _roundUpToSpacing(loHi[1], tickSpacing);
+
+        if (loHi[0] < minSafe) loHi[0] = minSafe;
+        if (loHi[1] > maxSafe) loHi[1] = maxSafe;
+
+        // 7) ensure non-empty interval
+        if (loHi[0] >= loHi[1]) {
+            loHi[0] = minSafe;
+            loHi[1] = _roundUpToSpacing(loHi[0] + tickSpacing, tickSpacing);
+            if (loHi[1] > maxSafe) loHi[1] = maxSafe;
+            require(loHi[0] < loHi[1], "EMPTY_RANGE");
+        }
+
+        // if already non-zero, return
+        if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+            if (scan) {
+                (loHi, liquidity, amountsDesired) = _scanNeighborhood(tickSpacing, centerSqrtPriceX96,
+                    loHi, balances);
+            }
+            amountsDesired = balances;
+            return (loHi, liquidity, amountsDesired);
+        }
+
+        // 8) choose widening side based on closeness to global boundaries
+        bool nearMin = (loHi[0] - minSp) <= NEAR_STEPS * tickSpacing;
+        bool nearMax = (maxSp - loHi[1]) <= NEAR_STEPS * tickSpacing;
+
+        if (nearMin && !nearMax) {
+            // lower near MIN → raise loHi[1] (widen upwards)
+            loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
+            }
+        } else if (nearMax && !nearMin) {
+            // upper near MAX → raise loHi[0]
+            loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
+            }
+        } else {
+            // neither or both near boundaries: first try raising loHi[1]
+            loHi[1] = _bsearchRaiseHi(loHi[0], loHi[1], maxSafe, tickSpacing);
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                loHi[0] = _bsearchRaiseLo(minSafe, loHi[1], tickSpacing);
+            }
+        }
+
+        require(loHi[0] >= minSafe && loHi[1] <= maxSafe && loHi[0] < loHi[1], "RANGE_BOUNDS");
+        require(_hasNonZeroIntermediate(loHi[0], loHi[1]), "AMOUNT0_ZERO_LIQ");
+    }
 
     function _iterateRight(int24 L, int24 R, int24 tickSpacing, uint160 sqrtP, uint160 sa, uint128 liquidity, uint256 amount)
         internal pure returns (int24)
@@ -345,7 +492,7 @@ contract NeighborhoodScanner {
         int24 r = tick % spacing;
         return r == 0 ? tick : (tick - r + spacing);
     }
-
+    
     /// @dev Midpoint on grid, rounded *down* (used when searching minimal hi).
     function _midTickGridFloor(int24 a, int24 b, int24 spacing) private pure returns (int24) {
         // a < b
@@ -415,13 +562,13 @@ contract NeighborhoodScanner {
 
     /// @notice Автовыбор и запуск бинарника, возвращает ещё и метрику утилизации 1e18
     /// @dev loCandidate используется для HiPreferNarrow, hiCandidate — для LoPreferNarrow
-    function scanNeighborhood(
+    function _scanNeighborhood(
         int24 tickSpacing,
         uint160 sqrtP,
         int24[] memory loHiCandidates,
         uint256[] memory amounts
     )
-    external
+    internal
     pure
     returns (
         int24[] memory loHiBest,

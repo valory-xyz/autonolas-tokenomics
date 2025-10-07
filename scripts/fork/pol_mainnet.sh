@@ -172,14 +172,11 @@ castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
 liquidityManagerETHAddress="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
 feeTier="3000"
-lowerHigherBps="[1000,1000]"
+ticks="[1000,1000]"
 conversionRatio="10000"
-scan="false"
-#tickShifts="[240,1560]"
-#tickShifts="[720,1080]"
-tickShifts="[0,0]"
+scan="true"
 echo "${green}Convert liquidity v2 to v3${reset}"
-castArgs="$liquidityManagerETHAddress convertToV3(bytes32,int24,uint16,uint32[],bool,int24[]) $pairBytes32Address $feeTier $conversionRatio $lowerHigherBps $scan $tickShifts"
+castArgs="$liquidityManagerETHAddress convertToV3(bytes32,int24,int24[],uint16,bool) $pairBytes32Address $feeTier $ticks $conversionRatio $scan"
 echo $castArgs
 castCmd="$castSendHeader $castArgs --gas-limit 10000000"
 result=$($castCmd)

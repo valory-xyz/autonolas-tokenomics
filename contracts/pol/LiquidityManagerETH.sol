@@ -152,10 +152,10 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         IToken(olas).burn(amount);
     }
 
-    function _removeLiquidityV2(bytes32 v2Pool)
-        internal virtual override returns (address[] memory tokens, uint256[] memory amounts)
+    function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pair)
+        internal virtual override returns (uint256[] memory amounts)
     {
-        address lpToken = address(uint160(uint256(v2Pool)));
+        address lpToken = address(uint160(uint256(v2Pair)));
 
         // Get this contract liquidity
         uint256 liquidity = IToken(lpToken).balanceOf(address(this));
@@ -165,13 +165,12 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         }
 
         // Get V2 pair tokens - assume they are in lexicographical order as per Uniswap convention
-        tokens = new address[](2);
-        tokens[0] = IUniswapV2Pair(lpToken).token0();
-        tokens[1] = IUniswapV2Pair(lpToken).token1();
+        address[] memory tokensInPair = new address[](2);
+        tokensInPair[0] = IUniswapV2Pair(lpToken).token0();
+        tokensInPair[1] = IUniswapV2Pair(lpToken).token1();
 
-        // TODO Shall we accept non-OLAS pairs?
-        // Check for OLAS in pair
-        if (tokens[0] != olas && tokens[1] != olas) {
+        // Check tokens
+        if (tokensInPair[0] != tokens[0] || tokensInPair[1] != tokens[1]) {
             revert();
         }
 
@@ -234,13 +233,13 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         (sqrtPriceX96, , observationIndex, , , , ) = IUniswapV3(pool).slot0();
     }
 
-    function _getV3Pool(address token0, address token1, int24 feeTier)
+    function _getV3Pool(address[] memory tokens, int24 feeTier)
         internal view virtual override returns (address)
     {
         if (feeTier < 0) {
             revert();
         }
 
-        return IFactory(factoryV3).getPool(token0, token1, uint24(feeTier));
+        return IFactory(factoryV3).getPool(tokens[0], tokens[1], uint24(feeTier));
     }
 }
