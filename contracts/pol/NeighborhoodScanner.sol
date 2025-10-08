@@ -6,24 +6,23 @@ import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 /**
- * @title NeighborhoodScanner
- * @notice Binary-search helpers to pick Uniswap V3 ranges that minimize residuals ("dust")
- *         by preferring *narrowing* toward the current price:
- *         - pickHiPreferNarrow:   fix lo, find minimal hi
- *         - pickLoPreferNarrow:   fix hi, find maximal lo
+ * Tiny max-util range pickers for Uniswap V3.
+ * - pickHiMaxUtil: fix lo, find the LARGEST hi (on grid) such that need0(hi; L1) <= b0.
+ *   L1 = getLiquidityForAmount1(sa, sp, b1) (token1-limited).
+ * - pickLoMaxUtil: fix hi, find the SMALLEST lo (on grid) such that need1(lo; L0) <= b1.
+ *   L0 = getLiquidityForAmount0(sp, sb, b0) (token0-limited).
  *
- * Theory (inside-range case, sa < sp < sb):
- *   amounts[0](L) = L * (sb - sp) / (sp * sb)
- *   amounts[1](L) = L * (sp - sa)
- * For a fixed L, amounts[0] is increasing in sb; amounts[1] is decreasing in sa.
+ * PREVIEW ONLY: these functions do math; they do NOT mint. Use the result with amountMin guards.
  *
- * The routines below use that monotonicity to run a robust binary search on the
- * tick grid, privileging *narrower* ranges whenever multiple choices consume balances.
+ * Preconditions the CALLER should ensure (or this code will revert):
+ * - tickSpacing > 0
+ * - For pickHiMaxUtil:  sp > sa  (i.e., price strictly above lo → inside-range)
+ * - For pickLoMaxUtil:  sp < sb  (i.e., price strictly below hi → inside-range)
+ * - At least one balance is non-zero: (b0 > 0 || b1 > 0)
  *
  * Notes:
- * - These functions only do math (preview), they DO NOT mint liquidity.
- * - Caller should compare candidate solutions by a single numeraire (e.g., token1),
- *   e.g. value_used / value_total where value0_in_1 = amounts[0] * (sqrtP^2 / 2^192).
+ * - Monotonicity makes a single binary search sufficient:
+ *   amount0(sp,sa,sb,L1) increases with sb; amount1(sp,sa,sb,L0) increases as sa moves down.
  */
 
 /// @title Neighborhood Scanner - Smart contract for scanning neighborhood ticks to better fit liquidity
@@ -31,10 +30,6 @@ import {FullMath} from "../libraries/FullMath.sol";
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract NeighborhoodScanner {
-    enum Mode { HiPreferNarrow, LoPreferNarrow }
-
-    // Max bps value
-    uint16 public constant MAX_BPS = 10_000;
     // TODO Calculate steps - linear gas spending dependency
     uint8 public constant MAX_NUM_BINARY_STEPS = 32;
     // Number of iterations to find the best liquidity for both tick ranges
@@ -158,8 +153,9 @@ contract NeighborhoodScanner {
             if (scan) {
                 (loHi, liquidity, amountsDesired) = _scanNeighborhood(tickSpacing, centerSqrtPriceX96,
                     loHi, balances);
+            } else {
+                amountsDesired = balances;
             }
-            amountsDesired = balances;
             return (loHi, liquidity, amountsDesired);
         }
 
@@ -271,26 +267,14 @@ contract NeighborhoodScanner {
         }
     }
 
-    /**
-     * @notice Fix lo; find the MINIMAL hi (on the tick grid) such that the position
-     *         can consume (approximately) the available token0, given L is limited by token1.
-     *
-     *         Preference: *narrowing from above* (closest-to-price hi that still works).
-     *
-     * Pre-conditions:
-     *   - Inside-range mode: sqrtP > sa (price above lo).
-     *   - 'maxUpTicks' bounds the search corridor above the current tick to avoid unbounded scans.
-     *
-     * @param tickSpacing   pool tick spacing
-     * @param sqrtP         current sqrtPriceX96 (Q64.96)
-     * @param lowerBaseTick base lower tick
-     * @param amounts       Requested amounts
-     *
-     * @return loHiBest   chosen lower and upper ticks (grid-aligned)
-     * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used     preview amounts actually consumed by Lbest in [loHiBest[0], loHiBest[1]]
-     */
-    function pickHiPreferNarrow(
+    /// @dev Finds optimal ticks when initially fixing lower base tick.
+    /// @notice 1. Find ticks via a binary search such that the position consumes all available token0.
+    ///         2. Minimally search around to find optimal ranges such that max amounts of token0 and token1 are used.
+    /// @param tickSpacing > 0
+    /// @param sqrtP current sqrtPriceX96 (Q64.96)
+    /// @param lowerBaseTick lower tick candidate (will be snapped DOWN to grid). MUST satisfy: priceAbove(lo) i.e. sqrtP > sqrt(lo)
+    /// @param amounts Available token amounts
+    function pickHiMaxUtil(
         int24 tickSpacing,
         uint160 sqrtP,
         int24 lowerBaseTick,
@@ -379,26 +363,14 @@ contract NeighborhoodScanner {
         return ans;
     }
 
-    /**
-     * @notice Fix hi; find the MAXIMAL lo (on the tick grid) such that the position
-     *         can consume (approximately) the available token1, given L is limited by token0.
-     *
-     *         Preference: *narrowing from below* (closest-to-price lo that still works).
-     *
-     * Pre-conditions:
-     *   - Inside-range mode: sqrtP < sb (price below hi).
-     *   - 'maxDownTicks' bounds the search corridor below the current tick to avoid unbounded scans.
-     *
-     * @param tickSpacing   pool tick spacing
-     * @param sqrtP         current sqrtPriceX96 (Q64.96)
-     * @param upperBaseTick    base upper tick
-     * @param amounts       Requested amounts
-     *
-     * @return loHiBest   chosen lower and upper ticks (grid-aligned)
-     * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used     preview amounts actually consumed by Lbest in [loHiBest[0], loHiBest[1]]
-     */
-    function pickLoPreferNarrow(
+    /// @dev Finds optimal ticks when initially fixing upper base tick.
+    /// @notice 1. Find ticks via a binary search such that the position consumes all available token1.
+    ///         2. Minimally search around to find optimal ranges such that max amounts of token0 and token1 are used.
+    /// @param tickSpacing > 0
+    /// @param sqrtP current sqrtPriceX96 (Q64.96)
+    /// @param upperBaseTick upper tick candidate (will be snapped DOWN to grid). MUST satisfy: priceBelow(hi) i.e. sqrtP < sqrt(hi)
+    /// @param amounts Available token amounts.
+    function pickLoMaxUtil(
         int24 tickSpacing,
         uint160 sqrtP,
         int24 upperBaseTick,
@@ -460,27 +432,6 @@ contract NeighborhoodScanner {
         return _fafo(loHiBest, amounts, tickSpacing, sqrtP, liquidity);
     }
 
-    // ------------------------------------------------------------------------
-    // Optional helper: dust valuation in token1 units (for external scoring)
-    // ------------------------------------------------------------------------
-
-    /**
-     * @notice Convert leftover (d0, d1) into token1 units: d0 * P + d1, where P = (sqrtP^2) / 2^192.
-     * @dev Not used internally by the search; handy to score solutions in a single numeraire.
-     */
-    function dustInToken1Units(uint256 d0, uint256 d1, uint160 sqrtP) internal pure returns (uint256) {
-        if (d0 == 0) return d1;
-        unchecked {
-            uint256 num = uint256(sqrtP) * uint256(sqrtP); // sqrtP^2
-            uint256 d0In1 = FullMath.mulDiv(d0, num, 1 << 192);
-            return d0In1 + d1;
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // Internal utils
-    // ------------------------------------------------------------------------
-
     /// @dev Snap down to tick grid.
     function _roundDownToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
         int24 r = tick % spacing;
@@ -491,26 +442,6 @@ contract NeighborhoodScanner {
     function _roundUpToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
         int24 r = tick % spacing;
         return r == 0 ? tick : (tick - r + spacing);
-    }
-    
-    /// @dev Midpoint on grid, rounded *down* (used when searching minimal hi).
-    function _midTickGridFloor(int24 a, int24 b, int24 spacing) private pure returns (int24) {
-        // a < b
-        int24 m = a + ((b - a) / 2);
-        int24 r = m % spacing;
-        if (r != 0) m = m - r; // round down to grid
-        if (m <= a) m = a;     // guard to avoid infinite loop
-        return m;
-    }
-
-    /// @dev Midpoint on grid, rounded *up* (used when searching maximal lo).
-    function _midTickGridCeil(int24 a, int24 b, int24 spacing) private pure returns (int24) {
-        // a < b
-        int24 m = a + ((b - a) / 2);
-        int24 r = m % spacing;
-        if (r != 0) m = m - r + spacing; // round up to grid
-        if (m >= b) m = b;               // guard to avoid infinite loop
-        return m;
     }
 
     function _min128(uint128 x, uint128 y) private pure returns (uint128) {
@@ -544,28 +475,24 @@ contract NeighborhoodScanner {
     }
 
     /// @notice Решение направления оптимизации по относительной «ценности» балансов
-    function chooseMode(
+    function _chooseMode(
         uint160 sqrtP,
         uint256[] memory balances
-    ) internal pure returns (Mode) {
-        // Считаем V0 ~ b0*P и сравниваем с V1 ~ b1
+    ) internal pure returns (bool) {
+        // Calculate V0 ~ b0*P and compare with V1 ~ b1
         uint256 V0 = value0InToken1(balances[0], sqrtP);
         uint256 V1 = balances[1];
 
         // Check balance inequality
-        if (V0 > V1) {
-            return Mode.HiPreferNarrow;
-        } else {
-            return Mode.LoPreferNarrow;
-        }
+        return (V0 >= V1);
     }
-
-    /// @notice Автовыбор и запуск бинарника, возвращает ещё и метрику утилизации 1e18
-    /// @dev loCandidate используется для HiPreferNarrow, hiCandidate — для LoPreferNarrow
+    
+    /// @dev Scans neighborhood with binary search and locally based on amounts[0] or amounts[1] in absolute token value.
+    /// @notice ticks[0] is used for pickHiMaxUtil, ticks[0] - for pickLoMaxUtil.
     function _scanNeighborhood(
         int24 tickSpacing,
         uint160 sqrtP,
-        int24[] memory loHiCandidates,
+        int24[] memory ticks,
         uint256[] memory amounts
     )
     internal
@@ -583,8 +510,8 @@ contract NeighborhoodScanner {
         loHiBest = new int24[](2);
 
         uint160[] memory sqrtAB = new uint160[](2);
-        sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHiCandidates[0]);
-        sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHiCandidates[1]);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
         uint256[] memory utilization1e18BeforeAfter = new uint256[](2);
         uint256[] memory amountsMin = new uint256[](2);
@@ -599,22 +526,22 @@ contract NeighborhoodScanner {
             utilization1e18BeforeAfter[0] = utilization1e18(amountsMin, amounts, sqrtP);
         }
 
-        Mode modeChosen = chooseMode(sqrtP, amounts);
+        bool optimizeHi = _chooseMode(sqrtP, amounts);
 
-        if (modeChosen == Mode.HiPreferNarrow) {
+        if (optimizeHi) {
             (loHiBest, Lbest, used) =
-            pickHiPreferNarrow(
+            pickHiMaxUtil(
                 tickSpacing,
                 sqrtP,
-                loHiCandidates[0],
+                ticks[0],
                 amounts
             );
         } else {
             (loHiBest, Lbest, used) =
-            pickLoPreferNarrow(
+            pickLoMaxUtil(
                 tickSpacing,
                 sqrtP,
-                loHiCandidates[1],
+                ticks[1],
                 amounts
             );
         }
@@ -623,8 +550,8 @@ contract NeighborhoodScanner {
 
         // Check for best outcome
         if (utilization1e18BeforeAfter[0] > utilization1e18BeforeAfter[1]) {
-            loHiBest[0] = loHiCandidates[0];
-            loHiBest[1] = loHiCandidates[1];
+            loHiBest[0] = ticks[0];
+            loHiBest[1] = ticks[1];
             return (loHiBest, liquidity, amountsMin);
         } else {
             return (loHiBest, Lbest, used);
