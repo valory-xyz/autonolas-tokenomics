@@ -84,6 +84,10 @@ Run tests with Foundry:
 ```
 forge test
 ```
+Run fork tests with Foundry:
+```
+forge test -f $FORK_NODE_URL --match-contract LiquidityManagerETHTest -vvvv
+```
 
 ### Audits
 - The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
