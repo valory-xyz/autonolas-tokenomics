@@ -392,7 +392,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan)
+    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 decreaseRate, bool scan)
         external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
     {
         if (_locked > 1) {
@@ -411,15 +411,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Check conversion rate overflow
-        if (olasBurnRate > MAX_BPS) {
-            revert Overflow(olasBurnRate, MAX_BPS);
+        if (decreaseRate > MAX_BPS) {
+            revert Overflow(decreaseRate, MAX_BPS);
         }
 
         if (v2Pool != 0) {
             // Remove liquidity from V2 pool
             _checkTokensAndRemoveLiquidityV2(tokens, v2Pool);
         }
-        
+
         // Get token amounts
         amounts = new uint256[](2);
         amounts[0] = IToken(tokens[0]).balanceOf(address(this));
@@ -433,10 +433,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroAddress();
         }
 
-        // Recalculate amounts for adding position liquidity depending on conversion rate
-        if (olasBurnRate < MAX_BPS) {
+        // Recalculate amounts for adding position liquidity depending on liquidity decrease rate
+        if (decreaseRate < MAX_BPS) {
             // Initial token management: burn OLAS, transfer another token
-            amounts = _manageUtilityAmounts(tokens, olasBurnRate, true);
+            amounts = _manageUtilityAmounts(tokens, decreaseRate, true);
         }
 
         // Check current pool prices
