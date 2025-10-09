@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {TickMath} from "../libraries/TickMath.sol";
-import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
+import {FixedPoint96, LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 /**
@@ -34,12 +34,11 @@ contract NeighborhoodScanner {
     uint8 public constant MAX_NUM_BINARY_STEPS = 32;
     // Number of iterations to find the best liquidity for both tick ranges
     int8 public constant MAX_NUM_FAFO_STEPS = 4;
+    // TODO SAFETY_STEPS vs NEAR_STEPS
     // Safety steps
     int24 internal constant SAFETY_STEPS = 2;
     // Steps near to tick boundaries
     int24 internal constant NEAR_STEPS = SAFETY_STEPS;
-    // 2^96
-    uint160 public constant Q96 = 0x1000000000000000000000000;
 
     // ---------- binary search to raise hi ----------
     // Finds minimal hi ∈ [hi0, hiMax], multiple of spacing, such that intermediate > 0.
@@ -59,15 +58,17 @@ contract NeighborhoodScanner {
         int24 ans = hiMax;
 
         // Binary search while L <= R
-        for (uint256 i = 0; i < 100; ++i) {
+        for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
             int24 mid = _roundDownToSpacing( (L + R) / 2, spacing );
             if (mid < L) mid = L;
 
             if (_hasNonZeroIntermediate(lo, mid)) {
+                // search for smaller hi
                 ans = mid;
-                R = mid - spacing;         // search for smaller hi
+                R = mid - spacing;
             } else {
-                L = mid + spacing;         // need to raise hi further
+                // need to raise hi further
+                L = mid + spacing;
             }
 
             // Break condition: L > R
@@ -97,10 +98,12 @@ contract NeighborhoodScanner {
             if (mid > loMax) mid = loMax;
 
             if (_hasNonZeroIntermediate(mid, hi)) {
+                // try smaller lo
                 ans = mid;
-                R = mid - spacing;   // try smaller lo
+                R = mid - spacing;
             } else {
-                L = mid + spacing;   // need to raise lo further
+                // need to raise lo further
+                L = mid + spacing;
             }
         }
         return ans;
@@ -110,11 +113,14 @@ contract NeighborhoodScanner {
     function _hasNonZeroIntermediate(int24 lo, int24 hi) private pure returns (bool) {
         uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
         uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
-        uint256 intermediate = FullMath.mulDiv(uint256(sqrtA), uint256(sqrtB), Q96);
+        uint256 intermediate = FullMath.mulDiv(uint256(sqrtA), uint256(sqrtB), FixedPoint96.Q96);
         return (intermediate > 0);
     }
 
-    /// @notice Asymmetric ticks from bps around centerTick with WidenUp mode + binary search.
+    /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
+    /// @notice 1. Adjusts extreme boundaries, if required.
+    ///         2. Looks for correct boundaries and adjusts tick spacings accordingly.
+    ///         3. Fixes one of ticks and executed binary + neighborhood search if scan option is true.
     /// Ensures non-zero intermediate for amount0 formula without linear loops.
     function optimizeLiquidityAmounts(
         uint160 centerSqrtPriceX96,
@@ -200,11 +206,13 @@ contract NeighborhoodScanner {
             (uint256 need0_mid, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, liquidity);
 
             if (need0_mid <= amount) {
-                ans = mid;                        // fits → try wider
+                // fits → try wider
+                ans = mid;
                 if (mid == R) break;
                 L = mid + tickSpacing;
             } else {
-                if (mid == L) break;              // too tight
+                // too tight
+                if (mid == L) break;
                 R = mid - tickSpacing;
             }
         }
@@ -448,7 +456,7 @@ contract NeighborhoodScanner {
         return x < y ? x : y;
     }
 
-    /// @notice Стоимость amount в token1-номинации: amount * P, где P=(sqrtP^2)/2^192
+    /// @notice Amount value in token1-value: amount * P, где P=(sqrtP^2)/2^192
     function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (uint256) {
         if (amount == 0) return 0;
         unchecked {
@@ -457,12 +465,12 @@ contract NeighborhoodScanner {
         }
     }
 
-    /// @notice Общая стоимость (amount0, amount1) в token1-номинации
+    /// @notice Accumulated value of (amount0, amount1) in token1-value
     function valueInToken1(uint256 amount0, uint256 amount1, uint160 sqrtP) internal pure returns (uint256) {
         return value0InToken1(amount0, sqrtP) + amount1;
     }
 
-    /// @notice Метрика утилизации (0..1e18) с учётом ценности токенов (в token1-номинации)
+    /// @notice Utlization metrics (0..1e18) according to accumulated token value (in token1-value)
     function utilization1e18(
         uint256[] memory used,
         uint256[] memory balances,
@@ -474,7 +482,7 @@ contract NeighborhoodScanner {
         return FullMath.mulDiv(valUsed, 1e18, valTotal);
     }
 
-    /// @notice Решение направления оптимизации по относительной «ценности» балансов
+    /// @notice Search direction according to he balance value one against another: which one needs to be fixed.
     function _chooseMode(
         uint160 sqrtP,
         uint256[] memory balances

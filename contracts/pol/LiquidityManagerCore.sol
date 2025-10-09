@@ -29,11 +29,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount, bool burnOrTransfer);
-    event PositionMinted(uint256 indexed positionId, address indexed token0, address indexed token1, uint256 amount0, uint256 amount1, uint256 liquidiy);
-    event LiquidityDecreased(uint256 indexed positionId, uint256 liquidity, uint256 amount0, uint256 amount1);
-    event LiquidityIncreased(uint256 indexed positionId, uint256 liquidity, uint256 amount0, uint256 amount1);
-    event FeesCollected(address indexed sender, uint256 indexed positionId, uint256 amount0, uint256 amount1);
-    event TicksSet(address indexed token0, address indexed token1, int24 feeTierOrTickSpacing, int24 tickLower, int24 tickUpper);
+    event PositionMinted(uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
+    event LiquidityDecreased(uint256 indexed positionId, uint256 liquidity, uint256[] amounts);
+    event LiquidityIncreased(uint256 indexed positionId, uint256 liquidity, uint256[] amounts);
+    event FeesCollected(address indexed sender, uint256 indexed positionId, uint256[] amounts);
+    event TicksSet(address[] tokens, int24 feeTierOrTickSpacing, int24[] initTicks, int24[] optimizedTicks, bool scan);
     event PositionTransferred(uint256 indexed positionId, address indexed to);
     event TokenTransferred(address indexed token, address indexed to, uint256 amount);
 
@@ -150,7 +150,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get corresponding token fees
         (amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).collect(params);
 
-        emit FeesCollected(msg.sender, positionId, amounts[0], amounts[1]);
+        emit FeesCollected(msg.sender, positionId, amounts);
     }
 
     function _adjustTicksAndMintPosition(
@@ -158,7 +158,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         uint256[] memory inputAmounts,
         int24 feeTierOrTickSpacing,
         uint160 centerSqrtPriceX96,
-        int24[] memory ticks,
+        int24[] memory initTicks,
         bool scan
     )
         internal returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn)
@@ -170,20 +170,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert ZeroValue();
         }
 
+        int24[] memory optimizedTicks;
         // Build percent band around TWAP center
-        (ticks, liquidity, amountsIn) =
-            INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96, ticks, tickSpacing,
-                inputAmounts, scan);
+        (optimizedTicks, liquidity, amountsIn) =
+            INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96, initTicks,
+                tickSpacing, inputAmounts, scan);
 
         uint256[] memory amountsMin = new uint256[](2);
         amountsMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         amountsMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         (positionId, liquidity, amountsIn) =
-            _mintV3(tokens, amountsIn, amountsMin, ticks, feeTierOrTickSpacing, centerSqrtPriceX96);
+            _mintV3(tokens, amountsIn, amountsMin, optimizedTicks, feeTierOrTickSpacing, centerSqrtPriceX96);
 
-        emit TicksSet(tokens[0], tokens[1], feeTierOrTickSpacing, ticks[0], ticks[1]);
-        emit PositionMinted(positionId, tokens[0], tokens[1], amountsIn[0], amountsIn[1], liquidity);
+        emit TicksSet(tokens, feeTierOrTickSpacing, initTicks, optimizedTicks, scan);
+        emit PositionMinted(positionId, tokens, amountsIn, liquidity);
     }
 
     function _calculateTicksAndMintPosition(
@@ -208,42 +209,54 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         return _adjustTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan);
     }
 
-    function _decreaseLiquidity(address pool, uint256 positionId, uint16 bps)
+    function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate)
         internal returns (uint256[] memory amountsOut)
     {
         // Read position & liquidity
-        (, , , , , int24 tickLower, int24 tickUpper, uint128 liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
+        uint128 liquidity;
+        int24[] memory ticks = new int24[](2);
+        (, , , , , ticks[0], ticks[1], liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
         // Check for zero value
         if (liquidity == 0) {
             revert ZeroValue();
         }
 
         // Calculate liquidity based on provided BPS, if any
-        if (bps < MAX_BPS) {
-            liquidity = (liquidity * bps) / MAX_BPS;
+        if (decreaseRate < MAX_BPS) {
+            liquidity = (liquidity * decreaseRate) / MAX_BPS;
         }
 
         // Get current pool sqrt price
         (uint160 sqrtPriceX96, ) = _getPriceAndObservationIndexFromSlot0(pool);
 
-        // Decrease liquidity
-        (uint256 amount0Min, uint256 amount1Min) =
-            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
-        amount0Min = amount0Min * (MAX_BPS - maxSlippage) / MAX_BPS;
-        amount1Min = amount1Min * (MAX_BPS - maxSlippage) / MAX_BPS;
+        // Get sqrt prices for ticks
+        uint160[] memory sqrtAB = new uint160[](2);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
+        // Get amounts based on liquidity
+        uint256[] memory amountsMin = new uint256[](2);
+        (amountsMin[0], amountsMin[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
+
+        // Get minimum amounts according to slippage
+        amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+
+        // Assemble decrease liquidity params
         IPositionManagerV3.DecreaseLiquidityParams memory params = IPositionManagerV3.DecreaseLiquidityParams({
             tokenId: positionId,
             liquidity: liquidity,
-            amount0Min: amount0Min,
-            amount1Min: amount1Min,
+            amount0Min: amountsMin[0],
+            amount1Min: amountsMin[1],
             deadline: block.timestamp
         });
 
+        // Decrease liquidity
         amountsOut = new uint256[](2);
         (amountsOut[0], amountsOut[1]) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(params);
 
-        emit LiquidityDecreased(positionId, liquidity, amountsOut[0], amountsOut[1]);
+        emit LiquidityDecreased(positionId, liquidity, amountsOut);
     }
 
     function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts)
@@ -252,13 +265,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Get current pool sqrt price
         (uint160 sqrtPriceX96, ) = _getPriceAndObservationIndexFromSlot0(pool);
 
+        // Read position & liquidity
         int24[] memory ticks = new int24[](2);
         (, , , , , ticks[0], ticks[1], liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
 
-        // Compute expected amounts for increase (TWAP) -> slippage guards
+        // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
+        // Compute liquidity based on amounts and sqrt prices
         uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtAB[0], sqrtAB[1], inputAmounts[0], inputAmounts[1]);
 
         if (liquidity > liquidityMin) {
@@ -271,6 +286,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         aMin[0] = inputAmounts[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         aMin[1] = inputAmounts[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
+        // Assemble increase liquidity params
         IPositionManagerV3.IncreaseLiquidityParams memory params = IPositionManagerV3.IncreaseLiquidityParams({
             tokenId: positionId,
             amount0Desired: inputAmounts[0],
@@ -280,10 +296,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             deadline: block.timestamp
         });
 
+        // Increase liquidity
         amountsIn = new uint256[](2);
         (liquidity, amountsIn[0], amountsIn[1]) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
 
-        emit LiquidityIncreased(positionId, liquidity, amountsIn[0], amountsIn[1]);
+        emit LiquidityIncreased(positionId, liquidity, amountsIn);
     }
 
     function _manageUtilityAmounts(address[] memory tokens, uint32 conversionRate, bool burnOrTransfer)
@@ -375,7 +392,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         emit ImplementationUpdated(implementation);
     }
 
-    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 conversionRate, bool scan)
+    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan)
         external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
     {
         if (_locked > 1) {
@@ -388,18 +405,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // TODO Shall we accept non-OLAS pairs?
         // Check for OLAS in pair
         if (tokens[0] != olas && tokens[1] != olas) {
             revert();
         }
 
-        // Check conversion rate
-        if (conversionRate == 0) {
-            revert ZeroValue();
-        }
-        if (conversionRate > MAX_BPS) {
-            revert Overflow(conversionRate, MAX_BPS);
+        // Check conversion rate overflow
+        if (olasBurnRate > MAX_BPS) {
+            revert Overflow(olasBurnRate, MAX_BPS);
         }
 
         if (v2Pool != 0) {
@@ -421,9 +434,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         }
 
         // Recalculate amounts for adding position liquidity depending on conversion rate
-        if (conversionRate < MAX_BPS) {
+        if (olasBurnRate < MAX_BPS) {
             // Initial token management: burn OLAS, transfer another token
-            amounts = _manageUtilityAmounts(tokens, conversionRate, true);
+            amounts = _manageUtilityAmounts(tokens, olasBurnRate, true);
         }
 
         // Check current pool prices
@@ -553,7 +566,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _locked = 1;
     }
 
-    function decreaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 bps, uint16 olasBurnRate)
+    function decreaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 decreaseRate, uint16 olasBurnRate)
         external returns (uint256 positionId, uint256[] memory amounts)
     {
         if (_locked > 1) {
@@ -566,12 +579,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Check bps and utility rate
-        if (bps == 0) {
+        // Check decrease and olas burn rates
+        if (decreaseRate == 0) {
             revert ZeroValue();
         }
-        if (bps > MAX_BPS) {
-            revert Overflow(bps, MAX_BPS);
+        if (decreaseRate > MAX_BPS) {
+            revert Overflow(decreaseRate, MAX_BPS);
         }
         if (olasBurnRate > MAX_BPS) {
             revert Overflow(olasBurnRate, MAX_BPS);
@@ -597,7 +610,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         checkPoolAndGetCenterPrice(pool);
 
         // Decrease liquidity
-        _decreaseLiquidity(pool, positionId, bps);
+        _decreaseLiquidity(pool, positionId, decreaseRate);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(positionId);
@@ -611,7 +624,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         _manageUtilityAmounts(tokens, MAX_BPS, false);
 
         // If full position is decreased, remove it such that there is a possibility to create a new one
-        if (bps == MAX_BPS) {
+        if (decreaseRate == MAX_BPS) {
             mapPoolAddressPositionIds[pool] = 0;
         }
 
@@ -717,9 +730,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
     /// @param pool Pool address.
     /// @return centerSqrtPriceX96 Calculated center SQRT price.
-    function checkPoolAndGetCenterPrice(address pool)
-        public view returns (uint160 centerSqrtPriceX96)
-    {
+    function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96) {
         uint16 observationIndex;
         // Get current pool sqrt price and observation index
         (centerSqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
