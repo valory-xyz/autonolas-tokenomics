@@ -1,0 +1,20 @@
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+INFO:Detectors:
+LiquidityManagerCore LiquidityManagerCore._manageUtilityAmounts(address[],uint32,bool) (LiquidityManagerCore-flatten.sol#2164-2213) might be vulnerable to double-entry token exploit
+LiquidityManagerCore LiquidityManagerCore.convertToV3(address[],bytes32,int24,int24[],uint16,bool) (LiquidityManagerCore-flatten.sol#2253-2326) might be vulnerable to double-entry token exploit
+Reference: https://github.com/pessimistic-io/slitherin/blob/master/docs/double_entry_token_possibility.md
+
+
+INFO:Detectors:
+LiquidityManagerCore._adjustTicksAndMintPosition(address[],uint256[],int24,uint160,int24[],bool).liquidity (LiquidityManagerCore-flatten.sol#2022) is written in both
+	(optimizedTicks,liquidity,amountsIn) = INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96,initTicks,tickSpacing,inputAmounts,scan) (LiquidityManagerCore-flatten.sol#2033-2035)
+	(positionId,liquidity,amountsIn) = _mintV3(tokens,amountsIn,amountsMin,optimizedTicks,feeTierOrTickSpacing,centerSqrtPriceX96) (LiquidityManagerCore-flatten.sol#2041-2042)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#write-after-write
+
+
+
+
+
+
+
+
