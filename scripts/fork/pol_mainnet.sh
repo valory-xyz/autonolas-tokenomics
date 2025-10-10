@@ -183,10 +183,10 @@ result=$($castCmd)
 echo "$result" | grep "status"
 
 feeTier="3000"
-decreaseBPS="1000"
-olasWithdrawRate="1000"
+decreaseRate="1000"
+olasBurnRate="1000"
 echo "${green}Convert liquidity v2 to v3${reset}"
-castArgs="$liquidityManagerETHAddress decreaseLiquidity(address[],int24,uint16,uint16) [$olasAddress,$wethAddress] $feeTier $decreaseBPS $olasWithdrawRate"
+castArgs="$liquidityManagerETHAddress decreaseLiquidity(address[],int24,uint16,uint16) [$olasAddress,$wethAddress] $feeTier $decreaseRate $olasBurnRate"
 echo $castArgs
 castCmd="$castSendHeader $castArgs --gas-limit 10000000"
 result=$($castCmd)
