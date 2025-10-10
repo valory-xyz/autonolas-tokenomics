@@ -35,7 +35,7 @@ const ARBISCAN_API_KEY = process.env.ARBISCAN_API_KEY;
 const OPSCAN_API_KEY = process.env.OPSCAN_API_KEY;
 const BASESCAN_API_KEY = process.env.BASESCAN_API_KEY;
 const CELOSCAN_API_KEY = process.env.CELOSCAN_API_KEY;
-const isCoverage = process.env.COVERAGE === '1';
+const isCoverage = process.env.COVERAGE === "1";
 
 module.exports = {
     networks: {
