@@ -4,8 +4,9 @@
   "description": "Set of tokenomics contracts for Autonolas",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "compile": "scripts/uni-adjust/adjust-pair-clone.sh && ./scripts/uni-adjust/adjust-point.sh && ./node_modules/.bin/hardhat compile && ./scripts/uni-adjust/adjust-pair.sh && ./node_modules/.bin/hardhat compile"
+    "test": "npx hardhat test",
+    "compile": "scripts/uni-adjust/adjust-pair-clone.sh && ./scripts/uni-adjust/adjust-point.sh && ./node_modules/.bin/hardhat compile && ./scripts/uni-adjust/adjust-pair.sh && ./node_modules/.bin/hardhat compile",
+    "coverage": "COVERAGE=1 npx hardhat coverage"
   },
   "repository": {
     "type": "git",
