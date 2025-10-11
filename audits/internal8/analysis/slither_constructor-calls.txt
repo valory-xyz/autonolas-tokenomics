@@ -1,0 +1,99 @@
+'solc --version' running
+'solc ./LiquidityManagerCore-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal8/analysis/contracts' running
+Compilation warnings/errors on ./LiquidityManagerCore-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> LiquidityManagerCore-flatten.sol:26:5:
+   |
+26 |     function mulDiv(
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+Note: The shadowed declaration is here:
+   --> LiquidityManagerCore-flatten.sol:669:1:
+    |
+669 | function mulDiv(uint256 x, uint256 y, uint256 denominator) pure returns (uint256 result) {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: This declaration shadows an existing declaration.
+    --> LiquidityManagerCore-flatten.sol:1403:13:
+     |
+1403 |             uint256 msb = 0;
+     |             ^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> LiquidityManagerCore-flatten.sol:602:1:
+    |
+602 | function msb(uint256 x) pure returns (uint256 result) {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./NeighborhoodScanner-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal8/analysis/contracts' running
+INFO:Printers:
+######################
+####### ERC721 #######
+######################
+
+## Constructor Call Sequence
+	- ERC721
+
+## Constructor Definitions
+
+### ERC721
+
+     tor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
+    }
+
+    /*
+
+####################################
+####### LiquidityManagerCore #######
+####################################
+
+## Constructor Call Sequence
+	- LiquidityManagerCore
+
+## Constructor Definitions
+
+### LiquidityManagerCore
+
+     tor(
+        address _olas,
+        address _treasury,
+        address _positionManagerV3,
+        address _neighborhoodScanner,
+        uint16 _observationCardinality,
+        uint16 _maxSlippage
+    ) {
+        owner = msg.sender;
+
+        // Check for zero addresses
+        if (_olas == address(0) || _treasury == address(0) || _positionManagerV3 == address(0) ||
+            _neighborhoodScanner == address(0))
+        {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_maxSlippage == 0 || _observationCardinality == 0) {
+            revert ZeroValue();
+        }
+        // Check for max value
+        if (_maxSlippage > MAX_BPS) {
+            revert Overflow(_maxSlippage, MAX_BPS);
+        }
+
+        olas = _olas;
+        treasury = _treasury;
+        positionManagerV3 = _positionManagerV3;
+        neighborhoodScanner = _neighborhoodScanner;
+        observationCardinality = _observationCardinality;
+        maxSlippage = _maxSlippage;
+
+        // Get V3 factory address
+        factoryV3 = IUniswapV3(positionManagerV3).factory();
+    }
+
+    fu
+
+INFO:Printers:
+INFO:Slither:. analyzed (18 contracts)
