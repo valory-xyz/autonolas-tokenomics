@@ -53,7 +53,7 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-      # Compile the code and run foundry tests
+      # Compile the code and run foundry tests (except for fork ones)
       - name: Run foundry tests
         run: forge test --no-match-contract LiquidityManager -vvv
 

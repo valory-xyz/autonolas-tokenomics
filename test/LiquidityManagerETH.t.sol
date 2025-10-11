@@ -1,6 +1,6 @@
 pragma solidity ^0.8.30;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
@@ -170,8 +170,8 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Adjust initial amounts due to OLAS burn rate
         initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
         initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
-        console2.log("Initial amounts[0]", initialAmounts[0]);
-        console2.log("Initial amounts[1]", initialAmounts[1]);
+        console.log("Initial amounts[0]", initialAmounts[0]);
+        console.log("Initial amounts[1]", initialAmounts[1]);
 
         // Convert V2 to V3
         (uint256 positionId, , uint256[] memory amountsOut) =
@@ -185,19 +185,19 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Since we decreased - decreaseAmountsOut must be <= decreaseAmounts
         decreaseAmounts[0] = (amountsOut[0] * decreaseRate) / MAX_BPS;
         decreaseAmounts[1] = (amountsOut[1] * decreaseRate) / MAX_BPS;
-        console2.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
-        console2.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
+        console.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
+        console.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
 
         (, uint256[] memory decreaseAmountsOut) =
             liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, decreaseRate, olasBurnRate);
-        console2.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
-        console2.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
+        console.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
+        console.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
 
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
             uint256 deviation = FixedPointMathLib.divWadDown((decreaseAmounts[i] - decreaseAmountsOut[i]), decreaseAmountsOut[i]);
-            console2.log(deviation);
-            console2.log(DELTA);
+            console.log(deviation);
+            console.log(DELTA);
             require(deviation <= DELTA, "Price deviation too high");
         }
 
@@ -216,8 +216,8 @@ contract LiquidityManagerETHTest is BaseSetup {
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
             uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
-            console2.log(deviation);
-            console2.log(DELTA);
+            console.log(deviation);
+            console.log(DELTA);
             require(deviation <= DELTA, "Price deviation too high");
         }
     }
