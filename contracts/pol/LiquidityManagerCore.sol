@@ -11,6 +11,14 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 
+/// @dev Out of tick range bounds.
+/// @param low Low tick provided.
+/// @param high High tick provided.
+/// @param minLow Min low tick allowed.
+/// @param maxHigh Max high tick allowed.
+error RangeBounds(int24 low, int24 high, int24 minLow, int24 maxHigh);
+
+
 interface INeighborhoodScanner {
     function optimizeLiquidityAmounts(
         uint160 centerSqrtPriceX96,
@@ -172,7 +180,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         int24[] memory optimizedTicks;
         // Build percent band around TWAP center
-        (optimizedTicks, liquidity, amountsIn) =
+        (optimizedTicks, , amountsIn) =
             INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96, initTicks,
                 tickSpacing, inputAmounts, scan);
 
@@ -202,7 +210,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         tickShifts[1] = centerTick + tickShifts[1];
 
         if (tickShifts[0] >= centerTick || tickShifts[1] <= centerTick) {
-            revert();
+            revert RangeBounds(tickShifts[0], centerTick, tickShifts[1]);
         }
 
         // Calculate and mint new position
@@ -267,17 +275,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Read position & liquidity
         int24[] memory ticks = new int24[](2);
-        (, , , , , ticks[0], ticks[1], liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
+        (, , , , , ticks[0], ticks[1], , , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
 
         // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
         // Compute liquidity based on amounts and sqrt prices
-        uint128 liquidityMin = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtAB[0], sqrtAB[1], inputAmounts[0], inputAmounts[1]);
+        liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, sqrtAB[0], sqrtAB[1], inputAmounts[0], inputAmounts[1]);
 
-        if (liquidity > liquidityMin) {
-            liquidity = liquidityMin;
+        // Check for zero value
+        if (liquidity == 0) {
+            revert ZeroValue();
         }
 
         uint256[] memory aMin = new uint256[](2);
@@ -348,7 +357,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Transfer to Treasury
         if (tokenAmount > 0) {
-            IToken(tokens[1]).transfer(treasury, tokenAmount);
+            SafeTransferLib.safeTransfer(tokens[1], treasury, tokenAmount);
         }
 
         emit UtilityAmountsManaged(olas, tokens[1], olasAmount, tokenAmount, burnOrTransfer);
@@ -407,7 +416,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Check for OLAS in pair
         if (tokens[0] != olas && tokens[1] != olas) {
-            revert();
+            revert WrongTokenAddress(tokens[0], olas);
         }
 
         // Check conversion rate overflow
@@ -561,8 +570,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
                 _calculateTicksAndMintPosition(feeTierOrTickSpacing, tokens, amounts, centerSqrtPriceX96, tickShifts, scan);
 
             mapPoolAddressPositionIds[pool] = positionId;
-        } else {
-            mapPoolAddressPositionIds[pool] = 0;
         }
 
         // Manage token leftovers - transfer both to treasury
@@ -628,10 +635,71 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
         // Manage collected amounts - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
 
-        // If full position is decreased, remove it such that there is a possibility to create a new one
-        if (decreaseRate == MAX_BPS) {
-            mapPoolAddressPositionIds[pool] = 0;
+        _locked = 1;
+    }
+
+    function increaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 olasBurnRate)
+        external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
+    {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
         }
+        _locked = 2;
+
+        // Check for contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check conversion rate overflow
+        if (olasBurnRate > MAX_BPS) {
+            revert Overflow(olasBurnRate, MAX_BPS);
+        }
+
+        // Get token amounts
+        amounts = new uint256[](2);
+        amounts[0] = IToken(tokens[0]).balanceOf(address(this));
+        amounts[1] = IToken(tokens[1]).balanceOf(address(this));
+
+        // Check for zero values
+        if (amounts[0] == 0 || amounts[1] == 0) {
+            revert ZeroValue();
+        }
+
+        // Get V3 pool
+        address pool = _getV3Pool(tokens, feeTierOrTickSpacing);
+
+        // Check for zero address
+        if (pool == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Recalculate amounts for adding position liquidity depending on OLAS burn rate
+        if (olasBurnRate > 0) {
+            // Initial token management: burn OLAS, transfer another token
+            amounts = _manageUtilityAmounts(tokens, olasBurnRate, true);
+        }
+
+        // Get positionId
+        positionId = mapPoolAddressPositionIds[pool];
+
+        // Check for zero position
+        if (positionId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check current pool prices
+        checkPoolAndGetCenterPrice(pool);
+
+        // Approve tokens for position manager
+        IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
+        IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
+
+        // Increase liquidity
+        (liquidity, amounts) = _increaseLiquidity(pool, positionId, amounts);
+
+        // Manage token leftovers - transfer both to treasury
+        _manageUtilityAmounts(tokens, MAX_BPS, false);
 
         _locked = 1;
     }

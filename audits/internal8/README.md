@@ -58,7 +58,7 @@ mapPoolAddressPositionIds[pool] = 0
 -> ????
 because impossible set mapPoolAddressPositionIds[pool] = new.
 ```
-[]
+[x] Fixed
 
 #### High. Incorrect logic _increaseLiquidity
 ```
@@ -112,7 +112,7 @@ function _increaseLiquidity(
         );
 }
 ```
-[]
+[x] Fixed
 
 ### High. Issue check/logic/execution olasBurnRate in convertToV3
 ```
@@ -127,7 +127,7 @@ You must either prohibit the burning of all OLAS/transfer all non-OLAS or be sur
 Not sure, designed for extreme cases:
 olasBurnRate = or ~= MAX_BPS.
 ```
-[]
+[x] Fixed
 
 ### High. Unsafe value0InToken1
 ```
@@ -146,7 +146,7 @@ function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (ui
     return FullMath.mulDiv(tmp, sqrtP, FixedPoint96.Q96);
 }
 ```
-[]
+[x] Fixed
 
 ### Medium/Notes. The problem is in the design (increaseLiquidity vs decreaseLiquidity)
 ```
@@ -155,7 +155,7 @@ function convertToV3
 increaseLiquidity must be a separate symmetric function.
 The workflow of mapPoolAddressPositionIds[v3Pool] (positionId) must be described separately and explicitly as critical issue of contract.
 ```
-[]
+[x] Noted, but if we need to convert more V2 tokens, this path must remain as positionId already exists
 
 #### Medium/Low. Token like USDT as token1.
 ```
@@ -170,7 +170,7 @@ interface IUSDT {
     function transfer(address, uint256) external;
 }
 ```
-[]
+[x] Fixed
 
 #### Medium?/Notes. Rewrite variable without usage
 ```
@@ -182,7 +182,7 @@ function _adjustTicksAndMintPosition()
 (positionId, liquidity, amountsIn) =
             _mintV3(tokens, amountsIn, amountsMin, optimizedTicks, feeTierOrTickSpacing, centerSqrtPriceX96);
 ```
-[]
+[x] Fixed
 
 #### Medium. Double check code with utilization
 ```
@@ -206,7 +206,7 @@ function _adjustTicksAndMintPosition()
         }
 
 ```
-[]
+[x] Fixed
 
 #### Low?/Notes. Double check logic _manageUtilityAmounts
 ```
@@ -245,7 +245,7 @@ function _adjustTicksAndMintPosition()
 2. _manageUtilityAmounts(tokens, MAX_BPS, false); => will take the remaining token1, but this will make two transfers instead of one.
 In general, this will not lead to problems, but only because the remainder will be taken based on the balances.
 ```
-[]
+[x] Noted
 
 ### Low. Unnamed revert()
 ```
@@ -291,7 +291,7 @@ The absence of events makes subgraph monitoring/using impossible
 // Steps near to tick boundaries
     int24 internal constant NEAR_STEPS = SAFETY_STEPS;
 ```
-[]
+[x] Fixed
 
 ### Notes. decreaseLiquidity function burns olasBurnRate% of (fee + decreaseLiquidity)
 ```
