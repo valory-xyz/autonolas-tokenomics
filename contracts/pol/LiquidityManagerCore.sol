@@ -3,7 +3,6 @@ pragma solidity ^0.8.30;
 
 import {ERC721TokenReceiver} from "../../lib/solmate/src/tokens/ERC721.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
-import {IErrorsTokenomics} from "../interfaces/IErrorsTokenomics.sol";
 import {IPositionManagerV3} from "../interfaces/IPositionManagerV3.sol";
 import {IToken} from "../interfaces/IToken.sol";
 import {IUniswapV3} from "../interfaces/IUniswapV3.sol";
@@ -11,12 +10,35 @@ import {SafeTransferLib} from "../utils/SafeTransferLib.sol";
 import {TickMath} from "../libraries/TickMath.sol";
 import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 
+/// @dev Only `owner` has a privilege, but the `sender` was provided.
+/// @param sender Sender address.
+/// @param owner Required sender address as an owner.
+error OwnerOnly(address sender, address owner);
+
+/// @dev Provided zero address.
+error ZeroAddress();
+
+/// @dev Zero value when it has to be different from zero.
+error ZeroValue();
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
+/// @dev Expected token address is not found in provided tokens.
+/// @param provided Provided token addresses.
+/// @param expected Expected token address.
+error WrongTokenAddress(address[] provided, address expected);
+
 /// @dev Out of tick range bounds.
 /// @param low Low tick provided.
+/// @param center Center tick provided.
 /// @param high High tick provided.
-/// @param minLow Min low tick allowed.
-/// @param maxHigh Max high tick allowed.
-error RangeBounds(int24 low, int24 high, int24 minLow, int24 maxHigh);
+error RangeBounds(int24 low, int24 center, int24 high);
+
+/// @dev Caught reentrancy violation.
+error ReentrancyGuard();
 
 
 interface INeighborhoodScanner {
@@ -33,7 +55,7 @@ interface INeighborhoodScanner {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics {
+abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount, bool burnOrTransfer);
@@ -416,7 +438,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver, IErrorsTokenomics
 
         // Check for OLAS in pair
         if (tokens[0] != olas && tokens[1] != olas) {
-            revert WrongTokenAddress(tokens[0], olas);
+            revert WrongTokenAddress(tokens, olas);
         }
 
         // Check conversion rate overflow

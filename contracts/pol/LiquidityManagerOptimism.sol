@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerCore} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
 
-/// @dev Provided zero address.
-error ZeroAddress();
+/// @dev Expected token addresses do not match provided ones.
+/// @param provided Provided token addresses.
+/// @param expected Expected token addresses.
+error WrongTokenAddresses(address[] provided, address[] expected);
+
+/// @dev Oracle slippage limit is breached.
+error SlippageLimitBreached();
 
 interface IBalancerV2 {
     struct ExitPoolRequest {
@@ -214,7 +219,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
 
         // Check tokens
         if (tokensInPool[0] != tokens[0] || tokensInPool[1] != tokens[1]) {
-            revert();
+            revert WrongTokenAddresses(tokens, tokensInPool);
         }
 
         // Check for zero balances
@@ -225,7 +230,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         // Apply slippage protection
         // BPS --> %
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert();
+            revert SlippageLimitBreached();
         }
 
         // Price is validated with desired slippage, and thus min out amounts can be set to 1

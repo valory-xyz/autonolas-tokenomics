@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerCore} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 
-/// @dev Provided zero address.
-error ZeroAddress();
+/// @dev Expected token addresses do not match provided ones.
+/// @param provided Provided token addresses.
+/// @param expected Expected token addresses.
+error WrongTokenAddresses(address[] provided, address[] expected);
+
+/// @dev Value underflow.
+/// @param provided Underflow value.
+/// @param min Minimum possible value.
+error Underflow(int256 provided, int256 min);
+
+/// @dev Oracle slippage limit is breached.
+error SlippageLimitBreached();
 
 interface IFactory {
     /// @notice Returns the tick spacing for a given fee amount, if enabled, or 0 if not enabled
@@ -171,13 +181,13 @@ contract LiquidityManagerETH is LiquidityManagerCore {
 
         // Check tokens
         if (tokensInPair[0] != tokens[0] || tokensInPair[1] != tokens[1]) {
-            revert();
+            revert WrongTokenAddresses(tokens, tokensInPair);
         }
 
         // Apply slippage protection
         // BPS --> %
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert();
+            revert SlippageLimitBreached();
         }
 
         // Approve V2 liquidity
@@ -221,7 +231,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
 
     function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24 tickSpacing) {
         if (feeTier < 0) {
-            revert();
+            revert Underflow(feeTier, 0);
         }
         tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
     }
@@ -237,7 +247,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         internal view virtual override returns (address)
     {
         if (feeTier < 0) {
-            revert();
+            revert Underflow(feeTier, 0);
         }
 
         return IFactory(factoryV3).getPool(tokens[0], tokens[1], uint24(feeTier));
