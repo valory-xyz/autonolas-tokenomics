@@ -279,7 +279,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @dev Collects fees from LP position.
     /// @notice Function does not revert if any of amounts are zero.
     /// @param positionId Position Id.
-    /// @return amount Amounts array.
+    /// @return amounts Amounts array.
     function _collectFees(uint256 positionId) internal returns (uint256[] memory amounts) {
         IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
             tokenId: positionId,
@@ -519,7 +519,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
     /// @return positionId Minted or existing position Id.
     /// @return liquidity Produced liquidity.
-    /// @return amountsIn Amounts in liquidity.
+    /// @return amounts Amounts in liquidity.
     function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan)
         external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
     {
@@ -607,7 +607,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @dev Collects fees from LP position, burns OLAS tokens and transfers another token to treasury.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @return amount Amounts array.
+    /// @return amounts Amounts array.
     function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing) external returns (uint256[] memory amounts) {
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -656,7 +656,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
     /// @return positionId Minted or existing position Id.
     /// @return liquidity Produced liquidity.
-    /// @return amountsIn Amounts in liquidity.
+    /// @return amounts Amounts in liquidity.
     function changeRanges(address[] memory tokens, int24 feeTierOrTickSpacing, int24[] memory tickShifts, bool scan)
         external returns (uint256 positionId, uint128 liquidity, uint256[] memory amounts)
     {
@@ -724,9 +724,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param olasBurnRate OLAS burn rate in BPS, relative to specified decreaseRate: burns OLAS from decreased
     ///        token amounts, transfers same rate of another token to treasury address.
     /// @return positionId Minted or existing position Id.
-    /// @return amountsIn Amounts from liquidity.
+    /// @return liquidity Decreased liquidity amount.
+    /// @return amounts Amounts from liquidity.
     function decreaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 decreaseRate, uint16 olasBurnRate)
-        external returns (uint256 positionId, uint256[] memory amounts)
+        external returns (uint256 positionId, uint128 liquidity, uint256[] memory amounts)
     {
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -769,7 +770,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         checkPoolAndGetCenterPrice(pool);
 
         // Decrease liquidity
-        (uint128 liquidity, ) = _decreaseLiquidity(pool, positionId, decreaseRate);
+        (liquidity, ) = _decreaseLiquidity(pool, positionId, decreaseRate);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(positionId);
@@ -793,7 +794,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param olasBurnRate OLAS burn rate in BPS: burns specified amount of OLAS from initial token amounts,
     ///        transfers same rate of another token to treasury address.
     /// @return positionId Minted or existing position Id.
-    /// @return amountsIn Amounts in liquidity.
+    /// @return liquidity Produced liquidity.
+    /// @return amounts Amounts in liquidity.
     function increaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 olasBurnRate)
         external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
     {
