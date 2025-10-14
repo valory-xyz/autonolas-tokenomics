@@ -62,8 +62,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount, bool burnOrTransfer);
     event PositionMinted(uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
     event LiquidityDecreased(uint256 indexed positionId, uint256[] amounts, uint256 liquidity);
-    event LiquidityIncreased(uint256 indexed positionId, uint256[] amounts, uint256 liquidity);
     event PositionLiquidityDecreased(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
+    event LiquidityIncreased(uint256 indexed positionId, uint256[] amounts, uint256 liquidity);
     event PositionLiquidityIncreased(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
     event FeesCollected(address indexed sender, uint256 indexed positionId, uint256[] amounts);
     event PositionFeesCollected(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts);
@@ -152,16 +152,43 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         factoryV3 = IUniswapV3(positionManagerV3).factory();
     }
 
+    /// @dev Burns OLAS directly or transfers OLAS to Burner contract.
+    /// @param amount OLAS amount.
     function _burn(uint256 amount) internal virtual;
 
+    /// @dev Checks provided tokens to match V2 pool ones and removes liquidity.
+    /// @param tokens Tokens comprising V2 pool.
+    /// @param v2Pool V2 pool hash or address.
+    /// @return amounts Removed liquidity amounts.
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool) internal virtual returns (uint256[] memory amounts);
 
+    /// @dev Gets tick spacing according to fee tier or tick spacing directly.
+    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @return tickSpacing Tick spacing.
     function _feeAmountTickSpacing(int24 feeTierOrTickSpacing) internal view virtual returns (int24 tickSpacing);
 
+    /// @dev Gets sqrt price and observation index values from slot 0.
+    /// @param pool Pool address.
+    /// @return sqrtPriceX96 Sqrt price.
+    /// @return observationIndex Observation index.
     function _getPriceAndObservationIndexFromSlot0(address pool) internal view virtual returns (uint160 sqrtPriceX96, uint16 observationIndex);
 
+    /// @dev Gets V3 pool based on token addresses and fee tier or tick spacing.
+    /// @param tokens Token addresses.
+    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @return v3Pool V3 pool address.
     function _getV3Pool(address[] memory tokens, int24 feeTierOrTickSpacing) internal view virtual returns (address v3Pool);
 
+    /// @dev Mints V3 pool position.
+    /// @param tokens Token addresses.
+    /// @param amounts Desired amounts.
+    /// @param amountsMin Minimum amounts.
+    /// @param ticks Ticks array.
+    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @param centerSqrtPriceX96 Center sqrt price.
+    /// @return positionId Minted position Id.
+    /// @return liquidity Produced liquidity.
+    /// @return amountsIn Amounts in liquidity.
     function _mintV3(
         address[] memory tokens,
         uint256[] memory amounts,
@@ -169,7 +196,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         int24[] memory ticks,
         int24 feeTierOrTickSpacing,
         uint160 centerSqrtPriceX96
-    ) internal virtual returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsOut);
+    ) internal virtual returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn);
 
     function _adjustTicksAndMintPosition(
         address[] memory tokens,

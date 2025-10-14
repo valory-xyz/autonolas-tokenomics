@@ -162,6 +162,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         IToken(olas).burn(amount);
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pair)
         internal virtual override returns (uint256[] memory amounts)
     {
@@ -200,6 +201,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             address(this), block.timestamp);
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _mintV3(
         address[] memory tokens,
         uint256[] memory amounts,
@@ -229,13 +231,17 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         return (positionId, liquidity, amounts);
     }
 
-    function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24 tickSpacing) {
+    /// @dev Gets tick spacing according to fee tier or tick spacing directly.
+    /// @param feeTier Fee tier.
+    /// @return Tick spacing.
+    function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24) {
         if (feeTier < 0) {
             revert Underflow(feeTier, 0);
         }
-        tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
+        return IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _getPriceAndObservationIndexFromSlot0(address pool)
         internal view virtual override returns (uint160 sqrtPriceX96, uint16 observationIndex)
     {
@@ -243,6 +249,10 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         (sqrtPriceX96, , observationIndex, , , , ) = IUniswapV3(pool).slot0();
     }
 
+    /// @dev Gets V3 pool based on token addresses and fee tier.
+    /// @param tokens Token addresses.
+    /// @param feeTier Fee tier.
+    /// @return V3 pool address.
     function _getV3Pool(address[] memory tokens, int24 feeTier)
         internal view virtual override returns (address)
     {

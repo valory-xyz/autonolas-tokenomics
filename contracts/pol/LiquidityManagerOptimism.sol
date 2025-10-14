@@ -210,6 +210,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         IToken(olas).transfer(bridge2Burner, amount);
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool)
         internal virtual override returns (uint256[] memory amounts)
     {
@@ -248,6 +249,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         IBalancerV2(balancerVault).exitPool(v2Pool, address(this), payable(address(this)), request);
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _mintV3(
         address[] memory tokens,
         uint256[] memory amounts,
@@ -278,17 +280,24 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         return (positionId, liquidity, amounts);
     }
 
+    /// @dev Gets tick spacing according to fee tier or tick spacing directly.
+    /// @param tickSpacing Tick spacing.
     function _feeAmountTickSpacing(int24 tickSpacing) internal view virtual override returns (int24) {
         return tickSpacing;
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _getPriceAndObservationIndexFromSlot0(address pool)
-    internal view virtual override returns (uint160 sqrtPriceX96, uint16 observationIndex)
+        internal view virtual override returns (uint160 sqrtPriceX96, uint16 observationIndex)
     {
         // Get current pool reserves and observation index
         (sqrtPriceX96, , observationIndex, , , ) = ISlipstreamV3(pool).slot0();
     }
 
+    /// @dev Gets V3 pool based on token addresses and tick spacing.
+    /// @param tokens Token addresses.
+    /// @param tickSpacing Tick spacing.
+    /// @return V3 pool address.
     function _getV3Pool(address[] memory tokens, int24 tickSpacing)
         internal view virtual override returns (address)
     {

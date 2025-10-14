@@ -299,6 +299,3 @@ It should be clear at the specification level that the burn rate applies to all 
 To avoid incorrect conclusions for DAO
 ```
 []
-
-
-
