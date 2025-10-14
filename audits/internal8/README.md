@@ -260,7 +260,7 @@ contracts/pol/LiquidityManagerOptimism.sol:            revert();
 contracts/pol/LiquidityManagerOptimism.sol:            revert();
 contracts/pol/NeighborhoodScanner.sol:            revert();
 ```
-[]
+[x] Fixed
 
 ### Low. A lot missing NatSpec
 ```
@@ -284,7 +284,7 @@ The absence of events makes subgraph monitoring/using impossible
 - changeRanges
 - decreaseLiquidity
 ```
-[]
+[x] Fixed
 
 ### Low. Remove variable NEAR_STEPS = SAFETY_STEPS
 ```

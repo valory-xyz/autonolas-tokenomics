@@ -40,7 +40,6 @@ error RangeBounds(int24 low, int24 center, int24 high);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-
 interface INeighborhoodScanner {
     function optimizeLiquidityAmounts(
         uint160 centerSqrtPriceX96,
@@ -58,11 +57,16 @@ interface INeighborhoodScanner {
 abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
+    event ConvertedToV3(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy, bool scan);
+    event RangesChanged(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy, bool scan);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount, bool burnOrTransfer);
     event PositionMinted(uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
-    event LiquidityDecreased(uint256 indexed positionId, uint256 liquidity, uint256[] amounts);
-    event LiquidityIncreased(uint256 indexed positionId, uint256 liquidity, uint256[] amounts);
+    event LiquidityDecreased(uint256 indexed positionId, uint256[] amounts, uint256 liquidity);
+    event LiquidityIncreased(uint256 indexed positionId, uint256[] amounts, uint256 liquidity);
+    event PositionLiquidityDecreased(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
+    event PositionLiquidityIncreased(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy);
     event FeesCollected(address indexed sender, uint256 indexed positionId, uint256[] amounts);
+    event PositionFeesCollected(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts);
     event TicksSet(address[] tokens, int24 feeTierOrTickSpacing, int24[] initTicks, int24[] optimizedTicks, bool scan);
     event PositionTransferred(uint256 indexed positionId, address indexed to);
     event TokenTransferred(address indexed token, address indexed to, uint256 amount);
@@ -167,22 +171,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         uint160 centerSqrtPriceX96
     ) internal virtual returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsOut);
 
-    /// @notice Function does not revert if any of amounts are zero.
-    function _collectFees(uint256 positionId) internal returns (uint256[] memory amounts) {
-        IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
-            tokenId: positionId,
-            recipient: address(this),
-            amount0Max: type(uint128).max,
-            amount1Max: type(uint128).max
-        });
-
-        amounts = new uint256[](2);
-        // Get corresponding token fees
-        (amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).collect(params);
-
-        emit FeesCollected(msg.sender, positionId, amounts);
-    }
-
     function _adjustTicksAndMintPosition(
         address[] memory tokens,
         uint256[] memory inputAmounts,
@@ -239,11 +227,26 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         return _adjustTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan);
     }
 
+    /// @notice Function does not revert if any of amounts are zero.
+    function _collectFees(uint256 positionId) internal returns (uint256[] memory amounts) {
+        IUniswapV3.CollectParams memory params = IUniswapV3.CollectParams({
+            tokenId: positionId,
+            recipient: address(this),
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        });
+
+        amounts = new uint256[](2);
+        // Get corresponding token fees
+        (amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).collect(params);
+
+        emit FeesCollected(msg.sender, positionId, amounts);
+    }
+
     function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate)
-        internal returns (uint256[] memory amountsOut)
+        internal returns (uint256[] memory amountsOut, uint128 liquidity)
     {
         // Read position & liquidity
-        uint128 liquidity;
         int24[] memory ticks = new int24[](2);
         (, , , , , ticks[0], ticks[1], liquidity, , , , ) = IPositionManagerV3(positionManagerV3).positions(positionId);
         // Check for zero value
@@ -286,7 +289,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         amountsOut = new uint256[](2);
         (amountsOut[0], amountsOut[1]) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(params);
 
-        emit LiquidityDecreased(positionId, liquidity, amountsOut);
+        emit LiquidityDecreased(positionId, amountsOut, liquidity);
     }
 
     function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts)
@@ -331,7 +334,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         amountsIn = new uint256[](2);
         (liquidity, amountsIn[0], amountsIn[1]) = IPositionManagerV3(positionManagerV3).increaseLiquidity(params);
 
-        emit LiquidityIncreased(positionId, liquidity, amountsIn);
+        emit LiquidityIncreased(positionId, amountsIn, liquidity);
     }
 
     function _manageUtilityAmounts(address[] memory tokens, uint16 utilizationRate, bool burnOrTransfer)
@@ -500,6 +503,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
 
+        emit ConvertedToV3(v3Pool, positionId, tokens, amounts, liquidity, scan);
+
         _locked = 1;
     }
 
@@ -539,6 +544,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Manage collected fees: burn OLAS, transfer another token
         _manageUtilityAmounts(tokens, MAX_BPS, true);
+
+        emit PositionFeesCollected(pool, positionId, tokens, amounts);
 
         _locked = 1;
     }
@@ -597,6 +604,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
 
+        emit RangesChanged(pool, positionId, tokens, amounts, liquidity, scan);
+
         _locked = 1;
     }
 
@@ -644,7 +653,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         checkPoolAndGetCenterPrice(pool);
 
         // Decrease liquidity
-        _decreaseLiquidity(pool, positionId, decreaseRate);
+        (, uint128 liquidity) = _decreaseLiquidity(pool, positionId, decreaseRate);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(positionId);
@@ -656,6 +665,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Manage collected amounts - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
+
+        emit PositionLiquidityDecreased(pool, positionId, tokens, amounts, liquidity);
 
         _locked = 1;
     }
@@ -722,6 +733,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
+
+        emit PositionLiquidityIncreased(pool, positionId, tokens, amounts, liquidity);
 
         _locked = 1;
     }
