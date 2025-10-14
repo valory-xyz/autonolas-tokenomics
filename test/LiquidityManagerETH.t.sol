@@ -188,7 +188,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         console.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
         console.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
 
-        (, uint256[] memory decreaseAmountsOut) =
+        (, , uint256[] memory decreaseAmountsOut) =
             liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, decreaseRate, olasBurnRate);
         console.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
         console.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
