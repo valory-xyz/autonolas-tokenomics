@@ -228,8 +228,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             revert ZeroValue();
         }
 
-        // Apply slippage protection
-        // BPS --> %
+        // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
             revert SlippageLimitBreached();
         }
@@ -259,7 +258,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         uint160 centerSqrtPriceX96
     ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory)
     {
-        // Add liquidity
+        // Params for minting
         ISlipstreamV3.MintParams memory params = ISlipstreamV3.MintParams({
             token0: tokens[0],
             token1: tokens[1],
@@ -275,6 +274,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             sqrtPriceX96: centerSqrtPriceX96
         });
 
+        // Mint position
         (positionId, liquidity, amounts[0], amounts[1]) = ISlipstreamV3(positionManagerV3).mint(params);
 
         return (positionId, liquidity, amounts);

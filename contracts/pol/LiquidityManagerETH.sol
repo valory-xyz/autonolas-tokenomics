@@ -166,6 +166,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pair)
         internal virtual override returns (uint256[] memory amounts)
     {
+        // Convert into pool address
         address lpToken = address(uint160(uint256(v2Pair)));
 
         // Get this contract liquidity
@@ -185,8 +186,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             revert WrongTokenAddresses(tokens, tokensInPair);
         }
 
-        // Apply slippage protection
-        // BPS --> %
+        // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
             revert SlippageLimitBreached();
         }
@@ -211,7 +211,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         uint160
     ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory)
     {
-        // Add liquidity
+        // Params for minting
         IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
             token0: tokens[0],
             token1: tokens[1],
@@ -226,6 +226,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             deadline: block.timestamp
         });
 
+        // Mint position
         (positionId, liquidity, amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).mint(params);
 
         return (positionId, liquidity, amounts);
@@ -235,9 +236,11 @@ contract LiquidityManagerETH is LiquidityManagerCore {
     /// @param feeTier Fee tier.
     /// @return Tick spacing.
     function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24) {
+        // Check for value underflow
         if (feeTier < 0) {
             revert Underflow(feeTier, 0);
         }
+
         return IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
     }
 
@@ -256,6 +259,7 @@ contract LiquidityManagerETH is LiquidityManagerCore {
     function _getV3Pool(address[] memory tokens, int24 feeTier)
         internal view virtual override returns (address)
     {
+        // Check for value underflow
         if (feeTier < 0) {
             revert Underflow(feeTier, 0);
         }
