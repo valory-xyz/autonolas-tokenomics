@@ -45,7 +45,7 @@ error RangeBounds(int24 low, int24 high, int24 minLow, int24 maxHigh);
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract NeighborhoodScanner {
-    // TODO Calculate steps - linear gas spending dependency
+    // Number of binary search steps
     uint8 public constant MAX_NUM_BINARY_STEPS = 32;
     // Number of iterations to find the best liquidity for both tick ranges
     int8 public constant MAX_NUM_FAFO_STEPS = 4;

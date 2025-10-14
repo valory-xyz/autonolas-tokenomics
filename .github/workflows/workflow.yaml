@@ -55,7 +55,7 @@ jobs:
 
       # Compile the code and run foundry tests (except for fork ones)
       - name: Run foundry tests
-        run: forge test --no-match-contract LiquidityManager -vvv
+        run: forge test --no-match-contract LiquidityManagerETH -vvv
 
   scan:
     name: gitleaks
