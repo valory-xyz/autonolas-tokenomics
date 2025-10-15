@@ -722,7 +722,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
     /// @param decreaseRate Rate of position decrease in BPS.
     /// @param olasBurnRate OLAS burn rate in BPS, relative to specified decreaseRate: burns OLAS from decreased
-    ///        token amounts, transfers same rate of another token to treasury address.
+    ///        token amounts and collected fees, transfers same rate of another token to treasury address.
     /// @return positionId Minted or existing position Id.
     /// @return liquidity Decreased liquidity amount.
     /// @return amounts Amounts from liquidity.

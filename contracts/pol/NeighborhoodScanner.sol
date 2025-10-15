@@ -65,7 +65,7 @@ contract NeighborhoodScanner {
         int24 hi,
         int24 hiMax,
         int24 tickSpacing
-    ) private pure returns (int24) {
+    ) internal pure returns (int24) {
         // Limit hi by hiMax
         if (hi > hiMax) {
             hi = hiMax;
@@ -78,7 +78,7 @@ contract NeighborhoodScanner {
 
         // Binary search while L <= R
         for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
-            int24 mid = (L + R) / 2;
+            int24 mid = _roundDownToSpacing((L + R) / 2, tickSpacing);
             if (mid < L) {
                 mid = L;
             }
@@ -111,7 +111,7 @@ contract NeighborhoodScanner {
         int24 loMin,
         int24 hi,
         int24 tickSpacing
-    ) private pure returns (int24) {
+    ) internal pure returns (int24) {
         // Limit loMin by loMax
         int24 loMax = hi - tickSpacing;
         if (loMin > loMax) {
@@ -125,7 +125,7 @@ contract NeighborhoodScanner {
 
         // Binary search while L <= R
         for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
-            int24 mid = (L + R) / 2;
+            int24 mid = _roundUpToSpacing((L + R) / 2, tickSpacing);
             if (mid > loMax) mid = loMax;
 
             // Check for non-zero intermediate
@@ -149,7 +149,7 @@ contract NeighborhoodScanner {
     /// @param lo Low tick value.
     /// @param hi High tick value.
     /// @return True if intermediate ois non-zero.
-    function _hasNonZeroIntermediate(int24 lo, int24 hi) private pure returns (bool) {
+    function _hasNonZeroIntermediate(int24 lo, int24 hi) internal pure returns (bool) {
         uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
         uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
         uint256 intermediate = FullMath.mulDiv(uint256(sqrtA), uint256(sqrtB), FixedPoint96.Q96);
@@ -577,7 +577,7 @@ contract NeighborhoodScanner {
     /// @param tick Tick value.
     /// @param spacing Tick spacing.
     /// @return Tick value rounded down to tick grid.
-    function _roundDownToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
+    function _roundDownToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
         return r == 0 ? tick : (tick - r);
     }
@@ -586,7 +586,7 @@ contract NeighborhoodScanner {
     /// @param tick Tick value.
     /// @param spacing Tick spacing.
     /// @return Tick value rounded up to tick grid.
-    function _roundUpToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
+    function _roundUpToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
         return r == 0 ? tick : (tick - r + spacing);
     }
@@ -595,7 +595,7 @@ contract NeighborhoodScanner {
     /// @param x Value x.
     /// @param y Value y.
     /// @return MIN(x, y).
-    function _min128(uint128 x, uint128 y) private pure returns (uint128) {
+    function _min128(uint128 x, uint128 y) internal pure returns (uint128) {
         return x < y ? x : y;
     }
 

@@ -298,4 +298,4 @@ The absence of events makes subgraph monitoring/using impossible
 It should be clear at the specification level that the burn rate applies to all "received" (from pool) olas, and not just to fee.
 To avoid incorrect conclusions for DAO
 ```
-[]
+[x] Fixed
