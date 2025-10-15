@@ -448,7 +448,7 @@ contract NeighborhoodScanner {
 
         // Choose min liquidity
         liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
-        liquidity = _min128(liqBest, liquidity);
+        liqBest = _min128(liqBest, liquidity);
 
         return _neighborhoodSearch(loHiBest, amounts, tickSpacing, sqrtP, liqBest);
     }
