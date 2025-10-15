@@ -650,6 +650,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Changes ranges of position in a specified pool.
+    /// @notice Any collected fees from liquidating initial position are supplied for one with repositioned ranges.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
     /// @param tickShifts Tick shifts array: shifts from central tick value.
