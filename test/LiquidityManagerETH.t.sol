@@ -44,6 +44,7 @@ contract BaseSetup is Test {
     address internal dev;
 
     uint256[2] internal initialAmounts;
+    uint160 internal sqrtPriceX96;
 
     // Contract addresses
     address internal constant OLAS = 0x0001A500A6B18995B03f44bb040A5fFc28E45CB0;
@@ -89,7 +90,7 @@ contract BaseSetup is Test {
         uint256 price = FixedPointMathLib.divWadDown(initialAmounts[1], initialAmounts[0]);
 
         // Calculate the square root of the price ratio in X96 format
-        uint160 sqrtPriceX96 = uint160((FixedPointMathLib.sqrt(price) * (1 << 96)) / 1e9);
+        sqrtPriceX96 = uint160((FixedPointMathLib.sqrt(price) * (1 << 96)) / 1e9);
 
         // Create V3 pool
         IUniswapV3(POSITION_MANAGER_V3).createAndInitializePoolIfNecessary(OLAS, WETH, uint24(FEE_TIER), sqrtPriceX96);
@@ -170,8 +171,8 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Adjust initial amounts due to OLAS burn rate
         initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
         initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
-        console.log("Initial amounts[0]", initialAmounts[0]);
-        console.log("Initial amounts[1]", initialAmounts[1]);
+        //console.log("Initial amounts[0]", initialAmounts[0]);
+        //console.log("Initial amounts[1]", initialAmounts[1]);
 
         // Convert V2 to V3
         (uint256 positionId, , uint256[] memory amountsOut) =
@@ -185,19 +186,17 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Since we decreased - decreaseAmountsOut must be <= decreaseAmounts
         decreaseAmounts[0] = (amountsOut[0] * decreaseRate) / MAX_BPS;
         decreaseAmounts[1] = (amountsOut[1] * decreaseRate) / MAX_BPS;
-        console.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
-        console.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
+        //console.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
+        //console.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
 
         (, , uint256[] memory decreaseAmountsOut) =
             liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, decreaseRate, olasBurnRate);
-        console.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
-        console.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
+        //console.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
+        //console.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
 
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
             uint256 deviation = FixedPointMathLib.divWadDown((decreaseAmounts[i] - decreaseAmountsOut[i]), decreaseAmountsOut[i]);
-            console.log(deviation);
-            console.log(DELTA);
             require(deviation <= DELTA, "Price deviation too high");
         }
 
@@ -216,8 +215,6 @@ contract LiquidityManagerETHTest is BaseSetup {
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
             uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
-            console.log(deviation);
-            console.log(DELTA);
             require(deviation <= DELTA, "Price deviation too high");
         }
     }
@@ -263,5 +260,61 @@ contract LiquidityManagerETHTest is BaseSetup {
         amountsOut = liquidityManager.collectFees(TOKENS, FEE_TIER);
         // OLAS collected fee must be > 0
         require(amountsOut[0] > 0);
+    }
+
+    function testConvertToV3Full10kPool() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = false;
+        int24 feeTier = 10_000;
+
+        // Liquidity will be zero
+        vm.expectRevert(bytes("ZeroValue()"));
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
+
+        scan = true;
+
+        // Same wiht scan argument
+        vm.expectRevert(bytes("ZeroValue()"));
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
+    }
+
+    function testConvertToV3FullScanFuzz(uint24 lowerTickShift, uint24 upperTickShift) public {
+        // Tick shifts: tick ± [5000, MAX_TICK]
+        lowerTickShift = uint24(bound(lowerTickShift, 5000, 887272));
+        upperTickShift = uint24(bound(upperTickShift, 5000, 887272));
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -int24(lowerTickShift);
+        tickShifts[1] = int24(upperTickShift);
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        (, , uint256[] memory amountsOut) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+    }
+
+    function testConvertToV3FullScanFuzzAllRange(uint24 lowerTickShift, uint24 upperTickShift) public {
+        // Tick shifts: tick ± [1, MAX_TICK]
+        lowerTickShift = uint24(bound(lowerTickShift, 1, 887272));
+        upperTickShift = uint24(bound(upperTickShift, 1, 887272));
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -int24(lowerTickShift);
+        tickShifts[1] = int24(upperTickShift);
+
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
     }
 }

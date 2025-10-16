@@ -227,18 +227,23 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         int24[] memory optimizedTicks;
         // Build percent band around TWAP center
-        (optimizedTicks, , amountsIn) =
+        (optimizedTicks, liquidity, amountsIn) =
             INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96, initTicks,
                 tickSpacing, inputAmounts, scan);
 
+        // Check for zero values
+        if (liquidity == 0 || amountsIn[0] == 0 || amountsIn[1] == 0) {
+            revert ZeroValue();
+        }
+
         // Get min amounts
-        uint256[] memory amountsMin = new uint256[](2);
-        amountsMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
-        amountsMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        uint256[] memory aMin = new uint256[](2);
+        aMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        aMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
         // Mint V3 position
         (positionId, liquidity, amountsIn) =
-            _mintV3(tokens, amountsIn, amountsMin, optimizedTicks, feeTierOrTickSpacing, centerSqrtPriceX96);
+            _mintV3(tokens, amountsIn, aMin, optimizedTicks, feeTierOrTickSpacing, centerSqrtPriceX96);
 
         emit TicksSet(tokens, feeTierOrTickSpacing, initTicks, optimizedTicks, scan);
         emit PositionMinted(positionId, tokens, amountsIn, liquidity);
@@ -383,9 +388,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        uint256[] memory aMin = new uint256[](2);
-        (aMin[0], aMin[1]) =
+        // Get amounts for liquidity
+        (inputAmounts[0], inputAmounts[1]) =
             LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
+        uint256[] memory aMin = new uint256[](2);
         aMin[0] = inputAmounts[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         aMin[1] = inputAmounts[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 

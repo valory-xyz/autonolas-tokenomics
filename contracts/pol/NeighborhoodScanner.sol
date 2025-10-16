@@ -178,6 +178,7 @@ contract NeighborhoodScanner {
     ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
         // Assign raw ticks
         loHi = new int24[](2);
+        amountsDesired = new uint256[](2);
         loHi[0] = ticks[0];
         loHi[1] = ticks[1];
 
@@ -185,7 +186,7 @@ contract NeighborhoodScanner {
         int24 minSafe = _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
         minSafe += SAFETY_STEPS * tickSpacing;
         int24 maxSafe = _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
-        minSafe -= SAFETY_STEPS * tickSpacing;
+        maxSafe -= SAFETY_STEPS * tickSpacing;
 
         // Round to exact spacing values
         loHi[0] = _roundDownToSpacing(loHi[0], tickSpacing);
@@ -215,13 +216,15 @@ contract NeighborhoodScanner {
         // If already non-zero, return (after neighborhood scanning, if specified)
         if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
             if (scan) {
-                (loHi, liquidity, amountsDesired) = _scanNeighborhood(tickSpacing, sqrtP,
-                    loHi, initialAmounts);
+                (loHi, liquidity, amountsDesired) = _scanNeighborhood(tickSpacing, sqrtP, loHi, initialAmounts);
             } else {
                 // Calculate liquidity
                 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
                     TickMath.getSqrtRatioAtTick(loHi[1]), initialAmounts[0], initialAmounts[1]);
-                amountsDesired = initialAmounts;
+
+                // Amounts desired are equal to initial amounts
+                amountsDesired[0] = initialAmounts[0];
+                amountsDesired[1] = initialAmounts[1];
             }
             return (loHi, liquidity, amountsDesired);
         }
@@ -328,6 +331,8 @@ contract NeighborhoodScanner {
         uint256[] memory utilizationMinMax = new uint256[](2);
         utilizationMinMax[0] = utilization1e18(optimizedAmounts, initialAmounts, sqrtP);
 
+        uint256[] memory amountsForLiquidity = new uint256[](2);
+        /// Traverse all neighboring ticks
         int24 i = loHiBase[0] - MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing;
         for (; i <= loHiBase[0] + MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing; i = i + tickSpacing) {
             int24 j = loHiBase[1] - MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing;
@@ -353,7 +358,6 @@ contract NeighborhoodScanner {
                 }
 
                 // Get amounts for liquidity
-                uint256[] memory amountsForLiquidity = new uint256[](2);
                 (amountsForLiquidity[0], amountsForLiquidity[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
 
                 // Calculate utilization based on initial amounts
@@ -393,8 +397,8 @@ contract NeighborhoodScanner {
     returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
         loHiBest = new int24[](2);
-        loHiBest[0] = lo;
         optimizedAmounts = new uint256[](2);
+        loHiBest[0] = lo;
 
         // Get sqrt price of lower tick
         uint160 sa = TickMath.getSqrtRatioAtTick(lo);
@@ -403,9 +407,17 @@ contract NeighborhoodScanner {
         int24 ct = TickMath.getTickAtSqrtRatio(sqrtP);
         int24[] memory hiMinMax = new int24[](2);
         hiMinMax[0] = _roundUpToSpacing(ct + 1, tickSpacing);
-        if (hiMinMax[0] <= loHiBest[0]) hiMinMax[0] = loHiBest[0] + tickSpacing;
-        hiMinMax[1]= _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
-        if (hiMinMax[1] <= hiMinMax[0]) hiMinMax[1] = hiMinMax[0] + tickSpacing;
+
+        // Limit lower tick by lo + tickSpacing
+        if (hiMinMax[0] <= loHiBest[0]) {
+            hiMinMax[0] = loHiBest[0] + tickSpacing;
+        }
+
+        // Check for upper tick limit
+        hiMinMax[1] = _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
+        if (hiMinMax[1] < hiMinMax[0]) {
+            hiMinMax[0] = hiMinMax[1];
+        }
 
         // token1-limited liquidity
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
@@ -515,8 +527,8 @@ contract NeighborhoodScanner {
     returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
         loHiBest = new int24[](2);
-        loHiBest[1] = hi;
         optimizedAmounts = new uint256[](2);
+        loHiBest[1] = hi;
 
         // Get sqrt price of higher tick
         uint160 sb = TickMath.getSqrtRatioAtTick(hi);
@@ -524,10 +536,18 @@ contract NeighborhoodScanner {
         // hi search range: [first grid above price, MAX_TICK on grid]
         int24 ct = TickMath.getTickAtSqrtRatio(sqrtP);
         int24[] memory loMinMax = new int24[](2);
+
+        // Limit higher tick by hi - tickSpacing
         loMinMax[1] = _roundDownToSpacing(ct - 1, tickSpacing);
-        if (loMinMax[1] >= loHiBest[1]) loMinMax[1] = loHiBest[1] - tickSpacing;
-        loMinMax[0]= _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
-        if (loMinMax[0] >= loMinMax[1]) loMinMax[0] = loMinMax[1] - tickSpacing;
+        if (loMinMax[1] >= loHiBest[1]) {
+            loMinMax[1] = loHiBest[1] - tickSpacing;
+        }
+
+        // Check for lower tick limit
+        loMinMax[0] = _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
+        if (loMinMax[0] > loMinMax[1]) {
+            loMinMax[1] = loMinMax[0];
+        }
 
         // token0-limited liquidity
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
@@ -579,7 +599,7 @@ contract NeighborhoodScanner {
     /// @return Tick value rounded down to tick grid.
     function _roundDownToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
-        return r == 0 ? tick : (tick - r);
+        return r == 0 ? tick : (r > 0 ? tick - r : tick - (r + spacing));
     }
 
     /// @dev Snap up to tick grid.
@@ -588,7 +608,7 @@ contract NeighborhoodScanner {
     /// @return Tick value rounded up to tick grid.
     function _roundUpToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
-        return r == 0 ? tick : (tick - r + spacing);
+        return r == 0 ? tick : (r > 0 ? tick + (spacing - r) : tick - r);
     }
 
     /// @dev Chooses min from given two values.
