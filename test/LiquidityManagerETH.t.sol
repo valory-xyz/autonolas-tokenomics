@@ -262,6 +262,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         require(amountsOut[0] > 0);
     }
 
+    // 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case
     function testConvertToV3Full10kPool() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;

@@ -331,7 +331,6 @@ contract NeighborhoodScanner {
         uint256[] memory utilizationMinMax = new uint256[](2);
         utilizationMinMax[0] = utilization1e18(optimizedAmounts, initialAmounts, sqrtP);
 
-        uint256[] memory amountsForLiquidity = new uint256[](2);
         /// Traverse all neighboring ticks
         int24 i = loHiBase[0] - MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing;
         for (; i <= loHiBase[0] + MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing; i = i + tickSpacing) {
@@ -358,6 +357,7 @@ contract NeighborhoodScanner {
                 }
 
                 // Get amounts for liquidity
+                uint256[] memory amountsForLiquidity = new uint256[](2);
                 (amountsForLiquidity[0], amountsForLiquidity[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
 
                 // Calculate utilization based on initial amounts
