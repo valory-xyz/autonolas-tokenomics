@@ -7,7 +7,7 @@ libs = ["lib"]
 optimizer = true
 optimizer_runs = 100
 evm_version = "prague"
-#viaIR = true
+viaIR = true
 
 remappings = [
     "canonical-weth=node_modules/canonical-weth",

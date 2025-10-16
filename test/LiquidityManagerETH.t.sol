@@ -102,6 +102,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         super.setUp();
     }
 
+    /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan.
     function testConvertToV3FullScan() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;
@@ -120,6 +121,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         }
     }
 
+    /// @dev Converts V2 pool into V3 with 95% amount (5% of OLAS burn, 5% of WETH transferred) and optimized ticks scan.
     function testConvertToV3Conversion95Scan() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
@@ -129,6 +131,7 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         // Adjust initial amounts due to OLAS burn rate
         initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
         initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
 
         (, , uint256[] memory amountsOut) =
@@ -140,8 +143,11 @@ contract LiquidityManagerETHTest is BaseSetup {
             uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
             require(deviation <= DELTA, "Price deviation too high");
         }
+
+        require(IToken(WETH).balanceOf(TIMELOCK) >= wethAmount, "WETH transfer was not complete");
     }
 
+    /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
     function testConvertToV3FullNoScan() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;
@@ -161,6 +167,8 @@ contract LiquidityManagerETHTest is BaseSetup {
         }
     }
 
+    /// @dev Converts V2 pool into V3 with 95% amount (5% of OLAS burn, 5% of WETH transferred) and optimized ticks scan,
+    ///      then decrease liquidity and reposition to new ticks.
     function testConvertToV3Conversion95ScanDecreaseLiquidityReposition() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
@@ -219,6 +227,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         }
     }
 
+    /// @dev Converts V2 pool into V3 with 95% amount and optimized ticks scan, collect fees, swap, add again
     function testConvertToV3Conversion95ScanCollectFees() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
@@ -253,16 +262,31 @@ contract LiquidityManagerETHTest is BaseSetup {
         });
 
         // Swap tokens
-        IRouterV3(ROUTER_V3).exactInputSingle(params);
+        uint256 wethOut = IRouterV3(ROUTER_V3).exactInputSingle(params);
         vm.stopPrank();
 
         // Collect fees
         amountsOut = liquidityManager.collectFees(TOKENS, FEE_TIER);
         // OLAS collected fee must be > 0
         require(amountsOut[0] > 0);
+
+        // Fund LiquidityManager with OLAS and WETH
+        deal(OLAS, address(liquidityManager), olasAmountToSwap);
+        deal(WETH, address(liquidityManager), wethOut);
+
+        // Convert to V3 again without a pair
+        (, , amountsOut) =
+            liquidityManager.convertToV3(TOKENS, 0, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // Fund more LiquidityManager with OLAS and WETH
+        deal(OLAS, address(liquidityManager), olasAmountToSwap);
+        deal(WETH, address(liquidityManager), wethOut);
+
+        // Increase liquidity
+        (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
     }
 
-    // 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case
+    /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.
     function testConvertToV3Full10kPool() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;
@@ -282,6 +306,108 @@ contract LiquidityManagerETHTest is BaseSetup {
         liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
     }
 
+    /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.
+    function testConvertToV3FullScanTransferPosition() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        liquidityManager.transferPositionId(TOKENS, FEE_TIER, TIMELOCK);
+    }
+
+    /// @dev Error scenarios.
+    function testConvertToV3Errors() public {
+        int24[] memory tickShifts = new int24[](2);
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Tick shifts cause same entry prices
+        vm.expectRevert();
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+
+        // No tokens are available
+        vm.expectRevert();
+        liquidityManager.convertToV3(TOKENS, 0, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // OLAS burn rate is too high
+        vm.expectRevert();
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 10_001, scan);
+
+        // Pool does not exist
+        vm.expectRevert();
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, 10, tickShifts, olasBurnRate, scan);
+
+        // Decrease rate is zero
+        vm.expectRevert();
+        liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, 0, olasBurnRate);
+
+        // Decrease rate is too big
+        vm.expectRevert();
+        liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, 10_001, olasBurnRate);
+
+        uint16 decreaseRate = 1_000;
+        // OLAS burn rate is too big
+        vm.expectRevert();
+        liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, decreaseRate, 10_001);
+
+        // Pool does not exist
+        vm.expectRevert();
+        liquidityManager.decreaseLiquidity(TOKENS, 10, decreaseRate, olasBurnRate);
+
+        // No position to work with
+        vm.expectRevert();
+        liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, decreaseRate, olasBurnRate);
+
+        // OLAS burn rate is too big
+        vm.expectRevert();
+        liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, 10_001);
+
+        // No available amounts
+        vm.expectRevert();
+        liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
+
+        // Fund LiquidityManager with OLAS and WETH
+        deal(OLAS, address(liquidityManager), initialAmounts[0]);
+        deal(WETH, address(liquidityManager), initialAmounts[1]);
+
+        // Pool is not found
+        vm.expectRevert();
+        liquidityManager.increaseLiquidity(TOKENS, 10, olasBurnRate);
+
+        // Position does not exist
+        vm.expectRevert();
+        liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
+
+        // Position does not exist
+        vm.expectRevert();
+        liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
+
+        // Pool does not exist
+        vm.expectRevert();
+        liquidityManager.changeRanges(TOKENS, 10, tickShifts, scan);
+
+        // Position does not exist
+        vm.expectRevert();
+        liquidityManager.changeRanges(TOKENS, FEE_TIER, tickShifts, scan);
+
+        // No position available
+        vm.expectRevert();
+        liquidityManager.transferPositionId(TOKENS, FEE_TIER, TIMELOCK);
+
+        // No token available
+        vm.expectRevert();
+        liquidityManager.transferToken(OLAS, TIMELOCK, initialAmounts[0] + 1);
+    }
+
+    /// @dev Fuzz: converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan,
+    ///      safe tick shifts for deviation calculation.
     function testConvertToV3FullScanFuzz(uint24 lowerTickShift, uint24 upperTickShift) public {
         // Tick shifts: tick ± [5000, MAX_TICK]
         lowerTickShift = uint24(bound(lowerTickShift, 5000, 887272));
@@ -304,6 +430,8 @@ contract LiquidityManagerETHTest is BaseSetup {
         }
     }
 
+    /// @dev Fuzz: converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan,
+    ///     any possible tick shifts without measuring deviation.
     function testConvertToV3FullScanFuzzAllRange(uint24 lowerTickShift, uint24 upperTickShift) public {
         // Tick shifts: tick ± [1, MAX_TICK]
         lowerTickShift = uint24(bound(lowerTickShift, 1, 887272));
