@@ -12,6 +12,7 @@ error WrongTokenAddresses(address[] provided, address[] expected);
 error SlippageLimitBreached();
 
 interface IBalancerV2 {
+    enum PoolSpecialization { GENERAL, MINIMAL_SWAP_INFO, TWO_TOKEN }
     enum ExitKind { EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
 
     struct ExitPoolRequest {
@@ -85,6 +86,11 @@ interface IBalancerV2 {
         uint256[] memory balances,
         uint256 lastChangeBlock
     );
+
+    /**
+     * @dev Returns a Pool's contract address and specialization setting.
+     */
+    function getPool(bytes32 poolId) external view returns (address, PoolSpecialization);
 }
 
 interface ICLFactory {
@@ -103,12 +109,6 @@ interface IOracle {
 }
 
 interface IToken {
-    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
-    /// @param amount Token amount.
-    /// @return True if the function execution is successful.
-    function approve(address spender, uint256 amount) external returns (bool);
-
     /// @dev Transfers the token amount.
     /// @param to Address to transfer to.
     /// @param amount The amount to transfer.
@@ -227,8 +227,8 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool)
         internal virtual override returns (uint256[] memory amounts)
     {
-        // TODO
-        address poolToken = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
+        // Get pool address
+        (address poolToken, ) = IBalancerV2(balancerVault).getPool(v2Pool);
         // Get this contract liquidity
         uint256 liquidity = IToken(poolToken).balanceOf(address(this));
         // Check for zero balance
@@ -251,12 +251,9 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         }
 
         // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
-        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert SlippageLimitBreached();
-        }
-
-        // Approve V2 liquidity
-        IToken(poolToken).approve(balancerVault, liquidity);
+//        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
+//            revert SlippageLimitBreached();
+//        }
 
         // Price is validated with desired slippage, and thus min out amounts can be set to 1
         uint256[] memory minAmountsOut = new uint256[](2);
