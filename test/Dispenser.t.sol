@@ -217,7 +217,7 @@ contract DispenserTest is BaseSetup {
             // Move at least epochLen seconds in time
             vm.warp(block.timestamp + epochLen);
             // Mine a next block to avoid a flash loan attack condition
-            vm.roll(block.number + i);
+            vm.roll(block.number + i + 1);
 
             // Check that the epoch counter is changed from the last time
             assertEq(lastPoint, tokenomics.epochCounter() - 1);
@@ -310,7 +310,7 @@ contract DispenserTest is BaseSetup {
             // Move at least epochLen seconds in time with the random addition of seconds
             vm.warp(block.timestamp + epochLen + random(tokenomics.epochCounter()));
             // Mine a next block to avoid a flash loan attack condition
-            vm.roll(block.number + i);
+            vm.roll(block.number + i + 1);
 
             // Start new epoch and calculate tokenomics parameters and rewards
             tokenomics.checkpoint();
