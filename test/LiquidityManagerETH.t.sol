@@ -1,6 +1,6 @@
 pragma solidity ^0.8.30;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
@@ -12,6 +12,18 @@ import {IUniswapV3} from "../contracts/interfaces/IUniswapV3.sol";
 
 interface ITreasury {
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success);
+}
+
+interface IUniswapV2Router02 {
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 liquidity,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB);
 }
 
 interface IRouterV3 {
@@ -94,6 +106,12 @@ contract BaseSetup is Test {
 
         // Create V3 pool
         IUniswapV3(POSITION_MANAGER_V3).createAndInitializePoolIfNecessary(OLAS, WETH, uint24(FEE_TIER), sqrtPriceX96);
+
+
+        // Get V2 initial amounts on LiquidityManager
+        uint256 totalSupply = IToken(PAIR_V2).totalSupply();
+        initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;
+        initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
     }
 }
 
@@ -122,7 +140,7 @@ contract LiquidityManagerETHTest is BaseSetup {
     }
 
     /// @dev Converts V2 pool into V3 with 95% amount (5% of OLAS burn, 5% of WETH transferred) and optimized ticks scan.
-    function testConvertToV3Conversion95Scan() public {
+    function testConvertToV3Conversion95Scan2() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
         tickShifts[1] = 15000;
@@ -132,7 +150,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Adjust initial amounts due to OLAS burn rate
         initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
         uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
-        initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
 
         (, , uint256[] memory amountsOut) =
             liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
@@ -144,7 +162,9 @@ contract LiquidityManagerETHTest is BaseSetup {
             require(deviation <= DELTA, "Price deviation too high");
         }
 
-        require(IToken(WETH).balanceOf(TIMELOCK) >= wethAmount, "WETH transfer was not complete");
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.

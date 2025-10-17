@@ -87,13 +87,13 @@ Compile the code with Forge:
 ```
 forge build
 ```
-Run tests with Forge:
+Run tests with Forge (skip fork testing):
 ```
-forge test
+forge test --no-match-contract LiquidityManager -vvv
 ```
 Run fork tests with Forge:
 ```
-forge test -f $FORK_NODE_URL --match-contract LiquidityManagerETHTest -vvvv
+forge test -f $FORK_NODE_URL --match-contract LiquidityManager -vvv
 ```
 
 ### Audits
