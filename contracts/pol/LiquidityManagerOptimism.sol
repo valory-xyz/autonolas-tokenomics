@@ -251,9 +251,9 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         }
 
         // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
-//        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-//            revert SlippageLimitBreached();
-//        }
+        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
+            revert SlippageLimitBreached();
+        }
 
         // Price is validated with desired slippage, and thus min out amounts can be set to 1
         uint256[] memory minAmountsOut = new uint256[](2);
