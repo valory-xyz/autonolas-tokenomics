@@ -95,7 +95,6 @@ contract BaseSetup is Test {
         // Create V3 pool
         IUniswapV3(POSITION_MANAGER_V3).createAndInitializePoolIfNecessary(OLAS, WETH, uint24(FEE_TIER), sqrtPriceX96);
 
-
         // Get V2 initial amounts on LiquidityManager
         uint256 totalSupply = IToken(PAIR_V2).totalSupply();
         initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;

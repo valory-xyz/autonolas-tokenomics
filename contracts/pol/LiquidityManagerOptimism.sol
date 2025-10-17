@@ -12,6 +12,8 @@ error WrongTokenAddresses(address[] provided, address[] expected);
 error SlippageLimitBreached();
 
 interface IBalancerV2 {
+    enum ExitKind { EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
+
     struct ExitPoolRequest {
         address[] assets;
         uint256[] minAmountsOut;
@@ -101,11 +103,22 @@ interface IOracle {
 }
 
 interface IToken {
+    /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+    /// @param spender Account address that will be able to transfer tokens on behalf of the caller.
+    /// @param amount Token amount.
+    /// @return True if the function execution is successful.
+    function approve(address spender, uint256 amount) external returns (bool);
+
     /// @dev Transfers the token amount.
     /// @param to Address to transfer to.
     /// @param amount The amount to transfer.
     /// @return True if the function execution is successful.
     function transfer(address to, uint256 amount) external returns (bool);
+
+    /// @dev Gets the amount of tokens owned by a specified account.
+    /// @param account Account address.
+    /// @return Amount of tokens owned.
+    function balanceOf(address account) external view returns (uint256);
 }
 
 interface ISlipstreamV3 {
@@ -214,6 +227,15 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool)
         internal virtual override returns (uint256[] memory amounts)
     {
+        // TODO
+        address poolToken = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
+        // Get this contract liquidity
+        uint256 liquidity = IToken(poolToken).balanceOf(address(this));
+        // Check for zero balance
+        if (liquidity == 0) {
+            revert ZeroValue();
+        }
+
         address[] memory tokensInPool = new address[](2);
         // Get V2 pool tokens and amounts
         (tokensInPool, amounts, ) = IBalancerV2(balancerVault).getPoolTokens(v2Pool);
@@ -233,6 +255,9 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             revert SlippageLimitBreached();
         }
 
+        // Approve V2 liquidity
+        IToken(poolToken).approve(balancerVault, liquidity);
+
         // Price is validated with desired slippage, and thus min out amounts can be set to 1
         uint256[] memory minAmountsOut = new uint256[](2);
         minAmountsOut[0] = 1;
@@ -240,7 +265,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         IBalancerV2.ExitPoolRequest memory request = IBalancerV2.ExitPoolRequest({
             assets: tokens,
             minAmountsOut: minAmountsOut,
-            userData: "",
+            userData: abi.encode(IBalancerV2.ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, liquidity),
             toInternalBalance: false
         });
 

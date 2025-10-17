@@ -84,7 +84,7 @@ contract BaseSetup is Test {
 
     uint256[2] internal initialAmounts;
     uint160 internal sqrtPriceX96;
-
+//{"assets":["0x4200000000000000000000000000000000000006","0x54330d28ca3357F294334BDC454a032e7f353416"],"minAmountsOut":[1,1],"userData":"","toInternalBalance":"false"}
     // Contract addresses
     address internal constant OLAS = 0x54330d28ca3357F294334BDC454a032e7f353416;
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
@@ -119,8 +119,13 @@ contract BaseSetup is Test {
         liquidityManager = new LiquidityManagerOptimism(OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner),
             observationCardinality, maxSlippage, address(oracleV2), BALANCER_VAULT, TIMELOCK);
 
-        // Get pool liquidity
-        uint256 v2Liquidity = IToken(POOL_V2).totalSupply();
+        // Get pool total supply
+        uint256 totalSupply = IToken(POOL_V2).totalSupply();
+
+        // Mock liquidity transfer
+        uint256 v2Liquidity = IToken(POOL_V2).balanceOf(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
+        vm.prank(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
+        IToken(POOL_V2).transfer(address(liquidityManager), v2Liquidity);
 
         (, uint256[] memory amounts, ) = IBalancer(BALANCER_VAULT).getPoolTokens(POOL_V2_BYTES32);
         initialAmounts[0] = amounts[0];
@@ -134,8 +139,9 @@ contract BaseSetup is Test {
         // Create V3 pool
         ISlipstream(FACTORY_V3).createPool(WETH, OLAS, TICK_SPACING, sqrtPriceX96);
 
-        // Simulate V2 pool balance equal to current pool liquidity
-        deal(POOL_V2, address(liquidityManager), v2Liquidity);
+        // Get V2 initial amounts on LiquidityManager
+        initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;
+        initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
     }
 }
 
