@@ -239,54 +239,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         uint160 centerSqrtPriceX96
     ) internal virtual returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn);
 
-    /// @dev Optimizes given ticks at least to tick spacing (or liquidity based), and mints position.
-    /// @param tokens Token addresses.
-    /// @param inputAmounts Input amounts corresponding to tokens.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @param sqrtP Center sqrt price.
-    /// @param initTicks Initial ticks array.
-    /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
-    /// @return positionId Minted position Id.
-    /// @return liquidity Produced liquidity.
-    /// @return amountsIn Amounts in liquidity.
-    function _optimizeTicksAndMintPosition(
-        address[] memory tokens,
-        uint256[] memory inputAmounts,
-        int24 feeTierOrTickSpacing,
-        uint160 sqrtP,
-        int24[] memory initTicks,
-        bool scan
-    ) internal returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn) {
-        // Get tick spacing
-        int24 tickSpacing = _feeAmountTickSpacing(feeTierOrTickSpacing);
-        // Check for zero value
-        if (tickSpacing == 0) {
-            revert ZeroValue();
-        }
-
-        int24[] memory optimizedTicks;
-        // Build percent band around TWAP center
-        (optimizedTicks, liquidity, amountsIn) = INeighborhoodScanner(neighborhoodScanner)
-            .optimizeLiquidityAmounts(sqrtP, initTicks, tickSpacing, inputAmounts, scan);
-
-        // Check for zero values
-        if (liquidity == 0 || amountsIn[0] == 0 || amountsIn[1] == 0) {
-            revert ZeroValue();
-        }
-
-        // Get min amounts
-        uint256[] memory aMin = new uint256[](2);
-        aMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
-        aMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
-
-        // Mint V3 position
-        (positionId, liquidity, amountsIn) =
-            _mintV3(tokens, amountsIn, aMin, optimizedTicks, feeTierOrTickSpacing, sqrtP);
-
-        emit TicksSet(tokens, feeTierOrTickSpacing, initTicks, optimizedTicks, scan);
-        emit PositionMinted(positionId, tokens, amountsIn, liquidity);
-    }
-
     /// @dev Calculates ticks and mints position.
     /// @param tokens Token addresses.
     /// @param inputAmounts Input amounts corresponding to tokens.
@@ -513,6 +465,54 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         emit UtilityAmountsManaged(olas, secondToken, olasAmount, tokenAmount, olasBurnOrTransfer);
     }
 
+    /// @dev Optimizes given ticks at least to tick spacing (or liquidity based), and mints position.
+    /// @param tokens Token addresses.
+    /// @param inputAmounts Input amounts corresponding to tokens.
+    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param initTicks Initial ticks array.
+    /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
+    /// @return positionId Minted position Id.
+    /// @return liquidity Produced liquidity.
+    /// @return amountsIn Amounts in liquidity.
+    function _optimizeTicksAndMintPosition(
+        address[] memory tokens,
+        uint256[] memory inputAmounts,
+        int24 feeTierOrTickSpacing,
+        uint160 sqrtP,
+        int24[] memory initTicks,
+        bool scan
+    ) internal returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn) {
+        // Get tick spacing
+        int24 tickSpacing = _feeAmountTickSpacing(feeTierOrTickSpacing);
+        // Check for zero value
+        if (tickSpacing == 0) {
+            revert ZeroValue();
+        }
+
+        int24[] memory optimizedTicks;
+        // Build percent band around TWAP center
+        (optimizedTicks, liquidity, amountsIn) = INeighborhoodScanner(neighborhoodScanner)
+            .optimizeLiquidityAmounts(sqrtP, initTicks, tickSpacing, inputAmounts, scan);
+
+        // Check for zero values
+        if (liquidity == 0 || amountsIn[0] == 0 || amountsIn[1] == 0) {
+            revert ZeroValue();
+        }
+
+        // Get min amounts
+        uint256[] memory aMin = new uint256[](2);
+        aMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        aMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+
+        // Mint V3 position
+        (positionId, liquidity, amountsIn) =
+            _mintV3(tokens, amountsIn, aMin, optimizedTicks, feeTierOrTickSpacing, sqrtP);
+
+        emit TicksSet(tokens, feeTierOrTickSpacing, initTicks, optimizedTicks, scan);
+        emit PositionMinted(positionId, tokens, amountsIn, liquidity);
+    }
+
     /// @dev Initialization function.
     /// @param _maxSlippage Max slippage for operations.
     function initialize(uint16 _maxSlippage) external {
@@ -690,54 +690,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         _locked = 1;
     }
 
-    /// @dev Collects fees from LP position, burns OLAS tokens and transfers another token to treasury.
-    /// @param tokens Token addresses.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @return amounts Amounts array.
-    function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing)
-        external
-        returns (uint256[] memory amounts)
-    {
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get V3 pool
-        address pool = _getV3Pool(tokens, feeTierOrTickSpacing);
-
-        // Check for zero address
-        if (pool == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Get position Id
-        uint256 positionId = mapPoolAddressPositionIds[pool];
-
-        // Check for zero value
-        if (positionId == 0) {
-            revert ZeroValue();
-        }
-
-        // Check current pool prices
-        checkPoolAndGetCenterPrice(pool);
-
-        // Collect fees
-        amounts = _collectFees(positionId);
-
-        // Check for zero values
-        if (amounts[0] == 0 && amounts[1] == 0) {
-            revert ZeroValue();
-        }
-
-        // Manage collected fees: burn OLAS, transfer another token
-        _manageUtilityAmounts(tokens, MAX_BPS, true);
-
-        emit PositionFeesCollected(pool, positionId, tokens, amounts);
-
-        _locked = 1;
-    }
-
     /// @dev Changes ranges of position in a specified pool.
     /// @notice Any collected fees from liquidating initial position are supplied for one with repositioned ranges.
     /// @param tokens Token addresses.
@@ -805,6 +757,54 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         _manageUtilityAmounts(tokens, MAX_BPS, false);
 
         emit RangesChanged(pool, positionId, tokens, amounts, liquidity, scan);
+
+        _locked = 1;
+    }
+
+    /// @dev Collects fees from LP position, burns OLAS tokens and transfers another token to treasury.
+    /// @param tokens Token addresses.
+    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @return amounts Amounts array.
+    function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing)
+        external
+        returns (uint256[] memory amounts)
+    {
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Get V3 pool
+        address pool = _getV3Pool(tokens, feeTierOrTickSpacing);
+
+        // Check for zero address
+        if (pool == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Get position Id
+        uint256 positionId = mapPoolAddressPositionIds[pool];
+
+        // Check for zero value
+        if (positionId == 0) {
+            revert ZeroValue();
+        }
+
+        // Check current pool prices
+        checkPoolAndGetCenterPrice(pool);
+
+        // Collect fees
+        amounts = _collectFees(positionId);
+
+        // Check for zero values
+        if (amounts[0] == 0 && amounts[1] == 0) {
+            revert ZeroValue();
+        }
+
+        // Manage collected fees: burn OLAS, transfer another token
+        _manageUtilityAmounts(tokens, MAX_BPS, true);
+
+        emit PositionFeesCollected(pool, positionId, tokens, amounts);
 
         _locked = 1;
     }
