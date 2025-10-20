@@ -171,9 +171,9 @@ contract NeighborhoodScanner {
     /// @return amountsDesired Corresponding desired amounts.
     function optimizeLiquidityAmounts(
         uint160 sqrtP,
-        int24[] memory ticks,
+        int24[] calldata ticks,
         int24 tickSpacing,
-        uint256[] memory initialAmounts,
+        uint256[] calldata initialAmounts,
         bool scan
     ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
         // Assign raw ticks
@@ -216,52 +216,51 @@ contract NeighborhoodScanner {
         // If already non-zero, return (after neighborhood scanning, if specified)
         if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
             if (scan) {
-                (loHi, liquidity, amountsDesired) = _scanNeighborhood(tickSpacing, sqrtP, loHi, initialAmounts);
-            } else {
-                // Calculate liquidity
-                liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
-                    TickMath.getSqrtRatioAtTick(loHi[1]), initialAmounts[0], initialAmounts[1]);
-
-                // Amounts desired are equal to initial amounts
-                amountsDesired[0] = initialAmounts[0];
-                amountsDesired[1] = initialAmounts[1];
-            }
-            return (loHi, liquidity, amountsDesired);
-        }
-
-        // 8) choose widening side based on closeness to global boundaries
-        bool nearMin = (loHi[0] - minSafe) <= SAFETY_STEPS * tickSpacing;
-        bool nearMax = (maxSafe - loHi[1]) <= SAFETY_STEPS * tickSpacing;
-
-        if (nearMin && !nearMax) {
-            // Lower near MIN: raise loHi[1]
-            loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
-            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
-                loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
-            }
-        } else if (nearMax && !nearMin) {
-            // Upper near MAX: raise loHi[0]
-            loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
-            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
-                loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                return _scanNeighborhood(tickSpacing, sqrtP, loHi, initialAmounts);
             }
         } else {
-            // Neither or both near boundaries: first try raising loHi[1]
-            loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
-            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+            // Choose widening side based on closeness to global boundaries
+            bool nearMin = (loHi[0] - minSafe) <= SAFETY_STEPS * tickSpacing;
+            bool nearMax = (maxSafe - loHi[1]) <= SAFETY_STEPS * tickSpacing;
+
+            if (nearMin && !nearMax) {
+                // Lower near MIN: raise loHi[1]
+                loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                }
+            } else if (nearMax && !nearMin) {
+                // Upper near MAX: raise loHi[0]
                 loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                }
+            } else {
+                // Neither or both near boundaries: first try raising loHi[1]
+                loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                }
+            }
+
+            // Check correctness of ranges
+            if (minSafe > loHi[0] || loHi[1] > maxSafe || loHi[0] >= loHi[1]) {
+                revert RangeBounds(loHi[0], loHi[1], minSafe, maxSafe);
+            }
+
+            // Check for final intermadiate value
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                revert ZeroValue();
             }
         }
 
-        // Check correctness of ranges
-        if (minSafe > loHi[0] || loHi[1] > maxSafe || loHi[0] >= loHi[1]) {
-            revert RangeBounds(loHi[0], loHi[1], minSafe, maxSafe);
-        }
+        // Calculate liquidity
+        liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
+            TickMath.getSqrtRatioAtTick(loHi[1]), initialAmounts[0], initialAmounts[1]);
 
-        // Check for final intermadiate value
-        if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
-            revert ZeroValue();
-        }
+        // Amounts desired are equal to initial amounts
+        amountsDesired[0] = initialAmounts[0];
+        amountsDesired[1] = initialAmounts[1];
     }
 
     /// @dev Executes binary search for higher tick with fixed lower one.
@@ -389,7 +388,7 @@ contract NeighborhoodScanner {
         int24 tickSpacing,
         uint160 sqrtP,
         int24 lo,
-        uint256[] memory amounts
+        uint256[] calldata amounts
     )
     public
     pure
@@ -399,13 +398,9 @@ contract NeighborhoodScanner {
         optimizedAmounts = new uint256[](2);
         loHiBest[0] = lo;
 
-        // Get sqrt price of lower tick
-        uint160 sa = TickMath.getSqrtRatioAtTick(lo);
-
         // hi search range: [first grid above price, MAX_TICK on grid]
-        int24 ct = TickMath.getTickAtSqrtRatio(sqrtP);
         int24[] memory hiMinMax = new int24[](2);
-        hiMinMax[0] = _roundUpToSpacing(ct + 1, tickSpacing);
+        hiMinMax[0] = _roundUpToSpacing(TickMath.getTickAtSqrtRatio(sqrtP) + 1, tickSpacing);
 
         // Limit lower tick by lo + tickSpacing
         if (hiMinMax[0] <= loHiBest[0]) {
@@ -417,6 +412,9 @@ contract NeighborhoodScanner {
         if (hiMinMax[1] < hiMinMax[0]) {
             hiMinMax[0] = hiMinMax[1];
         }
+
+        // Get sqrt price of lower tick
+        uint160 sa = TickMath.getSqrtRatioAtTick(lo);
 
         // token1-limited liquidity
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
@@ -519,7 +517,7 @@ contract NeighborhoodScanner {
         int24 tickSpacing,
         uint160 sqrtP,
         int24 hi,
-        uint256[] memory amounts
+        uint256[] calldata amounts
     )
     public
     pure
@@ -529,15 +527,11 @@ contract NeighborhoodScanner {
         optimizedAmounts = new uint256[](2);
         loHiBest[1] = hi;
 
-        // Get sqrt price of higher tick
-        uint160 sb = TickMath.getSqrtRatioAtTick(hi);
-
         // hi search range: [first grid above price, MAX_TICK on grid]
-        int24 ct = TickMath.getTickAtSqrtRatio(sqrtP);
         int24[] memory loMinMax = new int24[](2);
+        loMinMax[1] = _roundDownToSpacing(TickMath.getTickAtSqrtRatio(sqrtP) - 1, tickSpacing);
 
         // Limit higher tick by hi - tickSpacing
-        loMinMax[1] = _roundDownToSpacing(ct - 1, tickSpacing);
         if (loMinMax[1] >= loHiBest[1]) {
             loMinMax[1] = loHiBest[1] - tickSpacing;
         }
@@ -547,6 +541,9 @@ contract NeighborhoodScanner {
         if (loMinMax[0] > loMinMax[1]) {
             loMinMax[1] = loMinMax[0];
         }
+
+        // Get sqrt price of higher tick
+        uint160 sb = TickMath.getSqrtRatioAtTick(hi);
 
         // token0-limited liquidity
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
@@ -656,7 +653,7 @@ contract NeighborhoodScanner {
     /// @param amounts Token amounts.
     /// @param sqrtP Sqrt price.
     function _chooseMode(
-        uint256[] memory amounts,
+        uint256[] calldata amounts,
         uint160 sqrtP
     ) internal pure returns (bool) {
         // Calculate V0 ~ b0*P and compare with V1 ~ b1
@@ -680,7 +677,7 @@ contract NeighborhoodScanner {
         int24 tickSpacing,
         uint160 sqrtP,
         int24[] memory ticks,
-        uint256[] memory amounts
+        uint256[] calldata amounts
     )
     internal
     pure

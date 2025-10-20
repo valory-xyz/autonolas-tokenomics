@@ -59,9 +59,9 @@ interface INeighborhoodScanner {
     /// @return amountsDesired Corresponding desired amounts.
     function optimizeLiquidityAmounts(
         uint160 sqrtP,
-        int24[] memory ticks,
+        int24[] calldata ticks,
         int24 tickSpacing,
-        uint256[] memory initialAmounts,
+        uint256[] calldata initialAmounts,
         bool scan
     ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired);
 }
@@ -272,21 +272,22 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         uint256[] memory inputAmounts,
         int24 feeTierOrTickSpacing,
         uint160 sqrtP,
-        int24[] memory tickShifts,
+        int24[] calldata tickShifts,
         bool scan
     )
         internal returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn)
     {
         int24 centerTick = TickMath.getTickAtSqrtRatio(sqrtP);
-        tickShifts[0] = centerTick + tickShifts[0];
-        tickShifts[1] = centerTick + tickShifts[1];
+        int24[] memory ticks = new int24[](2);
+        ticks[0] = centerTick + tickShifts[0];
+        ticks[1] = centerTick + tickShifts[1];
 
-        if (tickShifts[0] >= centerTick || tickShifts[1] <= centerTick) {
-            revert RangeBounds(tickShifts[0], centerTick, tickShifts[1]);
+        if (ticks[0] >= centerTick || ticks[1] <= centerTick) {
+            revert RangeBounds(ticks[0], centerTick, ticks[1]);
         }
 
         // Calculate and mint new position
-        return _optimizeTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, sqrtP, tickShifts, scan);
+        return _optimizeTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, sqrtP, ticks, scan);
     }
 
     /// @dev Collects fees from LP position.
@@ -569,7 +570,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @return positionId Minted or existing position Id.
     /// @return liquidity Produced liquidity.
     /// @return amounts Amounts in liquidity.
-    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan)
+    function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] calldata tickShifts, uint16 olasBurnRate, bool scan)
         external returns (uint256 positionId, uint256 liquidity, uint256[] memory amounts)
     {
         if (_locked > 1) {
@@ -707,7 +708,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @return positionId Minted or existing position Id.
     /// @return liquidity Produced liquidity.
     /// @return amounts Amounts in liquidity.
-    function changeRanges(address[] memory tokens, int24 feeTierOrTickSpacing, int24[] memory tickShifts, bool scan)
+    function changeRanges(address[] memory tokens, int24 feeTierOrTickSpacing, int24[] calldata tickShifts, bool scan)
         external returns (uint256 positionId, uint128 liquidity, uint256[] memory amounts)
     {
         if (_locked > 1) {
