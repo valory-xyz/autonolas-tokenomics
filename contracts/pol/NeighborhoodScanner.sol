@@ -406,7 +406,6 @@ contract NeighborhoodScanner {
     ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
         // Assign raw ticks
         loHi = new int24[](2);
-        amountsDesired = new uint256[](2);
         loHi[0] = ticks[0];
         loHi[1] = ticks[1];
 
@@ -491,6 +490,7 @@ contract NeighborhoodScanner {
             LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]);
 
         // Calculate desired amounts
+        amountsDesired = new uint256[](2);
         (amountsDesired[0], amountsDesired[1]) =
             LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
     }
