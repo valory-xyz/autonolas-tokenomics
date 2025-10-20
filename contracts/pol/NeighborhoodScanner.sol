@@ -317,7 +317,6 @@ contract NeighborhoodScanner {
     function _neighborhoodSearch(int24[] memory loHiBase, uint256[] memory initialAmounts, int24 tickSpacing, uint160 sqrtP, uint128 liquidity)
         internal pure returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
-        optimizedAmounts = new uint256[](2);
         loHiBest = new int24[](2);
         optimizedAmounts = new uint256[](2);
         uint160[] memory sqrtAB = new uint160[](2);
