@@ -258,9 +258,10 @@ contract NeighborhoodScanner {
         liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
             TickMath.getSqrtRatioAtTick(loHi[1]), initialAmounts[0], initialAmounts[1]);
 
-        // Amounts desired are equal to initial amounts
-        amountsDesired[0] = initialAmounts[0];
-        amountsDesired[1] = initialAmounts[1];
+        // Calculate desired amounts
+        (amountsDesired[0], amountsDesired[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
+            TickMath.getSqrtRatioAtTick(loHi[1]), liquidity);
     }
 
     /// @dev Executes binary search for higher tick with fixed lower one.

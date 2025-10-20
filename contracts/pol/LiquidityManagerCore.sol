@@ -637,6 +637,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             (positionId, liquidity, amounts) =
                 _calculateTicksAndMintPosition(tokens, amounts, feeTierOrTickSpacing, sqrtP, tickShifts, scan);
 
+            // Record position Id associated with pool
             mapPoolAddressPositionIds[v3Pool] = positionId;
 
             // Increase observation cardinality
