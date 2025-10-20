@@ -442,13 +442,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Get token balances
         uint256 olasAmount;
         uint256 tokenAmount;
+        address secondToken;
 
         // Check for OLAS token and swap values, if needed
         if (tokens[0] == olas) {
+            secondToken = tokens[1];
             olasAmount = amounts[0];
             tokenAmount = amounts[1];
         } else {
-            tokens[1] = tokens[0];
+            secondToken = tokens[0];
             olasAmount = amounts[1];
             tokenAmount = amounts[0];
         }
@@ -466,10 +468,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Transfer another token to Treasury
         if (tokenAmount > 0) {
-            SafeTransferLib.safeTransfer(tokens[1], treasury, tokenAmount);
+            SafeTransferLib.safeTransfer(secondToken, treasury, tokenAmount);
         }
 
-        emit UtilityAmountsManaged(olas, tokens[1], olasAmount, tokenAmount, olasBurnOrTransfer);
+        emit UtilityAmountsManaged(olas, secondToken, olasAmount, tokenAmount, olasBurnOrTransfer);
     }
 
     /// @dev Initialization function.

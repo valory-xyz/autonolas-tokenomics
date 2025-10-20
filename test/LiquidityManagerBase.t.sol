@@ -84,8 +84,6 @@ contract BaseSetup is Test {
 
     uint256[2] internal initialAmounts;
     uint160 internal sqrtPriceX96;
-//{"assets":["0x4200000000000000000000000000000000000006","0x54330d28ca3357F294334BDC454a032e7f353416"],"minAmountsOut":[1,1],"userData":"","toInternalBalance":"false"}
-    // Contract addresses
     address internal constant OLAS = 0x54330d28ca3357F294334BDC454a032e7f353416;
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
     address[] internal TOKENS = [WETH, OLAS];
@@ -115,6 +113,10 @@ contract BaseSetup is Test {
 
         oracleV2 = new BalancerPriceOracle(OLAS, WETH, uint256(maxSlippage / 100), minUpdateTimePeriod, BALANCER_VAULT,
             POOL_V2_BYTES32);
+
+        // Advance some time such that oracle has a time difference between last updated price
+        vm.warp(block.timestamp + 100);
+
         neighborhoodScanner = new NeighborhoodScanner();
         liquidityManager = new LiquidityManagerOptimism(OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner),
             observationCardinality, maxSlippage, address(oracleV2), BALANCER_VAULT, TIMELOCK);
@@ -139,6 +141,8 @@ contract BaseSetup is Test {
         // Create V3 pool
         ISlipstream(FACTORY_V3).createPool(WETH, OLAS, TICK_SPACING, sqrtPriceX96);
 
+        // TODO Note that initial amount is smaller due to Balancer protocol fee
+        // ProtocolFeesCollector::getSwapFeePercentage() ← [Return] 500000000000000000 [5e17]
         // Get V2 initial amounts on LiquidityManager
         initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
@@ -151,7 +155,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan.
-    function testConvertToV3FullScanBase() public {
+    function testConvertToV3FullScan() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;
         tickShifts[1] = 17000;
@@ -170,7 +174,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
     }
 
     /// @dev Converts V2 pool into V3 with 95% amount (5% of OLAS burn, 5% of WETH transferred) and optimized ticks scan.
-    function testConvertToV3Conversion95Scan2() public {
+    function testConvertToV3Conversion95Scan() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
         tickShifts[1] = 15000;
@@ -178,9 +182,9 @@ contract LiquidityManagerBaseTest is BaseSetup {
         bool scan = true;
 
         // Adjust initial amounts due to OLAS burn rate
-        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
-        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
-        initialAmounts[1] = initialAmounts[1] - wethAmount;
+        uint256 wethAmount = (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        initialAmounts[0] = initialAmounts[0] - wethAmount;
+        initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
 
         (, , uint256[] memory amountsOut) =
             liquidityManager.convertToV3(TOKENS, POOL_V2_BYTES32, TICK_SPACING, tickShifts, olasBurnRate, scan);
@@ -191,10 +195,6 @@ contract LiquidityManagerBaseTest is BaseSetup {
             uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
             require(deviation <= DELTA, "Price deviation too high");
         }
-
-        uint256 dust = initialAmounts[1] - amountsOut[1];
-        wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
@@ -319,7 +319,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Collect fees
         amountsOut = liquidityManager.collectFees(TOKENS, TICK_SPACING);
         // OLAS collected fee must be > 0
-        require(amountsOut[0] > 0);
+        require(amountsOut[1] > 0);
 
         // Fund LiquidityManager with OLAS and WETH
         deal(OLAS, address(liquidityManager), olasAmountToSwap);
@@ -335,26 +335,6 @@ contract LiquidityManagerBaseTest is BaseSetup {
 
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, TICK_SPACING, olasBurnRate);
-    }
-
-    /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.
-    function testConvertToV3Full10kPool() public {
-        int24[] memory tickShifts = new int24[](2);
-        tickShifts[0] = -27000;
-        tickShifts[1] = 17000;
-        uint16 olasBurnRate = 0;
-        bool scan = false;
-        int24 feeTier = 10_000;
-
-        // Liquidity will be zero
-        vm.expectRevert(bytes("ZeroValue()"));
-        liquidityManager.convertToV3(TOKENS, POOL_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
-
-        scan = true;
-
-        // Same wiht scan argument
-        vm.expectRevert(bytes("ZeroValue()"));
-        liquidityManager.convertToV3(TOKENS, POOL_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.

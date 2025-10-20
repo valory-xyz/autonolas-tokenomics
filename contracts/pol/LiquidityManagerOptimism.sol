@@ -271,13 +271,15 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
     }
 
     /// @inheritdoc LiquidityManagerCore
+    /// @notice In Slipstream, if sqrtPriceX96 is not zero, it will try to create pool and fail, if pool already exists.
+    ///         Thus, sqrtPriceX96 is set to zero by default.
     function _mintV3(
         address[] memory tokens,
         uint256[] memory amounts,
         uint256[] memory amountsMin,
         int24[] memory ticks,
         int24 tickSpacing,
-        uint160 centerSqrtPriceX96
+        uint160
     ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory)
     {
         // Params for minting
@@ -293,7 +295,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             amount1Min: amountsMin[1],
             recipient: address(this),
             deadline: block.timestamp,
-            sqrtPriceX96: centerSqrtPriceX96
+            sqrtPriceX96: 0
         });
 
         // Mint position
