@@ -60,12 +60,7 @@ contract NeighborhoodScanner {
     /// @param hiMax Max value of higher tick value.
     /// @param tickSpacing Tick spacing.
     /// @return Optimal higher tick value.
-    function _raiseHigh(
-        int24 lo,
-        int24 hi,
-        int24 hiMax,
-        int24 tickSpacing
-    ) internal pure returns (int24) {
+    function _raiseHigh(int24 lo, int24 hi, int24 hiMax, int24 tickSpacing) internal pure returns (int24) {
         // Limit hi by hiMax
         if (hi > hiMax) {
             hi = hiMax;
@@ -107,11 +102,7 @@ contract NeighborhoodScanner {
     /// @param hi Fixed higher tick value.
     /// @param tickSpacing Tick spacing.
     /// @return Optimal lower tick value.
-    function _raiseLow(
-        int24 loMin,
-        int24 hi,
-        int24 tickSpacing
-    ) internal pure returns (int24) {
+    function _raiseLow(int24 loMin, int24 hi, int24 tickSpacing) internal pure returns (int24) {
         // Limit loMin by loMax
         int24 loMax = hi - tickSpacing;
         if (loMin > loMax) {
@@ -277,9 +268,15 @@ contract NeighborhoodScanner {
     /// @param liquidity Initial liquidity for token0.
     /// @param amount Corresponding initial amount for token0.
     /// @return Optimal lower tick value with maximized token0 liquidity.
-    function _iterateRight(int24 L, int24 R, int24 tickSpacing, uint160 sqrtP, uint160 sa, uint128 liquidity, uint256 amount)
-        internal pure returns (int24)
-    {
+    function _iterateRight(
+        int24 L,
+        int24 R,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint160 sa,
+        uint128 liquidity,
+        uint256 amount
+    ) internal pure returns (int24) {
         int24 ans = L;
         // Binary search while L <= R
         for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
@@ -288,7 +285,7 @@ contract NeighborhoodScanner {
 
             // Get right tick liquidity and token0 amount for provided liquidity
             uint160 sbMid = TickMath.getSqrtRatioAtTick(mid);
-            (uint256 optimalAmount, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, liquidity);
+            (uint256 optimalAmount,) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, liquidity);
 
             if (optimalAmount <= amount) {
                 // Amounts fit, try wider range
@@ -317,9 +314,13 @@ contract NeighborhoodScanner {
     /// @return loHiBest Optimized ticks.
     /// @return liqBest Corresponding liquidity.
     /// @return optimizedAmounts Corresponding amounts.
-    function _neighborhoodSearch(int24[] memory loHiBase, uint256[] memory initialAmounts, int24 tickSpacing, uint160 sqrtP, uint128 liquidity)
-        internal pure returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
-    {
+    function _neighborhoodSearch(
+        int24[] memory loHiBase,
+        uint256[] memory initialAmounts,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint128 liquidity
+    ) internal pure returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts) {
         loHiBest = new int24[](2);
         optimizedAmounts = new uint256[](2);
         uint160[] memory sqrtAB = new uint160[](2);
@@ -329,7 +330,8 @@ contract NeighborhoodScanner {
         loHiBest[0] = loHiBase[0];
         loHiBest[1] = loHiBase[1];
         liqBest = liquidity;
-        (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+        (optimizedAmounts[0], optimizedAmounts[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
         uint256[] memory utilizationMinMax = new uint256[](2);
         utilizationMinMax[0] = utilization1e18(optimizedAmounts, initialAmounts, sqrtP);
 
@@ -353,14 +355,17 @@ contract NeighborhoodScanner {
                 }
 
                 // Calculate liquidity
-                liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]);
+                liquidity = LiquidityAmounts.getLiquidityForAmounts(
+                    sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]
+                );
                 if (liquidity == 0) {
                     continue;
                 }
 
                 // Get amounts for liquidity
                 uint256[] memory amountsForLiquidity = new uint256[](2);
-                (amountsForLiquidity[0], amountsForLiquidity[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+                (amountsForLiquidity[0], amountsForLiquidity[1]) =
+                    LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
 
                 // Calculate utilization based on initial amounts
                 utilizationMinMax[1] = utilization1e18(amountsForLiquidity, initialAmounts, sqrtP);
@@ -388,15 +393,10 @@ contract NeighborhoodScanner {
     /// @return loHiBest Optimized ticks.
     /// @return liqBest Corresponding liquidity.
     /// @return optimizedAmounts Corresponding amounts.
-    function pickHiMaxUtil(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24 lo,
-        uint256[] calldata amounts
-    )
-    public
-    pure
-    returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
+    function pickHiMaxUtil(int24 tickSpacing, uint160 sqrtP, int24 lo, uint256[] calldata amounts)
+        public
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
         loHiBest = new int24[](2);
         optimizedAmounts = new uint256[](2);
@@ -429,12 +429,12 @@ contract NeighborhoodScanner {
 
         // Edge case for hiMin
         uint160 sb = TickMath.getSqrtRatioAtTick(hiMinMax[0]);
-        (optimizedAmounts[0], ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        (optimizedAmounts[0],) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
         if (optimizedAmounts[0] > amounts[0]) {
             // Even narrowest needs too much token0: cap by amount0 at hiMin
             liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
             liqBest = _min128(liqBest, liquidity);
-            
+
             // Recalculate amounts from liquidity
             (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liqBest);
             loHiBest[1] = hiMinMax[0];
@@ -443,7 +443,7 @@ contract NeighborhoodScanner {
 
         // Edge case for hiMax
         sb = TickMath.getSqrtRatioAtTick(hiMinMax[1]);
-        (optimizedAmounts[0], ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        (optimizedAmounts[0],) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
         if (optimizedAmounts[0] <= amounts[0]) {
             // Widest still fits: take hiMax (cap by amount0 to absorb rounding)
             liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
@@ -476,9 +476,15 @@ contract NeighborhoodScanner {
     /// @param liquidity Initial liquidity for token1.
     /// @param amount Corresponding initial amount for token1.
     /// @return Optimal lower tick value with maximized token1 liquidity.
-    function _iterateLeft(int24 L, int24 R, int24 tickSpacing, uint160 sqrtP, uint160 sb, uint128 liquidity, uint256 amount)
-    internal pure returns (int24)
-    {
+    function _iterateLeft(
+        int24 L,
+        int24 R,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint160 sb,
+        uint128 liquidity,
+        uint256 amount
+    ) internal pure returns (int24) {
         int24 ans = R;
         // Binary search while L <= R
         for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
@@ -517,15 +523,10 @@ contract NeighborhoodScanner {
     /// @return loHiBest Optimized ticks.
     /// @return liqBest Corresponding liquidity.
     /// @return optimizedAmounts Corresponding amounts.
-    function pickLoMaxUtil(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24 hi,
-        uint256[] calldata amounts
-    )
-    public
-    pure
-    returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
+    function pickLoMaxUtil(int24 tickSpacing, uint160 sqrtP, int24 hi, uint256[] calldata amounts)
+        public
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
         loHiBest = new int24[](2);
         optimizedAmounts = new uint256[](2);
@@ -642,12 +643,12 @@ contract NeighborhoodScanner {
     /// @param initialAmounts Initial token amounts.
     /// @param sqrtP Sqrt price.
     /// @return Utilization metrics: 1e18 is most optimal.
-    function utilization1e18(
-        uint256[] memory optimizedAmounts,
-        uint256[] memory initialAmounts,
-        uint160 sqrtP
-    ) internal pure returns (uint256) {
-        uint256 valUsed  = valueInToken1(optimizedAmounts, sqrtP);
+    function utilization1e18(uint256[] memory optimizedAmounts, uint256[] memory initialAmounts, uint160 sqrtP)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 valUsed = valueInToken1(optimizedAmounts, sqrtP);
         uint256 valTotal = valueInToken1(initialAmounts, sqrtP);
         if (valTotal == 0) return 0;
         return FullMath.mulDiv(valUsed, 1e18, valTotal);
@@ -656,10 +657,7 @@ contract NeighborhoodScanner {
     /// @dev Chooses search direction according to he balance value one against another: which one needs to be fixed.
     /// @param amounts Token amounts.
     /// @param sqrtP Sqrt price.
-    function _chooseMode(
-        uint256[] calldata amounts,
-        uint160 sqrtP
-    ) internal pure returns (bool) {
+    function _chooseMode(uint256[] calldata amounts, uint160 sqrtP) internal pure returns (bool) {
         // Calculate V0 ~ b0*P and compare with V1 ~ b1
         uint256 V0 = value0InToken1(amounts[0], sqrtP);
         uint256 V1 = amounts[1];
@@ -667,7 +665,7 @@ contract NeighborhoodScanner {
         // Check balance inequality
         return (V0 >= V1);
     }
-    
+
     /// @dev Scans neighborhood with binary search and locally based on amounts[0] or amounts[1] in absolute token value.
     /// @notice ticks[0] is used for pickHiMaxUtil, ticks[0] - for pickLoMaxUtil.
     /// @param tickSpacing Tick spacing.
@@ -677,19 +675,10 @@ contract NeighborhoodScanner {
     /// @return loHiBest Optimized ticks.
     /// @return liqBest Corresponding liquidity.
     /// @return optimizedAmounts Corresponding amounts.
-    function _scanNeighborhood(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24[] memory ticks,
-        uint256[] calldata amounts
-    )
-    internal
-    pure
-    returns (
-        int24[] memory loHiBest,
-        uint128 liqBest,
-        uint256[] memory optimizedAmounts
-    )
+    function _scanNeighborhood(int24 tickSpacing, uint160 sqrtP, int24[] memory ticks, uint256[] calldata amounts)
+        internal
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
         if (amounts[0] == 0 || amounts[1] == 0) {
             revert ZeroValue();

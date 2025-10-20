@@ -12,8 +12,16 @@ error WrongTokenAddresses(address[] provided, address[] expected);
 error SlippageLimitBreached();
 
 interface IBalancerV2 {
-    enum PoolSpecialization { GENERAL, MINIMAL_SWAP_INFO, TWO_TOKEN }
-    enum ExitKind { EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
+    enum PoolSpecialization {
+        GENERAL,
+        MINIMAL_SWAP_INFO,
+        TWO_TOKEN
+    }
+    enum ExitKind {
+        EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+        EXACT_BPT_IN_FOR_TOKENS_OUT,
+        BPT_IN_FOR_EXACT_TOKENS_OUT
+    }
 
     struct ExitPoolRequest {
         address[] assets;
@@ -57,12 +65,8 @@ interface IBalancerV2 {
      *
      * Emits a `PoolBalanceChanged` event.
      */
-    function exitPool(
-        bytes32 poolId,
-        address sender,
-        address payable recipient,
-        ExitPoolRequest memory request
-    ) external;
+    function exitPool(bytes32 poolId, address sender, address payable recipient, ExitPoolRequest memory request)
+        external;
 
     /**
      * @dev Returns a Pool's registered tokens, the total balance for each, and the latest block when *any* of
@@ -79,13 +83,9 @@ interface IBalancerV2 {
      * instead.
      */
     function getPoolTokens(bytes32 poolId)
-    external
-    view
-    returns (
-        address[] memory tokens,
-        uint256[] memory balances,
-        uint256 lastChangeBlock
-    );
+        external
+        view
+        returns (address[] memory tokens, uint256[] memory balances, uint256 lastChangeBlock);
 
     /**
      * @dev Returns a Pool's contract address and specialization setting.
@@ -133,16 +133,16 @@ interface ISlipstreamV3 {
     /// observationCardinalityNext The next maximum number of observations, to be updated when the observation.
     /// unlocked Whether the pool is currently locked to reentrancy
     function slot0()
-    external
-    view
-    returns (
-        uint160 sqrtPriceX96,
-        int24 tick,
-        uint16 observationIndex,
-        uint16 observationCardinality,
-        uint16 observationCardinalityNext,
-        bool unlocked
-    );
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            bool unlocked
+        );
 
     struct MintParams {
         address token0;
@@ -168,9 +168,9 @@ interface ISlipstreamV3 {
     /// @return amount0 The amount of token0
     /// @return amount1 The amount of token1
     function mint(MintParams calldata params)
-    external
-    payable
-    returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
+        external
+        payable
+        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 }
 
 /// @title Liquidity Manager Optimism - Smart contract for OLAS core Liquidity Manager functionality on Optimism stack chains
@@ -203,8 +203,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         address _oracleV2,
         address _balancerVault,
         address _bridge2Burner
-    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality)
-    {
+    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality) {
         // Check for zero address
         if (_oracleV2 == address(0) || _balancerVault == address(0) || _bridge2Burner == address(0)) {
             revert ZeroAddress();
@@ -223,10 +222,13 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
 
     /// @inheritdoc LiquidityManagerCore
     function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pool)
-        internal virtual override returns (uint256[] memory amounts)
+        internal
+        virtual
+        override
+        returns (uint256[] memory amounts)
     {
         // Get pool address
-        (address poolToken, ) = IBalancerV2(balancerVault).getPool(v2Pool);
+        (address poolToken,) = IBalancerV2(balancerVault).getPool(v2Pool);
         // Get this contract liquidity
         uint256 liquidity = IToken(poolToken).balanceOf(address(this));
         // Check for zero balance
@@ -236,7 +238,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
 
         address[] memory tokensInPool = new address[](2);
         // Get V2 pool tokens and amounts
-        (tokensInPool, amounts, ) = IBalancerV2(balancerVault).getPoolTokens(v2Pool);
+        (tokensInPool, amounts,) = IBalancerV2(balancerVault).getPoolTokens(v2Pool);
 
         // Check tokens
         if (tokensInPool[0] != tokens[0] || tokensInPool[1] != tokens[1]) {
@@ -278,8 +280,7 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         int24[] memory ticks,
         int24 tickSpacing,
         uint160
-    ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory)
-    {
+    ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory) {
         // Params for minting
         ISlipstreamV3.MintParams memory params = ISlipstreamV3.MintParams({
             token0: tokens[0],
@@ -310,19 +311,21 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
 
     /// @inheritdoc LiquidityManagerCore
     function _getPriceAndObservationIndexFromSlot0(address pool)
-        internal view virtual override returns (uint160 sqrtPriceX96, uint16 observationIndex)
+        internal
+        view
+        virtual
+        override
+        returns (uint160 sqrtPriceX96, uint16 observationIndex)
     {
         // Get current pool reserves and observation index
-        (sqrtPriceX96, , observationIndex, , , ) = ISlipstreamV3(pool).slot0();
+        (sqrtPriceX96,, observationIndex,,,) = ISlipstreamV3(pool).slot0();
     }
 
     /// @dev Gets V3 pool based on token addresses and tick spacing.
     /// @param tokens Token addresses.
     /// @param tickSpacing Tick spacing.
     /// @return V3 pool address.
-    function _getV3Pool(address[] memory tokens, int24 tickSpacing)
-        internal view virtual override returns (address)
-    {
+    function _getV3Pool(address[] memory tokens, int24 tickSpacing) internal view virtual override returns (address) {
         return ICLFactory(factoryV3).getPool(tokens[0], tokens[1], tickSpacing);
     }
 }
