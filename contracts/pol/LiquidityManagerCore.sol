@@ -210,7 +210,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param tokens Token addresses.
     /// @param inputAmounts Input amounts corresponding to tokens.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @param centerSqrtPriceX96 Center sqrt price.
+    /// @param sqrtP Center sqrt price.
     /// @param initTicks Initial ticks array.
     /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
     /// @return positionId Minted position Id.
@@ -220,7 +220,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         address[] memory tokens,
         uint256[] memory inputAmounts,
         int24 feeTierOrTickSpacing,
-        uint160 centerSqrtPriceX96,
+        uint160 sqrtP,
         int24[] memory initTicks,
         bool scan
     )
@@ -236,7 +236,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         int24[] memory optimizedTicks;
         // Build percent band around TWAP center
         (optimizedTicks, liquidity, amountsIn) =
-            INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(centerSqrtPriceX96, initTicks,
+            INeighborhoodScanner(neighborhoodScanner).optimizeLiquidityAmounts(sqrtP, initTicks,
                 tickSpacing, inputAmounts, scan);
 
         // Check for zero values
@@ -251,7 +251,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Mint V3 position
         (positionId, liquidity, amountsIn) =
-            _mintV3(tokens, amountsIn, aMin, optimizedTicks, feeTierOrTickSpacing, centerSqrtPriceX96);
+            _mintV3(tokens, amountsIn, aMin, optimizedTicks, feeTierOrTickSpacing, sqrtP);
 
         emit TicksSet(tokens, feeTierOrTickSpacing, initTicks, optimizedTicks, scan);
         emit PositionMinted(positionId, tokens, amountsIn, liquidity);
@@ -261,7 +261,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param tokens Token addresses.
     /// @param inputAmounts Input amounts corresponding to tokens.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @param centerSqrtPriceX96 Center sqrt price.
+    /// @param sqrtP Center sqrt price.
     /// @param tickShifts Tick shifts array: shifts from central tick value.
     /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
     /// @return positionId Minted position Id.
@@ -271,13 +271,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         address[] memory tokens,
         uint256[] memory inputAmounts,
         int24 feeTierOrTickSpacing,
-        uint160 centerSqrtPriceX96,
+        uint160 sqrtP,
         int24[] memory tickShifts,
         bool scan
     )
         internal returns (uint256 positionId, uint128 liquidity, uint256[] memory amountsIn)
     {
-        int24 centerTick = TickMath.getTickAtSqrtRatio(centerSqrtPriceX96);
+        int24 centerTick = TickMath.getTickAtSqrtRatio(sqrtP);
         tickShifts[0] = centerTick + tickShifts[0];
         tickShifts[1] = centerTick + tickShifts[1];
 
@@ -286,7 +286,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Calculate and mint new position
-        return _optimizeTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan);
+        return _optimizeTicksAndMintPosition(tokens, inputAmounts, feeTierOrTickSpacing, sqrtP, tickShifts, scan);
     }
 
     /// @dev Collects fees from LP position.
@@ -622,7 +622,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Check current pool prices
-        uint160 centerSqrtPriceX96 = checkPoolAndGetCenterPrice(v3Pool);
+        uint160 sqrtP = checkPoolAndGetCenterPrice(v3Pool);
 
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
@@ -634,7 +634,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // positionId is zero if it was not created before for this pool
         if (positionId == 0) {
             (positionId, liquidity, amounts) =
-                _calculateTicksAndMintPosition(tokens, amounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan);
+                _calculateTicksAndMintPosition(tokens, amounts, feeTierOrTickSpacing, sqrtP, tickShifts, scan);
 
             mapPoolAddressPositionIds[v3Pool] = positionId;
 
