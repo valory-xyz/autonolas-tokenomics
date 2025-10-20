@@ -254,14 +254,17 @@ contract NeighborhoodScanner {
             }
         }
 
+        uint160[] memory sqrtAB = new uint160[](2);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
+
         // Calculate liquidity
-        liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
-            TickMath.getSqrtRatioAtTick(loHi[1]), initialAmounts[0], initialAmounts[1]);
+        liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]);
 
         // Calculate desired amounts
         (amountsDesired[0], amountsDesired[1]) =
-            LiquidityAmounts.getAmountsForLiquidity(sqrtP, TickMath.getSqrtRatioAtTick(loHi[0]),
-            TickMath.getSqrtRatioAtTick(loHi[1]), liquidity);
+            LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
     }
 
     /// @dev Executes binary search for higher tick with fixed lower one.
