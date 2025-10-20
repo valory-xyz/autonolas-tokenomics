@@ -4,6 +4,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {LiquidityManagerOptimism} from "../contracts/pol/LiquidityManagerOptimism.sol";
+import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
@@ -111,15 +112,28 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
+        // Deploy V2 oracle
         oracleV2 = new BalancerPriceOracle(OLAS, WETH, uint256(maxSlippage / 100), minUpdateTimePeriod, BALANCER_VAULT,
             POOL_V2_BYTES32);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);
 
+        // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
-        liquidityManager = new LiquidityManagerOptimism(OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner),
-            observationCardinality, maxSlippage, address(oracleV2), BALANCER_VAULT, TIMELOCK);
+
+        // Deploy LiquidityManagerOptimism implementation
+        LiquidityManagerOptimism liquidityManagerImplementation = new LiquidityManagerOptimism(OLAS, TIMELOCK,
+            POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality, address(oracleV2),
+            BALANCER_VAULT, TIMELOCK);
+
+        // Deploy LiquidityManagerProxy
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        LiquidityManagerProxy liquidityManagerProxy =
+            new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
+
+        // Wrap proxy into implementation
+        liquidityManager = LiquidityManagerOptimism(address(liquidityManagerProxy));
 
         // Get pool total supply
         uint256 totalSupply = IToken(POOL_V2).totalSupply();

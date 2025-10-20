@@ -21,6 +21,9 @@ error ZeroAddress();
 /// @dev Zero value when it has to be different from zero.
 error ZeroValue();
 
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
 /// @dev Value overflow.
 /// @param provided Overflow value.
 /// @param max Maximum possible value.
@@ -41,11 +44,24 @@ error RangeBounds(int24 low, int24 center, int24 high);
 error ReentrancyGuard();
 
 interface INeighborhoodScanner {
+    /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
+    /// @notice 1. Adjusts extreme boundaries, if required.
+    ///         2. Looks for correct boundaries and adjusts tick spacings accordingly.
+    ///         3. Fixes one of ticks and executed binary + neighborhood search if scan option is true.
+    /// Ensures non-zero intermediate for amount0 formula without linear loops.
+    /// @param sqrtP Center sqrt price.
+    /// @param ticks Ticks array.
+    /// @param tickSpacing Tick spacing.
+    /// @param initialAmounts Initial amounts array.
+    /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
+    /// @return loHi Optimized ticks.
+    /// @return liquidity Corresponding liquidity.
+    /// @return amountsDesired Corresponding desired amounts.
     function optimizeLiquidityAmounts(
-        uint160 centerSqrtPriceX96,
+        uint160 sqrtP,
         int24[] memory ticks,
         int24 tickSpacing,
-        uint256[] memory balances,
+        uint256[] memory initialAmounts,
         bool scan
     ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired);
 }
@@ -57,6 +73,7 @@ interface INeighborhoodScanner {
 abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
+    event MaxSlippageUpdated(uint256 maxSlippage);
     event ConvertedToV3(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy, bool scan);
     event RangesChanged(address indexed pool, uint256 indexed positionId, address[] tokens, uint256[] amounts, uint256 liquidiy, bool scan);
     event UtilityAmountsManaged(address indexed olas, address indexed token, uint256 olasAmount, uint256 tokenAmount, bool olasBurnOrTransfer);
@@ -114,17 +131,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _maxSlippage Max slippage for operations.
     constructor(
         address _olas,
         address _treasury,
         address _positionManagerV3,
         address _neighborhoodScanner,
-        uint16 _observationCardinality,
-        uint16 _maxSlippage
+        uint16 _observationCardinality
     ) {
-        owner = msg.sender;
-
         // Check for zero addresses
         if (_olas == address(0) || _treasury == address(0) || _positionManagerV3 == address(0) ||
             _neighborhoodScanner == address(0))
@@ -132,13 +145,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroAddress();
         }
 
-        // Check for zero values
-        if (_maxSlippage == 0 || _observationCardinality == 0) {
+        // Check for zero value
+        if (_observationCardinality == 0) {
             revert ZeroValue();
-        }
-        // Check for max value
-        if (_maxSlippage > MAX_BPS) {
-            revert Overflow(_maxSlippage, MAX_BPS);
         }
 
         olas = _olas;
@@ -146,7 +155,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         positionManagerV3 = _positionManagerV3;
         neighborhoodScanner = _neighborhoodScanner;
         observationCardinality = _observationCardinality;
-        maxSlippage = _maxSlippage;
 
         // Get V3 factory address
         factoryV3 = IUniswapV3(positionManagerV3).factory();
@@ -475,8 +483,24 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Initialization function.
-    function initialize() external {
+    /// @param _maxSlippage Max slippage for operations.
+    function initialize(uint16 _maxSlippage) external {
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
 
+        // Check for zero value
+        if (_maxSlippage == 0) {
+            revert ZeroValue();
+        }
+        // Check for max value
+        if (_maxSlippage > MAX_BPS) {
+            revert Overflow(_maxSlippage, MAX_BPS);
+        }
+
+        maxSlippage = _maxSlippage;
+
+        owner = msg.sender;
     }
 
     /// @dev Changes the owner address.
@@ -515,6 +539,23 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             sstore(PROXY_LIQUIDITY_MANAGER, implementation)
         }
         emit ImplementationUpdated(implementation);
+    }
+
+    /// @dev Changes max slippage value.
+    /// @param newMaxSlippage New max slippage value.
+    function changeMaxSlippage(uint16 newMaxSlippage) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for zero value
+        if (newMaxSlippage == 0) {
+            revert ZeroValue();
+        }
+
+        maxSlippage = newMaxSlippage;
+        emit MaxSlippageUpdated(newMaxSlippage);
     }
 
     /// @dev Converts token amounts to V3 liquidity: from balances, or from V2 liquidity, or both.

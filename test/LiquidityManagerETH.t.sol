@@ -4,6 +4,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
+import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {UniswapPriceOracle} from "../contracts/oracles/UniswapPriceOracle.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
@@ -73,10 +74,23 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
+        // Deploy V2 oracle
         oracleV2 = new UniswapPriceOracle(WETH, uint256(maxSlippage / 100), PAIR_V2);
+
+        // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
-        liquidityManager = new LiquidityManagerETH(OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner),
-            observationCardinality, maxSlippage, address(oracleV2), ROUTER_V2);
+
+        // Deploy LiquidityManagerETH implementation
+        LiquidityManagerETH liquidityManagerImplementation = new LiquidityManagerETH(OLAS, TIMELOCK, POSITION_MANAGER_V3,
+            address(neighborhoodScanner), observationCardinality, address(oracleV2), ROUTER_V2);
+
+        // Deploy LiquidityManagerProxy
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        LiquidityManagerProxy liquidityManagerProxy =
+            new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
+
+        // Wrap proxy into implementation
+        liquidityManager = LiquidityManagerETH(address(liquidityManagerProxy));
 
         // Get V2 pool balance
         uint256 v2Liquidity = IToken(PAIR_V2).balanceOf(TREASURY);

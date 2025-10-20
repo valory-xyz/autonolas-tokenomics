@@ -191,7 +191,6 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _maxSlippage Max slippage for operations.
     /// @param _oracleV2 V2 pool related oracle address.
     /// @param _balancerVault Balancer vault address.
     /// @param _bridge2Burner Bridge to Burner address.
@@ -201,11 +200,10 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
         address _positionManagerV3,
         address _neighborhoodScanner,
         uint16 _observationCardinality,
-        uint16 _maxSlippage,
         address _oracleV2,
         address _balancerVault,
         address _bridge2Burner
-    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality, _maxSlippage)
+    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality)
     {
         // Check for zero address
         if (_oracleV2 == address(0) || _balancerVault == address(0) || _bridge2Burner == address(0)) {
