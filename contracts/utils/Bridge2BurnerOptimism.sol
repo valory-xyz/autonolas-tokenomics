@@ -79,6 +79,7 @@ contract Bridge2BurnerOptimism is Bridge2Burner {
         // Approve OLAS for token relayer contract
         IToken(olas).approve(l2TokenRelayer, olasAmount);
 
+        // Relay OLAS to L1 Burner contract
         IBridge(l2TokenRelayer).withdrawTo(olas, OLAS_BURNER, olasAmount, TOKEN_GAS_LIMIT, "0x");
 
         _locked = 1;
