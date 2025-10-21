@@ -7,6 +7,12 @@ import {TickMath} from "../libraries/TickMath.sol";
 
 // ERC20 interface
 interface IERC20 {
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+
     /// @dev Gets the amount of tokens owned by a specified account.
     /// @param account Account address.
     /// @return Amount of tokens owned.
@@ -37,6 +43,9 @@ error ZeroValue();
 
 /// @dev The contract is already initialized.
 error AlreadyInitialized();
+
+// @dev Reentrancy guard.
+error ReentrancyGuard();
 
 /// @title BuyBackBurner - BuyBackBurner implementation contract
 abstract contract BuyBackBurner {
@@ -73,6 +82,20 @@ abstract contract BuyBackBurner {
 
     // Map of account => activity counter
     mapping(address => uint256) public mapAccountActivities;
+
+    // Bridge2Burner address
+    address public immutable bridge2Burner;
+
+    /// @dev BuyBackBurner constructor.
+    /// @param _bridge2Burner Bridge2Burner address.
+    constructor(address _bridge2Burner) {
+        // Check for zero address
+        if (_bridge2Burner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        bridge2Burner = _bridge2Burner;
+    }
 
     /// @dev Buys OLAS on DEX.
     /// @param nativeTokenAmount Suggested native token amount.
@@ -213,7 +236,10 @@ abstract contract BuyBackBurner {
 
         // Verify pool reserves before proceeding
         address pool = IUniswapV3(factory).getPool(token0, token1, fee);
-        require(pool != address(0), "Pool does not exist");
+        // Check for zero address
+        if (pool == address(0)) {
+            revert ZeroAddress();
+        }
 
         // Get current pool reserves and observation index
         (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
@@ -244,7 +270,10 @@ abstract contract BuyBackBurner {
     /// @notice if nativeTokenAmount is zero or above the balance, it will be adjusted to current native token balance.
     /// @param nativeTokenAmount Suggested native token amount.
     function buyBack(uint256 nativeTokenAmount) external virtual {
-        require(_locked == 1, "Reentrancy guard");
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
         _locked = 2;
 
         // Get nativeToken balance
@@ -277,5 +306,26 @@ abstract contract BuyBackBurner {
         require(success, "Oracle price update failed");
 
         emit OraclePriceUpdated(oracle, msg.sender);
+    }
+
+    /// @dev Transfers OLAS balance to Bridge2Burn contract.
+    function bridge2Burn() external {
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
+        _locked = 2;
+
+        // Get OLAS balance
+        uint256 olasAmount = IERC20(olas).balanceOf(address(this));
+        // Check for zero value
+        if (olasAmount == 0) {
+            revert ZeroValue();
+        }
+
+        // Transfer OLAS to bridge2Burner contract
+        IERC20(olas).transfer(bridge2Burner, olasAmount);
+
+        _locked = 1;
     }
 }
