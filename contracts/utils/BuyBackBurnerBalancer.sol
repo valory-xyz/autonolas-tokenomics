@@ -46,8 +46,7 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
 
     /// @dev BuyBackBurnerBalancer constructor.
     /// @param _bridge2Burner Bridge2Burner address.
-    constructor(address _bridge2Burner) BuyBackBurner(_bridge2Burner)
-    {}
+    constructor(address _bridge2Burner) BuyBackBurner(_bridge2Burner) {}
 
     /// @dev Performs swap for OLAS on DEX.
     /// @param nativeTokenAmount Native token amount.

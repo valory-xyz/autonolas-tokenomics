@@ -33,7 +33,7 @@ interface IBridge {
     /// @param _minGasLimit Minimum gas limit to use for the transaction.
     /// @param _extraData   Extra data attached to the withdrawal.
     function withdrawTo(address _l2Token, address _to, uint256 _amount, uint32 _minGasLimit, bytes calldata _extraData)
-    external;
+        external;
 }
 
 // @dev Reentrancy guard.
@@ -45,7 +45,6 @@ error ZeroValueOnly();
 /// @dev Provided zero value.
 error ZeroValue();
 
-
 /// @title Bridge2BurnerOptimism - Smart contract for collecting OLAS on OP chain and relaying them back to L1 OLAS Burner contract.
 contract Bridge2BurnerOptimism is Bridge2Burner {
     // Token transfer gas limit for L1
@@ -55,8 +54,7 @@ contract Bridge2BurnerOptimism is Bridge2Burner {
     /// @dev Bridge2BurnerOptimism constructor.
     /// @param _olas OLAS token address on L2.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address.
-    constructor(address _olas, address _l2TokenRelayer) Bridge2Burner(_olas, _l2TokenRelayer)
-    {}
+    constructor(address _olas, address _l2TokenRelayer) Bridge2Burner(_olas, _l2TokenRelayer) {}
 
     /// @inheritdoc Bridge2Burner
     function relayToL1Burner(bytes memory) external payable virtual override {

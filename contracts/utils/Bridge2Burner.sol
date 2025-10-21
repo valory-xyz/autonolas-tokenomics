@@ -22,7 +22,7 @@ abstract contract Bridge2Burner {
     /// @dev Bridge2Burner constructor.
     /// @param _olas OLAS token address on L2.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address.
-    constructor(address _olas,address _l2TokenRelayer) {
+    constructor(address _olas, address _l2TokenRelayer) {
         // Check for zero addresses
         if (_olas == address(0) || _l2TokenRelayer == address(0)) {
             revert ZeroAddress();
