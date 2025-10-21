@@ -168,6 +168,34 @@ contract LiquidityManagerETHTest is BaseSetup {
         require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
     }
 
+    /// @dev Converts V2 pool into V3 with 50% amount (50% of OLAS burn, 50% of WETH transferred) and optimized ticks scan.
+    function testConvertToV3Conversion50Scan() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -25000;
+        tickShifts[1] = 15000;
+        uint16 olasBurnRate = 5000;
+        bool scan = true;
+
+        // Adjust initial amounts due to OLAS burn rate
+        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
+
+        (, , uint256[] memory amountsOut) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
     function testConvertToV3FullNoScan() public {
         int24[] memory tickShifts = new int24[](2);
