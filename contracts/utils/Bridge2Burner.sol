@@ -24,7 +24,7 @@ abstract contract Bridge2Burner {
     // L1 OLAS Burner address
     address public constant OLAS_BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     // Min OLAS balance to transfer
-    uint256 public constant MIN_OLAS_BALANCE = 10 ether;
+    uint256 public constant MIN_OLAS_BALANCE = 100 ether;
 
     // L2 OLAS address
     address public immutable olas;
