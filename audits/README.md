@@ -18,6 +18,8 @@ An internal audit with a focus on WithheldAmount fixing in PoAA Staking is locat
 
 An internal audit with a focus on POL Manager is located in this folder: [internal audit 8](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal8).
 
+An internal audit with a focus on BuyBackBurner/Bridge2Burner is located in this folder: [internal audit 9](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal9).
+
 ### External audit
 Final audit reports are listed in their historical order:
 - [v1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
