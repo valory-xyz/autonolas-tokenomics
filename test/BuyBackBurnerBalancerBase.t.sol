@@ -123,6 +123,6 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         buyBackBurnerBalancer.buyBack(1 ether);
 
         // Bridge OLAS to burn
-        bridge2Burner.relayToL1Burner("");
+        bridge2Burner.relayToL1Burner();
     }
 }

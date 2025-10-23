@@ -61,12 +61,4 @@ abstract contract Bridge2Burner {
             revert Underflow(olasBalance, MIN_OLAS_BALANCE);
         }
     }
-
-    /// @dev Relays OLAS to L1 Burner contract.
-    /// @param bridgePayload Bridge payload.
-    function relayToL1Burner(bytes memory bridgePayload) external virtual;
-
-    /// @dev Relays OLAS to L1 Burner contract where msg.value is required.
-    /// @param bridgePayload Bridge payload.
-    function relayToL1BurnerPayable(bytes memory bridgePayload) external virtual payable;
 }

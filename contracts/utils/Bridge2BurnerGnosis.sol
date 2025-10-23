@@ -23,18 +23,15 @@ interface IBridge {
 /// @dev Reentrancy guard.
 error ReentrancyGuard();
 
-/// @dev Function is not implemented in corresponding chain Id.
-error NotImplemented();
-
-/// @title Bridge2BurnerOptimism - Smart contract for collecting OLAS on Gnosis chain and relaying them back to L1 OLAS Burner contract.
-contract Bridge2BurnerOptimism is Bridge2Burner {
+/// @title Bridge2BurnerGnosis - Smart contract for collecting OLAS on Gnosis chain and relaying them back to L1 OLAS Burner contract.
+contract Bridge2BurnerGnosis is Bridge2Burner {
     /// @dev Bridge2BurnerOptimism constructor.
     /// @param _olas OLAS token address on L2.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address.
     constructor(address _olas, address _l2TokenRelayer) Bridge2Burner(_olas, _l2TokenRelayer) {}
 
-    /// @inheritdoc Bridge2Burner
-    function relayToL1Burner(bytes memory) external virtual override {
+    /// @dev Relays OLAS to L1 Burner contract.
+    function relayToL1Burner() external virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -51,10 +48,5 @@ contract Bridge2BurnerOptimism is Bridge2Burner {
         IBridge(l2TokenRelayer).relayTokens(olas, OLAS_BURNER, olasAmount);
 
         _locked = 1;
-    }
-
-    /// @inheritdoc Bridge2Burner
-    function relayToL1BurnerPayable(bytes memory) external override payable {
-        revert NotImplemented();
     }
 }
