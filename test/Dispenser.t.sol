@@ -33,7 +33,7 @@ contract BaseSetup is Test {
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
     uint256 internal epochLen = 30 days;
-    uint256 internal snapshot = vm.snapshot();
+    uint256 internal snapshot = vm.snapshotState();
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -176,7 +176,7 @@ contract DispenserTest is BaseSetup {
         assertEq(balanceETH, accountRewards);
         assertEq(balanceOLAS, accountTopUps);
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
     }
 
     /// @dev Deposit incentives for 2 services in a loop to go through a specified amount of time.
@@ -270,7 +270,7 @@ contract DispenserTest is BaseSetup {
             assertEq(balanceOLAS, accountTopUps);
         }
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
     }
 
     /// @dev Deposit incentives in a loop as the previous one and claim incentives ones in two epochs.
@@ -356,6 +356,6 @@ contract DispenserTest is BaseSetup {
             }
         }
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
     }
 }

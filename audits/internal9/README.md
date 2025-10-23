@@ -27,7 +27,7 @@ user -> Bridge2Burner.relayToL1Burner() -> IBridge(l2TokenRelayer).relayTokens -
 Why not just included code of Bridge2Burner inside BuyBackBurner?
 user -> BuyBackBurner.relayToL1Burner() -> IBridge(l2TokenRelayer).relayTokens -> transfer OLAS -> l2TokenRelayer
 ```
-[]
+[x] BBB now sends funds to Bridge2Burner right away, Bridge2Burner has minimum amount for OLAS to transfer
 
 #### Low/Notes. Why payable?
 ```
@@ -38,7 +38,7 @@ if (msg.value > 0) {
 } in all implementation.
 Why is this function declared as payable?
 ```
-[]
+[x] Added another payable function
 
 #### Medium. Improved logic for rare observe revert?
 ```
@@ -60,11 +60,11 @@ vs new logic in pol contract:
 uint256 twapPrice = _getTwapFromOracle(pool) -> (int56[] memory tickCumulatives, ) = IUniswapV3(pool).observe(secondsAgos) -> revert
 Should we improve as stated in the `LiqudityManagerCore` contract, given the potential for revert in `observe`?       
 ```
-[]
+[x] Pulled functionality from LiquidityManager - outlines well with idea to have LM deployed on each chain
 
 ### Medium/Notes. Not BBB for UniV3.
 ```
 uint256[] memory amounts = IUniswap(router).swapExactTokensForTokens()
 Should we make (planned?) a separate contract that works with Uniswapv3 (BBBUniswapV3)?
 ```
-[]
+[x] Noted

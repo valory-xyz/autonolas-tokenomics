@@ -169,7 +169,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract LiquidityManagerBaseTest is BaseSetup {
+contract LiquidityManagerBase is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
@@ -226,7 +226,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
 
         // Bridge OLAS to burn
-        bridge2Burner.relayToL1Burner("");
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
@@ -323,7 +323,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
 
         // Bridge OLAS to burn
-        bridge2Burner.relayToL1Burner("");
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with 95% amount and optimized ticks scan, collect fees, swap, add again
@@ -386,7 +386,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, TICK_SPACING, olasBurnRate);
 
         // Bridge OLAS to burn
-        bridge2Burner.relayToL1Burner("");
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.

@@ -10,11 +10,6 @@ interface IToken {
     /// @param amount Token amount.
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
-
-    /// @dev Gets the amount of tokens owned by a specified account.
-    /// @param account Account address.
-    /// @return Amount of tokens owned.
-    function balanceOf(address account) external view returns (uint256);
 }
 
 // Bridge interface
@@ -25,41 +20,26 @@ interface IBridge {
     function relayTokens(address token, address receiver, uint256 amount) external;
 }
 
-// @dev Reentrancy guard.
+/// @dev Reentrancy guard.
 error ReentrancyGuard();
 
-/// @dev Zero value only allowed.
-error ZeroValueOnly();
-
-/// @dev Provided zero value.
-error ZeroValue();
-
-/// @title Bridge2BurnerOptimism - Smart contract for collecting OLAS on Gnosis chain and relaying them back to L1 OLAS Burner contract.
-contract Bridge2BurnerOptimism is Bridge2Burner {
+/// @title Bridge2BurnerGnosis - Smart contract for collecting OLAS on Gnosis chain and relaying them back to L1 OLAS Burner contract.
+contract Bridge2BurnerGnosis is Bridge2Burner {
     /// @dev Bridge2BurnerOptimism constructor.
     /// @param _olas OLAS token address on L2.
     /// @param _l2TokenRelayer L2 token relayer bridging contract address.
     constructor(address _olas, address _l2TokenRelayer) Bridge2Burner(_olas, _l2TokenRelayer) {}
 
-    /// @inheritdoc Bridge2Burner
-    function relayToL1Burner(bytes memory) external payable virtual override {
+    /// @dev Relays OLAS to L1 Burner contract.
+    function relayToL1Burner() external virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
 
-        // msg.value must be zero
-        if (msg.value > 0) {
-            revert ZeroValueOnly();
-        }
-
-        // Get OLAS balance
-        uint256 olasAmount = IToken(olas).balanceOf(address(this));
-        // Check for zero value
-        if (olasAmount == 0) {
-            revert ZeroValue();
-        }
+        // Get OLAS amount to bridge
+        uint256 olasAmount = _getBalance();
 
         // Approve OLAS for token relayer contract
         IToken(olas).approve(l2TokenRelayer, olasAmount);
