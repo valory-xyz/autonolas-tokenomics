@@ -27,4 +27,7 @@ module.exports = defineConfig([{
         "semi": ["error", "always"],
         "no-unused-vars": "warn",
     },
-}, globalIgnores(["artifacts/*", "cache/*", "node_modules/*", "third_party/*"]), globalIgnores(["**/coverage*", "audits/*", "lib/*"])]);
+},
+
+globalIgnores(["artifacts/*", "cache/*", "node_modules/*"]),
+globalIgnores(["**/coverage*", "audits/*", "lib/*"])]);
