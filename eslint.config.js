@@ -16,8 +16,6 @@ module.exports = defineConfig([{
         parserOptions: {},
     },
 
-    "extends": "eslint:recommended",
-
     "rules": {
         "camelcase": [2, {
             "properties": "always",
