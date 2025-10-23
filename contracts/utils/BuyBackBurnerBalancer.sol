@@ -44,9 +44,11 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     // Balancer pool Id
     bytes32 public balancerPoolId;
 
+
     /// @dev BuyBackBurnerBalancer constructor.
+    /// @param _liquidityManager LiquidityManager address.
     /// @param _bridge2Burner Bridge2Burner address.
-    constructor(address _bridge2Burner) BuyBackBurner(_bridge2Burner) {}
+    constructor(address _liquidityManager, address _bridge2Burner) BuyBackBurner(_liquidityManager, _bridge2Burner) {}
 
     /// @dev Performs swap for OLAS on DEX.
     /// @param nativeTokenAmount Native token amount.

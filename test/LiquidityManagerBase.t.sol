@@ -169,7 +169,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract LiquidityManagerBaseTest is BaseSetup {
+contract LiquidityManagerBase is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
