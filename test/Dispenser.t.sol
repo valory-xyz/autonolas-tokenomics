@@ -32,7 +32,8 @@ contract BaseSetup is Test {
     address internal dev;
     uint256 internal initialMint = 10_000_000_000e18;
     uint256 internal largeApproval = 1_000_000_000_000e18;
-    uint256 epochLen = 30 days;
+    uint256 internal epochLen = 30 days;
+    uint256 internal snapshot = vm.snapshotState();
 
     function setUp() public virtual {
         emptyArray = new uint256[](0);
@@ -174,6 +175,8 @@ contract DispenserTest is BaseSetup {
         balanceOLAS = olas.balanceOf(deployer) - balanceOLAS;
         assertEq(balanceETH, accountRewards);
         assertEq(balanceOLAS, accountTopUps);
+
+        vm.revertToState(snapshot);
     }
 
     /// @dev Deposit incentives for 2 services in a loop to go through a specified amount of time.
@@ -214,7 +217,7 @@ contract DispenserTest is BaseSetup {
             // Move at least epochLen seconds in time
             vm.warp(block.timestamp + epochLen);
             // Mine a next block to avoid a flash loan attack condition
-            vm.roll(block.number + 1);
+            vm.roll(block.number + i + 1);
 
             // Check that the epoch counter is changed from the last time
             assertEq(lastPoint, tokenomics.epochCounter() - 1);
@@ -266,6 +269,8 @@ contract DispenserTest is BaseSetup {
             assertEq(balanceETH, accountRewards);
             assertEq(balanceOLAS, accountTopUps);
         }
+
+        vm.revertToState(snapshot);
     }
 
     /// @dev Deposit incentives in a loop as the previous one and claim incentives ones in two epochs.
@@ -305,7 +310,7 @@ contract DispenserTest is BaseSetup {
             // Move at least epochLen seconds in time with the random addition of seconds
             vm.warp(block.timestamp + epochLen + random(tokenomics.epochCounter()));
             // Mine a next block to avoid a flash loan attack condition
-            vm.roll(block.number + 1);
+            vm.roll(block.number + i + 1);
 
             // Start new epoch and calculate tokenomics parameters and rewards
             tokenomics.checkpoint();
@@ -350,5 +355,7 @@ contract DispenserTest is BaseSetup {
                 topUps[1] = 0;
             }
         }
+
+        vm.revertToState(snapshot);
     }
 }
