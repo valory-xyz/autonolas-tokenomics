@@ -3,7 +3,9 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {Bridge2BurnerOptimism} from "../contracts/utils/Bridge2BurnerOptimism.sol";
 import {LiquidityManagerOptimism} from "../contracts/pol/LiquidityManagerOptimism.sol";
+import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
@@ -75,6 +77,7 @@ interface ISlipstream {
 contract BaseSetup is Test {
     Utils internal utils;
     BalancerPriceOracle internal oracleV2;
+    Bridge2BurnerOptimism internal bridge2Burner;
     NeighborhoodScanner internal neighborhoodScanner;
     LiquidityManagerOptimism internal liquidityManager;
 
@@ -88,6 +91,7 @@ contract BaseSetup is Test {
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
     address[] internal TOKENS = [WETH, OLAS];
     address internal constant TIMELOCK = 0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA;
+    address internal constant L2_TOKEN_RELAYER = 0x4200000000000000000000000000000000000010;
     address internal constant POOL_V2 = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
     bytes32 internal constant POOL_V2_BYTES32 = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
     address internal constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
@@ -111,15 +115,31 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
+        // Deploy V2 oracle
         oracleV2 = new BalancerPriceOracle(OLAS, WETH, uint256(maxSlippage / 100), minUpdateTimePeriod, BALANCER_VAULT,
             POOL_V2_BYTES32);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);
 
+        // Deploy Bridge2Burner
+        bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);
+
+        // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
-        liquidityManager = new LiquidityManagerOptimism(OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner),
-            observationCardinality, maxSlippage, address(oracleV2), BALANCER_VAULT, TIMELOCK);
+
+        // Deploy LiquidityManagerOptimism implementation
+        LiquidityManagerOptimism liquidityManagerImplementation = new LiquidityManagerOptimism(OLAS, TIMELOCK,
+            POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality, address(oracleV2),
+            BALANCER_VAULT, address(bridge2Burner));
+
+        // Deploy LiquidityManagerProxy
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        LiquidityManagerProxy liquidityManagerProxy =
+            new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
+
+        // Wrap proxy into implementation
+        liquidityManager = LiquidityManagerOptimism(address(liquidityManagerProxy));
 
         // Get pool total supply
         uint256 totalSupply = IToken(POOL_V2).totalSupply();
@@ -149,7 +169,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract LiquidityManagerBaseTest is BaseSetup {
+contract LiquidityManagerBase is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
@@ -184,17 +204,29 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Adjust initial amounts due to OLAS burn rate
         uint256 wethAmount = (initialAmounts[0] * olasBurnRate) / MAX_BPS;
         initialAmounts[0] = initialAmounts[0] - wethAmount;
+        uint256 olasAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
         initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
 
         (, , uint256[] memory amountsOut) =
             liquidityManager.convertToV3(TOKENS, POOL_V2_BYTES32, TICK_SPACING, tickShifts, olasBurnRate, scan);
 
+        uint256 deviation;
         // scan = ticks are optimized, deviation must respect DELTA
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
-            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
             require(deviation <= DELTA, "Price deviation too high");
         }
+
+        // Get Bridge2Burner OLAS balance
+        uint256 bridge2BurnerBalance = IToken(OLAS).balanceOf(address(bridge2Burner));
+
+        // Amounts are different since Balancer fee is applied to OLAS initial amount (initialAmounts[1]) on pool exit
+        deviation = FixedPointMathLib.divWadDown((olasAmount - bridge2BurnerBalance), bridge2BurnerBalance);
+        require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
+
+        // Bridge OLAS to burn
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
@@ -226,6 +258,9 @@ contract LiquidityManagerBaseTest is BaseSetup {
         uint16 olasBurnRate = 1000;
         bool scan = true;
 
+        // Initial OLAS burn amount
+        uint256 olasAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+
         // Adjust initial amounts due to OLAS burn rate
         initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
         initialAmounts[1] = initialAmounts[1] - (initialAmounts[1] * olasBurnRate) / MAX_BPS;
@@ -247,14 +282,18 @@ contract LiquidityManagerBaseTest is BaseSetup {
         //console.log("Initial DECREASE amounts[0]", decreaseAmounts[0]);
         //console.log("Initial DECREASE amounts[1]", decreaseAmounts[1]);
 
+        // Additional OLAS burn amount while decreasing liquidity
+        olasAmount += (decreaseAmounts[1] * olasBurnRate) / MAX_BPS;
+
         (, , uint256[] memory decreaseAmountsOut) =
             liquidityManager.decreaseLiquidity(TOKENS, TICK_SPACING, decreaseRate, olasBurnRate);
         //console.log("DECREASE amountsOut[0]", decreaseAmountsOut[0]);
         //console.log("DECREASE amountsOut[1]", decreaseAmountsOut[1]);
 
+        uint256 deviation;
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
-            uint256 deviation = FixedPointMathLib.divWadDown((decreaseAmounts[i] - decreaseAmountsOut[i]), decreaseAmountsOut[i]);
+            deviation = FixedPointMathLib.divWadDown((decreaseAmounts[i] - decreaseAmountsOut[i]), decreaseAmountsOut[i]);
             require(deviation <= DELTA, "Price deviation too high");
         }
 
@@ -272,9 +311,19 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // scan = ticks are optimized, deviation must respect DELTA
         for (uint256 i = 0; i < 2; ++i) {
             // initialAmounts[i] is always >= amountsOut[i]
-            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
             require(deviation <= DELTA, "Price deviation too high");
         }
+
+        // Get Bridge2Burner OLAS balance
+        uint256 bridge2BurnerBalance = IToken(OLAS).balanceOf(address(bridge2Burner));
+
+        // Amounts are different since Balancer fee is applied to OLAS initial amount (initialAmounts[1]) on pool exit
+        deviation = FixedPointMathLib.divWadDown((olasAmount - bridge2BurnerBalance), bridge2BurnerBalance);
+        require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
+
+        // Bridge OLAS to burn
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with 95% amount and optimized ticks scan, collect fees, swap, add again
@@ -335,6 +384,9 @@ contract LiquidityManagerBaseTest is BaseSetup {
 
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, TICK_SPACING, olasBurnRate);
+
+        // Bridge OLAS to burn
+        bridge2Burner.relayToL1Burner();
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.
