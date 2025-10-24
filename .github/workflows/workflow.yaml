@@ -35,15 +35,15 @@ jobs:
 
       # Compile the code
       - name: Compile, adjust uniswap library hash and recompile again
-        run: npm run compile
+        run: yarn compile
 
       # Compile the code and run hardhat tests
       - name: Run hardhat tests
-        run: ./node_modules/.bin/hardhat test
+        run: yarn test
 
       # Run hardhat coverage and upload codecov report
       - name: Solidity coverage summary
-        run: ./node_modules/.bin/hardhat coverage
+        run: yarn coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
@@ -53,9 +53,9 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-      # Compile the code and run foundry tests
+      # Compile the code and run foundry tests (except for fork ones)
       - name: Run foundry tests
-        run: forge test -vvv
+        run: forge test --match-contract Depository && forge test --match-contract Dispenser && forge test --match-contract Treasury
 
   scan:
     name: gitleaks

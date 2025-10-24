@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerCore} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 
-/// @dev Provided zero address.
-error ZeroAddress();
+/// @dev Expected token addresses do not match provided ones.
+/// @param provided Provided token addresses.
+/// @param expected Expected token addresses.
+error WrongTokenAddresses(address[] provided, address[] expected);
+
+/// @dev Value underflow.
+/// @param provided Underflow value.
+/// @param min Minimum possible value.
+error Underflow(int256 provided, int256 min);
+
+/// @dev Oracle slippage limit is breached.
+error SlippageLimitBreached();
 
 interface IFactory {
     /// @notice Returns the tick spacing for a given fee amount, if enabled, or 0 if not enabled
@@ -72,9 +82,18 @@ interface IUniswapV3 {
     /// Encoded as two 4 bit values, where the protocol fee of token1 is shifted 4 bits and the protocol fee of token0
     /// is the lower 4 bits. Used as the denominator of a fraction of the swap fee, e.g. 4 means 1/4th of the swap fee.
     /// unlocked Whether the pool is currently locked to reentrancy
-    function slot0() external view
-    returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality,
-        uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked);
+    function slot0()
+        external
+        view
+        returns (
+            uint160 sqrtPriceX96,
+            int24 tick,
+            uint16 observationIndex,
+            uint16 observationCardinality,
+            uint16 observationCardinalityNext,
+            uint8 feeProtocol,
+            bool unlocked
+        );
 
     struct MintParams {
         address token0;
@@ -98,13 +117,10 @@ interface IUniswapV3 {
     /// @return liquidity The amount of liquidity for this position
     /// @return amount0 The amount of token0
     /// @return amount1 The amount of token1
-    function mint(MintParams calldata params) external payable
-    returns (
-        uint256 tokenId,
-        uint128 liquidity,
-        uint256 amount0,
-        uint256 amount1
-    );
+    function mint(MintParams calldata params)
+        external
+        payable
+        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1);
 }
 
 /// @title Liquidity Manager ETH - Smart contract for OLAS core Liquidity Manager functionality on ETH mainnet
@@ -123,7 +139,6 @@ contract LiquidityManagerETH is LiquidityManagerCore {
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _maxSlippage Max slippage for operations.
     /// @param _oracleV2 V2 pool related oracle address.
     /// @param _routerV2 Uniswap V2 Router address.
     constructor(
@@ -132,11 +147,9 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         address _positionManagerV3,
         address _neighborhoodScanner,
         uint16 _observationCardinality,
-        uint16 _maxSlippage,
         address _oracleV2,
         address _routerV2
-    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality, _maxSlippage)
-    {
+    ) LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality) {
         // Check for zero addresses
         if (_oracleV2 == address(0) || _routerV2 == address(0)) {
             revert ZeroAddress();
@@ -152,10 +165,15 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         IToken(olas).burn(amount);
     }
 
-    function _removeLiquidityV2(bytes32 v2Pool)
-        internal virtual override returns (address[] memory tokens, uint256[] memory amounts)
+    /// @inheritdoc LiquidityManagerCore
+    function _checkTokensAndRemoveLiquidityV2(address[] memory tokens, bytes32 v2Pair)
+        internal
+        virtual
+        override
+        returns (uint256[] memory amounts)
     {
-        address lpToken = address(uint160(uint256(v2Pool)));
+        // Convert into pool address
+        address lpToken = address(uint160(uint256(v2Pair)));
 
         // Get this contract liquidity
         uint256 liquidity = IToken(lpToken).balanceOf(address(this));
@@ -165,20 +183,18 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         }
 
         // Get V2 pair tokens - assume they are in lexicographical order as per Uniswap convention
-        tokens = new address[](2);
-        tokens[0] = IUniswapV2Pair(lpToken).token0();
-        tokens[1] = IUniswapV2Pair(lpToken).token1();
+        address[] memory tokensInPair = new address[](2);
+        tokensInPair[0] = IUniswapV2Pair(lpToken).token0();
+        tokensInPair[1] = IUniswapV2Pair(lpToken).token1();
 
-        // TODO Shall we accept non-OLAS pairs?
-        // Check for OLAS in pair
-        if (tokens[0] != olas && tokens[1] != olas) {
-            revert();
+        // Check tokens
+        if (tokensInPair[0] != tokens[0] || tokensInPair[1] != tokens[1]) {
+            revert WrongTokenAddresses(tokens, tokensInPair);
         }
 
-        // Apply slippage protection
-        // BPS --> %
+        // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
         if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert();
+            revert SlippageLimitBreached();
         }
 
         // Approve V2 liquidity
@@ -187,10 +203,11 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         // Remove liquidity: note that at this point of time the price is validated with desired slippage,
         // and thus min out amounts can be set to 1
         amounts = new uint256[](2);
-        (amounts[0], amounts[1]) = IUniswapV2Router02(routerV2).removeLiquidity(tokens[0], tokens[1], liquidity, 1, 1,
-            address(this), block.timestamp);
+        (amounts[0], amounts[1]) = IUniswapV2Router02(routerV2)
+            .removeLiquidity(tokens[0], tokens[1], liquidity, 1, 1, address(this), block.timestamp);
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _mintV3(
         address[] memory tokens,
         uint256[] memory amounts,
@@ -198,9 +215,8 @@ contract LiquidityManagerETH is LiquidityManagerCore {
         int24[] memory ticks,
         int24 feeTier,
         uint160
-    ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory)
-    {
-        // Add liquidity
+    ) internal virtual override returns (uint256 positionId, uint128 liquidity, uint256[] memory) {
+        // Params for minting
         IUniswapV3.MintParams memory params = IUniswapV3.MintParams({
             token0: tokens[0],
             token1: tokens[1],
@@ -215,32 +231,46 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             deadline: block.timestamp
         });
 
+        // Mint position
         (positionId, liquidity, amounts[0], amounts[1]) = IUniswapV3(positionManagerV3).mint(params);
 
         return (positionId, liquidity, amounts);
     }
 
-    function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24 tickSpacing) {
+    /// @dev Gets tick spacing according to fee tier or tick spacing directly.
+    /// @param feeTier Fee tier.
+    /// @return Tick spacing.
+    function _feeAmountTickSpacing(int24 feeTier) internal view virtual override returns (int24) {
+        // Check for value underflow
         if (feeTier < 0) {
-            revert();
+            revert Underflow(feeTier, 0);
         }
-        tickSpacing = IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
+
+        return IFactory(factoryV3).feeAmountTickSpacing(uint24(feeTier));
     }
 
+    /// @inheritdoc LiquidityManagerCore
     function _getPriceAndObservationIndexFromSlot0(address pool)
-        internal view virtual override returns (uint160 sqrtPriceX96, uint16 observationIndex)
+        internal
+        view
+        virtual
+        override
+        returns (uint160 sqrtPriceX96, uint16 observationIndex)
     {
         // Get current pool reserves and observation index
-        (sqrtPriceX96, , observationIndex, , , , ) = IUniswapV3(pool).slot0();
+        (sqrtPriceX96,, observationIndex,,,,) = IUniswapV3(pool).slot0();
     }
 
-    function _getV3Pool(address token0, address token1, int24 feeTier)
-        internal view virtual override returns (address)
-    {
+    /// @dev Gets V3 pool based on token addresses and fee tier.
+    /// @param tokens Token addresses.
+    /// @param feeTier Fee tier.
+    /// @return V3 pool address.
+    function _getV3Pool(address[] memory tokens, int24 feeTier) internal view virtual override returns (address) {
+        // Check for value underflow
         if (feeTier < 0) {
-            revert();
+            revert Underflow(feeTier, 0);
         }
 
-        return IFactory(factoryV3).getPool(token0, token1, uint24(feeTier));
+        return IFactory(factoryV3).getPool(tokens[0], tokens[1], uint24(feeTier));
     }
 }

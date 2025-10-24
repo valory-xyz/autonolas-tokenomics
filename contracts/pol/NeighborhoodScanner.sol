@@ -2,28 +2,42 @@
 pragma solidity ^0.8.30;
 
 import {TickMath} from "../libraries/TickMath.sol";
-import {LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
+import {FixedPoint96, LiquidityAmounts} from "../libraries/LiquidityAmounts.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
+/// @dev Zero value provided.
+error ZeroValue();
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(int24 provided, int24 max);
+
+/// @dev Out of tick range bounds.
+/// @param low Low tick provided.
+/// @param high High tick provided.
+/// @param minLow Min low tick allowed.
+/// @param maxHigh Max high tick allowed.
+error RangeBounds(int24 low, int24 high, int24 minLow, int24 maxHigh);
+
 /**
- * @title NeighborhoodScanner
- * @notice Binary-search helpers to pick Uniswap V3 ranges that minimize residuals ("dust")
- *         by preferring *narrowing* toward the current price:
- *         - pickHiPreferNarrow:   fix lo, find minimal hi
- *         - pickLoPreferNarrow:   fix hi, find maximal lo
+ * Tick range pickers for Uniswap V3.
+ * - pickHiMaxUtil: fix lo, find the LARGEST hi (on grid) such that need0(hi; L1) <= b0.
+ *   L1 = getLiquidityForAmount1(sa, sp, b1) (token1-limited).
+ * - pickLoMaxUtil: fix hi, find the SMALLEST lo (on grid) such that need1(lo; L0) <= b1.
+ *   L0 = getLiquidityForAmount0(sp, sb, b0) (token0-limited).
  *
- * Theory (inside-range case, sa < sp < sb):
- *   amounts[0](L) = L * (sb - sp) / (sp * sb)
- *   amounts[1](L) = L * (sp - sa)
- * For a fixed L, amounts[0] is increasing in sb; amounts[1] is decreasing in sa.
+ * PREVIEW ONLY: these functions do math; they do NOT mint. Use the result with amountMin guards.
  *
- * The routines below use that monotonicity to run a robust binary search on the
- * tick grid, privileging *narrower* ranges whenever multiple choices consume balances.
+ * Preconditions the CALLER should ensure (or this code will revert):
+ * - tickSpacing > 0
+ * - For pickHiMaxUtil:  sp > sa  (i.e., price strictly above lo → inside-range)
+ * - For pickLoMaxUtil:  sp < sb  (i.e., price strictly below hi → inside-range)
+ * - At least one balance is non-zero: (b0 > 0 || b1 > 0)
  *
  * Notes:
- * - These functions only do math (preview), they DO NOT mint liquidity.
- * - Caller should compare candidate solutions by a single numeraire (e.g., token1),
- *   e.g. value_used / value_total where value0_in_1 = amounts[0] * (sqrtP^2 / 2^192).
+ * - Monotonicity makes a single binary search sufficient:
+ *   amount0(sp, sa, sb, L1) increases with sb; amount1(sp, sa, sb, L0) increases as sa moves down.
  */
 
 /// @title Neighborhood Scanner - Smart contract for scanning neighborhood ticks to better fit liquidity
@@ -31,504 +45,651 @@ import {FullMath} from "../libraries/FullMath.sol";
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract NeighborhoodScanner {
-    enum Mode { HiPreferNarrow, LoPreferNarrow }
-
-    // Max bps value
-    uint16 public constant MAX_BPS = 10_000;
-    // TODO Calculate steps - linear gas spending dependency
+    // Number of binary search steps
     uint8 public constant MAX_NUM_BINARY_STEPS = 32;
-    // Number of iterations to find the best liquidity for both tick ranges
-    int8 public constant MAX_NUM_FAFO_STEPS = 4;
-    // Epsilon bps value
-    uint16 public constant EPSILON_BPS = 200;
-    // Absolute tolerance in tokens (wei)
-    uint256 public constant ABSOLUT_TOL = 10;
+    // Number of iterations to find the best liquidity for both tick ranges in a nearest neighborhood
+    int8 public constant MAX_NUM_NEIGHBORHOOD_STEPS = 4;
+    // Safety spacing steps near boundaries
+    int24 internal constant SAFETY_STEPS = 2;
 
-    //uint256 numIfs;
+    /// @dev Chooses search direction according to he balance value one against another: which one needs to be fixed.
+    /// @param amounts Token amounts.
+    /// @param sqrtP Sqrt price.
+    function _chooseMode(uint256[] calldata amounts, uint160 sqrtP) internal pure returns (bool) {
+        // Calculate V0 ~ b0*P and compare with V1 ~ b1
+        uint256 V0 = value0InToken1(amounts[0], sqrtP);
+        uint256 V1 = amounts[1];
 
-    function _iterateRight(int24 L, int24 R, int24 tickSpacing, uint160 sqrtP, uint160 sa, uint128 L1, uint256 amount)
-        internal pure returns (int24)
-    {
-        int24 ans = L;
-        uint8 it;
-        while (L <= R && it++ < MAX_NUM_BINARY_STEPS) {
+        // Check balance inequality
+        return (V0 >= V1);
+    }
+
+    /// @dev Checks if intermediate = floor(sqrtA * sqrtB / Q96) is non-zero.
+    /// @param lo Low tick value.
+    /// @param hi High tick value.
+    /// @return True if intermediate ois non-zero.
+    function _hasNonZeroIntermediate(int24 lo, int24 hi) internal pure returns (bool) {
+        uint160 sqrtA = TickMath.getSqrtRatioAtTick(lo);
+        uint160 sqrtB = TickMath.getSqrtRatioAtTick(hi);
+        uint256 intermediate = FullMath.mulDiv(uint256(sqrtA), uint256(sqrtB), FixedPoint96.Q96);
+        return (intermediate > 0);
+    }
+
+    /// @dev Executes binary search for lower tick with fixed higher one.
+    /// @notice Finds optimal ans ∈ [L, R], such that amount for token1 is biggest.
+    /// @param L Left tick value bound.
+    /// @param R Right tick value bound.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param sqrtP Right tick sqrt price.
+    /// @param liquidity Initial liquidity for token1.
+    /// @param amount Corresponding initial amount for token1.
+    /// @return Optimal lower tick value with maximized token1 liquidity.
+    function _iterateLeft(
+        int24 L,
+        int24 R,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint160 sb,
+        uint128 liquidity,
+        uint256 amount
+    ) internal pure returns (int24) {
+        int24 ans = R;
+        // Binary search while L <= R
+        for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
             int24 steps = (R - L) / tickSpacing;
-            int24 mid   = L + (steps / 2) * tickSpacing;
+            int24 mid = L + (steps / 2) * tickSpacing;
 
-            uint160 sbMid = TickMath.getSqrtRatioAtTick(mid);
-            (uint256 need0_mid, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, L1);
+            // Get left tick liquidity and token1 amount for provided liquidity
+            uint160 saMid = TickMath.getSqrtRatioAtTick(mid);
+            (, uint256 optimalAmount) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMid, sb, liquidity);
 
-            if (need0_mid <= amount) {
-                ans = mid;                        // fits → try wider
+            if (optimalAmount <= amount) {
+                // Amounts fits, try wider range
+                ans = mid;
                 if (mid == R) break;
-                L = mid + tickSpacing;
-            } else {
-                if (mid == L) break;              // too tight
                 R = mid - tickSpacing;
+            } else {
+                if (mid == L) break;
+                // Amounts does not fit, try narrower range
+                L = mid + tickSpacing;
             }
+
+            // Break condition: L > R (lower lo candidate tick is bigger than higher lo one)
+            if (L > R) break;
         }
 
         return ans;
     }
 
-    function _fafo(int24[] memory loHiBase, uint256[] memory amounts, int24 tickSpacing, uint160 sqrtP, uint128 liquidity)
-        internal pure returns (int24[] memory loHiBest, uint128 Lbest, uint256[] memory usedBest)
-    {
-        usedBest = new uint256[](2);
+    /// @dev Executes binary search for higher tick with fixed lower one.
+    /// @notice Finds optimal ans ∈ [L, R], such that amount for token0 is biggest.
+    /// @param L Left tick value bound.
+    /// @param R Right tick value bound.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param sa Left tick sqrt price.
+    /// @param liquidity Initial liquidity for token0.
+    /// @param amount Corresponding initial amount for token0.
+    /// @return Optimal lower tick value with maximized token0 liquidity.
+    function _iterateRight(
+        int24 L,
+        int24 R,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint160 sa,
+        uint128 liquidity,
+        uint256 amount
+    ) internal pure returns (int24) {
+        int24 ans = L;
+        // Binary search while L <= R
+        for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
+            int24 steps = (R - L) / tickSpacing;
+            int24 mid = L + (steps / 2) * tickSpacing;
+
+            // Get right tick liquidity and token0 amount for provided liquidity
+            uint160 sbMid = TickMath.getSqrtRatioAtTick(mid);
+            (uint256 optimalAmount,) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMid, liquidity);
+
+            if (optimalAmount <= amount) {
+                // Amounts fit, try wider range
+                ans = mid;
+                if (mid == R) break;
+                L = mid + tickSpacing;
+            } else {
+                // Amounts does not fit, try narrower range
+                if (mid == L) break;
+                R = mid - tickSpacing;
+            }
+
+            // Break condition: L > R (lower hi candidate tick is bigger than higher hi one)
+            if (L > R) break;
+        }
+
+        return ans;
+    }
+
+    /// @dev Chooses min from given two values.
+    /// @param x Value x.
+    /// @param y Value y.
+    /// @return MIN(x, y).
+    function _min128(uint128 x, uint128 y) internal pure returns (uint128) {
+        return x < y ? x : y;
+    }
+
+    /// @dev Executed neighborhood search for both lo and hi ticks to find optimal amounts.
+    /// @param loHiBase Base ticks array.
+    /// @param initialAmounts Initial amounts array.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param liquidity Initial liquidity.
+    /// @return loHiBest Optimized ticks.
+    /// @return liqBest Corresponding liquidity.
+    /// @return optimizedAmounts Corresponding amounts.
+    function _neighborhoodSearch(
+        int24[] memory loHiBase,
+        uint256[] memory initialAmounts,
+        int24 tickSpacing,
+        uint160 sqrtP,
+        uint128 liquidity
+    ) internal pure returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts) {
         loHiBest = new int24[](2);
-        usedBest = new uint256[](2);
+        optimizedAmounts = new uint256[](2);
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHiBase[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHiBase[1]);
 
         loHiBest[0] = loHiBase[0];
         loHiBest[1] = loHiBase[1];
-        Lbest = liquidity;
-        (usedBest[0], usedBest[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+        liqBest = liquidity;
+        (optimizedAmounts[0], optimizedAmounts[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
         uint256[] memory utilizationMinMax = new uint256[](2);
-        utilizationMinMax[0] = utilization1e18(usedBest, amounts, sqrtP);
+        utilizationMinMax[0] = utilization1e18(optimizedAmounts, initialAmounts, sqrtP);
 
-        int24 i = loHiBase[0] - MAX_NUM_FAFO_STEPS * tickSpacing;
-        for (; i <= loHiBase[0] + MAX_NUM_FAFO_STEPS * tickSpacing; i = i + tickSpacing) {
-            int24 j = loHiBase[1] - MAX_NUM_FAFO_STEPS * tickSpacing;
-            for (; j <= loHiBase[1] + MAX_NUM_FAFO_STEPS * tickSpacing; j = j + tickSpacing) {
-                if (i >= j) {
+        /// Traverse all neighboring ticks
+        int24 i = loHiBase[0] - MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing;
+        for (; i <= loHiBase[0] + MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing; i = i + tickSpacing) {
+            int24 j = loHiBase[1] - MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing;
+            for (; j <= loHiBase[1] + MAX_NUM_NEIGHBORHOOD_STEPS * tickSpacing; j = j + tickSpacing) {
+                // Skip lo >= high and out of tick boundary cases
+                if ((i >= j) || (i <= TickMath.MIN_TICK || j >= TickMath.MAX_TICK)) {
                     continue;
                 }
-                if (i <= TickMath.MIN_TICK || j >= TickMath.MAX_TICK) {
-                    continue;
-                }
 
+                // Get sqrt price for ticks
                 sqrtAB[0] = TickMath.getSqrtRatioAtTick(i);
                 sqrtAB[1] = TickMath.getSqrtRatioAtTick(j);
+
+                // Check for getting out of center sqrt ratio
                 if (sqrtAB[0] >= sqrtP || sqrtAB[1] <= sqrtP) {
                     continue;
                 }
 
-                liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
+                // Calculate liquidity
+                liquidity = LiquidityAmounts.getLiquidityForAmounts(
+                    sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]
+                );
                 if (liquidity == 0) {
                     continue;
                 }
 
-                uint256[] memory used = new uint256[](2);
-                (used[0], used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+                // Get amounts for liquidity
+                uint256[] memory amountsForLiquidity = new uint256[](2);
+                (amountsForLiquidity[0], amountsForLiquidity[1]) =
+                    LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
 
-                utilizationMinMax[1] = utilization1e18(used, amounts, sqrtP);
+                // Calculate utilization based on initial amounts
+                utilizationMinMax[1] = utilization1e18(amountsForLiquidity, initialAmounts, sqrtP);
+
+                // Record values as best if utilization obtained with calculated amounts for liquidity is higher
                 if (utilizationMinMax[1] > utilizationMinMax[0]) {
                     loHiBest[0] = i;
                     loHiBest[1] = j;
-                    usedBest[0] = used[0];
-                    usedBest[1] = used[1];
-                    Lbest = liquidity;
+                    optimizedAmounts[0] = amountsForLiquidity[0];
+                    optimizedAmounts[1] = amountsForLiquidity[1];
+                    liqBest = liquidity;
                     utilizationMinMax[0] = utilizationMinMax[1];
                 }
             }
         }
     }
 
-    /**
-     * @notice Fix lo; find the MINIMAL hi (on the tick grid) such that the position
-     *         can consume (approximately) the available token0, given L is limited by token1.
-     *
-     *         Preference: *narrowing from above* (closest-to-price hi that still works).
-     *
-     * Pre-conditions:
-     *   - Inside-range mode: sqrtP > sa (price above lo).
-     *   - 'maxUpTicks' bounds the search corridor above the current tick to avoid unbounded scans.
-     *
-     * @param tickSpacing   pool tick spacing
-     * @param sqrtP         current sqrtPriceX96 (Q64.96)
-     * @param loHiBase      base lower and upper tick candidates
-     * @param amounts[0]       available token0 (b0)
-     * @param amounts[1]       available token1 (b1)
-     *
-     * @return loHiBest   chosen lower and upper ticks (grid-aligned)
-     * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used     preview amounts actually consumed by Lbest in [loHiBest[0], loHiBest[1]]
-     */
-    function pickHiPreferNarrow(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24[] memory loHiBase,
-        uint256[] memory amounts
-    )
-    public
-    pure
-    returns (int24[] memory loHiBest, uint128 Lbest, uint256[] memory used)
-    {
-        require(amounts[0] > 0 || amounts[1] > 0, "NSB: zero balances");
+    /// @dev Executes binary search to raise higher tick.
+    /// @notice Finds minimal hi ∈ [hi, hiMax], multiple of spacing, such that intermediate > 0.
+    ///         If not found, returns hiMax as "best possible".
+    /// @param lo Lower tick value.
+    /// @param hi Base higher tick value.
+    /// @param hiMax Max value of higher tick value.
+    /// @param tickSpacing Tick spacing.
+    /// @return Optimal higher tick value.
+    function _raiseHigh(int24 lo, int24 hi, int24 hiMax, int24 tickSpacing) internal pure returns (int24) {
+        // Limit hi by hiMax
+        if (hi > hiMax) {
+            hi = hiMax;
+        }
 
-        loHiBest = new int24[](2);
-        loHiBest[0] = loHiBase[0];
-        used = new uint256[](2);
+        // Initial values
+        int24 L = hi;
+        int24 R = hiMax;
+        int24 ans = hiMax;
 
-        uint160 sa = TickMath.getSqrtRatioAtTick(loHiBase[0]);
+        // Binary search while L <= R
+        for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
+            int24 mid = _roundDownToSpacing((L + R) / 2, tickSpacing);
+            if (mid < L) {
+                mid = L;
+            }
 
-        // hi search range: [first grid above price, MAX_TICK on grid]
-        int24 ct = TickMath.getTickAtSqrtRatio(sqrtP);
-        int24[] memory hiMinMax = new int24[](2);
-        hiMinMax[0] = _roundUpToSpacing(ct + 1, tickSpacing);
-        if (hiMinMax[0] <= loHiBest[0]) hiMinMax[0] = loHiBest[0] + tickSpacing;
-        hiMinMax[1]= _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
-        if (hiMinMax[1] <= hiMinMax[0]) hiMinMax[1] = hiMinMax[0] + tickSpacing;
-
-        // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
-
-//        // --- edge @ hiMin ---
-//        {
-//            uint160 sbMin = TickMath.getSqrtRatioAtTick(hiMin);
-//            (uint256 need0_min, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMin, L1);
-//            if (need0_min > b0 + TOL0) {
-//                // even narrowest needs too much token0 → cap by b0 at hiMin
-//                uint128 Lcap0 = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMin, b0);
-//                uint128 Lfin  = _min128(Lcap0, L1);
-//                (uint256 u0, uint256 u1) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMin, Lfin);
-//                return (lo, hiMin, Lfin, u0, u1);
-//            }
-//        }
-//        // --- edge @ hiMax ---
-//        {
-//            uint160 sbMax = TickMath.getSqrtRatioAtTick(hiMax);
-//            (uint256 need0_max, ) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMax, L1);
-//            if (need0_max <= b0 + TOL0) {
-//                // widest still fits → take hiMax (cap by b0 to absorb rounding)
-//                uint128 Lcap0w = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sbMax, b0);
-//                uint128 Lfin   = _min128(Lcap0w, L1);
-//                (uint256 u0w, uint256 u1w) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sbMax, Lfin);
-//                return (lo, hiMax, Lfin, u0w, u1w);
-//            }
-//        }
-
-        // minimal hi that satisfies token0 budget
-        loHiBest[1] = _iterateRight(hiMinMax[0], hiMinMax[1], tickSpacing, sqrtP, sa, liquidity, amounts[0]);
-        uint160 sb = TickMath.getSqrtRatioAtTick(loHiBest[1]);
-
-        liquidity = _min128(LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]), liquidity);
-
-        return _fafo(loHiBest, amounts, tickSpacing, sqrtP, liquidity);
-    }
-
-    function _iterateLeft(int24[] memory loHiBest, int24 tickSpacing, uint160 sqrtP, uint160 sb, uint128 Lbest, uint256 amount)
-    internal pure returns (int24) {
-        // Case C: bracketed — run binary search for the MAXIMAL lo such that need1(lo; Lbest) <= b1 (+ tol)
-        int24 left  = loHiBest[0]; // valid: need1(left)  >= b1 - tol
-        int24 right = loHiBest[1]; // valid: need1(right) <= b1 + tol
-
-        uint8 it = 0;
-        while (left < right && it++ < MAX_NUM_BINARY_STEPS) {
-            int24 mid = _midTickGridCeil(left, right, tickSpacing); // ceil to grid
-            if (mid >= right) break; // converged
-
-            uint160 saMid = TickMath.getSqrtRatioAtTick(mid);
-            (, uint256 need1_mid) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMid, sb, Lbest);
-
-            if (need1_mid > amount + ABSOLUT_TOL) {
-                // need too much token1 -> lo too close to price (too narrow from below)
-                // We must *decrease* lo; lo lives in [left..mid - spacing]
-                right = mid - tickSpacing;
+            // Check for non-zero intermediate
+            if (_hasNonZeroIntermediate(lo, mid)) {
+                // Search for smaller hi
+                ans = mid;
+                R = mid - tickSpacing;
             } else {
-                // token1 fits -> try to narrow further (increase lo)
-                left = mid;
-            }
-        }
-
-        return left;
-    }
-
-    /**
-     * @notice Fix hi; find the MAXIMAL lo (on the tick grid) such that the position
-     *         can consume (approximately) the available token1, given L is limited by token0.
-     *
-     *         Preference: *narrowing from below* (closest-to-price lo that still works).
-     *
-     * Pre-conditions:
-     *   - Inside-range mode: sqrtP < sb (price below hi).
-     *   - 'maxDownTicks' bounds the search corridor below the current tick to avoid unbounded scans.
-     *
-     * @param tickSpacing   pool tick spacing
-     * @param sqrtP         current sqrtPriceX96 (Q64.96)
-     * @param hiCandidate   upper tick candidate (will be snapped down to the grid)
-     * @param amounts[0]       available token0 (b0)
-     * @param amounts[1]       available token1 (b1)
-     * @param maxDownTicks  corridor downwards from current tick (search cap)
-     *
-     * @return loHiBest   chosen lower and upper ticks (grid-aligned)
-     * @return Lbest    final liquidity (capped by b0/b1 due to rounding)
-     * @return used     preview amounts actually consumed by Lbest in [loHiBest[0], loHiBest[1]]
-     */
-    function pickLoPreferNarrow(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24 hiCandidate,
-        uint256[] memory amounts,
-        int24 maxDownTicks
-    )
-    public
-    pure
-    returns (int24[] memory loHiBest, uint128 Lbest, uint256[] memory used)
-    {
-        require(amounts[0] > 0 || amounts[1] > 0, "NSB: zero balances");
-
-        loHiBest = new int24[](2);
-        used = new uint256[](2);
-
-        // Snap hiCandidate to grid and compute sb
-        hiCandidate = _roundDownToSpacing(hiCandidate, tickSpacing);
-        uint160 sb = TickMath.getSqrtRatioAtTick(hiCandidate);
-
-        // Must be inside-range (price below hiCandidate)
-        require(sqrtP < sb, "NSB: price >= hiCandidate");
-
-        // Compute lo search corridor
-        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtP);
-
-        // Maximal lo (closest below price): one grid step below the price
-        loHiBest[1] = _roundDownToSpacing(currentTick - 1, tickSpacing);
-        if (loHiBest[1] >= hiCandidate) loHiBest[1] = hiCandidate - tickSpacing;
-
-        // Minimal lo: bounded downwards and clamped to MIN_TICK
-        loHiBest[0] = currentTick - maxDownTicks;
-        if (loHiBest[0] < TickMath.MIN_TICK) loHiBest[0] = TickMath.MIN_TICK;
-        loHiBest[0] = _roundDownToSpacing(loHiBest[0], tickSpacing);
-        if (loHiBest[0] >= loHiBest[1]) loHiBest[0] = loHiBest[1] - tickSpacing;
-
-
-        uint160[] memory saMinMax = new uint160[](2);
-        saMinMax[0] = TickMath.getSqrtRatioAtTick(loHiBest[0]);
-        saMinMax[1] = TickMath.getSqrtRatioAtTick(loHiBest[1]);
-
-        loHiBest[0] = loHiBest[1];
-        loHiBest[1] = hiCandidate;
-
-        // Liquidity limited by token0 in (sqrtP, sb): Lbest = getLiquidityForAmount0(sqrtP, sb, b0)
-        Lbest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
-        if (Lbest == 0) {
-            // No token0 -> cannot place inside-range liquidity with fixed hiCandidate
-            return (loHiBest, Lbest, used);
-        }
-
-        // need1 at corridor extremes with fixed Lbest
-        (, used[0]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMinMax[0], sb, Lbest);
-        (, used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMinMax[1], sb, Lbest);
-        // Note: with fixed Lbest, amounts[0] inside-range is constant (= b0); amounts[1] decreases as sa increases.
-
-        uint128 Lfin;
-        // Case A: even at the *narrowest* loHiBest[1], we require too much token1 -> token1-limited.
-        // Stick to the narrow edge (loHiBest[1]) and cap L by b1 as well.
-        if (used[1] > amounts[1] + ABSOLUT_TOL) {
-            Lfin = LiquidityAmounts.getLiquidityForAmount1(saMinMax[1], sqrtP, amounts[1]);
-            Lbest = _min128(Lfin, Lbest);
-
-            if (Lbest == 0) {
-                return (loHiBest, Lbest, used);
+                // Need to raise hi further
+                L = mid + tickSpacing;
             }
 
-            (used[0], used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMinMax[1], sb, Lbest);
-            return (loHiBest, Lbest, used);
+            // Break condition: L > R (lower hi candidate tick is bigger than higher hi one)
+            if (L > R) break;
         }
 
-        // Case B: even at the *widest* loHiBest[0], token1 requirement is still below b1 -> token0-limited.
-        // Prefer *narrowest* lo that works => pick loHiBest[1].
-        if (used[0] + ABSOLUT_TOL < amounts[1]) {
-            Lfin = LiquidityAmounts.getLiquidityForAmount1(saMinMax[1], sqrtP, amounts[1]);
-            Lbest  = _min128(Lfin, Lbest);
-            (used[0], used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMinMax[1], sb, Lbest);
-            return (loHiBest, Lbest, used);
-        }
-
-        // maximal lo that satisfies token1 budget
-        loHiBest[0] = _iterateLeft(loHiBest, tickSpacing, sqrtP, sb, Lbest, amounts[1]);
-        saMinMax[0] = TickMath.getSqrtRatioAtTick(loHiBest[0]);
-
-        // Cap liquidity by b1 as well (to absorb rounding)
-        Lfin = LiquidityAmounts.getLiquidityForAmount1(saMinMax[0], sqrtP, amounts[1]);
-        Lbest = _min128(Lfin, Lbest);
-        if (Lbest == 0) {
-            used[0] = 0;
-            used[1] = 0;
-            return (loHiBest, Lbest, used);
-        }
-
-        (used[0], used[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, saMinMax[0], sb, Lbest);
-        return (loHiBest, Lbest, used);
+        return ans;
     }
 
-    // ------------------------------------------------------------------------
-    // Optional helper: dust valuation in token1 units (for external scoring)
-    // ------------------------------------------------------------------------
-
-    /**
-     * @notice Convert leftover (d0, d1) into token1 units: d0 * P + d1, where P = (sqrtP^2) / 2^192.
-     * @dev Not used internally by the search; handy to score solutions in a single numeraire.
-     */
-    function dustInToken1Units(uint256 d0, uint256 d1, uint160 sqrtP) internal pure returns (uint256) {
-        if (d0 == 0) return d1;
-        unchecked {
-            uint256 num = uint256(sqrtP) * uint256(sqrtP); // sqrtP^2
-            uint256 d0In1 = FullMath.mulDiv(d0, num, 1 << 192);
-            return d0In1 + d1;
+    /// @dev Executes binary search to raise lower tick.
+    /// @notice Finds minimal lo ∈ [loMin, hi - tickSpacing], such that intermediate > 0 (with fixed hi).
+    ///         If not found, returns hi - tickSpacing (maximum possible raise of lo).
+    /// @param loMin Min value of lower tick value.
+    /// @param hi Fixed higher tick value.
+    /// @param tickSpacing Tick spacing.
+    /// @return Optimal lower tick value.
+    function _raiseLow(int24 loMin, int24 hi, int24 tickSpacing) internal pure returns (int24) {
+        // Limit loMin by loMax
+        int24 loMax = hi - tickSpacing;
+        if (loMin > loMax) {
+            loMin = loMax;
         }
-    }
 
-    // ------------------------------------------------------------------------
-    // Internal utils
-    // ------------------------------------------------------------------------
+        // Initial values
+        int24 L = loMin;
+        int24 R = loMax;
+        int24 ans = loMax;
+
+        // Binary search while L <= R
+        for (uint256 i = 0; i < MAX_NUM_BINARY_STEPS; ++i) {
+            int24 mid = _roundUpToSpacing((L + R) / 2, tickSpacing);
+            if (mid > loMax) mid = loMax;
+
+            // Check for non-zero intermediate
+            if (_hasNonZeroIntermediate(mid, hi)) {
+                // Try smaller lo
+                ans = mid;
+                R = mid - tickSpacing;
+            } else {
+                // Need to raise lo further
+                L = mid + tickSpacing;
+            }
+
+            // Break condition: L > R (lower lo candidate tick is bigger than higher lo one)
+            if (L > R) break;
+        }
+
+        return ans;
+    }
 
     /// @dev Snap down to tick grid.
-    function _roundDownToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
+    /// @param tick Tick value.
+    /// @param spacing Tick spacing.
+    /// @return Tick value rounded down to tick grid.
+    function _roundDownToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
-        return r == 0 ? tick : (tick - r);
+        return r == 0 ? tick : (r > 0 ? tick - r : tick - (r + spacing));
     }
 
     /// @dev Snap up to tick grid.
-    function _roundUpToSpacing(int24 tick, int24 spacing) private pure returns (int24) {
+    /// @param tick Tick value.
+    /// @param spacing Tick spacing.
+    /// @return Tick value rounded up to tick grid.
+    function _roundUpToSpacing(int24 tick, int24 spacing) internal pure returns (int24) {
         int24 r = tick % spacing;
-        return r == 0 ? tick : (tick - r + spacing);
+        return r == 0 ? tick : (r > 0 ? tick + (spacing - r) : tick - r);
     }
 
-    /// @dev Midpoint on grid, rounded *down* (used when searching minimal hi).
-    function _midTickGridFloor(int24 a, int24 b, int24 spacing) private pure returns (int24) {
-        // a < b
-        int24 m = a + ((b - a) / 2);
-        int24 r = m % spacing;
-        if (r != 0) m = m - r; // round down to grid
-        if (m <= a) m = a;     // guard to avoid infinite loop
-        return m;
-    }
-
-    /// @dev Midpoint on grid, rounded *up* (used when searching maximal lo).
-    function _midTickGridCeil(int24 a, int24 b, int24 spacing) private pure returns (int24) {
-        // a < b
-        int24 m = a + ((b - a) / 2);
-        int24 r = m % spacing;
-        if (r != 0) m = m - r + spacing; // round up to grid
-        if (m >= b) m = b;               // guard to avoid infinite loop
-        return m;
-    }
-
-    function _min128(uint128 x, uint128 y) private pure returns (uint128) {
-        return x < y ? x : y;
-    }
-
-    /// @notice Стоимость amount в token1-номинации: amount * P, где P=(sqrtP^2)/2^192
-    function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (uint256) {
-        if (amount == 0) return 0;
-        unchecked {
-            uint256 num = uint256(sqrtP) * uint256(sqrtP);           // sqrtP^2 (до 256 бит)
-            return FullMath.mulDiv(amount, num, 1 << 192);
-        }
-    }
-
-    /// @notice Общая стоимость (amount0, amount1) в token1-номинации
-    function valueInToken1(uint256 amount0, uint256 amount1, uint160 sqrtP) internal pure returns (uint256) {
-        return value0InToken1(amount0, sqrtP) + amount1;
-    }
-
-    /// @notice Метрика утилизации (0..1e18) с учётом ценности токенов (в token1-номинации)
-    function utilization1e18(
-        uint256[] memory used,
-        uint256[] memory balances,
-        uint160 sqrtP
-    ) internal pure returns (uint256) {
-        uint256 valUsed  = valueInToken1(used[0], used[1], sqrtP);
-        uint256 valTotal = valueInToken1(balances[0], balances[1], sqrtP);
-        if (valTotal == 0) return 0;
-        return FullMath.mulDiv(valUsed, 1e18, valTotal);
-    }
-
-    /// @notice Решение направления оптимизации по относительной «ценности» балансов
-    function chooseMode(
-        uint160 sqrtP,
-        uint256[] memory balances
-    ) internal pure returns (Mode) {
-        // Считаем V0 ~ b0*P и сравниваем с V1 ~ b1
-        uint256 V0 = value0InToken1(balances[0], sqrtP);
-        uint256 V1 = balances[1];
-
-        // V1 vs V0 с гистерезисом
-        // Если V1 значительно меньше V0 → дефицитен token1 → двигаем HI (фиксируем lo) → HiPreferNarrow
-        // Если V0 значительно меньше V1 → дефицитен token0 → двигаем LO (фиксируем hi) → LoPreferNarrow
-        // Иначе — можно выбрать по умолчанию (например, предпочесть более узкий сверху)
-        if (V1 * 10_000 + (uint256(EPSILON_BPS) * V1) < V0 * 10_000) {
-            return Mode.HiPreferNarrow;
-        } else if (V0 * 10_000 + (uint256(EPSILON_BPS) * V0) < V1 * 10_000) {
-            return Mode.LoPreferNarrow;
-        } else {
-            // default: пусть будет верх сужаем
-            return Mode.HiPreferNarrow;
-        }
-    }
-
-    /// @notice Автовыбор и запуск бинарника, возвращает ещё и метрику утилизации 1e18
-    /// @dev loCandidate используется для HiPreferNarrow, hiCandidate — для LoPreferNarrow
-    function scanNeighborhood(
-        int24 tickSpacing,
-        uint160 sqrtP,
-        int24[] memory loHiCandidates,
-        uint256[] memory amounts
-    )
-    external
-    pure
-    returns (
-        int24[] memory loHiBest,
-        uint128 Lbest,
-        uint256[] memory used
-    )
+    /// @dev Scans neighborhood with binary search and locally based on amounts[0] or amounts[1] in absolute token value.
+    /// @notice ticks[0] is used for pickHiMaxUtil, ticks[0] - for pickLoMaxUtil.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param ticks Initial tick values.
+    /// @param amounts Initial token amounts.
+    /// @return loHiBest Optimized ticks.
+    /// @return liqBest Corresponding liquidity.
+    /// @return optimizedAmounts Corresponding amounts.
+    function _scanNeighborhood(int24 tickSpacing, uint160 sqrtP, int24[] memory ticks, uint256[] calldata amounts)
+        internal
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
     {
-        // TODO
-        //  for example 100_000
-        int24 corridorTicks = 100_000;
+        if (amounts[0] == 0 || amounts[1] == 0) {
+            revert ZeroValue();
+        }
 
-        loHiBest = new int24[](2);
+        bool optimizeHi = _chooseMode(amounts, sqrtP);
+
+        if (optimizeHi) {
+            return pickHiMaxUtil(tickSpacing, sqrtP, ticks[0], amounts);
+        } else {
+            return pickLoMaxUtil(tickSpacing, sqrtP, ticks[1], amounts);
+        }
+    }
+
+    /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
+    /// @notice 1. Adjusts extreme boundaries, if required.
+    ///         2. Looks for correct boundaries and adjusts tick spacings accordingly.
+    ///         3. Fixes one of ticks and executed binary + neighborhood search if scan option is true.
+    /// Ensures non-zero intermediate for amount0 formula without linear loops.
+    /// @param sqrtP Center sqrt price.
+    /// @param ticks Ticks array.
+    /// @param tickSpacing Tick spacing.
+    /// @param initialAmounts Initial amounts array.
+    /// @param scan True if binary and neighborhood ticks search for optimal liquidity is requested, false otherwise.
+    /// @return loHi Optimized ticks.
+    /// @return liquidity Corresponding liquidity.
+    /// @return amountsDesired Corresponding desired amounts.
+    function optimizeLiquidityAmounts(
+        uint160 sqrtP,
+        int24[] calldata ticks,
+        int24 tickSpacing,
+        uint256[] calldata initialAmounts,
+        bool scan
+    ) external pure returns (int24[] memory loHi, uint128 liquidity, uint256[] memory amountsDesired) {
+        // Assign raw ticks
+        loHi = new int24[](2);
+        loHi[0] = ticks[0];
+        loHi[1] = ticks[1];
+
+        // Snap to spacing + safety margins
+        int24 minSafe = _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
+        minSafe += SAFETY_STEPS * tickSpacing;
+        int24 maxSafe = _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
+        maxSafe -= SAFETY_STEPS * tickSpacing;
+
+        // Round to exact spacing values
+        loHi[0] = _roundDownToSpacing(loHi[0], tickSpacing);
+        loHi[1] = _roundUpToSpacing(loHi[1], tickSpacing);
+
+        // Safe bounds after rounding
+        if (loHi[0] < minSafe) {
+            loHi[0] = minSafe;
+        }
+        if (loHi[1] > maxSafe) {
+            loHi[1] = maxSafe;
+        }
+
+        // Ensure non-empty ticks interval
+        if (loHi[0] >= loHi[1]) {
+            loHi[0] = minSafe;
+            loHi[1] += tickSpacing;
+            if (loHi[1] > maxSafe) {
+                loHi[1] = maxSafe;
+            }
+
+            if (loHi[0] >= loHi[1]) {
+                revert Overflow(loHi[0], loHi[1] - 1);
+            }
+        }
+
+        // If already non-zero, return (after neighborhood scanning, if specified)
+        if (_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+            if (scan) {
+                return _scanNeighborhood(tickSpacing, sqrtP, loHi, initialAmounts);
+            }
+        } else {
+            // Choose widening side based on closeness to global boundaries
+            bool nearMin = (loHi[0] - minSafe) <= SAFETY_STEPS * tickSpacing;
+            bool nearMax = (maxSafe - loHi[1]) <= SAFETY_STEPS * tickSpacing;
+
+            if (nearMin && !nearMax) {
+                // Lower near MIN: raise loHi[1]
+                loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                }
+            } else if (nearMax && !nearMin) {
+                // Upper near MAX: raise loHi[0]
+                loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                }
+            } else {
+                // Neither or both near boundaries: first try raising loHi[1]
+                loHi[1] = _raiseHigh(loHi[0], loHi[1], maxSafe, tickSpacing);
+                if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                    loHi[0] = _raiseLow(minSafe, loHi[1], tickSpacing);
+                }
+            }
+
+            // Check correctness of ranges
+            if (minSafe > loHi[0] || loHi[1] > maxSafe || loHi[0] >= loHi[1]) {
+                revert RangeBounds(loHi[0], loHi[1], minSafe, maxSafe);
+            }
+
+            // Check for final intermadiate value
+            if (!_hasNonZeroIntermediate(loHi[0], loHi[1])) {
+                revert ZeroValue();
+            }
+        }
 
         uint160[] memory sqrtAB = new uint160[](2);
-        sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHiCandidates[0]);
-        sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHiCandidates[1]);
+        sqrtAB[0] = TickMath.getSqrtRatioAtTick(loHi[0]);
+        sqrtAB[1] = TickMath.getSqrtRatioAtTick(loHi[1]);
 
-        uint256[] memory utilization1e18BeforeAfter = new uint256[](2);
-        uint256[] memory amountsMin = new uint256[](2);
+        // Calculate liquidity
+        liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], initialAmounts[0], initialAmounts[1]);
 
-        // Compute expected amounts for increase (TWAP) -> slippage guards
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtP, sqrtAB[0], sqrtAB[1], amounts[0], amounts[1]);
-        // Check for zero value
-        if (liquidity > 0) {
-            (amountsMin[0], amountsMin[1]) =
-                LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+        // Calculate desired amounts
+        amountsDesired = new uint256[](2);
+        (amountsDesired[0], amountsDesired[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtP, sqrtAB[0], sqrtAB[1], liquidity);
+    }
 
-            utilization1e18BeforeAfter[0] = utilization1e18(amountsMin, amounts, sqrtP);
+    /// @dev Finds optimal ticks while fixing lower base tick.
+    /// @notice 1. Find ticks via a binary search such that the position consumes all available token0.
+    ///         2. Minimally search around to find optimal ranges such that max amounts of token0 and token1 are used.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param lo Raw lower tick candidate: MUST satisfy sqrtP > sqrt(lo).
+    /// @param amounts Available token amounts.
+    /// @return loHiBest Optimized ticks.
+    /// @return liqBest Corresponding liquidity.
+    /// @return optimizedAmounts Corresponding amounts.
+    function pickHiMaxUtil(int24 tickSpacing, uint160 sqrtP, int24 lo, uint256[] calldata amounts)
+        public
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
+    {
+        loHiBest = new int24[](2);
+        optimizedAmounts = new uint256[](2);
+        loHiBest[0] = lo;
+
+        // hi search range: [first grid above price, MAX_TICK on grid]
+        int24[] memory hiMinMax = new int24[](2);
+        hiMinMax[0] = _roundUpToSpacing(TickMath.getTickAtSqrtRatio(sqrtP) + 1, tickSpacing);
+
+        // Limit lower tick by lo + tickSpacing
+        if (hiMinMax[0] <= loHiBest[0]) {
+            hiMinMax[0] = loHiBest[0] + tickSpacing;
         }
 
-        Mode modeChosen = chooseMode(sqrtP, amounts);
-
-        if (modeChosen == Mode.HiPreferNarrow) {
-            (loHiBest, Lbest, used) =
-            pickHiPreferNarrow(
-                tickSpacing,
-                sqrtP,
-                loHiCandidates,
-                amounts
-            );
-        } else {
-            (loHiBest, Lbest, used) =
-            pickLoPreferNarrow(
-                tickSpacing,
-                sqrtP,
-                loHiCandidates[1],
-                amounts,
-                corridorTicks
-            );
+        // Check for upper tick limit
+        hiMinMax[1] = _roundDownToSpacing(TickMath.MAX_TICK, tickSpacing);
+        if (hiMinMax[1] < hiMinMax[0]) {
+            hiMinMax[0] = hiMinMax[1];
         }
 
-        utilization1e18BeforeAfter[1] = utilization1e18(used, amounts, sqrtP);
+        // Get sqrt price of lower tick
+        uint160 sa = TickMath.getSqrtRatioAtTick(lo);
 
-        // Check for best outcome
-        if (utilization1e18BeforeAfter[0] > utilization1e18BeforeAfter[1]) {
-            loHiBest[0] = loHiCandidates[0];
-            loHiBest[1] = loHiCandidates[1];
-            return (loHiBest, liquidity, amountsMin);
-        } else {
-            return (loHiBest, Lbest, used);
+        // token1-limited liquidity
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
+        if (liquidity == 0) {
+            loHiBest[1] = hiMinMax[0];
+            return (loHiBest, liqBest, optimizedAmounts);
         }
+
+        // Edge case for hiMin
+        uint160 sb = TickMath.getSqrtRatioAtTick(hiMinMax[0]);
+        (optimizedAmounts[0],) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        if (optimizedAmounts[0] > amounts[0]) {
+            // Even narrowest needs too much token0: cap by amount0 at hiMin
+            liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
+            liqBest = _min128(liqBest, liquidity);
+
+            // Recalculate amounts from liquidity
+            (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liqBest);
+            loHiBest[1] = hiMinMax[0];
+            return (loHiBest, liqBest, optimizedAmounts);
+        }
+
+        // Edge case for hiMax
+        sb = TickMath.getSqrtRatioAtTick(hiMinMax[1]);
+        (optimizedAmounts[0],) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        if (optimizedAmounts[0] <= amounts[0]) {
+            // Widest still fits: take hiMax (cap by amount0 to absorb rounding)
+            liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
+            liqBest = _min128(liqBest, liquidity);
+
+            // Recalculate amounts from liquidity
+            (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liqBest);
+            loHiBest[1] = hiMinMax[1];
+            return (loHiBest, liqBest, optimizedAmounts);
+        }
+
+        // minimal hi that satisfies token0 budget
+        loHiBest[1] = _iterateRight(hiMinMax[0], hiMinMax[1], tickSpacing, sqrtP, sa, liquidity, amounts[0]);
+        sb = TickMath.getSqrtRatioAtTick(loHiBest[1]);
+
+        // Choose min liquidity
+        liqBest = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
+        liqBest = _min128(liqBest, liquidity);
+
+        return _neighborhoodSearch(loHiBest, amounts, tickSpacing, sqrtP, liqBest);
+    }
+
+    /// @dev Finds optimal ticks while fixing upper base tick.
+    /// @notice 1. Find ticks via a binary search such that the position consumes all available token1.
+    ///         2. Minimally search around to find optimal ranges such that max amounts of token0 and token1 are used.
+    /// @param tickSpacing Tick spacing.
+    /// @param sqrtP Center sqrt price.
+    /// @param hi upper tick candidate: MUST satisfy sqrtP < sqrt(hi).
+    /// @param amounts Available token amounts.
+    /// @return loHiBest Optimized ticks.
+    /// @return liqBest Corresponding liquidity.
+    /// @return optimizedAmounts Corresponding amounts.
+    function pickLoMaxUtil(int24 tickSpacing, uint160 sqrtP, int24 hi, uint256[] calldata amounts)
+        public
+        pure
+        returns (int24[] memory loHiBest, uint128 liqBest, uint256[] memory optimizedAmounts)
+    {
+        loHiBest = new int24[](2);
+        optimizedAmounts = new uint256[](2);
+        loHiBest[1] = hi;
+
+        // hi search range: [first grid above price, MAX_TICK on grid]
+        int24[] memory loMinMax = new int24[](2);
+        loMinMax[1] = _roundDownToSpacing(TickMath.getTickAtSqrtRatio(sqrtP) - 1, tickSpacing);
+
+        // Limit higher tick by hi - tickSpacing
+        if (loMinMax[1] >= loHiBest[1]) {
+            loMinMax[1] = loHiBest[1] - tickSpacing;
+        }
+
+        // Check for lower tick limit
+        loMinMax[0] = _roundUpToSpacing(TickMath.MIN_TICK, tickSpacing);
+        if (loMinMax[0] > loMinMax[1]) {
+            loMinMax[1] = loMinMax[0];
+        }
+
+        // Get sqrt price of higher tick
+        uint160 sb = TickMath.getSqrtRatioAtTick(hi);
+
+        // token0-limited liquidity
+        uint128 liquidity = LiquidityAmounts.getLiquidityForAmount0(sqrtP, sb, amounts[0]);
+        if (liquidity == 0) {
+            loHiBest[0] = loMinMax[1];
+            return (loHiBest, liqBest, optimizedAmounts);
+        }
+
+        // Edge case for loMin
+        uint160 sa = TickMath.getSqrtRatioAtTick(loMinMax[0]);
+        (, optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        if (optimizedAmounts[1] <= amounts[1]) {
+            liqBest = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
+            liqBest = _min128(liqBest, liquidity);
+
+            // Recalculate amounts from liquidity
+            (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liqBest);
+            loHiBest[0] = loMinMax[0];
+            return (loHiBest, liqBest, optimizedAmounts);
+        }
+
+        // Edge case for loMax
+        sa = TickMath.getSqrtRatioAtTick(loMinMax[1]);
+        (, optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liquidity);
+        if (optimizedAmounts[1] > amounts[1]) {
+            liqBest = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
+            liqBest = _min128(liqBest, liquidity);
+
+            // Recalculate amounts from liquidity
+            (optimizedAmounts[0], optimizedAmounts[1]) = LiquidityAmounts.getAmountsForLiquidity(sqrtP, sa, sb, liqBest);
+            loHiBest[0] = loMinMax[1];
+            return (loHiBest, liqBest, optimizedAmounts);
+        }
+
+        // minimal lo that satisfies token1 budget
+        loHiBest[0] = _iterateLeft(loMinMax[0], loMinMax[1], tickSpacing, sqrtP, sb, liquidity, amounts[1]);
+        sa = TickMath.getSqrtRatioAtTick(loHiBest[0]);
+
+        // Choose min liquidity
+        liqBest = LiquidityAmounts.getLiquidityForAmount1(sa, sqrtP, amounts[1]);
+        liqBest = _min128(liqBest, liquidity);
+
+        return _neighborhoodSearch(loHiBest, amounts, tickSpacing, sqrtP, liqBest);
+    }
+
+    /// @dev Calculates amount value in token1-value: amount * P, where P = (sqrtP^2)/2^192.
+    /// @param amount Amount value.
+    /// @param sqrtP Sqrt price.
+    function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (uint256) {
+        if (amount == 0) return 0;
+        // amount * sqrtP / 2^96
+        uint256 intermediate = FullMath.mulDiv(amount, sqrtP, FixedPoint96.Q96);
+        // (amount * sqrtP / 2^96) * sqrtP / 2^96  == amount * (sqrtP^2) / 2^192
+        return FullMath.mulDiv(intermediate, sqrtP, FixedPoint96.Q96);
+    }
+
+    /// @dev Calculates accumulated value of (amounts[0], amounts[1]) in token1-value.
+    /// @param amounts Token amounts array.
+    /// @param sqrtP Sqrt price.
+    function valueInToken1(uint256[] memory amounts, uint160 sqrtP) internal pure returns (uint256) {
+        return value0InToken1(amounts[0], sqrtP) + amounts[1];
+    }
+
+    /// @dev Calculates utilization metrics (0..1e18) according to accumulated token value (in token1-value).
+    /// @param optimizedAmounts Optimized token amounts.
+    /// @param initialAmounts Initial token amounts.
+    /// @param sqrtP Sqrt price.
+    /// @return Utilization metrics: 1e18 is most optimal.
+    function utilization1e18(uint256[] memory optimizedAmounts, uint256[] memory initialAmounts, uint160 sqrtP)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 valUsed = valueInToken1(optimizedAmounts, sqrtP);
+        uint256 valTotal = valueInToken1(initialAmounts, sqrtP);
+        if (valTotal == 0) return 0;
+        return FullMath.mulDiv(valUsed, 1e18, valTotal);
     }
 }

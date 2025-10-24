@@ -68,21 +68,36 @@ test
 ```
 
 ### Compile the code and run
+#### Hardhat
 Compile the code with Hardhat:
 ```
-npm run compile
+yarn compile
 ```
 Run tests with Hardhat:
 ```
-npx hardhat test
+yarn test
 ```
-Compile the code with Foundry:
+Run coverage with Hardhat:
+```
+yarn coverage
+```
+
+#### Forge
+Compile the code with Forge:
 ```
 forge build
 ```
-Run tests with Foundry:
+Run tests with Forge (skip fork testing):
 ```
-forge test
+forge test --match-contract Depository -vvv
+forge test --match-contract Dispenser -vvv
+forge test --match-contract Treasury -vvv
+```
+Run fork tests with Forge:
+```
+forge test -f $FORK_NODE_URL --match-contract LiquidityManagerETH -vvv
+forge test -f $FORK_NODE_URL --match-contract LiquidityManagerBase -vvv
+forge test -f $FORK_NODE_URL --match-contract BuyBackBurner -vvv
 ```
 
 ### Audits
