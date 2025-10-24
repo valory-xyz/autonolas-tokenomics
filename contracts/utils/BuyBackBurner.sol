@@ -7,12 +7,27 @@ import {TickMath} from "../libraries/TickMath.sol";
 
 // ERC20 interface
 interface IERC20 {
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+
     /// @dev Gets the amount of tokens owned by a specified account.
     /// @param account Account address.
     /// @return Amount of tokens owned.
     function balanceOf(address account) external view returns (uint256);
 }
 
+// LiquidityManager interface
+interface ILiquidityManager {
+    /// @dev Checks pool prices via Uniswap V3 built-in oracle.
+    /// @param pool Pool address.
+    /// @return Calculated center SQRT price.
+    function checkPoolAndGetCenterPrice(address pool) external view returns (uint160);
+}
+
+// Oracle V2 interface
 interface IOracle {
     /// @dev Gets the current OLAS token price in 1e18 format.
     function getPrice() external view returns (uint256);
@@ -37,6 +52,9 @@ error ZeroValue();
 
 /// @dev The contract is already initialized.
 error AlreadyInitialized();
+
+// @dev Reentrancy guard.
+error ReentrancyGuard();
 
 /// @title BuyBackBurner - BuyBackBurner implementation contract
 abstract contract BuyBackBurner {
@@ -74,6 +92,24 @@ abstract contract BuyBackBurner {
     // Map of account => activity counter
     mapping(address => uint256) public mapAccountActivities;
 
+    // LiquidityManager address
+    address public immutable liquidityManager;
+    // Bridge2Burner address
+    address public immutable bridge2Burner;
+
+    /// @dev BuyBackBurner constructor.
+    /// @param _liquidityManager LiquidityManager address.
+    /// @param _bridge2Burner Bridge2Burner address.
+    constructor(address _liquidityManager, address _bridge2Burner) {
+        // Check for zero address
+        if (_liquidityManager == address(0) || _bridge2Burner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        liquidityManager = _liquidityManager;
+        bridge2Burner = _bridge2Burner;
+    }
+
     /// @dev Buys OLAS on DEX.
     /// @param nativeTokenAmount Suggested native token amount.
     /// @return olasAmount Obtained OLAS amount.
@@ -94,30 +130,6 @@ abstract contract BuyBackBurner {
         uint256 upperBound = (previousPrice * (100 + maxSlippage)) / 100;
 
         require(tradePrice >= lowerBound && tradePrice <= upperBound, "After swap slippage limit is breached");
-    }
-
-    /// @dev Gets TWAP price via the built-in Uniswap V3 oracle.
-    /// @param pool Pool address.
-    /// @return price Calculated price.
-    function _getTwapFromOracle(address pool) internal view returns (uint256 price) {
-        // Query the pool for the current and historical tick
-        uint32[] memory secondsAgos = new uint32[](2);
-        // Start of the period
-        secondsAgos[0] = SECONDS_AGO;
-
-        // Fetch the tick cumulative values from the pool
-        (int56[] memory tickCumulatives, ) = IUniswapV3(pool).observe(secondsAgos);
-
-        // Calculate the average tick over the time period
-        int56 tickCumulativeDelta = tickCumulatives[1] - tickCumulatives[0];
-        int24 averageTick = int24(tickCumulativeDelta / int56(int32(SECONDS_AGO)));
-
-        // Convert the average tick to sqrtPriceX96
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(averageTick);
-
-        // Calculate the price using the sqrtPriceX96
-        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        price = FixedPointMathLib.mulDivDown(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
     }
 
     /// @dev BuyBackBurner initializer.
@@ -213,38 +225,23 @@ abstract contract BuyBackBurner {
 
         // Verify pool reserves before proceeding
         address pool = IUniswapV3(factory).getPool(token0, token1, fee);
-        require(pool != address(0), "Pool does not exist");
-
-        // Get current pool reserves and observation index
-        (uint160 sqrtPriceX96, , uint16 observationIndex, , , , ) = IUniswapV3(pool).slot0();
-
-        // Check if the pool has sufficient observation history
-        (uint32 oldestTimestamp, , , ) = IUniswapV3(pool).observations(observationIndex);
-        if (oldestTimestamp + SECONDS_AGO < block.timestamp) {
-            return;
+        // Check for zero address
+        if (pool == address(0)) {
+            revert ZeroAddress();
         }
 
-        // Check TWAP or historical data
-        uint256 twapPrice = _getTwapFromOracle(pool);
-        // Get instant price
-        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        uint256 instantPrice = FixedPointMathLib.mulDivDown(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
-
-        uint256 deviation;
-        if (twapPrice > 0) {
-            deviation = (instantPrice > twapPrice) ?
-                FixedPointMathLib.mulDivDown((instantPrice - twapPrice), 1e18, twapPrice) :
-                FixedPointMathLib.mulDivDown((twapPrice - instantPrice), 1e18, twapPrice);
-        }
-
-        require(deviation <= MAX_ALLOWED_DEVIATION, "Price deviation too high");
+        // Check pool via LiquidityManager contract
+        ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
     }
 
     /// @dev Buys OLAS on DEX.
     /// @notice if nativeTokenAmount is zero or above the balance, it will be adjusted to current native token balance.
     /// @param nativeTokenAmount Suggested native token amount.
     function buyBack(uint256 nativeTokenAmount) external virtual {
-        require(_locked == 1, "Reentrancy guard");
+        // Reentrancy guard
+        if (_locked > 1) {
+            revert ReentrancyGuard();
+        }
         _locked = 2;
 
         // Get nativeToken balance
@@ -261,6 +258,9 @@ abstract contract BuyBackBurner {
 
         // Buy OLAS
         uint256 olasAmount = _buyOLAS(nativeTokenAmount);
+
+        // Transfer OLAS to bridge2Burner contract
+        IERC20(olas).transfer(bridge2Burner, olasAmount);
 
         emit BuyBack(olasAmount);
 

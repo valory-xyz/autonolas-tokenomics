@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
@@ -44,8 +45,11 @@ contract BaseSetup is Test {
     address internal deployer;
     address internal dev;
 
-    uint256[2] internal initialAmounts;
+    int24 internal centerTick;
     uint160 internal sqrtPriceX96;
+    uint160 internal sqrtPriceX96ATH;
+    uint160 internal sqrtPriceX96ATL;
+    uint256[2] internal initialAmounts;
 
     // Contract addresses
     address internal constant OLAS = 0x0001A500A6B18995B03f44bb040A5fFc28E45CB0;
@@ -65,6 +69,9 @@ contract BaseSetup is Test {
     uint256 internal constant DELTA = 1e16;
     // Max bps value
     uint16 public constant MAX_BPS = 10_000;
+
+    uint256 public constant OLAS_ETH_ATH_PRICE = 0.003624094951 ether;
+    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000020255298 ether;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -106,6 +113,9 @@ contract BaseSetup is Test {
         // Calculate the square root of the price ratio in X96 format
         sqrtPriceX96 = uint160((FixedPointMathLib.sqrt(price) * (1 << 96)) / 1e9);
 
+        // Get center tick
+        centerTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+
         // Create V3 pool
         IUniswapV3(POSITION_MANAGER_V3).createAndInitializePoolIfNecessary(OLAS, WETH, uint24(FEE_TIER), sqrtPriceX96);
 
@@ -113,6 +123,10 @@ contract BaseSetup is Test {
         uint256 totalSupply = IToken(PAIR_V2).totalSupply();
         initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
+
+        // Get sqrt prices for OLAS ATH and ATL
+        sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE) * (1 << 96)) / 1e9);
+        sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
     }
 }
 
@@ -166,6 +180,209 @@ contract LiquidityManagerETHTest is BaseSetup {
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
         require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount (50% of OLAS burn, 50% of WETH transferred) and optimized ticks scan.
+    function testConvertToV3Conversion50Scan() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -25000;
+        tickShifts[1] = 15000;
+        uint16 olasBurnRate = 5000;
+        bool scan = true;
+
+        // Adjust initial amounts due to OLAS burn rate
+        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
+
+        (, , uint256[] memory amountsOut) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH and ATL.
+    function testConvertToV3Conversion50ScanATHATL() public {
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = true;
+
+        // Adjust initial amounts due to OLAS burn rate
+        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
+
+        (, , uint256[] memory amountsOut) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL / 2.
+    function testConvertToV3Conversion50ScanATHATLDiv2() public {
+        // Adjust sqrt prices with ATH / 2 and ATL / 2
+        sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE / 2) * (1 << 96)) / 1e9);
+        sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE / 2) * (1 << 96)) / 1e9);
+
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = true;
+
+        // Adjust initial amounts due to OLAS burn rate
+        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
+
+        (, , uint256[] memory amountsOut) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL * 2.
+    function testConvertToV3Conversion50ScanATHDiv2ATLMul2() public {
+        // Adjust sqrt prices with ATH / 2 and ATL / 2
+        sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE / 2) * (1 << 96)) / 1e9);
+        sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE * 2) * (1 << 96)) / 1e9);
+
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = true;
+
+        // Adjust initial amounts due to OLAS burn rate
+        initialAmounts[0] = initialAmounts[0] - (initialAmounts[0] * olasBurnRate) / MAX_BPS;
+        uint256 wethAmount = (initialAmounts[1] * olasBurnRate) / MAX_BPS;
+        initialAmounts[1] = initialAmounts[1] - wethAmount;
+
+        (, , uint256[] memory amountsOut) =
+                            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // scan = ticks are optimized, deviation must respect DELTA
+        for (uint256 i = 0; i < 2; ++i) {
+            // initialAmounts[i] is always >= amountsOut[i]
+            uint256 deviation = FixedPointMathLib.divWadDown((initialAmounts[i] - amountsOut[i]), amountsOut[i]);
+            require(deviation <= DELTA, "Price deviation too high");
+        }
+
+        uint256 dust = initialAmounts[1] - amountsOut[1];
+        wethAmount += dust;
+        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount WITHOUT optimized ticks scan with tick shifts to OLAS ATH and ATL.
+    function testConvertToV3Conversion50NoScanATHATL() public {
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = false;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount WITHOUT optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL / 2.
+    function testConvertToV3Conversion50NoScanATHATLDiv2() public {
+        // Adjust sqrt prices with ATH / 2 and ATL / 2
+        sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE / 2) * (1 << 96)) / 1e9);
+        sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE / 2) * (1 << 96)) / 1e9);
+
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = false;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+    }
+
+    /// @dev Converts V2 pool into V3 with 50% amount WITHOUT optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL * 2.
+    function testConvertToV3Conversion50NoScanATHDiv2ATLMul2() public {
+        // Adjust sqrt prices with ATH / 2 and ATL / 2
+        sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE / 2) * (1 << 96)) / 1e9);
+        sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE * 2) * (1 << 96)) / 1e9);
+
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 5000;
+        bool scan = false;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
