@@ -72,6 +72,12 @@ interface ISlipstream {
     /// @param params The parameters necessary for the swap, encoded as `ExactInputSingleParams` in calldata
     /// @return amountOut The amount of the received token
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+
+    function getPool(address tokenA, address tokenB, int24 tickSpacing) external view returns (address pool);
+
+    function slot0() external view
+    returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality,
+        uint16 observationCardinalityNext, bool unlocked);
 }
 
 contract BaseSetup is Test {
@@ -182,6 +188,23 @@ contract LiquidityManagerBase is BaseSetup {
         uint16 olasBurnRate = 0;
         bool scan = true;
 
+        // Checking low-level encoding
+        address pool = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
+        bytes memory payload = abi.encodeCall(ISlipstream.slot0, ());
+        (,bytes memory returnData) = pool.call(payload);
+
+        uint160 sqrtP;
+        uint16 observationIndex;
+        assembly {
+            sqrtP := mload(add(returnData, 32))
+            observationIndex := mload(add(returnData, 96))
+        }
+
+        // Sqrt price must be within limits (from TickMath)
+        require(sqrtP >= 4295128739 && sqrtP <= 1461446703485210103287273052203988822378723970342, "sqrtP is wrong");
+        // The pool is new, so observationIndex must be 0
+        require(observationIndex == 0, "observationIndex must be zero");
+
         (, , uint256[] memory amountsOut) =
             liquidityManager.convertToV3(TOKENS, POOL_V2_BYTES32, TICK_SPACING, tickShifts, olasBurnRate, scan);
 
@@ -224,6 +247,12 @@ contract LiquidityManagerBase is BaseSetup {
         // Amounts are different since Balancer fee is applied to OLAS initial amount (initialAmounts[1]) on pool exit
         deviation = FixedPointMathLib.divWadDown((olasAmount - bridge2BurnerBalance), bridge2BurnerBalance);
         require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
+
+        // Check Bridge2Burner balance
+        require(IToken(OLAS).balanceOf(address(bridge2Burner)) > 0, "Bridge2Burner OLAS balance must be > 0");
+
+        // Mock fund more OLAS, not to fail for min OLAS transfer
+        deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();
@@ -322,6 +351,12 @@ contract LiquidityManagerBase is BaseSetup {
         deviation = FixedPointMathLib.divWadDown((olasAmount - bridge2BurnerBalance), bridge2BurnerBalance);
         require(deviation <= DELTA, "Bridge2Burner amount diverts more than expected");
 
+        // Check Bridge2Burner balance
+        require(IToken(OLAS).balanceOf(address(bridge2Burner)) > 0, "Bridge2Burner OLAS balance must be > 0");
+
+        // Mock fund more OLAS, not to fail for min OLAS transfer
+        deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
+
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();
     }
@@ -384,6 +419,12 @@ contract LiquidityManagerBase is BaseSetup {
 
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, TICK_SPACING, olasBurnRate);
+
+        // Check Bridge2Burner balance
+        require(IToken(OLAS).balanceOf(address(bridge2Burner)) > 0, "Bridge2Burner OLAS balance must be > 0");
+
+        // Mock fund more OLAS, not to fail for min OLAS transfer
+        deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

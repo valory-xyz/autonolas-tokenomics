@@ -201,6 +201,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     function _feeAmountTickSpacing(int24 feeTierOrTickSpacing) internal view virtual returns (int24 tickSpacing);
 
     /// @dev Gets sqrt price and observation index values from slot 0.
+    /// @notice This is a general usage function, it accounts for known UniswapV3-like versions of slot0() function.
     /// @param pool Pool address.
     /// @return sqrtPriceX96 Sqrt price.
     /// @return observationIndex Observation index.
@@ -208,7 +209,26 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         internal
         view
         virtual
-        returns (uint160 sqrtPriceX96, uint16 observationIndex);
+        returns (uint160 sqrtPriceX96, uint16 observationIndex)
+    {
+        // Get slot0 payload
+        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
+        // Low-level call of pool.slot0()
+        (bool success, bytes memory returnData) = pool.staticcall(payload);
+
+        // Check for success
+        if (success) {
+            // returnData comes with each variable in its own slot
+            // Skip first 32 bytes of the returnData length prefix
+            // mload(add(returnData, 32)) is the first return value
+            // sqrtPriceX96 is in slot 1
+            // observationIndex is in slot 3
+            assembly {
+                sqrtPriceX96 := mload(add(returnData, 32))
+                observationIndex := mload(add(returnData, 96))
+            }
+        }
+    }
 
     /// @dev Gets V3 pool based on token addresses and fee tier or tick spacing.
     /// @param tokens Token addresses.
@@ -316,6 +336,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Get current pool sqrt price
         (uint160 sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
+        // Check for zero value
+        if (sqrtPriceX96 == 0) {
+            revert ZeroValue();
+        }
 
         // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
@@ -359,6 +383,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     {
         // Get current pool sqrt price
         (uint160 sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
+        // Check for zero value
+        if (sqrtPriceX96 == 0) {
+            revert ZeroValue();
+        }
 
         // Read position & liquidity
         int24[] memory ticks = new int24[](2);
@@ -1064,6 +1092,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         uint16 observationIndex;
         // Get current pool sqrt price and observation index
         (centerSqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
+        // Check for zero value
+        if (centerSqrtPriceX96 == 0) {
+            revert ZeroValue();
+        }
 
         // Get oldest observations timestamp
         (uint32 oldestTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
