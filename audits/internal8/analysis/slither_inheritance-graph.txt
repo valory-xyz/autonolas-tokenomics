@@ -1,0 +1,33 @@
+'solc --version' running
+'solc ./LiquidityManagerCore-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal8/analysis/contracts' running
+Compilation warnings/errors on ./LiquidityManagerCore-flatten.sol:
+Warning: This declaration shadows an existing declaration.
+  --> LiquidityManagerCore-flatten.sol:26:5:
+   |
+26 |     function mulDiv(
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+Note: The shadowed declaration is here:
+   --> LiquidityManagerCore-flatten.sol:669:1:
+    |
+669 | function mulDiv(uint256 x, uint256 y, uint256 denominator) pure returns (uint256 result) {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning: This declaration shadows an existing declaration.
+    --> LiquidityManagerCore-flatten.sol:1403:13:
+     |
+1403 |             uint256 msb = 0;
+     |             ^^^^^^^^^^^
+Note: The shadowed declaration is here:
+   --> LiquidityManagerCore-flatten.sol:602:1:
+    |
+602 | function msb(uint256 x) pure returns (uint256 result) {
+    | ^ (Relevant source part starts here and spans across multiple lines).
+
+
+'solc --version' running
+'solc ./NeighborhoodScanner-flatten.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/home/andrey/valory/autonolas-tokenomics/audits/internal8/analysis/contracts' running
+INFO:Printers:Inheritance Graph: ./LiquidityManagerCore-flatten.sol.inheritance-graph.dot
+
+INFO:Printers:Inheritance Graph: ./NeighborhoodScanner-flatten.sol.inheritance-graph.dot
+
+INFO:Slither:. analyzed (18 contracts)
