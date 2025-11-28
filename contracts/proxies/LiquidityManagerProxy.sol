@@ -53,7 +53,7 @@ contract LiquidityManagerProxy {
     }
 
     /// @dev Delegatecall to all the incoming data.
-    fallback() external {
+    fallback() external payable {
         assembly {
             let liquidityManager := sload(PROXY_LIQUIDITY_MANAGER)
             // Otherwise continue with the delegatecall to the liquidity manager implementation
