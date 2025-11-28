@@ -88,7 +88,7 @@ contract BaseSetup is Test {
         // Deploy BuyBackBurnerBalancer implementation
         // Note that LiquidityManager address is irrelevant in this set of tests
         BuyBackBurnerBalancer buyBackBurnerBalancerImplementation =
-            new BuyBackBurnerBalancer(address(bridge2Burner), address(bridge2Burner));
+            new BuyBackBurnerBalancer(address(bridge2Burner), address(bridge2Burner), address(deployer), address(deployer));
 
         // Construct proxy data
         address[] memory accounts = new address[](4);
