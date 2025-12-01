@@ -1,14 +1,15 @@
 pragma solidity ^0.8.30;
 
-import {Test, console} from "forge-std/Test.sol";
-import {Utils} from "./utils/Utils.sol";
-import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
+import {BuyBackBurnerBalancer} from "../contracts/utils/BuyBackBurnerBalancer.sol";
 import {Bridge2BurnerOptimism} from "../contracts/utils/Bridge2BurnerOptimism.sol";
+import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {IToken} from "../contracts/interfaces/IToken.sol";
 import {LiquidityManagerOptimism} from "../contracts/pol/LiquidityManagerOptimism.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
-import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
-import {IToken} from "../contracts/interfaces/IToken.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {Utils} from "./utils/Utils.sol";
 
 // Balancer interface
 interface IBalancer {
@@ -86,6 +87,7 @@ contract BaseSetup is Test {
     Bridge2BurnerOptimism internal bridge2Burner;
     NeighborhoodScanner internal neighborhoodScanner;
     LiquidityManagerOptimism internal liquidityManager;
+    BuyBackBurnerBalancer internal buyBackBurner;
 
     address payable[] internal users;
     address internal deployer;

@@ -10,3 +10,7 @@ typechain
 cache
 artifacts
 .DS_Store
+
+# Audit related files
+audits/*/analysis/slither_data-dependency.txt
+
