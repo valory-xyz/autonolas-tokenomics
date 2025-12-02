@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IUniswapV3} from "../interfaces/IUniswapV3.sol";
@@ -102,19 +102,19 @@ abstract contract BuyBackBurner {
     address public immutable bridge2Burner;
     // Treasury address
     address public immutable treasury;
-    // Treasury address
-    address public immutable routerV3;
+    // Concentrated liquidity swap router address
+    address public immutable swapRouter;
 
     /// @dev BuyBackBurner constructor.
     /// @param _liquidityManager LiquidityManager address.
     /// @param _bridge2Burner Bridge2Burner address.
     /// @param _treasury Treasury address.
-    /// @param _routerV3 Router V3 address.
-    constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _routerV3) {
+    /// @param _swapRouter Concentrated liquidity swap router address.
+    constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _swapRouter) {
         // Check for zero address
         if (
             _liquidityManager == address(0) || _bridge2Burner == address(0) || _treasury == address(0)
-                || _routerV3 == address(0)
+                || _swapRouter == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -122,7 +122,7 @@ abstract contract BuyBackBurner {
         liquidityManager = _liquidityManager;
         bridge2Burner = _bridge2Burner;
         treasury = _treasury;
-        routerV3 = _routerV3;
+        swapRouter = _swapRouter;
     }
 
     /// @dev BuyBackBurner initializer.
@@ -194,6 +194,7 @@ abstract contract BuyBackBurner {
         (tokens[0], tokens[1]) = (token > localOlas) ? (localOlas, token) : (token, localOlas);
 
         // Get factory from LiquidityManager
+        // Actual factoryV3 is fetched from LiquiditiManager, since LiquiditiManager is proxy and factory might change
         address factoryV3 = ILiquidityManager(liquidityManager).factoryV3();
 
         // Get V3 pool from liquidity manager
@@ -263,7 +264,7 @@ abstract contract BuyBackBurner {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Changes contract oracle address.
+    /// @dev Changes contract oracle address for a specific V2-like full range pool.
     /// @param newOracle Address of a new oracle.
     function changeOracle(address newOracle) external virtual {
         // Check for the ownership
@@ -281,16 +282,19 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
-    /// @notice This is a legacy function for compatibility with one of apps.
+    /// @notice This is a legacy function for compatibility with one of apps, it accounts for UniswapV3 only.
     /// @param token0 Token0 address.
     /// @param token1 Token1 address.
-    /// @param fee Fee tier.
-    function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 fee) external view {
+    /// @param feeTier Fee tier.
+    function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 feeTier)
+        external
+        view
+    {
         // Get factory address
         address factory = IUniswapV3(uniV3PositionManager).factory();
 
         // Verify pool reserves before proceeding
-        address pool = IUniswapV3(factory).getPool(token0, token1, fee);
+        address pool = IUniswapV3(factory).getPool(token0, token1, feeTier);
         // Check for zero address
         if (pool == address(0)) {
             revert ZeroAddress();

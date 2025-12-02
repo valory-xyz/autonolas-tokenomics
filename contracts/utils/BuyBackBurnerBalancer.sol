@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 import {BuyBackBurner} from "./BuyBackBurner.sol";
 
@@ -34,7 +34,7 @@ interface IBalancer {
 }
 
 // Slipstream router interface
-interface IRouterV3 {
+interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
@@ -52,6 +52,7 @@ interface IRouterV3 {
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 }
 
+// Slipstream factory interface
 interface ICLFactory {
     /// @notice Returns the pool address for a given pair of tokens and a tick spacing, or address 0 if it does not exist
     /// @dev tokenA and tokenB may be passed in either token0/token1 or token1/token0 order
@@ -71,7 +72,8 @@ interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
-/// @title BuyBackBurnerBalancer - BuyBackBurner implementation contract for interaction with Balancer
+/// @title BuyBackBurnerBalancer - BuyBackBurner implementation contract for interaction with Balancer for V2-like
+///        full range pools and Slipstream for V3-like concentrated liquidity pools
 contract BuyBackBurnerBalancer is BuyBackBurner {
     // Balancer vault address
     address public balancerVault;
@@ -82,12 +84,12 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     /// @param _liquidityManager LiquidityManager address.
     /// @param _bridge2Burner Bridge2Burner address.
     /// @param _treasury Treasury address.
-    /// @param _routerV3 Router V3 address.
-    constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _routerV3)
-        BuyBackBurner(_liquidityManager, _bridge2Burner, _treasury, _routerV3)
+    /// @param _swapRouter Concentrated liquidity swap router.
+    constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _swapRouter)
+        BuyBackBurner(_liquidityManager, _bridge2Burner, _treasury, _swapRouter)
     {}
 
-    /// @dev Performs swap for OLAS on DEX.
+    /// @dev Performs swap for OLAS on Balancer DEX.
     /// @param nativeTokenAmount Native token amount.
     /// @return olasAmount Obtained OLAS amount.
     function _performSwap(uint256 nativeTokenAmount) internal virtual override returns (uint256 olasAmount) {
@@ -105,7 +107,7 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         olasAmount = IBalancer(balancerVault).swap(singleSwap, fundManagement, 0, block.timestamp);
     }
 
-    /// @dev Performs swap for OLAS on V3 DEX.
+    /// @dev Performs swap for OLAS on Slipstream CL DEX.
     /// @param token Token address.
     /// @param tokenAmount Token amount.
     /// @param tickSpacing Tick spacing.
@@ -116,9 +118,9 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         override
         returns (uint256 olasAmount)
     {
-        IERC20(token).approve(routerV3, tokenAmount);
+        IERC20(token).approve(swapRouter, tokenAmount);
 
-        IRouterV3.ExactInputSingleParams memory params = IRouterV3.ExactInputSingleParams({
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: token,
             tokenOut: olas,
             tickSpacing: tickSpacing,
@@ -130,7 +132,7 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         });
 
         // Swap tokens
-        olasAmount = IRouterV3(routerV3).exactInputSingle(params);
+        olasAmount = ISwapRouter(swapRouter).exactInputSingle(params);
     }
 
     /// @dev BuyBackBurner initializer.
@@ -145,11 +147,11 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         balancerVault = accounts[3];
     }
 
-    /// @dev Gets V3 pool based on factory, token addresses and tick spacing.
+    /// @dev Gets Slipstream CL pool based on factory, token addresses and tick spacing.
     /// @param factory Factory address.
     /// @param tokens Token addresses.
     /// @param tickSpacing Tick spacing.
-    /// @return V3 pool address.
+    /// @return Pool address.
     function getV3Pool(address factory, address[] memory tokens, int24 tickSpacing)
         public
         view

@@ -21,7 +21,7 @@ https://getfoundry.sh/forge/reference/coverage.html <br>
     =>
     int24 feeTierOrTickSpacing
 ```
-[]
+[x] Fixed
 
 #### Notes. Missing check?
 ```
@@ -31,7 +31,7 @@ https://getfoundry.sh/forge/reference/coverage.html <br>
         }
          return ICLFactory(factory).getPool(tokens[0], tokens[1], tickSpacing);
 ```
-[]
+[x] Noted, follows original design
 
 #### Notes. Discuss linking options 
 ```
@@ -107,4 +107,4 @@ else:
             sqrtPriceLimitX96: 0
         });
 ```
-[]
+[x] Fixed with clear comments
