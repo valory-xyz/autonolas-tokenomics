@@ -14,7 +14,7 @@
   "componentRegistryAddress": "0x15bd56669F57192a97dF41A2aa8f4403e9491776",
   "agentRegistryAddress": "0x2F1f7D38e4772884b88f3eCd8B6b9faCdC319112",
   "serviceRegistryAddress": "0x48b6af7B12C71f09e2fC8aF4855De4Ff54e775cA",
-  "epochLen": "2592000",
+  "epochLen": "1209600",
   "donatorBlacklistAddress": "0xE85791B18F5df42163092Acc5C9da1c479AFEa9d",
   "tokenomicsAddress": "0x87f89F94033305791B6269AE2F9cF4e09983E56e",
   "tokenomicsProxyAddress": "0xc096362fa6f4A4B1a9ea68b1043416f3381ce300",
