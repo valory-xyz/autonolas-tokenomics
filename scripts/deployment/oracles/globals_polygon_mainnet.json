@@ -1,0 +1,16 @@
+{
+  "contractVerification":true,
+  "useLedger":true,
+  "derivationPath":"m/44'/60'/2'/0/0",
+  "providerName":"polygon",
+  "chainId": "137",
+  "networkURL": "https://polygon-mainnet.g.alchemy.com/v2/",
+  "blockscoutURL": "https://polygon.blockscout.com",
+  "gasPriceInGwei": "5",
+  "olasAddress":"0xFEF5d947472e72Efbb2E388c730B7428406F2F95",
+  "nativeTokenAddress":"0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+  "balancerVaultAddress":"0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+  "balancerPoolId":"0x62309056c759c36879cde93693e7903bf415e4bc000200000000000000000d5f",
+  "maxOracleSlippage":"50",
+  "minUpdateTimePeriod":"900"
+}
