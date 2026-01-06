@@ -1,0 +1,20 @@
+{
+  "contractVerification": true,
+  "useLedger": true,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "optimism",
+  "chainId": "10",
+  "networkURL": "https://0xrpc.io/op",
+  "blockscoutURL": "https://optimism.blockscout.com",
+  "gasPriceInGwei": "2",
+  "olasAddress": "0xFC2E6e6BCbd49ccf3A5f029c79984372DcBFE527",
+  "nativeTokenAddress": "0x4200000000000000000000000000000000000006",
+  "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+  "balancerPoolId": "0x5bb3e58887264b667f915130fd04bbb56116c27800020000000000000000012a",
+  "maxOracleSlippage": "50",
+  "minUpdateTimePeriod": "900",
+  "maxBuyBackSlippage": "10",
+  "balancerPriceOracleAddress": "0x2C3F556Ff33B6b5279C85CA99ed2Ba8351A2E9Bf",
+  "buyBackBurnerAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",
+  "buyBackBurnerProxyAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582"
+}
