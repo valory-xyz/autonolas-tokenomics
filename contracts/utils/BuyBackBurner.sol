@@ -56,6 +56,9 @@ error ZeroValue();
 /// @dev The contract is already initialized.
 error AlreadyInitialized();
 
+/// @dev Wrong array length.
+error WrongArrayLength();
+
 /// @dev Unauthorized pool address.
 /// @param pool Pool address.
 error UnauthorizedPool(address pool);
@@ -68,6 +71,7 @@ abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event OraclesUpdated(address[] secondTokens, address[] oracles);
+    event V3PoolStatusesUpdated(address[] pools, bool[] statuses);
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
@@ -282,10 +286,10 @@ abstract contract BuyBackBurner {
         emit OwnerUpdated(newOwner);
     }
 
-    /// @dev Changes V2 oracle addresses for a specific V2-like full range pools based on second token.
+    /// @dev Sets V2 oracle addresses for a specific V2-like full range pools based on second token.
     /// @param secondTokens Set of second tokens.
     /// @param oracles Set of corresponding oracle addresses.
-    function changeV2Oracles(address[] memory secondTokens, address[] memory oracles) external virtual {
+    function setV2Oracles(address[] memory secondTokens, address[] memory oracles) external virtual {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
@@ -295,7 +299,7 @@ abstract contract BuyBackBurner {
         
         // Check for array sizes
         if (numPools == 0 || numPools != oracles.length) {
-            revert();
+            revert WrongArrayLength();
         }
         
         // Process data
@@ -309,6 +313,35 @@ abstract contract BuyBackBurner {
         }
 
         emit OraclesUpdated(secondTokens, oracles);
+    }
+
+    /// @dev Sets V3 pool statuses.
+    /// @param pools Set of V3 pools.
+    /// @param statuses Set of corresponding pool statuses.
+    function setV2Oracles(address[] memory pools, bool[] memory statuses) external virtual {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        uint256 numPools = pools.length;
+
+        // Check for array sizes
+        if (numPools == 0 || numPools != statuses.length) {
+            revert WrongArrayLength();
+        }
+
+        // Process data
+        for (uint256 i = 0; i < numPools; ++i) {
+            // Check for zero addresses
+            if (pools[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            mapV3Pools[pools[i]] = statuses[i];
+        }
+
+        emit V3PoolStatusesUpdated(pools, statuses);
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
@@ -421,16 +454,17 @@ abstract contract BuyBackBurner {
         _locked = 1;
     }
 
-    /// @dev Triggers oracle price update.
-    function updateOraclePrice() external {
+    /// @dev Triggers V2 oracle price update.
+    /// @param poolOracle Pool oracle address.
+    function updateOraclePrice(address poolOracle) external {
         // Record msg.sender activity
         mapAccountActivities[msg.sender]++;
 
         // Update price
-        bool success = IOracle(oracle).updatePrice();
+        bool success = IOracle(poolOracle).updatePrice();
         require(success, "Oracle price update failed");
 
-        emit OraclePriceUpdated(oracle, msg.sender);
+        emit OraclePriceUpdated(poolOracle, msg.sender);
     }
 
     /// @dev Transfers specified token to treasury.
