@@ -318,7 +318,7 @@ abstract contract BuyBackBurner {
     /// @dev Sets V3 pool statuses.
     /// @param pools Set of V3 pools.
     /// @param statuses Set of corresponding pool statuses.
-    function setV2Oracles(address[] memory pools, bool[] memory statuses) external virtual {
+    function setV3PoolStatuses(address[] memory pools, bool[] memory statuses) external virtual {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
