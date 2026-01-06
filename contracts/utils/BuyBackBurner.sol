@@ -179,7 +179,7 @@ abstract contract BuyBackBurner {
         address poolOracle = mapV2Oracles[secondToken];
 
         // Check for zero address
-        require (poolOracle != address(0), "Zero oracle address");
+        require(poolOracle != address(0), "Zero oracle address");
 
         // Apply slippage protection
         require(IOracle(poolOracle).validatePrice(maxSlippage), "Before swap slippage limit is breached");
