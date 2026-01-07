@@ -216,7 +216,7 @@ abstract contract BuyBackBurner {
         (tokens[0], tokens[1]) = (secondToken > localOlas) ? (localOlas, secondToken) : (secondToken, localOlas);
 
         // Get factory from LiquidityManager
-        // Actual factoryV3 is fetched from LiquiditiManager, since LiquiditiManager is proxy and factory might change
+        // Actual factoryV3 is fetched from LiquidityManager, since LiquidityManager is proxy and factory might change
         address factoryV3 = ILiquidityManager(liquidityManager).factoryV3();
 
         // Get V3 pool from liquidity manager
