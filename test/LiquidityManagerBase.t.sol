@@ -190,6 +190,14 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerBalancer(BUY_BACK_BURNER);
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 

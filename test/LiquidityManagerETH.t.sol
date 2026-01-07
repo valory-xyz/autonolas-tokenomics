@@ -88,7 +88,7 @@ contract BaseSetup is Test {
     uint16 public constant MAX_BPS = 10_000;
 
     uint256 public constant OLAS_ETH_ATH_PRICE = 0.003624094951 ether;
-    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000020255298 ether;
+    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000010255298 ether;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -160,6 +160,13 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerUniswap(address(buyBackBurnerProxy));
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 
