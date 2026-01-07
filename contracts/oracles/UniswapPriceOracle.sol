@@ -20,13 +20,13 @@ contract UniswapPriceOracle {
     // LP token direction
     uint256 public immutable direction;
 
-    constructor(address _nativeToken, uint256 _maxSlippage, address _pair) {
+    constructor(address _secondToken, uint256 _maxSlippage, address _pair) {
         pair = _pair;
         maxSlippage = _maxSlippage;
 
         // Get token direction
         address token0 =  IUniswapV2(pair).token0();
-        if (token0 != _nativeToken) {
+        if (token0 != _secondToken) {
             direction = 1;
         }
     }

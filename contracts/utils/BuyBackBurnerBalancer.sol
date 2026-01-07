@@ -72,6 +72,15 @@ interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
 }
 
+// Oracle V2 interface
+interface IOracle {
+    /// @dev Gets balancer vault address.
+    function balancerVault() external view returns (address);
+
+    /// @dev Gets balancer pool Id.
+    function balancerPoolId() external view returns (bytes32);
+}
+
 /// @title BuyBackBurnerBalancer - BuyBackBurner implementation contract for interaction with Balancer for V2-like
 ///        full range pools and Slipstream for V3-like concentrated liquidity pools
 contract BuyBackBurnerBalancer is BuyBackBurner {
@@ -90,43 +99,51 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     {}
 
     /// @dev Performs swap for OLAS on Balancer DEX.
-    /// @param nativeTokenAmount Native token amount.
+    /// @param secondToken Second token address.
+    /// @param secondTokenAmount Second token amount.
+    /// @param poolOracle Pool oracle address.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(uint256 nativeTokenAmount) internal virtual override returns (uint256 olasAmount) {
-        // Approve nativeToken for the Balancer Vault
-        IERC20(nativeToken).approve(balancerVault, nativeTokenAmount);
+    function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle) internal virtual override returns (uint256 olasAmount) {
+        // Get balancer vault address
+        address balVault = IOracle(poolOracle).balancerVault();
 
-        // Prepare Balancer data for the nativeToken-OLAS pool
+        // Get balancer pool Id
+        bytes32 balPoolId = IOracle(poolOracle).balancerPoolId();
+
+        // Approve secondToken for the Balancer Vault
+        IERC20(secondToken).approve(balVault, secondTokenAmount);
+
+        // Prepare Balancer data for the secondToken-OLAS pool
         IBalancer.SingleSwap memory singleSwap = IBalancer.SingleSwap(
-            balancerPoolId, IBalancer.SwapKind.GIVEN_IN, nativeToken, olas, nativeTokenAmount, "0x"
+            balPoolId, IBalancer.SwapKind.GIVEN_IN, secondToken, olas, secondTokenAmount, "0x"
         );
         IBalancer.FundManagement memory fundManagement =
             IBalancer.FundManagement(address(this), false, payable(address(this)), false);
 
         // Perform swap
-        olasAmount = IBalancer(balancerVault).swap(singleSwap, fundManagement, 0, block.timestamp);
+        olasAmount = IBalancer(balVault).swap(singleSwap, fundManagement, 0, block.timestamp);
     }
 
     /// @dev Performs swap for OLAS on Slipstream CL DEX.
-    /// @param token Token address.
-    /// @param tokenAmount Token amount.
+    /// @param secondToken Second token address.
+    /// @param secondTokenAmount Second token amount.
     /// @param tickSpacing Tick spacing.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address token, uint256 tokenAmount, int24 tickSpacing)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 tickSpacing)
         internal
         virtual
         override
         returns (uint256 olasAmount)
     {
-        IERC20(token).approve(swapRouter, tokenAmount);
+        IERC20(secondToken).approve(swapRouter, secondTokenAmount);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: token,
+            tokenIn: secondToken,
             tokenOut: olas,
             tickSpacing: tickSpacing,
             recipient: address(this),
             deadline: block.timestamp,
-            amountIn: tokenAmount,
+            amountIn: secondTokenAmount,
             amountOutMinimum: 1,
             sqrtPriceLimitX96: 0
         });

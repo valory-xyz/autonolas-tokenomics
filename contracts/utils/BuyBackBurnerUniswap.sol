@@ -75,19 +75,20 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
     {}
 
     /// @dev Performs swap for OLAS on DEX.
-    /// @param nativeTokenAmount Native token amount.
+    /// @param secondToken Second token address.
+    /// @param secondTokenAmount Second token amount.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(uint256 nativeTokenAmount) internal virtual override returns (uint256 olasAmount) {
-        // Approve nativeToken for the router
-        IERC20(nativeToken).approve(router, nativeTokenAmount);
+    function _performSwap(address secondToken, uint256 secondTokenAmount, address) internal virtual override returns (uint256 olasAmount) {
+        // Approve secondToken for the router
+        IERC20(secondToken).approve(router, secondTokenAmount);
 
         address[] memory path = new address[](2);
-        path[0] = nativeToken;
+        path[0] = secondToken;
         path[1] = olas;
 
-        // Swap nativeToken for OLAS
+        // Swap secondToken for OLAS
         uint256[] memory amounts =
-            IUniswap(router).swapExactTokensForTokens(nativeTokenAmount, 0, path, address(this), block.timestamp);
+            IUniswap(router).swapExactTokensForTokens(secondTokenAmount, 0, path, address(this), block.timestamp);
 
         // Record OLAS amount
         olasAmount = amounts[1];
