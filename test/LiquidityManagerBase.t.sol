@@ -1,14 +1,15 @@
 pragma solidity ^0.8.30;
 
-import {Test, console} from "forge-std/Test.sol";
-import {Utils} from "./utils/Utils.sol";
-import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
+import {BuyBackBurnerBalancer} from "../contracts/utils/BuyBackBurnerBalancer.sol";
 import {Bridge2BurnerOptimism} from "../contracts/utils/Bridge2BurnerOptimism.sol";
+import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
+import {IToken} from "../contracts/interfaces/IToken.sol";
 import {LiquidityManagerOptimism} from "../contracts/pol/LiquidityManagerOptimism.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
-import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
-import {IToken} from "../contracts/interfaces/IToken.sol";
+import {Test, console} from "forge-std/Test.sol";
+import {Utils} from "./utils/Utils.sol";
 
 // Balancer interface
 interface IBalancer {
@@ -80,12 +81,17 @@ interface ISlipstream {
         uint16 observationCardinalityNext, bool unlocked);
 }
 
+interface IProxy {
+    function changeImplementation(address implementation) external;
+}
+
 contract BaseSetup is Test {
     Utils internal utils;
     BalancerPriceOracle internal oracleV2;
     Bridge2BurnerOptimism internal bridge2Burner;
     NeighborhoodScanner internal neighborhoodScanner;
     LiquidityManagerOptimism internal liquidityManager;
+    BuyBackBurnerBalancer internal buyBackBurner;
 
     address payable[] internal users;
     address internal deployer;
@@ -104,6 +110,8 @@ contract BaseSetup is Test {
     address internal constant ROUTER_V3 = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
     address internal constant FACTORY_V3 = 0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A;
     address internal constant POSITION_MANAGER_V3 = 0x827922686190790b37229fd06084350E74485b72;
+    address internal constant BUY_BACK_BURNER = 0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426;
+    address internal constant BBB_OWNER = 0x6F7a4938AB3bbF69480E7C109Af778ee78099Be7;
     uint16 internal constant observationCardinality = 60;
     uint16 internal constant maxSlippage = 5000;
     uint256 internal constant minUpdateTimePeriod = 900;
@@ -172,10 +180,28 @@ contract BaseSetup is Test {
         // Get V2 initial amounts on LiquidityManager
         initialAmounts[0] = (v2Liquidity * initialAmounts[0]) / totalSupply;
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
+
+        // Deploy BuyBackBurner
+        buyBackBurner = new BuyBackBurnerBalancer(address(liquidityManager), address(bridge2Burner), TIMELOCK, ROUTER_V3);
+
+        // Change BBB implementation
+        vm.prank(BBB_OWNER);
+        IProxy(BUY_BACK_BURNER).changeImplementation(address(buyBackBurner));
+
+        // Wrap BBB implementation
+        buyBackBurner = BuyBackBurnerBalancer(BUY_BACK_BURNER);
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 
-contract LiquidityManagerBase is BaseSetup {
+contract LiquidityManagerBaseTest is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
@@ -425,6 +451,12 @@ contract LiquidityManagerBase is BaseSetup {
 
         // Mock fund more OLAS, not to fail for min OLAS transfer
         deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
+
+        // Mock WETH balance on BBB
+        deal(WETH, BUY_BACK_BURNER, 0.5 ether);
+
+        // Perform Slipstream swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

@@ -32,8 +32,8 @@ contract BalancerPriceOracle {
     uint256 public immutable minUpdateTimePeriod;
     // LP token direction
     uint256 public immutable direction;
-    // Native token (ERC-20) address
-    address public immutable nativeToken;
+    // Second token address in pool
+    address public immutable secondToken;
     // OLAS token address
     address public immutable olas;
     // Balancer vault address
@@ -43,7 +43,7 @@ contract BalancerPriceOracle {
 
     constructor(
         address _olas,
-        address _nativeToken,
+        address _secondToken,
         uint256 _maxSlippage,
         uint256 _minUpdateTimePeriod,
         address _balancerVault,
@@ -52,7 +52,7 @@ contract BalancerPriceOracle {
         require(_maxSlippage < 100, "Slippage must be less than 100%");
 
         olas = _olas;
-        nativeToken = _nativeToken;
+        secondToken = _secondToken;
         maxSlippage = _maxSlippage;
         minUpdateTimePeriod = _minUpdateTimePeriod;
         balancerVault = _balancerVault;
@@ -60,7 +60,7 @@ contract BalancerPriceOracle {
 
         // Get token direction
         (address[] memory tokens, , ) = IVault(balancerVault).getPoolTokens(_balancerPoolId);
-        if (tokens[0] != _nativeToken) {
+        if (tokens[0] != _secondToken) {
             direction = 1;
         }
 

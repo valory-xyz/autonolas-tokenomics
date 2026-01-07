@@ -2,8 +2,12 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
+import {BuyBackBurnerUniswap} from "../contracts/utils/BuyBackBurnerUniswap.sol";
+import {BuyBackBurnerProxy} from "../contracts/utils/BuyBackBurnerProxy.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
+import {FullMath} from "../contracts/libraries/FullMath.sol";
+import {FixedPoint96} from "../contracts/libraries/FixedPoint96.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
@@ -11,6 +15,16 @@ import {UniswapPriceOracle} from "../contracts/oracles/UniswapPriceOracle.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
 import {IUniswapV2Pair} from "../contracts/interfaces/IUniswapV2Pair.sol";
 import {IUniswapV3} from "../contracts/interfaces/IUniswapV3.sol";
+
+interface IFactory {
+    /// @notice Returns the pool address for a given pair of tokens and a fee, or address 0 if it does not exist
+    /// @dev tokenA and tokenB may be passed in either token0/token1 or token1/token0 order
+    /// @param tokenA The contract address of either token0 or token1
+    /// @param tokenB The contract address of the other token
+    /// @param fee The fee collected upon every swap in the pool, denominated in hundredths of a bip
+    /// @return pool The pool address
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool);
+}
 
 interface ITreasury {
     function withdraw(address to, uint256 tokenAmount, address token) external returns (bool success);
@@ -40,6 +54,7 @@ contract BaseSetup is Test {
     UniswapPriceOracle internal oracleV2;
     NeighborhoodScanner internal neighborhoodScanner;
     LiquidityManagerETH internal liquidityManager;
+    BuyBackBurnerUniswap internal buyBackBurner;
 
     address payable[] internal users;
     address internal deployer;
@@ -61,7 +76,9 @@ contract BaseSetup is Test {
     bytes32 internal constant PAIR_V2_BYTES32 = 0x00000000000000000000000009D1d767eDF8Fa23A64C51fa559E0688E526812F;
     address internal constant ROUTER_V2 = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address internal constant ROUTER_V3 = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address internal constant FACTORY_V3 = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     address internal constant POSITION_MANAGER_V3 = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address internal constant BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     uint16 internal constant observationCardinality = 60;
     uint16 internal constant maxSlippage = 5000;
     int24 internal constant FEE_TIER = 3000;
@@ -71,7 +88,7 @@ contract BaseSetup is Test {
     uint16 public constant MAX_BPS = 10_000;
 
     uint256 public constant OLAS_ETH_ATH_PRICE = 0.003624094951 ether;
-    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000020255298 ether;
+    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000010255298 ether;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -127,6 +144,29 @@ contract BaseSetup is Test {
         // Get sqrt prices for OLAS ATH and ATL
         sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE) * (1 << 96)) / 1e9);
         sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
+
+        // Deploy BuyBackBurner
+        buyBackBurner = new BuyBackBurnerUniswap(address(liquidityManager), BURNER, TIMELOCK, ROUTER_V3);
+
+        // Deploy BBB proxy
+        address[] memory accounts = new address[](4);
+        accounts[0] = OLAS;
+        accounts[1] = WETH;
+        accounts[2] = address(oracleV2);
+        accounts[3] = ROUTER_V2;
+        bytes memory payload = abi.encode(accounts);
+        initPayload = abi.encodeWithSignature("initialize(bytes)", payload);
+        BuyBackBurnerProxy buyBackBurnerProxy = new BuyBackBurnerProxy(address(buyBackBurner), initPayload);
+
+        // Wrap BBB implementation
+        buyBackBurner = BuyBackBurnerUniswap(address(buyBackBurnerProxy));
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 
@@ -309,7 +349,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         initialAmounts[1] = initialAmounts[1] - wethAmount;
 
         (, , uint256[] memory amountsOut) =
-                            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
 
         // scan = ticks are optimized, deviation must respect DELTA
         for (uint256 i = 0; i < 2; ++i) {
@@ -383,6 +423,186 @@ contract LiquidityManagerETHTest is BaseSetup {
         bool scan = false;
 
         liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+    }
+
+    /// @dev Converts V2 pool into V3 with 100% amount and optimized ticks scan with tick shifts to OLAS ATH and ATL.
+    ///      Provides swap of OLAS to WETH in estimated at least $10k.
+    function testConvertToV3ScanSwapFront10kATHATL() public {
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Convert to V3
+        (, uint256 liquidity,) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // Get pool address
+        address pool = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+
+        // Get slot0 before swap
+        (uint160 sqrtPBefore,,,,,,) = IUniswapV3(pool).slot0();
+
+        // Get full price before
+        uint256 priceBeforeX96 = FullMath.mulDiv(sqrtPBefore, sqrtPBefore, FixedPoint96.Q96);
+        uint256 priceBefore = FullMath.mulDiv(priceBeforeX96, 1e18, FixedPoint96.Q96);
+
+        // Get OLAS tokens
+        uint256 olasAmountToSwap = 65_189 ether;
+        deal(OLAS, address(this), olasAmountToSwap);
+
+        IToken(OLAS).approve(ROUTER_V3, olasAmountToSwap);
+
+        IRouterV3.ExactInputSingleParams memory params = IRouterV3.ExactInputSingleParams({
+            tokenIn: OLAS,
+            tokenOut: WETH,
+            fee: uint24(FEE_TIER),
+            recipient: address(this),
+            amountIn: olasAmountToSwap,
+            amountOutMinimum: 1,
+            sqrtPriceLimitX96: 0
+        });
+
+        // Swap tokens
+        uint256 wethOut = IRouterV3(ROUTER_V3).exactInputSingle(params);
+
+        // Get slot0 after swap
+        (uint160 sqrtPAfter,,,,,,) = IUniswapV3(pool).slot0();
+
+        // Get full price before
+        uint256 priceAfterX96 = FullMath.mulDiv(sqrtPAfter, sqrtPAfter, FixedPoint96.Q96);
+        uint256 priceAfter = FullMath.mulDiv(priceAfterX96, 1e18, FixedPoint96.Q96);
+
+        uint256 priceAverage = FullMath.mulDiv(wethOut, 1e18, olasAmountToSwap);
+
+        uint256 priceImpact;
+        if (priceAfterX96 > priceBeforeX96) {
+            priceImpact = ((priceAfterX96 - priceBeforeX96) * 1e18) / priceBeforeX96;
+        } else {
+            priceImpact = ((priceBeforeX96 - priceAfterX96) * 1e18) / priceBeforeX96;
+        }
+
+        uint256 slippage;
+        if (priceAverage > priceBefore) {
+            slippage = ((priceAverage - priceBefore) * 1e18) / priceBefore;
+        } else {
+            slippage = ((priceBefore - priceAverage) * 1e18) / priceBefore;
+        }
+
+        console.log("OLAS in (wei):", olasAmountToSwap);
+        console.log("OLAS in (ETH):", olasAmountToSwap / 1 ether);
+        console.log("WETH out (wei):", wethOut);
+        console.log("WETH out (ETH):", wethOut / 1 ether);
+        console.log("Liquidity:", liquidity);
+        console.log("Sqrt price before:", sqrtPBefore);
+        console.log("Price before X96 (price * 2^96):", priceBeforeX96);
+        console.log("Price before (price * 1e18):", priceBefore);
+        console.log("Sqrt price after:", sqrtPAfter);
+        console.log("Price after X96 (price * 2^96):", priceAfterX96);
+        console.log("Price after (price * 1e18):", priceAfter);
+        console.log("Price average:", priceAverage);
+        console.log("Price impact (wei):", priceImpact);
+        console.log("Price impact (bps: 100% = 10_000, 1% = 100):", (MAX_BPS * priceImpact) / 1 ether);
+        console.log("Slippage (wei):", slippage);
+        console.log("Slippage (bps: 100% = 10_000, 1% = 100):", (MAX_BPS * slippage) / 1 ether);
+    }
+
+    /// @dev Converts V2 pool into V3 with 100% amount and optimized ticks scan with tick shifts to OLAS ATH and ATL.
+    ///      Provides swap of WETH to OLAS of estimated at least $10k.
+    function testConvertToV3ScanSwapBack10kATHATL() public {
+        int24 atlTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATL);
+        require(centerTick > atlTick, "Center tick must be lower than ATL tick");
+
+        int24 athTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96ATH);
+        require(athTick > centerTick, "ATH tick must be lower than center tick");
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = atlTick - centerTick;
+        tickShifts[1] = athTick - centerTick;
+
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Convert to V3
+        (, uint256 liquidity,) =
+            liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // Get pool address
+        address pool = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+
+        // Get slot0 before swap
+        (uint160 sqrtPBefore,,,,,,) = IUniswapV3(pool).slot0();
+
+        // Get full price before
+        uint256 priceBeforeX96 = FullMath.mulDiv(sqrtPBefore, sqrtPBefore, FixedPoint96.Q96);
+        uint256 priceBefore = FullMath.mulDiv(priceBeforeX96, 1e18, FixedPoint96.Q96);
+
+        // Get WETH tokens
+        uint256 wethAmountToSwap = 2.56 ether;
+        deal(WETH, address(this), wethAmountToSwap);
+
+        IToken(WETH).approve(ROUTER_V3, wethAmountToSwap);
+
+        IRouterV3.ExactInputSingleParams memory params = IRouterV3.ExactInputSingleParams({
+            tokenIn: WETH,
+            tokenOut: OLAS,
+            fee: uint24(FEE_TIER),
+            recipient: address(this),
+            amountIn: wethAmountToSwap,
+            amountOutMinimum: 1,
+            sqrtPriceLimitX96: 0
+        });
+
+        // Swap tokens
+        uint256 olasOut = IRouterV3(ROUTER_V3).exactInputSingle(params);
+
+        // Get slot0 after swap
+        (uint160 sqrtPAfter,,,,,,) = IUniswapV3(pool).slot0();
+
+        // Get full price before
+        uint256 priceAfterX96 = FullMath.mulDiv(sqrtPAfter, sqrtPAfter, FixedPoint96.Q96);
+        uint256 priceAfter = FullMath.mulDiv(priceAfterX96, 1e18, FixedPoint96.Q96);
+
+        uint256 priceAverage = FullMath.mulDiv(wethAmountToSwap, 1e18, olasOut);
+
+        uint256 priceImpact;
+        if (priceAfterX96 > priceBeforeX96) {
+            priceImpact = ((priceAfterX96 - priceBeforeX96) * 1e18) / priceBeforeX96;
+        } else {
+            priceImpact = ((priceBeforeX96 - priceAfterX96) * 1e18) / priceBeforeX96;
+        }
+
+        uint256 slippage;
+        if (priceAverage > priceBefore) {
+            slippage = ((priceAverage - priceBefore) * 1e18) / priceBefore;
+        } else {
+            slippage = ((priceBefore - priceAverage) * 1e18) / priceBefore;
+        }
+
+        console.log("WETH in (wei):", wethAmountToSwap);
+        console.log("WETH in (ETH):", wethAmountToSwap / 1 ether);
+        console.log("OLAS out (wei):", olasOut);
+        console.log("OLAS out (ETH):", olasOut / 1 ether);
+        console.log("Liquidity:", liquidity);
+        console.log("Sqrt price before:", sqrtPBefore);
+        console.log("Price before X96 (price * 2^96):", priceBeforeX96);
+        console.log("Price before (price * 1e18):", priceBefore);
+        console.log("Sqrt price after:", sqrtPAfter);
+        console.log("Price after X96 (price * 2^96):", priceAfterX96);
+        console.log("Price after (price * 1e18):", priceAfter);
+        console.log("Price average:", priceAverage);
+        console.log("Price impact (wei):", priceImpact);
+        console.log("Price impact (bps: 100% = 10_000, 1% = 100):", (MAX_BPS * priceImpact) / 1 ether);
+        console.log("Slippage (wei):", slippage);
+        console.log("Slippage (bps: 100% = 10_000, 1% = 100):", (MAX_BPS * slippage) / 1 ether);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and NO optimized ticks scan.
@@ -522,6 +742,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
+
+        // Mock WETH balance on BBB
+        deal(WETH, address(buyBackBurner), 0.5 ether);
+
+        // Perform Slipstream swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER);
     }
 
     /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.
