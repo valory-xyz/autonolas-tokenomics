@@ -2,6 +2,8 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
+import {BuyBackBurnerUniswap} from "../contracts/utils/BuyBackBurnerUniswap.sol";
+import {BuyBackBurnerProxy} from "../contracts/utils/BuyBackBurnerProxy.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {FullMath} from "../contracts/libraries/FullMath.sol";
@@ -52,6 +54,7 @@ contract BaseSetup is Test {
     UniswapPriceOracle internal oracleV2;
     NeighborhoodScanner internal neighborhoodScanner;
     LiquidityManagerETH internal liquidityManager;
+    BuyBackBurnerUniswap internal buyBackBurner;
 
     address payable[] internal users;
     address internal deployer;
@@ -75,6 +78,7 @@ contract BaseSetup is Test {
     address internal constant ROUTER_V3 = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     address internal constant FACTORY_V3 = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     address internal constant POSITION_MANAGER_V3 = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address internal constant BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     uint16 internal constant observationCardinality = 60;
     uint16 internal constant maxSlippage = 5000;
     int24 internal constant FEE_TIER = 3000;
@@ -84,7 +88,7 @@ contract BaseSetup is Test {
     uint16 public constant MAX_BPS = 10_000;
 
     uint256 public constant OLAS_ETH_ATH_PRICE = 0.003624094951 ether;
-    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000020255298 ether;
+    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000010255298 ether;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -140,6 +144,29 @@ contract BaseSetup is Test {
         // Get sqrt prices for OLAS ATH and ATL
         sqrtPriceX96ATH = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATH_PRICE) * (1 << 96)) / 1e9);
         sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
+
+        // Deploy BuyBackBurner
+        buyBackBurner = new BuyBackBurnerUniswap(address(liquidityManager), BURNER, TIMELOCK, ROUTER_V3);
+
+        // Deploy BBB proxy
+        address[] memory accounts = new address[](4);
+        accounts[0] = OLAS;
+        accounts[1] = WETH;
+        accounts[2] = address(oracleV2);
+        accounts[3] = ROUTER_V2;
+        bytes memory payload = abi.encode(accounts);
+        initPayload = abi.encodeWithSignature("initialize(bytes)", payload);
+        BuyBackBurnerProxy buyBackBurnerProxy = new BuyBackBurnerProxy(address(buyBackBurner), initPayload);
+
+        // Wrap BBB implementation
+        buyBackBurner = BuyBackBurnerUniswap(address(buyBackBurnerProxy));
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 
@@ -715,6 +742,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
+
+        // Mock WETH balance on BBB
+        deal(WETH, address(buyBackBurner), 0.5 ether);
+
+        // Perform Slipstream swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER);
     }
 
     /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.

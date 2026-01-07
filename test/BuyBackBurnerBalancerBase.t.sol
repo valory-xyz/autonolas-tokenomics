@@ -88,7 +88,7 @@ contract BaseSetup is Test {
         // Deploy BuyBackBurnerBalancer implementation
         // Note that LiquidityManager address is irrelevant in this set of tests
         BuyBackBurnerBalancer buyBackBurnerBalancerImplementation =
-            new BuyBackBurnerBalancer(address(bridge2Burner), address(bridge2Burner));
+            new BuyBackBurnerBalancer(address(bridge2Burner), address(bridge2Burner), address(deployer), address(deployer));
 
         // Construct proxy data
         address[] memory accounts = new address[](4);
@@ -106,6 +106,13 @@ contract BaseSetup is Test {
 
         // Wrap proxy into implementation
         buyBackBurnerBalancer = BuyBackBurnerBalancer(address(buyBackBurnerProxy));
+
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory oracles = new address[](1);
+        oracles[0] = address(oracleV2);
+        // Set oracle for V2 swaps
+        buyBackBurnerBalancer.setV2Oracles(secondTokens, oracles);
     }
 }
 
@@ -120,7 +127,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         deal(WETH, address(buyBackBurnerBalancer), 1 ether);
 
         // Swap for OLAS
-        buyBackBurnerBalancer.buyBack(1 ether);
+        buyBackBurnerBalancer.buyBack(WETH, 1 ether);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

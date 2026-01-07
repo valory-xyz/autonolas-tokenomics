@@ -233,4 +233,9 @@ c097d8274ab4cdbe199d0b92525aab13031d3866:scripts/deployment/globals_mainnet.json
 33fa7bba2dbef77a6d7029b12f065afaae102ed5:scripts/deployment/staking/celo/globals_celo_mainnet.json:generic-api-key:15
 cc02a34e835abcc1c6fb329bd9b407883e41961f:scripts/deployment/staking/celo/globals_celo_mainnet.json:generic-api-key:15
 237a184f7cd5837b76566c42f8b5680c9e5d7d0d:contracts/pol/LiquidityManagerOptimism.sol:generic-api-key:231
+653424368029c472f993ceb591fec400dc3414eb:scripts/deployment/oracles/globals_polygon_mainnet.json:generic-api-key:11
+653424368029c472f993ceb591fec400dc3414eb:scripts/deployment/utils/globals_polygon_mainnet.json:generic-api-key:11
+69fbdc16b710181b66331892626e9900ff996116:scripts/deployment/oracles/globals_polygon_mainnet.json:generic-api-key:11
+69fbdc16b710181b66331892626e9900ff996116:scripts/deployment/utils/globals_polygon_mainnet.json:generic-api-key:11
+ec26af4089372da03352ba99fe5b0325aec2c6f4:scripts/deployment/oracles/globals_polygon_mainnet.json:generic-api-key:11
   
