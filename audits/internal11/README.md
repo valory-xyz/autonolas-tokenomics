@@ -29,7 +29,7 @@ function buyBack(address secondToken, uint256 secondTokenAmount, int24 feeTierOr
 
         emit TokenTransferred(bridge2Burner, secondTokenAmount);
 ```
-[]
+[x] Fixed
 
 ### Medium. updateOraclePrice(address poolOracle) by any poolOracle
 ```
@@ -42,7 +42,7 @@ function updateOraclePrice(address poolOracle) external {
 The problem is not that someone will “update the price” (this was a public function before), but that now the contract makes an external call to an arbitrary address passed by the user.
 Check poolOracle == mapV2Oracles[<someSecondToken>] ?
 ```
-[]
+[x] Fixed
 
 ### Medium/Low/Notices. Double check logic in BuyBackBurnerBalancer
 ```
@@ -61,14 +61,14 @@ vs
 
 So now everything depends on poolOracle. Please, double check.
 ```
-[]
+[x] Noted
 
 ### Low. commented address public oracle; as unused
 ```
 address public oracle;
 By proxy design we can't remove variable from storage layout. Please, comment it as unused.
 ```
-[]
+[x] Fixed
 
 ### Low. IOracle interface name conflict
 ```
@@ -83,4 +83,4 @@ function balancerPoolId() external view returns (bytes32);
 
 However, BuyBackBurner.sol already uses IOracle(...) with methods like validatePrice(), getPrice(), and updatePrice() (judging by the calls in the patch).
 ```
-[]
+[x] Fixed

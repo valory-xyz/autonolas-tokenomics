@@ -91,9 +91,9 @@ abstract contract BuyBackBurner {
     address public owner;
     // OLAS token address
     address public olas;
-    // Native token (ERC-20) address
+    // Deprecated (proxy legacy): Native token (ERC-20) address
     address public nativeToken;
-    // Oracle address
+    // Deprecated (proxy legacy): Oracle address
     address public oracle;
 
     // Oracle max slippage for second token <=> OLAS
@@ -449,16 +449,22 @@ abstract contract BuyBackBurner {
         // Transfer OLAS to bridge2Burner contract
         IERC20(olas).transfer(bridge2Burner, olasAmount);
 
-        emit TokenTransferred(bridge2Burner, secondTokenAmount);
+        emit TokenTransferred(bridge2Burner, olasAmount);
 
         _locked = 1;
     }
 
     /// @dev Triggers V2 oracle price update.
-    /// @param poolOracle Pool oracle address.
-    function updateOraclePrice(address poolOracle) external {
+    /// @param secondToken Second token address.
+    function updateOraclePrice(address secondToken) external {
         // Record msg.sender activity
         mapAccountActivities[msg.sender]++;
+
+        // Get oracle address
+        address poolOracle = mapV2Oracles[secondToken];
+
+        // Check for zero address
+        require(poolOracle != address(0), "Zero oracle address");
 
         // Update price
         bool success = IOracle(poolOracle).updatePrice();

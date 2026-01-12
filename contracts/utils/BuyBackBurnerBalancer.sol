@@ -73,7 +73,7 @@ interface IERC20 {
 }
 
 // Oracle V2 interface
-interface IOracle {
+interface IOracleBalancer {
     /// @dev Gets balancer vault address.
     function balancerVault() external view returns (address);
 
@@ -84,9 +84,9 @@ interface IOracle {
 /// @title BuyBackBurnerBalancer - BuyBackBurner implementation contract for interaction with Balancer for V2-like
 ///        full range pools and Slipstream for V3-like concentrated liquidity pools
 contract BuyBackBurnerBalancer is BuyBackBurner {
-    // Balancer vault address
+    // Deprecated (proxy legacy): Balancer vault address
     address public balancerVault;
-    // Balancer pool Id
+    // Deprecated (proxy legacy): Balancer pool Id
     bytes32 public balancerPoolId;
 
     /// @dev BuyBackBurnerBalancer constructor.
@@ -105,10 +105,10 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     /// @return olasAmount Obtained OLAS amount.
     function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle) internal virtual override returns (uint256 olasAmount) {
         // Get balancer vault address
-        address balVault = IOracle(poolOracle).balancerVault();
+        address balVault = IOracleBalancer(poolOracle).balancerVault();
 
         // Get balancer pool Id
-        bytes32 balPoolId = IOracle(poolOracle).balancerPoolId();
+        bytes32 balPoolId = IOracleBalancer(poolOracle).balancerPoolId();
 
         // Approve secondToken for the Balancer Vault
         IERC20(secondToken).approve(balVault, secondTokenAmount);
