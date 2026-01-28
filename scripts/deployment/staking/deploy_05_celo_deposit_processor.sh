@@ -27,11 +27,10 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserAddress=$(jq -r '.dispenserAddress' $globals)
-wormholeL1TokenRelayerAddress=$(jq -r '.wormholeL1TokenRelayerAddress' $globals)
-wormholeL1MessageRelayerAddress=$(jq -r '.wormholeL1MessageRelayerAddress' $globals)
+celoL1StandardBridgeProxyAddress=$(jq -r '.celoL1StandardBridgeProxyAddress' $globals)
+celoL1CrossDomainMessengerProxyAddress=$(jq -r '.celoL1CrossDomainMessengerProxyAddress' $globals)
 celoL2TargetChainId=$(jq -r '.celoL2TargetChainId' $globals)
-wormholeL1CoreAddress=$(jq -r '.wormholeL1CoreAddress' $globals)
-celoWormholeL2TargetChainId=$(jq -r '.celoWormholeL2TargetChainId' $globals)
+celoOLASAddress=$(jq -r '.celoOLASAddress' $globals)
 
 # Getting L1 Alchemy API key
 if [ $chainId == 1 ]; then
