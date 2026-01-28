@@ -48,8 +48,8 @@ elif [ $chainId == 11155111 ]; then
     fi
 fi
 
-contractPath="contracts/staking/WormholeDepositProcessorL1.sol:WormholeDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserAddress $wormholeL1TokenRelayerAddress $wormholeL1MessageRelayerAddress $celoL2TargetChainId $wormholeL1CoreAddress $celoWormholeL2TargetChainId"
+contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
+constructorArgs="$olasAddress $dispenserAddress $celoL1StandardBridgeProxyAddress $celoL1CrossDomainMessengerProxyAddress $celoL2TargetChainId $celoOLASAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -88,7 +88,7 @@ echo "$(jq '. += {"celoDepositProcessorL1Address":"'$celoDepositProcessorL1Addre
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$celoDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256,address,uint256)" $constructorArgs)"
+  contractParams="$celoDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
