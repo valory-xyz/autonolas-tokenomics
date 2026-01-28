@@ -27,11 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 serviceStakingFactoryAddress=$(jq -r '.serviceStakingFactoryAddress' $globals)
-wormholeL2MessageRelayer=$(jq -r '.wormholeL2MessageRelayer' $globals)
+celoL2CrossDomainMessengerAddress=$(jq -r '.celoL2CrossDomainMessengerAddress' $globals)
 celoDepositProcessorL1Address=$(jq -r '.celoDepositProcessorL1Address' $globals)
 l1ChainId=$(jq -r '.l1ChainId' $globals)
-wormholeL2CoreAddress=$(jq -r '.wormholeL2CoreAddress' $globals)
-wormholeL2TokenRelayerAddress=$(jq -r '.wormholeL2TokenRelayerAddress' $globals)
 
 # Check for Polygon keys only since on other networks those are not needed
 if [ $chainId == 137 ]; then
@@ -48,8 +46,8 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-contractPath="contracts/staking/WormholeTargetDispenserL2.sol:WormholeTargetDispenserL2"
-constructorArgs="$olasAddress $serviceStakingFactoryAddress $wormholeL2MessageRelayer $celoDepositProcessorL1Address $l1ChainId $wormholeL2CoreAddress $wormholeL2TokenRelayerAddress"
+contractPath="contracts/staking/OptimismTargetDispenserL2.sol:OptimismTargetDispenserL2"
+constructorArgs="$olasAddress $serviceStakingFactoryAddress $celoL2CrossDomainMessengerAddress $celoDepositProcessorL1Address $l1ChainId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -88,7 +86,7 @@ echo "$(jq '. += {"celoTargetDispenserL2Address":"'$celoTargetDispenserL2Address
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$celoTargetDispenserL2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256,address,address)" $constructorArgs)"
+  contractParams="$celoTargetDispenserL2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
