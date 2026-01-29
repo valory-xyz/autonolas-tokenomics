@@ -8,7 +8,7 @@
   "blockscoutURL": "https://celo.blockscout.com",
   "gasPriceInGwei": "2",
   "whOlasAddress": "0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
-  "olasAddress": "",
+  "olasAddress": "0xD80533CA29fF6F033a0b55732Ed792af9Fbb381E",
   "serviceStakingFactoryAddress": "0x1c2cD884127b080F940b7546c1e9aaf525b1FA55",
   "bridgeMediatorAddress": "0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d",
   "celoL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
