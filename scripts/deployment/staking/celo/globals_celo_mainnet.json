@@ -7,14 +7,16 @@
   "networkURL": "https://forno.celo.org",
   "blockscoutURL": "https://celo.blockscout.com",
   "gasPriceInGwei": "2",
-  "olasAddress": "0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
+  "whOlasAddress": "0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
+  "olasAddress": "0xD80533CA29fF6F033a0b55732Ed792af9Fbb381E",
   "serviceStakingFactoryAddress": "0x1c2cD884127b080F940b7546c1e9aaf525b1FA55",
   "bridgeMediatorAddress": "0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d",
   "celoL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
   "wormholeL2CoreAddress": "0xa321448d90d4e5b0A732867c18eA198e75CAC48E",
   "wormholeL2TokenRelayerAddress": "0x796Dff6D74F3E27060B71255Fe517BFb23C93eed",
   "wormholeL2MessageRelayer": "0x27428DD2d3DD32A4D7f7C497eAaa23130d894911",
-  "l1ChainId": "2",
-  "celoDepositProcessorL1Address": "0x24150C763aBC34e8b8630C6570d2DbA265d8020A",
-  "celoTargetDispenserL2Address": "0x22bE6fDcd3e29851B29b512F714C328A00A96B83"
+  "l1ChainId": "1",
+  "celoDepositProcessorL1Address": "0x85d4E442225E04bb7822a87366831F0b2720DA1b",
+  "celoTargetDispenserL2Address": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
+  "whCeloTargetDispenserL2Address": "0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
 }

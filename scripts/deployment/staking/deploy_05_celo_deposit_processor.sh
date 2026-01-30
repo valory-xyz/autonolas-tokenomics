@@ -27,11 +27,10 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserAddress=$(jq -r '.dispenserAddress' $globals)
-wormholeL1TokenRelayerAddress=$(jq -r '.wormholeL1TokenRelayerAddress' $globals)
-wormholeL1MessageRelayerAddress=$(jq -r '.wormholeL1MessageRelayerAddress' $globals)
+celoL1StandardBridgeProxyAddress=$(jq -r '.celoL1StandardBridgeProxyAddress' $globals)
+celoL1CrossDomainMessengerProxyAddress=$(jq -r '.celoL1CrossDomainMessengerProxyAddress' $globals)
 celoL2TargetChainId=$(jq -r '.celoL2TargetChainId' $globals)
-wormholeL1CoreAddress=$(jq -r '.wormholeL1CoreAddress' $globals)
-celoWormholeL2TargetChainId=$(jq -r '.celoWormholeL2TargetChainId' $globals)
+celoOLASAddress=$(jq -r '.celoOLASAddress' $globals)
 
 # Getting L1 Alchemy API key
 if [ $chainId == 1 ]; then
@@ -48,8 +47,8 @@ elif [ $chainId == 11155111 ]; then
     fi
 fi
 
-contractPath="contracts/staking/WormholeDepositProcessorL1.sol:WormholeDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserAddress $wormholeL1TokenRelayerAddress $wormholeL1MessageRelayerAddress $celoL2TargetChainId $wormholeL1CoreAddress $celoWormholeL2TargetChainId"
+contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
+constructorArgs="$olasAddress $dispenserAddress $celoL1StandardBridgeProxyAddress $celoL1CrossDomainMessengerProxyAddress $celoL2TargetChainId $celoOLASAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -88,7 +87,7 @@ echo "$(jq '. += {"celoDepositProcessorL1Address":"'$celoDepositProcessorL1Addre
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$celoDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256,address,uint256)" $constructorArgs)"
+  contractParams="$celoDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
