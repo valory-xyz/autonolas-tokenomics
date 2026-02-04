@@ -11,6 +11,13 @@ if [ ! -f $globals ]; then
   exit 0
 fi
 
+# Get utils globals file
+globalsUtils="$(dirname "$0")/../utils/globals_$1.json"
+if [ ! -f $globalsUtils ]; then
+  echo "${red}!!! $globalsUtils is not found${reset}"
+  exit 0
+fi
+
 # Read variables using jq
 contractVerification=$(jq -r '.contractVerification' $globals)
 useLedger=$(jq -r '.useLedger' $globals)
@@ -37,7 +44,7 @@ nativeTokenAddress=$(jq -r '.nativeTokenAddress' $globals)
 maxOracleSlippage=$(jq -r '.maxOracleSlippage' $globals)
 pairAddress=$(jq -r '.pairAddress' $globals)
 
-contractName="BalancerPriceOracle"
+contractName="UniswapPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
 constructorArgs="$nativeTokenAddress $maxOracleSlippage $pairAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
@@ -73,6 +80,7 @@ fi
 
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

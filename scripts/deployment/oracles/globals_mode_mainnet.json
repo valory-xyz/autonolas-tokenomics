@@ -1,0 +1,18 @@
+{
+  "contractVerification": true,
+  "useLedger": true,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "mode",
+  "chainId": "34443",
+  "networkURL": "https://mainnet.mode.network",
+  "blockscoutURL": "https://explorer.mode.network",
+  "gasPriceInGwei": "1",
+  "olasAddress": "0xcfD1D50ce23C46D3Cf6407487B2F8934e96DC8f9",
+  "nativeTokenAddress": "0x4200000000000000000000000000000000000006",
+  "usdcAddress": "0xd988097fb8612cc24eeC14542bC03424c656005f",
+  "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+  "balancerPoolId": "0xd1dbea51c7f23f61d020e2602d0d157d132faafc00020000000000000000000e",
+  "maxOracleSlippage": "50",
+  "minUpdateTimePeriod": "900",
+  "balancerPriceOracleAddress": ""
+}
