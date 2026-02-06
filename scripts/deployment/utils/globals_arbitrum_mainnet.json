@@ -16,5 +16,5 @@
   "maxBuyBackSlippage": "10",
   "balancerPriceOracleAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",
   "buyBackBurnerAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
-  "buyBackBurnerProxyAddress":""
+  "buyBackBurnerProxyAddress":"0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
 }
