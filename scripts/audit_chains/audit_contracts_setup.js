@@ -638,8 +638,8 @@ async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, c
     customExpect(l2TargetDispenser, globalsInstance["celoTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
-// Check TargetDispenserL2: contract, globalsInstance
-async function checkTargetDispenserL2(targetDispenserL2, globalsInstance, log) {
+// Check TargetDispenserL2: chain Id, contract name, contract, globalsInstance
+async function checkTargetDispenserL2(chainId, contractName, targetDispenserL2, globalsInstance, log) {
     log += ", address: " + targetDispenserL2.address;
 
     // Check owner + record CSV
@@ -668,7 +668,7 @@ async function checkPolygonTargetDispenserL2(chainId, provider, globalsInstance,
     const polygonTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + polygonTargetDispenserL2.address;
-    await checkTargetDispenserL2(polygonTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, polygonTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await polygonTargetDispenserL2.l2MessageRelayer();
@@ -688,7 +688,7 @@ async function checkGnosisTargetDispenserL2(chainId, provider, globalsInstance, 
     const gnosisTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + gnosisTargetDispenserL2.address;
-    await checkTargetDispenserL2(gnosisTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, gnosisTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await gnosisTargetDispenserL2.l2MessageRelayer();
@@ -708,7 +708,7 @@ async function checkArbitrumTargetDispenserL2(chainId, provider, globalsInstance
     const arbitrumTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + arbitrumTargetDispenserL2.address;
-    await checkTargetDispenserL2(arbitrumTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, arbitrumTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await arbitrumTargetDispenserL2.l2MessageRelayer();
@@ -728,7 +728,7 @@ async function checkOptimismTargetDispenserL2(chainId, provider, globalsInstance
     const optimismTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + optimismTargetDispenserL2.address;
-    await checkTargetDispenserL2(optimismTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, optimismTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await optimismTargetDispenserL2.l2MessageRelayer();
@@ -748,7 +748,7 @@ async function checkBaseTargetDispenserL2(chainId, provider, globalsInstance, co
     const baseTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + baseTargetDispenserL2.address;
-    await checkTargetDispenserL2(baseTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, baseTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await baseTargetDispenserL2.l2MessageRelayer();
@@ -768,7 +768,7 @@ async function checkModeTargetDispenserL2(chainId, provider, globalsInstance, co
     const modeTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + modeTargetDispenserL2.address;
-    await checkTargetDispenserL2(modeTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, modeTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await modeTargetDispenserL2.l2MessageRelayer();
@@ -788,7 +788,7 @@ async function checkCeloTargetDispenserL2(chainId, provider, globalsInstance, co
     const celoTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
 
     log += ", address: " + celoTargetDispenserL2.address;
-    await checkTargetDispenserL2(celoTargetDispenserL2, globalsInstance, log);
+    await checkTargetDispenserL2(chainId, contractName, celoTargetDispenserL2, globalsInstance, log);
 
     // Check L2 message relayer
     const l2MessageRelayer = await celoTargetDispenserL2.l2MessageRelayer();
