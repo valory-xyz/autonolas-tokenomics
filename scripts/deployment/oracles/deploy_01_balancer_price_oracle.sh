@@ -83,7 +83,7 @@ fi
 
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globals)" > $globals
-echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
+echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

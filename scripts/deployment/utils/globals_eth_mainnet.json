@@ -14,7 +14,7 @@
   "maxOracleSlippage": "50",
   "minUpdateTimePeriod": "900",
   "maxBuyBackSlippage": "10",
-  "uniswapPriceOracleAddress": "",
-  "buyBackBurnerAddress": "",
+  "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a",
+  "buyBackBurnerAddress": "0x07749207793DC1f9208BFCAAA08ef1ea204402A6",
   "buyBackBurnerProxyAddress": ""
 }

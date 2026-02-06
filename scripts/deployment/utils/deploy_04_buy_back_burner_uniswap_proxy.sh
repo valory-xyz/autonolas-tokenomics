@@ -52,7 +52,7 @@ routerV2Address=$(jq -r '.routerV2Address' $globals)
 maxBuyBackSlippage=$(jq -r '.maxBuyBackSlippage' $globals)
 buyBackBurnerAddress=$(jq -r '.buyBackBurnerAddress' $globals)
 
-proxyPayload=$(cast abi-encode "f(address[],bytes32,uint256)" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]" $maxBuyBackSlippage)
+proxyPayload=$(cast abi-encode "f(address[],uint256)" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]" $maxBuyBackSlippage)
 proxyData=$(cast calldata "initialize(bytes)" $proxyPayload)
 
 contractName="BuyBackBurnerProxy"
