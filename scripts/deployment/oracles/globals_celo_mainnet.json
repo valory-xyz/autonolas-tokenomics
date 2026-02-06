@@ -10,5 +10,5 @@
   "pairAddress":"0x2976Fa805141b467BCBc6334a69AffF4D914d96A",
   "maxOracleSlippage":"50",
   "minUpdateTimePeriod":"900",
-  "uniswapPriceOracleAddress":""
+  "uniswapPriceOracleAddress":"0xa987Fe40034AaD2EbB0E01B22DFc57f20C87F949"
 }
