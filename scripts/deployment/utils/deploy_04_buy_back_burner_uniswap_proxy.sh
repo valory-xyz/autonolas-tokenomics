@@ -18,17 +18,29 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Polygon keys only since on other networks those are not needed
-if [ $chainId == 137 ]; then
+# Check for Alchemy keys on ETH, Polygon mainnets and testnets
+if [ $chainId == 1 ]; then
+  API_KEY=$ALCHEMY_API_KEY_MAINNET
+  if [ "$API_KEY" == "" ]; then
+      echo "${red}!!! Set ALCHEMY_API_KEY_MAINNET env variable${reset}"
+      exit 0
+  fi
+elif [ $chainId == 11155111 ]; then
+    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
+    if [ "$API_KEY" == "" ]; then
+        echo "${red}!!! Set ALCHEMY_API_KEY_SEPOLIA env variable${reset}"
+        exit 0
+    fi
+elif [ $chainId == 137 ]; then
   API_KEY=$ALCHEMY_API_KEY_MATIC
   if [ "$API_KEY" == "" ]; then
-      echo "set ALCHEMY_API_KEY_MATIC env variable"
+      echo "${red}!!! Set ALCHEMY_API_KEY_MATIC env variable${reset}"
       exit 0
   fi
 elif [ $chainId == 80002 ]; then
     API_KEY=$ALCHEMY_API_KEY_AMOY
     if [ "$API_KEY" == "" ]; then
-        echo "set ALCHEMY_API_KEY_AMOY env variable"
+        echo "${red}!!! Set ALCHEMY_API_KEY_AMOY env variable${reset}"
         exit 0
     fi
 fi
@@ -40,7 +52,7 @@ routerV2Address=$(jq -r '.routerV2Address' $globals)
 maxBuyBackSlippage=$(jq -r '.maxBuyBackSlippage' $globals)
 buyBackBurnerAddress=$(jq -r '.buyBackBurnerAddress' $globals)
 
-proxyPayload=$(cast abi-encode "f(address[],bytes32,uint256)" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]" $maxBuyBackSlippage)
+proxyPayload=$(cast abi-encode "f(address[],uint256)" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]" $maxBuyBackSlippage)
 proxyData=$(cast calldata "initialize(bytes)" $proxyPayload)
 
 contractName="BuyBackBurnerProxy"
