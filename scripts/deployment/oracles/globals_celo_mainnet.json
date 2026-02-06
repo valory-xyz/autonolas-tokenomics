@@ -1,7 +1,7 @@
 {
   "contractVerification":true,
   "useLedger":true,
-  "derivationPath":"m/44'/60'/9'/0/0",
+  "derivationPath":"m/44'/60'/2'/0/0",
   "providerName":"celo",
   "networkURL":"https://forno.celo.org",
   "chainId":"42220",
