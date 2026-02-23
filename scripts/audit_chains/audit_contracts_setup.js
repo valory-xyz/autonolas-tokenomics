@@ -5,7 +5,7 @@ const { expect } = require("chai");
 const fs = require("fs");
 const AddressZero = ethers.constants.AddressZero;
 
-const verifyRepo = true;
+const verifyRepo = false;
 const verifySetup = true;
 
 // ===================== CSV CONFIG =====================
@@ -534,13 +534,45 @@ async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, c
     customExpect(l2TargetDispenser, globalsInstance["baseTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
+// Check CeloDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
+async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    // Check the bytecode
+    await checkBytecode(provider, configContracts, contractName, log);
+
+    // Get the contract instance
+    const celoDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 2);
+
+    log += ", address: " + celoDepositProcessorL1.address;
+    await checkDepositProcessorL1(celoDepositProcessorL1, globalsInstance, log);
+
+    // Check L1 token relayer
+    const l1TokenRelayer = await celoDepositProcessorL1.l1TokenRelayer();
+    customExpect(l1TokenRelayer, globalsInstance["celoL1StandardBridgeProxyAddress"], log + ", function: l1TokenRelayer()");
+
+    // Check L1 message relayer
+    const l1MessageRelayer = await celoDepositProcessorL1.l1MessageRelayer();
+    customExpect(l1MessageRelayer, globalsInstance["celoL1CrossDomainMessengerProxyAddress"], log + ", function: l1MessageRelayer()");
+
+    // Check L2 target chain Id
+    const l2TargetChainId = await celoDepositProcessorL1.l2TargetChainId();
+    customExpect(l2TargetChainId.toString(), globalsInstance["celoL2TargetChainId"], log + ", function: l2TargetChainId()");
+
+    // Check L2 OLAS address
+    const olasL2 = await celoDepositProcessorL1.olasL2();
+    customExpect(olasL2, globalsInstance["celoOLASAddress"], log + ", function: olasL2()");
+
+    // Check L2 target dispenser
+    const l2TargetDispenser = await celoDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["celoTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
+}
+
 // Check ModeDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkModeDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
     await checkBytecode(provider, configContracts, contractName, log);
 
     // Get the contract instance
-    const modeDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 2);
+    const modeDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 3);
 
     log += ", address: " + modeDepositProcessorL1.address;
     await checkDepositProcessorL1(modeDepositProcessorL1, globalsInstance, log);
@@ -600,42 +632,6 @@ async function checkPolygonDepositProcessorL1(chainId, provider, globalsInstance
     // Check L2 target dispenser
     const l2TargetDispenser = await polygonDepositProcessorL1.l2TargetDispenser();
     customExpect(l2TargetDispenser, globalsInstance["polygonTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
-}
-
-// Check CeloDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
-async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
-    // Check the bytecode
-    await checkBytecode(provider, configContracts, contractName, log);
-
-    // Get the contract instance
-    const celoDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName);
-
-    log += ", address: " + celoDepositProcessorL1.address;
-    await checkDepositProcessorL1(celoDepositProcessorL1, globalsInstance, log);
-
-    // Check L1 token relayer
-    const l1TokenRelayer = await celoDepositProcessorL1.l1TokenRelayer();
-    customExpect(l1TokenRelayer, globalsInstance["wormholeL1TokenRelayerAddress"], log + ", function: l1TokenRelayer()");
-
-    // Check L1 message relayer
-    const l1MessageRelayer = await celoDepositProcessorL1.l1MessageRelayer();
-    customExpect(l1MessageRelayer, globalsInstance["wormholeL1MessageRelayerAddress"], log + ", function: l1MessageRelayer()");
-
-    // Check L2 target chain Id
-    const l2TargetChainId = await celoDepositProcessorL1.l2TargetChainId();
-    customExpect(l2TargetChainId.toString(), globalsInstance["celoL2TargetChainId"], log + ", function: l2TargetChainId()");
-
-    // Check L1 wormhole core
-    const wormhole = await celoDepositProcessorL1.wormhole();
-    customExpect(wormhole, globalsInstance["wormholeL1CoreAddress"], log + ", function: wormhole()");
-
-    // Check L2 wormhole chain Id format
-    const wormholeTargetChainId = await celoDepositProcessorL1.wormholeTargetChainId();
-    customExpect(wormholeTargetChainId.toString(), globalsInstance["celoWormholeL2TargetChainId"], log + ", function: wormholeTargetChainId()");
-
-    // Check L2 target dispenser
-    const l2TargetDispenser = await celoDepositProcessorL1.l2TargetDispenser();
-    customExpect(l2TargetDispenser, globalsInstance["celoTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
 }
 
 // Check TargetDispenserL2: chain Id, contract name, contract, globalsInstance
@@ -849,7 +845,7 @@ async function main() {
             "mainnet": "scripts/deployment/globals_mainnet.json",
             "polygon": "scripts/deployment/staking/polygon/globals_polygon_mainnet.json",
             "gnosis": "scripts/deployment/staking/gnosis/globals_gnosis_mainnet.json",
-            "arbitrumOne": "scripts/deployment/staking/arbitrum/globals_arbitrum_mainnet.json",
+            "arbitrum": "scripts/deployment/staking/arbitrum/globals_arbitrum_mainnet.json",
             "optimism": "scripts/deployment/staking/optimism/globals_optimism_mainnet.json",
             "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
             "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
@@ -870,8 +866,8 @@ async function main() {
             "mainnet": "https://eth-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MAINNET,
             "polygon": "https://polygon-mainnet.g.alchemy.com/v2/" + process.env.ALCHEMY_API_KEY_MATIC,
             "gnosis": "https://rpc.gnosischain.com",
-            "arbitrumOne": "https://arb1.arbitrum.io/rpc",
-            "optimism": "https://optimism.drpc.org",
+            "arbitrum": "https://arb1.arbitrum.io/rpc",
+            "optimism": "https://1rpc.io/op",
             "base": "https://mainnet.base.org",
             "celo": "https://forno.celo.org",
             "mode": "https://mainnet.mode.network"
@@ -927,7 +923,7 @@ async function main() {
         await checkPolygonDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "PolygonDepositProcessorL1", log);
 
         log = initLog + ", contract: " + "CeloDepositProcessorL1";
-        await checkCeloDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "WormholeDepositProcessorL1", log);
+        await checkCeloDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "OptimismDepositProcessorL1", log);
 
         log = initLog + ", contract: " + "ModeDepositProcessorL1";
         await checkModeDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "OptimismDepositProcessorL1", log);
