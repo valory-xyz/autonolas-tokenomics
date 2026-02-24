@@ -238,4 +238,16 @@ cc02a34e835abcc1c6fb329bd9b407883e41961f:scripts/deployment/staking/celo/globals
 69fbdc16b710181b66331892626e9900ff996116:scripts/deployment/oracles/globals_polygon_mainnet.json:generic-api-key:11
 69fbdc16b710181b66331892626e9900ff996116:scripts/deployment/utils/globals_polygon_mainnet.json:generic-api-key:11
 ec26af4089372da03352ba99fe5b0325aec2c6f4:scripts/deployment/oracles/globals_polygon_mainnet.json:generic-api-key:11
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/oracles/globals_arbitrum_mainnet.json:generic-api-key:11
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/oracles/globals_celo_mainnet.json:generic-api-key:9
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/oracles/globals_eth_mainnet.json:generic-api-key:11
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/utils/globals_arbitrum_mainnet.json:generic-api-key:11
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/utils/globals_celo_mainnet.json:generic-api-key:9
+22d9f1b8b56213e7ad4fcf28279c01c52c421fb6:scripts/deployment/utils/globals_eth_mainnet.json:generic-api-key:11
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/oracles/globals_arbitrum_mainnet.json:generic-api-key:11
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/oracles/globals_celo_mainnet.json:generic-api-key:9
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/oracles/globals_eth_mainnet.json:generic-api-key:11
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_arbitrum_mainnet.json:generic-api-key:11
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_celo_mainnet.json:generic-api-key:9
+ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_eth_mainnet.json:generic-api-key:11
   

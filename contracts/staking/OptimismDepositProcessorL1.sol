@@ -114,8 +114,8 @@ contract OptimismDepositProcessorL1 is DefaultDepositProcessorL1 {
         uint256 gasLimitMessage;
         // Check for the bridge payload length
         if (bridgePayload.length == BRIDGE_PAYLOAD_LENGTH) {
-            // Decode bridge payload
-            gasLimitMessage = abi.decode(bridgePayload, (uint256));
+            // Decode bridge payload cutting it to required uint32 value
+            gasLimitMessage = uint32(abi.decode(bridgePayload, (uint256)));
         }
 
         // Check for the recommended message gas limit

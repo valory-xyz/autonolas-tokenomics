@@ -11,6 +11,13 @@ if [ ! -f $globals ]; then
   exit 0
 fi
 
+# Get utils globals file
+globalsUtils="$(dirname "$0")/../utils/globals_$1.json"
+if [ ! -f $globalsUtils ]; then
+  echo "${red}!!! $globalsUtils is not found${reset}"
+  exit 0
+fi
+
 # Read variables using jq
 contractVerification=$(jq -r '.contractVerification' $globals)
 useLedger=$(jq -r '.useLedger' $globals)
@@ -76,6 +83,7 @@ fi
 
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
