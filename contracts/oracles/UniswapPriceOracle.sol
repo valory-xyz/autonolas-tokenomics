@@ -5,6 +5,7 @@ import {UQ112x112} from "../libraries/UQ112x112.sol";
 
 interface IUniswapV2 {
     function token0() external view returns (address);
+    function token1() external view returns (address);
     function getReserves() external view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast);
     function price0CumulativeLast() external view returns (uint256);
     function price1CumulativeLast() external view returns (uint256);
@@ -16,12 +17,19 @@ error ZeroAddress();
 /// @dev Zero value when it has to be different from zero.
 error ZeroValue();
 
+/// @dev Provided wrong pool.
+/// @param tokens Token addresses.
+error WrongPool(address[] tokens);
+
 /// @dev Value overflow.
 /// @param provided Overflow value.
 /// @param max Maximum possible value.
 error Overflow(uint256 provided, uint256 max);
 
 /// @title UniswapPriceOracle - a smart contract oracle wrapper for Uniswap V2 pools (BPS version)
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @dev This contract acts as an oracle wrapper for a specific Uniswap V2 pool. It allows:
 ///      1) Getting the spot price (reserve ratio) in UQ112x112 format
 ///      2) Validating slippage against a proper two-observation TWAP
@@ -91,18 +99,26 @@ contract UniswapPriceOracle {
         minTwapWindow = _minTwapWindowSeconds;
         minUpdateInterval = _minUpdateIntervalSeconds;
 
+        // Get tokens from pair
+        address[] memory tokens = new address[](2);
+        (tokens[0], tokens[1]) = (IUniswapV2(pair).token0(), IUniswapV2(pair).token1());
+
+        // Check for pair validity
+        if (tokens[0] != _olas && tokens[1] != _olas) {
+            revert WrongPool(tokens);
+        }
+
         // Get token direction
-        address token0 = IUniswapV2(pair).token0();
-        if (token0 == _olas) {
+        if (tokens[0] == _olas) {
             direction = 1;
         }
     }
 
     /// @dev Gets the current spot price (reserve ratio) in UQ112x112 format.
     /// @return Current spot price in UQ112x112 format.
-    function getPrice() public view returns (uint224) {
+    function getPrice() public view returns (uint256) {
         // Get reserves
-        (uint112 r0, uint112 r1, ) = IUniswapV2(pair).getReserves();
+        (uint112 r0, uint112 r1,) = IUniswapV2(pair).getReserves();
 
         // Check for zero values
         if (r0 == 0 || r1 == 0) {
@@ -110,9 +126,7 @@ contract UniswapPriceOracle {
         }
 
         // direction == 0 ? token1 / token0 : token0 / token1
-        return (direction == 0)
-            ? UQ112x112.encode(r1).uqdiv(r0)
-            : UQ112x112.encode(r0).uqdiv(r1);
+        return (direction == 0) ? UQ112x112.encode(r1).uqdiv(r0) : UQ112x112.encode(r0).uqdiv(r1);
     }
 
     /// @dev Records a fresh TWAP observation from the Uniswap V2 pair.
@@ -204,9 +218,7 @@ contract UniswapPriceOracle {
         uint256 timeElapsed = block.timestamp - tsLast;
         if (timeElapsed > 0 && r0 > 0 && r1 > 0) {
             // direction == 0 ? token1 / token0 : token0 / token1
-            uint256 priceUQ = (direction == 0)
-                ? UQ112x112.encode(r1).uqdiv(r0)
-                : UQ112x112.encode(r0).uqdiv(r1);
+            uint256 priceUQ = (direction == 0) ? UQ112x112.encode(r1).uqdiv(r0) : UQ112x112.encode(r0).uqdiv(r1);
 
             // Increase priceCumulative
             priceCumulative += priceUQ * timeElapsed;

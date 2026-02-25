@@ -113,8 +113,10 @@ contract BaseSetup is Test {
     address internal constant BUY_BACK_BURNER = 0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426;
     address internal constant BBB_OWNER = 0x6F7a4938AB3bbF69480E7C109Af778ee78099Be7;
     uint16 internal constant observationCardinality = 60;
-    uint16 internal constant maxSlippage = 5000;
-    uint256 internal constant minUpdateTimePeriod = 900;
+    uint256 internal constant maxSlippageBps = 5000;
+    uint256 internal constant minTwapWindowSeconds = 900;
+    uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 900;
     int24 internal constant TICK_SPACING = 100;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
@@ -130,8 +132,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new BalancerPriceOracle(OLAS, WETH, uint256(maxSlippage / 100), minUpdateTimePeriod, BALANCER_VAULT,
-            POOL_V2_BYTES32);
+        oracleV2 = new BalancerPriceOracle(BALANCER_VAULT, POOL_V2_BYTES32, OLAS, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);
@@ -148,7 +149,7 @@ contract BaseSetup is Test {
             BALANCER_VAULT, address(bridge2Burner));
 
         // Deploy LiquidityManagerProxy
-        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy liquidityManagerProxy =
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 

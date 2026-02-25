@@ -66,6 +66,7 @@ contract BaseSetup is Test {
     uint256 internal constant maxSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 900;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
 
@@ -78,7 +79,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new BalancerPriceOracle(OLAS, WETH, maxSlippageBps, minUpdateIntervalSeconds, BALANCER_VAULT, POOL_V2_BYTES32);
+        oracleV2 = new BalancerPriceOracle(BALANCER_VAULT, POOL_V2_BYTES32, OLAS, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);

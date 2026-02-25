@@ -48,7 +48,7 @@ minUpdateIntervalSeconds=$(jq -r '.minUpdateIntervalSeconds' $globals)
 
 contractName="UniswapPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$pairAddress $olasAddress $maxSlippageBps"
+constructorArgs="$pairAddress $olasAddress $maxSlippageBps $minTwapWindowSeconds $minUpdateIntervalSeconds"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
