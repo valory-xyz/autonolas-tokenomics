@@ -63,8 +63,9 @@ contract BaseSetup is Test {
     address internal constant POOL_V2 = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
     bytes32 internal constant POOL_V2_BYTES32 = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
     address internal constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
-    uint256 internal constant maxSlippage = 50;
-    uint256 internal constant minUpdateTimePeriod = 900;
+    uint256 internal constant maxSlippageBps = 5000;
+    uint256 internal constant minTwapWindowSeconds = 900;
+    uint256 internal constant minUpdateIntervalSeconds = 900;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
 
@@ -77,7 +78,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new BalancerPriceOracle(OLAS, WETH, maxSlippage, minUpdateTimePeriod, BALANCER_VAULT, POOL_V2_BYTES32);
+        oracleV2 = new BalancerPriceOracle(OLAS, WETH, maxSlippageBps, minUpdateIntervalSeconds, BALANCER_VAULT, POOL_V2_BYTES32);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);
@@ -97,9 +98,9 @@ contract BaseSetup is Test {
         accounts[2] = address(oracleV2);
         accounts[3] = BALANCER_VAULT;
 
-        // abi.decode(address[], bytes32, uint256)) of (accounts, balancerPoolId, maxSlippage)
+        // abi.decode(address[], bytes32, uint256)) of (accounts, balancerPoolId, maxSlippageBps)
         bytes memory initPayload =
-            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts, POOL_V2_BYTES32, maxSlippage));
+            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts, POOL_V2_BYTES32, maxSlippageBps));
         // Deploy BuyBackBurnerProxy
         BuyBackBurnerProxy buyBackBurnerProxy =
             new BuyBackBurnerProxy(address(buyBackBurnerBalancerImplementation), initPayload);

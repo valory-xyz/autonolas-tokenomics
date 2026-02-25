@@ -8,7 +8,8 @@
   "olasAddress":"0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
   "nativeTokenAddress":"0x471EcE3750Da237f93B8E339c536989b8978a438",
   "pairAddress":"0x2976Fa805141b467BCBc6334a69AffF4D914d96A",
-  "maxOracleSlippage":"50",
-  "minUpdateTimePeriod":"900",
+  "maxSlippageBps": "5000",
+  "minTwapWindowSeconds": "900",
+  "minUpdateIntervalSeconds":"900",
   "uniswapPriceOracleAddress":"0xa987Fe40034AaD2EbB0E01B22DFc57f20C87F949"
 }

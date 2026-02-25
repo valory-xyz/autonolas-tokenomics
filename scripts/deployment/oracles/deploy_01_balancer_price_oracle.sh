@@ -42,14 +42,14 @@ fi
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 nativeTokenAddress=$(jq -r '.nativeTokenAddress' $globals)
-maxOracleSlippage=$(jq -r '.maxOracleSlippage' $globals)
-minUpdateTimePeriod=$(jq -r '.minUpdateTimePeriod' $globals)
+maxSlippageBps=$(jq -r '.maxSlippageBps' $globals)
+minUpdateIntervalSeconds=$(jq -r '.minUpdateIntervalSeconds' $globals)
 balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
 balancerPoolId=$(jq -r '.balancerPoolId' $globals)
 
 contractName="BalancerPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $nativeTokenAddress $maxOracleSlippage $minUpdateTimePeriod $balancerVaultAddress $balancerPoolId"
+constructorArgs="$olasAddress $nativeTokenAddress $maxSlippageBps $minUpdateIntervalSeconds $balancerVaultAddress $balancerPoolId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

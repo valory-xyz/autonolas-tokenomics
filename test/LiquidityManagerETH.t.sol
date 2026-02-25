@@ -80,7 +80,9 @@ contract BaseSetup is Test {
     address internal constant POSITION_MANAGER_V3 = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     address internal constant BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     uint16 internal constant observationCardinality = 60;
-    uint16 internal constant maxSlippage = 5000;
+    uint256 internal constant maxSlippageBps = 5000;
+    uint256 internal constant minTwapWindowSeconds = 900;
+    uint256 internal constant minUpdateIntervalSeconds = 900;
     int24 internal constant FEE_TIER = 3000;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
@@ -99,7 +101,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new UniswapPriceOracle(WETH, uint256(maxSlippage / 100), PAIR_V2);
+        oracleV2 = new UniswapPriceOracle(PAIR_V2, WETH, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds);
 
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
@@ -109,7 +111,7 @@ contract BaseSetup is Test {
             address(neighborhoodScanner), observationCardinality, address(oracleV2), ROUTER_V2);
 
         // Deploy LiquidityManagerProxy
-        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy liquidityManagerProxy =
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 
