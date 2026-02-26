@@ -31,24 +31,24 @@ The `yarn compile` script adjusts Uniswap pair init code hashes before and after
 yarn test                                                    # All Hardhat tests
 npx hardhat test test/Tokenomics.js                          # Single Hardhat test file
 
-forge test --match-contract Depository -vvv                  # Foundry unit tests (no fork)
-forge test --match-contract Dispenser -vvv
-forge test --match-contract Treasury -vvv
-forge test --match-contract UniswapPriceOracleConstructorTest -vvv       # Oracle unit tests (no fork)
-forge test --match-contract UniswapPriceOracleGetPriceTest -vvv
-forge test --match-contract UniswapPriceOracleUpdatePriceTest -vvv
-forge test --match-contract UniswapPriceOracleValidatePriceTest -vvv
-forge test --match-contract BalancerPriceOracleConstructorTest -vvv
-forge test --match-contract BalancerPriceOracleGetPriceTest -vvv
-forge test --match-contract BalancerPriceOracleUpdatePriceTest -vvv
-forge test --match-contract BalancerPriceOracleValidatePriceTest -vvv
+forge test --mc Depository -vvv                  # Foundry unit tests (no fork)
+forge test --mc Dispenser -vvv
+forge test --mc Treasury -vvv
+forge test --mc UniswapPriceOracleConstructorTest -vvv       # Oracle unit tests (no fork)
+forge test --mc UniswapPriceOracleGetPriceTest -vvv
+forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
+forge test --mc UniswapPriceOracleValidatePriceTest -vvv
+forge test --mc BalancerPriceOracleConstructorTest -vvv
+forge test --mc BalancerPriceOracleGetPriceTest -vvv
+forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
+forge test --mc BalancerPriceOracleValidatePriceTest -vvv
 
-forge test -f $FORK_ETH_NODE_URL --match-contract LiquidityManagerETH -vvv       # Fork tests (ETH mainnet)
-forge test -f $FORK_ETH_NODE_URL --match-contract UniswapPriceOracleETH -vvv
-forge test -f $FORK_ETH_NODE_URL --match-contract BuyBackBurnerUniswapETH -vvv
-forge test -f $FORK_BASE_NODE_URL --match-contract LiquidityManagerBase -vvv      # Fork tests (Base)
-forge test -f $FORK_BASE_NODE_URL --match-contract BalancerPriceOracleBase -vvv
-forge test -f $FORK_BASE_NODE_URL --match-contract BuyBackBurnerBalancerBase -vvv
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv       # Fork tests (ETH mainnet)
+forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
+forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
+forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv      # Fork tests (Base)
+forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
+forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
 ```
 
 ### Coverage
