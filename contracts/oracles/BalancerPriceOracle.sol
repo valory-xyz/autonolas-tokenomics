@@ -101,9 +101,8 @@ contract BalancerPriceOracle {
             revert Overflow(_maxSlippageBps, MAX_BPS);
         }
 
-        // TODO _minUpdateIntervalSeconds?
         // Check for zero value
-        if (_minTwapWindowSeconds == 0) {
+        if (_minTwapWindowSeconds == 0 || _minUpdateIntervalSeconds == 0) {
             revert ZeroValue();
         }
 
@@ -132,12 +131,10 @@ contract BalancerPriceOracle {
             direction = 1;
         }
 
+        // TODO
         // Bootstrap observations with current timestamp
-        getPrice();
         prevObservation = Observation({priceCumulative: 0, timestamp: block.timestamp});
         lastObservation = Observation({priceCumulative: 0, timestamp: block.timestamp});
-
-        emit ObservationUpdated(msg.sender, 0, block.timestamp);
     }
 
     /// @dev Gets the current OLAS token price in 1e18 format.
