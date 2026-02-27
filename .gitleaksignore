@@ -250,4 +250,4 @@ ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/oracles/globals_eth_
 ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_arbitrum_mainnet.json:generic-api-key:11
 ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_celo_mainnet.json:generic-api-key:9
 ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_eth_mainnet.json:generic-api-key:11
-  
+0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb:scripts/deployment/oracles/globals_gnosis_mainnet.json:generic-api-key:1
