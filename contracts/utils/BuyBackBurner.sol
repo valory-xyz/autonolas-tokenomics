@@ -63,6 +63,10 @@ error WrongArrayLength();
 /// @param pool Pool address.
 error UnauthorizedPool(address pool);
 
+/// @dev Unauthorized token address.
+/// @param token Token address.
+error UnauthorizedToken(address token);
+
 // @dev Reentrancy guard.
 error ReentrancyGuard();
 
@@ -75,6 +79,7 @@ abstract contract BuyBackBurner {
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
+    event FundsReceived(address indexed sender, uint256 amount);
 
     // Version number
     string public constant VERSION = "0.2.0";
@@ -189,15 +194,6 @@ abstract contract BuyBackBurner {
 
         // Perform swap to OLAS
         olasAmount = _performSwap(secondToken, secondTokenAmount, poolOracle);
-
-        // Get current pool price
-        uint256 tradePrice = IOracle(poolOracle).getPrice();
-
-        // Validate against slippage thresholds
-        uint256 lowerBound = (previousPrice * (100 - maxSlippage)) / 100;
-        uint256 upperBound = (previousPrice * (100 + maxSlippage)) / 100;
-
-        require(tradePrice >= lowerBound && tradePrice <= upperBound, "After swap slippage limit is breached");
     }
 
     /// @dev Buys OLAS on V3 DEX.
@@ -304,9 +300,14 @@ abstract contract BuyBackBurner {
         
         // Process data
         for (uint256 i = 0; i < numPools; ++i) {
-            // Check for zero addresses
-            if (secondTokens[i] == address(0) || oracles[i] == address(0)) {
+            // Check for zero address
+            if (secondTokens[i] == address(0)) {
                 revert ZeroAddress();
+            }
+
+            // Check for second token to not be OLAS
+            if (secondTokens[i] == olas) {
+                revert UnauthorizedToken(secondTokens[i]);
             }
 
             mapV2Oracles[secondTokens[i]] = oracles[i];
@@ -476,6 +477,11 @@ abstract contract BuyBackBurner {
     /// @dev Transfers specified token to treasury.
     /// @param token Token address.
     function transfer(address token) external {
+        // Check that token is not set for swapping into OLAS
+        if (mapV2Oracles[token] != address(0)) {
+            revert UnauthorizedToken(token);
+        }
+
         // Get token amount
         uint256 tokenAmount = IERC20(token).balanceOf(address(this));
 
@@ -498,5 +504,10 @@ abstract contract BuyBackBurner {
         }
 
         emit TokenTransferred(to, tokenAmount);
+    }
+
+    /// @dev Receives native funds.
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
     }
 }

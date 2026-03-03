@@ -104,23 +104,20 @@ Code: UniswapPriceOracle.sol:163-202 (validatePrice: no blockTimestampLast),
 ##### 10. Incorrect slippage validation causes swaps to go beyond the maxslippage for uniV2 swap in BuyBackBurner due to an edge case
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:_buyOLAS().
-It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[x] Out of scope for this PR
+[x] Fixed
 
 ##### 11. An Adversary can utilize a suicide contract to create Forced ETH Refund in Aerodrome Router Interaction Leading to Reverts
 ```
 This finding relates to contracts/utils/BuyBackBurner*.sol (missing receive() function).
-It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[x] Out of scope for this PR
+[x] Fixed
 
 ##### 12. Buyback DoS by Transferring Second Token to Treasury Due to Missing Access Control
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:transfer().
-It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[x] Out of scope for this PR
+[x] Fixed
 
 ##### 14. Uniswap oracle validatePrice can be griefed per block via sync()
 ```
