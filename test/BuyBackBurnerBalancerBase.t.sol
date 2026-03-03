@@ -29,6 +29,8 @@ contract BaseSetup is Test {
     bytes32 internal constant POOL_ID = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
     address internal constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
 
+    address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+
     // Oracle parameters
     uint256 internal constant maxOracleSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
@@ -61,9 +63,7 @@ contract BaseSetup is Test {
         bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);
 
         // Deploy BuyBackBurnerBalancer implementation
-        // liquidityManager and swapRouter are placeholders (unused for V2 buyBack path)
-        BuyBackBurnerBalancer buyBackBurnerImpl =
-            new BuyBackBurnerBalancer(address(0xdead), address(bridge2Burner), TIMELOCK, address(0xdead));
+        BuyBackBurnerBalancer buyBackBurnerImpl = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
 
         // Construct proxy init payload: (accounts, balancerPoolId, maxSlippage)
         address[] memory accounts = new address[](4);
@@ -77,7 +77,7 @@ contract BaseSetup is Test {
 
         // Deploy proxy and wrap
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(buyBackBurnerImpl), initPayload);
-        buyBackBurner = BuyBackBurnerBalancer(address(proxy));
+        buyBackBurner = BuyBackBurnerBalancer(payable(address(proxy)));
 
         // Set V2 oracle mapping for WETH
         address[] memory secondTokens = new address[](1);
@@ -170,15 +170,41 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         buyBackBurner.setV2Oracles(tokens, oracles);
     }
 
-    /// @dev transfer sends WETH to treasury.
+    /// @dev transfer sends non-whitelisted token to treasury.
     function testTransferToTreasury() public {
-        uint256 timelockBefore = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockBefore = IToken(USDC).balanceOf(TIMELOCK);
+        deal(USDC, address(buyBackBurner), 1000e6);
+
+        buyBackBurner.transfer(USDC);
+
+        assertEq(IToken(USDC).balanceOf(TIMELOCK) - timelockBefore, 1000e6);
+        assertEq(IToken(USDC).balanceOf(address(buyBackBurner)), 0);
+    }
+
+    /// @dev transfer reverts for whitelisted swap token (WETH has oracle mapped).
+    function testTransferWhitelistedTokenReverts() public {
         deal(WETH, address(buyBackBurner), 1 ether);
 
+        vm.expectRevert();
         buyBackBurner.transfer(WETH);
+    }
 
-        assertEq(IToken(WETH).balanceOf(TIMELOCK) - timelockBefore, 1 ether);
-        assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
+    /// @dev Proxy can receive native ETH funds.
+    function testReceiveNativeFunds() public {
+        deal(address(this), 1 ether);
+        (bool success,) = address(buyBackBurner).call{value: 1 ether}("");
+        assertTrue(success);
+    }
+
+    /// @dev setV2Oracles reverts when secondToken is OLAS.
+    function testSetV2OraclesOLASReverts() public {
+        address[] memory tokens = new address[](1);
+        tokens[0] = OLAS;
+        address[] memory oracles = new address[](1);
+        oracles[0] = address(oracleV2);
+
+        vm.expectRevert();
+        buyBackBurner.setV2Oracles(tokens, oracles);
     }
 
     /// @dev transfer sends OLAS to bridge2Burner.
@@ -194,7 +220,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev transfer reverts on zero balance.
     function testTransferZeroBalanceReverts() public {
         vm.expectRevert();
-        buyBackBurner.transfer(WETH);
+        buyBackBurner.transfer(USDC);
     }
 
     /// @dev changeOwner works for current owner.

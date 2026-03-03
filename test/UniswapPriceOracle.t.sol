@@ -32,7 +32,7 @@ contract UniswapOracleBaseSetup is Test {
 
     uint256 internal maxSlippageBps = 500; // 5%
     uint256 internal minTwapWindow = 900; // 15 minutes
-    uint256 internal minUpdateInterval = 300; // 5 minutes
+    uint256 internal minUpdateInterval = 900; // 15 minutes
 
     function setUp() public virtual {
         utils = new Utils();
@@ -114,37 +114,48 @@ contract UniswapPriceOracleConstructorTest is Test {
     /// @dev Reverts when pair address is zero.
     function testConstructorZeroAddress() public {
         vm.expectRevert();
-        new UniswapPriceOracle(address(0), address(olas), 500, 900, 300);
+        new UniswapPriceOracle(address(0), address(olas), 500, 900, 900);
     }
 
     /// @dev Reverts when maxSlippageBps exceeds MAX_BPS.
     function testConstructorOverflowSlippage() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pair, address(olas), 10_001, 900, 300);
+        new UniswapPriceOracle(pair, address(olas), 10_001, 900, 900);
     }
 
     /// @dev Reverts when pair does not contain OLAS.
     function testConstructorWrongPool() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pairNoOlas, address(olas), 500, 900, 300);
+        new UniswapPriceOracle(pairNoOlas, address(olas), 500, 900, 900);
     }
 
     /// @dev Succeeds with valid parameters and maxSlippageBps at boundary (MAX_BPS).
     function testConstructorMaxSlippage() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 10_000, 900, 300);
+        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 10_000, 900, 900);
         assertEq(o.maxSlippageBps(), 10_000);
     }
 
-    /// @dev Succeeds with zero minTwapWindow and minUpdateInterval.
-    function testConstructorZeroWindows() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 0, 0);
-        assertEq(o.minTwapWindow(), 0);
-        assertEq(o.minUpdateInterval(), 0);
+    /// @dev Reverts when minTwapWindow is zero.
+    function testConstructorZeroMinTwapWindow() public {
+        vm.expectRevert();
+        new UniswapPriceOracle(pair, address(olas), 500, 0, 300);
+    }
+
+    /// @dev Reverts when minUpdateInterval is zero.
+    function testConstructorZeroMinUpdateInterval() public {
+        vm.expectRevert();
+        new UniswapPriceOracle(pair, address(olas), 500, 900, 0);
+    }
+
+    /// @dev Reverts when minTwapWindow exceeds minUpdateInterval.
+    function testConstructorMinTwapExceedsUpdateInterval() public {
+        vm.expectRevert();
+        new UniswapPriceOracle(pair, address(olas), 500, 900, 300);
     }
 
     /// @dev Direction is set correctly based on OLAS position in pair.
     function testConstructorDirection() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 300);
+        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 900);
         address token0 = ZuniswapV2Pair(pair).token0();
         if (token0 == address(olas)) {
             assertEq(o.direction(), 1);
@@ -155,11 +166,11 @@ contract UniswapPriceOracleConstructorTest is Test {
 
     /// @dev Immutable values are stored correctly.
     function testConstructorImmutables() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 300);
+        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 900);
         assertEq(o.pair(), pair);
         assertEq(o.maxSlippageBps(), 500);
         assertEq(o.minTwapWindow(), 900);
-        assertEq(o.minUpdateInterval(), 300);
+        assertEq(o.minUpdateInterval(), 900);
     }
 }
 
