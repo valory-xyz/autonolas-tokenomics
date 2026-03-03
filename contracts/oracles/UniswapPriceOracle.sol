@@ -94,6 +94,16 @@ contract UniswapPriceOracle {
             revert Overflow(_maxSlippageBps, MAX_BPS);
         }
 
+        // Check for zero values
+        if (_minTwapWindowSeconds == 0 || _minUpdateIntervalSeconds == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for update interval
+        if (_minTwapWindowSeconds > _minUpdateIntervalSeconds) {
+            revert Overflow(_minTwapWindowSeconds, _minUpdateIntervalSeconds);
+        }
+
         pair = _pair;
         maxSlippageBps = _maxSlippageBps;
         minTwapWindow = _minTwapWindowSeconds;

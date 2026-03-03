@@ -101,40 +101,26 @@ Code: UniswapPriceOracle.sol:163-202 (validatePrice: no blockTimestampLast),
 ```
 [x] Fixed
 
-##### 9. Incorrect value comparison leading to incorrect liquidity optimization
-```
-This finding relates to contracts/pol/NeighborhoodScanner.sol:value0InToken1().
-It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
-```
-[ ] Out of scope for this PR
-
 ##### 10. Incorrect slippage validation causes swaps to go beyond the maxslippage for uniV2 swap in BuyBackBurner due to an edge case
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:_buyOLAS().
 It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[ ] Out of scope for this PR
+[x] Out of scope for this PR
 
 ##### 11. An Adversary can utilize a suicide contract to create Forced ETH Refund in Aerodrome Router Interaction Leading to Reverts
 ```
 This finding relates to contracts/utils/BuyBackBurner*.sol (missing receive() function).
 It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[ ] Out of scope for this PR
+[x] Out of scope for this PR
 
 ##### 12. Buyback DoS by Transferring Second Token to Treasury Due to Missing Access Control
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:transfer().
 It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
 ```
-[ ] Out of scope for this PR
-
-##### 13. Uniform maxSlippage variable causes slippage misalignment across pools
-```
-This finding relates to contracts/utils/BuyBackBurner.sol (uniform maxSlippage across all pools).
-It does not belong to Group: Oracle V2 and was erroneously included in the scope document.
-```
-[ ] Out of scope for this PR
+[x] Out of scope for this PR
 
 ##### 14. Uniswap oracle validatePrice can be griefed per block via sync()
 ```
@@ -182,7 +168,7 @@ This creates a bootstrap bypass condition where the oracle appears valid without
 * Advance time beyond `minTwapWindow`.
 * Ensure `validatePrice()` fails until at least one proper update cycle is completed.
 ```
-[ ] Not fixed
+[x] Fixed
 
 #### Medium. UniswapPriceOracle missing zero-value checks in constructor
 ```
@@ -217,7 +203,7 @@ require(_minUpdateIntervalSeconds > 0, "InvalidUpdateInterval");
 * Deploy oracle with zero values and assert that deployment reverts.
 
 ```
-[ ] Not fixed
+[x] Fixed
 
 #### Medium. UniswapPriceOracle single observation griefing
 ```
@@ -252,4 +238,4 @@ Option B (preferred, more robust):
 * Simulate repeated `updatePrice()` calls at `minUpdateInterval`.
 * Verify that attacker cannot permanently force `validatePrice()` to return `false`.
 ```
-[ ] Not fixed
+[x] Fixed, chose route A
