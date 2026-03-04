@@ -104,18 +104,21 @@ Code: UniswapPriceOracle.sol:163-202 (validatePrice: no blockTimestampLast),
 ##### 10. Incorrect slippage validation causes swaps to go beyond the maxslippage for uniV2 swap in BuyBackBurner due to an edge case
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:_buyOLAS().
+Second slippage check is removed as reported in 2026-01 external audit.
 ```
 [x] Fixed
 
 ##### 11. An Adversary can utilize a suicide contract to create Forced ETH Refund in Aerodrome Router Interaction Leading to Reverts
 ```
 This finding relates to contracts/utils/BuyBackBurner*.sol (missing receive() function).
+receive() is added as reported in 2026-01 external audit.
 ```
 [x] Fixed
 
 ##### 12. Buyback DoS by Transferring Second Token to Treasury Due to Missing Access Control
 ```
 This finding relates to contracts/utils/BuyBackBurner.sol:transfer().
+transfer() for a specific token is disabled if OLAS<->token oracle is provided meaning that it can be swapped for OLAS.
 ```
 [x] Fixed
 
