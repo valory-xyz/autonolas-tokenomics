@@ -45,9 +45,19 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
+# For ETH mainnet: just burner and timelock, for others: bridge2Burner and bridgeMediator
+if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
+  bridge2BurnerAddress=$(jq -r '.burnerAddress' $globals)
+  bridgeMediatorAddress=$(jq -r ".timelockAddress" $globals)
+else
+  bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
+  bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
+fi
+
 contractName="BuyBackBurnerUniswap"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-contractArgs="$contractPath"
+constructorArgs="$bridge2BurnerAddress $bridgeMediatorAddress"
+contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
 if [ "$useLedger" == "true" ]; then
@@ -83,7 +93,7 @@ echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" 
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$buyBackBurnerAddress $contractPath"
+  contractParams="$bridge2BurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
