@@ -7,6 +7,7 @@
   "networkURL": "https://polygon-mainnet.g.alchemy.com/v2/",
   "blockscoutURL": "https://polygon.blockscout.com",
   "gasPriceInGwei": "5",
+  "bridgeMediatorAddress": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
   "olasAddress": "0xFEF5d947472e72Efbb2E388c730B7428406F2F95",
   "nativeTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",

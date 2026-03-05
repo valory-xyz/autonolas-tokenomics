@@ -183,22 +183,14 @@ contract BaseSetup is Test {
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerBalancer(address(liquidityManager), address(bridge2Burner), TIMELOCK, ROUTER_V3);
+        buyBackBurner = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
 
         // Change BBB implementation
         vm.prank(BBB_OWNER);
         IProxy(BUY_BACK_BURNER).changeImplementation(address(buyBackBurner));
 
         // Wrap BBB implementation
-        buyBackBurner = BuyBackBurnerBalancer(BUY_BACK_BURNER);
-
-        // Whitelist V3 pool
-        address[] memory pools = new address[](1);
-        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        vm.prank(BBB_OWNER);
-        buyBackBurner.setV3PoolStatuses(pools, statuses);
+        buyBackBurner = BuyBackBurnerBalancer(payable(BUY_BACK_BURNER));
     }
 }
 
@@ -453,11 +445,24 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Mock fund more OLAS, not to fail for min OLAS transfer
         deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
+        // Set V2 oracle mapping for WETH
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory v2Oracles = new address[](1);
+        v2Oracles[0] = address(oracleV2);
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
+
+        // Warm up oracle
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+
         // Mock WETH balance on BBB
         deal(WETH, BUY_BACK_BURNER, 0.5 ether);
 
-        // Perform Slipstream swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING);
+        // Perform V2 swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

@@ -63,6 +63,10 @@ error WrongArrayLength();
 /// @param pool Pool address.
 error UnauthorizedPool(address pool);
 
+/// @dev Unauthorized token address.
+/// @param token Token address.
+error UnauthorizedToken(address token);
+
 // @dev Reentrancy guard.
 error ReentrancyGuard();
 
@@ -75,6 +79,7 @@ abstract contract BuyBackBurner {
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
+    event FundsReceived(address indexed sender, uint256 amount);
 
     // Version number
     string public constant VERSION = "0.2.0";
@@ -104,38 +109,25 @@ abstract contract BuyBackBurner {
     // Map of account => activity counter
     mapping(address => uint256) public mapAccountActivities;
 
-    // LiquidityManager address
-    address public immutable liquidityManager;
     // Bridge2Burner address
     address public immutable bridge2Burner;
     // Treasury address
     address public immutable treasury;
-    // Concentrated liquidity swap router address
-    address public immutable swapRouter;
 
     // Map of second token address => whitelisted V2 oracle address
     mapping(address => address) public mapV2Oracles;
-    // Map of V3 pool address => whitelisted status
-    mapping(address => bool) public mapV3Pools;
 
     /// @dev BuyBackBurner constructor.
-    /// @param _liquidityManager LiquidityManager address.
     /// @param _bridge2Burner Bridge2Burner address.
     /// @param _treasury Treasury address.
-    /// @param _swapRouter Concentrated liquidity swap router address.
-    constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _swapRouter) {
+    constructor(address _bridge2Burner, address _treasury) {
         // Check for zero address
-        if (
-            _liquidityManager == address(0) || _bridge2Burner == address(0) || _treasury == address(0)
-                || _swapRouter == address(0)
-        ) {
+        if (_bridge2Burner == address(0) || _treasury == address(0)) {
             revert ZeroAddress();
         }
 
-        liquidityManager = _liquidityManager;
         bridge2Burner = _bridge2Burner;
         treasury = _treasury;
-        swapRouter = _swapRouter;
     }
 
     /// @dev BuyBackBurner initializer.
@@ -147,28 +139,10 @@ abstract contract BuyBackBurner {
     /// @param secondTokenAmount Second token amount.
     /// @param poolOracle Pool oracle address.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle) internal virtual returns (uint256 olasAmount);
-
-    /// @dev Performs swap for OLAS on V3 DEX.
-    /// @param secondToken Second token address.
-    /// @param secondTokenAmount Second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle)
         internal
         virtual
         returns (uint256 olasAmount);
-
-    /// @dev Gets V3 pool based on factory, token addresses and fee tier or tick spacing.
-    /// @param factory Factory address.
-    /// @param tokens Token addresses.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @return v3Pool V3 pool address.
-    function getV3Pool(address factory, address[] memory tokens, int24 feeTierOrTickSpacing)
-        public
-        view
-        virtual
-        returns (address);
 
     /// @dev Buys OLAS on V2 DEX.
     /// @param secondToken Second token address.
@@ -189,49 +163,6 @@ abstract contract BuyBackBurner {
 
         // Perform swap to OLAS
         olasAmount = _performSwap(secondToken, secondTokenAmount, poolOracle);
-
-        // Get current pool price
-        uint256 tradePrice = IOracle(poolOracle).getPrice();
-
-        // Validate against slippage thresholds
-        uint256 lowerBound = (previousPrice * (100 - maxSlippage)) / 100;
-        uint256 upperBound = (previousPrice * (100 + maxSlippage)) / 100;
-
-        require(tradePrice >= lowerBound && tradePrice <= upperBound, "After swap slippage limit is breached");
-    }
-
-    /// @dev Buys OLAS on V3 DEX.
-    /// @param secondToken Second token address.
-    /// @param secondTokenAmount Second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @return olasAmount Obtained OLAS amount.
-    function _buyOLAS(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing)
-        internal
-        virtual
-        returns (uint256 olasAmount)
-    {
-        address localOlas = olas;
-
-        address[] memory tokens = new address[](2);
-        (tokens[0], tokens[1]) = (secondToken > localOlas) ? (localOlas, secondToken) : (secondToken, localOlas);
-
-        // Get factory from LiquidityManager
-        // Actual factoryV3 is fetched from LiquidityManager, since LiquidityManager is proxy and factory might change
-        address factoryV3 = ILiquidityManager(liquidityManager).factoryV3();
-
-        // Get V3 pool from liquidity manager
-        address pool = getV3Pool(factoryV3, tokens, feeTierOrTickSpacing);
-
-        // Check for whitelisted pool address
-        if (!mapV3Pools[pool]) {
-            revert UnauthorizedPool(pool);
-        }
-
-        // Apply slippage protection
-        ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
-
-        // Perform swap to OLAS
-        olasAmount = _performSwap(secondToken, secondTokenAmount, feeTierOrTickSpacing);
     }
 
     /// @dev BuyBackBurner initializer.
@@ -296,75 +227,28 @@ abstract contract BuyBackBurner {
         }
 
         uint256 numPools = secondTokens.length;
-        
+
         // Check for array sizes
         if (numPools == 0 || numPools != oracles.length) {
             revert WrongArrayLength();
         }
-        
+
         // Process data
         for (uint256 i = 0; i < numPools; ++i) {
-            // Check for zero addresses
-            if (secondTokens[i] == address(0) || oracles[i] == address(0)) {
+            // Check for zero address
+            if (secondTokens[i] == address(0)) {
                 revert ZeroAddress();
+            }
+
+            // Check for second token to not be OLAS
+            if (secondTokens[i] == olas) {
+                revert UnauthorizedToken(secondTokens[i]);
             }
 
             mapV2Oracles[secondTokens[i]] = oracles[i];
         }
 
         emit OraclesUpdated(secondTokens, oracles);
-    }
-
-    /// @dev Sets V3 pool statuses.
-    /// @param pools Set of V3 pools.
-    /// @param statuses Set of corresponding pool statuses.
-    function setV3PoolStatuses(address[] memory pools, bool[] memory statuses) external virtual {
-        // Check for the ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        uint256 numPools = pools.length;
-
-        // Check for array sizes
-        if (numPools == 0 || numPools != statuses.length) {
-            revert WrongArrayLength();
-        }
-
-        // Process data
-        for (uint256 i = 0; i < numPools; ++i) {
-            // Check for zero addresses
-            if (pools[i] == address(0)) {
-                revert ZeroAddress();
-            }
-
-            mapV3Pools[pools[i]] = statuses[i];
-        }
-
-        emit V3PoolStatusesUpdated(pools, statuses);
-    }
-
-    /// @dev Checks pool prices via Uniswap V3 built-in oracle.
-    /// @notice This is a legacy function for compatibility with one of apps, it accounts for UniswapV3 only.
-    /// @param token0 Token0 address.
-    /// @param token1 Token1 address.
-    /// @param feeTier Fee tier.
-    function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 feeTier)
-        external
-        view
-    {
-        // Get factory address
-        address factory = IUniswapV3(uniV3PositionManager).factory();
-
-        // Verify pool reserves before proceeding
-        address pool = IUniswapV3(factory).getPool(token0, token1, feeTier);
-        // Check for zero address
-        if (pool == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Check pool via LiquidityManager contract
-        ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
     }
 
     /// @dev Buys OLAS on V2 DEX.
@@ -411,49 +295,6 @@ abstract contract BuyBackBurner {
         _locked = 1;
     }
 
-    /// @dev Buys OLAS on V3 DEX.
-    /// @notice if secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
-    /// @param secondToken Second token address.
-    /// @param secondTokenAmount Suggested second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    function buyBack(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing) external virtual {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Get token balance
-        uint256 balance = IERC20(secondToken).balanceOf(address(this));
-
-        // Adjust second token amount, if needed
-        if (secondTokenAmount == 0 || secondTokenAmount > balance) {
-            secondTokenAmount = balance;
-        }
-
-        if (secondTokenAmount == 0) {
-            revert ZeroValue();
-        }
-
-        // Record msg.sender activity
-        mapAccountActivities[msg.sender]++;
-
-        // Buy OLAS
-        uint256 olasAmount = _buyOLAS(secondToken, secondTokenAmount, feeTierOrTickSpacing);
-
-        emit BuyBack(secondToken, secondTokenAmount, olasAmount);
-
-        // Get OLAS contract balance
-        olasAmount = IERC20(olas).balanceOf(address(this));
-
-        // Transfer OLAS to bridge2Burner contract
-        IERC20(olas).transfer(bridge2Burner, olasAmount);
-
-        emit TokenTransferred(bridge2Burner, olasAmount);
-
-        _locked = 1;
-    }
-
     /// @dev Triggers V2 oracle price update.
     /// @param secondToken Second token address.
     function updateOraclePrice(address secondToken) external {
@@ -476,6 +317,11 @@ abstract contract BuyBackBurner {
     /// @dev Transfers specified token to treasury.
     /// @param token Token address.
     function transfer(address token) external {
+        // Check that token is not set for swapping into OLAS
+        if (mapV2Oracles[token] != address(0)) {
+            revert UnauthorizedToken(token);
+        }
+
         // Get token amount
         uint256 tokenAmount = IERC20(token).balanceOf(address(this));
 
@@ -498,5 +344,10 @@ abstract contract BuyBackBurner {
         }
 
         emit TokenTransferred(to, tokenAmount);
+    }
+
+    /// @dev Receives native funds.
+    receive() external payable {
+        emit FundsReceived(msg.sender, msg.value);
     }
 }

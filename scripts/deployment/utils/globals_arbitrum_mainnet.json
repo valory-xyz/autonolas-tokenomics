@@ -7,6 +7,7 @@
   "networkURL": "https://arb1.arbitrum.io/rpc",
   "blockscoutURL": "https://arbitrum.blockscout.com",
   "gasPriceInGwei": "2",
+  "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
   "olasAddress": "0x064F8B858C2A603e1b106a2039f5446D32dc81c1",
   "nativeTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
