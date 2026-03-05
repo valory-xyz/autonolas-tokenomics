@@ -12,7 +12,8 @@
   "usdcAddress": "0xd988097fb8612cc24eeC14542bC03424c656005f",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPoolId": "0xd1dbea51c7f23f61d020e2602d0d157d132faafc00020000000000000000000e",
-  "maxOracleSlippage": "50",
-  "minUpdateTimePeriod": "900",
+  "maxSlippageBps": "5000",
+  "minTwapWindowSeconds": "900",
+  "minUpdateIntervalSeconds": "900",
   "balancerPriceOracleAddress": ""
 }

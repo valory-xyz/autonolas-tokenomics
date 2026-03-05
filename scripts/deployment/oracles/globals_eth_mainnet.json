@@ -10,7 +10,8 @@
   "timelockAddress": "0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE",
   "nativeTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
   "pairAddress": "0x09D1d767eDF8Fa23A64C51fa559E0688E526812F",
-  "maxOracleSlippage": "50",
-  "minUpdateTimePeriod": "900",
+  "maxSlippageBps": "5000",
+  "minTwapWindowSeconds": "900",
+  "minUpdateIntervalSeconds": "900",
   "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a"
 }

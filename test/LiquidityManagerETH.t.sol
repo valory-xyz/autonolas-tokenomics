@@ -80,7 +80,9 @@ contract BaseSetup is Test {
     address internal constant POSITION_MANAGER_V3 = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     address internal constant BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     uint16 internal constant observationCardinality = 60;
-    uint16 internal constant maxSlippage = 5000;
+    uint256 internal constant maxSlippageBps = 5000;
+    uint256 internal constant minTwapWindowSeconds = 900;
+    uint256 internal constant minUpdateIntervalSeconds = 900;
     int24 internal constant FEE_TIER = 3000;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
@@ -99,7 +101,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new UniswapPriceOracle(WETH, uint256(maxSlippage / 100), PAIR_V2);
+        oracleV2 = new UniswapPriceOracle(PAIR_V2, WETH, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds);
 
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
@@ -109,7 +111,7 @@ contract BaseSetup is Test {
             address(neighborhoodScanner), observationCardinality, address(oracleV2), ROUTER_V2);
 
         // Deploy LiquidityManagerProxy
-        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy liquidityManagerProxy =
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 
@@ -146,7 +148,7 @@ contract BaseSetup is Test {
         sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerUniswap(address(liquidityManager), BURNER, TIMELOCK, ROUTER_V3);
+        buyBackBurner = new BuyBackBurnerUniswap(BURNER, TIMELOCK);
 
         // Deploy BBB proxy
         address[] memory accounts = new address[](4);
@@ -154,19 +156,13 @@ contract BaseSetup is Test {
         accounts[1] = WETH;
         accounts[2] = address(oracleV2);
         accounts[3] = ROUTER_V2;
-        bytes memory payload = abi.encode(accounts);
+        uint256 maxBuyBackSlippage = 1000;
+        bytes memory payload = abi.encode(accounts, maxBuyBackSlippage);
         initPayload = abi.encodeWithSignature("initialize(bytes)", payload);
         BuyBackBurnerProxy buyBackBurnerProxy = new BuyBackBurnerProxy(address(buyBackBurner), initPayload);
 
         // Wrap BBB implementation
-        buyBackBurner = BuyBackBurnerUniswap(address(buyBackBurnerProxy));
-
-        // Whitelist V3 pool
-        address[] memory pools = new address[](1);
-        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        buyBackBurner.setV3PoolStatuses(pools, statuses);
+        buyBackBurner = BuyBackBurnerUniswap(payable(address(buyBackBurnerProxy)));
     }
 }
 
@@ -743,11 +739,22 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
 
+        // Set V2 oracle mapping for WETH
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory v2Oracles = new address[](1);
+        v2Oracles[0] = address(oracleV2);
+        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
+
+        // Warm up oracle
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+
         // Mock WETH balance on BBB
         deal(WETH, address(buyBackBurner), 0.5 ether);
 
-        // Perform Slipstream swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER);
+        // Perform V2 swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether);
     }
 
     /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.

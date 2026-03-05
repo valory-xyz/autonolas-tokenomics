@@ -6,6 +6,6 @@ const nativeTokenAddress = parsedData.nativeTokenAddress;
 
 module.exports = [
     nativeTokenAddress,
-    parsedData.maxOracleSlippage,
+    parsedData.maxSlippageBps,
     parsedData.pairAddress
 ];
