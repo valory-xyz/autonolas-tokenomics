@@ -114,6 +114,12 @@ forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
+
+# Fork tests (Polygon)
+forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
+
+# Fork tests (Arbitrum)
+forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv
 ```
 
 ### Audits
