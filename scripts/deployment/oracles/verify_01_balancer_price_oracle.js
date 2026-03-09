@@ -4,10 +4,10 @@ let dataFromJSON = fs.readFileSync(globalsFile, "utf8");
 const parsedData = JSON.parse(dataFromJSON);
 
 module.exports = [
-    parsedData.olasAddress,
-    parsedData.nativeTokenAddress,
-    parsedData.maxSlippageBps,
-    parsedData.minUpdateIntervalSeconds,
     parsedData.balancerVaultAddress,
-    parsedData.balancerPoolId
+    parsedData.balancerPoolId,
+    parsedData.olasAddress,
+    parsedData.minTwapWindowSeconds,
+    parsedData.minUpdateIntervalSeconds,
+    parsedData.maxStalenessSeconds
 ];

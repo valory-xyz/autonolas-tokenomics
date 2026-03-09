@@ -43,15 +43,13 @@ fi
 balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
 balancerPoolId=$(jq -r '.balancerPoolId' $globals)
 olasAddress=$(jq -r '.olasAddress' $globals)
-secondTokenAddress=$(jq -r '.secondTokenAddress' $globals)
-maxSlippageBps=$(jq -r '.maxSlippageBps' $globals)
 minTwapWindowSeconds=$(jq -r '.minTwapWindowSeconds' $globals)
 minUpdateIntervalSeconds=$(jq -r '.minUpdateIntervalSeconds' $globals)
 maxStalenessSeconds=$(jq -r '.maxStalenessSeconds' $globals)
 
 contractName="BalancerPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$balancerVaultAddress $balancerPoolId $olasAddress $maxSlippageBps $minTwapWindowSeconds $minUpdateIntervalSeconds $maxStalenessSeconds"
+constructorArgs="$balancerVaultAddress $balancerPoolId $olasAddress $minTwapWindowSeconds $minUpdateIntervalSeconds $maxStalenessSeconds"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -89,7 +87,7 @@ echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}'
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$balancerPriceOracleAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes32,address,uint256,uint256,uint256,uint256)" $constructorArgs)"
+  contractParams="$balancerPriceOracleAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes32,address,uint256,uint256,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

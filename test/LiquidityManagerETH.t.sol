@@ -100,8 +100,12 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
-        // Deploy V2 oracle
-        oracleV2 = new UniswapPriceOracle(PAIR_V2, WETH, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds);
+        // Deploy V2 oracle (OLAS as reference token for correct OLAS/WETH price direction)
+        oracleV2 = new UniswapPriceOracle(PAIR_V2, OLAS, minTwapWindowSeconds, minUpdateIntervalSeconds);
+
+        // Warm up oracle: record observation, then warp past TWAP window
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
 
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();

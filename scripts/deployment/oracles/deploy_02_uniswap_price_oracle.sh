@@ -42,13 +42,12 @@ fi
 
 pairAddress=$(jq -r '.pairAddress' $globals)
 olasAddress=$(jq -r '.olasAddress' $globals)
-maxSlippageBps=$(jq -r '.maxSlippageBps' $globals)
 minTwapWindowSeconds=$(jq -r '.minTwapWindowSeconds' $globals)
 minUpdateIntervalSeconds=$(jq -r '.minUpdateIntervalSeconds' $globals)
 
 contractName="UniswapPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$pairAddress $olasAddress $maxSlippageBps $minTwapWindowSeconds $minUpdateIntervalSeconds"
+constructorArgs="$pairAddress $olasAddress $minTwapWindowSeconds $minUpdateIntervalSeconds"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -86,7 +85,7 @@ echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$uniswapPriceOracleAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,uint256,uint256,uint256)" $constructorArgs)"
+  contractParams="$uniswapPriceOracleAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,uint256,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

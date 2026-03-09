@@ -32,12 +32,11 @@ contract BaseSetup is Test {
     address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
     // Oracle parameters
-    uint256 internal constant maxOracleSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
     uint256 internal constant maxStalenessSeconds = 900;
 
-    // BuyBackBurner max slippage (used as BPS in oracle validatePrice, and as percentage in post-swap bounds)
+    // BuyBackBurner max slippage (used as percentage in post-swap bounds)
     uint256 internal constant maxBuyBackSlippage = 1000; // 10%
 
     function setUp() public virtual {
@@ -51,11 +50,13 @@ contract BaseSetup is Test {
         // Deploy V2 oracle
         oracleV2 = new BalancerPriceOracle(
             BALANCER_VAULT, POOL_ID, OLAS,
-            maxOracleSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds
+            minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds
         );
 
-        // Warm up oracle: advance past minUpdateInterval, then record observation.
-        // After this, prev = {0, T0} and last = {spot * dt, now}, giving dtWin >= minTwapWindow.
+        // Warm up oracle: two observations needed so both prevObservation and lastObservation are populated.
+        // First observation fills lastObservation (prev stays {0,0}).
+        oracleV2.updatePrice();
+        // Warp past minUpdateInterval, second observation shifts last→prev and records new last.
         vm.warp(block.timestamp + minUpdateIntervalSeconds);
         oracleV2.updatePrice();
 

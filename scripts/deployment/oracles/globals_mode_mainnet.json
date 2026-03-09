@@ -15,5 +15,6 @@
   "maxSlippageBps": "5000",
   "minTwapWindowSeconds": "900",
   "minUpdateIntervalSeconds": "900",
-  "balancerPriceOracleAddress": ""
+  "balancerPriceOracleAddress": "",
+  "maxStalenessSeconds": "900"
 }

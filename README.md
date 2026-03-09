@@ -97,11 +97,11 @@ forge test --mc Treasury -vvv
 forge test --mc UniswapPriceOracleConstructorTest -vvv
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
 forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
-forge test --mc UniswapPriceOracleValidatePriceTest -vvv
+forge test --mc UniswapPriceOracleGetTWAPTest -vvv
 forge test --mc BalancerPriceOracleConstructorTest -vvv
 forge test --mc BalancerPriceOracleGetPriceTest -vvv
 forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
-forge test --mc BalancerPriceOracleValidatePriceTest -vvv
+forge test --mc BalancerPriceOracleGetTWAPTest -vvv
 ```
 Run fork tests with Forge:
 ```

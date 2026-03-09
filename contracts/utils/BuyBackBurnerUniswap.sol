@@ -37,8 +37,9 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
     /// @dev Performs swap for OLAS on DEX.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, address)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, uint256 amountOutMin)
         internal
         virtual
         override
@@ -51,9 +52,9 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
         path[0] = secondToken;
         path[1] = olas;
 
-        // Swap secondToken for OLAS
+        // Swap secondToken for OLAS with slippage protection
         uint256[] memory amounts =
-            IUniswap(router).swapExactTokensForTokens(secondTokenAmount, 0, path, address(this), block.timestamp);
+            IUniswap(router).swapExactTokensForTokens(secondTokenAmount, amountOutMin, path, address(this), block.timestamp);
 
         // Record OLAS amount
         olasAmount = amounts[1];

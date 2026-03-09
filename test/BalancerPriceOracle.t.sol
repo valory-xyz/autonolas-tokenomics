@@ -45,7 +45,6 @@ contract BalancerOracleBaseSetup is Test {
     address internal weth;
     bytes32 internal poolId = keccak256("test-pool");
 
-    uint256 internal maxSlippageBps = 500; // 5%
     uint256 internal minTwapWindow = 900; // 15 minutes
     uint256 internal minUpdateInterval = 900; // 15 minutes
     uint256 internal maxStaleness = 1800; // 30 minutes
@@ -81,7 +80,7 @@ contract BalancerOracleBaseSetup is Test {
         // Deploy oracle (olas is tokens[1], so direction = 0)
         oracle = new BalancerPriceOracle(
             address(vault), poolId, olas,
-            maxSlippageBps, minTwapWindow, minUpdateInterval, maxStaleness
+            minTwapWindow, minUpdateInterval, maxStaleness
         );
     }
 
@@ -116,43 +115,31 @@ contract BalancerPriceOracleConstructorTest is Test {
     /// @dev Reverts when vault address is zero.
     function testConstructorZeroAddress() public {
         vm.expectRevert();
-        new BalancerPriceOracle(address(0), poolId, olas, 500, 900, 900, 1800);
-    }
-
-    /// @dev Reverts when maxSlippageBps exceeds MAX_BPS.
-    function testConstructorOverflowSlippage() public {
-        vm.expectRevert();
-        new BalancerPriceOracle(address(vault), poolId, olas, 10_001, 900, 300, 1800);
-    }
-
-    /// @dev Succeeds at MAX_BPS boundary.
-    function testConstructorMaxSlippage() public {
-        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 10_000, 900, 900, 1800);
-        assertEq(o.maxSlippageBps(), 10_000);
+        new BalancerPriceOracle(address(0), poolId, olas, 900, 900, 1800);
     }
 
     /// @dev Reverts when minTwapWindow is zero.
     function testConstructorZeroMinTwapWindow() public {
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), poolId, olas, 500, 0, 300, 1800);
+        new BalancerPriceOracle(address(vault), poolId, olas, 0, 300, 1800);
     }
 
     /// @dev Reverts when minUpdateInterval is zero.
     function testConstructorZeroMinUpdateInterval() public {
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), poolId, olas, 500, 900, 0, 1800);
+        new BalancerPriceOracle(address(vault), poolId, olas, 900, 0, 1800);
     }
 
     /// @dev Reverts when minTwapWindow > minUpdateInterval.
     function testConstructorMinTwapExceedsUpdateInterval() public {
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), poolId, olas, 500, 1000, 500, 1800);
+        new BalancerPriceOracle(address(vault), poolId, olas, 1000, 500, 1800);
     }
 
     /// @dev Reverts when minTwapWindow > maxStaleness.
     function testConstructorStalenessOverflow() public {
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), poolId, olas, 500, 1000, 1000, 500);
+        new BalancerPriceOracle(address(vault), poolId, olas, 1000, 1000, 500);
     }
 
     /// @dev Reverts when pool doesn't contain OLAS.
@@ -168,7 +155,7 @@ contract BalancerPriceOracleConstructorTest is Test {
         vault.setPool(badPoolId, tokens, balances);
 
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), badPoolId, olas, 500, 900, 900, 1800);
+        new BalancerPriceOracle(address(vault), badPoolId, olas, 900, 900, 1800);
     }
 
     /// @dev Reverts when pool has wrong number of tokens.
@@ -185,12 +172,12 @@ contract BalancerPriceOracleConstructorTest is Test {
         vault.setPool(triPoolId, tokens, balances);
 
         vm.expectRevert();
-        new BalancerPriceOracle(address(vault), triPoolId, olas, 500, 900, 900, 1800);
+        new BalancerPriceOracle(address(vault), triPoolId, olas, 900, 900, 1800);
     }
 
     /// @dev Direction is 0 when OLAS is tokens[1].
     function testConstructorDirection0() public {
-        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 500, 900, 900, 1800);
+        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 900, 900, 1800);
         // weth is tokens[0], olas is tokens[1] => direction = 0
         assertEq(o.direction(), 0);
     }
@@ -207,14 +194,13 @@ contract BalancerPriceOracleConstructorTest is Test {
         balances[1] = 10_000 ether;
         vault.setPool(reversePoolId, tokens, balances);
 
-        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), reversePoolId, olas, 500, 900, 900, 1800);
+        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), reversePoolId, olas, 900, 900, 1800);
         assertEq(o.direction(), 1);
     }
 
     /// @dev Immutable values are stored correctly.
     function testConstructorImmutables() public {
-        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 500, 900, 900, 1800);
-        assertEq(o.maxSlippageBps(), 500);
+        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 900, 900, 1800);
         assertEq(o.minTwapWindow(), 900);
         assertEq(o.minUpdateInterval(), 900);
         assertEq(o.maxStaleness(), 1800);
@@ -224,7 +210,7 @@ contract BalancerPriceOracleConstructorTest is Test {
 
     /// @dev Observations are initialized to zero at construction time.
     function testConstructorBootstrapsObservations() public {
-        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 500, 900, 900, 1800);
+        BalancerPriceOracle o = new BalancerPriceOracle(address(vault), poolId, olas, 900, 900, 1800);
         (uint256 prevCum, uint256 prevTs) = o.prevObservation();
         (uint256 lastCum, uint256 lastTs) = o.lastObservation();
         assertEq(prevCum, 0);
@@ -300,7 +286,7 @@ contract BalancerPriceOracleGetPriceTest is BalancerOracleBaseSetup {
 
         BalancerPriceOracle oracleReverse = new BalancerPriceOracle(
             address(vault), reversePoolId, olas,
-            maxSlippageBps, minTwapWindow, minUpdateInterval, maxStaleness
+            minTwapWindow, minUpdateInterval, maxStaleness
         );
 
         // direction=1: balanceIn = balances[1] = weth = 5000, balanceOut = balances[0] = olas = 10000
@@ -431,225 +417,92 @@ contract BalancerPriceOracleUpdatePriceTest is BalancerOracleBaseSetup {
     }
 }
 
-contract BalancerPriceOracleValidatePriceTest is BalancerOracleBaseSetup {
+contract BalancerPriceOracleGetTWAPTest is BalancerOracleBaseSetup {
     function setUp() public override {
         super.setUp();
     }
 
-    /// @dev Reverts when slippage exceeds maxSlippageBps.
-    function testValidatePriceSlippageOverflow() public {
+    /// @dev Reverts when not initialized (no observations).
+    function testGetTWAPNotInitialized() public {
         vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps + 1);
+        oracle.getTWAP();
     }
 
-    /// @dev Reverts when last observation is too stale.
-    function testValidatePriceStaleness() public {
-        // Do one update to create a real observation
+    /// @dev Reverts when only one observation exists (prev.timestamp == 0).
+    function testGetTWAPNotFullyInitialized() public {
+        oracle.updatePrice();
+
+        vm.expectRevert();
+        oracle.getTWAP();
+    }
+
+    /// @dev Reverts when last observation is stale.
+    function testGetTWAPStale() public {
         vm.warp(block.timestamp + minUpdateInterval);
+        oracle.updatePrice();
+        vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
         // Warp past maxStaleness
         vm.warp(block.timestamp + maxStaleness + 1);
 
         vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps);
+        oracle.getTWAP();
     }
 
-    /// @dev Reverts when only one observation exists (prev.timestamp == 0).
-    function testValidatePriceNotFullyInitialized() public {
-        // After one update, prev.timestamp is still 0 (from constructor default)
-        oracle.updatePrice();
-
-        // validatePrice reverts with ZeroValue because prev.timestamp == 0
-        vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps);
-    }
-
-    /// @dev Validates successfully with constant price.
-    function testValidatePriceConstantPrice() public {
-        // First update
+    /// @dev Returns correct TWAP with constant price.
+    function testGetTWAPConstantPrice() public {
         vm.warp(block.timestamp + minUpdateInterval);
         oracle.updatePrice();
-
-        // Warp to get enough TWAP window from prevObservation (construction time)
-        // Total elapsed from construction: minUpdateInterval + more
-        vm.warp(block.timestamp + minTwapWindow);
-        // Second update to keep observation fresh
-        oracle.updatePrice();
-
-        // Now validate - spot == twap since price never changed
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
-
-    /// @dev Validates with zero slippage when price is constant.
-    function testValidatePriceZeroSlippageConstant() public {
-        vm.warp(block.timestamp + minUpdateInterval);
-        oracle.updatePrice();
-
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
-        bool valid = oracle.validatePrice(0);
-        assertTrue(valid);
+        uint256 twap = oracle.getTWAP();
+        // With equal balances, price = 1e18, TWAP should also be 1e18
+        assertEq(twap, 1e18);
     }
 
-    /// @dev Validates within tolerance after small price change.
-    function testValidatePriceSmallChangeWithinSlippage() public {
-        // First update at price 1e18
-        vm.warp(block.timestamp + minUpdateInterval);
-        oracle.updatePrice();
-
-        // Second update still at price 1e18 to establish TWAP baseline
-        vm.warp(block.timestamp + minTwapWindow);
-        oracle.updatePrice();
-
-        // Small price change: 10000 WETH, 10200 OLAS => price = 1.02e18 (2% change)
-        _setBalances(10_000 ether, 10_200 ether);
-
-        // Validate immediately (within maxStaleness)
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
-
-    /// @dev Fails validation after large price change.
-    function testValidatePriceLargeChangeExceedsSlippage() public {
-        // Build up TWAP at price 1e18
-        vm.warp(block.timestamp + minUpdateInterval);
-        oracle.updatePrice();
-
-        vm.warp(block.timestamp + minTwapWindow);
-        oracle.updatePrice();
-
-        // Large price change: 5000 WETH, 10000 OLAS => price = 2e18 (100% change)
-        _setBalances(5000 ether, 10_000 ether);
-
-        // With 5% max slippage, a 100% change vs recent TWAP should fail
-        // TWAP is weighted avg over window, most of it at price 1e18
-        // So spot=2e18 diverges from twap significantly
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertFalse(valid);
-    }
-
-    /// @dev Passes with high slippage tolerance after price change.
-    function testValidatePriceLargeChangeHighSlippage() public {
-        // Deploy oracle with high max slippage
-        BalancerPriceOracle highSlippageOracle = new BalancerPriceOracle(
-            address(vault), poolId, olas,
-            10_000, // 100% max slippage
-            minTwapWindow, minUpdateInterval, maxStaleness
-        );
-
-        vm.warp(block.timestamp + minUpdateInterval);
-        highSlippageOracle.updatePrice();
-
-        vm.warp(block.timestamp + minTwapWindow);
-        highSlippageOracle.updatePrice();
-
-        // Large price change
-        _setBalances(5000 ether, 10_000 ether);
-
-        bool valid = highSlippageOracle.validatePrice(10_000);
-        assertTrue(valid);
-    }
-
-    /// @dev Rolling window adapts: TWAP tracks price changes over time.
-    function testValidatePriceRollingWindowAdaptation() public {
-        // First update at price 1e18
+    /// @dev TWAP reflects price change over time.
+    function testGetTWAPAfterPriceChange() public {
         vm.warp(block.timestamp + minUpdateInterval);
         oracle.updatePrice();
 
         // Change price to 2e18
         _setBalances(5000 ether, 10_000 ether);
 
-        // Multiple updates at new price to shift TWAP
-        vm.warp(block.timestamp + minUpdateInterval);
-        oracle.updatePrice();
-
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
-        // Now TWAP should have adapted significantly toward 2e18
-        // With 5% slippage, it should now pass
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
+        uint256 twap = oracle.getTWAP();
+        // TWAP should be between 1e18 and 2e18, converging toward 2e18
+        assertGt(twap, 1e18);
+        assertLe(twap, 2e18);
     }
 
-    /// @dev Fuzz: any valid slippage works with constant price.
-    function testFuzzValidatePriceConstant(uint256 slippage) public {
-        slippage = bound(slippage, 0, maxSlippageBps);
-
+    /// @dev TWAP is non-zero for valid state.
+    function testGetTWAPNonZero() public {
         vm.warp(block.timestamp + minUpdateInterval);
         oracle.updatePrice();
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
-        bool valid = oracle.validatePrice(slippage);
-        assertTrue(valid);
+        uint256 twap = oracle.getTWAP();
+        assertGt(twap, 0);
     }
 
-    /// @dev Fuzz: slippage > maxSlippageBps always reverts.
-    function testFuzzValidatePriceSlippageOverflow(uint256 slippage) public {
-        slippage = bound(slippage, maxSlippageBps + 1, type(uint256).max);
-
-        vm.expectRevert();
-        oracle.validatePrice(slippage);
-    }
-
-    /// @dev Validates right at maxStaleness boundary.
-    function testValidatePriceAtStalenessLimit() public {
+    /// @dev TWAP works at exact maxStaleness boundary.
+    function testGetTWAPAtStalenessLimit() public {
         vm.warp(block.timestamp + minUpdateInterval);
         oracle.updatePrice();
-
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
         // Warp to exact maxStaleness boundary
         vm.warp(block.timestamp + maxStaleness);
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
-
-    /// @dev Reverts at one second past maxStaleness.
-    function testValidatePriceJustPastStaleness() public {
-        vm.warp(block.timestamp + minUpdateInterval);
-        oracle.updatePrice();
-
-        vm.warp(block.timestamp + minTwapWindow);
-        oracle.updatePrice();
-
-        vm.warp(block.timestamp + maxStaleness + 1);
-        vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps);
-    }
-
-    /// @dev Tests that prevObservation and lastObservation correctly participate in TWAP.
-    function testValidatePriceTwapCalculation() public {
-        // Observations start at (0, 0)
-        uint256 dt = minUpdateInterval;
-
-        // First update (bypasses rate limit since lastObservation.timestamp == 0)
-        oracle.updatePrice();
-        // prev=(0,0), last=(1e18*block.timestamp, block.timestamp)
-
-        // Warp past minUpdateInterval for second update
-        vm.warp(block.timestamp + dt);
-
-        // Change price to 2e18
-        _setBalances(5000 ether, 10_000 ether);
-
-        // Second update at price 2e18
-        oracle.updatePrice();
-
-        // Third update to ensure fresh observation for validation
-        vm.warp(block.timestamp + dt);
-        oracle.updatePrice();
-
-        // Validate — spot = 2e18, TWAP should converge toward 2e18 over time
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
+        uint256 twap = oracle.getTWAP();
+        assertEq(twap, 1e18);
     }
 }
