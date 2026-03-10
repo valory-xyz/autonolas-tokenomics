@@ -12,7 +12,6 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const nativeTokenAddress = parsedData.nativeTokenAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
