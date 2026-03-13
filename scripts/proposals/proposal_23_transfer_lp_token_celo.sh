@@ -126,16 +126,16 @@ echo "Target:   $celoL1StandardBridgeProxyAddress"
 echo "Value:    0"
 echo "Calldata: $calldata4b"
 
-# Step 5: Migrate old whCeloTargetDispenserL2 via CrossDomainMessenger
+# Step 5: Migrate old CeloTargetDispenserL2 via CrossDomainMessenger
 # The old dispenser on Celo must be paused first, then migrated to bridgeMediator.
 # This requires sending a cross-chain message from L1 through the CDMProxy -> OptimismMessenger.
 echo ""
-echo "${green}Step 5: Migrate old whCeloTargetDispenserL2 via CrossDomainMessenger${reset}"
+echo "${green}Step 5: Migrate old CeloTargetDispenserL2 via CrossDomainMessenger${reset}"
 
 # Celo L1 CrossDomainMessenger proxy address
 celoL1CDMProxyAddress=$(jq -r '.celoL1CrossDomainMessengerProxyAddress' $globalsStaking)
 
-# Old whCelo target dispenser on Celo L2
+# Old Celo target dispenser on Celo L2
 oldDispenserAddress="0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
 
 echo "CDM Proxy:           $celoL1CDMProxyAddress"
@@ -179,4 +179,4 @@ echo ""
 echo "targets = [$treasuryAddress, $lpTokenAddress, $wormholeL1TokenRelayerAddress, $treasuryAddress, $olasAddress, $celoL1StandardBridgeProxyAddress, $celoL1CDMProxyAddress]"
 echo "values  = [0, 0, 0, 0, 0, 0, 0]"
 echo "calldatas = [$calldata1, $calldata2a, $calldata2b, $calldata3, $calldata4a, $calldata4b, $calldata5]"
-echo "description = \"Transfer bridged LP tokens and OLAS from Treasury to Celo bridge mediator, disable LP token, and migrate old whCelo target dispenser\""
+echo "description = \"Transfer bridged LP tokens and OLAS from Treasury to Celo bridge mediator, disable LP token, and migrate old Celo target dispenser\""
