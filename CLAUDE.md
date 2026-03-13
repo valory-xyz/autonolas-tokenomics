@@ -37,11 +37,11 @@ forge test --mc Treasury -vvv
 forge test --mc UniswapPriceOracleConstructorTest -vvv       # Oracle unit tests (no fork)
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
 forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
-forge test --mc UniswapPriceOracleValidatePriceTest -vvv
+forge test --mc UniswapPriceOracleGetTWAPTest -vvv
 forge test --mc BalancerPriceOracleConstructorTest -vvv
 forge test --mc BalancerPriceOracleGetPriceTest -vvv
 forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
-forge test --mc BalancerPriceOracleValidatePriceTest -vvv
+forge test --mc BalancerPriceOracleGetTWAPTest -vvv
 
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv       # Fork tests (ETH mainnet)
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv

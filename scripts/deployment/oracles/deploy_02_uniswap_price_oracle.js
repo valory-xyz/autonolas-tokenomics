@@ -12,7 +12,6 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const nativeTokenAddress = parsedData.nativeTokenAddress;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -46,8 +45,8 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const UniswapPriceOracle = await ethers.getContractFactory("UniswapPriceOracle");
     console.log("You are signing the following transaction: UniswapPriceOracle.connect(EOA).deploy()");
-    const uniswapPriceOracle = await UniswapPriceOracle.connect(EOA).deploy(nativeTokenAddress,
-        parsedData.maxSlippageBps, parsedData.pairAddress, { gasPrice });
+    const uniswapPriceOracle = await UniswapPriceOracle.connect(EOA).deploy(parsedData.pairAddress,
+        parsedData.olasAddress, parsedData.minTwapWindowSeconds, parsedData.minUpdateIntervalSeconds, { gasPrice });
     const result = await uniswapPriceOracle.deployed();
 
     // Transaction details

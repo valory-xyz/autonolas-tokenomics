@@ -30,7 +30,6 @@ contract UniswapOracleBaseSetup is Test {
     uint256 internal amountOLAS = 5_000 ether;
     uint256 internal amountDAI = 5_000 ether;
 
-    uint256 internal maxSlippageBps = 500; // 5%
     uint256 internal minTwapWindow = 900; // 15 minutes
     uint256 internal minUpdateInterval = 900; // 15 minutes
 
@@ -76,7 +75,7 @@ contract UniswapOracleBaseSetup is Test {
         pairNoOlas = factory.pairs(address(dai), address(weth));
 
         // Deploy oracle
-        oracle = new UniswapPriceOracle(pair, address(olas), maxSlippageBps, minTwapWindow, minUpdateInterval);
+        oracle = new UniswapPriceOracle(pair, address(olas), minTwapWindow, minUpdateInterval);
     }
 }
 
@@ -114,48 +113,36 @@ contract UniswapPriceOracleConstructorTest is Test {
     /// @dev Reverts when pair address is zero.
     function testConstructorZeroAddress() public {
         vm.expectRevert();
-        new UniswapPriceOracle(address(0), address(olas), 500, 900, 900);
-    }
-
-    /// @dev Reverts when maxSlippageBps exceeds MAX_BPS.
-    function testConstructorOverflowSlippage() public {
-        vm.expectRevert();
-        new UniswapPriceOracle(pair, address(olas), 10_001, 900, 900);
+        new UniswapPriceOracle(address(0), address(olas), 900, 900);
     }
 
     /// @dev Reverts when pair does not contain OLAS.
     function testConstructorWrongPool() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pairNoOlas, address(olas), 500, 900, 900);
-    }
-
-    /// @dev Succeeds with valid parameters and maxSlippageBps at boundary (MAX_BPS).
-    function testConstructorMaxSlippage() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 10_000, 900, 900);
-        assertEq(o.maxSlippageBps(), 10_000);
+        new UniswapPriceOracle(pairNoOlas, address(olas), 900, 900);
     }
 
     /// @dev Reverts when minTwapWindow is zero.
     function testConstructorZeroMinTwapWindow() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pair, address(olas), 500, 0, 300);
+        new UniswapPriceOracle(pair, address(olas), 0, 300);
     }
 
     /// @dev Reverts when minUpdateInterval is zero.
     function testConstructorZeroMinUpdateInterval() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pair, address(olas), 500, 900, 0);
+        new UniswapPriceOracle(pair, address(olas), 900, 0);
     }
 
     /// @dev Reverts when minTwapWindow exceeds minUpdateInterval.
     function testConstructorMinTwapExceedsUpdateInterval() public {
         vm.expectRevert();
-        new UniswapPriceOracle(pair, address(olas), 500, 900, 300);
+        new UniswapPriceOracle(pair, address(olas), 900, 300);
     }
 
     /// @dev Direction is set correctly based on OLAS position in pair.
     function testConstructorDirection() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 900);
+        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 900, 900);
         address token0 = ZuniswapV2Pair(pair).token0();
         if (token0 == address(olas)) {
             assertEq(o.direction(), 1);
@@ -166,9 +153,8 @@ contract UniswapPriceOracleConstructorTest is Test {
 
     /// @dev Immutable values are stored correctly.
     function testConstructorImmutables() public {
-        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 500, 900, 900);
+        UniswapPriceOracle o = new UniswapPriceOracle(pair, address(olas), 900, 900);
         assertEq(o.pair(), pair);
-        assertEq(o.maxSlippageBps(), 500);
         assertEq(o.minTwapWindow(), 900);
         assertEq(o.minUpdateInterval(), 900);
     }
@@ -281,144 +267,71 @@ contract UniswapPriceOracleUpdatePriceTest is UniswapOracleBaseSetup {
     }
 }
 
-contract UniswapPriceOracleValidatePriceTest is UniswapOracleBaseSetup {
+contract UniswapPriceOracleGetTWAPTest is UniswapOracleBaseSetup {
     function setUp() public override {
         super.setUp();
     }
 
-    /// @dev Returns false when no observation has been recorded.
-    function testValidatePriceNotInitialized() public view {
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertFalse(valid);
-    }
-
-    /// @dev Reverts when requested slippage exceeds maxSlippageBps.
-    function testValidatePriceSlippageOverflow() public {
+    /// @dev Reverts when no observation has been recorded.
+    function testGetTWAPNotInitialized() public {
         vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps + 1);
+        oracle.getTWAP();
     }
 
-    /// @dev Returns false when TWAP window is too small.
-    function testValidatePriceWindowTooSmall() public {
+    /// @dev Reverts when TWAP window is too small.
+    function testGetTWAPWindowTooSmall() public {
         oracle.updatePrice();
 
         // Warp less than minTwapWindow
         vm.warp(block.timestamp + minTwapWindow - 1);
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertFalse(valid);
+        vm.expectRevert();
+        oracle.getTWAP();
     }
 
-    /// @dev Validates successfully when price hasn't changed (constant price).
-    function testValidatePriceConstantPrice() public {
+    /// @dev Returns correct TWAP in 1e18 format with constant price.
+    function testGetTWAPConstantPrice() public {
         oracle.updatePrice();
 
         // Warp past the TWAP window
         vm.warp(block.timestamp + minTwapWindow + 1);
 
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
+        uint256 twap = oracle.getTWAP();
+        // With equal reserves (1:1 price), TWAP should be ~1e18
+        // Q112 in 1e18: (Q112 * 1e18) >> 112 = 1e18
+        assertApproxEqRel(twap, 1e18, 1e15); // within 0.1%
     }
 
-    /// @dev Validates with zero slippage when price hasn't changed.
-    function testValidatePriceZeroSlippageConstant() public {
+    /// @dev TWAP changes after a swap.
+    function testGetTWAPAfterSwap() public {
         oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindow + 1);
-
-        bool valid = oracle.validatePrice(0);
-        assertTrue(valid);
-    }
-
-    /// @dev Validates with small swap (price within slippage tolerance).
-    function testValidatePriceSmallSwapWithinSlippage() public {
-        // Record observation at current price
-        oracle.updatePrice();
-
-        // Warp and do a small swap
-        vm.warp(block.timestamp + minUpdateInterval);
-
-        address[] memory path = new address[](2);
-        path[0] = address(dai);
-        path[1] = address(olas);
-        // Small swap: 50 DAI out of 5000 = 1%
-        router.swapExactTokensForTokens(50 ether, 0, path, address(this));
-
-        // Warp past TWAP window from initial observation
         vm.warp(block.timestamp + minTwapWindow);
 
-        // With a tiny swap and TWAP smoothing, should still be within 5% slippage
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
+        uint256 twapBefore = oracle.getTWAP();
 
-    /// @dev Fails validation after a large swap (price outside slippage tolerance).
-    function testValidatePriceLargeSwapExceedsSlippage() public {
-        // Record observation at current price
-        oracle.updatePrice();
-
-        // Warp past update interval and do a large swap
+        // Do a swap to change the price
         vm.warp(block.timestamp + minUpdateInterval);
-
         address[] memory path = new address[](2);
         path[0] = address(dai);
         path[1] = address(olas);
-        // Large swap: 2000 DAI out of 5000 = 40% — will move the price significantly
-        router.swapExactTokensForTokens(2000 ether, 0, path, address(this));
+        router.swapExactTokensForTokens(500 ether, 0, path, address(this));
 
-        // Update observation after swap to record the new cumulative price
+        // Update observation after swap
         oracle.updatePrice();
 
         // Warp past TWAP window
         vm.warp(block.timestamp + minTwapWindow + 1);
 
-        // Do another large swap in opposite direction to move spot away from TWAP
-        path[0] = address(olas);
-        path[1] = address(dai);
-        olas.approve(address(router), largeApproval);
-        router.swapExactTokensForTokens(1500 ether, 0, path, address(this));
-
-        // Now spot price diverges significantly from the TWAP
-        // With only 5% slippage tolerance, this should fail
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertFalse(valid);
+        uint256 twapAfter = oracle.getTWAP();
+        // After buying OLAS with DAI: OLAS reserve decreases, so OLAS/DAI price should decrease
+        assertLt(twapAfter, twapBefore);
     }
 
-    /// @dev Validates correctly at exact TWAP window boundary.
-    function testValidatePriceExactWindowBoundary() public {
-        oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindow);
-
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
-
-    /// @dev Validates with maximum allowed slippage.
-    function testValidatePriceMaxSlippage() public {
+    /// @dev TWAP is non-zero for valid pool state.
+    function testGetTWAPNonZero() public {
         oracle.updatePrice();
         vm.warp(block.timestamp + minTwapWindow + 1);
 
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-    }
-
-    /// @dev Fuzz test: any slippage in [0, maxSlippageBps] works with constant price.
-    function testFuzzValidatePriceConstant(uint256 slippage) public {
-        slippage = bound(slippage, 0, maxSlippageBps);
-
-        oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindow + 1);
-
-        bool valid = oracle.validatePrice(slippage);
-        assertTrue(valid);
-    }
-
-    /// @dev Fuzz test: slippage > maxSlippageBps always reverts.
-    function testFuzzValidatePriceSlippageOverflow(uint256 slippage) public {
-        slippage = bound(slippage, maxSlippageBps + 1, type(uint256).max);
-
-        oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindow + 1);
-
-        vm.expectRevert();
-        oracle.validatePrice(slippage);
+        uint256 twap = oracle.getTWAP();
+        assertGt(twap, 0);
     }
 }

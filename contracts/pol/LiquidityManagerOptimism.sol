@@ -2,14 +2,12 @@
 pragma solidity ^0.8.30;
 
 import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
+import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
 
 /// @dev Expected token addresses do not match provided ones.
 /// @param provided Provided token addresses.
 /// @param expected Expected token addresses.
 error WrongTokenAddresses(address[] provided, address[] expected);
-
-/// @dev Oracle slippage limit is breached.
-error SlippageLimitBreached();
 
 interface IBalancerV2 {
     enum PoolSpecialization {
@@ -104,8 +102,8 @@ interface ICLFactory {
 }
 
 interface IOracle {
-    /// @dev Validates price according to slippage.
-    function validatePrice(uint256 slippage) external view returns (bool);
+    /// @dev Gets the current TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256);
 }
 
 interface IToken {
@@ -119,6 +117,10 @@ interface IToken {
     /// @param account Account address.
     /// @return Amount of tokens owned.
     function balanceOf(address account) external view returns (uint256);
+
+    /// @dev Gets the total supply.
+    /// @return Total token supply.
+    function totalSupply() external view returns (uint256);
 }
 
 interface ISlipstreamV3 {
@@ -228,15 +230,37 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             revert ZeroValue();
         }
 
-        // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
-        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert SlippageLimitBreached();
+        // Compute TWAP-based manipulation-resistant minAmountsOut
+        uint256[] memory minAmountsOut = new uint256[](2);
+        {
+            // Get BPT totalSupply
+            uint256 totalSupply = IToken(poolToken).totalSupply();
+
+            // k = balance0 * balance1 is manipulation-resistant (invariant for 50/50 weighted pool)
+            uint256 k = amounts[0] * amounts[1];
+
+            // TWAP is OLAS per secondToken in 1e18 format
+            uint256 twap = IOracle(oracleV2).getTWAP();
+
+            // Compute fair balances using constant product invariant and TWAP price
+            // If tokens[0] is OLAS: fair_b0 = sqrt(k * twap / 1e18), fair_b1 = sqrt(k * 1e18 / twap)
+            // If tokens[1] is OLAS: fair_b0 = sqrt(k * 1e18 / twap), fair_b1 = sqrt(k * twap / 1e18)
+            uint256 fairBalance0;
+            uint256 fairBalance1;
+            if (tokens[0] == olas) {
+                fairBalance0 = FixedPointMathLib.sqrt(k * twap / 1e18);
+                fairBalance1 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+            } else {
+                fairBalance0 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+                fairBalance1 = FixedPointMathLib.sqrt(k * twap / 1e18);
+            }
+
+            // Expected withdrawal amounts (proportional to fair balances)
+            // minAmount = liquidity * fairBalance / totalSupply * (MAX_BPS - maxSlippage) / MAX_BPS
+            minAmountsOut[0] = (liquidity * fairBalance0 * (MAX_BPS - maxSlippage)) / (totalSupply * MAX_BPS);
+            minAmountsOut[1] = (liquidity * fairBalance1 * (MAX_BPS - maxSlippage)) / (totalSupply * MAX_BPS);
         }
 
-        // Price is validated with desired slippage, and thus min out amounts can be set to 1
-        uint256[] memory minAmountsOut = new uint256[](2);
-        minAmountsOut[0] = 1;
-        minAmountsOut[1] = 1;
         IBalancerV2.ExitPoolRequest memory request = IBalancerV2.ExitPoolRequest({
             assets: tokens,
             minAmountsOut: minAmountsOut,

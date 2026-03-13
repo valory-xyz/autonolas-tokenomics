@@ -67,14 +67,17 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     /// @dev Performs swap for OLAS on Balancer DEX.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
-    /// @param poolOracle Pool oracle address.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, uint256 amountOutMin)
         internal
         virtual
         override
         returns (uint256 olasAmount)
     {
+        // Get oracle to retrieve vault and pool info
+        address poolOracle = mapV2Oracles[secondToken];
+
         // Get balancer vault address
         address balVault = IOracleBalancer(poolOracle).balancerVault();
 
@@ -90,8 +93,8 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         IBalancer.FundManagement memory fundManagement =
             IBalancer.FundManagement(address(this), false, payable(address(this)), false);
 
-        // Perform swap
-        olasAmount = IBalancer(balVault).swap(singleSwap, fundManagement, 0, block.timestamp);
+        // Perform swap with slippage protection
+        olasAmount = IBalancer(balVault).swap(singleSwap, fundManagement, amountOutMin, block.timestamp);
     }
 
     /// @dev BuyBackBurner initializer.

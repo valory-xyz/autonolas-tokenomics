@@ -45,9 +45,9 @@ async function main() {
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const BalancerPriceOracle = await ethers.getContractFactory("BalancerPriceOracle");
     console.log("You are signing the following transaction: BalancerPriceOracle.connect(EOA).deploy()");
-    const balancerPriceOracle = await BalancerPriceOracle.connect(EOA).deploy(parsedData.olasAddress, parsedData.nativeTokenAddress,
-        parsedData.maxSlippageBps, parsedData.minUpdateIntervalSeconds, parsedData.balancerVaultAddress,
-        parsedData.balancerPoolId, { gasPrice });
+    const balancerPriceOracle = await BalancerPriceOracle.connect(EOA).deploy(parsedData.balancerVaultAddress,
+        parsedData.balancerPoolId, parsedData.olasAddress, parsedData.minTwapWindowSeconds,
+        parsedData.minUpdateIntervalSeconds, parsedData.maxStalenessSeconds, { gasPrice });
     const result = await balancerPriceOracle.deployed();
 
     // Transaction details

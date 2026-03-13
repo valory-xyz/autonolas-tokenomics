@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
+import {FixedPointMathLib} from "../../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 
 /// @dev Expected token addresses do not match provided ones.
@@ -13,9 +14,6 @@ error WrongTokenAddresses(address[] provided, address[] expected);
 /// @param provided Underflow value.
 /// @param min Minimum possible value.
 error Underflow(int256 provided, int256 min);
-
-/// @dev Oracle slippage limit is breached.
-error SlippageLimitBreached();
 
 interface IFactory {
     /// @notice Returns the tick spacing for a given fee amount, if enabled, or 0 if not enabled
@@ -34,8 +32,8 @@ interface IFactory {
 }
 
 interface IOracle {
-    /// @dev Validates price according to slippage.
-    function validatePrice(uint256 slippage) external view returns (bool);
+    /// @dev Gets the current TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256);
 }
 
 interface IToken {
@@ -166,19 +164,46 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             revert WrongTokenAddresses(tokens, tokensInPair);
         }
 
-        // Apply slippage protection via V2 oracle: transform BPS into % as required by the function
-        if (!IOracle(oracleV2).validatePrice(maxSlippage / 100)) {
-            revert SlippageLimitBreached();
+        // Compute TWAP-based manipulation-resistant minAmountsOut
+        uint256 minAmountA;
+        uint256 minAmountB;
+        {
+            // Get reserves and totalSupply from the pair
+            (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(lpToken).getReserves();
+            uint256 totalSupply = IUniswapV2Pair(lpToken).totalSupply();
+
+            // k = reserve0 * reserve1 is manipulation-resistant (invariant across swaps)
+            uint256 k = uint256(reserve0) * uint256(reserve1);
+
+            // TWAP is OLAS per secondToken in 1e18 format
+            uint256 twap = IOracle(oracleV2).getTWAP();
+
+            // Compute fair reserves using constant product invariant and TWAP price
+            // If token0 is OLAS: fair_r0 = sqrt(k * twap / 1e18), fair_r1 = sqrt(k * 1e18 / twap)
+            // If token1 is OLAS: fair_r0 = sqrt(k * 1e18 / twap), fair_r1 = sqrt(k * twap / 1e18)
+            uint256 fairReserve0;
+            uint256 fairReserve1;
+            if (tokens[0] == olas) {
+                fairReserve0 = FixedPointMathLib.sqrt(k * twap / 1e18);
+                fairReserve1 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+            } else {
+                fairReserve0 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+                fairReserve1 = FixedPointMathLib.sqrt(k * twap / 1e18);
+            }
+
+            // Expected withdrawal amounts (proportional to fair reserves)
+            // minAmount = liquidity * fairReserve / totalSupply * (MAX_BPS - maxSlippage) / MAX_BPS
+            minAmountA = (liquidity * fairReserve0 * (MAX_BPS - maxSlippage)) / (totalSupply * MAX_BPS);
+            minAmountB = (liquidity * fairReserve1 * (MAX_BPS - maxSlippage)) / (totalSupply * MAX_BPS);
         }
 
         // Approve V2 liquidity
         IToken(lpToken).approve(routerV2, liquidity);
 
-        // Remove liquidity: note that at this point of time the price is validated with desired slippage,
-        // and thus min out amounts can be set to 1
+        // Remove liquidity with TWAP-derived slippage protection
         amounts = new uint256[](2);
         (amounts[0], amounts[1]) = IUniswapV2Router02(routerV2)
-            .removeLiquidity(tokens[0], tokens[1], liquidity, 1, 1, address(this), block.timestamp);
+            .removeLiquidity(tokens[0], tokens[1], liquidity, minAmountA, minAmountB, address(this), block.timestamp);
     }
 
     /// @inheritdoc LiquidityManagerCore

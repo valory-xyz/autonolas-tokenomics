@@ -32,26 +32,20 @@ error Overflow(uint256 provided, uint256 max);
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @dev This contract acts as an oracle wrapper for a specific Uniswap V2 pool. It allows:
 ///      1) Getting the spot price (reserve ratio) in UQ112x112 format
-///      2) Validating slippage against a proper two-observation TWAP
+///      2) Getting the TWAP price in 1e18 format
 ///
 ///      Fixes vs the original version:
 ///      - TWAP is computed from two independent observations (delta_cumulative / delta_t).
 ///      - No reliance on block.timestamp == blockTimestampLast (avoids per-block sync griefing).
 ///      - No mixing of incompatible encodings: cumulative prices are UQ112x112 * seconds; TWAP is UQ112x112.
 ///      - updatePrice() is rate-limited to prevent griefing resets of the observation.
-///      - Slippage is specified in basis points (BPS), 10_000 = 100%.
 contract UniswapPriceOracle {
     using UQ112x112 for uint224;
 
     event ObservationUpdated(address indexed sender, uint256 priceCumulative, uint256 timestamp);
 
-    // Max BPS value
-    uint256 public constant MAX_BPS = 10_000;
-
     // LP token address
     address public immutable pair;
-    // Max allowable slippage in BPS (0..MAX_BPS)
-    uint256 public immutable maxSlippageBps;
     // LP token direction:
     //   direction==0 => price0 (token1/token0), use price0CumulativeLast
     //   direction==1 => price1 (token0/token1), use price1CumulativeLast
@@ -74,24 +68,17 @@ contract UniswapPriceOracle {
     /// @dev UniswapPriceOracle constructor.
     /// @param _pair LP token with OLAS.
     /// @param _olas OLAS address.
-    /// @param _maxSlippageBps Max slippage BPS.
     /// @param _minTwapWindowSeconds Min TWAP window in seconds.
     /// @param _minUpdateIntervalSeconds Min price update interval in seconds.
     constructor(
         address _pair,
         address _olas,
-        uint256 _maxSlippageBps,
         uint256 _minTwapWindowSeconds,
         uint256 _minUpdateIntervalSeconds
     ) {
         // Check for zero address
         if (_pair == address(0)) {
             revert ZeroAddress();
-        }
-
-        // Check for overflow
-        if (_maxSlippageBps > MAX_BPS) {
-            revert Overflow(_maxSlippageBps, MAX_BPS);
         }
 
         // Check for zero values
@@ -105,7 +92,6 @@ contract UniswapPriceOracle {
         }
 
         pair = _pair;
-        maxSlippageBps = _maxSlippageBps;
         minTwapWindow = _minTwapWindowSeconds;
         minUpdateInterval = _minUpdateIntervalSeconds;
 
@@ -166,21 +152,14 @@ contract UniswapPriceOracle {
         return true;
     }
 
-    /// @dev Validates the current spot price against a TWAP according to slippage tolerance.
-    ///      Returns false (not revert) for "insufficient data" cases to reduce DoS risk.
-    /// @param slippageBps the acceptable slippage tolerance in basis points.
-    /// @return True if price is validated.
-    function validatePrice(uint256 slippageBps) external view returns (bool) {
-        // Check for requested slippage value
-        if (slippageBps > maxSlippageBps) {
-            revert Overflow(slippageBps, maxSlippageBps);
-        }
-
+    /// @dev Gets the current TWAP price in 1e18 format.
+    ///      Reverts if the oracle is not initialized or the TWAP window is insufficient.
+    /// @return TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256) {
         // Get last observation
         Observation memory obs = lastObservation;
         if (obs.timestamp == 0) {
-            // Not initialized: caller should call updatePrice() first
-            return false;
+            revert ZeroValue();
         }
 
         // Get current cumulative price
@@ -190,25 +169,18 @@ contract UniswapPriceOracle {
 
         // TWAP history check
         if (elapsed < minTwapWindow || elapsed == 0) {
-            // Window too small: not enough history for TWAP
-            return false;
+            revert ZeroValue();
         }
 
         // TWAP in UQ112x112
         uint224 twapUQ = uint224((priceCumulativeNow - obs.priceCumulative) / elapsed);
         // Check for zero value
         if (twapUQ == 0) {
-            return false;
+            revert ZeroValue();
         }
 
-        // Get spot price
-        uint256 spot = getPrice();
-        // Calculate price difference
-        uint256 diff = (spot > twapUQ) ? (spot - twapUQ) : (twapUQ - spot);
-
-        // Compare as BPS: diff / twap <= slippageBps / MAX_BPS
-        // => diff * MAX_BPS <= twap * slippageBps
-        return diff * MAX_BPS <= twapUQ * slippageBps;
+        // Convert from UQ112x112 to 1e18 format
+        return (uint256(twapUQ) * 1e18) >> 112;
     }
 
     /// @dev Computes the current cumulative price (counterfactual) at block.timestamp.
