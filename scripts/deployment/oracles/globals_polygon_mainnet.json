@@ -11,7 +11,8 @@
   "nativeTokenAddress": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPoolId": "0x62309056c759c36879cde93693e7903bf415e4bc000200000000000000000d5f",
-  "maxOracleSlippage": "50",
-  "minUpdateTimePeriod": "900",
+  "maxSlippageBps": "5000",
+  "minTwapWindowSeconds": "900",
+  "minUpdateIntervalSeconds": "900",
   "balancerPriceOracleAddress": "0x1853D16c2ccC6d26fe50b24F35Ee460C33E66d07"
 }

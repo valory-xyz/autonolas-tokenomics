@@ -7,6 +7,8 @@
   "networkURL": "https://mainnet.mode.network",
   "blockscoutURL": "https://explorer.mode.network",
   "gasPriceInGwei": "1",
+  "l2StandardBridgeProxyAddress": "0x4200000000000000000000000000000000000010",
+  "bridgeMediatorAddress": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
   "olasAddress": "0xcfD1D50ce23C46D3Cf6407487B2F8934e96DC8f9",
   "nativeTokenAddress": "0x4200000000000000000000000000000000000006",
   "usdcAddress": "0xd988097fb8612cc24eeC14542bC03424c656005f",

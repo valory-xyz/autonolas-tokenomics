@@ -4,32 +4,31 @@ pragma solidity ^0.8.30;
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
-import {Bridge2BurnerOptimism} from "../contracts/utils/Bridge2BurnerOptimism.sol";
+import {Bridge2BurnerPolygon} from "../contracts/utils/Bridge2BurnerPolygon.sol";
 import {BuyBackBurnerBalancer} from "../contracts/utils/BuyBackBurnerBalancer.sol";
 import {BuyBackBurnerProxy} from "../contracts/utils/BuyBackBurnerProxy.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
 
-/// @dev Fork tests for BuyBackBurnerBalancer on Base.
-///      Run: forge test -f $FORK_BASE_NODE_URL --match-contract BuyBackBurnerBalancerBase -vvv
+/// @dev Fork tests for BuyBackBurnerBalancer on Polygon.
+///      Run: forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
 contract BaseSetup is Test {
     Utils internal utils;
     BalancerPriceOracle internal oracleV2;
-    Bridge2BurnerOptimism internal bridge2Burner;
+    Bridge2BurnerPolygon internal bridge2Burner;
     BuyBackBurnerBalancer internal buyBackBurner;
 
     address payable[] internal users;
     address internal deployer;
     address internal dev;
 
-    // Base mainnet addresses
-    address internal constant OLAS = 0x54330d28ca3357F294334BDC454a032e7f353416;
-    address internal constant WETH = 0x4200000000000000000000000000000000000006;
-    address internal constant TIMELOCK = 0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA;
-    address internal constant L2_TOKEN_RELAYER = 0x4200000000000000000000000000000000000010;
-    bytes32 internal constant POOL_ID = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
+    // Polygon mainnet addresses
+    address internal constant OLAS = 0xFEF5d947472e72Efbb2E388c730B7428406F2F95;
+    address internal constant WMATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+    address internal constant TIMELOCK = 0x9338b5153AE39BB89f50468E608eD9d764B755fD;
+    bytes32 internal constant POOL_ID = 0x62309056c759c36879cde93693e7903bf415e4bc000200000000000000000d5f;
     address internal constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
 
-    address internal constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address internal constant USDC = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
 
     // Oracle parameters
     uint256 internal constant maxOracleSlippageBps = 5000;
@@ -54,13 +53,15 @@ contract BaseSetup is Test {
             maxOracleSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds
         );
 
-        // Warm up oracle: advance past minUpdateInterval, then record observation.
-        // After this, prev = {0, T0} and last = {spot * dt, now}, giving dtWin >= minTwapWindow.
+        // Warm up oracle: two observations needed so both prevObservation and lastObservation are populated.
+        // First observation fills lastObservation (prev stays {0,0}).
+        oracleV2.updatePrice();
+        // Warp past minUpdateInterval, second observation shifts last→prev and records new last.
         vm.warp(block.timestamp + minUpdateIntervalSeconds);
         oracleV2.updatePrice();
 
-        // Deploy Bridge2Burner
-        bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);
+        // Deploy Bridge2Burner (l2TokenRelayer is OLAS itself for Polygon PoS withdrawTo)
+        bridge2Burner = new Bridge2BurnerPolygon(OLAS, OLAS);
 
         // Deploy BuyBackBurnerBalancer implementation
         BuyBackBurnerBalancer buyBackBurnerImpl = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
@@ -68,7 +69,7 @@ contract BaseSetup is Test {
         // Construct proxy init payload: (accounts, balancerPoolId, maxSlippage)
         address[] memory accounts = new address[](4);
         accounts[0] = OLAS;
-        accounts[1] = WETH;
+        accounts[1] = WMATIC;
         accounts[2] = address(oracleV2);
         accounts[3] = BALANCER_VAULT;
 
@@ -79,16 +80,16 @@ contract BaseSetup is Test {
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(buyBackBurnerImpl), initPayload);
         buyBackBurner = BuyBackBurnerBalancer(payable(address(proxy)));
 
-        // Set V2 oracle mapping for WETH
+        // Set V2 oracle mapping for WMATIC
         address[] memory secondTokens = new address[](1);
-        secondTokens[0] = WETH;
+        secondTokens[0] = WMATIC;
         address[] memory oracles = new address[](1);
         oracles[0] = address(oracleV2);
         buyBackBurner.setV2Oracles(secondTokens, oracles);
     }
 }
 
-contract BuyBackBurnerBalancerBase is BaseSetup {
+contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
@@ -96,18 +97,18 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev Proxy is correctly initialized.
     function testDeployment() public view {
         assertEq(buyBackBurner.olas(), OLAS);
-        assertEq(buyBackBurner.nativeToken(), WETH);
+        assertEq(buyBackBurner.nativeToken(), WMATIC);
         assertEq(buyBackBurner.maxSlippage(), maxBuyBackSlippage);
         assertEq(buyBackBurner.bridge2Burner(), address(bridge2Burner));
         assertEq(buyBackBurner.treasury(), TIMELOCK);
-        assertEq(buyBackBurner.mapV2Oracles(WETH), address(oracleV2));
+        assertEq(buyBackBurner.mapV2Oracles(WMATIC), address(oracleV2));
     }
 
-    /// @dev V2 buyBack swaps WETH for OLAS and sends to bridge2Burner.
+    /// @dev V2 buyBack swaps WMATIC for OLAS and sends to bridge2Burner.
     function testBuyBack() public {
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -117,34 +118,34 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WMATIC, 1 ether);
     }
 
     /// @dev buyBack adjusts amount to full balance when requested amount exceeds it.
     function testBuyBackAdjustsToBalance() public {
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WMATIC, 1000 ether);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
-        assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
+        assertEq(IToken(WMATIC).balanceOf(address(buyBackBurner)), 0);
     }
 
     /// @dev buyBack with zero amount uses full balance.
     function testBuyBackZeroAmountUsesBalance() public {
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WETH, 0);
+        buyBackBurner.buyBack(WMATIC, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
-        assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
+        assertEq(IToken(WMATIC).balanceOf(address(buyBackBurner)), 0);
     }
 
     /// @dev updateOraclePrice works through BuyBackBurner.
     function testUpdateOraclePrice() public {
         vm.warp(block.timestamp + minUpdateIntervalSeconds);
 
-        buyBackBurner.updateOraclePrice(WETH);
+        buyBackBurner.updateOraclePrice(WMATIC);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
@@ -152,16 +153,16 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev updateOraclePrice reverts when rate-limited.
     function testUpdateOraclePriceRateLimited() public {
         vm.warp(block.timestamp + minUpdateIntervalSeconds);
-        buyBackBurner.updateOraclePrice(WETH);
+        buyBackBurner.updateOraclePrice(WMATIC);
 
         vm.expectRevert();
-        buyBackBurner.updateOraclePrice(WETH);
+        buyBackBurner.updateOraclePrice(WMATIC);
     }
 
     /// @dev setV2Oracles reverts for non-owner.
     function testSetV2OraclesNotOwner() public {
         address[] memory tokens = new address[](1);
-        tokens[0] = WETH;
+        tokens[0] = WMATIC;
         address[] memory oracles = new address[](1);
         oracles[0] = address(oracleV2);
 
@@ -181,15 +182,15 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         assertEq(IToken(USDC).balanceOf(address(buyBackBurner)), 0);
     }
 
-    /// @dev transfer reverts for whitelisted swap token (WETH has oracle mapped).
+    /// @dev transfer reverts for whitelisted swap token (WMATIC has oracle mapped).
     function testTransferWhitelistedTokenReverts() public {
-        deal(WETH, address(buyBackBurner), 1 ether);
+        deal(WMATIC, address(buyBackBurner), 1 ether);
 
         vm.expectRevert();
-        buyBackBurner.transfer(WETH);
+        buyBackBurner.transfer(WMATIC);
     }
 
-    /// @dev Proxy can receive native ETH funds.
+    /// @dev Proxy can receive native funds.
     function testReceiveNativeFunds() public {
         deal(address(this), 1 ether);
         (bool success,) = address(buyBackBurner).call{value: 1 ether}("");
@@ -236,11 +237,11 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         buyBackBurner.changeOwner(dev);
     }
 
-    /// @dev Full flow: buyBack WETH then relay OLAS to L1.
+    /// @dev Full flow: buyBack WMATIC then relay OLAS to L1 via Polygon PoS bridge.
     function testBuyBackAndRelay() public {
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -252,9 +253,9 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
 
     /// @dev buyBack increments activity counter.
     function testBuyBackActivityCounter() public {
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
@@ -263,9 +264,9 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackStaleOracle() public {
         vm.warp(block.timestamp + maxStalenessSeconds + 1);
 
-        deal(WETH, address(buyBackBurner), 0.1 ether);
+        deal(WMATIC, address(buyBackBurner), 100 ether);
 
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether);
     }
 }

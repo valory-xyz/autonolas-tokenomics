@@ -89,15 +89,37 @@ forge build
 ```
 Run tests with Forge (skip fork testing):
 ```
-forge test --match-contract Depository -vvv
-forge test --match-contract Dispenser -vvv
-forge test --match-contract Treasury -vvv
+forge test --mc Depository -vvv
+forge test --mc Dispenser -vvv
+forge test --mc Treasury -vvv
+
+# Oracle unit tests
+forge test --mc UniswapPriceOracleConstructorTest -vvv
+forge test --mc UniswapPriceOracleGetPriceTest -vvv
+forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
+forge test --mc UniswapPriceOracleValidatePriceTest -vvv
+forge test --mc BalancerPriceOracleConstructorTest -vvv
+forge test --mc BalancerPriceOracleGetPriceTest -vvv
+forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
+forge test --mc BalancerPriceOracleValidatePriceTest -vvv
 ```
 Run fork tests with Forge:
 ```
-forge test -f $FORK_NODE_URL --match-contract LiquidityManagerETH -vvv
-forge test -f $FORK_NODE_URL --match-contract LiquidityManagerBase -vvv
-forge test -f $FORK_NODE_URL --match-contract BuyBackBurner -vvv
+# Fork tests (ETH mainnet)
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv
+forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
+forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
+
+# Fork tests (Base)
+forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv
+forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
+forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
+
+# Fork tests (Polygon)
+forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
+
+# Fork tests (Arbitrum)
+forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv
 ```
 
 ### Audits

@@ -113,8 +113,10 @@ contract BaseSetup is Test {
     address internal constant BUY_BACK_BURNER = 0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426;
     address internal constant BBB_OWNER = 0x6F7a4938AB3bbF69480E7C109Af778ee78099Be7;
     uint16 internal constant observationCardinality = 60;
-    uint16 internal constant maxSlippage = 5000;
-    uint256 internal constant minUpdateTimePeriod = 900;
+    uint256 internal constant maxSlippageBps = 5000;
+    uint256 internal constant minTwapWindowSeconds = 900;
+    uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 900;
     int24 internal constant TICK_SPACING = 100;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
@@ -130,8 +132,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new BalancerPriceOracle(OLAS, WETH, uint256(maxSlippage / 100), minUpdateTimePeriod, BALANCER_VAULT,
-            POOL_V2_BYTES32);
+        oracleV2 = new BalancerPriceOracle(BALANCER_VAULT, POOL_V2_BYTES32, OLAS, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
         // Advance some time such that oracle has a time difference between last updated price
         vm.warp(block.timestamp + 100);
@@ -148,7 +149,7 @@ contract BaseSetup is Test {
             BALANCER_VAULT, address(bridge2Burner));
 
         // Deploy LiquidityManagerProxy
-        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippage);
+        bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy liquidityManagerProxy =
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 
@@ -182,22 +183,14 @@ contract BaseSetup is Test {
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerBalancer(address(liquidityManager), address(bridge2Burner), TIMELOCK, ROUTER_V3);
+        buyBackBurner = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
 
         // Change BBB implementation
         vm.prank(BBB_OWNER);
         IProxy(BUY_BACK_BURNER).changeImplementation(address(buyBackBurner));
 
         // Wrap BBB implementation
-        buyBackBurner = BuyBackBurnerBalancer(BUY_BACK_BURNER);
-
-        // Whitelist V3 pool
-        address[] memory pools = new address[](1);
-        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        vm.prank(BBB_OWNER);
-        buyBackBurner.setV3PoolStatuses(pools, statuses);
+        buyBackBurner = BuyBackBurnerBalancer(payable(BUY_BACK_BURNER));
     }
 }
 
@@ -452,11 +445,24 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Mock fund more OLAS, not to fail for min OLAS transfer
         deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
+        // Set V2 oracle mapping for WETH
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory v2Oracles = new address[](1);
+        v2Oracles[0] = address(oracleV2);
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
+
+        // Warm up oracle
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+
         // Mock WETH balance on BBB
         deal(WETH, BUY_BACK_BURNER, 0.5 ether);
 
-        // Perform Slipstream swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING);
+        // Perform V2 swap in BBB
+        buyBackBurner.buyBack(WETH, 0.5 ether);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

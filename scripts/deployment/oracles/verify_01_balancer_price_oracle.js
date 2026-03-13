@@ -6,8 +6,8 @@ const parsedData = JSON.parse(dataFromJSON);
 module.exports = [
     parsedData.olasAddress,
     parsedData.nativeTokenAddress,
-    parsedData.maxOracleSlippage,
-    parsedData.minUpdateTimePeriod,
+    parsedData.maxSlippageBps,
+    parsedData.minUpdateIntervalSeconds,
     parsedData.balancerVaultAddress,
     parsedData.balancerPoolId
 ];

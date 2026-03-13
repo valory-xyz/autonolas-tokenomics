@@ -5,6 +5,8 @@
   "providerName":"celo",
   "networkURL":"https://forno.celo.org",
   "chainId":"42220",
+  "l2StandardBridgeProxyAddress": "0x4200000000000000000000000000000000000010",
+  "bridgeMediatorAddress": "0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d",
   "olasAddress":"0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
   "nativeTokenAddress":"0x471EcE3750Da237f93B8E339c536989b8978a438",
   "uniV3positionManagerAddress":"0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A",

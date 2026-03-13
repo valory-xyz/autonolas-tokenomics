@@ -33,18 +33,13 @@ elif [ $chainId == 80002 ]; then
     fi
 fi
 
-# For ETH mainnet: just burner and timelock, for others: bridge2Burner and bridgeMediator
-if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
-  bridge2BurnerAddress=$(jq -r '.burnerAddress' $globals)
-  bridgeMediatorAddress=$(jq -r ".timelockAddress" $globals)
-else
-  bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
-  bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
-fi
+olasAddress=$(jq -r '.olasAddress' $globals)
+l2GatewayRouterAddress=$(jq -r '.l2GatewayRouterAddress' $globals)
+l1OlasAddress=$(jq -r '.l1OlasAddress' $globals)
 
-contractName="BuyBackBurnerBalancer"
+contractName="Bridge2BurnerArbitrum"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$bridge2BurnerAddress $bridgeMediatorAddress"
+constructorArgs="$olasAddress $l2GatewayRouterAddress $l1OlasAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -65,10 +60,10 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-buyBackBurnerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+bridge2BurnerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#buyBackBurnerAddress}
+outputLength=${#bridge2BurnerAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -77,11 +72,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$bridge2BurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
+  contractParams="$bridge2BurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -94,4 +89,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}$contractName deployed at: $buyBackBurnerAddress${reset}"
+echo "${green}$contractName deployed at: $bridge2BurnerAddress${reset}"
