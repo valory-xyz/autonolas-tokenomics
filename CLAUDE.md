@@ -49,6 +49,8 @@ forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv      # Fork tests (Base)
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
+forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv   # Fork tests (Polygon)
+forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv  # Fork tests (Arbitrum)
 ```
 
 ### Coverage
@@ -93,7 +95,7 @@ L1→L2 incentive distribution uses a paired processor/dispenser pattern per cha
 ### Utilities (`contracts/utils/`)
 
 - `BuyBackBurner*` — Buy-back-and-burn mechanisms (Uniswap and Balancer variants) with proxy support
-- `Bridge2Burner*` — Bridge tokens then burn (Gnosis, Optimism variants)
+- `Bridge2Burner*` — Bridge tokens then burn (Gnosis, Optimism, Polygon, Arbitrum variants)
 
 ### Price Oracles (`contracts/oracles/`)
 
