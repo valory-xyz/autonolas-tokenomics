@@ -1,15 +1,13 @@
 {
-  "contractVerification":true,
-  "useLedger":true,
-  "derivationPath":"m/44'/60'/2'/0/0",
-  "providerName":"celo",
-  "networkURL":"https://forno.celo.org",
-  "chainId":"42220",
-  "olasAddress":"0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
-  "nativeTokenAddress":"0x471EcE3750Da237f93B8E339c536989b8978a438",
-  "pairAddress":"0x2976Fa805141b467BCBc6334a69AffF4D914d96A",
-  "maxSlippageBps": "5000",
+  "contractVerification": true,
+  "useLedger": true,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "celo",
+  "chainId": "42220",
+  "networkURL": "https://forno.celo.org",
+  "olasAddress": "0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
+  "pairAddress": "0x2976Fa805141b467BCBc6334a69AffF4D914d96A",
   "minTwapWindowSeconds": "900",
-  "minUpdateIntervalSeconds":"900",
-  "uniswapPriceOracleAddress":"0xa987Fe40034AaD2EbB0E01B22DFc57f20C87F949"
+  "minUpdateIntervalSeconds": "900",
+  "uniswapPriceOracleAddress": "0xa987Fe40034AaD2EbB0E01B22DFc57f20C87F949"
 }

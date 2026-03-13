@@ -253,3 +253,9 @@ ee870daf3ef9db53facb633a55f1a0620a0a431b:scripts/deployment/utils/globals_eth_ma
 0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb:scripts/deployment/oracles/globals_gnosis_mainnet.json:generic-api-key:1
 344acef24c1ef504dab0e326f6601930d3d36820:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:1
 d2515a6fe4232cfda70d6d4ae6fbb570305f0076:scripts/deployment/oracles/globals_gnosis_mainnet.json:generic-api-key:9
+7856262d98f14acd8bb32e346a2952e2d99d23c7:contracts/utils/LPSwapCelo.sol:generic-api-key:131
+7856262d98f14acd8bb32e346a2952e2d99d23c7:contracts/utils/LPSwapCelo.sol:generic-api-key:143
+7856262d98f14acd8bb32e346a2952e2d99d23c7:scripts/proposals/proposal_23_transfer_lp_token_celo.sh:generic-api-key:44
+7856262d98f14acd8bb32e346a2952e2d99d23c7:test/LPSwapCelo.t.sol:generic-api-key:669
+a2ef0027543802ab9c2a91a041c4155c1920dab7:scripts/deployment/utils/globals_celo_mainnet.json:generic-api-key:11
+a2ef0027543802ab9c2a91a041c4155c1920dab7:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:12

@@ -14,10 +14,8 @@
   "nativeTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPoolId": "0xaf8912a3c4f55a8584b67df30ee0ddf0e60e01f80002000000000000000004fc",
-  "maxOracleSlippage": "50",
-  "minUpdateTimePeriod": "900",
   "maxBuyBackSlippage": "10",
   "balancerPriceOracleAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",
   "buyBackBurnerAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
-  "buyBackBurnerProxyAddress":"0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
+  "buyBackBurnerProxyAddress": "0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
 }
