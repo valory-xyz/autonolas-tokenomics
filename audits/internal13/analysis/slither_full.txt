@@ -1,0 +1,300 @@
+'forge clean' running (wd: /home/andrey/llm-work/autonolas-tokenomics)
+'forge config --json' running
+'forge build --build-info --skip */test/** */script/** --force' running (wd: /home/andrey/llm-work/autonolas-tokenomics)
+ERROR:ConvertToIR:Function not found burn
+ERROR:ContractSolcParsing:Impossible to generate IR for LiquidityManagerETH._burn (contracts/pol/LiquidityManagerETH.sol#136-138):
+ 'NoneType' object has no attribute 'type'
+ERROR:ConvertToIR:Function not found approve
+ERROR:ContractSolcParsing:Impossible to generate IR for Bridge2BurnerOptimism.relayToL1Burner (contracts/utils/Bridge2BurnerOptimism.sol#49-66):
+ 'NoneType' object has no attribute 'type'
+ERROR:ConvertToIR:Function not found approve
+ERROR:ContractSolcParsing:Impossible to generate IR for BuyBackBurnerBalancer._performSwap (contracts/utils/BuyBackBurnerBalancer.sol#72-98):
+ 'NoneType' object has no attribute 'type'
+ERROR:ConvertToIR:Function not found approve
+ERROR:ContractSolcParsing:Impossible to generate IR for BuyBackBurnerUniswap._performSwap (contracts/utils/BuyBackBurnerUniswap.sol#42-61):
+ 'NoneType' object has no attribute 'type'
+INFO:Detectors:
+Treasury.depositTokenForOLAS(address,uint256,address,uint256) (contracts/Treasury.sol#212-245) uses arbitrary from in transferFrom: success = IToken(token).transferFrom(account,address(this),tokenAmount) (contracts/Treasury.sol#235)
+LiquidityManagerCore.transferPositionId(address[],int24,address) (contracts/pol/LiquidityManagerCore.sol#994-1032) uses arbitrary from in transferFrom: IPositionManagerV3(positionManagerV3).transferFrom(address(this),to,positionId) (contracts/pol/LiquidityManagerCore.sol#1025)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
+INFO:Detectors:
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (contracts/Dispenser.sol#467-529) sends eth to arbitrary user
+	Dangerous calls:
+	- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#521-522)
+	- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#525-526)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#functions-that-send-ether-to-arbitrary-destinations
+INFO:Detectors:
+Reentrancy in Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (contracts/Dispenser.sol#1029-1123):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (contracts/Dispenser.sol#1059-1060)
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainId,stakingTarget,bridgingDecimals) (contracts/Dispenser.sol#1069-1070)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (contracts/Dispenser.sol#929)
+	- ITokenomics(tokenomics).refundFromStaking(returnAmount) (contracts/Dispenser.sol#1077)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,transferAmount) (contracts/Dispenser.sol#1107)
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#1117)
+		- IToken(olas).transfer(depositProcessor,transferAmount) (contracts/Dispenser.sol#446)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#451-452)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#455-456)
+	External calls sending eth:
+	- _distributeStakingIncentives(chainId,stakingTarget,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#1117)
+		- IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#451-452)
+		- IDepositProcessor(depositProcessor).sendMessageNonEVM{value: msg.value}(stakingTarget,stakingIncentive,bridgePayload,transferAmount) (contracts/Dispenser.sol#455-456)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/Dispenser.sol#1122)
+	Dispenser._locked (contracts/Dispenser.sol#301) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (contracts/Dispenser.sol#835-883)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (contracts/Dispenser.sol#1029-1123)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (contracts/Dispenser.sol#1134-1203)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256,uint256,uint256) (contracts/Dispenser.sol#328-375)
+	- Dispenser.retain() (contracts/Dispenser.sol#1206-1248)
+Reentrancy in Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (contracts/Dispenser.sol#1134-1203):
+	External calls:
+	- currentPause == Pause.StakingIncentivesPaused || currentPause == Pause.AllPaused || ITreasury(treasury).paused() == 2 (contracts/Dispenser.sol#1156-1157)
+	- (totalAmounts,stakingIncentives,transferAmounts) = _calculateStakingIncentivesBatch(numClaimedEpochs,chainIds,stakingTargets) (contracts/Dispenser.sol#1170-1171)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (contracts/Dispenser.sol#929)
+	- ITokenomics(tokenomics).refundFromStaking(totalAmounts[2]) (contracts/Dispenser.sol#1175)
+	- ITreasury(treasury).withdrawToAccount(address(this),0,totalAmounts[1]) (contracts/Dispenser.sol#1185)
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (contracts/Dispenser.sol#1195-1196)
+		- IToken(olas).transfer(depositProcessor,transferAmounts[i]) (contracts/Dispenser.sol#482)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#521-522)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#525-526)
+	External calls sending eth:
+	- _distributeStakingIncentivesBatch(chainIds,stakingTargets,stakingIncentives,bridgePayloads,transferAmounts,valueAmounts) (contracts/Dispenser.sol#1195-1196)
+		- IDepositProcessor(depositProcessor).sendMessageBatch{value: valueAmounts[i]}(stakingTargetsEVM,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#521-522)
+		- IDepositProcessor(depositProcessor).sendMessageBatchNonEVM{value: valueAmounts[i]}(updatedStakingTargets,updatedStakingAmounts,bridgePayloads[i],transferAmounts[i]) (contracts/Dispenser.sol#525-526)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/Dispenser.sol#1202)
+	Dispenser._locked (contracts/Dispenser.sol#301) can be used in cross function reentrancies:
+	- Dispenser.claimOwnerIncentives(uint256[],uint256[]) (contracts/Dispenser.sol#835-883)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (contracts/Dispenser.sol#1029-1123)
+	- Dispenser.claimStakingIncentivesBatch(uint256,uint256[],bytes32[][],bytes[],uint256[]) (contracts/Dispenser.sol#1134-1203)
+	- Dispenser.constructor(address,address,address,address,bytes32,uint256,uint256,uint256,uint256) (contracts/Dispenser.sol#328-375)
+	- Dispenser.retain() (contracts/Dispenser.sol#1206-1248)
+Reentrancy in DefaultTargetDispenserL2.drain() (contracts/staking/DefaultTargetDispenserL2.sol#484-511):
+	External calls:
+	- (success,None) = msg.sender.call{value: amount}() (contracts/staking/DefaultTargetDispenserL2.sol#503)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/staking/DefaultTargetDispenserL2.sol#510)
+	DefaultTargetDispenserL2._locked (contracts/staking/DefaultTargetDispenserL2.sol#92) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes,bool) (contracts/staking/DefaultTargetDispenserL2.sol#144-239)
+	- DefaultTargetDispenserL2.drain() (contracts/staking/DefaultTargetDispenserL2.sol#484-511)
+	- DefaultTargetDispenserL2.migrate(address) (contracts/staking/DefaultTargetDispenserL2.sol#519-562)
+	- DefaultTargetDispenserL2.redeem(address,uint256,bytes32) (contracts/staking/DefaultTargetDispenserL2.sol#299-336)
+	- DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438)
+Reentrancy in DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#148-186):
+	External calls:
+	- tx.origin.call{value: leftovers}() (contracts/staking/DefaultDepositProcessorL1.sol#177)
+	State variables written after the call(s):
+	- stakingBatchNonce = batchNonce + 1 (contracts/staking/DefaultDepositProcessorL1.sol#183)
+	DefaultDepositProcessorL1.stakingBatchNonce (contracts/staking/DefaultDepositProcessorL1.sol#53) can be used in cross function reentrancies:
+	- DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#148-186)
+	- DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#193-223)
+	- DefaultDepositProcessorL1.stakingBatchNonce (contracts/staking/DefaultDepositProcessorL1.sol#53)
+Reentrancy in DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#193-223):
+	External calls:
+	- tx.origin.call{value: leftovers}() (contracts/staking/DefaultDepositProcessorL1.sol#216)
+	State variables written after the call(s):
+	- stakingBatchNonce = batchNonce + 1 (contracts/staking/DefaultDepositProcessorL1.sol#220)
+	DefaultDepositProcessorL1.stakingBatchNonce (contracts/staking/DefaultDepositProcessorL1.sol#53) can be used in cross function reentrancies:
+	- DefaultDepositProcessorL1.sendMessage(address,uint256,bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#148-186)
+	- DefaultDepositProcessorL1.sendMessageBatch(address[],uint256[],bytes,uint256) (contracts/staking/DefaultDepositProcessorL1.sol#193-223)
+	- DefaultDepositProcessorL1.stakingBatchNonce (contracts/staking/DefaultDepositProcessorL1.sol#53)
+Reentrancy in DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438):
+	External calls:
+	- msg.sender.call{value: leftovers}() (contracts/staking/DefaultTargetDispenserL2.sol#428)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/staking/DefaultTargetDispenserL2.sol#437)
+	DefaultTargetDispenserL2._locked (contracts/staking/DefaultTargetDispenserL2.sol#92) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes,bool) (contracts/staking/DefaultTargetDispenserL2.sol#144-239)
+	- DefaultTargetDispenserL2.drain() (contracts/staking/DefaultTargetDispenserL2.sol#484-511)
+	- DefaultTargetDispenserL2.migrate(address) (contracts/staking/DefaultTargetDispenserL2.sol#519-562)
+	- DefaultTargetDispenserL2.redeem(address,uint256,bytes32) (contracts/staking/DefaultTargetDispenserL2.sol#299-336)
+	- DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438)
+	- stakingBatchNonce = batchNonce + 1 (contracts/staking/DefaultTargetDispenserL2.sol#433)
+	DefaultTargetDispenserL2.stakingBatchNonce (contracts/staking/DefaultTargetDispenserL2.sol#86) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2.stakingBatchNonce (contracts/staking/DefaultTargetDispenserL2.sol#86)
+	- DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities
+INFO:Detectors:
+Depository.redeem(uint256[]) (contracts/Depository.sol#356-391) ignores return value by IToken(olas).transfer(msg.sender,payout) (contracts/Depository.sol#390)
+Dispenser._distributeStakingIncentives(uint256,bytes32,uint256,bytes,uint256) (contracts/Dispenser.sol#434-458) ignores return value by IToken(olas).transfer(depositProcessor,transferAmount) (contracts/Dispenser.sol#446)
+Dispenser._distributeStakingIncentivesBatch(uint256[],bytes32[][],uint256[][],bytes[],uint256[],uint256[]) (contracts/Dispenser.sol#467-529) ignores return value by IToken(olas).transfer(depositProcessor,transferAmounts[i]) (contracts/Dispenser.sol#482)
+LiquidityManagerCore._manageUtilityAmounts(address[],uint16,bool) (contracts/pol/LiquidityManagerCore.sol#438-494) ignores return value by IToken(olas).transfer(treasury,olasAmount) (contracts/pol/LiquidityManagerCore.sol#484)
+LiquidityManagerOptimism._burn(uint256) (contracts/pol/LiquidityManagerOptimism.sol#199-201) ignores return value by IToken(olas).transfer(bridge2Burner,amount) (contracts/pol/LiquidityManagerOptimism.sol#200)
+EthereumDepositProcessor._deposit(address[],uint256[]) (contracts/staking/EthereumDepositProcessor.sol#86-125) ignores return value by IToken(olas).transfer(timelock,refundAmount) (contracts/staking/EthereumDepositProcessor.sol#112)
+BuyBackBurner.buyBack(address,uint256) (contracts/utils/BuyBackBurner.sol#257-295) ignores return value by IERC20(olas).transfer(bridge2Burner,olasAmount) (contracts/utils/BuyBackBurner.sol#290)
+BuyBackBurner.transfer(address) (contracts/utils/BuyBackBurner.sol#318-346) ignores return value by IERC20(olas).transfer(bridge2Burner,tokenAmount) (contracts/utils/BuyBackBurner.sol#336)
+BuyBackBurner.transfer(address) (contracts/utils/BuyBackBurner.sol#318-346) ignores return value by IERC20(token).transfer(treasury,tokenAmount) (contracts/utils/BuyBackBurner.sol#342)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+INFO:Detectors:
+Dispenser.calculateStakingIncentives(uint256,uint256,bytes32,uint256) (contracts/Dispenser.sol#895-1022) performs a multiplication on the result of a division:
+	- normalizedStakingAmount = stakingIncentive / (10 ** (18 - bridgingDecimals)) (contracts/Dispenser.sol#1008)
+	- normalizedStakingAmount *= 10 ** (18 - bridgingDecimals) (contracts/Dispenser.sol#1009)
+Tokenomics.initializeTokenomics(address,address,address,address,address,uint256,address,address,address,address) (contracts/Tokenomics.sol#417-520) performs a multiplication on the result of a division:
+	- _inflationPerSecond = getInflationForYear(0) / zeroYearSecondsLeft (contracts/Tokenomics.sol#481)
+	- _maxBond = (_inflationPerSecond * _epochLen * _maxBondFraction) / 100 (contracts/Tokenomics.sol#517)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) performs a multiplication on the result of a division:
+	- numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR (contracts/Tokenomics.sol#1252)
+	- yearEndTime_scope_0 = timeLaunch + numYears * ONE_YEAR (contracts/Tokenomics.sol#1257)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) performs a multiplication on the result of a division:
+	- curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR (contracts/Tokenomics.sol#1261)
+	- inflationPerEpoch += (block.timestamp + curEpochLen - yearEndTime_scope_0) * curInflationPerSecond (contracts/Tokenomics.sol#1263)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) performs a multiplication on the result of a division:
+	- yearEndTime = timeLaunch + numYears * ONE_YEAR (contracts/Tokenomics.sol#1141)
+	- numYears = (block.timestamp + curEpochLen - timeLaunch) / ONE_YEAR (contracts/Tokenomics.sol#1252)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) performs a multiplication on the result of a division:
+	- inflationPerEpoch = (yearEndTime - prevEpochTime) * curInflationPerSecond (contracts/Tokenomics.sol#1143)
+	- curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR (contracts/Tokenomics.sol#1261)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) performs a multiplication on the result of a division:
+	- curInflationPerSecond = getInflationForYear(numYears) / ONE_YEAR (contracts/Tokenomics.sol#1145)
+	- inflationPerEpoch += (block.timestamp - yearEndTime) * curInflationPerSecond (contracts/Tokenomics.sol#1147)
+Tokenomics.updateInflationPerSecondAndFractions(uint256,uint256,uint256,uint256) (contracts/Tokenomics.sol#1314-1385) performs a multiplication on the result of a division:
+	- curInflationPerSecond = getActualInflationForYear(currentYear) / ONE_YEAR (contracts/Tokenomics.sol#1369)
+	- curMaxBond = (curEpochLen * curInflationPerSecond * tp.epochPoint.maxBondFraction) / 100 (contracts/Tokenomics.sol#1372)
+NeighborhoodScanner._iterateLeft(int24,int24,int24,uint160,uint160,uint128,uint256) (contracts/pol/NeighborhoodScanner.sol#88-123) performs a multiplication on the result of a division:
+	- mid = L + (steps / 2) * tickSpacing (contracts/pol/NeighborhoodScanner.sol#101)
+NeighborhoodScanner._iterateRight(int24,int24,int24,uint160,uint160,uint128,uint256) (contracts/pol/NeighborhoodScanner.sol#135-170) performs a multiplication on the result of a division:
+	- mid = L + (steps / 2) * tickSpacing (contracts/pol/NeighborhoodScanner.sol#148)
+DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438) performs a multiplication on the result of a division:
+	- normalizedAmount = amount / (10 ** (18 - bridgingDecimals)) (contracts/staking/DefaultTargetDispenserL2.sol#403)
+	- normalizedAmount *= 10 ** (18 - bridgingDecimals) (contracts/staking/DefaultTargetDispenserL2.sol#404)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#divide-before-multiply
+INFO:Detectors:
+IPositionManagerV3 (contracts/interfaces/IPositionManagerV3.sol#4-84) has incorrect ERC20 function interface:IPositionManagerV3.transferFrom(address,address,uint256) (contracts/interfaces/IPositionManagerV3.sol#83)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-erc20-interface
+INFO:Detectors:
+IToken (contracts/interfaces/IToken.sol#5-44) has incorrect ERC721 function interface:IToken.approve(address,uint256) (contracts/interfaces/IToken.sol#36)
+IToken (contracts/interfaces/IToken.sol#5-44) has incorrect ERC721 function interface:IToken.transferFrom(address,address,uint256) (contracts/interfaces/IToken.sol#43)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#incorrect-erc721-interface
+INFO:Detectors:
+Depository.redeem(uint256[]) (contracts/Depository.sol#356-391) uses a dangerous strict equality:
+	- pay == 0 || ! matured (contracts/Depository.sol#363)
+Depository.redeem(uint256[]) (contracts/Depository.sol#356-391) uses a dangerous strict equality:
+	- payout == 0 (contracts/Depository.sol#384)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) uses a dangerous strict equality:
+	- lastDonationBlockNumber == block.number (contracts/Tokenomics.sol#1101)
+Tokenomics.checkpoint() (contracts/Tokenomics.sol#1089-1306) uses a dangerous strict equality:
+	- incentives[1] == 0 || ITreasury(treasury).rebalanceTreasury(incentives[1]) (contracts/Tokenomics.sol#1294)
+BalancerPriceOracle.getTWAP() (contracts/oracles/BalancerPriceOracle.sol#185-222) uses a dangerous strict equality:
+	- prev.timestamp == 0 || last.timestamp == 0 (contracts/oracles/BalancerPriceOracle.sol#191)
+BalancerPriceOracle.getTWAP() (contracts/oracles/BalancerPriceOracle.sol#185-222) uses a dangerous strict equality:
+	- twap == 0 (contracts/oracles/BalancerPriceOracle.sol#217)
+UniswapPriceOracle.getTWAP() (contracts/oracles/UniswapPriceOracle.sol#158-184) uses a dangerous strict equality:
+	- obs.timestamp == 0 (contracts/oracles/UniswapPriceOracle.sol#161)
+UniswapPriceOracle.getTWAP() (contracts/oracles/UniswapPriceOracle.sol#158-184) uses a dangerous strict equality:
+	- elapsed < minTwapWindow || elapsed == 0 (contracts/oracles/UniswapPriceOracle.sol#171)
+UniswapPriceOracle.getTWAP() (contracts/oracles/UniswapPriceOracle.sol#158-184) uses a dangerous strict equality:
+	- twapUQ == 0 (contracts/oracles/UniswapPriceOracle.sol#178)
+LiquidityManagerOptimism._checkTokensAndRemoveLiquidityV2(address[],bytes32) (contracts/pol/LiquidityManagerOptimism.sol#204-273) uses a dangerous strict equality:
+	- liquidity == 0 (contracts/pol/LiquidityManagerOptimism.sol#215)
+LiquidityManagerCore._increaseLiquidity(address,uint256,uint256[]) (contracts/pol/LiquidityManagerCore.sol#380-431) uses a dangerous strict equality:
+	- liquidity == 0 (contracts/pol/LiquidityManagerCore.sol#405)
+LiquidityManagerCore._optimizeTicksAndMintPosition(address[],uint256[],int24,uint160,int24[],bool) (contracts/pol/LiquidityManagerCore.sol#506-542) uses a dangerous strict equality:
+	- liquidity == 0 || amountsIn[0] == 0 || amountsIn[1] == 0 (contracts/pol/LiquidityManagerCore.sol#527)
+LiquidityManagerCore.convertToV3(address[],bytes32,int24,int24[],uint16,bool) (contracts/pol/LiquidityManagerCore.sol#631-719) uses a dangerous strict equality:
+	- amounts[0] == 0 || amounts[1] == 0 (contracts/pol/LiquidityManagerCore.sol#670)
+LiquidityManagerCore.convertToV3(address[],bytes32,int24,int24[],uint16,bool) (contracts/pol/LiquidityManagerCore.sol#631-719) uses a dangerous strict equality:
+	- positionId == 0 (contracts/pol/LiquidityManagerCore.sol#699)
+LiquidityManagerCore.increaseLiquidity(address[],int24,uint16) (contracts/pol/LiquidityManagerCore.sol#922-989) uses a dangerous strict equality:
+	- amounts[0] == 0 || amounts[1] == 0 (contracts/pol/LiquidityManagerCore.sol#947)
+DefaultTargetDispenserL2.drain() (contracts/staking/DefaultTargetDispenserL2.sol#484-511) uses a dangerous strict equality:
+	- amount == 0 (contracts/staking/DefaultTargetDispenserL2.sol#498)
+LPSwapCelo.swapLiquidity() (contracts/utils/LPSwapCelo.sol#181-209) uses a dangerous strict equality:
+	- liquidity == 0 (contracts/utils/LPSwapCelo.sol#190)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Contract locking ether found:
+	Contract BuyBackBurnerBalancer (contracts/utils/BuyBackBurnerBalancer.sol#56-111) has payable functions:
+	 - BuyBackBurner.receive() (contracts/utils/BuyBackBurner.sol#349-351)
+	But does not have a function to withdraw the ether
+Contract locking ether found:
+	Contract BuyBackBurnerUniswap (contracts/utils/BuyBackBurnerUniswap.sol#28-74) has payable functions:
+	 - BuyBackBurner.receive() (contracts/utils/BuyBackBurner.sol#349-351)
+	But does not have a function to withdraw the ether
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#contracts-that-lock-ether
+INFO:Detectors:
+Multiple retryable tickets created in the same function:
+	 -IBridge(l1TokenRelayer).outboundTransferCustomRefund{value: cost[0]}(olas,params.refundAccount,l2TargetDispenser,transferAmount,TOKEN_GAS_LIMIT,params.gasPriceBid,submissionCostData) (contracts/staking/ArbitrumDepositProcessorL1.sol#193-194)
+	 -sequence = IBridge(l1MessageRelayer).createRetryableTicket{value: cost[1]}(l2TargetDispenser,0,params.maxSubmissionCostMessage,params.refundAccount,address(0),params.gasLimitMessage,params.gasPriceBid,data) (contracts/staking/ArbitrumDepositProcessorL1.sol#200-202)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#out-of-order-retryable-transactions
+INFO:Detectors:
+Reentrancy in Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (contracts/Dispenser.sol#604-668):
+	External calls:
+	- (stakingIncentive,returnAmount,lastClaimedEpoch,nomineeHash) = calculateStakingIncentives(numClaimedEpochs,chainIds[i],stakingTargets[i][j],bridgingDecimals) (contracts/Dispenser.sol#638-639)
+		- IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget,chainId) (contracts/Dispenser.sol#929)
+	State variables written after the call(s):
+	- mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount (contracts/Dispenser.sol#661)
+	Dispenser.mapChainIdWithheldAmounts (contracts/Dispenser.sol#319) can be used in cross function reentrancies:
+	- Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (contracts/Dispenser.sol#604-668)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (contracts/Dispenser.sol#1029-1123)
+	- Dispenser.mapChainIdWithheldAmounts (contracts/Dispenser.sol#319)
+	- Dispenser.syncWithheldAmount(uint256,uint256,bytes32) (contracts/Dispenser.sol#1256-1274)
+	- Dispenser.syncWithheldAmountMaintenance(uint256,uint256,bytes32) (contracts/Dispenser.sol#1283-1316)
+	- mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch (contracts/Dispenser.sol#642)
+	Dispenser.mapLastClaimedStakingEpochs (contracts/Dispenser.sol#313) can be used in cross function reentrancies:
+	- Dispenser._calculateStakingIncentivesBatch(uint256,uint256[],bytes32[][]) (contracts/Dispenser.sol#604-668)
+	- Dispenser._checkpointNomineeAndGetClaimedEpochCounters(bytes32,uint256) (contracts/Dispenser.sol#382-426)
+	- Dispenser.addNominee(bytes32) (contracts/Dispenser.sol#768-784)
+	- Dispenser.claimStakingIncentives(uint256,uint256,bytes32,bytes) (contracts/Dispenser.sol#1029-1123)
+	- Dispenser.mapLastClaimedStakingEpochs (contracts/Dispenser.sol#313)
+	- Dispenser.retain() (contracts/Dispenser.sol#1206-1248)
+Reentrancy in EthereumDepositProcessor._deposit(address[],uint256[]) (contracts/staking/EthereumDepositProcessor.sol#86-125):
+	External calls:
+	- IToken(olas).transfer(timelock,refundAmount) (contracts/staking/EthereumDepositProcessor.sol#112)
+	- IToken(olas).approve(target,amount) (contracts/staking/EthereumDepositProcessor.sol#118)
+	- IStaking(target).deposit(amount) (contracts/staking/EthereumDepositProcessor.sol#119)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/staking/EthereumDepositProcessor.sol#124)
+	EthereumDepositProcessor._locked (contracts/staking/EthereumDepositProcessor.sol#63) can be used in cross function reentrancies:
+	- EthereumDepositProcessor._deposit(address[],uint256[]) (contracts/staking/EthereumDepositProcessor.sol#86-125)
+	- EthereumDepositProcessor.constructor(address,address,address,address) (contracts/staking/EthereumDepositProcessor.sol#70-81)
+Reentrancy in DefaultTargetDispenserL2._processData(bytes,bool) (contracts/staking/DefaultTargetDispenserL2.sol#144-239):
+	External calls:
+	- (success,returnData) = stakingFactory.call(verifyData) (contracts/staking/DefaultTargetDispenserL2.sol#175)
+	- IToken(olas).approve(target,amount) (contracts/staking/DefaultTargetDispenserL2.sol#219)
+	- IStaking(target).deposit(amount) (contracts/staking/DefaultTargetDispenserL2.sol#220)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/staking/DefaultTargetDispenserL2.sol#238)
+	DefaultTargetDispenserL2._locked (contracts/staking/DefaultTargetDispenserL2.sol#92) can be used in cross function reentrancies:
+	- DefaultTargetDispenserL2._processData(bytes,bool) (contracts/staking/DefaultTargetDispenserL2.sol#144-239)
+	- DefaultTargetDispenserL2.drain() (contracts/staking/DefaultTargetDispenserL2.sol#484-511)
+	- DefaultTargetDispenserL2.migrate(address) (contracts/staking/DefaultTargetDispenserL2.sol#519-562)
+	- DefaultTargetDispenserL2.redeem(address,uint256,bytes32) (contracts/staking/DefaultTargetDispenserL2.sol#299-336)
+	- DefaultTargetDispenserL2.syncWithheldAmount(bytes) (contracts/staking/DefaultTargetDispenserL2.sol#377-438)
+Reentrancy in BuyBackBurner.buyBack(address,uint256) (contracts/utils/BuyBackBurner.sol#257-295):
+	External calls:
+	- IERC20(olas).transfer(bridge2Burner,olasAmount) (contracts/utils/BuyBackBurner.sol#290)
+	State variables written after the call(s):
+	- _locked = 1 (contracts/utils/BuyBackBurner.sol#294)
+	BuyBackBurner._locked (contracts/utils/BuyBackBurner.sol#106) can be used in cross function reentrancies:
+	- BuyBackBurner.buyBack(address,uint256) (contracts/utils/BuyBackBurner.sol#257-295)
+	- BuyBackBurner.initialize(bytes) (contracts/utils/BuyBackBurner.sol#169-179)
+Reentrancy in LiquidityManagerCore.changeRanges(address[],int24,int24[],bool) (contracts/pol/LiquidityManagerCore.sol#730-790):
+	External calls:
+	- _decreaseLiquidity(pool,currentPositionId,MAX_BPS) (contracts/pol/LiquidityManagerCore.sol#764)
+		- (amountsOut[0],amountsOut[1]) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(params) (contracts/pol/LiquidityManagerCore.sol#369)
+	- amounts = _collectFees(currentPositionId) (contracts/pol/LiquidityManagerCore.sol#767)
+		- (amounts[0],amounts[1]) = IUniswapV3(positionManagerV3).collect(params) (contracts/pol/LiquidityManagerCore.sol#304)
+	- IToken(tokens[0]).approve(positionManagerV3,amounts[0]) (contracts/pol/LiquidityManagerCore.sol#772)
+	- IToken(tokens[1]).approve(positionManagerV3,amounts[1]) (contracts/pol/LiquidityManagerCore.sol#773)
+	State variables written after the call(s):
+	- mapPoolAddressPositionIds[pool] = positionId (contracts/pol/LiquidityManagerCore.sol#781)
+	LiquidityManagerCore.mapPoolAddressPositionIds (contracts/pol/LiquidityManagerCore.sol#147) can be used in cross function reentrancies:
+	- LiquidityManagerCore.changeRanges(address[],int24,int24[],bool) (contracts/pol/LiquidityManagerCore.sol#730-790)
+	- LiquidityManagerCore.collectFees(address[],int24) (contracts/pol/LiquidityManagerCore.sol#796-838)
+	- LiquidityManagerCore.convertToV3(address[],bytes32,int24,int24[],uint16,bool) (contracts/pol/LiquidityManagerCore.sol#631-719)
+	- LiquidityManagerCore.decreaseLiquidity(address[],int24,uint16,uint16) (contracts/pol/LiquidityManagerCore.sol#849-912)
+	- LiquidityManagerCore.increaseLiquidity(address[],int24,uint16) (contracts/pol/LiquidityManagerCore.sol#922-989)
+	- LiquidityManagerCore.mapPoolAddressPositionIds (contracts/pol/LiquidityManagerCore.sol#147)
+	- LiquidityManagerCore.transferPositionId(address[],int24,address) (contracts/pol/LiquidityManagerCore.sol#994-1032)
+Reentrancy in LiquidityManagerCore.changeRanges(address[],int24,int24[],bool) (contracts/pol/LiquidityManagerCore.sol#730-790):
+	External calls:
+	- _decreaseLiquidity(pool,currentPositionId,MAX_BPS) (contracts/pol/LiquidityManagerCore.sol#764)
+		- (amountsOut[0],amountsOut[1]) = IPositionManagerV3(positionManagerV3).decreaseLiquidity(params) (contracts/pol/LiquidityManagerCore.sol#369)
+	- amounts = _collectFees(currentPositionId) (contracts/pol/LiquidityManagerCore.sol#767)
+		- (amounts[0],amounts[1]) = IUniswapV3(positionManagerV3).collect(params) (contracts/pol/LiquidityManagerCore.sol#304)
+	- IToken(tokens[0]).approve(positionManagerV3,amounts[0]) (contracts/pol/LiquidityManagerCore.sol#772)
+	- IToken(tokens[1]).approve(positionManagerV3,amounts[1]) (contracts/pol/LiquidityManagerCore.sol#773)
+	- _manageUtilityAmounts(tokens,MAX_BPS,false) (contracts/pol/LiquidityManagerCore.sol#785)
+		- IToken(olas).transfer(treasury,olasAmount) (contracts/pol/LiquidityManagerCore.sol#484)
+	State variables written after the call(s):
