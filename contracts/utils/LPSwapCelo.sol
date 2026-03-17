@@ -11,6 +11,12 @@ interface IToken {
     /// @return True if the function execution is successful.
     function approve(address spender, uint256 amount) external returns (bool);
 
+    /// @dev Transfers the token amount.
+    /// @param to Address to transfer to.
+    /// @param amount The amount to transfer.
+    /// @return True if the function execution is successful.
+    function transfer(address to, uint256 amount) external returns (bool);
+
     /// @dev Gets the amount of tokens owned by a specified account.
     /// @param account Account address.
     /// @return Amount of tokens owned.
@@ -102,12 +108,6 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @dev Token transfer failed.
-/// @param token Token address.
-/// @param from Sender address.
-/// @param to Recipient address.
-/// @param amount Token amount.
-error TransferFailed(address token, address from, address to, uint256 amount);
 
 /// @title LPSwapCelo - Smart contract for swapping whOLAS-CELO liquidity to OLAS-CELO liquidity on Celo
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -115,6 +115,7 @@ error TransferFailed(address token, address from, address to, uint256 amount);
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract LPSwapCelo {
     event LiquiditySwapped(uint256 whOlasAmount, uint256 celoAmount, uint256 olasAmount, uint256 newLiquidity);
+    event CeloTransferred(uint256 amount);
     event OLASBridgedToL1(uint256 amount);
     event WhOLASBridgedToL1(uint256 amount);
 
@@ -143,6 +144,8 @@ contract LPSwapCelo {
     address public constant WORMHOLE_TOKEN_BRIDGE = 0x796Dff6D74F3E27060B71255Fe517BFb23C93eed;
     // L1 Timelock address (recipient for bridged tokens)
     address public constant L1_TIMELOCK = 0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE;
+    // Celo Bridge Mediator address (recipient for LP tokens and leftover CELO on L2)
+    address public constant BRIDGE_MEDIATOR = 0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d;
 
     // Oracle address for TWAP-based slippage protection
     address public immutable oracle;
@@ -185,9 +188,14 @@ contract LPSwapCelo {
         }
         _locked = 2;
 
-        // Step 1: Check LP token balance
+        // Step 1: Check LP token balance and OLAS pre-funding
         uint256 liquidity = IToken(LP_TOKEN).balanceOf(address(this));
         if (liquidity == 0) {
+            revert ZeroValue();
+        }
+
+        // Verify OLAS tokens have been pre-sent for the new OLAS-CELO pair
+        if (IToken(OLAS).balanceOf(address(this)) == 0) {
             revert ZeroValue();
         }
 
@@ -199,10 +207,13 @@ contract LPSwapCelo {
 
         emit LiquiditySwapped(whOlasAmount, celoAmount, whOlasAmount, newLiquidity);
 
-        // Step 4: Bridge remaining OLAS to L1 Timelock via native bridge
+        // Step 4: Transfer remaining WCELO to Bridge Mediator
+        _transferCelo();
+
+        // Step 5: Bridge remaining OLAS to L1 Timelock via native bridge
         _bridgeOLAS();
 
-        // Step 5: Bridge remaining whOLAS to L1 Timelock via Wormhole
+        // Step 6: Bridge remaining whOLAS to L1 Timelock via Wormhole
         _bridgeWhOLAS();
 
         _locked = 1;
@@ -232,8 +243,8 @@ contract LPSwapCelo {
             // Compute fair reserves using constant product invariant and TWAP price
             // token0 is WCELO (secondToken), token1 is whOLAS (OLAS-like)
             // fair_r0 = sqrt(k * 1e18 / twap), fair_r1 = sqrt(k * twap / 1e18)
-            uint256 fairReserve0 = FixedPointMathLib.sqrt(k * 1e18 / twap);
-            uint256 fairReserve1 = FixedPointMathLib.sqrt(k * twap / 1e18);
+            uint256 fairReserve0 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, 1e18, twap));
+            uint256 fairReserve1 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, twap, 1e18));
 
             // Expected withdrawal amounts (proportional to fair reserves)
             // minAmount = liquidity * fairReserve / totalSupply * (MAX_BPS - maxSlippage) / MAX_BPS
@@ -271,17 +282,28 @@ contract LPSwapCelo {
         // TWAP-derived desired amounts ensures the router reverts if the OLAS-CELO pool ratio
         // deviates too far from the fair price.
         //
-        // celoMin is set to the full celoDesired amount to guarantee all CELO is deposited into
-        // the new pair. Any leftover OLAS (if the router adjusts it down) gets bridged to L1.
         uint256 olasMin = (olasDesired * (MAX_BPS - maxSlippage)) / MAX_BPS;
+        uint256 celoMin = (celoDesired * (MAX_BPS - maxSlippage)) / MAX_BPS;
 
         // Approve tokens for the router
         IToken(OLAS).approve(ROUTER, olasDesired);
         IToken(WCELO).approve(ROUTER, celoDesired);
 
         // Add liquidity (router creates pair if it does not exist)
+        // LP tokens are sent to BRIDGE_MEDIATOR as the protocol-controlled recipient on L2
         (, , liquidity) = IUniswapV2Router(ROUTER)
-            .addLiquidity(OLAS, WCELO, olasDesired, celoDesired, olasMin, celoDesired, address(this), block.timestamp);
+            .addLiquidity(OLAS, WCELO, olasDesired, celoDesired, olasMin, celoMin, BRIDGE_MEDIATOR, block.timestamp);
+    }
+
+    /// @dev Transfers remaining WCELO to Bridge Mediator on Celo.
+    function _transferCelo() internal {
+        uint256 celoBalance = IToken(WCELO).balanceOf(address(this));
+        if (celoBalance > 0) {
+            // Transfer WCELO to Bridge Mediator
+            IToken(WCELO).transfer(BRIDGE_MEDIATOR, celoBalance);
+
+            emit CeloTransferred(celoBalance);
+        }
     }
 
     /// @dev Bridges remaining OLAS to L1 Timelock via Celo native bridge (OP-stack).

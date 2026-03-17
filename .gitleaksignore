@@ -259,3 +259,5 @@ d2515a6fe4232cfda70d6d4ae6fbb570305f0076:scripts/deployment/oracles/globals_gnos
 7856262d98f14acd8bb32e346a2952e2d99d23c7:test/LPSwapCelo.t.sol:generic-api-key:669
 a2ef0027543802ab9c2a91a041c4155c1920dab7:scripts/deployment/utils/globals_celo_mainnet.json:generic-api-key:11
 a2ef0027543802ab9c2a91a041c4155c1920dab7:scripts/deployment/utils/globals_gnosis_mainnet.json:generic-api-key:12
+c79ab663a56d83aeb602fb611d031913148c0047:audits/internal13/analysis/contracts/FlatLPSwapCelo.sol:generic-api-key:519
+c79ab663a56d83aeb602fb611d031913148c0047:audits/internal13/analysis/contracts/FlatLPSwapCelo.sol:generic-api-key:531

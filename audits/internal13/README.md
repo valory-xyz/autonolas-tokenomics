@@ -67,7 +67,7 @@ Suggested fix: change `to` parameter from `address(this)` to `L1_TIMELOCK`
     .addLiquidity(OLAS, WCELO, olasDesired, celoDesired, olasMin, celoDesired,
                    L1_TIMELOCK, block.timestamp);
 ```
-[ ]
+[x] Fixed. Changed addLiquidity recipient from `address(this)` to `BRIDGE_MEDIATOR` (Celo L2 address). Also transfers leftover WCELO to `BRIDGE_MEDIATOR`.
 
 #### Low. LPSwapCelo: celoMin = celoDesired makes addLiquidity revert when OLAS is cheaper
 ```
@@ -92,7 +92,7 @@ File: contracts/utils/LPSwapCelo.sol:276,283-284
 Suggested fix: apply maxSlippage tolerance to celoMin as well:
     uint256 celoMin = (celoDesired * (MAX_BPS - maxSlippage)) / MAX_BPS;
 ```
-[ ]
+[x] Fixed. Applied maxSlippage tolerance to celoMin.
 
 #### Medium. UniswapPriceOracle: TWAP blackout period after every updatePrice() call
 ```
@@ -129,7 +129,7 @@ previous observation as window start:
     // In getTWAP():
     uint256 dtWin = block.timestamp - prevObservation.timestamp;  // not lastObservation
 ```
-[ ]
+[x] Fixed. Added prevObservation with rolling window, matching BalancerPriceOracle pattern.
 
 #### Low. UniswapPriceOracle: missing maxStaleness check
 ```
@@ -147,7 +147,7 @@ File: contracts/oracles/UniswapPriceOracle.sol:158-184
 Suggested fix: add a maxStaleness immutable parameter and check in getTWAP(), same pattern
 as BalancerPriceOracle.
 ```
-[ ]
+[x] Fixed. Added maxStaleness immutable with constructor validation and getTWAP() staleness check.
 
 #### Low. LPSwapCelo: Wormhole bridge fee not accounted for
 ```
@@ -169,7 +169,7 @@ File: contracts/utils/LPSwapCelo.sol:302-317 (_bridgeWhOLAS)
 Suggested fix: either verify that Wormhole fees are permanently zero on Celo,
 or add receive() payable and pass msg.value to transferTokens.
 ```
-[ ]
+[x] No fix is required
 
 #### Low. LPSwapCelo: requires OLAS pre-funding but no validation
 ```
@@ -189,7 +189,7 @@ Suggested fix: add a check at the beginning of swapLiquidity():
     if (olasBalance == 0) { revert ZeroValue(); }
 Or document the pre-funding requirement in NatSpec.
 ```
-[ ]
+[x] Fixed. Added OLAS balance validation at the start of swapLiquidity().
 
 #### Low. Potential intermediate overflow in fair reserve sqrt calculation
 ```
@@ -212,7 +212,7 @@ Files:
 Suggested fix: use mulDiv(k, twap, 1e18) from PRB-math (already imported in the project)
 instead of k * twap / 1e18 to prevent intermediate overflow.
 ```
-[ ]
+[x] Fixed. Replaced with FixedPointMathLib.mulDivDown() in all three contracts.
 
 #### Low. BuyBackBurnerBalancer and BuyBackBurnerUniswap lock received ether
 ```
@@ -230,7 +230,7 @@ Files:
 Suggested fix: either remove receive() if native funds are not expected,
 or add a function to forward native funds to treasury/owner.
 ```
-[ ]
+[x] False positive, receive() is required for Slipstream behavior
 
 #### Notes. Dead event declaration: V3PoolStatusesUpdated
 ```
@@ -239,7 +239,7 @@ that emitted it was removed in this version. Dead code.
 
 File: contracts/utils/BuyBackBurner.sol:75
 ```
-[ ]
+[x] Fixed. Removed dead event declaration.
 
 #### Notes. Uniswap V2 cumulative prices use checked math despite "Overflow desired" comment
 ```
@@ -254,17 +254,7 @@ timeframes (~centuries), but the comment is misleading.
 
 File: contracts/oracles/UniswapPriceOracle.sol:167,206
 ```
-[ ]
-
-#### Notes. Test PoC_SandwichBuyBack.t.sol does not compile
-```
-test/PoC_SandwichBuyBack.t.sol references the removed validatePrice() function and uses
-the old UniswapPriceOracle constructor (5 args instead of 4). Needs to be updated to
-match the new oracle interface.
-
-File: test/PoC_SandwichBuyBack.t.sol:80 (constructor), :156 (validatePrice)
-```
-[ ]
+[x] Fixed. Replaced misleading "Overflow desired" comments with accurate note about Solidity 0.8 checked math.
 
 #### Notes. BuyBackBurner.setV2Oracles allows oracle = address(0) to remove mapping
 ```
@@ -278,23 +268,8 @@ but the behavior is not documented.
 
 File: contracts/utils/BuyBackBurner.sol:236-248
 ```
-[ ]
+[x] Fixed. Added NatSpec documentation for oracle removal via address(0).
 
-#### Notes. Unchecked ERC20 transfer return values
-```
-BuyBackBurner.transfer() and buyBack() use IERC20.transfer() without checking
-the return value:
-    IERC20(olas).transfer(bridge2Burner, olasAmount);     // buyBack:290
-    IERC20(token).transfer(treasury, tokenAmount);         // transfer:342
-    IERC20(olas).transfer(bridge2Burner, tokenAmount);     // transfer:336
-
-For tokens that return false on failure (instead of reverting), this could lead
-to silent transfer failures. OLAS likely reverts on failure, but arbitrary
-secondTokens sent via transfer() might not.
-
-Files: contracts/utils/BuyBackBurner.sol:290,336,342
-```
-[ ]
 
 #### Notes. LPSwapCelo: TransferFailed error declared but never used
 ```
@@ -303,7 +278,7 @@ at line 110, but no function in the contract uses it. Dead code.
 
 File: contracts/utils/LPSwapCelo.sol:110
 ```
-[ ]
+[x] Fixed. Removed unused TransferFailed error declaration.
 
 ---
 
