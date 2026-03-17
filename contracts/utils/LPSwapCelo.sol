@@ -181,7 +181,8 @@ contract LPSwapCelo {
     }
 
     /// @dev Swaps whOLAS-CELO liquidity to OLAS-CELO liquidity and bridges leftovers to L1.
-    function swapLiquidity() external {
+    /// @notice msg.value is forwarded to Wormhole Token Bridge as the message fee (currently zero on Celo).
+    function swapLiquidity() external payable {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -330,8 +331,8 @@ contract LPSwapCelo {
             // Convert L1_TIMELOCK address to bytes32 for Wormhole
             bytes32 recipient = bytes32(uint256(uint160(L1_TIMELOCK)));
 
-            // Bridge whOLAS to L1 Timelock via Wormhole
-            IWormholeTokenBridge(WORMHOLE_TOKEN_BRIDGE).transferTokens(
+            // Bridge whOLAS to L1 Timelock via Wormhole (msg.value covers message fee)
+            IWormholeTokenBridge(WORMHOLE_TOKEN_BRIDGE).transferTokens{value: msg.value}(
                 WHOLAS, whOlasBalance, WORMHOLE_L1_CHAIN_ID, recipient, 0, 0
             );
 

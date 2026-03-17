@@ -110,7 +110,7 @@ contract TestLPSwapCelo {
         _locked = 1;
     }
 
-    function swapLiquidity() external {
+    function swapLiquidity() external payable {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -195,7 +195,7 @@ contract TestLPSwapCelo {
         if (whOlasBalance > 0) {
             MockERC20(whOlas).approve(wormholeTokenBridge, whOlasBalance);
             bytes32 recipient = bytes32(uint256(uint160(l1Timelock)));
-            MockWormholeTokenBridge(wormholeTokenBridge).transferTokens(
+            MockWormholeTokenBridge(wormholeTokenBridge).transferTokens{value: msg.value}(
                 whOlas, whOlasBalance, WORMHOLE_L1_CHAIN_ID, recipient, 0, 0
             );
             emit WhOLASBridgedToL1(whOlasBalance);
