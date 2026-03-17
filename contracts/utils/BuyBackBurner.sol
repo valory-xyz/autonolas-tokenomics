@@ -315,6 +315,9 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Transfers specified token to treasury.
+    /// @notice If a non-standard token (e.g. USDT, which returns void instead of bool) accumulates in the contract,
+    ///         the transfer() call on line 343 will revert because Solidity's IERC20.transfer() ABI-decodes a bool
+    ///         return value. To support such tokens, use SafeERC20.safeTransfer() or handle the return data manually.
     /// @param token Token address.
     function transfer(address token) external {
         // Check that token is not set for swapping into OLAS
