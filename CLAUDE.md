@@ -106,11 +106,11 @@ L1→L2 incentive distribution uses a paired processor/dispenser pattern per cha
 
 - `BuyBackBurner*` — Buy-back-and-burn mechanisms (Uniswap and Balancer variants) with proxy support
 - `Bridge2Burner*` — Bridge tokens then burn (Gnosis, Optimism, Polygon, Arbitrum variants)
-- `LPSwapCelo` — Swaps whOLAS-CELO liquidity to OLAS-CELO liquidity on Celo (Ubeswap V2), with TWAP-based slippage protection via `UniswapPriceOracle`, then bridges leftover OLAS via OP-stack L2StandardBridge and whOLAS via Wormhole Token Bridge to L1 Timelock
+- `LPSwapCelo` — Swaps whOLAS-CELO liquidity to OLAS-CELO liquidity on Celo (Ubeswap V2), with TWAP-based slippage protection via `UniswapPriceOracle`. New LP tokens and leftover WCELO are sent to `BRIDGE_MEDIATOR` (Celo L2 address `0xC14E...`), not `L1_TIMELOCK` (which is an L1 address). Leftover OLAS is bridged to L1 via OP-stack L2StandardBridge, whOLAS via Wormhole Token Bridge. Requires OLAS pre-funding before calling `swapLiquidity()`.
 
 ### Price Oracles (`contracts/oracles/`)
 
-- `UniswapPriceOracle` / `BalancerPriceOracle` — On-chain price feeds for OLAS
+- `UniswapPriceOracle` / `BalancerPriceOracle` — On-chain TWAP price feeds for OLAS. Both use a two-observation rolling window (`prevObservation` + `lastObservation`) to avoid TWAP blackout after `updatePrice()`. Constructor takes `_maxStalenessSeconds` to bound the TWAP window age. Require 2 `updatePrice()` calls for warmup before `getTWAP()` is available.
 
 ## Solidity Configuration
 
@@ -126,6 +126,20 @@ L1→L2 incentive distribution uses a paired processor/dispenser pattern per cha
 WCELO (`0x471EcE3750Da237f93B8E339c536989b8978a438`) is Celo's native GoldToken proxy, which uses Celo-specific precompiles for balance management. These precompiles are **not available in forge fork mode**, causing `transfer`/`transferFrom` to silently fail. The workaround in fork tests is to `vm.etch` a standard ERC20 (e.g., `MockERC20`) over the WCELO address and restore the pair's balance via `deal()`. See `test/LPSwapCelo.t.sol` `LPSwapCeloForkBaseSetup.setUp()` for the pattern.
 
 The Wormhole Token Bridge truncates amounts to 8 decimal places, so up to ~1e10 wei dust of whOLAS may remain after bridging. Assertions should use `assertLt(..., 1e10)` instead of `assertEq(..., 0)`.
+
+## Oracle Testing Pattern
+
+Both `UniswapPriceOracle` and `BalancerPriceOracle` require a **2-call warmup** before `getTWAP()` works:
+```solidity
+oracle.updatePrice();                              // 1st observation
+vm.warp(block.timestamp + minUpdateInterval);
+oracle.updatePrice();                              // 2nd observation — TWAP now available immediately
+```
+After warmup, `getTWAP()` is available immediately after any `updatePrice()` call (no blackout). The `TestLPSwapCelo` contract in `test/LPSwapCelo.t.sol` mirrors the real `LPSwapCelo` with configurable addresses — when fixing the real contract, update this test double to match.
+
+## Overflow-Safe Fair Reserve Calculation
+
+`LiquidityManagerETH`, `LiquidityManagerOptimism`, and `LPSwapCelo` compute fair reserves as `sqrt(k * twap / 1e18)`. Use `FixedPointMathLib.mulDivDown(k, twap, 1e18)` inside the `sqrt()` to avoid intermediate overflow when `k` (reserve0 * reserve1) is large.
 
 ## Cross-Chain Governance Proposals
 
@@ -153,4 +167,5 @@ Testnets: Sepolia, Polygon Amoy, Chiado, Arbitrum Sepolia, Optimism Sepolia, Bas
 - `wormhole-solidity-sdk` — Celo cross-chain bridging
 - `@arbitrum/sdk` — Arbitrum bridge integration
 - `@balancer-labs/sdk` — Balancer protocol integration
-- Submodules in `lib/`: forge-std, fx-portal (Polygon), zuniswapv2
+- `solmate` — `FixedPointMathLib` (sqrt, mulDivDown) used in fair reserve calculations
+- Submodules in `lib/`: forge-std, fx-portal (Polygon), zuniswapv2, solmate

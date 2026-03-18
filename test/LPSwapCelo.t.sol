@@ -45,6 +45,7 @@ contract MockWormholeTokenBridge {
 // Testable version of LPSwapCelo that overrides constants with configurable values
 contract TestLPSwapCelo {
     event LiquiditySwapped(uint256 whOlasAmount, uint256 celoAmount, uint256 olasAmount, uint256 newLiquidity);
+    event CeloTransferred(uint256 amount);
     event OLASBridgedToL1(uint256 amount);
     event WhOLASBridgedToL1(uint256 amount);
 
@@ -61,6 +62,7 @@ contract TestLPSwapCelo {
     address public immutable router;
     address public immutable wormholeTokenBridge;
     address public immutable l1Timelock;
+    address public immutable bridgeMediator;
     address public immutable oracle;
     uint256 public immutable maxSlippage;
 
@@ -75,12 +77,13 @@ contract TestLPSwapCelo {
         address _router,
         address _wormholeTokenBridge,
         address _l1Timelock,
+        address _bridgeMediator,
         address _oracle,
         uint256 _maxSlippage
     ) {
         if (_lpToken == address(0) || _wcelo == address(0) || _whOlas == address(0) || _olas == address(0) ||
             _l2StandardBridge == address(0) || _router == address(0) || _wormholeTokenBridge == address(0) ||
-            _l1Timelock == address(0) || _oracle == address(0)) {
+            _l1Timelock == address(0) || _bridgeMediator == address(0) || _oracle == address(0)) {
             revert ZeroAddress();
         }
 
@@ -100,13 +103,14 @@ contract TestLPSwapCelo {
         router = _router;
         wormholeTokenBridge = _wormholeTokenBridge;
         l1Timelock = _l1Timelock;
+        bridgeMediator = _bridgeMediator;
         oracle = _oracle;
         maxSlippage = _maxSlippage;
 
         _locked = 1;
     }
 
-    function swapLiquidity() external {
+    function swapLiquidity() external payable {
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
@@ -117,12 +121,18 @@ contract TestLPSwapCelo {
             revert ZeroValue();
         }
 
+        // Verify OLAS tokens have been pre-sent for the new OLAS-CELO pair
+        if (MockERC20(olas).balanceOf(address(this)) == 0) {
+            revert ZeroValue();
+        }
+
         (uint256 whOlasAmount, uint256 celoAmount) = _removeLiquidity(liquidity);
 
         uint256 newLiquidity = _addLiquidity(whOlasAmount, celoAmount);
 
         emit LiquiditySwapped(whOlasAmount, celoAmount, whOlasAmount, newLiquidity);
 
+        _transferCelo();
         _bridgeOLAS();
         _bridgeWhOLAS();
 
@@ -154,12 +164,21 @@ contract TestLPSwapCelo {
 
     function _addLiquidity(uint256 olasDesired, uint256 celoDesired) internal returns (uint256 liquidity) {
         uint256 olasMin = (olasDesired * (MAX_BPS - maxSlippage)) / MAX_BPS;
+        uint256 celoMin = (celoDesired * (MAX_BPS - maxSlippage)) / MAX_BPS;
 
         MockERC20(olas).approve(router, olasDesired);
         MockERC20(wcelo).approve(router, celoDesired);
 
         (, , liquidity) = ZuniswapV2Router(router)
-            .addLiquidity(olas, wcelo, olasDesired, celoDesired, olasMin, celoDesired, address(this));
+            .addLiquidity(olas, wcelo, olasDesired, celoDesired, olasMin, celoMin, bridgeMediator);
+    }
+
+    function _transferCelo() internal {
+        uint256 celoBalance = MockERC20(wcelo).balanceOf(address(this));
+        if (celoBalance > 0) {
+            MockERC20(wcelo).transfer(bridgeMediator, celoBalance);
+            emit CeloTransferred(celoBalance);
+        }
     }
 
     function _bridgeOLAS() internal {
@@ -176,7 +195,7 @@ contract TestLPSwapCelo {
         if (whOlasBalance > 0) {
             MockERC20(whOlas).approve(wormholeTokenBridge, whOlasBalance);
             bytes32 recipient = bytes32(uint256(uint160(l1Timelock)));
-            MockWormholeTokenBridge(wormholeTokenBridge).transferTokens(
+            MockWormholeTokenBridge(wormholeTokenBridge).transferTokens{value: msg.value}(
                 whOlas, whOlasBalance, WORMHOLE_L1_CHAIN_ID, recipient, 0, 0
             );
             emit WhOLASBridgedToL1(whOlasBalance);
@@ -222,6 +241,7 @@ contract LPSwapCeloBaseSetup is Test {
     address internal dev;
     address internal pair;
     address internal l1Timelock;
+    address internal bridgeMediator;
 
     uint256 internal constant initialMint = 1_000_000 ether;
     uint256 internal constant largeApproval = type(uint256).max;
@@ -230,6 +250,7 @@ contract LPSwapCeloBaseSetup is Test {
 
     uint256 internal constant minTwapWindow = 900;
     uint256 internal constant minUpdateInterval = 900;
+    uint256 internal constant maxStaleness = 86400;
     uint256 internal constant maxSlippageBps = 500; // 5%
 
     function setUp() public virtual {
@@ -241,6 +262,7 @@ contract LPSwapCeloBaseSetup is Test {
         vm.label(dev, "Developer");
 
         l1Timelock = address(0xBEEF);
+        bridgeMediator = address(0xCAFE);
 
         // Deploy mock tokens
         whOlas = new MockERC20("Wormhole OLAS", "whOLAS", 18);
@@ -268,11 +290,12 @@ contract LPSwapCeloBaseSetup is Test {
         pair = factory.pairs(address(whOlas), address(wcelo));
 
         // Deploy oracle for the whOLAS-WCELO pair
-        oracle = new UniswapPriceOracle(pair, address(whOlas), minTwapWindow, minUpdateInterval);
+        oracle = new UniswapPriceOracle(pair, address(whOlas), minTwapWindow, minUpdateInterval, maxStaleness);
 
-        // Warm up oracle
+        // Warm up oracle: need 2 observations for TWAP availability
         oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindow + 1);
+        vm.warp(block.timestamp + minUpdateInterval);
+        oracle.updatePrice();
 
         // Deploy mock bridges
         l2Bridge = new MockL2StandardBridge();
@@ -288,6 +311,7 @@ contract LPSwapCeloBaseSetup is Test {
             address(router),
             address(wormholeBridge),
             l1Timelock,
+            bridgeMediator,
             address(oracle),
             maxSlippageBps
         );
@@ -343,6 +367,7 @@ contract LPSwapCeloConstructorTest is Test {
         assertEq(c.ROUTER(), 0xE3D8bd6Aed4F159bc8000a9cD47CffDb95F96121);
         assertEq(c.WORMHOLE_TOKEN_BRIDGE(), 0x796Dff6D74F3E27060B71255Fe517BFb23C93eed);
         assertEq(c.L1_TIMELOCK(), 0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE);
+        assertEq(c.BRIDGE_MEDIATOR(), 0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d);
     }
 
     /// @dev Boundary: maxSlippage at MAX_BPS succeeds.
@@ -359,13 +384,19 @@ contract TestLPSwapCeloConstructorTest is Test {
         vm.expectRevert(ZeroAddress.selector);
         new TestLPSwapCelo(
             address(0), address(1), address(1), address(1),
-            address(1), address(1), address(1), address(1), address(1), 500
+            address(1), address(1), address(1), address(1), address(1), address(1), 500
         );
 
         vm.expectRevert(ZeroAddress.selector);
         new TestLPSwapCelo(
             address(1), address(1), address(1), address(1),
-            address(1), address(1), address(1), address(1), address(0), 500
+            address(1), address(1), address(1), address(1), address(0), address(1), 500
+        );
+
+        vm.expectRevert(ZeroAddress.selector);
+        new TestLPSwapCelo(
+            address(1), address(1), address(1), address(1),
+            address(1), address(1), address(1), address(1), address(1), address(0), 500
         );
     }
 }
@@ -387,6 +418,7 @@ contract LPSwapCeloSwapTest is LPSwapCeloBaseSetup {
         assertEq(lpSwap.l2StandardBridge(), address(l2Bridge));
         assertEq(lpSwap.wormholeTokenBridge(), address(wormholeBridge));
         assertEq(lpSwap.l1Timelock(), l1Timelock);
+        assertEq(lpSwap.bridgeMediator(), bridgeMediator);
         assertEq(lpSwap.maxSlippage(), maxSlippageBps);
     }
 
@@ -424,10 +456,10 @@ contract LPSwapCeloSwapTest is LPSwapCeloBaseSetup {
         // Verify: no LP tokens remain
         assertEq(ZuniswapV2Pair(pair).balanceOf(address(lpSwap)), 0);
 
-        // Verify: new OLAS-WCELO pair was created and has liquidity
+        // Verify: new OLAS-WCELO pair was created and has liquidity (sent to l1Timelock)
         address newPair = factory.pairs(address(olas), address(wcelo));
         assertFalse(newPair == address(0));
-        uint256 newPairLiquidity = ZuniswapV2Pair(newPair).balanceOf(address(lpSwap));
+        uint256 newPairLiquidity = ZuniswapV2Pair(newPair).balanceOf(bridgeMediator);
         assertGt(newPairLiquidity, 0);
 
         // Verify: no OLAS or whOLAS left in the contract (bridged away or used)
@@ -531,10 +563,10 @@ contract LPSwapCeloSwapTest is LPSwapCeloBaseSetup {
 
         lpSwap.swapLiquidity();
 
-        // Verify new pair was created
+        // Verify new pair was created (LP tokens sent to l1Timelock)
         address newPair = factory.pairs(address(olas), address(wcelo));
         assertFalse(newPair == address(0));
-        assertGt(ZuniswapV2Pair(newPair).balanceOf(address(lpSwap)), 0);
+        assertGt(ZuniswapV2Pair(newPair).balanceOf(bridgeMediator), 0);
     }
 
     /// @dev swapLiquidity preserves token amounts (whOLAS amount == OLAS amount used).
@@ -673,10 +705,12 @@ contract LPSwapCeloForkBaseSetup is Test {
     address internal constant ROUTER = 0xE3D8bd6Aed4F159bc8000a9cD47CffDb95F96121;
     address internal constant UBESWAP_FACTORY = 0x62d5b84bE28a183aBB507E125B384122D2C25fAE;
     address internal constant L1_TIMELOCK = 0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE;
+    address internal constant BRIDGE_MEDIATOR = 0xC14E191A64a7FB0e5790a8a0B9a58683dFFce04d;
 
     // Oracle parameters
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 86400;
 
     // Slippage: 5%
     uint256 internal constant maxSlippageBps = 500;
@@ -686,11 +720,12 @@ contract LPSwapCeloForkBaseSetup is Test {
 
     function setUp() public virtual {
         // Deploy oracle for the whOLAS-WCELO pair
-        oracleV2 = new UniswapPriceOracle(LP_TOKEN, WHOLAS, minTwapWindowSeconds, minUpdateIntervalSeconds);
+        oracleV2 = new UniswapPriceOracle(LP_TOKEN, WHOLAS, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
-        // Warm up oracle: record observation, then warp past TWAP window
+        // Warm up oracle: need 2 observations for TWAP availability
         oracleV2.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
 
         // Deploy LPSwapCelo
         lpSwap = new LPSwapCelo(address(oracleV2), maxSlippageBps);
@@ -737,6 +772,7 @@ contract LPSwapCeloForkTest is LPSwapCeloForkBaseSetup {
         assertEq(lpSwap.OLAS(), OLAS);
         assertEq(lpSwap.ROUTER(), ROUTER);
         assertEq(lpSwap.L1_TIMELOCK(), L1_TIMELOCK);
+        assertEq(lpSwap.BRIDGE_MEDIATOR(), BRIDGE_MEDIATOR);
         assertEq(lpSwap.oracle(), address(oracleV2));
         assertEq(lpSwap.maxSlippage(), maxSlippageBps);
 
@@ -773,7 +809,7 @@ contract LPSwapCeloForkTest is LPSwapCeloForkBaseSetup {
         // Verify: old LP tokens fully consumed
         assertEq(IToken(LP_TOKEN).balanceOf(address(lpSwap)), 0);
 
-        // Verify: no WCELO left in contract (celoMin = celoDesired enforces full usage)
+        // Verify: no WCELO left in contract (sent to BRIDGE_MEDIATOR or used in new pair)
         assertEq(IToken(WCELO).balanceOf(address(lpSwap)), 0);
 
         // Verify: no OLAS left (used in new pair or bridged to L1)
@@ -781,6 +817,16 @@ contract LPSwapCeloForkTest is LPSwapCeloForkBaseSetup {
 
         // Verify: whOLAS dust is negligible (Wormhole truncates to 8 decimals, so up to 1e10 dust)
         assertLt(IToken(WHOLAS).balanceOf(address(lpSwap)), 1e10);
+
+        // Verify: new LP tokens sent to BRIDGE_MEDIATOR (not locked in contract)
+        // Check new pair exists via factory
+        (bool success, bytes memory data) = UBESWAP_FACTORY.staticcall(
+            abi.encodeWithSignature("getPair(address,address)", OLAS, WCELO)
+        );
+        if (success && abi.decode(data, (address)) != address(0)) {
+            address newPair = abi.decode(data, (address));
+            assertGt(IToken(newPair).balanceOf(BRIDGE_MEDIATOR), 0);
+        }
 
         console.log("Swap completed successfully");
     }

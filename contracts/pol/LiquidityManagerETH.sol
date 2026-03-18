@@ -184,11 +184,11 @@ contract LiquidityManagerETH is LiquidityManagerCore {
             uint256 fairReserve0;
             uint256 fairReserve1;
             if (tokens[0] == olas) {
-                fairReserve0 = FixedPointMathLib.sqrt(k * twap / 1e18);
-                fairReserve1 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+                fairReserve0 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, twap, 1e18));
+                fairReserve1 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, 1e18, twap));
             } else {
-                fairReserve0 = FixedPointMathLib.sqrt(k * 1e18 / twap);
-                fairReserve1 = FixedPointMathLib.sqrt(k * twap / 1e18);
+                fairReserve0 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, 1e18, twap));
+                fairReserve1 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, twap, 1e18));
             }
 
             // Expected withdrawal amounts (proportional to fair reserves)

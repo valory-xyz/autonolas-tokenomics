@@ -72,7 +72,6 @@ abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event OraclesUpdated(address[] secondTokens, address[] oracles);
-    event V3PoolStatusesUpdated(address[] pools, bool[] statuses);
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
@@ -217,8 +216,10 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Sets V2 oracle addresses for a specific V2-like full range pools based on second token.
+    /// @notice Setting oracles[i] = address(0) removes the oracle mapping for secondTokens[i],
+    ///         which disables buyBack() for that token and enables transfer() to treasury instead.
     /// @param secondTokens Set of second tokens.
-    /// @param oracles Set of corresponding oracle addresses.
+    /// @param oracles Set of corresponding oracle addresses (address(0) to remove).
     function setV2Oracles(address[] memory secondTokens, address[] memory oracles) external virtual {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -314,6 +315,9 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Transfers specified token to treasury.
+    /// @notice If a non-standard token (e.g. USDT, which returns void instead of bool) accumulates in the contract,
+    ///         the transfer() call on line 343 will revert because Solidity's IERC20.transfer() ABI-decodes a bool
+    ///         return value. To support such tokens, use SafeERC20.safeTransfer() or handle the return data manually.
     /// @param token Token address.
     function transfer(address token) external {
         // Check that token is not set for swapping into OLAS

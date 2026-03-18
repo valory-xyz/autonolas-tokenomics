@@ -36,6 +36,7 @@ contract BaseSetup is Test {
     // Oracle parameters (matching production deployment)
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 86400;
 
     uint256 internal constant Q112 = 2 ** 112;
 
@@ -48,7 +49,7 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy fresh oracle pointing to real OLAS/WETH pair (WETH as reference token, matching production)
-        oracle = new UniswapPriceOracle(PAIR_V2, WETH, minTwapWindowSeconds, minUpdateIntervalSeconds);
+        oracle = new UniswapPriceOracle(PAIR_V2, WETH, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
     }
 }
 
