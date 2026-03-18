@@ -427,7 +427,7 @@ Note: This is acceptable if Wormhole message fees are confirmed to be zero on Ce
       If they become non-zero in the future, _bridgeWhOLAS() will revert but the rest
       of swapLiquidity() (LP removal, LP addition, OLAS bridge) will also revert atomically.
 ```
-[x] Acknowledged (Wormhole fee is zero on Celo; no funds at risk if it becomes non-zero due to atomic revert)
+[x] Fixed
 
 ##### 6. L-4: LPSwapCelo — OLAS pre-funding not validated
 ```
