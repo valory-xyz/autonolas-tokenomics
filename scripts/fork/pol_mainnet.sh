@@ -32,7 +32,6 @@ treasuryAddress=$(jq -r '.treasuryAddress' $globals)
 wethAddress="0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 pairAddress="0x09D1d767eDF8Fa23A64C51fa559E0688E526812F"
 pairBytes32Address="0x00000000000000000000000009D1d767eDF8Fa23A64C51fa559E0688E526812F"
-maxSlippageOracle="50"
 
 # Get deployer based on the private key
 echo "Using PRIVATE_KEY: ${PRIVATE_KEY:0:6}..."
@@ -78,7 +77,10 @@ echo "${green}$contractName deployed at: $neighborhoodScannerAddress${reset}"
 
 contractName="UniswapPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$wethAddress $maxSlippageOracle $pairAddress"
+minTwapWindowSeconds="900"
+minUpdateIntervalSeconds="900"
+maxStalenessSeconds="86400"
+constructorArgs="$pairAddress $olasAddress $minTwapWindowSeconds $minUpdateIntervalSeconds $maxStalenessSeconds"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Deployment message
@@ -102,7 +104,7 @@ fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$oracleV2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,uint256,address)" $constructorArgs)"
+  contractParams="$oracleV2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,uint256,uint256,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"

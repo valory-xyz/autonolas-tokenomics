@@ -6,5 +6,6 @@ module.exports = [
     parsedData.pairAddress,
     parsedData.olasAddress,
     parsedData.minTwapWindowSeconds,
-    parsedData.minUpdateIntervalSeconds
+    parsedData.minUpdateIntervalSeconds,
+    parsedData.maxStalenessSeconds
 ];
