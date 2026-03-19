@@ -1,7 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {UQ112x112} from "../libraries/UQ112x112.sol";
+// contracts/libraries/UQ112x112.sol
+
+// Adapted from @uniswap/v2-core/contracts/libraries/UQ112x112.sol (pragma =0.5.16)
+// A library for handling binary fixed point numbers (https://en.wikipedia.org/wiki/Q_(number_format))
+// range: [0, 2**112 - 1]
+// resolution: 1 / 2**112
+
+library UQ112x112 {
+    uint224 internal constant Q112 = 2 ** 112;
+
+    // encode a uint112 as a UQ112x112
+    function encode(uint112 y) internal pure returns (uint224) {
+        return uint224(y) * Q112;
+    }
+
+    // divide a UQ112x112 by a uint112, returning a UQ112x112
+    function uqdiv(uint224 x, uint112 y) internal pure returns (uint224) {
+        return x / uint224(y);
+    }
+}
+
+// contracts/oracles/UniswapPriceOracle.sol
 
 interface IUniswapV2 {
     function token0() external view returns (address);
@@ -54,8 +75,6 @@ contract UniswapPriceOracle {
     uint256 public immutable minTwapWindow;
     // Minimum time between successful updatePrice() calls (seconds)
     uint256 public immutable minUpdateInterval;
-    // Maximum allowed staleness of the last observation (seconds)
-    uint256 public immutable maxStaleness;
 
     struct Observation {
         // UQ112x112 * seconds
@@ -64,8 +83,6 @@ contract UniswapPriceOracle {
         uint256 timestamp;
     }
 
-    // Previous observation for rolling TWAP window
-    Observation public prevObservation;
     // Stored last observation used for TWAP
     Observation public lastObservation;
 
@@ -74,13 +91,11 @@ contract UniswapPriceOracle {
     /// @param _olas OLAS address.
     /// @param _minTwapWindowSeconds Min TWAP window in seconds.
     /// @param _minUpdateIntervalSeconds Min price update interval in seconds.
-    /// @param _maxStalenessSeconds Max staleness in seconds.
     constructor(
         address _pair,
         address _olas,
         uint256 _minTwapWindowSeconds,
-        uint256 _minUpdateIntervalSeconds,
-        uint256 _maxStalenessSeconds
+        uint256 _minUpdateIntervalSeconds
     ) {
         // Check for zero address
         if (_pair == address(0)) {
@@ -97,15 +112,9 @@ contract UniswapPriceOracle {
             revert Overflow(_minTwapWindowSeconds, _minUpdateIntervalSeconds);
         }
 
-        // Check for maxStaleness consistency
-        if (_minTwapWindowSeconds > _maxStalenessSeconds) {
-            revert Overflow(_minTwapWindowSeconds, _maxStalenessSeconds);
-        }
-
         pair = _pair;
         minTwapWindow = _minTwapWindowSeconds;
         minUpdateInterval = _minUpdateIntervalSeconds;
-        maxStaleness = _maxStalenessSeconds;
 
         // Get tokens from pair
         address[] memory tokens = new address[](2);
@@ -156,8 +165,7 @@ contract UniswapPriceOracle {
             }
         }
 
-        // Shift window: previous becomes last, current becomes new last
-        prevObservation = lastObservation;
+        // Record last observation as current
         lastObservation = Observation({priceCumulative: priceCumulativeNow, timestamp: block.timestamp});
 
         emit ObservationUpdated(msg.sender, priceCumulativeNow, block.timestamp);
@@ -166,39 +174,27 @@ contract UniswapPriceOracle {
     }
 
     /// @dev Gets the current TWAP price in 1e18 format.
-    ///      Reverts if the oracle is not initialized, observations are stale, or the TWAP window is insufficient.
-    ///      Requires at least 2 updatePrice() calls for warmup.
+    ///      Reverts if the oracle is not initialized or the TWAP window is insufficient.
     /// @return TWAP price in 1e18 format (OLAS per secondToken).
     function getTWAP() external view returns (uint256) {
-        // Get both observations
-        Observation memory prev = prevObservation;
-        Observation memory last = lastObservation;
-
-        // Check if initialized (need at least 2 updatePrice() calls)
-        if (prev.timestamp == 0 || last.timestamp == 0) {
+        // Get last observation
+        Observation memory obs = lastObservation;
+        if (obs.timestamp == 0) {
             revert ZeroValue();
-        }
-
-        // Freshness: require that last observation is not too old
-        uint256 age = block.timestamp - last.timestamp;
-        if (age > maxStaleness) {
-            revert Overflow(age, maxStaleness);
         }
 
         // Get current cumulative price
         uint256 priceCumulativeNow = _currentCumulativePrice();
-
-        // TWAP window: from prev observation to now
-        uint256 dtWin = block.timestamp - prev.timestamp;
+        // Overflow desired (Uniswap V2 semantics)
+        uint256 elapsed = block.timestamp - obs.timestamp;
 
         // TWAP history check
-        if (dtWin < minTwapWindow || dtWin == 0) {
+        if (elapsed < minTwapWindow || elapsed == 0) {
             revert ZeroValue();
         }
 
         // TWAP in UQ112x112
-        uint224 twapUQ = uint224((priceCumulativeNow - prev.priceCumulative) / dtWin);
-
+        uint224 twapUQ = uint224((priceCumulativeNow - obs.priceCumulative) / elapsed);
         // Check for zero value
         if (twapUQ == 0) {
             revert ZeroValue();
@@ -221,7 +217,7 @@ contract UniswapPriceOracle {
         priceCumulative = priceCumulativeLast;
 
         // Extrapolate if time has elapsed since last pair update
-        // Note: overflow is not expected for realistic timeframes despite Uniswap V2 unchecked semantics
+        // Overflow desired (Uniswap V2 semantics)
         uint256 timeElapsed = block.timestamp - tsLast;
         if (timeElapsed > 0 && r0 > 0 && r1 > 0) {
             // direction == 0 ? token1 / token0 : token0 / token1
@@ -232,3 +228,4 @@ contract UniswapPriceOracle {
         }
     }
 }
+

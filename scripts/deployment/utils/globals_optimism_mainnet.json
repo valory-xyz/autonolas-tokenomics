@@ -13,8 +13,6 @@
   "nativeTokenAddress": "0x4200000000000000000000000000000000000006",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPoolId": "0x5bb3e58887264b667f915130fd04bbb56116c27800020000000000000000012a",
-  "maxOracleSlippage": "50",
-  "minUpdateTimePeriod": "900",
   "maxBuyBackSlippage": "10",
   "balancerPriceOracleAddress": "0x2C3F556Ff33B6b5279C85CA99ed2Ba8351A2E9Bf",
   "buyBackBurnerAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",

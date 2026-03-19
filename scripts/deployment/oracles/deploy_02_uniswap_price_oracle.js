@@ -46,7 +46,8 @@ async function main() {
     const UniswapPriceOracle = await ethers.getContractFactory("UniswapPriceOracle");
     console.log("You are signing the following transaction: UniswapPriceOracle.connect(EOA).deploy()");
     const uniswapPriceOracle = await UniswapPriceOracle.connect(EOA).deploy(parsedData.pairAddress,
-        parsedData.olasAddress, parsedData.minTwapWindowSeconds, parsedData.minUpdateIntervalSeconds, { gasPrice });
+        parsedData.olasAddress, parsedData.minTwapWindowSeconds, parsedData.minUpdateIntervalSeconds,
+        parsedData.maxStalenessSeconds, { gasPrice });
     const result = await uniswapPriceOracle.deployed();
 
     // Transaction details

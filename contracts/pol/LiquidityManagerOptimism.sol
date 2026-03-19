@@ -248,11 +248,11 @@ contract LiquidityManagerOptimism is LiquidityManagerCore {
             uint256 fairBalance0;
             uint256 fairBalance1;
             if (tokens[0] == olas) {
-                fairBalance0 = FixedPointMathLib.sqrt(k * twap / 1e18);
-                fairBalance1 = FixedPointMathLib.sqrt(k * 1e18 / twap);
+                fairBalance0 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, twap, 1e18));
+                fairBalance1 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, 1e18, twap));
             } else {
-                fairBalance0 = FixedPointMathLib.sqrt(k * 1e18 / twap);
-                fairBalance1 = FixedPointMathLib.sqrt(k * twap / 1e18);
+                fairBalance0 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, 1e18, twap));
+                fairBalance1 = FixedPointMathLib.sqrt(FixedPointMathLib.mulDivDown(k, twap, 1e18));
             }
 
             // Expected withdrawal amounts (proportional to fair balances)
