@@ -29,11 +29,11 @@ contract BaseSetup is Test {
     address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     // Oracle parameters
-    uint256 internal constant maxOracleSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 86400;
 
-    // BuyBackBurner max slippage (used as BPS in oracle validatePrice, and as percentage in post-swap bounds)
+    // BuyBackBurner max slippage (used as percentage in post-swap bounds)
     uint256 internal constant maxBuyBackSlippage = 1000; // 10%
 
     function setUp() public virtual {
@@ -44,12 +44,13 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
-        // Deploy V2 oracle (WETH as reference token, matching production)
-        oracleV2 = new UniswapPriceOracle(PAIR_V2, WETH, maxOracleSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds);
+        // Deploy V2 oracle (OLAS as reference token for correct OLAS/WETH price direction)
+        oracleV2 = new UniswapPriceOracle(PAIR_V2, OLAS, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
-        // Warm up oracle: record observation, then warp past TWAP window
+        // Warm up oracle: need 2 observations for TWAP availability
         oracleV2.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
 
         // Deploy BuyBackBurnerUniswap implementation
         BuyBackBurnerUniswap buyBackBurnerImpl = new BuyBackBurnerUniswap(BURNER, TIMELOCK);

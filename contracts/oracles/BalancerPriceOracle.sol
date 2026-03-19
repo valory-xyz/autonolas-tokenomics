@@ -28,28 +28,22 @@ error Overflow(uint256 provided, uint256 max);
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @dev This contract acts as an oracle for a specific Balancer V2 pool. It allows:
 ///      1) Getting the spot price (balance ratio) in 1e18 format
-///      2) Validating slippage against a proper two-observation rolling-window TWAP
+///      2) Getting the TWAP price in 1e18 format
 ///
 ///      Fixes vs the original version:
 ///      - TWAP is computed from two independent observations (delta_cumulative / delta_t).
 ///      - No state mutation on rejected updates (commit-on-success).
 ///      - Avoids permanent freeze after large market moves by allowing baseline to adapt via rolling-window TWAP.
 ///      - updatePrice() is rate-limited to prevent griefing resets of the observation.
-///      - Adds freshness constraints for validation.
-///      - Slippage is specified in basis points (BPS), 10_000 = 100%.
+///      - Adds freshness constraints for TWAP retrieval.
 contract BalancerPriceOracle {
     event ObservationUpdated(address indexed sender, uint256 priceCumulative, uint256 timestamp);
 
-    // Max BPS value
-    uint256 public constant MAX_BPS = 10_000;
-
-    // Max allowable slippage in BPS (0..MAX_BPS)
-    uint256 public immutable maxSlippageBps;
     // Minimum time between successful updatePrice() calls (seconds)
     uint256 public immutable minUpdateInterval;
     // Minimum TWAP window required for validation (seconds)
     uint256 public immutable minTwapWindow;
-    // Maximum allowed staleness of the last observation for validatePrice (seconds)
+    // Maximum allowed staleness of the last observation (seconds)
     uint256 public immutable maxStaleness;
 
     // LP token direction:
@@ -78,7 +72,6 @@ contract BalancerPriceOracle {
     /// @param _balancerVault Balancer vault address.
     /// @param _balancerPoolId Balancer pool Id.
     /// @param _olas OLAS address.
-    /// @param _maxSlippageBps Max slippage BPS.
     /// @param _minTwapWindowSeconds Min TWAP window in seconds.
     /// @param _minUpdateIntervalSeconds Min price update interval in seconds.
     /// @param _maxStalenessSeconds Max staleness in seconds.
@@ -86,7 +79,6 @@ contract BalancerPriceOracle {
         address _balancerVault,
         bytes32 _balancerPoolId,
         address _olas,
-        uint256 _maxSlippageBps,
         uint256 _minTwapWindowSeconds,
         uint256 _minUpdateIntervalSeconds,
         uint256 _maxStalenessSeconds
@@ -94,11 +86,6 @@ contract BalancerPriceOracle {
         // Check for zero address
         if (_balancerVault == address(0)) {
             revert ZeroAddress();
-        }
-
-        // Check for overflow
-        if (_maxSlippageBps > MAX_BPS) {
-            revert Overflow(_maxSlippageBps, MAX_BPS);
         }
 
         // Check for zero values
@@ -116,7 +103,6 @@ contract BalancerPriceOracle {
             revert Overflow(_minTwapWindowSeconds, _maxStalenessSeconds);
         }
 
-        maxSlippageBps = _maxSlippageBps;
         minUpdateInterval = _minUpdateIntervalSeconds;
         minTwapWindow = _minTwapWindowSeconds;
         maxStaleness = _maxStalenessSeconds;
@@ -193,16 +179,10 @@ contract BalancerPriceOracle {
         return true;
     }
 
-    /// @dev Validates the current spot price against a TWAP according to slippage tolerance.
-    ///      Returns false (not revert) for "insufficient data" cases to reduce DoS risk.
-    /// @param slippageBps Acceptable slippage tolerance in basis points.
-    /// @return True if price is validated.
-    function validatePrice(uint256 slippageBps) external view returns (bool) {
-        // Check for requested slippage value
-        if (slippageBps > maxSlippageBps) {
-            revert Overflow(slippageBps, maxSlippageBps);
-        }
-
+    /// @dev Gets the current TWAP price in 1e18 format.
+    ///      Reverts if the oracle is not initialized, observations are stale, or the TWAP window is insufficient.
+    /// @return TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256) {
         // Get observations
         Observation memory prev = prevObservation;
         Observation memory last = lastObservation;
@@ -221,15 +201,11 @@ contract BalancerPriceOracle {
         // TWAP history check: need a usable window
         uint256 dtWin = block.timestamp - prev.timestamp;
         if (dtWin < minTwapWindow) {
-            // Window too small: not enough history for TWAP
-            return false;
+            revert ZeroValue();
         }
 
-        // Get spot price
+        // Get spot price for counterfactual cumulative
         uint256 spot = getPrice();
-        if (spot == 0) {
-            return false;
-        }
 
         // Counterfactual cumulative at now using last observation + current spot over elapsed time
         uint256 priceCumulativeNow = last.priceCumulative + spot * age;
@@ -239,14 +215,10 @@ contract BalancerPriceOracle {
 
         // Check for zero value
         if (twap == 0) {
-            return false;
+            revert ZeroValue();
         }
 
-        // Calculate price difference
-        uint256 diff = (spot > twap) ? (spot - twap) : (twap - spot);
-
-        // Compare as BPS: diff / twap <= slippageBps / MAX_BPS
-        // => diff * MAX_BPS <= twap * slippageBps
-        return diff * MAX_BPS <= twap * slippageBps;
+        return twap;
     }
+
 }

@@ -87,7 +87,7 @@ Compile the code with Forge:
 ```
 forge build
 ```
-Run tests with Forge (skip fork testing):
+Run unit tests with Forge (no fork required):
 ```
 forge test --mc Depository -vvv
 forge test --mc Dispenser -vvv
@@ -97,13 +97,18 @@ forge test --mc Treasury -vvv
 forge test --mc UniswapPriceOracleConstructorTest -vvv
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
 forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
-forge test --mc UniswapPriceOracleValidatePriceTest -vvv
+forge test --mc UniswapPriceOracleGetTWAPTest -vvv
 forge test --mc BalancerPriceOracleConstructorTest -vvv
 forge test --mc BalancerPriceOracleGetPriceTest -vvv
 forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
-forge test --mc BalancerPriceOracleValidatePriceTest -vvv
+forge test --mc BalancerPriceOracleGetTWAPTest -vvv
+
+# LPSwapCelo unit tests
+forge test --mc LPSwapCeloConstructorTest -vvv
+forge test --mc LPSwapCeloSwapTest -vvv
+forge test --mc LPSwapCeloSlippageTest -vvv
 ```
-Run fork tests with Forge:
+Run fork tests with Forge (require RPC node URL for the target chain):
 ```
 # Fork tests (ETH mainnet)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv
@@ -120,6 +125,9 @@ forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
 
 # Fork tests (Arbitrum)
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv
+
+# Fork tests (Celo)
+forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv
 ```
 
 ### Audits

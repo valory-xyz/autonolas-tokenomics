@@ -132,10 +132,12 @@ contract BaseSetup is Test {
         vm.label(dev, "Developer");
 
         // Deploy V2 oracle
-        oracleV2 = new BalancerPriceOracle(BALANCER_VAULT, POOL_V2_BYTES32, OLAS, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
+        oracleV2 = new BalancerPriceOracle(BALANCER_VAULT, POOL_V2_BYTES32, OLAS, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
 
-        // Advance some time such that oracle has a time difference between last updated price
-        vm.warp(block.timestamp + 100);
+        // Warm up oracle: two observations needed so both prevObservation and lastObservation are populated
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
 
         // Deploy Bridge2Burner
         bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);

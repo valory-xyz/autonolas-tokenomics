@@ -32,11 +32,8 @@ interface ILiquidityManager {
 
 // Oracle V2 interface
 interface IOracle {
-    /// @dev Gets the current OLAS token price in 1e18 format.
-    function getPrice() external view returns (uint256);
-
-    /// @dev Validates price according to slippage.
-    function validatePrice(uint256 slippage) external view returns (bool);
+    /// @dev Gets the current TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256);
 
     /// @dev Updates the time-weighted average price.
     function updatePrice() external returns (bool);
@@ -75,18 +72,19 @@ abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event OraclesUpdated(address[] secondTokens, address[] oracles);
-    event V3PoolStatusesUpdated(address[] pools, bool[] statuses);
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
     event FundsReceived(address indexed sender, uint256 amount);
 
     // Version number
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
     // Code position in storage is keccak256("BUY_BACK_BURNER_PROXY") = "c6d7bd4bd971fa336816fe30b665cc6caccce8b123cc8ea692d132f342c4fc19"
     bytes32 public constant BUY_BACK_BURNER_PROXY = 0xc6d7bd4bd971fa336816fe30b665cc6caccce8b123cc8ea692d132f342c4fc19;
     // L1 OLAS Burner address
     address public constant OLAS_BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
+    // Max BPS value
+    uint256 public constant MAX_BPS = 10_000;
     // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
     uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
     // Seconds ago to look back for TWAP pool values
@@ -137,9 +135,9 @@ abstract contract BuyBackBurner {
     /// @dev Performs swap for OLAS on V2 DEX.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
-    /// @param poolOracle Pool oracle address.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, address poolOracle)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, uint256 amountOutMin)
         internal
         virtual
         returns (uint256 olasAmount);
@@ -155,14 +153,14 @@ abstract contract BuyBackBurner {
         // Check for zero address
         require(poolOracle != address(0), "Zero oracle address");
 
-        // Apply slippage protection
-        require(IOracle(poolOracle).validatePrice(maxSlippage), "Before swap slippage limit is breached");
+        // Get TWAP price (OLAS per secondToken) in 1e18 format
+        uint256 twap = IOracle(poolOracle).getTWAP();
 
-        // Get current pool price
-        uint256 previousPrice = IOracle(poolOracle).getPrice();
+        // Compute minimum acceptable OLAS output with slippage tolerance
+        uint256 amountOutMin = (secondTokenAmount * twap * (MAX_BPS - maxSlippage)) / (MAX_BPS * 1e18);
 
-        // Perform swap to OLAS
-        olasAmount = _performSwap(secondToken, secondTokenAmount, poolOracle);
+        // Perform swap to OLAS with amountOutMin enforced by the router
+        olasAmount = _performSwap(secondToken, secondTokenAmount, amountOutMin);
     }
 
     /// @dev BuyBackBurner initializer.
@@ -218,8 +216,10 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Sets V2 oracle addresses for a specific V2-like full range pools based on second token.
+    /// @notice Setting oracles[i] = address(0) removes the oracle mapping for secondTokens[i],
+    ///         which disables buyBack() for that token and enables transfer() to treasury instead.
     /// @param secondTokens Set of second tokens.
-    /// @param oracles Set of corresponding oracle addresses.
+    /// @param oracles Set of corresponding oracle addresses (address(0) to remove).
     function setV2Oracles(address[] memory secondTokens, address[] memory oracles) external virtual {
         // Check for the ownership
         if (msg.sender != owner) {
@@ -315,6 +315,9 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Transfers specified token to treasury.
+    /// @notice If a non-standard token (e.g. USDT, which returns void instead of bool) accumulates in the contract,
+    ///         the transfer() call on line 343 will revert because Solidity's IERC20.transfer() ABI-decodes a bool
+    ///         return value. To support such tokens, use SafeERC20.safeTransfer() or handle the return data manually.
     /// @param token Token address.
     function transfer(address token) external {
         // Check that token is not set for swapping into OLAS

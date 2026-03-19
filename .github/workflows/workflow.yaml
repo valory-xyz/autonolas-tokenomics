@@ -55,7 +55,7 @@ jobs:
 
       # Compile the code and run foundry tests (except for fork ones)
       - name: Run foundry tests
-        run: forge test --mc Depository && forge test --mc Dispenser && forge test --mc Treasury && forge test --mc UniswapPriceOracleConstructorTest && forge test --mc UniswapPriceOracleGetPriceTest && forge test --mc UniswapPriceOracleUpdatePriceTest && forge test --mc UniswapPriceOracleValidatePriceTest && forge test --mc BalancerPriceOracleConstructorTest && forge test --mc BalancerPriceOracleGetPriceTest && forge test --mc BalancerPriceOracleUpdatePriceTest && forge test --mc BalancerPriceOracleValidatePriceTest
+        run: forge test --mc Depository && forge test --mc Dispenser && forge test --mc Treasury && forge test --mc UniswapPriceOracleConstructorTest && forge test --mc UniswapPriceOracleGetPriceTest && forge test --mc UniswapPriceOracleUpdatePriceTest && forge test --mc UniswapPriceOracleGetTWAPTest && forge test --mc BalancerPriceOracleConstructorTest && forge test --mc BalancerPriceOracleGetPriceTest && forge test --mc BalancerPriceOracleUpdatePriceTest && forge test --mc BalancerPriceOracleGetTWAPTest && forge test --mc LPSwapCeloConstructorTest && forge test --mc LPSwapCeloSwapTest && forge test --mc LPSwapCeloSlippageTest
 
   scan:
     name: gitleaks

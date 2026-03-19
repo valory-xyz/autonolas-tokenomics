@@ -83,6 +83,7 @@ contract BaseSetup is Test {
     uint256 internal constant maxSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
+    uint256 internal constant maxStalenessSeconds = 86400;
     int24 internal constant FEE_TIER = 3000;
     // Allowed rounding delta in 1e18 = 1%
     uint256 internal constant DELTA = 1e16;
@@ -100,8 +101,13 @@ contract BaseSetup is Test {
         dev = users[1];
         vm.label(dev, "Developer");
 
-        // Deploy V2 oracle
-        oracleV2 = new UniswapPriceOracle(PAIR_V2, WETH, maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds);
+        // Deploy V2 oracle (OLAS as reference token for correct OLAS/WETH price direction)
+        oracleV2 = new UniswapPriceOracle(PAIR_V2, OLAS, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds);
+
+        // Warm up oracle: need 2 observations for TWAP availability
+        oracleV2.updatePrice();
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
 
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
@@ -746,9 +752,10 @@ contract LiquidityManagerETHTest is BaseSetup {
         v2Oracles[0] = address(oracleV2);
         buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
 
-        // Warm up oracle
+        // Warm up oracle: need 2 observations for TWAP availability
         oracleV2.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
+        vm.warp(block.timestamp + minUpdateIntervalSeconds);
+        oracleV2.updatePrice();
 
         // Mock WETH balance on BBB
         deal(WETH, address(buyBackBurner), 0.5 ether);

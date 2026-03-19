@@ -42,13 +42,13 @@ fi
 
 pairAddress=$(jq -r '.pairAddress' $globals)
 olasAddress=$(jq -r '.olasAddress' $globals)
-maxSlippageBps=$(jq -r '.maxSlippageBps' $globals)
 minTwapWindowSeconds=$(jq -r '.minTwapWindowSeconds' $globals)
 minUpdateIntervalSeconds=$(jq -r '.minUpdateIntervalSeconds' $globals)
+maxStalenessSeconds=$(jq -r '.maxStalenessSeconds' $globals)
 
 contractName="UniswapPriceOracle"
 contractPath="contracts/oracles/$contractName.sol:$contractName"
-constructorArgs="$pairAddress $olasAddress $maxSlippageBps $minTwapWindowSeconds $minUpdateIntervalSeconds"
+constructorArgs="$pairAddress $olasAddress $minTwapWindowSeconds $minUpdateIntervalSeconds $maxStalenessSeconds"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

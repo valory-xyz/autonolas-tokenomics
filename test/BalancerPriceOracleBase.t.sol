@@ -57,7 +57,6 @@ contract BaseSetup is Test {
     bytes32 internal constant POOL_ID = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
 
     // Oracle parameters (matching production deployment)
-    uint256 internal constant maxSlippageBps = 5000;
     uint256 internal constant minTwapWindowSeconds = 900;
     uint256 internal constant minUpdateIntervalSeconds = 900;
     uint256 internal constant maxStalenessSeconds = 900;
@@ -76,7 +75,7 @@ contract BaseSetup is Test {
         // Deploy fresh oracle pointing to real Balancer pool
         oracle = new BalancerPriceOracle(
             BALANCER_VAULT, POOL_ID, OLAS,
-            maxSlippageBps, minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds
+            minTwapWindowSeconds, minUpdateIntervalSeconds, maxStalenessSeconds
         );
 
         // Record anchor and advance time so first updatePrice can succeed
@@ -94,7 +93,6 @@ contract BalancerPriceOracleBase is BaseSetup {
     function testDeployWithRealPool() public view {
         assertEq(oracle.balancerVault(), BALANCER_VAULT);
         assertEq(oracle.balancerPoolId(), POOL_ID);
-        assertEq(oracle.maxSlippageBps(), maxSlippageBps);
         assertEq(oracle.minTwapWindow(), minTwapWindowSeconds);
         assertEq(oracle.minUpdateInterval(), minUpdateIntervalSeconds);
         assertEq(oracle.maxStaleness(), maxStalenessSeconds);
@@ -169,153 +167,6 @@ contract BalancerPriceOracleBase is BaseSetup {
         assertEq(prevCum, lastCum1);
     }
 
-    /// @dev Full TWAP cycle: updatePrice -> warp -> validatePrice with constant price.
-    function testValidatePriceConstantPrice() public {
-        // First update
-        oracle.updatePrice();
-
-        // Warp past TWAP window from prevObservation
-        vm.warp(block.timestamp + minTwapWindowSeconds);
-        // Second update to keep observation fresh within maxStaleness
-        oracle.updatePrice();
-
-        // With constant price, TWAP == spot, should validate at any slippage
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-        console.log("Validation passed with constant price");
-    }
-
-    /// @dev Validates with zero slippage when price is constant.
-    function testValidatePriceZeroSlippageConstant() public {
-        oracle.updatePrice();
-
-        vm.warp(block.timestamp + minTwapWindowSeconds);
-        oracle.updatePrice();
-
-        bool valid = oracle.validatePrice(0);
-        assertTrue(valid);
-    }
-
-    /// @dev Returns false when TWAP window is too small.
-    function testValidatePriceWindowTooSmall() public {
-        oracle.updatePrice();
-
-        // Deploy a fresh oracle with larger minTwapWindow to test the boundary
-        BalancerPriceOracle freshOracle = new BalancerPriceOracle(
-            BALANCER_VAULT, POOL_ID, OLAS,
-            maxSlippageBps, 1800, minUpdateIntervalSeconds, 3600
-        );
-
-        // Warp minUpdateInterval so first update succeeds
-        vm.warp(block.timestamp + minUpdateIntervalSeconds);
-        freshOracle.updatePrice();
-
-        // prev.timestamp = freshOracle construction time, dtWin = 900 < 1800 = minTwapWindow
-        bool valid = freshOracle.validatePrice(maxSlippageBps);
-        assertFalse(valid);
-    }
-
-    /// @dev Reverts when last observation is too stale.
-    function testValidatePriceStaleness() public {
-        oracle.updatePrice();
-
-        vm.warp(block.timestamp + minTwapWindowSeconds);
-        oracle.updatePrice();
-
-        // Warp past maxStaleness from last observation
-        vm.warp(block.timestamp + maxStalenessSeconds + 1);
-
-        vm.expectRevert();
-        oracle.validatePrice(maxSlippageBps);
-    }
-
-    /// @dev Test with real Balancer swap to change the price.
-    function testValidatePriceAfterSwap() public {
-        // First update at current price
-        oracle.updatePrice();
-
-        // Warp and do another update to establish TWAP baseline
-        vm.warp(block.timestamp + minTwapWindowSeconds);
-        oracle.updatePrice();
-
-        uint256 priceBefore = oracle.getPrice();
-        console.log("Price before swap:", priceBefore);
-
-        // Perform a real swap on the Balancer pool: swap WETH for OLAS
-        // Use small amount relative to pool (~12 ETH WETH balance)
-        uint256 swapAmount = 0.1 ether;
-        deal(WETH, address(this), swapAmount);
-        IToken(WETH).approve(BALANCER_VAULT, swapAmount);
-
-        IBalancer.SingleSwap memory singleSwap = IBalancer.SingleSwap({
-            poolId: POOL_ID,
-            kind: IBalancer.SwapKind.GIVEN_IN,
-            assetIn: WETH,
-            assetOut: OLAS,
-            amount: swapAmount,
-            userData: ""
-        });
-
-        IBalancer.FundManagement memory funds = IBalancer.FundManagement({
-            sender: address(this),
-            fromInternalBalance: false,
-            recipient: payable(address(this)),
-            toInternalBalance: false
-        });
-
-        uint256 olasOut = IBalancer(BALANCER_VAULT).swap(singleSwap, funds, 0, block.timestamp);
-        console.log("Swapped WETH for OLAS:", olasOut);
-
-        uint256 priceAfter = oracle.getPrice();
-        console.log("Price after swap:", priceAfter);
-
-        // With 50% max slippage, a small swap should still be within tolerance
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-        console.log("Validation passed after swap");
-    }
-
-    /// @dev Test with larger swap and low slippage to detect price movement.
-    function testValidatePriceLargeSwapExceedsLowSlippage() public {
-        // Build TWAP baseline
-        oracle.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds);
-        oracle.updatePrice();
-
-        // Balancer pools enforce max ~30% of balance per swap. Pool has ~12 ETH WETH.
-        // Use 3 ETH which is ~25% of pool - should move the price significantly.
-        uint256 swapAmount = 3 ether;
-        deal(WETH, address(this), swapAmount);
-        IToken(WETH).approve(BALANCER_VAULT, swapAmount);
-
-        IBalancer.SingleSwap memory singleSwap = IBalancer.SingleSwap({
-            poolId: POOL_ID,
-            kind: IBalancer.SwapKind.GIVEN_IN,
-            assetIn: WETH,
-            assetOut: OLAS,
-            amount: swapAmount,
-            userData: ""
-        });
-
-        IBalancer.FundManagement memory funds = IBalancer.FundManagement({
-            sender: address(this),
-            fromInternalBalance: false,
-            recipient: payable(address(this)),
-            toInternalBalance: false
-        });
-
-        uint256 olasOut = IBalancer(BALANCER_VAULT).swap(singleSwap, funds, 0, block.timestamp);
-        console.log("Large swap WETH for OLAS:", olasOut);
-
-        uint256 priceAfter = oracle.getPrice();
-        console.log("Price after large swap:", priceAfter);
-
-        // With max slippage (50%), should still pass
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
-        console.log("Validation at 50% slippage: true");
-    }
-
     /// @dev Test multiple update cycles building TWAP history.
     function testMultipleUpdateCycles() public {
         // Use explicit absolute timestamps to avoid viaIR block.timestamp caching
@@ -341,10 +192,6 @@ contract BalancerPriceOracleBase is BaseSetup {
         (uint256 cum3, uint256 ts3) = oracle.lastObservation();
         console.log("Cycle 3 - cumulative:", cum3, "ts:", ts3);
         assertGt(cum3, cum2);
-
-        // Validate after 3 cycles
-        bool valid = oracle.validatePrice(maxSlippageBps);
-        assertTrue(valid);
     }
 
     /// @dev Cumulative price accumulates correctly with known price.
