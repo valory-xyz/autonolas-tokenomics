@@ -33,19 +33,18 @@ polygonL2TargetChainId=$(jq -r '.polygonL2TargetChainId' $globals)
 polygonCheckpointManagerAddress=$(jq -r '.polygonCheckpointManagerAddress' $globals)
 polygonERC20PredicateAddress=$(jq -r '.polygonERC20PredicateAddress' $globals)
 
-# Getting L1 Alchemy API key
-if [ $chainId == 1 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MAINNET
-  if [ "$API_KEY" == "" ]; then
-      echo "set ALCHEMY_API_KEY_MAINNET env variable"
-      exit 0
+# Check for Alchemy keys
+if [[ "$networkURL" == *"alchemy.com"* ]]; then
+  case $chainId in
+    1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
+    11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
+    137)      API_KEY=$ALCHEMY_API_KEY_MATIC;   keyName="ALCHEMY_API_KEY_MATIC" ;;
+    80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
+  esac
+  if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
+    echo "set $keyName env variable"
+    exit 0
   fi
-elif [ $chainId == 11155111 ]; then
-    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
-    if [ "$API_KEY" == "" ]; then
-        echo "set ALCHEMY_API_KEY_SEPOLIA env variable"
-        exit 0
-    fi
 fi
 
 contractPath="contracts/staking/PolygonDepositProcessorL1.sol:PolygonDepositProcessorL1"
