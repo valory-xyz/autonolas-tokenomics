@@ -1,0 +1,5 @@
+[allowlist]
+  paths = [
+    '''contracts/''',
+    '''scripts/deployment/''',
+  ]
