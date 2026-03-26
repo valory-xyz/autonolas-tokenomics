@@ -101,11 +101,13 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     /// @param payload Initializer payload.
     function _initialize(bytes memory payload) internal virtual override {
         address[] memory accounts;
-        (accounts, balancerPoolId, maxSlippage) = abi.decode(payload, (address[], bytes32, uint256));
+        bytes32 poolId;
+        (accounts, poolId) = abi.decode(payload, (address[], bytes32));
 
         olas = accounts[0];
         nativeToken = accounts[1];
         oracle = accounts[2];
         balancerVault = accounts[3];
+        balancerPoolId = poolId;
     }
 }

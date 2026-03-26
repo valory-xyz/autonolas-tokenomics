@@ -144,7 +144,7 @@ Suggested fix: use the same additive pattern as checkpoint():
 Or: document that effectiveBond reset is an intended side effect of this function.
 Or: require all bond products to be closed before calling.
 ```
-[ ]
+[x] No fix needed. The function is owner-only (Timelock = DAO governance). The DAO ensures all bonding products are closed before calling updateInflationPerSecondAndFractions(), so no outstanding product supply can exceed the reset effectiveBond. The reset direction is conservative (under-counts, never over-counts). Natspec to be updated to document this precondition.
 
 ### Low. BuyBackBurner: uniform maxSlippage for all token pairs (C4A finding, NOT FIXED)
 ```
@@ -156,7 +156,7 @@ File: contracts/utils/BuyBackBurner.sol:103,160
 
 Suggested fix: mapping(address => uint256) mapMaxSlippage per secondToken.
 ```
-[ ]
+[x] Fixed. Global maxSlippage deprecated (proxy legacy). Added mapping(address => uint256) mapTokenMaxSlippages with owner-only setMaxSlippages() setter. _buyOLAS() now reads per-token slippage. _initialize() in Uniswap/Balancer children no longer sets maxSlippage.
 
 ### Notes. Unchecked ERC20 transfer return values in BuyBackBurner and LPSwapCelo
 ```
@@ -165,7 +165,7 @@ Known tokens (OLAS) revert on failure, but arbitrary secondTokens might not.
 
 Files: BuyBackBurner.sol:290,336,342  LPSwapCelo.sol:256,289,290,303,314,328
 ```
-[ ]
+[x] Fixed. transfer() calls now check return values and revert with TransferFailed error. approve() calls are not wrapped — if approve fails, the downstream router call (removeLiquidity/addLiquidity/withdrawTo/transferTokens) will revert anyway.
 
 ### Notes. Uninitialized implementation contracts (all 3 proxies)
 ```
@@ -175,14 +175,14 @@ no funds), but best practice is _disableInitializers().
 
 Files: Tokenomics.sol, BuyBackBurner.sol, LiquidityManagerCore.sol
 ```
-[ ]
+[x] No fix needed. Initialize functions already guard against re-initialization with `if (owner != address(0)) revert AlreadyInitialized()`. No exploit path exists.
 
 ### Notes. DonatorBlacklist bypassable via proxy contract
 ```
 Blacklist checks msg.sender. Blacklisted address can deploy intermediary contract
 to call depositServiceDonationsETH. Known EVM limitation, not a contract bug.
 ```
-[ ]
+[x] No fix needed. Known EVM limitation — not a contract bug.
 
 ---
 

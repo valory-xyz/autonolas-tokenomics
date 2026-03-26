@@ -55,7 +55,7 @@ contract BaseSetup is Test {
         // Deploy BuyBackBurnerUniswap implementation
         BuyBackBurnerUniswap buyBackBurnerImpl = new BuyBackBurnerUniswap(BURNER, TIMELOCK);
 
-        // Construct proxy init payload: (accounts, maxSlippage)
+        // Construct proxy init payload: (accounts)
         address[] memory accounts = new address[](4);
         accounts[0] = OLAS;
         accounts[1] = WETH;
@@ -63,7 +63,7 @@ contract BaseSetup is Test {
         accounts[3] = ROUTER_V2;
 
         bytes memory initPayload =
-            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts, maxBuyBackSlippage));
+            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts));
 
         // Deploy proxy and wrap
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(buyBackBurnerImpl), initPayload);
@@ -75,6 +75,11 @@ contract BaseSetup is Test {
         address[] memory oracles = new address[](1);
         oracles[0] = address(oracleV2);
         buyBackBurner.setV2Oracles(secondTokens, oracles);
+
+        // Set per-token max slippage for WETH
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = maxBuyBackSlippage;
+        buyBackBurner.setMaxSlippages(secondTokens, slippages);
     }
 }
 
@@ -88,7 +93,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         assertEq(buyBackBurner.olas(), OLAS);
         assertEq(buyBackBurner.nativeToken(), WETH);
         assertEq(buyBackBurner.router(), ROUTER_V2);
-        assertEq(buyBackBurner.maxSlippage(), maxBuyBackSlippage);
+        assertEq(buyBackBurner.mapTokenMaxSlippages(WETH), maxBuyBackSlippage);
         assertEq(buyBackBurner.bridge2Burner(), BURNER);
         assertEq(buyBackBurner.treasury(), TIMELOCK);
         assertEq(buyBackBurner.mapV2Oracles(WETH), address(oracleV2));
