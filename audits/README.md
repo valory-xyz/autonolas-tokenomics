@@ -26,6 +26,8 @@ An internal audit with a focus on verifying correctness of fixes addressing C4A 
 
 An internal audit with a focus on verifying correctness of LPSwapCelo migration contract: [internal audit 13](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal13).
 
+An internal audit with a focus on verifying all: [internal audit 14](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal14). 
+
 ### External audit
 Final audit reports are listed in their historical order:
 - [v1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);

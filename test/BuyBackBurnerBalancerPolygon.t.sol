@@ -65,7 +65,7 @@ contract BaseSetup is Test {
         // Deploy BuyBackBurnerBalancer implementation
         BuyBackBurnerBalancer buyBackBurnerImpl = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
 
-        // Construct proxy init payload: (accounts, balancerPoolId, maxSlippage)
+        // Construct proxy init payload: (accounts, balancerPoolId)
         address[] memory accounts = new address[](4);
         accounts[0] = OLAS;
         accounts[1] = WMATIC;
@@ -73,7 +73,7 @@ contract BaseSetup is Test {
         accounts[3] = BALANCER_VAULT;
 
         bytes memory initPayload =
-            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts, POOL_ID, maxBuyBackSlippage));
+            abi.encodeWithSignature("initialize(bytes)", abi.encode(accounts, POOL_ID));
 
         // Deploy proxy and wrap
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(buyBackBurnerImpl), initPayload);
@@ -85,6 +85,11 @@ contract BaseSetup is Test {
         address[] memory oracles = new address[](1);
         oracles[0] = address(oracleV2);
         buyBackBurner.setV2Oracles(secondTokens, oracles);
+
+        // Set per-token max slippage for WMATIC
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = maxBuyBackSlippage;
+        buyBackBurner.setMaxSlippages(secondTokens, slippages);
     }
 }
 
@@ -97,7 +102,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function testDeployment() public view {
         assertEq(buyBackBurner.olas(), OLAS);
         assertEq(buyBackBurner.nativeToken(), WMATIC);
-        assertEq(buyBackBurner.maxSlippage(), maxBuyBackSlippage);
+        assertEq(buyBackBurner.mapTokenMaxSlippages(WMATIC), maxBuyBackSlippage);
         assertEq(buyBackBurner.bridge2Burner(), address(bridge2Burner));
         assertEq(buyBackBurner.treasury(), TIMELOCK);
         assertEq(buyBackBurner.mapV2Oracles(WMATIC), address(oracleV2));

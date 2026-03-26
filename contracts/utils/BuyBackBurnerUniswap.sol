@@ -63,8 +63,7 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
     /// @dev BuyBackBurner initializer.
     /// @param payload Initializer payload.
     function _initialize(bytes memory payload) internal virtual override {
-        address[] memory accounts;
-        (accounts, maxSlippage) = abi.decode(payload, (address[], uint256));
+        address[] memory accounts = abi.decode(payload, (address[]));
 
         olas = accounts[0];
         nativeToken = accounts[1];

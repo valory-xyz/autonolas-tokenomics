@@ -64,8 +64,19 @@ error UnauthorizedPool(address pool);
 /// @param token Token address.
 error UnauthorizedToken(address token);
 
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
 // @dev Reentrancy guard.
 error ReentrancyGuard();
+
+/// @dev Token transfer failed.
+/// @param token Token address.
+/// @param to Address to transfer to.
+/// @param amount Token amount.
+error TransferFailed(address token, address to, uint256 amount);
 
 /// @title BuyBackBurner - BuyBackBurner implementation contract
 abstract contract BuyBackBurner {
@@ -75,6 +86,7 @@ abstract contract BuyBackBurner {
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
+    event MaxSlippagesUpdated(address[] secondTokens, uint256[] maxSlippages);
     event FundsReceived(address indexed sender, uint256 amount);
 
     // Version number
@@ -99,7 +111,7 @@ abstract contract BuyBackBurner {
     // Deprecated (proxy legacy): Oracle address
     address public oracle;
 
-    // Oracle max slippage for second token <=> OLAS
+    // Deprecated (proxy legacy): global oracle max slippage
     uint256 public maxSlippage;
     // Reentrancy lock
     uint256 internal _locked = 1;
@@ -114,6 +126,8 @@ abstract contract BuyBackBurner {
 
     // Map of second token address => whitelisted V2 oracle address
     mapping(address => address) public mapV2Oracles;
+    // Map of second token address => max slippage in BPS
+    mapping(address => uint256) public mapTokenMaxSlippages;
 
     /// @dev BuyBackBurner constructor.
     /// @param _bridge2Burner Bridge2Burner address.
@@ -156,8 +170,9 @@ abstract contract BuyBackBurner {
         // Get TWAP price (OLAS per secondToken) in 1e18 format
         uint256 twap = IOracle(poolOracle).getTWAP();
 
-        // Compute minimum acceptable OLAS output with slippage tolerance
-        uint256 amountOutMin = (secondTokenAmount * twap * (MAX_BPS - maxSlippage)) / (MAX_BPS * 1e18);
+        // Compute minimum acceptable OLAS output with per-token slippage tolerance
+        uint256 tokenMaxSlippage = mapTokenMaxSlippages[secondToken];
+        uint256 amountOutMin = (secondTokenAmount * twap * (MAX_BPS - tokenMaxSlippage)) / (MAX_BPS * 1e18);
 
         // Perform swap to OLAS with amountOutMin enforced by the router
         olasAmount = _performSwap(secondToken, secondTokenAmount, amountOutMin);
@@ -251,6 +266,45 @@ abstract contract BuyBackBurner {
         emit OraclesUpdated(secondTokens, oracles);
     }
 
+    /// @dev Sets per-token max slippage values in BPS.
+    /// @param secondTokens Set of second tokens.
+    /// @param maxSlippages Set of corresponding max slippage values in BPS.
+    function setMaxSlippages(address[] memory secondTokens, uint256[] memory maxSlippages) external virtual {
+        // Check for the ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        uint256 numTokens = secondTokens.length;
+
+        // Check for array sizes
+        if (numTokens == 0 || numTokens != maxSlippages.length) {
+            revert WrongArrayLength();
+        }
+
+        // Process data
+        for (uint256 i = 0; i < numTokens; ++i) {
+            // Check for zero address
+            if (secondTokens[i] == address(0)) {
+                revert ZeroAddress();
+            }
+
+            // Check for zero value
+            if (maxSlippages[i] == 0) {
+                revert ZeroValue();
+            }
+
+            // Check for overflow
+            if (maxSlippages[i] > MAX_BPS) {
+                revert Overflow(maxSlippages[i], MAX_BPS);
+            }
+
+            mapTokenMaxSlippages[secondTokens[i]] = maxSlippages[i];
+        }
+
+        emit MaxSlippagesUpdated(secondTokens, maxSlippages);
+    }
+
     /// @dev Buys OLAS on V2 DEX.
     /// @notice if secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
     /// @param secondToken Second token address.
@@ -288,7 +342,10 @@ abstract contract BuyBackBurner {
         olasAmount = IERC20(olas).balanceOf(address(this));
 
         // Transfer OLAS to bridge2Burner contract
-        IERC20(olas).transfer(bridge2Burner, olasAmount);
+        bool success = IERC20(olas).transfer(bridge2Burner, olasAmount);
+        if (!success) {
+            revert TransferFailed(olas, bridge2Burner, olasAmount);
+        }
 
         emit TokenTransferred(bridge2Burner, olasAmount);
 
@@ -335,15 +392,22 @@ abstract contract BuyBackBurner {
         address to = treasury;
 
         // Check if token address is OLAS
+        bool success;
         if (token == olas) {
             // Transfer OLAS directly to bridge2Burner contract
-            IERC20(olas).transfer(bridge2Burner, tokenAmount);
+            success = IERC20(olas).transfer(bridge2Burner, tokenAmount);
+            if (!success) {
+                revert TransferFailed(olas, bridge2Burner, tokenAmount);
+            }
 
             // Correct to value
             to = bridge2Burner;
         } else {
             // Transfer token to treasury contract
-            IERC20(token).transfer(treasury, tokenAmount);
+            success = IERC20(token).transfer(treasury, tokenAmount);
+            if (!success) {
+                revert TransferFailed(token, treasury, tokenAmount);
+            }
         }
 
         emit TokenTransferred(to, tokenAmount);

@@ -108,6 +108,12 @@ error Overflow(uint256 provided, uint256 max);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev Token transfer failed.
+/// @param token Token address.
+/// @param to Address to transfer to.
+/// @param amount Token amount.
+error TransferFailed(address token, address to, uint256 amount);
+
 
 /// @title LPSwapCelo - Smart contract for swapping whOLAS-CELO liquidity to OLAS-CELO liquidity on Celo
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
@@ -301,7 +307,10 @@ contract LPSwapCelo {
         uint256 celoBalance = IToken(WCELO).balanceOf(address(this));
         if (celoBalance > 0) {
             // Transfer WCELO to Bridge Mediator
-            IToken(WCELO).transfer(BRIDGE_MEDIATOR, celoBalance);
+            bool success = IToken(WCELO).transfer(BRIDGE_MEDIATOR, celoBalance);
+            if (!success) {
+                revert TransferFailed(WCELO, BRIDGE_MEDIATOR, celoBalance);
+            }
 
             emit CeloTransferred(celoBalance);
         }
