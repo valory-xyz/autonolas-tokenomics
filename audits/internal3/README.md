@@ -85,7 +85,7 @@ Test result: ok. 3 passed; 0 failed; finished in 14.42s
 #### Instrumental analysis
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal3/analysis/slither_full.txt) <br>
+[slither-full](audits/internal3/analysis/slither_full.txt) <br>
 All false positives. <br>
 
 Minor issue: <br>
