@@ -256,7 +256,8 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         uint256 legacySlot = 4;
         vm.store(address(buyBackBurner), bytes32(legacySlot), bytes32(uint256(500)));
 
-        bytes32 perTokenSlot = keccak256(abi.encode(WETH, uint256(8)));
+        // mapTokenMaxSlippages base slot: declared after mapV2Oracles (7) and mapV3Pools (8)
+        bytes32 perTokenSlot = keccak256(abi.encode(WETH, uint256(9)));
         vm.store(address(buyBackBurner), perTokenSlot, bytes32(uint256(0)));
 
         // Deprecated slot is preserved and readable via public getter.
