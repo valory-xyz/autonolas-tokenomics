@@ -28,11 +28,11 @@ sol2uml storage contracts/ -f png -c TokenomicsProxy -o audits/internal/analysis
 Generated png file autonolas-tokenomics/audits/internal/analysis/storage/TokenomicsProxy.png
 ```
 From the point of view of auditing a proxy contract, only 2 storage are important: Tokenomics and TokenomicsProxy. <br>
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal2/analysis/storage/Tokenomics.png) - 16 slots <br>
-[TokenomicsProxy-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal2/analysis/storage/TokenomicsProxy.png) - 0 slots <br>
+[Tokenomics-storage](audits/internal2/analysis/storage/Tokenomics.png) - 16 slots <br>
+[TokenomicsProxy-storage](audits/internal2/analysis/storage/TokenomicsProxy.png) - 0 slots <br>
 When there will be future implementations, it is critical that the storage be used: current as is + new variables. <br>
 Current contract storage
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Tokenomics.png) <br>
+[Tokenomics-storage](audits/internal/analysis/storage/updated/Tokenomics.png) <br>
 OK.
 
 ### Security issues.

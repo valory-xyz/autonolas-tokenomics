@@ -4,11 +4,11 @@
 
 This repository contains the tokenomics part of Autonolas onchain-protocol contracts.
 
-A graphical overview is available [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/flowchart.md).
+A graphical overview is available [here](docs/flowchart.md).
 
-For reference purposes only, an older version of the general Autonolas architecture is available [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/On-chain_architecture_v5.png).
+For reference purposes only, an older version of the general Autonolas architecture is available [here](docs/On-chain_architecture_v5.png).
 
-An overview of the Autonolas tokenomics model is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Autonolas_tokenomics_audit.pdf). A description of the tokenomics contracts related to Olas staking is provided [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/StakingSmartContracts.pdf).
+An overview of the Autonolas tokenomics model is provided [here](docs/Autonolas_tokenomics_audit.pdf). A description of the tokenomics contracts related to Olas staking is provided [here](docs/StakingSmartContracts.pdf).
 
 Details on tokenomics model and Olas Staking can be found [here](https://olas.network/documents/whitepaper/Autonolas_Tokenomics_Core_Technical_Document.pdf) and [here](https://staking.olas.network/poaa-whitepaper.pdf).
 
@@ -17,31 +17,31 @@ for component and agent owners, the logic that regulates the discount factor for
 The Tokenomics contract is deployed via the proxy contract, such that it is possible to update the current Tokenomics implementation.
 
 - Core contracts:
-  - [Depository](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Depository.sol)
-  - [Dispenser](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Dispenser.sol)
-  - [Tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Tokenomics.sol)
-  - [TokenomicsProxy](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/TokenomicsProxy.sol)
-  - [Treasury](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Treasury.sol)
+  - [Depository](contracts/Depository.sol)
+  - [Dispenser](contracts/Dispenser.sol)
+  - [Tokenomics](contracts/Tokenomics.sol)
+  - [TokenomicsProxy](contracts/TokenomicsProxy.sol)
+  - [Treasury](contracts/Treasury.sol)
 
 - Staking related contracts:
-  - [DefaultDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultDepositProcessorL1.sol)
-  - [DefaultTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/DefaultTargetDispenserL2.sol)
-  - [EthereumDepositProcessor.sol](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/EthereumDepositProcessor.sol.sol)
-  - [ArbitrumDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/ArbitrumDepositProcessorL1.sol)
-  - [ArbitrumTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/ArbitrumTargetDispenserL2.sol)
-  - [GnosisDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/GnosisDepositProcessorL1.sol)
-  - [GnosisTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/GnosisTargetDispenserL2.sol)
-  - [OptimismDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/OptimismDepositProcessorL1.sol)
-  - [OptimismTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/OptimismTargetDispenserL2.sol)
-  - [PolygonDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/PolygonDepositProcessorL1.sol)
-  - [PolygonTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/PolygonTargetDispenserL2.sol)
-  - [WormholeDepositProcessorL1](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/WormholeDepositProcessorL1.sol)
-  - [WormholeTargetDispenserL2](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/staking/WormholeTargetDispenserL2.sol)
+  - [DefaultDepositProcessorL1](contracts/staking/DefaultDepositProcessorL1.sol)
+  - [DefaultTargetDispenserL2](contracts/staking/DefaultTargetDispenserL2.sol)
+  - [EthereumDepositProcessor.sol](contracts/staking/EthereumDepositProcessor.sol.sol)
+  - [ArbitrumDepositProcessorL1](contracts/staking/ArbitrumDepositProcessorL1.sol)
+  - [ArbitrumTargetDispenserL2](contracts/staking/ArbitrumTargetDispenserL2.sol)
+  - [GnosisDepositProcessorL1](contracts/staking/GnosisDepositProcessorL1.sol)
+  - [GnosisTargetDispenserL2](contracts/staking/GnosisTargetDispenserL2.sol)
+  - [OptimismDepositProcessorL1](contracts/staking/OptimismDepositProcessorL1.sol)
+  - [OptimismTargetDispenserL2](contracts/staking/OptimismTargetDispenserL2.sol)
+  - [PolygonDepositProcessorL1](contracts/staking/PolygonDepositProcessorL1.sol)
+  - [PolygonTargetDispenserL2](contracts/staking/PolygonTargetDispenserL2.sol)
+  - [WormholeDepositProcessorL1](contracts/staking/WormholeDepositProcessorL1.sol)
+  - [WormholeTargetDispenserL2](contracts/staking/WormholeTargetDispenserL2.sol)
 
 - Auxiliary contracts:
-  - [DonatorBlacklist](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/DonatorBlacklist.sol)
-  - [GenericBondCalculator](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/GenericBondCalculator.sol)
-  - [TokenomicsConstants](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/TokenomicsConstants.sol)
+  - [DonatorBlacklist](contracts/DonatorBlacklist.sol)
+  - [GenericBondCalculator](contracts/GenericBondCalculator.sol)
+  - [TokenomicsConstants](contracts/TokenomicsConstants.sol)
 
 ## Development
 
@@ -131,8 +131,8 @@ forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv
 ```
 
 ### Audits
-- The audit is provided as development matures. The latest audit reports can be found here: [audits](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits).
-- A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Vulnerabilities_list_tokenomics.pdf).
+- The audit is provided as development matures. The latest audit reports can be found here: [audits](audits).
+- A list of known vulnerabilities can be found here: [Vulnerabilities list tokenomics](docs/Vulnerabilities_list_tokenomics.md).
 
 #### Static audit
 The static audit checks all the deployed contracts on-chain info correctness and can be run using the following script:
@@ -152,14 +152,14 @@ The PR process is managed by github workflows, where the code undergoes several 
 
 ## Deployment
 The deployment of contracts to the test- and main-net is split into step-by-step series of scripts for more control and checkpoint convenience.
-The description of deployment procedure can be found here: [deployment](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/scripts/deployment).
+The description of deployment procedure can be found here: [deployment](scripts/deployment).
 
-The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/abis).
+The finalized contract ABIs for deployment and their number of optimization passes are located here: [ABIs](abis).
 
-For testing purposes, the hardhat node deployment script is located [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/deploy).
+For testing purposes, the hardhat node deployment script is located [here](deploy).
 
 ## Deployed Protocol
-The list of contract addresses for different chains and their full contract configuration can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/configuration.json).
+The list of contract addresses for different chains and their full contract configuration can be found [here](docs/configuration.json).
 
 In order to test the protocol setup on all the deployed chains, the audit script is implemented. Make sure to export
 required API keys for corresponding chains (see the script for more information). The audit script can be run as follows:
@@ -168,22 +168,22 @@ node scripts/audit_chains/audit_contracts_setup.js
 ```
 
 ## LP Token Guide
-It is advised to check the following [list of instructions](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_guide.md) before enabling OLAS-based LP tokens. 
+It is advised to check the following [list of instructions](docs/lp_token_guide.md) before enabling OLAS-based LP tokens. 
 
 ## LP Token List
 OLAS-based LP tokens eligible for bonding come from various chains. At a minimum, after [OLAS](https://github.com/valory-xyz/autonolas-governance/blob/main/docs/olas_bridging.md)
 has been bridged to a specific chain, the `OLAS-XCHAIN_TOKEN` LP token is created to provide the liquidity on that chain.
 
 In order to participate in bonding with LPs from different chains, the LP owner needs to transfer LP tokens to the ETH mainnet
-and deposit via a [Depository](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/contracts/Depository.sol) contract
+and deposit via a [Depository](contracts/Depository.sol) contract
 directly, or by using the [Bonding UI](https://tokenomics.olas.network/bonding-products).
 
-For more information about bonding enabled LP tokens and bridging see [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/lp_token_bridging.md).
+For more information about bonding enabled LP tokens and bridging see [here](docs/lp_token_bridging.md).
 
 
 ## Tokenomics inflation update
 Several reviews of tokenomics inflation have been performed. The up-to-date tokenomics inflation update documentation
-can be found [here](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/Update_tokenomics_inflation.pdf).
+can be found [here](docs/Update_tokenomics_inflation.pdf).
 
 
 ## Acknowledgements

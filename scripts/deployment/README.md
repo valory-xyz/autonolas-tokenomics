@@ -1,8 +1,8 @@
 # Deployment scripts
 This folder contains the scripts to deploy Autonolas tokenomics.
-These scripts correspond to the steps in the full deployment procedure (as described in [deployment.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment.md)).
+These scripts correspond to the steps in the full deployment procedure (as described in [deployment.md](docs/deployment.md)).
 
-For the Tokenomics 1.2, refer to the following deployment procedure: [deployment_v1.2.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment_v1.2.md).
+For the Tokenomics 1.2, refer to the following deployment procedure: [deployment_v1.2.md](docs/deployment_v1.2.md).
 
 ## Observations
 - There are several files with global parameters based on the corresponding network. In order to work with the configuration, please copy `gobals_network.json` file to file the `gobals.json` one, where `network` is the corresponding network. For example: `cp gobals_mainnet.json gobals.json`.
@@ -19,7 +19,7 @@ command and compiled with the
 ```
 npm run compile
 ```
-command as described in the [main readme](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/README.md).
+command as described in the [main readme](README.md).
 
 
 Create a `globals.json` file in the root folder, or copy it from the file with pre-defined parameters (i.e., `scripts/deployment/globals_goerli.json` for the goerli testnet).
@@ -41,7 +41,7 @@ Parameters of the `globals.json` file:
 Other values in the `JSON` file are related to the tokenomics. The deployed contract addresses will be added / updated during the scripts run.
 
 The script file name identifies the number of deployment steps taken from / to the number in the file name. For example:
-- `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/docs/deployment.md).
+- `deploy_01_donator_blacklist.js` will complete step 1 from [deployment.md](docs/deployment.md).
 - `deploy_10_14_change_ownerships.js` will complete steps 10 to 14.
 
 ## Run scripts
