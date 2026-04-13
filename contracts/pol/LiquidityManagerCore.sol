@@ -766,20 +766,23 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(currentPositionId);
 
-        // Check that we have liquidity for both tokens
-        if (amounts[0] > 0 && amounts[1] > 0) {
-            // Approve tokens for position manager
-            IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
-            IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
-
-            // Calculate params and mint new position
-            (positionId, liquidity, amounts) = _calculateTicksAndMintPosition(
-                tokens, amounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan
-            );
-
-            // Record position Id
-            mapPoolAddressPositionIds[pool] = positionId;
+        // Check that we have liquidity for both tokens - revert otherwise to avoid silently routing
+        // single-sided leftovers to the treasury via _manageUtilityAmounts() below
+        if (amounts[0] == 0 || amounts[1] == 0) {
+            revert ZeroValue();
         }
+
+        // Approve tokens for position manager
+        IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
+        IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
+
+        // Calculate params and mint new position
+        (positionId, liquidity, amounts) = _calculateTicksAndMintPosition(
+            tokens, amounts, feeTierOrTickSpacing, centerSqrtPriceX96, tickShifts, scan
+        );
+
+        // Record position Id
+        mapPoolAddressPositionIds[pool] = positionId;
 
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
@@ -1086,6 +1089,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
+    /// @notice Returns the TWAP-derived sqrt price when the pool has sufficient history, otherwise the
+    ///         instantaneous slot0 sqrt price. When both are available, reverts if the deviation between
+    ///         the instantaneous price (from slot0) and the TWAP price exceeds MAX_ALLOWED_DEVIATION,
+    ///         preventing flash-loan driven price manipulation.
     /// @param pool Pool address.
     /// @return centerSqrtPriceX96 Calculated center SQRT price.
     function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96) {
@@ -1105,7 +1112,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             return centerSqrtPriceX96;
         }
 
-        uint256 twapPrice;
         bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
         // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
@@ -1115,15 +1121,17 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             return centerSqrtPriceX96;
         }
 
-        // Get returned values from oracle
-        (twapPrice, centerSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
+        // Get returned values from oracle: TWAP price and TWAP-derived sqrt price
+        // Note: twapSqrtPriceX96 is kept separate from the instantaneous slot0 value above, so that the
+        // deviation check below compares the true instant price against the TWAP (not TWAP against itself)
+        (uint256 twapPrice, uint160 twapSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
 
-        // Get instant price
+        // Get instant price from the original slot0 sqrt price (preserved from above)
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
         uint256 instantPrice = mulDiv(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
 
         uint256 deviation;
-        // Calculate price deviation
+        // Calculate price deviation between instantaneous and TWAP prices
         if (twapPrice > 0) {
             deviation = (instantPrice > twapPrice)
                 ? mulDiv((instantPrice - twapPrice), 1e18, twapPrice)
@@ -1134,5 +1142,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         if (deviation > MAX_ALLOWED_DEVIATION) {
             revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
         }
+
+        // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
+        centerSqrtPriceX96 = twapSqrtPriceX96;
     }
 }
