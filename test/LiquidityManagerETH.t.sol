@@ -9,6 +9,7 @@ import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {FullMath} from "../contracts/libraries/FullMath.sol";
 import {FixedPoint96} from "../contracts/libraries/FixedPoint96.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
+import {ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {UniswapPriceOracle} from "../contracts/oracles/UniswapPriceOracle.sol";
@@ -942,5 +943,79 @@ contract LiquidityManagerETHTest is BaseSetup {
         bool scan = true;
 
         liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+    }
+
+    /// @dev C4R #17/#18: flash-manipulation of slot0 triggers Overflow revert in checkPoolAndGetCenterPrice.
+    ///      After convertToV3 warms up the V3 pool oracle, vm.mockCall overrides slot0 to a price
+    ///      that deviates >10% from the TWAP, and checkPoolAndGetCenterPrice must revert.
+    function testCheckPoolAndGetCenterPrice_FlashManipulationReverts() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Establish V3 position so the pool exists and has an observation history
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        address pool = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+
+        // Read current (real) slot0 to get the live observation index
+        (uint160 realSqrtP, , uint16 realObsIdx,,,, ) = IUniswapV3(pool).slot0();
+
+        // Warp forward past SECONDS_AGO so the oldest observation is recent enough
+        // for checkPoolAndGetCenterPrice to attempt a TWAP comparison
+        vm.warp(block.timestamp + 1800);
+
+        // Craft a manipulated sqrt price that is 3x the real price in Q64.96 units
+        // (~9x price ratio) — well beyond the 10% MAX_ALLOWED_DEVIATION
+        uint160 manipulatedSqrtP = uint160(uint256(realSqrtP) * 3);
+
+        // Mock slot0 to return the manipulated price with the real observation index
+        // so that the observations() call still finds a recent timestamp
+        bytes memory slot0Return = abi.encode(
+            manipulatedSqrtP,       // sqrtPriceX96
+            int24(0),               // tick
+            realObsIdx,             // observationIndex
+            uint16(60),             // observationCardinality
+            uint16(60),             // observationCardinalityNext
+            uint8(0),               // feeProtocol
+            true                    // unlocked
+        );
+        vm.mockCall(pool, abi.encodeWithSignature("slot0()"), slot0Return);
+
+        // checkPoolAndGetCenterPrice must revert with Overflow — manipulation detected
+        vm.expectRevert();
+        liquidityManager.checkPoolAndGetCenterPrice(pool);
+
+        vm.clearMockedCalls();
+    }
+
+    /// @dev C4R #19: changeRanges reverts with ZeroValue when vm.mockCall forces collect to return
+    ///      zero for one token, instead of silently routing to treasury.
+    function testChangeRanges_SingleSidedRevertsInsteadOfTreasurySweep() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Establish V3 position
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // Mock the NFT position manager's collect() to return (someAmount, 0),
+        // simulating a single-sided return after decreaseLiquidity + collect.
+        // collect() selector: 0xfc6f7865
+        vm.mockCall(
+            POSITION_MANAGER_V3,
+            abi.encodeWithSelector(bytes4(0xfc6f7865)),
+            abi.encode(uint256(1e18), uint256(0))
+        );
+
+        // changeRanges must revert ZeroValue instead of silently routing to treasury
+        vm.expectRevert(ZeroValue.selector);
+        liquidityManager.changeRanges(TOKENS, FEE_TIER, tickShifts, scan);
+
+        vm.clearMockedCalls();
     }
 }

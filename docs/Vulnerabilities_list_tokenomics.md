@@ -20,10 +20,6 @@
   - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
   - [15. checkpoint function (effectiveBond not corrected at year boundaries)](#15-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
   - [16. updateInflationPerSecondAndFractions function (effectiveBond reset)](#16-updateinflationpersecondandfractions-function-effectivebond-reset)
-  - [17. checkPoolAndGetCenterPrice function (price guard logic inversion)](#17-checkpoolandgetcenterprice-function-price-guard-logic-inversion)
-  - [18. checkPoolAndGetCenterPrice function (price guard variable overwrite)](#18-checkpoolandgetcenterprice-function-price-guard-variable-overwrite)
-  - [19. changeRanges function (silent failure routing value to treasury)](#19-changeranges-function-silent-failure-routing-value-to-treasury)
-
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -269,47 +265,3 @@ This is not externally exploitable: the function is restricted to the contract o
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
-### 17. `checkPoolAndGetCenterPrice` function (price guard logic inversion)
-
-**Severity**: High
-**Source**: Code4rena 2026-01 Olas audit (submission #S-347)
-
-The following function is implemented in the LiquidityManagerCore contract:
-
-```solidity
-function checkPoolAndGetCenterPrice(address pool) internal returns (uint160 centerSqrtPriceX96)
-```
-
-The `centerSqrtPriceX96` variable, initially assigned from the pool's `slot0` (instantaneous price), is overwritten by the TWAP oracle call result. The subsequent deviation check then compares the overwritten TWAP-sourced value against itself rather than comparing the instantaneous price against the TWAP. This renders the flash-loan manipulation protection ineffective, as the check can never detect a deviation between instant and TWAP prices.
-
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
-
-### 18. `checkPoolAndGetCenterPrice` function (price guard variable overwrite)
-
-**Severity**: High
-**Source**: Code4rena 2026-01 Olas audit (submission #S-471)
-
-The following function is implemented in the LiquidityManagerCore contract:
-
-```solidity
-function checkPoolAndGetCenterPrice(address pool) internal returns (uint160 centerSqrtPriceX96)
-```
-
-In the same `checkPoolAndGetCenterPrice` function, the overwrite of `centerSqrtPriceX96` with the oracle-returned value causes the deviation protection mechanism to lose the original instantaneous price entirely. Without the original price, the function cannot validate whether the current pool state has been manipulated, effectively disabling the deviation guard.
-
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
-
-### 19. `changeRanges` function (silent failure routing value to treasury)
-
-**Severity**: Medium
-**Source**: Code4rena 2026-01 Olas audit (submission #S-668)
-
-The following function is implemented in the LiquidityManagerCore contract:
-
-```solidity
-function changeRanges(...) external
-```
-
-The `changeRanges` function can silently skip position minting when only one of the two token amounts is positive (the condition `amounts[0] > 0 && amounts[1] > 0` evaluates to false). In this case the function does not revert but proceeds to call `_manageUtilityAmounts()`, which routes remaining tokens to the treasury instead of creating the intended liquidity position. This silent failure can result in value being directed to the treasury rather than used for the intended liquidity management purpose.
-
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
