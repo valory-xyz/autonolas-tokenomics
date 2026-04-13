@@ -1,157 +1,224 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.30;
 
 interface IVault {
     function getPoolTokens(bytes32 poolId) external view
         returns (address[] memory tokens, uint256[] memory balances, uint256 lastChangeBlock);
 }
 
-/// @title BalancerPriceOracle - a smart contract oracle for Balancer V2 pools
+/// @dev Provided zero address.
+error ZeroAddress();
+
+/// @dev Provided zero value.
+error ZeroValue();
+
+/// @dev Provided wrong pool.
+/// @param tokens Token addresses.
+error WrongPool(address[] tokens);
+
+/// @dev Value overflow.
+/// @param provided Overflow value.
+/// @param max Maximum possible value.
+error Overflow(uint256 provided, uint256 max);
+
+
+/// @title BalancerPriceOracle - a smart contract oracle for Balancer V2 pools (BPS version)
+/// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
+/// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @dev This contract acts as an oracle for a specific Balancer V2 pool. It allows:
-///      1) Updating the price by any caller
-///      2) Getting the price by any caller
-///      3) Validating slippage against the oracle
+///      1) Getting the spot price (balance ratio) in 1e18 format
+///      2) Getting the TWAP price in 1e18 format
+///
+///      Fixes vs the original version:
+///      - TWAP is computed from two independent observations (delta_cumulative / delta_t).
+///      - No state mutation on rejected updates (commit-on-success).
+///      - Avoids permanent freeze after large market moves by allowing baseline to adapt via rolling-window TWAP.
+///      - updatePrice() is rate-limited to prevent griefing resets of the observation.
+///      - Adds freshness constraints for TWAP retrieval.
 contract BalancerPriceOracle {
-    event PriceUpdated(address indexed sender, uint256 currentPrice, uint256 cumulativePrice);
+    event ObservationUpdated(address indexed sender, uint256 priceCumulative, uint256 timestamp);
 
-    struct PriceSnapshot {
-        // Time-weighted cumulative price
-        uint256 cumulativePrice;
-        // Timestamp of the last update
-        uint256 lastUpdated;
-        // Most recent calculated average price
-        uint256 averagePrice;
-    }
+    // Minimum time between successful updatePrice() calls (seconds)
+    uint256 public immutable minUpdateInterval;
+    // Minimum TWAP window required for validation (seconds)
+    uint256 public immutable minTwapWindow;
+    // Maximum allowed staleness of the last observation (seconds)
+    uint256 public immutable maxStaleness;
 
-    // Snapshot history struct
-    PriceSnapshot public snapshotHistory;
-
-    // Maximum allowed update slippage in %
-    uint256 public immutable maxSlippage;
-    // Minimum update time period in seconds
-    uint256 public immutable minUpdateTimePeriod;
-    // LP token direction
+    // LP token direction:
+    //   direction==0 => balances[0] is secondToken (in), balances[1] is OLAS (out)
+    //   direction==1 => balances[1] is secondToken (in), balances[0] is OLAS (out)
     uint256 public immutable direction;
-    // Second token address in pool
-    address public immutable secondToken;
-    // OLAS token address
-    address public immutable olas;
+
     // Balancer vault address
     address public immutable balancerVault;
     // Balancer pool Id
     bytes32 public immutable balancerPoolId;
 
-    constructor(
-        address _olas,
-        address _secondToken,
-        uint256 _maxSlippage,
-        uint256 _minUpdateTimePeriod,
-        address _balancerVault,
-        bytes32 _balancerPoolId
-    ) {
-        require(_maxSlippage < 100, "Slippage must be less than 100%");
+    struct Observation {
+        // Time-weighted cumulative price (1e18 * seconds)
+        uint256 priceCumulative;
+        // Timestamp of the observation
+        uint256 timestamp;
+    }
 
-        olas = _olas;
-        secondToken = _secondToken;
-        maxSlippage = _maxSlippage;
-        minUpdateTimePeriod = _minUpdateTimePeriod;
+    // Previous observation for rolling TWAP window
+    Observation public prevObservation;
+    // Stored last observation used for TWAP
+    Observation public lastObservation;
+
+    /// @dev BalancerPriceOracle constructor.
+    /// @param _balancerVault Balancer vault address.
+    /// @param _balancerPoolId Balancer pool Id.
+    /// @param _olas OLAS address.
+    /// @param _minTwapWindowSeconds Min TWAP window in seconds.
+    /// @param _minUpdateIntervalSeconds Min price update interval in seconds.
+    /// @param _maxStalenessSeconds Max staleness in seconds.
+    constructor(
+        address _balancerVault,
+        bytes32 _balancerPoolId,
+        address _olas,
+        uint256 _minTwapWindowSeconds,
+        uint256 _minUpdateIntervalSeconds,
+        uint256 _maxStalenessSeconds
+    ) {
+        // Check for zero address
+        if (_balancerVault == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero values
+        if (_minTwapWindowSeconds == 0 || _minUpdateIntervalSeconds == 0) {
+            revert ZeroValue();
+        }
+
+        // Check for update interval
+        if (_minTwapWindowSeconds > _minUpdateIntervalSeconds) {
+            revert Overflow(_minTwapWindowSeconds, _minUpdateIntervalSeconds);
+        }
+
+        // Check for maxStaleness consistency
+        if (_minTwapWindowSeconds > _maxStalenessSeconds) {
+            revert Overflow(_minTwapWindowSeconds, _maxStalenessSeconds);
+        }
+
+        minUpdateInterval = _minUpdateIntervalSeconds;
+        minTwapWindow = _minTwapWindowSeconds;
+        maxStaleness = _maxStalenessSeconds;
         balancerVault = _balancerVault;
         balancerPoolId = _balancerPoolId;
 
-        // Get token direction
+        // Get tokens from pool
         (address[] memory tokens, , ) = IVault(balancerVault).getPoolTokens(_balancerPoolId);
-        if (tokens[0] != _secondToken) {
-            direction = 1;
+
+        // Check for pool validity
+        if (tokens.length != 2 || (tokens[0] != _olas && tokens[1] != _olas)) {
+            revert WrongPool(tokens);
         }
 
-        // Initialize price snapshot
-        updatePrice();
+        // Get token direction
+        if (tokens[0] == _olas) {
+            direction = 1;
+        }
     }
 
     /// @dev Gets the current OLAS token price in 1e18 format.
+    /// @return Current spot price in 1e18 format.
     function getPrice() public view returns (uint256) {
+        // Get pool balances
         (, uint256[] memory balances, ) = IVault(balancerVault).getPoolTokens(balancerPoolId);
-        // Native token
+
+        // Second token balance
         uint256 balanceIn = balances[direction];
-        // OLAS
+        // OLAS balance
         uint256 balanceOut = balances[(direction + 1) % 2];
+
+        // Check for zero values
+        if (balanceIn == 0 || balanceOut == 0) {
+            revert ZeroValue();
+        }
 
         return (balanceOut * 1e18) / balanceIn;
     }
 
-    /// @dev Updates the time-weighted average price.
-    /// @notice This implementation only accounts for the first price update in a block.
-    function updatePrice() public returns (bool) {
-        uint256 currentPrice = getPrice();
-        require(currentPrice > 0, "Price must be non-zero");
+    /// @dev Records a new rolling TWAP observation from the Balancer V2 pool.
+    /// @notice Permissionless but rate-limited to prevent griefing resets.
+    /// @return True if price update is successful.
+    function updatePrice() external returns (bool) {
+        // Get last observation
+        Observation memory last = lastObservation;
+        // Calculate dt
+        uint256 dt = block.timestamp - last.timestamp;
 
-        PriceSnapshot storage snapshot = snapshotHistory;
-
-        if (snapshot.lastUpdated == 0) {
-            // Initialize snapshot
-            snapshot.cumulativePrice = 0;
-            snapshot.averagePrice = currentPrice;
-            snapshot.lastUpdated = block.timestamp;
-            emit PriceUpdated(msg.sender, currentPrice, 0);
-            return true;
-        }
-
-        // Check if update is too soon
-        if (block.timestamp < snapshotHistory.lastUpdated + minUpdateTimePeriod) {
+        // Check if dt is lower than min update interval
+        if (last.timestamp > 0 && dt < minUpdateInterval) {
             return false;
         }
 
-        // This implementation only accounts for the first price update in a block.
-        // Calculate elapsed time since the last update
-        uint256 elapsedTime = block.timestamp - snapshot.lastUpdated;
+        // Get current spot price
+        uint256 spot = getPrice();
 
-        // Update cumulative price with the previous average over the elapsed time
-        snapshot.cumulativePrice += snapshot.averagePrice * elapsedTime;
-
-        // Update the average price to reflect the current price
-        uint256 averagePrice = (snapshot.cumulativePrice + (currentPrice * elapsedTime)) /
-            ((snapshot.cumulativePrice / snapshot.averagePrice) + elapsedTime);
-
-        // Check if price deviation is too high
-        if (currentPrice < averagePrice - (averagePrice * maxSlippage / 100) ||
-            currentPrice > averagePrice + (averagePrice * maxSlippage / 100))
-        {
-            return false;
+        // Check for zero value
+        if (spot == 0) {
+            revert ZeroValue();
         }
 
-        snapshot.averagePrice = averagePrice;
-        snapshot.lastUpdated = block.timestamp;
+        // Compute prospective cumulative at now based on last observation + spot * dt (commit-on-success)
+        uint256 priceCumulativeNow = last.priceCumulative;
+        if (dt > 0) {
+            priceCumulativeNow += spot * dt;
+        }
 
-        emit PriceUpdated(msg.sender, currentPrice, snapshot.cumulativePrice);
+        // Shift window: previous becomes last, current becomes new last
+        prevObservation = last;
+        lastObservation = Observation({priceCumulative: priceCumulativeNow, timestamp: block.timestamp});
+
+        emit ObservationUpdated(msg.sender, priceCumulativeNow, block.timestamp);
 
         return true;
     }
 
-    /// @dev Validates Current price against a TWAP according to slippage tolerance.
-    /// @param slippage Acceptable slippage tolerance.
-    function validatePrice(uint256 slippage) external view returns (bool) {
-        require(slippage <= maxSlippage, "Slippage overflow");
+    /// @dev Gets the current TWAP price in 1e18 format.
+    ///      Reverts if the oracle is not initialized, observations are stale, or the TWAP window is insufficient.
+    /// @return TWAP price in 1e18 format (OLAS per secondToken).
+    function getTWAP() external view returns (uint256) {
+        // Get observations
+        Observation memory prev = prevObservation;
+        Observation memory last = lastObservation;
 
-        PriceSnapshot memory snapshot = snapshotHistory;
+        // Check if initialized
+        if (prev.timestamp == 0 || last.timestamp == 0) {
+            revert ZeroValue();
+        }
 
-        // Ensure there is historical price data
-        if (snapshot.lastUpdated == 0) return false;
+        // Freshness: require that last observation is not too old
+        uint256 age = block.timestamp - last.timestamp;
+        if (age > maxStaleness) {
+            revert Overflow(age, maxStaleness);
+        }
 
-        // Calculate elapsed time
-        uint256 elapsedTime = block.timestamp - snapshot.lastUpdated;
-        // Require at least one block since last update
-        if (elapsedTime == 0) return false;
+        // TWAP history check: need a usable window
+        uint256 dtWin = block.timestamp - prev.timestamp;
+        if (dtWin < minTwapWindow) {
+            revert ZeroValue();
+        }
 
-        // Compute time-weighted average price
-        uint256 timeWeightedAverage = (snapshot.cumulativePrice + (snapshot.averagePrice * elapsedTime)) /
-            ((snapshot.cumulativePrice / snapshot.averagePrice) + elapsedTime);
+        // Get spot price for counterfactual cumulative
+        uint256 spot = getPrice();
 
-        uint256 tradePrice = getPrice();
+        // Counterfactual cumulative at now using last observation + current spot over elapsed time
+        uint256 priceCumulativeNow = last.priceCumulative + spot * age;
 
-        // Validate against slippage thresholds
-        uint256 lowerBound = (timeWeightedAverage * (100 - slippage)) / 100;
-        uint256 upperBound = (timeWeightedAverage * (100 + slippage)) / 100;
+        // Rolling TWAP over [prev.timestamp, now]
+        uint256 twap = (priceCumulativeNow - prev.priceCumulative) / dtWin;
 
-        return tradePrice >= lowerBound && tradePrice <= upperBound;
+        // Check for zero value
+        if (twap == 0) {
+            revert ZeroValue();
+        }
+
+        return twap;
     }
+
 }

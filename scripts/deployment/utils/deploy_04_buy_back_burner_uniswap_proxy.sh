@@ -18,31 +18,18 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Alchemy keys on ETH, Polygon mainnets and testnets
-if [ $chainId == 1 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MAINNET
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MAINNET env variable${reset}"
-      exit 0
+# Check for Alchemy keys
+if [[ "$networkURL" == *"alchemy.com"* ]]; then
+  case $chainId in
+    1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
+    11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
+    137)      API_KEY=$ALCHEMY_API_KEY_MATIC;   keyName="ALCHEMY_API_KEY_MATIC" ;;
+    80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
+  esac
+  if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
+    echo "set $keyName env variable"
+    exit 0
   fi
-elif [ $chainId == 11155111 ]; then
-    API_KEY=$ALCHEMY_API_KEY_SEPOLIA
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_SEPOLIA env variable${reset}"
-        exit 0
-    fi
-elif [ $chainId == 137 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MATIC
-  if [ "$API_KEY" == "" ]; then
-      echo "${red}!!! Set ALCHEMY_API_KEY_MATIC env variable${reset}"
-      exit 0
-  fi
-elif [ $chainId == 80002 ]; then
-    API_KEY=$ALCHEMY_API_KEY_AMOY
-    if [ "$API_KEY" == "" ]; then
-        echo "${red}!!! Set ALCHEMY_API_KEY_AMOY env variable${reset}"
-        exit 0
-    fi
 fi
 
 olasAddress=$(jq -r '.olasAddress' $globals)

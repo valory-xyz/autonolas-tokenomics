@@ -18,24 +18,33 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Polygon keys only since on other networks those are not needed
-if [ $chainId == 137 ]; then
-  API_KEY=$ALCHEMY_API_KEY_MATIC
-  if [ "$API_KEY" == "" ]; then
-      echo "set ALCHEMY_API_KEY_MATIC env variable"
-      exit 0
+# Check for Alchemy keys
+if [[ "$networkURL" == *"alchemy.com"* ]]; then
+  case $chainId in
+    1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
+    11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
+    137)      API_KEY=$ALCHEMY_API_KEY_MATIC;   keyName="ALCHEMY_API_KEY_MATIC" ;;
+    80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
+  esac
+  if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
+    echo "set $keyName env variable"
+    exit 0
   fi
-elif [ $chainId == 80002 ]; then
-    API_KEY=$ALCHEMY_API_KEY_AMOY
-    if [ "$API_KEY" == "" ]; then
-        echo "set ALCHEMY_API_KEY_AMOY env variable"
-        exit 0
-    fi
+fi
+
+# For ETH mainnet: just burner and timelock, for others: bridge2Burner and bridgeMediator
+if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
+  bridge2BurnerAddress=$(jq -r '.burnerAddress' $globals)
+  bridgeMediatorAddress=$(jq -r ".timelockAddress" $globals)
+else
+  bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
+  bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
 fi
 
 contractName="BuyBackBurnerBalancer"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-contractArgs="$contractPath"
+constructorArgs="$bridge2BurnerAddress $bridgeMediatorAddress"
+contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
 if [ "$useLedger" == "true" ]; then
@@ -71,7 +80,7 @@ echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" 
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$buyBackBurnerAddress $contractPath"
+  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

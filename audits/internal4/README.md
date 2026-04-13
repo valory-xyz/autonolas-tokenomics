@@ -7,7 +7,7 @@ commit: `ae0cfff0aa6bcde59f1e9442777f3ab427b6d050` or `tag: v1.2.0-pre-internal-
 The audit focused on contracts related to PoAA Staking in this repo.
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/contracts) 
+Flatten version of contracts. [contracts](audits/internal4/analysis/contracts) 
 
 ### Storage and proxy
 Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
@@ -18,18 +18,18 @@ Generated png file audits/internal4/analysis/storage/Tokenomics.png
 sol2uml storage contracts/ -f png -c Dispenser -o audits/internal4/analysis/storage          
 Generated png file audits/internal4/analysis/storage/Dispenser.png
 ```
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/Tokenomics.png) <br>
-[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/Dispenser.png) <br>
-[storage_hardhat_test.md](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/storage/storage_hardhat_test.md) <br>
+[Tokenomics-storage](audits/internal4/analysis/storage/Tokenomics.png) <br>
+[Dispenser-storage](audits/internal4/analysis/storage/Dispenser.png) <br>
+[storage_hardhat_test.md](audits/internal4/analysis/storage/storage_hardhat_test.md) <br>
 current deployed: <br>
-[Tokenomics-storage-current](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal2/analysis/storage/Tokenomics.png) <br>
+[Tokenomics-storage-current](audits/internal2/analysis/storage/Tokenomics.png) <br>
 The new slot allocation for Tokenomics (critical as proxy pattern) does not affect the previous one. 
 
 ### Security issues.
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis/slither_full.txt) <br>
+[slither-full](audits/internal4/analysis/slither_full.txt) <br>
 
 #### Issue
 ##### Dispenser
@@ -307,7 +307,7 @@ The review has been performed based on the contract code in the following reposi
 commit: `7f20035c543d553ed28a960152a3bae2878f374c` or `tag: v1.2.1-pre-internal-audit`<br>
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/contracts)
+Flatten version of contracts. [contracts](audits/internal4/analysis2/contracts)
 
 ### Storage and proxy
 Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
@@ -316,14 +316,14 @@ npm link sol2uml --only=production
 sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal4/analysis2/storage
 Generated png file audits/internal4/analysis2/storage/Tokenomics.png
 ```
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/storage/Tokenomics.png) <br>
+[Tokenomics-storage](audits/internal4/analysis2/storage/Tokenomics.png) <br>
 Same as before (see above). No issue.
 
 ### Security issues.
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/slither_full.txt) <br>
+[slither-full](audits/internal4/analysis2/slither_full.txt) <br>
 
 #### Low issue
 1. Re-calcualted retainerHash

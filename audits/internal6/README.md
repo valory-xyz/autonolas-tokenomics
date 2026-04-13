@@ -13,9 +13,9 @@ sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal6/
 Generated png file audits/internal6/Tokenomics.png
 ```
 From the point of view of auditing a proxy contract, only storage are important: Tokenomics. <br>
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal6/analysis/storage/Tokenomics.png) - 17 slots <br>
+[Tokenomics-storage](audits/internal6/analysis/storage/Tokenomics.png) - 17 slots <br>
 Current contract storage
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/storage/Tokenomics-1.3.1.png) - 17 slots <br>
+[Tokenomics-storage](audits/internal4/analysis2/storage/Tokenomics-1.3.1.png) - 17 slots <br>
 OK.
 
 ### Security issues.
@@ -66,9 +66,9 @@ sol2uml storage contracts/ -f png -c Tokenomics -o audits/internal6/
 Generated png file audits/internal6/Tokenomics.png
 ```
 From the point of view of auditing a proxy contract, only storage are important: Tokenomics. <br>
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal6/analysis/storage/Tokenomics.png) - 17 slots <br>
+[Tokenomics-storage](audits/internal6/analysis/storage/Tokenomics.png) - 17 slots <br>
 Current contract storage
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal4/analysis2/storage/Tokenomics-1.3.2.png) - 17 slots <br>
+[Tokenomics-storage](audits/internal4/analysis2/storage/Tokenomics-1.3.2.png) - 17 slots <br>
 ```
 md5sum Tokenomics-1.3.1.png Tokenomics-1.3.2.png 
 dba13629f9483a95d8d537fddc38214c  Tokenomics-1.3.1.png
