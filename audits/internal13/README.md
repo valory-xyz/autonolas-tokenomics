@@ -32,7 +32,7 @@ Modified files:
 Total NSLOC in scope: ~2260 lines (13 files).
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal13/analysis/contracts)
+Flatten version of contracts. [contracts](audits/internal13/analysis/contracts)
 
 ### Testing and coverage
 - `forge build --skip test script` — compiles successfully (Solc 0.8.30)
@@ -43,7 +43,7 @@ Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonola
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal13/analysis/slither_full.txt) <br>
+[slither-full](audits/internal13/analysis/slither_full.txt) <br>
 
 #### Medium. LPSwapCelo: new OLAS-CELO LP tokens permanently locked in contract
 ```

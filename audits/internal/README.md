@@ -7,7 +7,7 @@ commit: `383a4310270d801197bb45df408d19d16dbbfb54` or `v0.1.0.pre-internal-audit
 The audit focused on contracts in this repo.
 
 ### Flatten version
-Flatten version of contracts. [contracts](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/contracts) 
+Flatten version of contracts. [contracts](audits/internal/analysis/contracts) 
 
 ### Storage and proxy
 Using sol2uml tools: https://github.com/naddison36/sol2uml <br>
@@ -26,16 +26,16 @@ autonolas-tokenomics/audits/internal/analysis/storage/DonatorBlacklist.png
 sol2uml storage contracts/ -f png -c TokenomicsProxy -o audits/internal/analysis/storage                
 Generated png file autonolas-tokenomics/audits/internal/analysis/storage/TokenomicsProxy.png
 ```
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Tokenomics.png) <br>
-[Depository-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Depository.png) <br>
-[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Dispenser.png) <br>
-[Treasury-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Treasury.png) <br>
-[DonatorBlacklist-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/DonatorBlacklist.png) <br>
-[TokenomicsProxy-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/TokenomicsProxy.png) <br>
+[Tokenomics-storage](audits/internal/analysis/storage/Tokenomics.png) <br>
+[Depository-storage](audits/internal/analysis/storage/Depository.png) <br>
+[Dispenser-storage](audits/internal/analysis/storage/Dispenser.png) <br>
+[Treasury-storage](audits/internal/analysis/storage/Treasury.png) <br>
+[DonatorBlacklist-storage](audits/internal/analysis/storage/DonatorBlacklist.png) <br>
+[TokenomicsProxy-storage](audits/internal/analysis/storage/TokenomicsProxy.png) <br>
 
 From the point of view of auditing a proxy contract, only 2 storage are important: Tokenomics and TokenomicsProxy. <br>
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/Tokenomics.png) - 18 slots <br>
-[TokenomicsProxy-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/TokenomicsProxy.png) - 0 slots <br>
+[Tokenomics-storage](audits/internal/analysis/storage/Tokenomics.png) - 18 slots <br>
+[TokenomicsProxy-storage](audits/internal/analysis/storage/TokenomicsProxy.png) - 0 slots <br>
 When there will be future implementations, it is critical that the storage be used: current as is + new variables. <br>
 One of the semi-automatic verification algorithms:
 ```
@@ -62,10 +62,10 @@ Tokenomics.sol as implementation should not contain delegatecall itself. <br>
 Example of issue: https://github.com/YAcademy-Residents/Solidity-Proxy-Playground/tree/main/src/function_clashing/UUPS_functionClashing <br>
 
 #### Updated contract storage
-[Tokenomics-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Tokenomics.png) <br>
-[Depository-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Depository.png) <br>
-[Dispenser-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Dispenser.png) <br>
-[Treasury-storage](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/storage/updated/Treasury.png) <br>
+[Tokenomics-storage](audits/internal/analysis/storage/updated/Tokenomics.png) <br>
+[Depository-storage](audits/internal/analysis/storage/updated/Depository.png) <br>
+[Dispenser-storage](audits/internal/analysis/storage/updated/Dispenser.png) <br>
+[Treasury-storage](audits/internal/analysis/storage/updated/Treasury.png) <br>
 
 All the contracts got reduced by a minimum of 2 slots, which results in contract size deployment as well.
 
@@ -88,7 +88,7 @@ All found issues are located in "Security issues"
 #### Problems found instrumentally
 Several checks are obtained automatically. They are commented. Some issues found need to be fixed. <br>
 All automatic warnings are listed in the following file, concerns of which we address in more detail below: <br>
-[slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
+[slither-full](audits/internal/analysis/slither_full.txt) <br>
 Short list: <br>
 - ignores return value by IERC20(olas). Recommendation: needs to be fixed.
 - performs a multiplication on the result of a division. Recommendation: must to be fixed.
@@ -182,7 +182,7 @@ Recommendation: must to be fixed. Bug from point view of UX. 🔶
 #### Minor issue and necessary logical fixes
 ##### Unused event
 This is not a runtime error, but the contract needs to be cleaned up to reduce the bytecode. <br>
-[Unused event](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/unused_event.md) <br>
+[Unused event](audits/internal/analysis/unused_event.md) <br>
 Recommendation: needs to be fixed. Non-critical. 
 
 ##### Fixes
@@ -364,7 +364,7 @@ Recommendation: needs to be fixed. Not a bug, but should be a significant optimi
 
 
 #### Delete IGenericBondCalculator(bondCalculator).checkLP(token)
-Details in [slither-full](https://github.com/valory-xyz/autonolas-tokenomics/blob/main/audits/internal/analysis/slither_full.txt) <br>
+Details in [slither-full](audits/internal/analysis/slither_full.txt) <br>
 Recommendation: needs to be fixed. Not a bug, but should be a optimize and eliminate unnecessary code. 💹
 
 ##### Fixes
