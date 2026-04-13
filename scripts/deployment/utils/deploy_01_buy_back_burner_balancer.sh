@@ -41,9 +41,12 @@ else
   bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
 fi
 
+liquidityManagerAddress=$(jq -r '.liquidityManagerAddress' $globals)
+swapRouterV3Address=$(jq -r '.swapRouterV3Address' $globals)
+
 contractName="BuyBackBurnerBalancer"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$bridge2BurnerAddress $bridgeMediatorAddress"
+constructorArgs="$liquidityManagerAddress $bridge2BurnerAddress $bridgeMediatorAddress $swapRouterV3Address"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -80,7 +83,7 @@ echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" 
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
+  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

@@ -185,7 +185,7 @@ contract BaseSetup is Test {
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
+        buyBackBurner = new BuyBackBurnerBalancer(address(liquidityManager), address(bridge2Burner), TIMELOCK, ROUTER_V3);
 
         // Change BBB implementation
         vm.prank(BBB_OWNER);
@@ -193,6 +193,14 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerBalancer(payable(BUY_BACK_BURNER));
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
     }
 }
 

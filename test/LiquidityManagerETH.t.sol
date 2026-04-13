@@ -154,7 +154,7 @@ contract BaseSetup is Test {
         sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerUniswap(BURNER, TIMELOCK);
+        buyBackBurner = new BuyBackBurnerUniswap(address(liquidityManager), BURNER, TIMELOCK, ROUTER_V3);
 
         // Deploy BBB proxy
         address[] memory accounts = new address[](4);
@@ -169,6 +169,25 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerUniswap(payable(address(buyBackBurnerProxy)));
+
+        // Whitelist V3 pool
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        bool[] memory statuses = new bool[](1);
+        statuses[0] = true;
+        buyBackBurner.setV3PoolStatuses(pools, statuses);
+
+        // Set V2 oracle mapping for WETH
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory oraclesArr = new address[](1);
+        oraclesArr[0] = address(oracleV2);
+        buyBackBurner.setV2Oracles(secondTokens, oraclesArr);
+
+        // Set per-token max slippage for WETH
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = 1000;
+        buyBackBurner.setMaxSlippages(secondTokens, slippages);
     }
 }
 

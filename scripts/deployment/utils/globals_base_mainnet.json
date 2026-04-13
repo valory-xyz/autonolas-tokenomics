@@ -15,6 +15,8 @@
   "balancerPoolId": "0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3",
   "maxBuyBackSlippage": "10",
   "balancerPriceOracleAddress": "0x586D916819d9B707101f81e4cDD22cE119D1C220",
+  "liquidityManagerAddress": "",
+  "swapRouterV3Address": "0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5",
   "buyBackBurnerAddress": "0xEea5F1e202dc43607273d54101fF8b58FB008A99",
   "buyBackBurnerProxyAddress": "0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426"
 }

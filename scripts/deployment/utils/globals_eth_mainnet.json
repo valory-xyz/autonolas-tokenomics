@@ -13,6 +13,8 @@
   "routerV2Address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
   "maxBuyBackSlippage": "10",
   "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a",
+  "liquidityManagerAddress": "",
+  "swapRouterV3Address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
   "buyBackBurnerAddress": "0x07749207793DC1f9208BFCAAA08ef1ea204402A6",
   "buyBackBurnerProxyAddress": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F"
 }

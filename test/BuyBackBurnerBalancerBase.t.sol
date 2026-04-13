@@ -64,7 +64,9 @@ contract BaseSetup is Test {
         bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);
 
         // Deploy BuyBackBurnerBalancer implementation
-        BuyBackBurnerBalancer buyBackBurnerImpl = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
+        // liquidityManager and swapRouter are placeholders (unused for V2 buyBack path)
+        BuyBackBurnerBalancer buyBackBurnerImpl =
+            new BuyBackBurnerBalancer(address(0xdead), address(bridge2Burner), TIMELOCK, address(0xdead));
 
         // Construct proxy init payload: (accounts, balancerPoolId)
         address[] memory accounts = new address[](4);

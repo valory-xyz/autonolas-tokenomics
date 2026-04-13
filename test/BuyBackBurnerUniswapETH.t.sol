@@ -26,6 +26,7 @@ contract BaseSetup is Test {
     address internal constant BURNER = 0x51eb65012ca5cEB07320c497F4151aC207FEa4E0;
     address internal constant PAIR_V2 = 0x09D1d767eDF8Fa23A64C51fa559E0688E526812F;
     address internal constant ROUTER_V2 = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address internal constant ROUTER_V3 = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
     address internal constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     // Oracle parameters
@@ -53,7 +54,9 @@ contract BaseSetup is Test {
         oracleV2.updatePrice();
 
         // Deploy BuyBackBurnerUniswap implementation
-        BuyBackBurnerUniswap buyBackBurnerImpl = new BuyBackBurnerUniswap(BURNER, TIMELOCK);
+        // liquidityManager is a placeholder (unused for V2 buyBack path); BURNER as bridge2Burner on L1
+        BuyBackBurnerUniswap buyBackBurnerImpl =
+            new BuyBackBurnerUniswap(address(0xdead), BURNER, TIMELOCK, ROUTER_V3);
 
         // Construct proxy init payload: (accounts)
         address[] memory accounts = new address[](4);
@@ -243,5 +246,42 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         buyBackBurner.buyBack(WETH, 0.1 ether);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
+    }
+
+    /// @dev Proxy upgrade path: deprecated `maxSlippage` slot is preserved across upgrade,
+    ///      and owner must populate per-token slippage map before next buyBack.
+    function testProxyUpgradePathMaxSlippagePreserved() public {
+        // Simulate a pre-upgrade proxy: seed legacy slot 4 (maxSlippage) with 500 BPS,
+        // and zero out per-token slippage for WETH (new map, unpopulated post-upgrade).
+        uint256 legacySlot = 4;
+        vm.store(address(buyBackBurner), bytes32(legacySlot), bytes32(uint256(500)));
+
+        bytes32 perTokenSlot = keccak256(abi.encode(WETH, uint256(8)));
+        vm.store(address(buyBackBurner), perTokenSlot, bytes32(uint256(0)));
+
+        // Deprecated slot is preserved and readable via public getter.
+        assertEq(buyBackBurner.maxSlippage(), 500);
+        // New per-token map is empty for WETH post-upgrade.
+        assertEq(buyBackBurner.mapTokenMaxSlippages(WETH), 0);
+
+        // buyBack with unpopulated per-token slippage → amountOutMin == full TWAP → DEX reverts.
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+        vm.expectRevert();
+        buyBackBurner.buyBack(WETH, 0.1 ether);
+
+        // Owner populates new map.
+        address[] memory tokens = new address[](1);
+        tokens[0] = WETH;
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = maxBuyBackSlippage;
+        buyBackBurner.setMaxSlippages(tokens, slippages);
+
+        // Next buyBack succeeds.
+        uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
+        buyBackBurner.buyBack(WETH, 0.1 ether);
+        assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
+
+        // Legacy slot remains unchanged after all operations.
+        assertEq(buyBackBurner.maxSlippage(), 500);
     }
 }

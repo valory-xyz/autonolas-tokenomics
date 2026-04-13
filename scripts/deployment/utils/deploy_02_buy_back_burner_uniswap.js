@@ -12,6 +12,10 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
+    const liquidityManagerAddress = parsedData.liquidityManagerAddress;
+    const bridge2BurnerAddress = parsedData.bridge2BurnerAddress || parsedData.burnerAddress;
+    const treasuryAddress = parsedData.bridgeMediatorAddress || parsedData.timelockAddress;
+    const swapRouterV3Address = parsedData.swapRouterV3Address;
 
     let networkURL = parsedData.networkURL;
     if (providerName === "polygon") {
@@ -44,8 +48,11 @@ async function main() {
     console.log("2. EOA to deploy BuyBackBurnerUniswap");
     const gasPrice = ethers.utils.parseUnits(gasPriceInGwei, "gwei");
     const BuyBackBurnerUniswap = await ethers.getContractFactory("BuyBackBurnerUniswap");
-    console.log("You are signing the following transaction: BuyBackBurnerUniswap.connect(EOA).deploy()");
-    const buyBackBurner = await BuyBackBurnerUniswap.connect(EOA).deploy({ gasPrice });
+    console.log("You are signing the following transaction: BuyBackBurnerUniswap.connect(EOA).deploy(liquidityManager, bridge2Burner, treasury, swapRouter)");
+    const buyBackBurner = await BuyBackBurnerUniswap.connect(EOA).deploy(
+        liquidityManagerAddress, bridge2BurnerAddress, treasuryAddress, swapRouterV3Address,
+        { gasPrice }
+    );
     const result = await buyBackBurner.deployed();
 
     // Transaction details
