@@ -28,6 +28,8 @@ An internal audit with a focus on verifying correctness of LPSwapCelo migration 
 
 An internal audit with a focus on verifying all: [internal audit 14](audits/internal14). 
 
+An internal audit with a focus on verifying all vs C4A report: [internal audit 15](audits/internal15).
+
 ### External audit
 Final audit reports are listed in their historical order:
 - [v1](audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
