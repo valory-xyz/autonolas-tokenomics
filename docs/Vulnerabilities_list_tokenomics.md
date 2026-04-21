@@ -16,8 +16,8 @@
   - [10. migrate function](#10-migrate-function)
   - [11. _sendMessage function](#11-_sendmessage-function)
   - [12. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#12-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
-  - [13. checkpoint function (effectiveBond not corrected at year boundaries)](#13-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
-  - [14. updateInflationPerSecondAndFractions function (effectiveBond reset)](#14-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [13. updateInflationPerSecondAndFractions function (effectiveBond reset)](#13-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [14. BalancerPriceOracle.updatePrice flash-loan steerability within minUpdateInterval](#14-balancerpriceoracleupdateprice-flash-loan-steerability-within-minupdateinterval)
   - [15. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#15-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
   - [16. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#16-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
 ## Involved contracts and level of the bugs
@@ -194,24 +194,7 @@ In order not to re-deploy the contract, the protocol just needs to delegate a mi
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
-### 13. `checkpoint` function (effectiveBond not corrected at year boundaries)
-
-**Severity**: Informative
-**Source**: Code4rena 2026-01 Olas audit (submission #S-1030)
-
-The following function is implemented in the Tokenomics contract:
-
-```solidity
-function checkpoint() external returns (bool)
-```
-
-The `checkpoint()` function does not correct effectiveBond downward at year boundaries where inflation decreases. In principle, if the inflation schedule were to decrease at a year's boundary, the effectiveBond value could remain stale at the higher previous-year level, potentially allowing more bonding than the new year's inflation schedule supports.
-
-This is not an issue for the moment since every year the inflation slightly increases. This issue will be reconsidered in due time, as tokenomics is being constantly refactored.
-
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 14. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
+### 13. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
 
 **Severity**: Informative
 **Source**: Internal audit 14
@@ -227,6 +210,25 @@ This owner-only function resets `effectiveBond` to just `curMaxBond` (the curren
 This is not externally exploitable: the function is restricted to the contract owner (Timelock = DAO governance). The reset direction is conservative -- it under-counts available bond capacity, never over-counts -- so no OLAS can be over-minted. The DAO must ensure that all bonding products are closed before calling `updateInflationPerSecondAndFractions()`, so that no outstanding product supply exceeds the reset effectiveBond. The effectiveBond rebuilds naturally through subsequent `checkpoint()` calls.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 14. BalancerPriceOracle.updatePrice flash-loan steerability within `minUpdateInterval`
+
+**Severity**: Medium — accepted residual
+**Source**: Internal audit 15 (M-02) / C4A 2026-01 H-03 (partial)
+**Status**: Acknowledged — no code change; track via monitoring
+
+`BalancerPriceOracle.updatePrice()` reads spot balances from the Balancer Vault once per `minUpdateInterval` and commits them as the new observation. Within that window, a flash-loan move that happens to coincide with the update is committed to state — the commit-on-success pattern (which fixed the rejected-update corruption from C4A H-11) does not reject the adversarial sample because `getPrice()` returns non-zero on the manipulated balance.
+
+Mitigations in place:
+- `updatePrice()` is rate-limited via `minUpdateInterval`, so at most one spot sample per window can land.
+- `getTWAP()` enforces `maxStaleness` on `lastObservation`, so obviously-old data is rejected downstream.
+- `buyBack(...)` is the only on-chain consumer of the TWAP on the V2 path; V3 uses a separate TWAP source.
+
+Residual risk: within any single `minUpdateInterval`, a well-timed flash-loan move into the Balancer pool can still commit a skewed sample. The fix would be architectural (swap oracle source to Vault-on-swap callbacks or a different TWAP primitive) rather than a small code edit — not planned for this PR.
+
+Mitigation plan: off-chain monitoring of `ObservationUpdated` events against moving-average sanity bands, alert + pause on deviation beyond the configured `maxSlippage`. Escalates to High if `updatePrice` ever becomes permissionlessly callable with a tighter cadence, or if `buyBack` volumes scale to the point where flash-loan damage per window crosses a material threshold.
+
+Source code: [BalancerPriceOracle.sol](contracts/oracles/BalancerPriceOracle.sol)
 
 ### 15. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
 
