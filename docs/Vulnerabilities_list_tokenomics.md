@@ -15,13 +15,11 @@
   - [9. claimStakingIncentives / _calculateStakingIncentivesBatch functions](#9-claimstakingincentives--_calculatestakingincentivesbatch-functions)
   - [10. migrate function](#10-migrate-function)
   - [11. _sendMessage function](#11-_sendmessage-function)
-  - [12. refundFromStaking function (incorrect manager address in error message)](#12-refundfromstaking-function-incorrect-manager-address-in-error-message)
-  - [13. getInflationForYear function (double-applied mint cap for years >= 10)](#13-getinflationforyear-function-double-applied-mint-cap-for-years--10)
-  - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
-  - [15. checkpoint function (effectiveBond not corrected at year boundaries)](#15-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
-  - [16. updateInflationPerSecondAndFractions function (effectiveBond reset)](#16-updateinflationpersecondandfractions-function-effectivebond-reset)
-  - [17. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#17-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
-  - [18. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#18-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
+  - [12. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#12-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
+  - [13. checkpoint function (effectiveBond not corrected at year boundaries)](#13-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
+  - [14. updateInflationPerSecondAndFractions function (effectiveBond reset)](#14-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [15. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#15-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
+  - [16. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#16-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -179,44 +177,7 @@ This function forms required data to send tokens and messages to L2 in all the o
 
 Although this action does not result in loss of funds (which are sent separately), it could deliberately pass a smaller amount of gas such that a corresponding function on L2 reverts. This can then be corrected via the **processDataMaintenance()** function. In the absence of contract re-deployment, users are advised to pass a sufficient amount of gas, or just have it set to zero, such that the fallback value takes care of it.
 
-### 12. `refundFromStaking` function (incorrect manager address in error message)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #130)
-
-The following function is implemented in the Tokenomics contract:
-
-```solidity
-function refundFromStaking(uint256 amount) external
-```
-
-The `refundFromStaking()` function contains a copy-paste error where the revert message in the ManagerOnly check shows the depository address instead of the dispenser address, despite the access control check correctly verifying the dispenser. This originates from Tokenomics.sol line 838.
-
-The revert message references an incorrect address, but the actual access control is enforced correctly. No funds are at risk; this is purely a cosmetic/debugging clarity issue. The revert string should be updated to reference the correct dispenser address for clarity.
-
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 13. `getInflationForYear` function (double-applied mint cap for years >= 10)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #S-893)
-
-The following functions are implemented in the TokenomicsConstants contract:
-
-```solidity
-function _calculateSupplyCapAfterYear10(uint256 firstYear, uint256 lastYear) internal pure returns (uint256)
-function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount)
-```
-
-The `getInflationForYear(numYears)` function, for numYears >= 11, calls `_calculateSupplyCapAfterYear10(1, numYears)` which returns the post-compounded supply cap of the current year. It then applies the `MAX_MINT_CAP_FRACTION` to this already-compounded value. This means the mint fraction f is effectively applied twice: once during cap compounding and once in the inflation computation, resulting in an effective rate of f + f^2 instead of f.
-
-For example, with f = 0.02 (2%), the actual inflation for year 11 becomes S10 * (f + f^2) = S10 * 0.0204, yielding 2.04% instead of the intended 2.00%. The correct fix requires computing inflation from the previous year's supply cap: `_calculateSupplyCapAfterYear10(1, numYears - 1)`.
-
-This issue will be reconsidered in due time, as tokenomics is being constantly refactored.
-
-Source code: [TokenomicsConstants.sol](contracts/TokenomicsConstants.sol)
-
-### 14. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
+### 12. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
 
 **Severity**: High
 **Source**: Code4rena 2026-01 Olas audit (submission #S-907)
@@ -233,7 +194,7 @@ In order not to re-deploy the contract, the protocol just needs to delegate a mi
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
-### 15. `checkpoint` function (effectiveBond not corrected at year boundaries)
+### 13. `checkpoint` function (effectiveBond not corrected at year boundaries)
 
 **Severity**: Informative
 **Source**: Code4rena 2026-01 Olas audit (submission #S-1030)
@@ -250,7 +211,7 @@ This is not an issue for the moment since every year the inflation slightly incr
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
-### 16. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
+### 14. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
 
 **Severity**: Informative
 **Source**: Internal audit 14
@@ -267,7 +228,7 @@ This is not externally exploitable: the function is restricted to the contract o
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
-### 17. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
+### 15. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
 
 **Severity**: Low
 **Source**: Code4rena 2026-01 Olas audit (L-02) — tracked forward as internal audit 15 (L-03)
@@ -285,7 +246,7 @@ Exposure: owner-gated conversion flow + permissionless fee collection. The reali
 
 Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
 
-### 18. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
+### 16. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
 
 **Severity**: Low
 **Source**: Code4rena 2026-01 Olas audit (L-04) — tracked forward as internal audit 15 (L-04)

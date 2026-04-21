@@ -158,10 +158,33 @@ The C4A submission (S-1030) demonstrates ~346,068 OLAS phantom bond capacity at 
 ### 3. **PR #273 deletes entries instead of annotating them as FIXED.**
 The diff `1d07c94..ead1c83 -- docs/Vulnerabilities_list_tokenomics.md` removes several historical entries wholesale rather than marking them as FIXED with the resolving commit hash. This breaks change-log auditability — future auditors cannot tell which entries were closed-and-fixed vs closed-and-reopened-later.
 
-Recommended doc protocol (tracked as **I-03 (this report)**):
-- Keep every historical entry; append `**Status:** FIXED in commit `<hash>` (`<PR #>`)` rather than deleting
-- When a finding is re-opened by a revert/restoration (e.g., M-11 by PR #272), annotate: `**Status:** REOPENED by PR #272 commit `<hash>` — re-verification pending`
-- Each new C4A / Internal-audit finding in tokenomics scope must be added to the list with its source reference (submission # or internal-audit id), even if already fixed at merge time
+**Disposition (2026-04-21, team decision):** this is the team's established workflow (see I-03 below) — entries are removed once closed; the historical record lives in the per-audit README and git log. Closed as acknowledged.
+
+### 4. **Item #12 (`refundFromStaking` incorrect revert address)** — FIXED on branch `fix-low-audit15`
+
+**Finding recap** (C4A 2026-01 submission #130): `refundFromStaking` gates access on `dispenser` but the `ManagerOnly` revert reports `depository` as the second parameter. Purely cosmetic — access control is correct, only the error payload is misleading.
+
+**Fix applied:** `contracts/Tokenomics.sol:838` changed from `revert ManagerOnly(msg.sender, depository)` → `revert ManagerOnly(msg.sender, dispenser)`.
+
+**Test:** `test/Tokenomics.js` — extended "Should fail when calling dispenser-owned functions" test with an assertion on the revert parameters: `withArgs(signers[1].address, dispenserSigner.address)`. Passes with a non-matching depository configured to ensure the check isn't a tautology.
+
+Entry removed from `docs/Vulnerabilities_list_tokenomics.md`.
+
+[x] Closed by branch `fix-low-audit15`.
+
+### 5. **Item #13 (`getInflationForYear` double-applied mint cap, C4A S-893)** — REJECTED on review, not a real issue
+
+C4A 2026-01 submission **S-893** claimed that `getInflationForYear(numYears)` for `numYears >= 11` yields 2.04% annual inflation instead of the intended 2.00%, on the grounds that `MAX_MINT_CAP_FRACTION` is applied to an already-compounded supply cap.
+
+On careful review of the single on-chain consumer (`Tokenomics.checkpoint` at line 1135), the `numYears` variable is **integer years elapsed since launch** — so `numYears = k` corresponds to operational **year `k + 1`**, not year `k`. Under that convention (which the first-10-years pre-computed table also follows), `getInflationForYear(11)` must return the year-12 inflation budget, which is `2% of cap(year 11) = S10 · 1.02 · 0.02 = S10 · 0.0204` — exactly what the code returns. The `0.0204` coefficient is not "2% applied twice"; it is literally the year-12 absolute amount expressed relative to `S10`.
+
+Applying the submission's proposed patch (`_calculateSupplyCapAfterYear10(1, numYears - 1)`) would under-count inflation for every year ≥ 12, stalling the schedule one year behind — a real functional regression.
+
+Full numerical derivation, trace table, and response to the submission authors: see [`C4A_S-893_rebuttal.md`](C4A_S-893_rebuttal.md).
+
+Entry #13 removed from `docs/Vulnerabilities_list_tokenomics.md` as rejected-on-review (not fixed).
+
+[x] Closed as rejected on branch `fix-low-audit15`.
 
 ## On-chain verification (fork + direct RPC)
 
