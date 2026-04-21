@@ -429,7 +429,11 @@ was crafted to revert. The only remaining gate was setV3PoolStatuses (owner
 whitelist), so this collapsed to a pure admin-trust boundary.
 ```
 
-**Fix applied (branch `fix-medium-audit15`):** replaced the fail-open `return` with an explicit revert using a dedicated `ObservationFailed(pool)` error. The pre-condition `oldestTimestamp + SECONDS_AGO < block.timestamp` already handles genuinely-new pools with insufficient history (early-return to slot0 with no TWAP enforcement), so a later staticcall failure is treated as malformed / adversarial input. Covered by the updated `test_checkPoolAndGetCenterPrice_revertsOnObserveRevert` unit test.
+**Fix applied (branch `fix-medium-audit15`):** when the staticcall to `getTwapFromOracle` fails, read `slot0().observationCardinality` via a new `_getObservationCardinality(pool)` helper and branch on it — cardinality ≤ 1 means the pool is freshly-initialized and legitimately has no history to synthesize (the original fail-open semantic), so fall back to slot0; cardinality ≥ 2 means the pool claims history but its `observe()` is misbehaving (malformed or crafted to bypass the slippage guard), so revert with `ObservationFailed(pool)`. Preserves the admin-path `convertToV3` flow on fresh pools while closing the adversarial-pool escape hatch for permissionless `buyBack`.
+
+Covered by:
+- `test/LiquidityManagerCorePriceGuard.t.sol` — 2 unit tests: `test_checkPoolAndGetCenterPrice_revertsOnObserveRevert` (cardinality 60) and `test_checkPoolAndGetCenterPrice_fallsBackOnObserveRevertWithCardinalityOne`.
+- `test/LiquidityManagerETH.t.sol` — `testCheckPoolAndGetCenterPrice_RevertsOnObserveRevertForkOverlay` exercises the revert path on the mainnet USDC/WETH 0.3% V3 pool (cardinality ~15k) using `vm.mockCallRevert` to force observe() failure.
 
 [x] Closed by branch `fix-medium-audit15`.
 
@@ -463,7 +467,11 @@ If updatePrice() has not been called in the current interval, getTWAP returns
 a value up to minUpdateInterval old.
 ```
 
-**Fix applied (branch `fix-medium-audit15`):** insert `IOracle(poolOracle).updatePrice()` before `getTWAP()` in the V2 `_buyOLAS` branch. `updatePrice()` returns `false` (it does not revert) when the rate-limit window has not yet elapsed, so back-to-back buyBack calls are not self-DoSed — the oracle simply reuses the already-fresh observation. Covered by `testBuyBackRefreshesStaleOracle` in `test/BuyBackBurnerUniswapETH.t.sol`, which warps past the rate-limit window and asserts that `lastObservation.timestamp` advances through the buyBack call.
+**Fix applied (branch `fix-medium-audit15`):** insert `IOracle(poolOracle).updatePrice()` before `getTWAP()` in the V2 `_buyOLAS` branch. `updatePrice()` returns `false` (it does not revert) when the rate-limit window has not yet elapsed, so back-to-back buyBack calls are not self-DoSed — the oracle simply reuses the already-fresh observation.
+
+Covered by:
+- `test/BuyBackBurnerV2OracleRefresh.t.sol` — 2 forge unit tests with a mock oracle: `test_buyBack_refreshesOracle` asserts `updatePrice()` fires exactly once per `buyBack` and the router's `amountOutMin` matches the TWAP math; `test_buyBack_backToBackStillInvokesUpdatePrice` proves no self-DoS.
+- `test/BuyBackBurnerUniswapETH.t.sol::testBuyBackRefreshesStaleOracle` — ETH-fork test that warps past `minUpdateInterval` and asserts the oracle's `lastObservation.timestamp` advances through the `buyBack` call.
 
 [x] Closed by branch `fix-medium-audit15`.
 
@@ -556,6 +564,10 @@ File: contracts/Tokenomics.sol:1172-1177
 ```
 
 **Fix applied (branch `fix-medium-audit15`):** added the `else if (incentives[4] < curMaxBond)` branch with **saturating subtraction** (floors at 0) rather than the audit's raw `effectiveBond - (curMaxBond - incentives[4])` — so a hypothetical over-issuance of bonds before the boundary cannot underflow-revert checkpoint and brick epoch advancement. Direction stays conservative (under-counts remaining bond capacity, never over-counts). Also updates `docs/Vulnerabilities_list_tokenomics.md#15` rationale: replaces the factually-wrong "every year inflation slightly increases" premise with the actual schedule, marks severity **Medium** (not Informative), and records FIXED status with the branch reference.
+
+Covered by two Hardhat tests in `test/Tokenomics.js` (grep `M-04`):
+- *decreasing-year boundary* — walks `currentYear` 0→1→2→3 across the Y2→Y3 inflation decrease and asserts the crossing settles cleanly under the new branch.
+- *else-if synthetic trigger* — uses `hardhat_setStorageAt` to double the packed `maxBond` slot (preserving `owner` in the low 160 bits) between checkpoints and asserts the settlement reduces `effectiveBond` by the full over-credit, matching the fix's arithmetic within 2 seconds of timing drift.
 
 [x] Closed by branch `fix-medium-audit15`.
 
@@ -681,9 +693,10 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 |:--------:|-------------------|:-----:|------|
 | P0 | `BuyBackBurner` proxy upgrade preserving V2 storage (router/balancerVault/balancerPoolId) | 0 | H-01 — V2 path silently dies post-upgrade |
 | P0 | `BuyBackBurnerUniswap._performSwap` + `BuyBackBurnerBalancer._performSwap` sandwich fork test against real V3 / Slipstream pools | 0 | H-02 — 1-wei floor |
-| P1 | `LiquidityManagerCore.checkPoolAndGetCenterPrice` with reverting `observe()` | 1 unit (`LiquidityManagerCorePriceGuard.test_checkPoolAndGetCenterPrice_revertsOnObserveRevert`) | M-01 fail-open (CLOSED on `fix-medium-audit15`) |
+| P1 | `LiquidityManagerCore.checkPoolAndGetCenterPrice` with reverting `observe()` | 2 unit (`LiquidityManagerCorePriceGuard.test_checkPoolAndGetCenterPrice_revertsOnObserveRevert` + `_fallsBackOnObserveRevertWithCardinalityOne`) + 1 ETH-fork (`LiquidityManagerETH.testCheckPoolAndGetCenterPrice_RevertsOnObserveRevertForkOverlay`, mocks observe() on the mainnet USDC/WETH 0.3% V3 pool) | M-01 fail-open (CLOSED on `fix-medium-audit15`) |
 | P1 | `BalancerPriceOracle.updatePrice` flash-loan steer within minUpdateInterval | 0 — accepted residual | M-02 residual (documented, no code change) |
-| P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 1 ETH-fork (`BuyBackBurnerUniswapETH.testBuyBackRefreshesStaleOracle`) | M-03 (CLOSED on `fix-medium-audit15`) |
+| P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 2 forge unit (`BuyBackBurnerV2OracleRefresh.test_buyBack_refreshesOracle` + `_backToBackStillInvokesUpdatePrice`) + 1 ETH-fork (`BuyBackBurnerUniswapETH.testBuyBackRefreshesStaleOracle`) | M-03 (CLOSED on `fix-medium-audit15`) |
+| P1 | `Tokenomics.checkpoint` else-if effectiveBond correction at year boundaries | 2 Hardhat (`Tokenomics.js#M-04`: decreasing-year walkthrough + storage-override synthetic trigger) | M-04 (CLOSED on `fix-medium-audit15`) |
 | P2 | `buyBack` long-pending-tx at stale price | 0 | L-01 |
 | P2 | `setV3PoolStatuses` factory-ancestry enforcement | 0 | I-01 |
 
@@ -712,6 +725,23 @@ Required before deployment:
 Tracked follow-ups (not blocking):
 - **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#20`; off-chain monitoring is the primary control.
 - L-02 / L-03 / L-04 — admin-only surface; document in admin playbook
+
+### Deployment-script impact sweep for the medium bundle
+
+Walked `scripts/deployment/` (top level + `oracles/`, `utils/`, `staking/` and all chain subdirs) plus adjacent `scripts/proposals/`, `scripts/fork/`, `scripts/audit_chains/` for anything that touches the changed symbols (`checkpoint`, `effectiveBond`, `observe`, `ObservationFailed`, `checkPoolAndGetCenterPrice`, `getTWAP`, `updatePrice`, `updateInflation`):
+
+| Script | What it does | Impact |
+|--------|--------------|--------|
+| `scripts/audit_chains/audit_contracts_setup.js:624-626` | Reads `polygonDepositProcessorL1.checkpointManager()` — unrelated to Tokenomics.checkpoint | none |
+| `scripts/proposals/proposal_16_update_tokenomics_inflation.js:30` | Governance proposal calling `updateInflationPerSecondAndFractions(25, 4, 2, 69)` | none — M-04 changes internal-branch logic inside `checkpoint`, not the governance surface |
+| `scripts/fork/tokenomics_update_with_timelock_account.js` | Fork helper reading `effectiveBond` + calling `updateInflationPerSecondAndFractions` | none — read + governance call, no change to expected behavior |
+| `scripts/proposals/proposal_03_calculate_LP_OLAS_WETH_uniswap.js:232` | Reads `effectiveBond` | none — read-only |
+| `scripts/deployment/staking/polygon/bridge_new_token.js:7` | URL comment mentioning `_checkpointManager` | none — comment only |
+
+No deploy-script code changes required. Operator-facing notes (no script edits, just awareness):
+- **M-01** — fresh V3 pools (cardinality == 1 immediately after `createAndInitializePoolIfNecessary`) still fall back to slot0; the TWAP guard engages naturally as swaps accrue observations. Deploy sequence for `convertToV3` on a brand-new pool is unchanged.
+- **M-03** — the existing oracle warm-up sequence (two spaced `updatePrice()` calls before the first `buyBack`) is still required to populate `prevObservation` + `lastObservation`. The fix only adds an intra-buyBack refresh on top; it does not replace warm-up.
+- **M-04** — no deploy step touches the new `else if` branch; the fix is internal to `checkpoint()`. Governance can continue to use `updateInflationPerSecondAndFractions` unchanged (item #16's separate effectiveBond-reset caveat still applies).
 
 ### Key observation — fix-by-exclusion reversed
 Internal14 relied on "V3 swap path removed entirely" as the closure for a cluster of C4A V3 concerns. PR #272 reverses that by restoring V3, so the V3 surface returns to the audit scope — **and brings two new integration-era issues** (H-01 storage layout, H-02 1-wei floor) that could not exist while V3 was absent. The developer's PR #273 description fixes 3 C4R items; the re-audit must cover the 23 C4A items **plus** the restoration's integration footprint **plus** deployment/OpSec state. This asymmetry is exactly why fix-by-exclusion is an anti-pattern: the moment the exclusion is reversed, the audit budget balloons.

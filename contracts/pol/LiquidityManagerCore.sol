@@ -234,6 +234,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
     }
 
+    /// @dev Reads slot0().observationCardinality, tolerating non-canonical pools that don't implement slot0().
+    /// @param pool Pool address.
+    /// @return cardinality Observation cardinality (0 if the call failed).
+    function _getObservationCardinality(address pool) internal view returns (uint16 cardinality) {
+        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
+        (bool success, bytes memory returnData) = pool.staticcall(payload);
+        if (success) {
+            // observationCardinality is at slot 4 (index 3) in slot0's return layout,
+            // so byte offset 32 (length prefix) + 3 * 32 = 128.
+            assembly {
+                cardinality := mload(add(returnData, 128))
+            }
+        }
+    }
+
     /// @dev Gets V3 pool based on token addresses and fee tier or tick spacing.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
@@ -1120,10 +1135,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
 
-        // The earlier oldestTimestamp + SECONDS_AGO check already confirmed the pool has sufficient history,
-        // so reaching this point with a failing observe()/staticcall means the pool is malformed or crafted
-        // to fail-open the slippage guard. Revert rather than silently fall back to the unguarded slot0 price.
+        // If observe() reverts, distinguish a freshly-initialized pool (cardinality == 1,
+        // no historical data to blend) from a pool that has real history but whose observe()
+        // was crafted to fail. Fresh pools fall back to slot0 — the same tolerance the original
+        // code had; pools with cardinality >= 2 must produce a TWAP, otherwise something is
+        // wrong and we refuse to fail-open the slippage guard.
         if (!success || returnData.length == 0) {
+            if (_getObservationCardinality(pool) <= 1) {
+                return centerSqrtPriceX96;
+            }
             revert ObservationFailed(pool);
         }
 

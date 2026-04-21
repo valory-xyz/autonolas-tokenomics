@@ -1165,6 +1165,83 @@ describe("Tokenomics", async () => {
 
             await snapshot.restore();
         });
+
+        it("M-04: else-if branch reduces effectiveBond when stored maxBond is synthetically inflated", async function () {
+            // This test drives the `else if (incentives[4] < curMaxBond)` branch directly by
+            // overwriting the packed storage slot for `maxBond` just before a checkpoint, then
+            // asserting that effectiveBond decreases by the full over-credit. In natural flows
+            // this condition does not arise (the anticipation block at Tokenomics.sol:1263
+            // keeps curMaxBond and the settled incentives[4] in sync), but it's reachable via
+            // admin-driven flows that reset maxBond out of band — the branch must produce the
+            // correct arithmetic when it fires.
+
+            const snapshot = await helpers.takeSnapshot();
+
+            // Drive one settled in-year epoch to populate maxBond / effectiveBond from the
+            // natural checkpoint path.
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const naturalMaxBond = ethers.BigNumber.from(await tokenomics.maxBond());
+            const effectiveBondPre = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            expect(naturalMaxBond).to.be.gt(0, "setup: natural maxBond must be non-zero");
+
+            // Tokenomics storage layout: slot 0 packs `address owner` (20 bytes, low) with
+            // `uint96 maxBond` (12 bytes, high). Build a new slot value that keeps the owner
+            // intact and doubles maxBond so that the next settlement's natural incentives[4]
+            // will be strictly less than the stored curMaxBond, firing the new else-if.
+            const SLOT0 = "0x0";
+            const currentSlot = await network.provider.send("eth_getStorageAt",
+                [tokenomics.address, SLOT0, "latest"]);
+            const currentSlotBN = ethers.BigNumber.from(currentSlot);
+            const mask160 = ethers.BigNumber.from(2).pow(160).sub(1);
+            const ownerAddrBits = currentSlotBN.and(mask160);
+            const inflatedMaxBond = naturalMaxBond.mul(2);
+            const newSlot = inflatedMaxBond.shl(160).or(ownerAddrBits);
+            const newSlotHex = ethers.utils.hexZeroPad(newSlot.toHexString(), 32);
+            await network.provider.send("hardhat_setStorageAt",
+                [tokenomics.address, SLOT0, newSlotHex]);
+
+            // Re-read maxBond to confirm the override stuck and owner is preserved.
+            expect(await tokenomics.maxBond()).to.equal(inflatedMaxBond);
+            expect(await tokenomics.owner()).to.equal(deployer.address);
+
+            // Next checkpoint — the settled epoch's natural incentives[4] is roughly
+            // `naturalMaxBond` worth of inflation, which is half of the injected maxBond.
+            // The else-if branch must subtract the difference from effectiveBond and then
+            // credit the recomputed maxBond via line 1290 additively.
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const effectiveBondPost = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            const maxBondPost = ethers.BigNumber.from(await tokenomics.maxBond());
+
+            // With the fix:
+            //   effectiveBondPost = effectiveBondPre - (inflatedMaxBond - naturalMaxBond) + maxBondPost
+            // Without the fix, the else-if wouldn't fire and effectiveBond would grow by
+            // exactly maxBondPost. So the fix path reduces effectiveBond relative to the
+            // natural increment by `inflatedMaxBond - naturalMaxBond`.
+            //
+            // Allow small rounding drift from the internal inflationPerEpoch blending math —
+            // the strict `<` plus approximate equality below captures both the direction and
+            // the magnitude.
+            const naturalIncrement = effectiveBondPre.add(maxBondPost);
+            expect(effectiveBondPost).to.be.lt(naturalIncrement,
+                "else-if must subtract the synthetic over-credit");
+
+            const overCredited = inflatedMaxBond.sub(naturalMaxBond);
+            const fixedIncrement = naturalIncrement.sub(overCredited);
+            const delta = effectiveBondPost.gt(fixedIncrement)
+                ? effectiveBondPost.sub(fixedIncrement)
+                : fixedIncrement.sub(effectiveBondPost);
+            // Absolute tolerance: one second's worth of inflation (timing dust from diffSec
+            // drifting by a block off the exact epochLen boundary).
+            const oneSecondInflation = ethers.BigNumber.from(await tokenomics.inflationPerSecond());
+            expect(delta).to.be.lte(oneSecondInflation.mul(2),
+                "effectiveBond matches the fix's arithmetic within 2 seconds of drift");
+
+            await snapshot.restore();
+        });
     });
 
     context("Blacklist usage", async function () {

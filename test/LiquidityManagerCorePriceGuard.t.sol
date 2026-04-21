@@ -15,6 +15,7 @@ contract MockPool {
     uint160 public sqrtPriceX96;
     uint16 public observationIndex;
     uint32 public oldestObservationTimestamp;
+    uint16 public cardinality = 1;
 
     // observe() returns these two cumulative ticks for secondsAgos=[SECONDS_AGO, 0]
     int56 public tickCumOld;
@@ -24,6 +25,10 @@ contract MockPool {
     function setSlot0(uint160 _sqrtPriceX96, uint16 _observationIndex) external {
         sqrtPriceX96 = _sqrtPriceX96;
         observationIndex = _observationIndex;
+    }
+
+    function setCardinality(uint16 _cardinality) external {
+        cardinality = _cardinality;
     }
 
     function setOldestTimestamp(uint32 ts) external {
@@ -53,8 +58,8 @@ contract MockPool {
         _sqrtPriceX96 = sqrtPriceX96;
         tick = 0;
         _observationIndex = observationIndex;
-        observationCardinality = 1;
-        observationCardinalityNext = 1;
+        observationCardinality = cardinality;
+        observationCardinalityNext = cardinality;
         feeProtocol = 0;
         unlocked = true;
     }
@@ -296,13 +301,16 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     // test_checkPoolAndGetCenterPrice_revertsWhenObserveFails (M-01)
     // -----------------------------------------------------------------------
 
-    /// @dev observe() reverts even when oldest timestamp is recent → the guard used to
-    ///      fail-open to slot0; after the M-01 fix it must revert with ObservationFailed.
+    /// @dev observe() reverts on a pool whose cardinality >= 2 (i.e., a pool that claims to
+    ///      have history) → the guard used to fail-open to slot0; after the M-01 fix it must
+    ///      revert with ObservationFailed. Cardinality == 1 is covered separately below
+    ///      (fresh-pool fallback preserved to avoid regressing convertToV3 on new pools).
     function test_checkPoolAndGetCenterPrice_revertsOnObserveRevert() public {
         int24 instantTick = 100;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
         pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setCardinality(60);                    // active pool claiming rich history
         // Recent enough that the oldestTimestamp + SECONDS_AGO early-return does NOT fire;
         // the function therefore commits to the TWAP branch and must enforce it.
         pool.setOldestTimestamp(uint32(block.timestamp));
@@ -311,6 +319,23 @@ contract LiquidityManagerCorePriceGuardTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ObservationFailed.selector, address(pool)));
         lm.checkPoolAndGetCenterPrice(address(pool));
+    }
+
+    /// @dev observe() reverts on a pool whose cardinality == 1 (freshly-initialized pool, no
+    ///      history to blend from) → fall back to slot0. Preserves the original behavior for
+    ///      `convertToV3` on just-created pools, where the M-01 revert would otherwise break
+    ///      first-time V3 position setup.
+    function test_checkPoolAndGetCenterPrice_fallsBackOnObserveRevertWithCardinalityOne() public {
+        int24 instantTick = 100;
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setCardinality(1);                     // fresh pool, no history recorded yet
+        pool.setOldestTimestamp(uint32(block.timestamp));
+        pool.setObserveData(0, 0, true);
+
+        uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "cardinality == 1 must fall back to slot0");
     }
 
     // -----------------------------------------------------------------------
