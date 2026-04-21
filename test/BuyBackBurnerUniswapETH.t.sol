@@ -114,6 +114,25 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         console.log("OLAS received by BURNER:", olasReceived);
     }
 
+    /// @dev M-03: V2 buyBack auto-refreshes the TWAP observation when the rate-limit
+    ///      window has elapsed, so getTWAP() never reads stale data.
+    function testBuyBackRefreshesStaleOracle() public {
+        // Warp past the rate-limit window so the next updatePrice() records a fresh observation.
+        vm.warp(block.timestamp + minUpdateIntervalSeconds + 1);
+        uint256 postWarp = block.timestamp;
+
+        // Sanity: lastObservation.timestamp is still the setUp value, strictly older than now.
+        (, uint256 lastTsBefore) = oracleV2.lastObservation();
+        assertLt(lastTsBefore, postWarp, "setup: lastObservation must be stale pre-buyBack");
+
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether);
+
+        // After buyBack the oracle's last observation must have advanced to the current block.
+        (, uint256 lastTsAfter) = oracleV2.lastObservation();
+        assertEq(lastTsAfter, postWarp, "V2 _buyOLAS must refresh the TWAP observation");
+    }
+
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
