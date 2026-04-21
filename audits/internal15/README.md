@@ -67,7 +67,7 @@ Registries/governance items (C4A M-01 governance, M-08, M-10) are handled in the
 | M-05 `BalancerPriceOracle.validatePrice` uses stale TWAP | tokenomics/oracles | **FIXED** — `maxStaleness` enforced |
 | M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED (this PR via #19)** — `revert ZeroValue()` on single-sided |
 | M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) |
-| **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **NOT FIXED** — `Tokenomics.sol:1173-1177` still only has `if (incentives[4] > curMaxBond)`, no `else if` branch. Fires automatically at **Year 2→3** (inflation −37.5%) and **Year 9→10** (inflation −49.5%) — ~412K OLAS phantom bond capacity. Tracked as **M-04 (this report)** |
+| **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **FIXED** on branch `fix-medium-audit15` — `else if (incentives[4] < curMaxBond)` branch added with saturating subtraction at `Tokenomics.sol:1182`; `docs/Vulnerabilities_list_tokenomics.md#15` rationale + severity corrected. Tracked as **M-04 (this report)** |
 | M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **NOT FIXED** — identical to **H-02 (this report)**, escalated to High because it sits on the newly-restored permissionless V3 path |
 | M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed |
 
@@ -413,30 +413,27 @@ Suggested fix — compute amountOutMinimum from TWAP + mapTokenMaxSlippages:
 ```
 [ ] **Blocks merge.** ±10% on a permissionless path is catastrophic: each buyBack pays up to 10% of the flow to MEV. The mitigation "only the owner calls buyBack for now" does not hold — `buyBack` is `external` with no auth modifier on the V3 branch.
 
-### Medium. M-01 `checkPoolAndGetCenterPrice` fails open on `observe()` revert
+### Medium. M-01 `checkPoolAndGetCenterPrice` fails open on `observe()` revert — FIXED on branch `fix-medium-audit15`
+
+**Original finding:**
 ```
-After the #17/#18 fix, the staticcall wrapper still contains:
+After the #17/#18 fix, the staticcall wrapper still contained:
   if (!success || returnData.length == 0) return centerSqrtPriceX96;
 
 If observe() reverts (malformed pool, OLD revert, cardinality = 1, etc.), the
-function silently returns the slot0 price — no TWAP check applied.
+function silently returned the slot0 price — no TWAP check applied.
 
 Combined with H-02 (±10% band as the only bound), a buyBack against an
-adversarial V3 pool can burn OLAS at arbitrary price if the pool's observe() is
-crafted to revert. The only remaining gate is setV3PoolStatuses (owner whitelist),
-so this collapses to a pure admin-trust boundary — exactly the property
-Internal14 removed by dropping V3.
-
-File: contracts/pol/LiquidityManagerCore.sol:790-798 (staticcall to observe())
-
-Suggested fix:
-  if (!success || returnData.length == 0) revert ObservationFailed();
-Or, at minimum, enforce at pool-whitelist time:
-  if (IUniswapV3Pool(pool).observations(0).cardinality < 2) revert CardinalityTooLow();
+adversarial V3 pool could burn OLAS at arbitrary price if the pool's observe()
+was crafted to revert. The only remaining gate was setV3PoolStatuses (owner
+whitelist), so this collapsed to a pure admin-trust boundary.
 ```
-[ ] Acceptable as follow-up ONLY if C-01 (owner = Safe + timelock) is enforced first — otherwise the admin-trust boundary is a single EOA.
 
-### Medium. M-02 `BalancerPriceOracle.updatePrice()` still flash-loan-steerable within `minUpdateInterval`
+**Fix applied (branch `fix-medium-audit15`):** replaced the fail-open `return` with an explicit revert using a dedicated `ObservationFailed(pool)` error. The pre-condition `oldestTimestamp + SECONDS_AGO < block.timestamp` already handles genuinely-new pools with insufficient history (early-return to slot0 with no TWAP enforcement), so a later staticcall failure is treated as malformed / adversarial input. Covered by the updated `test_checkPoolAndGetCenterPrice_revertsOnObserveRevert` unit test.
+
+[x] Closed by branch `fix-medium-audit15`.
+
+### Medium. M-02 `BalancerPriceOracle.updatePrice()` still flash-loan-steerable within `minUpdateInterval` — Acknowledged residual, no code change
 ```
 BalancerPriceOracle.updatePrice() reads spot balances from the Vault once per
 minUpdateInterval and commits them as the new observation. Within that window,
@@ -449,30 +446,30 @@ manipulation.
 
 File: contracts/oracles/BalancerPriceOracle.sol — updatePrice()
 ```
-[ ] Acceptable follow-up IF explicitly tracked. Becomes High if `updatePrice` becomes permissionless or if `buyBack` volume scales.
 
-### Medium. M-03 V2 `_buyOLAS` calls `getTWAP()` without prior `updatePrice()`
+**Disposition (branch `fix-medium-audit15`):** tracked as an accepted residual in `docs/Vulnerabilities_list_tokenomics.md` item #20. The fix is architectural (swap the oracle source or rely on Vault-on-swap callbacks) rather than a local code edit — not in scope for this PR. Mitigations already in place: rate-limited updates, `maxStaleness` enforcement on `getTWAP()`, and per-token `mapTokenMaxSlippages` on the buyBack consumer. Off-chain monitoring on `ObservationUpdated` deviations is the primary control going forward; escalates to High if `updatePrice` ever becomes permissionlessly callable at tighter cadence or if `buyBack` volumes grow materially.
+
+[x] Documented as residual.
+
+### Medium. M-03 V2 `_buyOLAS` calls `getTWAP()` without prior `updatePrice()` — FIXED on branch `fix-medium-audit15`
+
+**Original finding:**
 ```
 V2 branch of _buyOLAS:
-  uint256 twapPrice = IOracle(oracle).getTWAP(amountIn);
+  uint256 twapPrice = IOracle(oracle).getTWAP();
 is called WITHOUT an explicit IOracle(oracle).updatePrice() first.
 
 If updatePrice() has not been called in the current interval, getTWAP returns
-a value up to minUpdateInterval old. Not a re-labelling of C4A M-09 (which is
-the year-boundary bug, see M-04 below) — this is its own residual from
-C4A M-05 / L-05 post-rewrite.
-
-File: contracts/utils/BuyBackBurner.sol — V2 _buyOLAS branch
-
-Suggested fix:
-  IOracle(oracle).updatePrice();
-  uint256 twapPrice = IOracle(oracle).getTWAP(amountIn);
+a value up to minUpdateInterval old.
 ```
-[ ] Acceptable follow-up.
 
-### Medium. M-04 `checkpoint()` does not correct `effectiveBond` downward at year boundaries (C4A M-09, NOT FIXED)
+**Fix applied (branch `fix-medium-audit15`):** insert `IOracle(poolOracle).updatePrice()` before `getTWAP()` in the V2 `_buyOLAS` branch. `updatePrice()` returns `false` (it does not revert) when the rate-limit window has not yet elapsed, so back-to-back buyBack calls are not self-DoSed — the oracle simply reuses the already-fresh observation. Covered by `testBuyBackRefreshesStaleOracle` in `test/BuyBackBurnerUniswapETH.t.sol`, which warps past the rate-limit window and asserts that `lastObservation.timestamp` advances through the buyBack call.
 
-> **Note for readers: this is NOT a new finding.** M-04 is C4A 2026-01 submission **S-1030 (M-09)** tracked forward because it remains **unfixed** on branch `fix-v3-price-guards`. It is re-filed in this report (rather than only listed in the C4A verification matrix) because:
+[x] Closed by branch `fix-medium-audit15`.
+
+### Medium. M-04 `checkpoint()` does not correct `effectiveBond` downward at year boundaries (C4A M-09) — FIXED on branch `fix-medium-audit15`
+
+> **Note for readers: this is NOT a new finding.** M-04 is C4A 2026-01 submission **S-1030 (M-09)** tracked forward because it remained **unfixed** on branch `fix-v3-price-guards`. It is re-filed in this report (rather than only listed in the C4A verification matrix) because:
 > 1. The branch crosses the **first** of the two trigger boundaries (Y2→Y3, 2025-06-30) during its lifetime — Y2→Y3 is already in the past as of the audit date (`currentYear() == 3` on mainnet 2026-04-20).
 > 2. `docs/Vulnerabilities_list_tokenomics.md` item #15 documents the bug but with a **factually wrong rationale** ("every year the inflation slightly increases") that contradicts `TokenomicsConstants.sol:85-96`.
 > 3. The fix is a **3-line code change** to an upgradable proxy (Tokenomics at `0xc096362fa6f4A4B1a9ea68b1043416f3381ce300`, Timelock-owned) — low-cost to apply, not blocked by any scope restriction.
@@ -557,7 +554,10 @@ Suggested fix (per C4A S-1030):
 
 File: contracts/Tokenomics.sol:1172-1177
 ```
-[ ] Not blocking for PR #272+273 merge, but MUST be tracked with correct rationale in `docs/Vulnerabilities_list_tokenomics.md#15` before Year 2→3 boundary is crossed on mainnet.
+
+**Fix applied (branch `fix-medium-audit15`):** added the `else if (incentives[4] < curMaxBond)` branch with **saturating subtraction** (floors at 0) rather than the audit's raw `effectiveBond - (curMaxBond - incentives[4])` — so a hypothetical over-issuance of bonds before the boundary cannot underflow-revert checkpoint and brick epoch advancement. Direction stays conservative (under-counts remaining bond capacity, never over-counts). Also updates `docs/Vulnerabilities_list_tokenomics.md#15` rationale: replaces the factually-wrong "every year inflation slightly increases" premise with the actual schedule, marks severity **Medium** (not Informative), and records FIXED status with the branch reference.
+
+[x] Closed by branch `fix-medium-audit15`.
 
 ### Low. L-01 `buyBack(...)` has no `deadline`
 ```
@@ -668,12 +668,12 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 
 | Severity | Count |
 |----------|-------|
-| Critical | 1 |
-| High     | 1 (H-02; H-01 demoted to Info under fresh re-deployment plan) |
-| Medium   | 4 |
+| Critical | 1 (C-01 ownership rotation tracked as deployment-time operational item per company policy) |
+| High     | 1 (H-02 tracked on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
+| Medium   | 1 (M-02 acknowledged residual; M-01, M-03, M-04 FIXED on `fix-medium-audit15`) |
 | Low      | 5 |
 | Notes    | 3 |
-| **Total**| **14** |
+| **Total**| **11** |
 
 ### Test coverage gaps
 
@@ -681,9 +681,9 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 |:--------:|-------------------|:-----:|------|
 | P0 | `BuyBackBurner` proxy upgrade preserving V2 storage (router/balancerVault/balancerPoolId) | 0 | H-01 — V2 path silently dies post-upgrade |
 | P0 | `BuyBackBurnerUniswap._performSwap` + `BuyBackBurnerBalancer._performSwap` sandwich fork test against real V3 / Slipstream pools | 0 | H-02 — 1-wei floor |
-| P1 | `LiquidityManagerCore.checkPoolAndGetCenterPrice` with reverting `observe()` | 0 | M-01 fail-open |
-| P1 | `BalancerPriceOracle.updatePrice` flash-loan steer within minUpdateInterval | 0 | M-02 residual |
-| P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 0 | M-03 residual |
+| P1 | `LiquidityManagerCore.checkPoolAndGetCenterPrice` with reverting `observe()` | 1 unit (`LiquidityManagerCorePriceGuard.test_checkPoolAndGetCenterPrice_revertsOnObserveRevert`) | M-01 fail-open (CLOSED on `fix-medium-audit15`) |
+| P1 | `BalancerPriceOracle.updatePrice` flash-loan steer within minUpdateInterval | 0 — accepted residual | M-02 residual (documented, no code change) |
+| P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 1 ETH-fork (`BuyBackBurnerUniswapETH.testBuyBackRefreshesStaleOracle`) | M-03 (CLOSED on `fix-medium-audit15`) |
 | P2 | `buyBack` long-pending-tx at stale price | 0 | L-01 |
 | P2 | `setV3PoolStatuses` factory-ancestry enforcement | 0 | I-01 |
 
@@ -700,16 +700,17 @@ Systemic: no fork test on the V3 path against real Uniswap V3 (ETH/L2) or Slipst
 3. **H-01 (demoted to Info with fresh re-deployment plan)** — in-place upgrade would silently kill V2 `buyBack` on the existing proxies; fresh re-deployment sidesteps this. Must be locked in via the deploy script.
 
 Required before deployment:
-1. Rotate owner of the **new** BBB proxies to 3/5 Safe + 48h timelock on all 7 chains (closes C-01) — or document formal risk acceptance.
+1. Rotate owner of the **new** BBB proxies to 3/5 Safe + 48h timelock on all 7 chains (closes C-01) — per company policy this happens at deploy time.
 2. Lock the deployment script to a fresh `BuyBackBurnerProxy` path (closes H-01).
-3. Tighten V3 `_performSwap` to compute `amountOutMinimum` from TWAP + `mapTokenMaxSlippages` (closes H-02 / C4A M-11).
-4. Add `deadline` to `buyBack` while the surface is open (closes L-01).
-5. Fix `changeMaxSlippage` upper BPS bound (closes L-05 / C4A L-14) — trivial one-liner.
-6. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96).
+3. ~~Tighten V3 `_performSwap` to compute `amountOutMinimum` from TWAP + `mapTokenMaxSlippages`~~ — done on branch `fix-v3-swap-slippage` (closes H-02 / C4A M-11).
+4. ~~Revert on `observe()` failure in `checkPoolAndGetCenterPrice`~~ — done on branch `fix-medium-audit15` (closes M-01).
+5. ~~Auto-`updatePrice()` in V2 `_buyOLAS`~~ — done on branch `fix-medium-audit15` (closes M-03).
+6. ~~Year-boundary `effectiveBond` correction in `checkpoint()`~~ — done on branch `fix-medium-audit15` (closes M-04 / C4A M-09); `docs/Vulnerabilities_list_tokenomics.md#15` rationale corrected in the same commit.
+7. Add `deadline` to `buyBack` while the surface is open (closes L-01).
+8. Fix `changeMaxSlippage` upper BPS bound (closes L-05 / C4A L-14) — trivial one-liner.
 
 Tracked follow-ups (not blocking):
-- M-01 / M-02 / M-03 — acceptable after C-01 is closed
-- **M-04 (C4A M-09 year-boundary `effectiveBond`)** — Y2→Y3 (2025-06-30) is ALREADY in the past as of this audit (`currentYear() == 3` on mainnet at audit time); Y9→Y10 (2032-06-30) is still future. Fix-and-upgrade needed to prevent further phantom accumulation in Y3 and to protect the Y9→Y10 boundary; out-of-band correction of any already-leaked `effectiveBond` should be planned as part of the upgrade.
+- **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#20`; off-chain monitoring is the primary control.
 - L-02 / L-03 / L-04 — admin-only surface; document in admin playbook
 
 ### Key observation — fix-by-exclusion reversed
