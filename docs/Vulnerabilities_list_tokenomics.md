@@ -15,11 +15,11 @@
   - [9. claimStakingIncentives / _calculateStakingIncentivesBatch functions](#9-claimstakingincentives--_calculatestakingincentivesbatch-functions)
   - [10. migrate function](#10-migrate-function)
   - [11. _sendMessage function](#11-_sendmessage-function)
-  - [12. refundFromStaking function (incorrect manager address in error message)](#12-refundfromstaking-function-incorrect-manager-address-in-error-message)
-  - [13. getInflationForYear function (double-applied mint cap for years >= 10)](#13-getinflationforyear-function-double-applied-mint-cap-for-years--10)
-  - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
-  - [15. updateInflationPerSecondAndFractions function (effectiveBond reset)](#15-updateinflationpersecondandfractions-function-effectivebond-reset)
-  - [16. BalancerPriceOracle.updatePrice flash-loan steerability within minUpdateInterval](#16-balancerpriceoracleupdateprice-flash-loan-steerability-within-minupdateinterval)
+  - [12. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#12-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
+  - [13. updateInflationPerSecondAndFractions function (effectiveBond reset)](#13-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [14. BalancerPriceOracle.updatePrice flash-loan steerability within minUpdateInterval](#14-balancerpriceoracleupdateprice-flash-loan-steerability-within-minupdateinterval)
+  - [15. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#15-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
+  - [16. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#16-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -177,44 +177,7 @@ This function forms required data to send tokens and messages to L2 in all the o
 
 Although this action does not result in loss of funds (which are sent separately), it could deliberately pass a smaller amount of gas such that a corresponding function on L2 reverts. This can then be corrected via the **processDataMaintenance()** function. In the absence of contract re-deployment, users are advised to pass a sufficient amount of gas, or just have it set to zero, such that the fallback value takes care of it.
 
-### 12. `refundFromStaking` function (incorrect manager address in error message)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #130)
-
-The following function is implemented in the Tokenomics contract:
-
-```solidity
-function refundFromStaking(uint256 amount) external
-```
-
-The `refundFromStaking()` function contains a copy-paste error where the revert message in the ManagerOnly check shows the depository address instead of the dispenser address, despite the access control check correctly verifying the dispenser. This originates from Tokenomics.sol line 838.
-
-The revert message references an incorrect address, but the actual access control is enforced correctly. No funds are at risk; this is purely a cosmetic/debugging clarity issue. The revert string should be updated to reference the correct dispenser address for clarity.
-
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 13. `getInflationForYear` function (double-applied mint cap for years >= 10)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #S-893)
-
-The following functions are implemented in the TokenomicsConstants contract:
-
-```solidity
-function _calculateSupplyCapAfterYear10(uint256 firstYear, uint256 lastYear) internal pure returns (uint256)
-function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount)
-```
-
-The `getInflationForYear(numYears)` function, for numYears >= 11, calls `_calculateSupplyCapAfterYear10(1, numYears)` which returns the post-compounded supply cap of the current year. It then applies the `MAX_MINT_CAP_FRACTION` to this already-compounded value. This means the mint fraction f is effectively applied twice: once during cap compounding and once in the inflation computation, resulting in an effective rate of f + f^2 instead of f.
-
-For example, with f = 0.02 (2%), the actual inflation for year 11 becomes S10 * (f + f^2) = S10 * 0.0204, yielding 2.04% instead of the intended 2.00%. The correct fix requires computing inflation from the previous year's supply cap: `_calculateSupplyCapAfterYear10(1, numYears - 1)`.
-
-This issue will be reconsidered in due time, as tokenomics is being constantly refactored.
-
-Source code: [TokenomicsConstants.sol](contracts/TokenomicsConstants.sol)
-
-### 14. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
+### 12. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
 
 **Severity**: High
 **Source**: Code4rena 2026-01 Olas audit (submission #S-907)
@@ -231,7 +194,7 @@ In order not to re-deploy the contract, the protocol just needs to delegate a mi
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
-### 15. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
+### 13. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
 
 **Severity**: Informative
 **Source**: Internal audit 14
@@ -248,7 +211,7 @@ This is not externally exploitable: the function is restricted to the contract o
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
-### 16. BalancerPriceOracle.updatePrice flash-loan steerability within `minUpdateInterval`
+### 14. BalancerPriceOracle.updatePrice flash-loan steerability within `minUpdateInterval`
 
 **Severity**: Medium — accepted residual
 **Source**: Internal audit 15 (M-02) / C4A 2026-01 H-03 (partial)
@@ -266,4 +229,40 @@ Residual risk: within any single `minUpdateInterval`, a well-timed flash-loan mo
 Mitigation plan: off-chain monitoring of `ObservationUpdated` events against moving-average sanity bands, alert + pause on deviation beyond the configured `maxSlippage`. Escalates to High if `updatePrice` ever becomes permissionlessly callable with a tighter cadence, or if `buyBack` volumes scale to the point where flash-loan damage per window crosses a material threshold.
 
 Source code: [BalancerPriceOracle.sol](contracts/oracles/BalancerPriceOracle.sol)
+
+### 15. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-02) — tracked forward as internal audit 15 (L-03)
+
+The following functions are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan) external
+function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing) external
+```
+
+`convertToV3()` expects tokens to be transferred to the contract before the call and consumes the current balance. `collectFees()` is permissionless and, via `_manageUtilityAmounts(tokens, MAX_BPS, true)`, burns all OLAS held by the contract. A keeper that stages a direct OLAS transfer and then calls `convertToV3` in a separate transaction can be front-run by an attacker who calls `collectFees` between the two txs, burning the staged OLAS before it is paired into V3 liquidity.
+
+Exposure: owner-gated conversion flow + permissionless fee collection. The realized risk is low when the operator avoids the "bare direct transfer → convertToV3" pattern; staging OLAS inside the same tx that calls `convertToV3` defuses the race. Document in the admin playbook; the preferred architectural fix (atomic transfer-and-convert path, or a conversion-in-flight flag that skips `collectFees` OLAS burn) is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 16. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-04) — tracked forward as internal audit 15 (L-04)
+
+The following internal helpers are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts) internal
+function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate) internal
+```
+
+Both helpers compute `amountsMin[i] = amounts[i] * (MAX_BPS - maxSlippage) / MAX_BPS` using amounts derived from slot0 (`_getPriceAndObservationIndexFromSlot0`), not from the TWAP-derived sqrt price. Even though `changeRanges` / `convertToV3` apply the TWAP deviation guard via `checkPoolAndGetCenterPrice` separately, the slippage math here is anchored to the instantaneous price. Realized worst-case slippage in an admin-initiated op can therefore stack up to `maxSlippage + ±MAX_ALLOWED_DEVIATION` (the deviation band).
+
+Exposure: admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`). The realized risk is low in normal DAO-paced operations, but increases the MEV window on owner-initiated liquidity operations. The architectural fix — use the TWAP-derived center price as the anchor for `amountsMin`, then apply `maxSlippage` — is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
 
