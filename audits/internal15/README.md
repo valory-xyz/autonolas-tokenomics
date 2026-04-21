@@ -87,14 +87,14 @@ Registries-scope C4A Lows (L-11, L-12) are handled in the registries repo and ar
 | L-03 slot0 fallback on new pools (few observations) | **PARTIAL** — subsumed by M-01 this report (fail-open) + additional `_increaseLiquidity` / `_decreaseLiquidity` direct slot0 reads remain |
 | L-04 Ineffective slippage from spot in `_increaseLiquidity`/`_decreaseLiquidity` | **NOT FIXED** — LMC admin-only surface; flagged as **L-04 (this report)** |
 | L-05 V2 oracle TWAP = spot | **FIXED** (H-01 rewrite) |
-| L-06 Registry-address changes lock incentives | Out of PR scope — carries forward |
+| L-06 Registry-address changes lock incentives | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #17 of `docs/Vulnerabilities_list_tokenomics.md`. Owner-gated; operational mitigation only |
 | L-07 Post-swap slippage double-count | **FIXED** — old post-swap comparison removed (Internal14) |
-| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | Out of PR scope — carries forward |
-| L-09 Precision loss in `_trackServiceDonations` | Out of PR scope — carries forward |
+| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | **FIXED** on branch `fix-low-audit15` — switched to Uniswap OracleLibrary single-step formulation (`amount · sqrtP² / 2^192`), two-step fallback retained only for `sqrtP > 2^128`. Covered by 9 forge unit tests in `test/NeighborhoodScannerPrecision.t.sol` |
+| L-09 Precision loss in `_trackServiceDonations` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #18 of `docs/Vulnerabilities_list_tokenomics.md`. Bounded to `numServiceUnits − 1` wei per donation event; not exploitable |
 | L-10 V2 `validatePrice(maxSlippage/100)` forbids sub-1% | **FIXED** (oracle rewrite removed `/100` divisor) |
-| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | Out of PR scope — carries forward |
-| L-14 `changeMaxSlippage` no upper BPS check | **NOT FIXED** — flagged as **L-05 (this report)** |
-| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | Need to re-verify on rewritten oracle |
+| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #19 of `docs/Vulnerabilities_list_tokenomics.md`. Entangled with epoch accounting, surgical fix deferred; DAO keeper cadence + off-chain monitoring mitigate operationally |
+| L-14 `changeMaxSlippage` no upper BPS check | **FIXED** on branch `fix-low-audit15` — `LiquidityManagerCore.changeMaxSlippage` rejects `newMaxSlippage > MAX_BPS`; tracked as this report's **L-05** |
+| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | **RESOLVED BY REPLACEMENT** — rewritten `UniswapPriceOracle` (ETH-fork) has no `maxSlippage` or `validatePrice` surface; slippage enforcement moved to `BuyBackBurner.mapTokenMaxSlippages`, bounded by `MAX_BPS` in `setMaxSlippages` on `BuyBackBurner.sol`. C4R finding targets a function that no longer exists |
 
 ### BuyBackBurner V3 restoration (previously "removed — fix by exclusion")
 

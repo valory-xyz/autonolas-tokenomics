@@ -20,6 +20,9 @@
   - [14. BalancerPriceOracle.updatePrice flash-loan steerability within minUpdateInterval](#14-balancerpriceoracleupdateprice-flash-loan-steerability-within-minupdateinterval)
   - [15. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#15-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
   - [16. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#16-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
+  - [17. changeRegistries can lock pending user incentives](#17-changeregistries-can-lock-pending-user-incentives)
+  - [18. _trackServiceDonations precision loss via integer division](#18-_trackservicedonations-precision-loss-via-integer-division)
+  - [19. checkpoint permanently unusable after MAX_EPOCH_LENGTH without a call](#19-checkpoint-permanently-unusable-after-max_epoch_length-without-a-call)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -265,4 +268,61 @@ Both helpers compute `amountsMin[i] = amounts[i] * (MAX_BPS - maxSlippage) / MAX
 Exposure: admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`). The realized risk is low in normal DAO-paced operations, but increases the MEV window on owner-initiated liquidity operations. The architectural fix — use the TWAP-derived center price as the anchor for `amountsMin`, then apply `maxSlippage` — is out of scope for internal audit 15's low bundle.
 
 Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 17. `changeRegistries` can lock pending user incentives
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-06)
+
+The following function is implemented in the Tokenomics contract:
+
+```solidity
+function changeRegistries(address _componentRegistry, address _agentRegistry, address _serviceRegistry) external
+```
+
+`changeRegistries()` updates registry pointers without a pre-condition that pending owner incentives have been claimed. `accountOwnerIncentives()` verifies unit ownership against the *current* registry addresses, so component/agent owners that accrued incentives under the previous registry can lose access to those incentives if a registry swap happens before they claim.
+
+**Disposition:** not planned. The function is owner-gated (Timelock / DAO governance), and the operational workflow is to ensure all outstanding incentives have been claimed before registries are rotated. A migration-preserving implementation is out of scope for this cycle — documented here so the DAO operations playbook tracks it.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 18. `_trackServiceDonations` precision loss via integer division
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-09)
+
+The following internal function is implemented in the Tokenomics contract:
+
+```solidity
+function _trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts, uint256 donationETH) internal
+```
+
+Per-service donation is split across the service's `numServiceUnits` component/agent owners via integer division:
+
+```solidity
+uint96 amount = uint96(amounts[i] / numServiceUnits);
+```
+
+When `amounts[i] % numServiceUnits != 0`, the remainder is truncated. Aggregated across every donation event each service ever receives, owners collectively receive a few wei less than the donated amount; the lost dust is not credited anywhere and does not inflate `effectiveBond`.
+
+**Disposition:** not planned. The loss per event is bounded by `numServiceUnits − 1` wei (single-digit wei for realistic service sizes), does not accumulate into any exploitable protocol state, and the distribution codepath is on the fading-out Tokenomics donation surface. Documented for completeness; no code change.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 19. `checkpoint` permanently unusable after `MAX_EPOCH_LENGTH` without a call
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-13)
+
+The following function is implemented in the Tokenomics contract:
+
+```solidity
+function checkpoint() external returns (bool)
+```
+
+If `checkpoint()` is not called for a duration that exceeds `MAX_EPOCH_LENGTH` from the last settled checkpoint, subsequent calls can land in a state where arithmetic based on `block.timestamp - prevEpochTime` exceeds the limits embedded in the epoch accounting, permanently wedging the checkpoint advancement path on the live proxy. Recovery would require a Tokenomics implementation upgrade.
+
+**Disposition:** not planned for this audit cycle — the code path is entangled with enough of the `checkpoint()` accounting that landing a surgical fix here without broader refactor risk was deemed not worth the effort. Operationally mitigated by: (a) the DAO's existing keeper cadence, which calls `checkpoint()` well within `MAX_EPOCH_LENGTH`; (b) monitoring alerts on missed checkpoint windows. Documented so a future Tokenomics refactor that opens this code path can bundle the fix.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
