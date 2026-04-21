@@ -693,9 +693,13 @@ Suggested fix:
 Token ordering uses strict `>`. OK for EVM addresses (cannot be equal).<br>
 [x] No fix needed.
 
-### Notes. I-03 `docs/Vulnerabilities_list_tokenomics.md` entries deleted instead of annotated `FIXED`
-Audit hygiene — the PR removes entries wholesale rather than annotating them as resolved with commit hash. Makes change-log auditing harder. Doc-only.<br>
-[ ] Doc-only.
+### Notes. I-03 `docs/Vulnerabilities_list_tokenomics.md` entries deleted instead of annotated `FIXED` — Acknowledged (team policy)
+
+Audit hygiene — the PR removes entries wholesale rather than annotating them as resolved with commit hash. Makes change-log auditing harder. Doc-only.
+
+**Disposition (2026-04-21, team decision):** the team's established workflow is to **remove** entries from `docs/Vulnerabilities_list_tokenomics.md` once a finding is fixed / addressed, rather than annotating as `FIXED in commit <hash>`. The change-log surface lives in (a) the per-audit README under `audits/<audit-id>/README.md` that closed the finding, and (b) the fix commit itself (`git log`, commit message). The `Vulnerabilities_list_tokenomics.md` doc is intentionally a forward-looking "currently known, not yet resolved" list — not a historical ledger. I-03 is therefore closed as acknowledged, not fixed: the recommendation to keep history in-list is explicitly declined in favour of the existing audit-README + git-log trail.
+
+[x] Acknowledged — no doc protocol change. Each fix branch deletes its own closed entries from the vulnerabilities list; the audit README records the closure.
 
 ---
 
