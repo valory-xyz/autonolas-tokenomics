@@ -20,7 +20,6 @@
   - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
   - [15. checkpoint function (effectiveBond not corrected at year boundaries)](#15-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
   - [16. updateInflationPerSecondAndFractions function (effectiveBond reset)](#16-updateinflationpersecondandfractions-function-effectivebond-reset)
-  - [17. BuyBackBurner V3 _performSwap with amountOutMinimum = 1 (unchecked slippage on V3 path)](#17-buybackburner-v3-_performswap-with-amountoutminimum--1-unchecked-slippage-on-v3-path)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -265,22 +264,4 @@ This owner-only function resets `effectiveBond` to just `curMaxBond` (the curren
 This is not externally exploitable: the function is restricted to the contract owner (Timelock = DAO governance). The reset direction is conservative -- it under-counts available bond capacity, never over-counts -- so no OLAS can be over-minted. The DAO must ensure that all bonding products are closed before calling `updateInflationPerSecondAndFractions()`, so that no outstanding product supply exceeds the reset effectiveBond. The effectiveBond rebuilds naturally through subsequent `checkpoint()` calls.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 17. BuyBackBurner V3 `_performSwap` with amountOutMinimum = 1 (unchecked slippage on V3 path)
-
-**Severity**: High
-**Source**: Code4rena 2026-01 Olas audit (submission #M-11) / Internal audit 15 (H-02)
-**Status**: FIXED on branch `fix-v3-swap-slippage`
-
-The V3 overrides of `_performSwap` in `BuyBackBurnerUniswap.sol` and `BuyBackBurnerBalancer.sol` used a hard-coded `amountOutMinimum: 1` when calling the Uniswap V3 / Slipstream `exactInputSingle` router. Combined with `sqrtPriceLimitX96: 0`, the only guard on the V3 route was the ±10% deviation band enforced by `LiquidityManagerCore.checkPoolAndGetCenterPrice`, and `mapTokenMaxSlippages[secondToken]` (which bounds the V2 path) was not read on the V3 path.
-
-Consequence: any caller of the permissionless `buyBack(secondToken, amount, feeTierOrTickSpacing)` could absorb up to a full ±10% MEV sandwich per trade, bypassing the per-token slippage cap that the DAO configures via `setMaxSlippages`.
-
-Fix: capture the TWAP-derived sqrt price returned by `checkPoolAndGetCenterPrice(pool)`, convert to an OLAS-per-secondToken quote using the pool's token ordering (`olas == token0` vs `olas == token1`), and derive `amountOutMinimum = olasQuote × (MAX_BPS - mapTokenMaxSlippages[secondToken]) / MAX_BPS` — the same gate shape used by the V2 branch. The V3 `_performSwap` virtual now takes `amountOutMin` as a parameter and wires it straight into `exactInputSingle`. Unset per-token slippage keeps the symmetry with V2: `amountOutMin == full TWAP quote`, so the DEX naturally reverts.
-
-Tests: `test/BuyBackBurnerV3Swap.t.sol` (unit) and `test/LiquidityManagerETH.t.sol` (`testV3BuyBackWithTwapSlippage`, `testV3BuyBackRevertsOnTightSlippage`) cover both token orderings, the per-token slippage gate, unconfigured slippage, and unwhitelisted pool rejection.
-
-Deployment note: `mapTokenMaxSlippages` must be populated for every `secondToken` used on either V2 *or* V3 paths via `setMaxSlippages(...)` after the proxy is initialized. Unset slippage blocks buyBack on that token on both paths.
-
-Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol), [BuyBackBurnerUniswap.sol](contracts/utils/BuyBackBurnerUniswap.sol), [BuyBackBurnerBalancer.sol](contracts/utils/BuyBackBurnerBalancer.sol)
 
