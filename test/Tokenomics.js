@@ -1104,6 +1104,67 @@ describe("Tokenomics", async () => {
             // Restore to the state of the snapshot
             await snapshot.restore();
         });
+
+        it("M-04: decreasing-year boundary (Y2→Y3) does not revert with the effectiveBond fix", async function () {
+            // The else-if branch added at Tokenomics.sol:1182 is a defensive guard for the
+            // decreasing-year scenario described in C4A 2026-01 S-1030 (Internal audit 15 M-04).
+            // In every sane checkpoint flow we traced, the anticipation at line 1263 pre-credits
+            // the blended Y2/Y3 maxBond into effectiveBond, and the settlement's blended
+            // incentives[4] either matches (diffSec == epochLen) or exceeds (late settlement)
+            // curMaxBond — so the `else if (incentives[4] < curMaxBond)` branch is not
+            // triggered by naturally-timed checkpoints. The branch remains in place as a safety
+            // net against asymmetric maxBondFraction / updateInflationPerSecondAndFractions
+            // patterns that could otherwise leak over-credit forward.
+            //
+            // This test exercises the year-crossing path end-to-end to guarantee that (a) the
+            // boundary is handled without revert under the new code, and (b) effectiveBond and
+            // currentYear end up in the expected post-crossing shape.
+
+            const snapshot = await helpers.takeSnapshot();
+
+            const timeLaunch = Number(await tokenomics.timeLaunch());
+
+            // MAX_EPOCH_LENGTH is ONE_YEAR - 1 day, so each forward hop stays below that.
+            // Pattern per year crossing: (1) settle an in-year epoch close to the boundary, then
+            // (2) settle the epoch that actually crosses so `currentYear` advances.
+            const twoDays = 2 * 86400;
+
+            // Y0 → Y1
+            await helpers.time.increaseTo(timeLaunch + oneYear - twoDays);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + oneYear + epochLen);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(1);
+
+            // Y1 → Y2
+            await helpers.time.increaseTo(timeLaunch + 2 * oneYear - twoDays);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + 2 * oneYear + epochLen);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(2);
+
+            // Y2 → Y3 — the first boundary in the OLAS inflation schedule where inflation
+            // DECREASES (40,400,000 → 25,260,023 OLAS). Walk across it and assert the checkpoint
+            // settles cleanly without reverting and with a non-zero effectiveBond.
+            await helpers.time.increaseTo(timeLaunch + 3 * oneYear - epochLen / 2);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + 3 * oneYear + epochLen / 2);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(3);
+
+            const effectiveBondAfter = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            const maxBondAfter = ethers.BigNumber.from(await tokenomics.maxBond());
+            expect(effectiveBondAfter).to.be.gt(0);
+            // maxBond for Y3 must be strictly below a pure-Y2 epoch (Y3 rate < Y2 rate).
+            const maxBondY2Equivalent = ethers.BigNumber.from(epochLen)
+                .mul(ethers.BigNumber.from(await tokenomics.getInflationForYear(2)))
+                .div(ethers.BigNumber.from(oneYear))
+                .mul(50)
+                .div(100);
+            expect(maxBondAfter).to.be.lt(maxBondY2Equivalent);
+
+            await snapshot.restore();
+        });
     });
 
     context("Blacklist usage", async function () {
