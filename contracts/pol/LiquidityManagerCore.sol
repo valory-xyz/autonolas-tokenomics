@@ -43,6 +43,10 @@ error RangeBounds(int24 low, int24 center, int24 high);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev TWAP observation read failed.
+/// @param pool Pool address.
+error ObservationFailed(address pool);
+
 interface INeighborhoodScanner {
     /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
     /// @notice 1. Adjusts extreme boundaries, if required.
@@ -1116,9 +1120,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
 
-        // If the call has failed - observe was not successful, meaning the pool has not have enough activity yet
-        if (!success) {
-            return centerSqrtPriceX96;
+        // The earlier oldestTimestamp + SECONDS_AGO check already confirmed the pool has sufficient history,
+        // so reaching this point with a failing observe()/staticcall means the pool is malformed or crafted
+        // to fail-open the slippage guard. Revert rather than silently fall back to the unguarded slot0 price.
+        if (!success || returnData.length == 0) {
+            revert ObservationFailed(pool);
         }
 
         // Get returned values from oracle: TWAP price and TWAP-derived sqrt price

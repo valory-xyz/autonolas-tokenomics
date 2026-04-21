@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {LiquidityManagerCore, Overflow, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ObservationFailed, Overflow, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
@@ -293,23 +293,24 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // test_checkPoolAndGetCenterPrice_revertsWhenObserveFails
+    // test_checkPoolAndGetCenterPrice_revertsWhenObserveFails (M-01)
     // -----------------------------------------------------------------------
 
-    /// @dev observe() reverts (insufficient history) even when oldest timestamp is recent
-    ///      → checkPoolAndGetCenterPrice falls back to slot0, no revert from the guard.
-    function test_checkPoolAndGetCenterPrice_fallsBackOnObserveRevert() public {
+    /// @dev observe() reverts even when oldest timestamp is recent → the guard used to
+    ///      fail-open to slot0; after the M-01 fix it must revert with ObservationFailed.
+    function test_checkPoolAndGetCenterPrice_revertsOnObserveRevert() public {
         int24 instantTick = 100;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
         pool.setSlot0(instantSqrtPriceX96, 0);
-        // Recent enough to skip the early-return guard
+        // Recent enough that the oldestTimestamp + SECONDS_AGO early-return does NOT fire;
+        // the function therefore commits to the TWAP branch and must enforce it.
         pool.setOldestTimestamp(uint32(block.timestamp));
-        // Make observe() revert → staticcall returns success=false → fallback
+        // Make observe() revert → staticcall returns success=false → revert expected.
         pool.setObserveData(0, 0, true);
 
-        uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
-        assertEq(result, instantSqrtPriceX96, "should fall back to slot0 on observe() revert");
+        vm.expectRevert(abi.encodeWithSelector(ObservationFailed.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
     // -----------------------------------------------------------------------
