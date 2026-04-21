@@ -14,6 +14,8 @@ Methodology: Playbook v2.22 re-audit checklist — on-chain owner verification (
 
 Framing: we are the last line of defense before Immunefi. Risk = bounty payouts to external auditors for issues found after us.
 
+**Scope restriction:** this report tracks only findings that land on the `autonolas-tokenomics` repository. C4A 2026-01 items whose code lives in `autonolas-registries` or `autonolas-governance` have been removed from the matrices below — they belong in the corresponding audit trails of those repos.
+
 ### Scope
 PR #272 + PR #273 combined — 26 files, +954 / −148 LOC. Primary targets:
 - `contracts/utils/BuyBackBurner.sol` — storage layout + V3 path restoration
@@ -38,9 +40,11 @@ PR #272 + PR #273 combined — 26 files, +954 / −148 LOC. Primary targets:
 
 ## C4A findings fix verification
 
-Scope verification was performed against the full C4A 2026-01 report (11 High + 12 Medium + 15 Low, [gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38`](https://gist.github.com/kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38)). Each finding was re-checked against the current code on `fix-v3-price-guards`. First pass of this matrix contained several misattributions — corrected below after re-reading each finding in the source gist.
+Scope verification was performed against the tokenomics-scope subset of the C4A 2026-01 report ([gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38`](https://gist.github.com/kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38)). Registries and governance items are omitted per the scope restriction noted above. Each in-scope finding was re-checked against the current code on `fix-v3-price-guards`.
 
-### High (11 total)
+### High (tokenomics-scope subset)
+
+Registries/governance items (C4A H-05, H-06, H-07, H-09, H-10) are handled in the corresponding repos and are not tracked here.
 
 | C4A | Repo | Status on PR #272+273 |
 |-----|------|-----------------------|
@@ -48,28 +52,22 @@ Scope verification was performed against the full C4A 2026-01 report (11 High + 
 | H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | tokenomics/pol | **FIXED (this PR)** — TWAP decoded into separate `twapSqrtPriceX96`; returns TWAP |
 | H-03 Balancer oracle uses vault spot balances → steerable | tokenomics/oracles | **PARTIAL** — `getPrice()` still reads spot balances; rate-limited updates + commit-on-success mitigate but do not remove steer within `minUpdateInterval` → tracked as **M-02 (this report)** |
 | H-04 Incorrect TWAP in BalancerPriceOracle | tokenomics/oracles | **FIXED** — new rolling-observations TWAP |
-| H-05 Cross-service reentrancy in `StakingBase._withdraw` | **registries** | N/A — out of tokenomics repo |
-| H-06 Service owner steal via reentrancy in `create` | **registries** | N/A |
-| H-07 Missing deadline in `registerAgentsWithSignature` | **registries** | N/A |
 | H-08 Logic inversion in price guard + fail-open | tokenomics/pol | **Logic FIXED (this PR via #17/#18)**; fail-open staticcall residual → tracked as **M-01 (this report)** |
-| H-09 Missing max-bond param in signature | **registries** | N/A |
-| H-10 Token callback reentrancy (StakingBase / ServiceManager) | **registries** | N/A |
 | H-11 `cumulativePrice` corrupted on rejected update | tokenomics/oracles | **FIXED** — commit-on-success pattern |
 
-### Medium (12 total)
+### Medium (tokenomics-scope subset)
+
+Registries/governance items (C4A M-01 governance, M-08, M-10) are handled in the corresponding repos and are not tracked here.
 
 | C4A | Repo | Status on PR #272+273 |
 |-----|------|-----------------------|
-| M-01 Arbitrum retryable-ticket refund/value not verified | **governance** (GuardCM + ProcessBridgedDataArbitrum) | N/A — out of tokenomics repo |
 | M-02 Uniswap `sync()` per-block grief | tokenomics/oracles | **FIXED** — new oracle is rate-limited via `minUpdateInterval` |
 | M-03 Price cumulative used inverted | tokenomics/oracles | **FIXED** — `direction == 0 → price0CumulativeLast` |
 | M-04 DoS unit mismatch in UniswapPriceOracle | tokenomics/oracles | **RESOLVED by replacement** |
 | M-05 `BalancerPriceOracle.validatePrice` uses stale TWAP | tokenomics/oracles | **FIXED** — `maxStaleness` enforced |
 | M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED (this PR via #19)** — `revert ZeroValue()` on single-sided |
 | M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) |
-| M-08 Proportional reward splits when operator slashed | **registries** | N/A |
 | **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **NOT FIXED** — `Tokenomics.sol:1173-1177` still only has `if (incentives[4] > curMaxBond)`, no `else if` branch. Fires automatically at **Year 2→3** (inflation −37.5%) and **Year 9→10** (inflation −49.5%) — ~412K OLAS phantom bond capacity. Tracked as **M-04 (this report)** |
-| M-10 Checkpoint-timing reward drought manipulation | **registries** | N/A |
 | M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **NOT FIXED** — identical to **H-02 (this report)**, escalated to High because it sits on the newly-restored permissionless V3 path |
 | M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed |
 
@@ -78,7 +76,9 @@ Scope verification was performed against the full C4A 2026-01 report (11 High + 
 - **#18 logic inversion** — real instant-vs-TWAP compare, direction-preserving
 - **#19 `changeRanges` single-sided** — `revert ZeroValue()` on zero amount
 
-### Low (15 C4A items — tokenomics-scope subset)
+### Low (tokenomics-scope subset)
+
+Registries-scope C4A Lows (L-11, L-12) are handled in the registries repo and are not tracked here.
 
 | C4A | Status |
 |-----|--------|
@@ -92,7 +92,6 @@ Scope verification was performed against the full C4A 2026-01 report (11 High + 
 | L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | Out of PR scope — carries forward |
 | L-09 Precision loss in `_trackServiceDonations` | Out of PR scope — carries forward |
 | L-10 V2 `validatePrice(maxSlippage/100)` forbids sub-1% | **FIXED** (oracle rewrite removed `/100` divisor) |
-| L-11, L-12 (staking) | **registries** — N/A |
 | L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | Out of PR scope — carries forward |
 | L-14 `changeMaxSlippage` no upper BPS check | **NOT FIXED** — flagged as **L-05 (this report)** |
 | L-15 `UniswapPriceOracle` maxSlippage not `< 100` | Need to re-verify on rewritten oracle |
@@ -118,9 +117,9 @@ Re-verification on the restored code:
 
 ## `docs/Vulnerabilities_list_tokenomics.md` hygiene
 
-The project maintains a curated list of known vulnerabilities at `docs/Vulnerabilities_list_tokenomics.md` (16 items). This re-audit cross-checked the list for (a) coverage of the C4A 2026-01 findings in tokenomics scope and (b) rationale accuracy. Findings:
+The project maintains a curated list of known vulnerabilities at `docs/Vulnerabilities_list_tokenomics.md` (16 items). This re-audit cross-checked the list for (a) coverage of the tokenomics-scope C4A 2026-01 findings and (b) rationale accuracy. Findings:
 
-### 1. **Critically incomplete coverage of C4A 2026-01.** Of 22 tokenomics-scope C4A items (6 High + 9 Medium + 7 Low), the list documents only **2**:
+### 1. **Critically incomplete coverage of C4A 2026-01 (tokenomics scope only).** The list documents only **2** of the tokenomics-scope C4A items:
 - Item #15 — C4A **M-09** (`checkpoint` effectiveBond year boundaries)
 - Item #16 — Internal14's C2-1 (`updateInflationPerSecondAndFractions` effectiveBond reset)
 
@@ -168,7 +167,7 @@ Recommended doc protocol (tracked as **I-03 (this report)**):
 
 | Check | Method | Result |
 |-------|--------|--------|
-| Storage layout break — derived fields currently at slot 7 | `cast storage <proxy> 7` on 7 chains | **CONFIRMED**: slot 7 = UniswapV2Router02 `0x7a250d56...` on ETH; Balancer Vault `0xba12222...` on L2s. Under PR #272's layout slot 7 would hold `mapV2Oracles` mapping root — incompatible. |
+| Storage layout break — derived fields currently at slot 7 | `cast storage <proxy> 7` on 7 chains | **Observed**: slot 7 = UniswapV2Router02 `0x7a250d56...` on ETH; Balancer Vault `0xba12222...` on L2s (original `63706f7` layout — V2-oracle rewrite never deployed). Only relevant if PR #272+273 is rolled out via in-place `changeImplementation()`. Fresh re-deployment (chosen path) sidesteps the mismatch entirely. |
 | EOA owners — 6 chains | `cast storage <proxy> 0` + `cast codesize <owner>` | **CONFIRMED**: owner `0xeb2a22b27c7ad5eee424fd90b376c745e60f914e`, codesize = 0 on ETH / Arbitrum / Optimism / Gnosis / Polygon / Celo |
 | EOA owner — Base | same | **CONFIRMED**: owner `0x6f7a4938ab3bbf69480e7c109af778ee78099be7`, codesize = 0 |
 | LiquidityManager deployed? | `cast codesize` on BBB `liquidityManager()` | **NOT DEPLOYED** on any chain. V3 `_buyOLAS` calls `address(0)` today and reverts; admin must deploy and wire before V3 path can be exercised. |
@@ -258,23 +257,53 @@ Minimum acceptable posture before re-enabling BBB upgrades on any of the 7 chain
 
 Reference implementations to borrow from (already in the Olas org): `Tokenomics` (owner = Timelock), `Treasury` (owner = Timelock), `Dispenser` (owner = Timelock). BBB is the outlier — match the pattern.
 
-[ ] **Blocks merge-and-upgrade.** Until ownership is rotated to Safe + timelock on all 7 chains (or a formal risk-acceptance is documented), deploying PR #272+273 hands the key holder new V3 levers (LiquidityManager + swapRouter + V3 pool whitelist) to exploit on compromise.
+**Team response (2026-04-21):** acknowledged, and already covered by company policy — ownership on every BBB instance is rotated to Safe + timelock as part of any deployment/update cycle. Concretely: the fresh re-deployment that ships PR #272+273 will stand up the new `BuyBackBurnerProxy` instances and immediately transfer ownership to the per-chain Safe+timelock stack (matching the pattern already used by Tokenomics/Treasury/Dispenser). The finding is retained here as a checkpoint rather than a blocker: it gets closed when the deploy script publishes `(chain, new BBB proxy, timelock, safe)` in `docs/`.
 
-### High. H-01 Storage layout break — V2 `buyBack` path dies on upgrade
+[ ] Tracked — no code change needed in this PR. Closes at deployment time when ownership rotation is recorded in `docs/configuration.json`.
+
+### High. H-01 Storage layout break — V2 `buyBack` path dies on in-place upgrade
+
+**Re-evaluation (2026-04-21):** the original finding assumed the deployed proxies would receive the PR #272+273 implementation via in-place `changeImplementation()`. Cross-checking against the currently deployed implementations referenced in `docs/configuration.json` (BBB Uniswap `0x07749207793DC1f9208BFCAAA08ef1ea204402A6`, BBB Balancer across L2s) shows those implementations are the **original** BBB deploys (commit `63706f7`, Feb 2025) — i.e., the layout predates the V2-oracle rewrite:
+
+```
+Original base class ends at slot 6 (mapAccountActivities mapping), then:
+  Uniswap child:  slot 7 = router                                (address, single slot)
+  Balancer child: slot 7 = balancerVault, slot 8 = balancerPoolId
+```
+
+The intermediate "V2-oracle rewrite" implementation (which moved `mapV2Oracles` into slot 7 and pushed `router` / `balancerVault` down by one slot) was **never deployed** — the ABIs at `abis/0.8.28/BuyBackBurnerUniswap.json` / `BuyBackBurnerBalancer.json` expose only the original `oracle` / `router` / `maxSlippage` / `nativeToken` getters, and do not contain `mapV2Oracles` / `mapV3Pools` / `mapTokenMaxSlippages` / `liquidityManager` / `swapRouter`. So on-chain, the only proxies that exist are the original-layout proxies.
+
+**Deployment plan for PR #272+273 is a fresh re-deployment** (new proxy + new implementation + `initialize(...)` on genesis storage), not an in-place upgrade of the existing proxies. Under the fresh-deploy path:
+
+- `owner`, `olas`, `nativeToken`, `oracle` are set via `initialize(...)` as before.
+- `mapV2Oracles` / `mapV3Pools` / `mapTokenMaxSlippages` are new mappings whose root slots read as empty from genesis.
+- `router` (Uniswap child) / `balancerVault` + `balancerPoolId` (Balancer child) are written by `_initialize(...)` to their NEW slots (Uniswap: slot 10; Balancer: slot 10–11) — no stale value to conflict with.
+- `liquidityManager`, `bridge2Burner`, `treasury`, `swapRouter` are immutables in code, so they consume no storage.
+
+Conclusion: **H-01 does not fire under the intended deployment path.** The original finding is retained below as a methodology record, because it would be correct if the team were to attempt an in-place upgrade instead. Enforcement actions:
+
+1. **Re-deployment is a hard requirement** for PR #272+273 — the deploy script must create new `BuyBackBurnerProxy` instances rather than pointing existing proxies at the new implementation.
+2. The swap-over of off-chain consumers (`BuyBackBurner` addresses referenced in keeper scripts, dashboards, bridge2burner configuration) must be coordinated with the new proxy addresses.
+3. Old proxies stay owned by the current EOA — they should be either (a) left untouched with the V2 path continuing to function on their original implementation, or (b) self-destructed / emptied, at the team's discretion.
+
+Keep this as an **Info-only** artifact once the re-deployment path is committed in the deployment script. If the deployment strategy ever changes to in-place upgrade, the pre-rewrite analysis below applies verbatim.
+
+<details>
+<summary>Original in-place-upgrade analysis (applies only if an upgrade path is chosen instead of re-deployment)</summary>
+
 ```
 PR #272 inserts `mapV3Pools` into the BASE class `BuyBackBurner` between
 `mapV2Oracles` and `mapTokenMaxSlippages`. Derived classes
 (BuyBackBurnerUniswap, BuyBackBurnerBalancer) declare their own state AFTER
-the base — so `router` / `balancerVault` / `balancerPoolId` / `swapRouter` /
-`liquidityManager` slots shift down by the size of the inserted mappings /
-immutables reshuffle.
+the base — so `router` / `balancerVault` / `balancerPoolId` slots shift down
+by the size of the inserted mappings.
 
 On-chain verification of CURRENT layout (pre-upgrade):
   ETH (Uniswap):       cast storage <proxy> 7 = 0x7a250d56… (UniswapV2Router02) ← current `router`
   Optimism (Balancer): cast storage <proxy> 7 = 0xba12222…  (Balancer Vault)   ← current `balancerVault`
 
-After upgrade to the PR #272+273 implementation, the derived-class fields are
-read from different slots and return 0x0:
+After in-place upgrade to the PR #272+273 implementation, the derived-class
+fields are read from different slots and return 0x0:
   - Uniswap child: IRouter(router).swapExactTokensForTokens(...)   → revert on address(0)
   - Balancer child: IVault(balancerVault).swap(...)                → revert on address(0)
 
@@ -285,24 +314,19 @@ No external setter exists for router / balancerVault / balancerPoolId.
 
 Result: V2 buyBack entirely DEAD on any upgraded proxy. Silent, unrecoverable.
 
-Files: contracts/utils/BuyBackBurner.sol             (base class state ordering)
-       contracts/utils/BuyBackBurnerUniswap.sol      (router declaration)
-       contracts/utils/BuyBackBurnerBalancer.sol     (balancerVault, balancerPoolId)
-
 Suggested fix (pick ONE):
   A. Add one-shot owner-only setters: setRouter(address), setBalancerVault(address),
      setBalancerPoolId(bytes32). Each guarded by `if (router != address(0)) revert`.
-  B. Redeploy BBB proxies fresh on each of the 7 chains instead of upgrading.
+  B. Redeploy BBB proxies fresh on each of the 7 chains instead of upgrading.  ← CHOSEN
   C. Place `mapV3Pools` AT THE END of the base-class state (after all currently-occupied
      derived-class slots) to preserve layout. Requires per-child storage reasoning
      because Uniswap vs Balancer children have different derived-slot counts.
-
-Option A or B is safer than C.
 ```
+</details>
 
 #### Methodology to prevent future storage-layout regressions
 
-The root cause of H-01 is not a coding bug — it is a process gap. The PR body did not mention a storage-layout change; the `mapV3Pools` insertion was labeled as "restoration" and the derived-class slot shift was implicit. The following process controls would have caught it before merge, and should be adopted for every future PR touching an upgradable contract in this repo.
+The root cause of the in-place-upgrade variant of H-01 is a process gap, not a coding bug. The PR body did not mention a storage-layout change; the `mapV3Pools` insertion was labeled as "restoration" and the derived-class slot shift was implicit. Even though the fresh-re-deployment path defuses H-01 for *this* PR, the following process controls should be adopted going forward so that a future in-place upgrade does not hit the same footgun.
 
 1. **Mandatory pre-merge slot diff** — for any PR that touches a `.sol` file whose contract is deployed behind a proxy:
    - [ ] Generate the storage layout of `main` HEAD: `forge inspect <Contract> storage-layout --pretty > before.txt` (or `npx hardhat check --storage-layout`).
@@ -354,7 +378,7 @@ The root cause of H-01 is not a coding bug — it is a process gap. The PR body 
 
 Adopting 1 + 2 + 5 covers ~90% of the risk. 3 + 4 + 6 are defense-in-depth.
 
-[ ] **Blocks merge.** No safe in-place upgrade path exists without adding setters or redeploying. The fact that `initialize()` is one-shot means a rescue is impossible after upgrade.
+[ ] **Does NOT block merge** given the fresh re-deployment plan. Add a deployment-script assertion that new `BuyBackBurnerProxy` instances are created (not an in-place `changeImplementation()` on existing proxies), and the item can be closed as Info.
 
 ### High. H-02 V3 `_performSwap` slippage floor = 1 wei
 ```
@@ -645,11 +669,11 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Severity | Count |
 |----------|-------|
 | Critical | 1 |
-| High     | 2 |
+| High     | 1 (H-02; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 4 |
 | Low      | 5 |
 | Notes    | 3 |
-| **Total**| **15** |
+| **Total**| **14** |
 
 ### Test coverage gaps
 
@@ -669,19 +693,19 @@ Systemic: no fork test on the V3 path against real Uniswap V3 (ETH/L2) or Slipst
 
 **PR #273 in isolation is correct** — the three C4R 2026-01 price-guard logic fixes (#17/#18/#19) are properly implemented in `checkPoolAndGetCenterPrice` and `changeRanges`.
 
-**PR #272 + PR #273 as a unit cannot be merged-and-upgraded on live proxies** because the restoration re-opens more attack surface than the three fixes cover:
+**PR #272 + PR #273 as a unit still carries residual risk that should be addressed before deployment:**
 
 1. **C-01 (Critical, OpSec)** — EOA owners on all 7 chains make every new admin lever (V3 pool whitelist, LiquidityManager wiring, per-token slippage) exploitable by a single key compromise.
-2. **H-01 (High, storage layout)** — inserting `mapV3Pools` mid-base-class shifts `router`/`balancerVault`/`balancerPoolId` out of their current slots; on-chain verification on 7 chains confirms those fields occupy slot 7 today. `initialize()` is one-shot, so no re-init can recover. V2 `buyBack` dies silently.
-3. **H-02 (High, V3 slippage)** — restored V3 `_performSwap` uses `amountOutMinimum = 1`; `mapTokenMaxSlippages` is not read on the V3 route; the ±10% deviation band is the only bound.
+2. **H-02 (High, V3 slippage)** — restored V3 `_performSwap` uses `amountOutMinimum = 1`; `mapTokenMaxSlippages` is not read on the V3 route; the ±10% deviation band is the only bound.
+3. **H-01 (demoted to Info with fresh re-deployment plan)** — in-place upgrade would silently kill V2 `buyBack` on the existing proxies; fresh re-deployment sidesteps this. Must be locked in via the deploy script.
 
-Required before merge:
-1. Rotate owner to 3/5 Safe + 48h timelock on all 7 chains (closes C-01) — or document formal risk acceptance.
-2. Either add one-shot owner-only setters for `router`/`balancerVault`/`balancerPoolId`, or redeploy BBB proxies fresh (closes H-01).
+Required before deployment:
+1. Rotate owner of the **new** BBB proxies to 3/5 Safe + 48h timelock on all 7 chains (closes C-01) — or document formal risk acceptance.
+2. Lock the deployment script to a fresh `BuyBackBurnerProxy` path (closes H-01).
 3. Tighten V3 `_performSwap` to compute `amountOutMinimum` from TWAP + `mapTokenMaxSlippages` (closes H-02 / C4A M-11).
 4. Add `deadline` to `buyBack` while the surface is open (closes L-01).
 5. Fix `changeMaxSlippage` upper BPS bound (closes L-05 / C4A L-14) — trivial one-liner.
-6. Update `docs/Vulnerabilities_list_tokenomics.md`: add all C4A 2026-01 tokenomics-scope items (22 total) with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96).
+6. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96).
 
 Tracked follow-ups (not blocking):
 - M-01 / M-02 / M-03 — acceptable after C-01 is closed
@@ -692,9 +716,9 @@ Tracked follow-ups (not blocking):
 Internal14 relied on "V3 swap path removed entirely" as the closure for a cluster of C4A V3 concerns. PR #272 reverses that by restoring V3, so the V3 surface returns to the audit scope — **and brings two new integration-era issues** (H-01 storage layout, H-02 1-wei floor) that could not exist while V3 was absent. The developer's PR #273 description fixes 3 C4R items; the re-audit must cover the 23 C4A items **plus** the restoration's integration footprint **plus** deployment/OpSec state. This asymmetry is exactly why fix-by-exclusion is an anti-pattern: the moment the exclusion is reversed, the audit budget balloons.
 
 ### Methodology
-- Playbook: v2.22 re-audit checklist — OpSec on-chain owner map + storage-layout preservation + full C4A 2026-01 cross-check
+- Playbook: v2.22 re-audit checklist — OpSec on-chain owner map + storage-layout preservation + C4A 2026-01 cross-check (tokenomics-scope only)
 - On-chain verification: 7 EVM chains via public RPC + QuikNode (`cast storage`, `cast codesize`, `cast call`)
-- C4A baseline: gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38` — 11 High + 12 Medium + 28 QA
+- C4A baseline: gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38` — only tokenomics-scope items are re-filed here; registries/governance items are tracked in those repos
 - BBB proxy addresses verified (see "On-chain verification" table above)
 - Owner EOAs verified codesize = 0:
   - `0xeb2a22b27c7ad5eee424fd90b376c745e60f914e` (ETH + Arbitrum + Optimism + Gnosis + Polygon + Celo)
