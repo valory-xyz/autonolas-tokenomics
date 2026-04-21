@@ -11,6 +11,9 @@
 **Repository disposition (after review on branch `fix-low-audit15`, 2026-04-21):**
 **REJECTED — not a real issue.** The finding rests on a misreading of the `numYears` convention. Applying the proposed "fix" would introduce an actual bug (under-counted inflation for year 12 and beyond). This document records the numerical derivation so it can be sent back to the auditors.
 
+**Cross-check against the final C4A report (2026-04-21):**
+S-893 does **not** appear in the final Code4rena 2026-01 Olas report ([gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38`](https://gist.github.com/kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38), file `Olas-draft-report.md`, 2308 lines). The final report contains 11 High (H-01..H-11), 12 Medium (M-01..M-12), and 15 Low (L-01..L-15) findings — none of them reference `getInflationForYear`, `_calculateSupplyCapAfterYear10`, `MAX_MINT_CAP_FRACTION`, the double-application claim, or the `2.04%` figure. S-893 is not listed in the "also found by" submission roster for any finding either. C4A's PJQA/triage process **dismissed** S-893 during finalization; this document's rebuttal only records the internal reasoning behind the same dismissal so downstream auditors or readers of the (now-removed) `docs/Vulnerabilities_list_tokenomics.md#13` entry can trace why.
+
 Scope: the same analysis applies to both `getInflationForYear` (line 81) and `getActualInflationForYear` (line 134) — they share the identical else-branch arithmetic.
 
 ---
