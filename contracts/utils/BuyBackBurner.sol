@@ -174,11 +174,14 @@ abstract contract BuyBackBurner {
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing)
-        internal
-        virtual
-        returns (uint256 olasAmount);
+    function _performSwap(
+        address secondToken,
+        uint256 secondTokenAmount,
+        int24 feeTierOrTickSpacing,
+        uint256 amountOutMin
+    ) internal virtual returns (uint256 olasAmount);
 
     /// @dev Gets V3 pool based on factory, token addresses and fee tier or tick spacing.
     /// @param factory Factory address.
@@ -240,11 +243,26 @@ abstract contract BuyBackBurner {
             revert UnauthorizedPool(pool);
         }
 
-        // Apply slippage protection
-        ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
+        // Apply TWAP-based deviation guard and capture the TWAP-derived sqrt price
+        uint160 centerSqrtPriceX96 = ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
 
-        // Perform swap to OLAS
-        olasAmount = _performSwap(secondToken, secondTokenAmount, feeTierOrTickSpacing);
+        // Derive the TWAP-implied OLAS quote for secondTokenAmount.
+        // Uniswap V3 pools encode price(token0 → token1) = (sqrtPriceX96 / 2^96)^2. Compute
+        // priceX128 = sqrtPriceX96^2 / 2^64 to stay within uint256, then:
+        //   olas == token1: olasQuote = secondTokenAmount * priceX128 / 2^128
+        //   olas == token0: olasQuote = secondTokenAmount * 2^128 / priceX128
+        uint256 priceX128 =
+            FixedPointMathLib.mulDivDown(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), 1 << 64);
+        uint256 olasQuote = (localOlas == tokens[1])
+            ? FixedPointMathLib.mulDivDown(secondTokenAmount, priceX128, 1 << 128)
+            : FixedPointMathLib.mulDivDown(secondTokenAmount, 1 << 128, priceX128);
+
+        // Apply per-token slippage tolerance (unset slippage → amountOutMin == olasQuote → DEX reverts)
+        uint256 amountOutMin =
+            FixedPointMathLib.mulDivDown(olasQuote, MAX_BPS - mapTokenMaxSlippages[secondToken], MAX_BPS);
+
+        // Perform swap to OLAS with amountOutMin enforced by the router
+        olasAmount = _performSwap(secondToken, secondTokenAmount, feeTierOrTickSpacing, amountOutMin);
     }
 
     /// @dev BuyBackBurner initializer.

@@ -68,7 +68,7 @@ Registries/governance items (C4A M-01 governance, M-08, M-10) are handled in the
 | M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED (this PR via #19)** — `revert ZeroValue()` on single-sided |
 | M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) |
 | **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **NOT FIXED** — `Tokenomics.sol:1173-1177` still only has `if (incentives[4] > curMaxBond)`, no `else if` branch. Fires automatically at **Year 2→3** (inflation −37.5%) and **Year 9→10** (inflation −49.5%) — ~412K OLAS phantom bond capacity. Tracked as **M-04 (this report)** |
-| M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **NOT FIXED** — identical to **H-02 (this report)**, escalated to High because it sits on the newly-restored permissionless V3 path |
+| M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **FIXED** on branch `fix-v3-swap-slippage` — TWAP-derived `amountOutMinimum` wired through `_performSwap` V3 overrides, `mapTokenMaxSlippages[secondToken]` now read on the V3 path (closes this report's H-02) |
 | M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed |
 
 ### C4R 2026-01 PR-body items (the stated purpose of PR #273): 3/3 FIXED
@@ -82,7 +82,7 @@ Registries-scope C4A Lows (L-11, L-12) are handled in the registries repo and ar
 
 | C4A | Status |
 |-----|--------|
-| L-01 V3 slippage bypass (JIT / low-tick-liquidity) | **NOT FIXED** — same root cause as H-02 (this report); mitigation proposed there |
+| L-01 V3 slippage bypass (JIT / low-tick-liquidity) | **FIXED (together with H-02)** on branch `fix-v3-swap-slippage` — TWAP-derived `amountOutMinimum` closes the sandwich surface |
 | L-02 `convertToV3` front-run burns OLAS via `collectFees` | **NOT FIXED** — permissionless `collectFees` still allows burn-before-convert race; tracked as **L-03 (this report)** |
 | L-03 slot0 fallback on new pools (few observations) | **PARTIAL** — subsumed by M-01 this report (fail-open) + additional `_increaseLiquidity` / `_decreaseLiquidity` direct slot0 reads remain |
 | L-04 Ineffective slippage from spot in `_increaseLiquidity`/`_decreaseLiquidity` | **NOT FIXED** — LMC admin-only surface; flagged as **L-04 (this report)** |
@@ -380,38 +380,41 @@ Adopting 1 + 2 + 5 covers ~90% of the risk. 3 + 4 + 6 are defense-in-depth.
 
 [ ] **Does NOT block merge** given the fresh re-deployment plan. Add a deployment-script assertion that new `BuyBackBurnerProxy` instances are created (not an in-place `changeImplementation()` on existing proxies), and the item can be closed as Info.
 
-### High. H-02 V3 `_performSwap` slippage floor = 1 wei
+### High. H-02 V3 `_performSwap` slippage floor = 1 wei — FIXED on branch `fix-v3-swap-slippage`
+
+**Original finding:**
 ```
-Both V3 swap implementations use:
+Both V3 swap implementations used:
   amountOutMinimum:  1
   sqrtPriceLimitX96: 0
 
-The only guard is LiquidityManagerCore.checkPoolAndGetCenterPrice(), which allows
-slot0 vs TWAP deviation up to MAX_CENTER_PRICE_DEVIATION (±10%).
+The only guard was LiquidityManagerCore.checkPoolAndGetCenterPrice(), which
+allows slot0 vs TWAP deviation up to MAX_ALLOWED_DEVIATION (±10%).
 
-mapTokenMaxSlippages[token] is read ONLY in the V2 _buyOLAS path
-(BuyBackBurner.sol:209). The V3 _buyOLAS branch calls
+mapTokenMaxSlippages[token] was read ONLY in the V2 _buyOLAS path
+(BuyBackBurner.sol:209). The V3 _buyOLAS branch called
   checkPoolAndGetCenterPrice(pool)
-but does NOT read mapTokenMaxSlippages[secondToken] anywhere.
+but did NOT read mapTokenMaxSlippages[secondToken] anywhere.
 
-Consequence: permissionless buyBack(..., V3 path) can absorb sandwich losses up
-to the full ±10% band on every trade. The per-token slippage cap configured by
-setMaxSlippages is bypassed on the V3 route.
+Consequence: permissionless buyBack(..., V3 path) could absorb sandwich losses
+up to the full ±10% band on every trade. The per-token slippage cap configured
+by setMaxSlippages was bypassed on the V3 route.
 
-Files: contracts/utils/BuyBackBurnerUniswap.sol:122      (amountOutMinimum: 1)
-       contracts/utils/BuyBackBurnerBalancer.sol:154     (amountOutMinimum: 1)
-       contracts/utils/BuyBackBurner.sol:221             (_buyOLAS V3 branch — no slippage read)
-
-Suggested fix — compute amountOutMinimum from TWAP + mapTokenMaxSlippages:
-
-  uint256 twapOut = _quoteFromTwap(pool, amountIn);
-  uint256 maxSlip = mapTokenMaxSlippages[secondToken];
-  if (maxSlip == 0) revert MaxSlippageNotSet();
-  uint256 minOut = twapOut * (MAX_BPS - maxSlip) / MAX_BPS;
-  ...
-  params.amountOutMinimum = minOut;
+Files: contracts/utils/BuyBackBurnerUniswap.sol                (V3 _performSwap)
+       contracts/utils/BuyBackBurnerBalancer.sol               (V3 _performSwap)
+       contracts/utils/BuyBackBurner.sol                       (V3 _buyOLAS branch)
 ```
-[ ] **Blocks merge.** ±10% on a permissionless path is catastrophic: each buyBack pays up to 10% of the flow to MEV. The mitigation "only the owner calls buyBack for now" does not hold — `buyBack` is `external` with no auth modifier on the V3 branch.
+
+**Fix applied (branch `fix-v3-swap-slippage`):**
+- `_buyOLAS(secondToken, amount, feeTierOrTickSpacing)` in `BuyBackBurner.sol` now captures the TWAP-derived `centerSqrtPriceX96` returned by `ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool)`, converts it to an OLAS-per-secondToken quote using the pool's token ordering (`olas == tokens[0]` vs `olas == tokens[1]`), and derives `amountOutMin = olasQuote * (MAX_BPS - mapTokenMaxSlippages[secondToken]) / MAX_BPS`. Math uses `FixedPointMathLib.mulDivDown` on a two-step `priceX128 = sqrtPriceX96^2 / 2^64` reduction to stay within uint256.
+- V3 `_performSwap` virtual signature grew an `amountOutMin` argument; both Uniswap and Balancer children now forward it straight into `exactInputSingle.amountOutMinimum`.
+- Unset per-token slippage keeps V2-path symmetry: `amountOutMin == full TWAP quote` → DEX naturally reverts.
+
+**Tests:** `test/BuyBackBurnerV3Swap.t.sol` (5 unit tests, `forge test --mc BuyBackBurnerV3Swap`) and `test/LiquidityManagerETH.t.sol` (`testV3BuyBackWithTwapSlippage`, `testV3BuyBackRevertsOnTightSlippage` on ETH fork).
+
+**Deployment note:** `mapTokenMaxSlippages` must now be populated for every `secondToken` used on the V3 path — same requirement the V2 path already has.
+
+[x] Closed by branch `fix-v3-swap-slippage`.
 
 ### Medium. M-01 `checkPoolAndGetCenterPrice` fails open on `observe()` revert
 ```
@@ -669,18 +672,18 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Severity | Count |
 |----------|-------|
 | Critical | 1 |
-| High     | 1 (H-02; H-01 demoted to Info under fresh re-deployment plan) |
+| High     | 0 (H-02 fixed on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 4 |
 | Low      | 5 |
 | Notes    | 3 |
-| **Total**| **14** |
+| **Total**| **13** |
 
 ### Test coverage gaps
 
 | Priority | Contract:Function | Tests | Risk |
 |:--------:|-------------------|:-----:|------|
 | P0 | `BuyBackBurner` proxy upgrade preserving V2 storage (router/balancerVault/balancerPoolId) | 0 | H-01 — V2 path silently dies post-upgrade |
-| P0 | `BuyBackBurnerUniswap._performSwap` + `BuyBackBurnerBalancer._performSwap` sandwich fork test against real V3 / Slipstream pools | 0 | H-02 — 1-wei floor |
+| P0 | `BuyBackBurnerUniswap._performSwap` + `BuyBackBurnerBalancer._performSwap` sandwich fork test against real V3 / Slipstream pools | 5 unit (`BuyBackBurnerV3Swap`) + 2 ETH-fork (`LiquidityManagerETH`) on `fix-v3-swap-slippage` | H-02 — 1-wei floor (CLOSED) |
 | P1 | `LiquidityManagerCore.checkPoolAndGetCenterPrice` with reverting `observe()` | 0 | M-01 fail-open |
 | P1 | `BalancerPriceOracle.updatePrice` flash-loan steer within minUpdateInterval | 0 | M-02 residual |
 | P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 0 | M-03 residual |
@@ -695,14 +698,14 @@ Systemic: no fork test on the V3 path against real Uniswap V3 (ETH/L2) or Slipst
 
 **PR #272 + PR #273 as a unit still carries residual risk that should be addressed before deployment:**
 
-1. **C-01 (Critical, OpSec)** — EOA owners on all 7 chains make every new admin lever (V3 pool whitelist, LiquidityManager wiring, per-token slippage) exploitable by a single key compromise.
-2. **H-02 (High, V3 slippage)** — restored V3 `_performSwap` uses `amountOutMinimum = 1`; `mapTokenMaxSlippages` is not read on the V3 route; the ±10% deviation band is the only bound.
+1. **C-01 (Critical, OpSec)** — EOA owners on the existing proxies. Company policy rotates ownership to Safe+timelock at deploy time; captured but not a code-change item.
+2. **H-02 (High, V3 slippage)** — FIXED on branch `fix-v3-swap-slippage` (TWAP-derived `amountOutMinimum` on both V3 overrides, `mapTokenMaxSlippages` now honored on the V3 path).
 3. **H-01 (demoted to Info with fresh re-deployment plan)** — in-place upgrade would silently kill V2 `buyBack` on the existing proxies; fresh re-deployment sidesteps this. Must be locked in via the deploy script.
 
 Required before deployment:
 1. Rotate owner of the **new** BBB proxies to 3/5 Safe + 48h timelock on all 7 chains (closes C-01) — or document formal risk acceptance.
 2. Lock the deployment script to a fresh `BuyBackBurnerProxy` path (closes H-01).
-3. Tighten V3 `_performSwap` to compute `amountOutMinimum` from TWAP + `mapTokenMaxSlippages` (closes H-02 / C4A M-11).
+3. ~~Tighten V3 `_performSwap` to compute `amountOutMinimum` from TWAP + `mapTokenMaxSlippages`~~ — done on branch `fix-v3-swap-slippage` (closes H-02 / C4A M-11).
 4. Add `deadline` to `buyBack` while the surface is open (closes L-01).
 5. Fix `changeMaxSlippage` upper BPS bound (closes L-05 / C4A L-14) — trivial one-liner.
 6. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96).
