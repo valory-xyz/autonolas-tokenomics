@@ -20,6 +20,10 @@
   - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
   - [15. checkpoint function (effectiveBond not corrected at year boundaries)](#15-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
   - [16. updateInflationPerSecondAndFractions function (effectiveBond reset)](#16-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [17. BuyBackBurner.checkPoolPrices helper accepts caller-supplied position manager](#17-buybackburnercheckpoolprices-helper-accepts-caller-supplied-position-manager)
+  - [18. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#18-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
+  - [19. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#19-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
+  - [20. LiquidityManagerCore.changeMaxSlippage missing upper BPS bound](#20-liquiditymanagercorechangemaxslippage-missing-upper-bps-bound)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -264,4 +268,72 @@ This owner-only function resets `effectiveBond` to just `curMaxBond` (the curren
 This is not externally exploitable: the function is restricted to the contract owner (Timelock = DAO governance). The reset direction is conservative -- it under-counts available bond capacity, never over-counts -- so no OLAS can be over-minted. The DAO must ensure that all bonding products are closed before calling `updateInflationPerSecondAndFractions()`, so that no outstanding product supply exceeds the reset effectiveBond. The effectiveBond rebuilds naturally through subsequent `checkpoint()` calls.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 17. `BuyBackBurner.checkPoolPrices` helper accepts caller-supplied position manager
+
+**Severity**: Low
+**Source**: Internal audit 15 (L-02)
+
+The following view helper is implemented in the BuyBackBurner contract:
+
+```solidity
+function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 feeTier) external view
+```
+
+This is a legacy diagnostic read-only helper. The caller supplies `uniV3PositionManager`, and the function asks that manager for its `factory()`, then derives a pool from `factory.getPool(...)`. A malicious contract can supply a fake manager that returns any factory and therefore any pool address — including one whose `observe()` returns arbitrary values. Because the function does no state change and its result is not consumed by any critical path (all internal V3 swap paths use the pinned `liquidityManager.factoryV3()`, see `_buyOLAS` V3 branch), the realized exposure is informational.
+
+Callers must treat `checkPoolPrices` as a diagnostic-only helper and MUST NOT wire it into keeper scripts, bridge automation, or upgrade gating. The function's NatSpec was extended in branch `fix-low-audit15` to make this explicit.
+
+Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+
+### 18. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-02) — tracked forward as internal audit 15 (L-03)
+
+The following functions are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan) external
+function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing) external
+```
+
+`convertToV3()` expects tokens to be transferred to the contract before the call and consumes the current balance. `collectFees()` is permissionless and, via `_manageUtilityAmounts(tokens, MAX_BPS, true)`, burns all OLAS held by the contract. A keeper that stages a direct OLAS transfer and then calls `convertToV3` in a separate transaction can be front-run by an attacker who calls `collectFees` between the two txs, burning the staged OLAS before it is paired into V3 liquidity.
+
+Exposure: owner-gated conversion flow + permissionless fee collection. The realized risk is low when the operator avoids the "bare direct transfer → convertToV3" pattern; staging OLAS inside the same tx that calls `convertToV3` defuses the race. Document in the admin playbook; the preferred architectural fix (atomic transfer-and-convert path, or a conversion-in-flight flag that skips `collectFees` OLAS burn) is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 19. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-04) — tracked forward as internal audit 15 (L-04)
+
+The following internal helpers are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts) internal
+function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate) internal
+```
+
+Both helpers compute `amountsMin[i] = amounts[i] * (MAX_BPS - maxSlippage) / MAX_BPS` using amounts derived from slot0 (`_getPriceAndObservationIndexFromSlot0`), not from the TWAP-derived sqrt price. Even though `changeRanges` / `convertToV3` apply the TWAP deviation guard via `checkPoolAndGetCenterPrice` separately, the slippage math here is anchored to the instantaneous price. Realized worst-case slippage in an admin-initiated op can therefore stack up to `maxSlippage + ±MAX_ALLOWED_DEVIATION` (the deviation band).
+
+Exposure: admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`). The realized risk is low in normal DAO-paced operations, but increases the MEV window on owner-initiated liquidity operations. The architectural fix — use the TWAP-derived center price as the anchor for `amountsMin`, then apply `maxSlippage` — is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 20. `LiquidityManagerCore.changeMaxSlippage` missing upper BPS bound
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-14) — fixed in internal audit 15 (L-05)
+
+**Status**: FIXED on branch `fix-low-audit15`. `LiquidityManagerCore.changeMaxSlippage(uint16)` now rejects `newMaxSlippage > MAX_BPS` (mirroring the check already present in `initialize()`), preventing a misconfigured admin update from underflowing the `(MAX_BPS - maxSlippage)` math used by `_optimizeTicksAndMintPosition` / `_increaseLiquidity` / `_decreaseLiquidity`.
+
+Covered by unit tests in `test/LowFindingsAudit15.t.sol`:
+
+- `test_L05_changeMaxSlippage_revertsAboveMaxBps` — asserts `Overflow(newMaxSlippage, MAX_BPS)` revert for `10_001`.
+- `test_L05_changeMaxSlippage_acceptsExactMaxBps` — asserts the boundary value `10_000` is accepted.
+- `test_L05_changeMaxSlippage_acceptsWithinRange` / `_revertsZero` — regression coverage for the existing zero-value guard.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
 

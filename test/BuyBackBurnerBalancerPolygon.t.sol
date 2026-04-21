@@ -114,7 +114,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function testBuyBack() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WMATIC, 100 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -124,14 +124,14 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
-        buyBackBurner.buyBack(WMATIC, 1 ether);
+        buyBackBurner.buyBack(WMATIC, 1 ether, 0);
     }
 
     /// @dev buyBack adjusts amount to full balance when requested amount exceeds it.
     function testBuyBackAdjustsToBalance() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WMATIC, 1000 ether);
+        buyBackBurner.buyBack(WMATIC, 1000 ether, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WMATIC).balanceOf(address(buyBackBurner)), 0);
@@ -141,7 +141,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function testBuyBackZeroAmountUsesBalance() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WMATIC, 0);
+        buyBackBurner.buyBack(WMATIC, 0, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WMATIC).balanceOf(address(buyBackBurner)), 0);
@@ -247,7 +247,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function testBuyBackAndRelay() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WMATIC, 100 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -261,7 +261,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
     function testBuyBackActivityCounter() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
-        buyBackBurner.buyBack(WMATIC, 100 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether, 0);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
@@ -273,6 +273,6 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
         vm.expectRevert();
-        buyBackBurner.buyBack(WMATIC, 100 ether);
+        buyBackBurner.buyBack(WMATIC, 100 ether, 0);
     }
 }
