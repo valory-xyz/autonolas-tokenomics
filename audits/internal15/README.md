@@ -5,6 +5,8 @@ branch: `fix-v3-price-guards`, tip `ead1c83` — stacked on PR #272 `restore-v3-
 merge-base with `main`: `1d07c94` (5 commits, 26 files, +954 / −148 LOC)<br>
 **Assumption**: PR #272 + PR #273 treated as merged into `main`.<br>
 
+> **Closing review (2026-04-22):** the final disposition of every internal15 finding — across PRs #272, #273, #275, #276, #277 — is recorded in [`FINAL_REVIEW.md`](FINAL_REVIEW.md). That document is the authoritative justification for the resolution of all issues in this audit: per-finding evidence on the composite tip, on-chain verification of the H-01 non-manifestation, the dated C-01 OpSec waiver, and the regression scan. Verdict: **green** — no further re-audit required for the internal15 cycle.
+
 ## Objectives
 This re-audit is driven by the developer reversing the **"fix-by-exclusion"** approach from Internal14. Internal14 verified that the V3 swap path in `BuyBackBurner` had been **removed** ("V3 ABI mismatch → V3 swap path removed entirely"); PR #272 **restores** it, and PR #273 layers on top the three C4R 2026-01 price-guard fixes (#17/#18/#19).
 
@@ -753,6 +755,8 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 Systemic: no fork test on the V3 path against real Uniswap V3 (ETH/L2) or Slipstream (Base) pools; no cross-chain owner-ownership fixture; `testProxyUpgradePathMaxSlippagePreserved` covers `mapTokenMaxSlippages` but does NOT assert `router` / `balancerVault` / `balancerPoolId` survive the upgrade.
 
 ### Conclusion
+
+> **Final disposition:** see [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the closing PR-review artefact covering PRs #272 + #273 + #275 + #276 + #277. It enumerates every internal15 finding as either **code-fix-required → FIXED** (with file:line evidence on the composite tip) or **acknowledged-and-deferred** (with the relevant residual or waiver). This supersedes the per-finding "required before deployment" list immediately below and is the justification for closing the internal15 cycle.
 
 **PR #273 in isolation is correct** — the three C4R 2026-01 price-guard logic fixes (#17/#18/#19) are properly implemented in `checkPoolAndGetCenterPrice` and `changeRanges`.
 
