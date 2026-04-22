@@ -44,6 +44,16 @@ fi
 liquidityManagerAddress=$(jq -r '.liquidityManagerAddress' $globals)
 swapRouterV3Address=$(jq -r '.swapRouterV3Address' $globals)
 
+# V3 path is optional: the BuyBackBurner constructor accepts address(0) for liquidityManager
+# and swapRouter, and V3-touching functions revert V3PathDisabled at runtime. Normalise empty
+# strings / jq nulls to the zero address so forge create does not reject them.
+if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
+  liquidityManagerAddress="0x0000000000000000000000000000000000000000"
+fi
+if [ -z "$swapRouterV3Address" ] || [ "$swapRouterV3Address" == "null" ]; then
+  swapRouterV3Address="0x0000000000000000000000000000000000000000"
+fi
+
 contractName="BuyBackBurnerBalancer"
 contractPath="contracts/utils/$contractName.sol:$contractName"
 constructorArgs="$liquidityManagerAddress $bridge2BurnerAddress $bridgeMediatorAddress $swapRouterV3Address"

@@ -176,3 +176,43 @@ Green on this closing PR review is the **final green light** for the internal15 
 - **Baseline:** `ead1c83` (internal15 `fix-v3-price-guards` tip = post-#273)
 - **On-chain verification:** `cast storage` + `cast call` on 7 BBB proxies across Ethereum / Arbitrum / Optimism / Gnosis / Polygon / Celo / Base mainnets (impl slot `0xc6d7bd4bd971fa336816fe30b665cc6caccce8b123cc8ea692d132f342c4fc19`)
 - **C-01 OpSec waiver authorization:** user, 2026-04-22
+
+---
+
+## 7. Post-cycle change — V3-optional BuyBackBurner
+
+**Out-of-scope for the internal15 closing review above; landed as a follow-up after the deployment audit on 2026-04-22.**
+
+### Why
+
+Operator deployment audit on the internal15 stack revealed that the `BuyBackBurner` constructor strictly required all four addresses (`liquidityManager`, `bridge2Burner`, `treasury`, `swapRouter`) to be non-zero. Three production chains in the runbook (gnosis, polygon, arbitrum) have no Uniswap V3 / Slipstream router and no `LiquidityManager` deployment in scope, so `forge create` would revert with `ZeroAddress` before code-on-chain. ETH and Optimism could deploy V2-only impls only after deploying the full POL stack first.
+
+### What
+
+`contracts/utils/BuyBackBurner.sol`:
+- Constructor relaxes the zero check on `_liquidityManager` and `_swapRouter`. `_bridge2Burner` and `_treasury` remain required.
+- New `error V3PathDisabled()`.
+- Two internal view guards: `_requireV3Enabled()` (both V3 immutables non-zero), `_requireLiquidityManager()` (LM only — used by `checkPoolPrices` since `swapRouter` is not on its read path).
+- Guards applied to: `buyBack(V3 4-arg)`, `_buyOLAS(V3)`, `setV3PoolStatuses`, `checkPoolPrices`.
+
+`scripts/deployment/utils/deploy_01_buy_back_burner_balancer.sh` and `deploy_02_buy_back_burner_uniswap.sh` normalise empty-string / `null` for `liquidityManagerAddress` and `swapRouterV3Address` to `0x0000…0` so `forge create` accepts them.
+
+`test/BuyBackBurnerV3Disabled.t.sol` — 19 new unit tests:
+- Constructor accepts zero `_liquidityManager` / `_swapRouter` / both; still reverts on zero `_bridge2Burner` / `_treasury` (Uniswap + Balancer variants).
+- `buyBack(V3)` reverts `V3PathDisabled` on each of LM-zero / swapRouter-zero / both-zero.
+- `setV3PoolStatuses` reverts `V3PathDisabled` on LM-zero / swapRouter-zero; owner check fires before the V3 guard.
+- `checkPoolPrices` reverts `V3PathDisabled` only when LM is zero; passes through with `swapRouter == 0`.
+- V2 admin surfaces (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `changeImplementation`) succeed on a V3-disabled deployment.
+
+`docs/Vulnerabilities_list_tokenomics.md` — entry #21 added.
+
+### Impact on internal15 disposition
+
+None. This is a follow-up to the operator runbook, not an internal15 finding. All internal15 findings remain at their post-#272+#273+#275+#276+#277 disposition. Existing on-chain proxies on every chain were deployed under the old strict check, so `liquidityManager` and `swapRouter` are non-zero — V3 is enabled. The new contract is bytecode-equivalent for them.
+
+### Test results
+
+- `forge test --mc BuyBackBurnerV3Disabled -vv` — 19/19 pass
+- `forge test -f <ETH RPC> --mc BuyBackBurnerUniswapETH -vv` — 21/21 pass (regression)
+- `forge test -f <ARBITRUM RPC> --mc BuyBackBurnerBalancerArbitrum -vv` — 19/19 pass (regression)
+- `forge build` — clean

@@ -83,6 +83,10 @@ error TransferFailed(address token, address to, uint256 amount);
 /// @param blockTimestamp Current block timestamp.
 error DeadlineExpired(uint256 deadline, uint256 blockTimestamp);
 
+/// @dev V3 path is disabled: liquidityManager and/or swapRouter immutable was set to zero at deployment.
+///      Re-deploy the implementation with both addresses populated and call changeImplementation.
+error V3PathDisabled();
+
 /// @title BuyBackBurner - BuyBackBurner implementation contract
 abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
@@ -142,16 +146,17 @@ abstract contract BuyBackBurner {
     mapping(address => uint256) public mapTokenMaxSlippages;
 
     /// @dev BuyBackBurner constructor.
-    /// @param _liquidityManager LiquidityManager address.
-    /// @param _bridge2Burner Bridge2Burner address.
-    /// @param _treasury Treasury address.
-    /// @param _swapRouter Concentrated liquidity swap router address.
+    /// @notice `_liquidityManager` and `_swapRouter` are optional — pass `address(0)` to deploy
+    ///         an implementation with the V3 path disabled. Every V3-touching function then reverts
+    ///         with `V3PathDisabled`. To enable V3 later, deploy a new implementation with both
+    ///         addresses populated and call `changeImplementation` on the proxy.
+    /// @param _liquidityManager LiquidityManager address (set to zero to disable V3).
+    /// @param _bridge2Burner Bridge2Burner address (required).
+    /// @param _treasury Treasury address (required).
+    /// @param _swapRouter Concentrated liquidity swap router address (set to zero to disable V3).
     constructor(address _liquidityManager, address _bridge2Burner, address _treasury, address _swapRouter) {
-        // Check for zero address
-        if (
-            _liquidityManager == address(0) || _bridge2Burner == address(0) || _treasury == address(0)
-                || _swapRouter == address(0)
-        ) {
+        // Bridge2Burner and treasury are required on every chain regardless of V3 availability.
+        if (_bridge2Burner == address(0) || _treasury == address(0)) {
             revert ZeroAddress();
         }
 
@@ -159,6 +164,23 @@ abstract contract BuyBackBurner {
         bridge2Burner = _bridge2Burner;
         treasury = _treasury;
         swapRouter = _swapRouter;
+    }
+
+    /// @dev Reverts with V3PathDisabled when either V3 immutable is zero. Guards every
+    ///      V3-touching function (buyBack V3 overload, _buyOLAS V3, setV3PoolStatuses).
+    function _requireV3Enabled() internal view {
+        if (liquidityManager == address(0) || swapRouter == address(0)) {
+            revert V3PathDisabled();
+        }
+    }
+
+    /// @dev Reverts with V3PathDisabled when liquidityManager is zero. Used by surfaces that
+    ///      need the LiquidityManager but do not touch swapRouter (e.g. `checkPoolPrices`,
+    ///      a read-only diagnostic helper).
+    function _requireLiquidityManager() internal view {
+        if (liquidityManager == address(0)) {
+            revert V3PathDisabled();
+        }
     }
 
     /// @dev BuyBackBurner initializer.
@@ -235,6 +257,9 @@ abstract contract BuyBackBurner {
         virtual
         returns (uint256 olasAmount)
     {
+        // V3 path requires both liquidityManager and swapRouter to be set at deployment
+        _requireV3Enabled();
+
         address localOlas = olas;
 
         address[] memory tokens = new address[](2);
@@ -371,6 +396,9 @@ abstract contract BuyBackBurner {
             revert OwnerOnly(msg.sender, owner);
         }
 
+        // Whitelisting V3 pools is pointless when the V3 path is disabled
+        _requireV3Enabled();
+
         uint256 numPools = pools.length;
 
         // Check for array sizes
@@ -406,6 +434,9 @@ abstract contract BuyBackBurner {
         external
         view
     {
+        // checkPoolPrices delegates to liquidityManager; swapRouter is not read here
+        _requireLiquidityManager();
+
         // Get factory address
         address factory = IUniswapV3(uniV3PositionManager).factory();
 
@@ -522,6 +553,9 @@ abstract contract BuyBackBurner {
         external
         virtual
     {
+        // Fail fast when V3 is disabled — avoids any state writes and mirrors the guard inside _buyOLAS
+        _requireV3Enabled();
+
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();

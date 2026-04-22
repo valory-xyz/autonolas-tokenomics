@@ -3,6 +3,13 @@
 Forge-based shell scripts for deploying `NeighborhoodScanner` + `LiquidityManagerETH` /
 `LiquidityManagerOptimism`, plus the post-deploy V3 wiring for the BuyBackBurner proxy.
 
+> **POL is per-chain optional.** As of the V3-optional `BuyBackBurner` change
+> (Vulnerabilities_list item #21), chains that deploy `BuyBackBurner` with
+> `liquidityManagerAddress = ""` and `swapRouterV3Address = ""` get a working V2-only
+> deployment. The V3 path reverts `V3PathDisabled` until a new impl is deployed with both
+> addresses populated and `changeImplementation` is called on the proxy. Skip the entire
+> `pol/` directory for V2-only chains — no LM, no scanner, no V3 wire step.
+
 ## Prerequisites (run first, from other folders)
 
 1. `scripts/deployment/oracles/` — deploys `UniswapPriceOracle` (ETH) or `BalancerPriceOracle` (L2s).

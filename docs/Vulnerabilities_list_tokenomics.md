@@ -326,3 +326,26 @@ If `checkpoint()` is not called for a duration that exceeds `MAX_EPOCH_LENGTH` f
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
+---
+
+### 21. BuyBackBurner V3 path is per-chain optional (post-internal15 follow-up)
+
+**Severity**: Notes / operational
+**Source**: Internal follow-up to PR #272 (`restore-v3-bbb`) deployment audit
+
+The `BuyBackBurner` constructor (`contracts/utils/BuyBackBurner.sol`) takes four addresses: `_liquidityManager`, `_bridge2Burner`, `_treasury`, `_swapRouter`. Prior to this change, all four were checked non-zero. That blocked V2-only chain deployments (gnosis, polygon, arbitrum) where no Uniswap V3 / Slipstream router exists, and forced operators to deploy a `LiquidityManager` upfront on every chain even if V3 was not in scope.
+
+**Resolution.** `_liquidityManager` and `_swapRouter` are now optional — pass `address(0)` to deploy an implementation with the V3 path disabled. `_bridge2Burner` and `_treasury` remain required. A new error `V3PathDisabled()` is reverted by every V3-touching surface when either V3 immutable is unset:
+
+- `buyBack(address, uint256, int24, uint256)` (V3 4-arg overload)
+- `_buyOLAS(address, uint256, int24)` (V3 internal — defense in depth)
+- `setV3PoolStatuses(address[], bool[])` — pool whitelisting is meaningless without a swap path
+- `checkPoolPrices(...)` — gates on `_requireLiquidityManager()` (LM-only) since `swapRouter` is not on its read path
+
+The V2 path (`buyBack(address, uint256, uint256)`) and admin setters (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `transferToken`, `updateOraclePrice`, `changeImplementation`) are unaffected. `setMaxSlippages` is intentionally ungated because `mapTokenMaxSlippages` is read by both V2 and V3 paths.
+
+**To enable V3 on a chain that initially deployed without it:** deploy a new `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer` implementation with non-zero `_liquidityManager` and `_swapRouter`, then call `changeImplementation` on the proxy. Immutables are encoded in bytecode, so the new impl swap atomically enables the V3 path. Storage maps `mapV3Pools` and `mapTokenMaxSlippages` survive the upgrade.
+
+Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+Tests: [BuyBackBurnerV3Disabled.t.sol](test/BuyBackBurnerV3Disabled.t.sol) — 19 unit tests covering constructor relaxation, all four guarded surfaces, and V2/admin sanity.
+
