@@ -5,6 +5,8 @@ branch: `fix-v3-price-guards`, tip `ead1c83` — stacked on PR #272 `restore-v3-
 merge-base with `main`: `1d07c94` (5 commits, 26 files, +954 / −148 LOC)<br>
 **Assumption**: PR #272 + PR #273 treated as merged into `main`.<br>
 
+> **Closing review (2026-04-22):** the final disposition of every internal15 finding — across PRs #272, #273, #275, #276, #277 — is recorded in [`FINAL_REVIEW.md`](FINAL_REVIEW.md). That document is the authoritative justification for the resolution of all issues in this audit: per-finding evidence on the composite tip, on-chain verification of the H-01 non-manifestation, the dated C-01 OpSec waiver, and the regression scan. Verdict: **green** — no further re-audit required for the internal15 cycle.
+
 ## Objectives
 This re-audit is driven by the developer reversing the **"fix-by-exclusion"** approach from Internal14. Internal14 verified that the V3 swap path in `BuyBackBurner` had been **removed** ("V3 ABI mismatch → V3 swap path removed entirely"); PR #272 **restores** it, and PR #273 layers on top the three C4R 2026-01 price-guard fixes (#17/#18/#19).
 
@@ -87,14 +89,14 @@ Registries-scope C4A Lows (L-11, L-12) are handled in the registries repo and ar
 | L-03 slot0 fallback on new pools (few observations) | **PARTIAL** — subsumed by M-01 this report (fail-open) + additional `_increaseLiquidity` / `_decreaseLiquidity` direct slot0 reads remain |
 | L-04 Ineffective slippage from spot in `_increaseLiquidity`/`_decreaseLiquidity` | **NOT FIXED** — LMC admin-only surface; flagged as **L-04 (this report)** |
 | L-05 V2 oracle TWAP = spot | **FIXED** (H-01 rewrite) |
-| L-06 Registry-address changes lock incentives | Out of PR scope — carries forward |
+| L-06 Registry-address changes lock incentives | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #17 of `docs/Vulnerabilities_list_tokenomics.md`. Owner-gated; operational mitigation only |
 | L-07 Post-swap slippage double-count | **FIXED** — old post-swap comparison removed (Internal14) |
-| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | Out of PR scope — carries forward |
-| L-09 Precision loss in `_trackServiceDonations` | Out of PR scope — carries forward |
+| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | **FIXED** on branch `fix-low-audit15` — switched to Uniswap OracleLibrary single-step formulation (`amount · sqrtP² / 2^192`), two-step fallback retained only for `sqrtP > 2^128`. Covered by 9 forge unit tests in `test/NeighborhoodScannerPrecision.t.sol` |
+| L-09 Precision loss in `_trackServiceDonations` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #18 of `docs/Vulnerabilities_list_tokenomics.md`. Bounded to `numServiceUnits − 1` wei per donation event; not exploitable |
 | L-10 V2 `validatePrice(maxSlippage/100)` forbids sub-1% | **FIXED** (oracle rewrite removed `/100` divisor) |
-| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | Out of PR scope — carries forward |
-| L-14 `changeMaxSlippage` no upper BPS check | **NOT FIXED** — flagged as **L-05 (this report)** |
-| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | Need to re-verify on rewritten oracle |
+| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #19 of `docs/Vulnerabilities_list_tokenomics.md`. Entangled with epoch accounting, surgical fix deferred; DAO keeper cadence + off-chain monitoring mitigate operationally |
+| L-14 `changeMaxSlippage` no upper BPS check | **FIXED** on branch `fix-low-audit15` — `LiquidityManagerCore.changeMaxSlippage` rejects `newMaxSlippage > MAX_BPS`; tracked as this report's **L-05** |
+| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | **RESOLVED BY REPLACEMENT** — rewritten `UniswapPriceOracle` (ETH-fork) has no `maxSlippage` or `validatePrice` surface; slippage enforcement moved to `BuyBackBurner.mapTokenMaxSlippages`, bounded by `MAX_BPS` in `setMaxSlippages` on `BuyBackBurner.sol`. C4R finding targets a function that no longer exists |
 
 ### BuyBackBurner V3 restoration (previously "removed — fix by exclusion")
 
@@ -158,10 +160,33 @@ The C4A submission (S-1030) demonstrates ~346,068 OLAS phantom bond capacity at 
 ### 3. **PR #273 deletes entries instead of annotating them as FIXED.**
 The diff `1d07c94..ead1c83 -- docs/Vulnerabilities_list_tokenomics.md` removes several historical entries wholesale rather than marking them as FIXED with the resolving commit hash. This breaks change-log auditability — future auditors cannot tell which entries were closed-and-fixed vs closed-and-reopened-later.
 
-Recommended doc protocol (tracked as **I-03 (this report)**):
-- Keep every historical entry; append `**Status:** FIXED in commit `<hash>` (`<PR #>`)` rather than deleting
-- When a finding is re-opened by a revert/restoration (e.g., M-11 by PR #272), annotate: `**Status:** REOPENED by PR #272 commit `<hash>` — re-verification pending`
-- Each new C4A / Internal-audit finding in tokenomics scope must be added to the list with its source reference (submission # or internal-audit id), even if already fixed at merge time
+**Disposition (2026-04-21, team decision):** this is the team's established workflow (see I-03 below) — entries are removed once closed; the historical record lives in the per-audit README and git log. Closed as acknowledged.
+
+### 4. **Item #12 (`refundFromStaking` incorrect revert address)** — FIXED on branch `fix-low-audit15`
+
+**Finding recap** (C4A 2026-01 submission #130): `refundFromStaking` gates access on `dispenser` but the `ManagerOnly` revert reports `depository` as the second parameter. Purely cosmetic — access control is correct, only the error payload is misleading.
+
+**Fix applied:** `contracts/Tokenomics.sol:838` changed from `revert ManagerOnly(msg.sender, depository)` → `revert ManagerOnly(msg.sender, dispenser)`.
+
+**Test:** `test/Tokenomics.js` — extended "Should fail when calling dispenser-owned functions" test with an assertion on the revert parameters: `withArgs(signers[1].address, dispenserSigner.address)`. Passes with a non-matching depository configured to ensure the check isn't a tautology.
+
+Entry removed from `docs/Vulnerabilities_list_tokenomics.md`.
+
+[x] Closed by branch `fix-low-audit15`.
+
+### 5. **Item #13 (`getInflationForYear` double-applied mint cap, C4A S-893)** — REJECTED on review, not a real issue
+
+C4A 2026-01 submission **S-893** claimed that `getInflationForYear(numYears)` for `numYears >= 11` yields 2.04% annual inflation instead of the intended 2.00%, on the grounds that `MAX_MINT_CAP_FRACTION` is applied to an already-compounded supply cap.
+
+On careful review of the single on-chain consumer (`Tokenomics.checkpoint` at line 1135), the `numYears` variable is **integer years elapsed since launch** — so `numYears = k` corresponds to operational **year `k + 1`**, not year `k`. Under that convention (which the first-10-years pre-computed table also follows), `getInflationForYear(11)` must return the year-12 inflation budget, which is `2% of cap(year 11) = S10 · 1.02 · 0.02 = S10 · 0.0204` — exactly what the code returns. The `0.0204` coefficient is not "2% applied twice"; it is literally the year-12 absolute amount expressed relative to `S10`.
+
+Applying the submission's proposed patch (`_calculateSupplyCapAfterYear10(1, numYears - 1)`) would under-count inflation for every year ≥ 12, stalling the schedule one year behind — a real functional regression.
+
+Full numerical derivation, trace table, and response to the submission authors: see [`C4A_S-893_rebuttal.md`](C4A_S-893_rebuttal.md).
+
+Entry #13 removed from `docs/Vulnerabilities_list_tokenomics.md` as rejected-on-review (not fixed).
+
+[x] Closed as rejected on branch `fix-low-audit15`.
 
 ## On-chain verification (fork + direct RPC)
 
@@ -580,9 +605,18 @@ File: contracts/utils/BuyBackBurner.sol — buyBack external
 
 Suggested fix: add `uint256 deadline` parameter + `if (block.timestamp > deadline) revert Expired();`.
 ```
-[ ] Non-blocking but should be bundled with the H-02 fix.
 
-### Low. L-02 `checkPoolPrices` accepts caller-supplied `uniV3PositionManager`
+**Fix applied (branch `fix-low-audit15`):** both `buyBack` overloads now accept a trailing `uint256 deadline` parameter. The guard is `if (deadline != 0 && block.timestamp > deadline) revert DeadlineExpired(deadline, block.timestamp);`, so callers that don't need a deadline can pass `0` to opt out. New error `DeadlineExpired(uint256 deadline, uint256 blockTimestamp)` is defined alongside the existing custom errors in `BuyBackBurner.sol`. All existing test call sites and downstream fork tests updated to the new signature.
+
+Covered by:
+- `test/LowFindingsAudit15.t.sol` — 5 forge unit tests against a proxy + mocked ERC20 `balanceOf`: `test_L01_buyBack_V2_revertsWhenDeadlinePassed`, `test_L01_buyBack_V2_deadlineZeroOptsOut`, `test_L01_buyBack_V2_deadlineEqualsNowSucceedsDeadlineCheck`, `test_L01_buyBack_V3_revertsWhenDeadlinePassed`, `test_L01_buyBack_V3_deadlineZeroOptsOut`.
+- `test/BuyBackBurnerUniswapETH.t.sol` — ETH-fork tests `testBuyBackRevertsOnExpiredDeadline` (funded proxy reverts on past deadline, then succeeds with a fresh deadline) and `testBuyBackDeadlineZeroOptsOut` (funded proxy succeeds with `deadline = 0`).
+
+[x] Closed by branch `fix-low-audit15`.
+
+### Low. L-02 `checkPoolPrices` accepts caller-supplied `uniV3PositionManager` — FIXED (annotation-only) on branch `fix-low-audit15`
+
+**Original finding:**
 ```
 External helper `checkPoolPrices(address uniV3PositionManager, ...)` trusts the
 caller to supply a V3 NonfungiblePositionManager. A malicious contract can
@@ -597,9 +631,14 @@ Suggested fix:
   require(uniV3PositionManager == TRUSTED_UNI_V3_NPM, UntrustedPositionManager());
 Or annotate the function as "for diagnostic/read-only use — not safe to trust".
 ```
-[ ] Acceptable — annotate + keep out of critical paths.
 
-### Low. L-03 `convertToV3` front-run via permissionless `collectFees` (C4A L-02, NOT FIXED)
+**Disposition (branch `fix-low-audit15`):** NatSpec on `checkPoolPrices` extended to make it explicit that the helper is a read-only diagnostic aid, that `uniV3PositionManager` is caller-supplied and untrusted, and that the result must NOT be wired into any trust-critical flow. Internal swap paths already use the pinned `liquidityManager.factoryV3()` instead. The no-pin / no-allowlist decision is kept to preserve the "legacy diagnostic" compatibility mode; entry #17 added to `docs/Vulnerabilities_list_tokenomics.md` records the constraint for downstream consumers.
+
+[x] Closed (annotation-only) by branch `fix-low-audit15`.
+
+### Low. L-03 `convertToV3` front-run via permissionless `collectFees` (C4A L-02, NOT FIXED) — Documented residual
+
+**Original finding:**
 ```
 C4A L-02 unfixed. `convertToV3()` in LiquidityManagerCore.sol expects tokens to
 be pre-transferred; `collectFees()` is permissionless and burns OLAS balance.
@@ -615,9 +654,14 @@ File: contracts/pol/LiquidityManagerCore.sol — convertToV3 / collectFees
 Suggested fix: atomic transfer+convert path; or gate collectFees by a
 cooldown / skip-on-inflight-conversion flag. Document in the admin playbook.
 ```
-[ ] Non-blocking; should be added to `docs/Vulnerabilities_list_tokenomics.md`.
 
-### Low. L-04 LMC slippage computed off spot-derived amounts (C4A L-04, NOT FIXED)
+**Disposition (branch `fix-low-audit15`):** added as entry #18 in `docs/Vulnerabilities_list_tokenomics.md`. Realized exposure is low when the operator avoids bare direct-transfer-then-call patterns (stage the OLAS inside the same transaction that calls `convertToV3`). The architectural fix (atomic transfer+convert path or in-flight cooldown) is out of scope for the low bundle; tracked for future LMC refactors.
+
+[x] Documented as residual.
+
+### Low. L-04 LMC slippage computed off spot-derived amounts (C4A L-04, NOT FIXED) — Documented residual
+
+**Original finding:**
 ```
 `_increaseLiquidity` / `_decreaseLiquidity` in LiquidityManagerCore compute
 amountsMin from spot-derived amounts:
@@ -635,9 +679,14 @@ File: contracts/pol/LiquidityManagerCore.sol — _increaseLiquidity, _decreaseLi
 Suggested fix: use TWAP-derived center price for the amountsMin computation,
 then apply maxSlippage to those TWAP-derived amounts.
 ```
-[ ] Non-blocking (admin-only path); should be added to `docs/Vulnerabilities_list_tokenomics.md`.
 
-### Low. L-05 `changeMaxSlippage` missing upper BPS bound (C4A L-14, NOT FIXED)
+**Disposition (branch `fix-low-audit15`):** added as entry #19 in `docs/Vulnerabilities_list_tokenomics.md`. Admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`); realized exposure is low under normal DAO-paced operations. The TWAP-anchored fix is out of scope for the low bundle; tracked for future LMC refactors.
+
+[x] Documented as residual.
+
+### Low. L-05 `changeMaxSlippage` missing upper BPS bound (C4A L-14, NOT FIXED) — FIXED on branch `fix-low-audit15`
+
+**Original finding:**
 ```
 C4A L-14 unfixed. `LiquidityManagerCore.changeMaxSlippage()` checks only zero:
 
@@ -652,7 +701,18 @@ File: contracts/pol/LiquidityManagerCore.sol — changeMaxSlippage
 Suggested fix:
   if (newMaxSlippage > MAX_BPS) revert Overflow(newMaxSlippage, MAX_BPS);
 ```
-[ ] Trivial one-line fix; should be bundled with the PR #273 cleanup.
+
+**Fix applied (branch `fix-low-audit15`):** `LiquidityManagerCore.changeMaxSlippage(uint16)` now mirrors the upper-bound check already present in `initialize()` — it reverts with `Overflow(newMaxSlippage, MAX_BPS)` when `newMaxSlippage > MAX_BPS`, closing the admin-misconfig path that could otherwise underflow the `(MAX_BPS - maxSlippage)` math in `_optimizeTicksAndMintPosition` / `_increase` / `_decreaseLiquidity`.
+
+Covered by four forge unit tests in `test/LowFindingsAudit15.t.sol`:
+- `test_L05_changeMaxSlippage_revertsAboveMaxBps` — expects `Overflow(10_001, 10_000)`.
+- `test_L05_changeMaxSlippage_acceptsExactMaxBps` — boundary value `10_000` is accepted.
+- `test_L05_changeMaxSlippage_acceptsWithinRange` — typical mid-range value.
+- `test_L05_changeMaxSlippage_revertsZero` — regression on the existing zero-value guard.
+
+Entry #20 added to `docs/Vulnerabilities_list_tokenomics.md` with FIXED status and test references.
+
+[x] Closed by branch `fix-low-audit15`.
 
 ### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory
 ```
@@ -670,9 +730,13 @@ Suggested fix:
 Token ordering uses strict `>`. OK for EVM addresses (cannot be equal).<br>
 [x] No fix needed.
 
-### Notes. I-03 `docs/Vulnerabilities_list_tokenomics.md` entries deleted instead of annotated `FIXED`
-Audit hygiene — the PR removes entries wholesale rather than annotating them as resolved with commit hash. Makes change-log auditing harder. Doc-only.<br>
-[ ] Doc-only.
+### Notes. I-03 `docs/Vulnerabilities_list_tokenomics.md` entries deleted instead of annotated `FIXED` — Acknowledged (team policy)
+
+Audit hygiene — the PR removes entries wholesale rather than annotating them as resolved with commit hash. Makes change-log auditing harder. Doc-only.
+
+**Disposition (2026-04-21, team decision):** the team's established workflow is to **remove** entries from `docs/Vulnerabilities_list_tokenomics.md` once a finding is fixed / addressed, rather than annotating as `FIXED in commit <hash>`. The change-log surface lives in (a) the per-audit README under `audits/<audit-id>/README.md` that closed the finding, and (b) the fix commit itself (`git log`, commit message). The `Vulnerabilities_list_tokenomics.md` doc is intentionally a forward-looking "currently known, not yet resolved" list — not a historical ledger. I-03 is therefore closed as acknowledged, not fixed: the recommendation to keep history in-list is explicitly declined in favour of the existing audit-README + git-log trail.
+
+[x] Acknowledged — no doc protocol change. Each fix branch deletes its own closed entries from the vulnerabilities list; the audit README records the closure.
 
 ---
 
@@ -683,9 +747,9 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Critical | 1 (C-01 ownership rotation tracked as deployment-time operational item per company policy) |
 | High     | 1 (H-02 tracked on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 1 (M-02 acknowledged residual; M-01, M-03, M-04 FIXED on `fix-medium-audit15`) |
-| Low      | 5 |
+| Low      | 0 (L-01 + L-05 FIXED on `fix-low-audit15`; L-02 annotation-only, L-03 / L-04 documented residuals) |
 | Notes    | 3 |
-| **Total**| **11** |
+| **Total**| **6 residual; 8 closed** |
 
 ### Test coverage gaps
 
@@ -697,12 +761,15 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | P1 | `BalancerPriceOracle.updatePrice` flash-loan steer within minUpdateInterval | 0 — accepted residual | M-02 residual (documented, no code change) |
 | P1 | V2 `_buyOLAS` getTWAP staleness without prior updatePrice | 2 forge unit (`BuyBackBurnerV2OracleRefresh.test_buyBack_refreshesOracle` + `_backToBackStillInvokesUpdatePrice`) + 1 ETH-fork (`BuyBackBurnerUniswapETH.testBuyBackRefreshesStaleOracle`) | M-03 (CLOSED on `fix-medium-audit15`) |
 | P1 | `Tokenomics.checkpoint` else-if effectiveBond correction at year boundaries | 2 Hardhat (`Tokenomics.js#M-04`: decreasing-year walkthrough + storage-override synthetic trigger) | M-04 (CLOSED on `fix-medium-audit15`) |
-| P2 | `buyBack` long-pending-tx at stale price | 0 | L-01 |
+| P2 | `buyBack` long-pending-tx at stale price | 5 forge unit (`LowFindingsAudit15.test_L01_buyBack_*`) + 2 ETH-fork (`BuyBackBurnerUniswapETH.testBuyBackRevertsOnExpiredDeadline` + `testBuyBackDeadlineZeroOptsOut`) | L-01 (CLOSED on `fix-low-audit15`) |
+| P2 | `changeMaxSlippage` upper BPS bound | 4 forge unit (`LowFindingsAudit15.test_L05_changeMaxSlippage_*`) | L-05 (CLOSED on `fix-low-audit15`) |
 | P2 | `setV3PoolStatuses` factory-ancestry enforcement | 0 | I-01 |
 
 Systemic: no fork test on the V3 path against real Uniswap V3 (ETH/L2) or Slipstream (Base) pools; no cross-chain owner-ownership fixture; `testProxyUpgradePathMaxSlippagePreserved` covers `mapTokenMaxSlippages` but does NOT assert `router` / `balancerVault` / `balancerPoolId` survive the upgrade.
 
 ### Conclusion
+
+> **Final disposition:** see [`FINAL_REVIEW.md`](FINAL_REVIEW.md) for the closing PR-review artefact covering PRs #272 + #273 + #275 + #276 + #277. It enumerates every internal15 finding as either **code-fix-required → FIXED** (with file:line evidence on the composite tip) or **acknowledged-and-deferred** (with the relevant residual or waiver). This supersedes the per-finding "required before deployment" list immediately below and is the justification for closing the internal15 cycle.
 
 **PR #273 in isolation is correct** — the three C4R 2026-01 price-guard logic fixes (#17/#18/#19) are properly implemented in `checkPoolAndGetCenterPrice` and `changeRanges`.
 
@@ -719,12 +786,13 @@ Required before deployment:
 4. ~~Revert on `observe()` failure in `checkPoolAndGetCenterPrice`~~ — done on branch `fix-medium-audit15` (closes M-01).
 5. ~~Auto-`updatePrice()` in V2 `_buyOLAS`~~ — done on branch `fix-medium-audit15` (closes M-03).
 6. ~~Year-boundary `effectiveBond` correction in `checkpoint()`~~ — done on branch `fix-medium-audit15` (closes M-04 / C4A M-09); `docs/Vulnerabilities_list_tokenomics.md#15` rationale corrected in the same commit.
-7. Add `deadline` to `buyBack` while the surface is open (closes L-01).
-8. Fix `changeMaxSlippage` upper BPS bound (closes L-05 / C4A L-14) — trivial one-liner.
+7. ~~Add `deadline` to `buyBack` while the surface is open~~ — done on branch `fix-low-audit15` (closes L-01).
+8. ~~Fix `changeMaxSlippage` upper BPS bound~~ — done on branch `fix-low-audit15` (closes L-05 / C4A L-14).
+9. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96). Entries #17–#20 added on branch `fix-low-audit15` cover the low bundle (L-02 annotation, L-03/L-04 documented residuals, L-05 FIXED).
 
 Tracked follow-ups (not blocking):
 - **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#20`; off-chain monitoring is the primary control.
-- L-02 / L-03 / L-04 — admin-only surface; document in admin playbook
+- ~~L-02 / L-03 / L-04~~ — annotated + documented in `docs/Vulnerabilities_list_tokenomics.md` on branch `fix-low-audit15`. L-03 and L-04 remain tracked residuals (architectural fixes out of scope for the low bundle).
 
 ### Deployment-script impact sweep for the medium bundle
 

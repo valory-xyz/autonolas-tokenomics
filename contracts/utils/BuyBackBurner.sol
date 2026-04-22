@@ -78,6 +78,11 @@ error ReentrancyGuard();
 /// @param amount Token amount.
 error TransferFailed(address token, address to, uint256 amount);
 
+/// @dev Caller-supplied deadline has elapsed.
+/// @param deadline Supplied deadline (unix seconds).
+/// @param blockTimestamp Current block timestamp.
+error DeadlineExpired(uint256 deadline, uint256 blockTimestamp);
+
 /// @title BuyBackBurner - BuyBackBurner implementation contract
 abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
@@ -369,10 +374,15 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
-    /// @notice This is a legacy function for compatibility with one of apps, it accounts for UniswapV3 only.
+    /// @notice This is a legacy read-only diagnostic helper for compatibility with one of apps; it accounts for
+    ///         UniswapV3 only. The caller supplies `uniV3PositionManager` and this function does NOT verify that
+    ///         it is the canonical one — a fake manager can route to any factory/pool of the caller's choice, so
+    ///         its result must NOT be relied on by any trust-critical flow. Internal swap paths use the pinned
+    ///         `liquidityManager.factoryV3()` instead (see `_buyOLAS` V3 branch). Do not wire this helper into
+    ///         keeper scripts or upgrade automation.
     /// @param token0 Token0 address.
     /// @param token1 Token1 address.
-    /// @param uniV3PositionManager Uniswap V3 position manager address.
+    /// @param uniV3PositionManager Uniswap V3 position manager address (caller-supplied; untrusted).
     /// @param feeTier Fee tier.
     function checkPoolPrices(address token0, address token1, address uniV3PositionManager, uint24 feeTier)
         external
@@ -435,12 +445,18 @@ abstract contract BuyBackBurner {
     /// @notice if secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Suggested second token amount.
-    function buyBack(address secondToken, uint256 secondTokenAmount) external virtual {
+    /// @param deadline Unix timestamp after which the call reverts (0 disables the check).
+    function buyBack(address secondToken, uint256 secondTokenAmount, uint256 deadline) external virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
+
+        // Deadline guard against stale mempool execution; 0 opts out for callers that don't need it
+        if (deadline != 0 && block.timestamp > deadline) {
+            revert DeadlineExpired(deadline, block.timestamp);
+        }
 
         address localSecondToken = secondToken;
 
@@ -483,12 +499,21 @@ abstract contract BuyBackBurner {
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Suggested second token amount.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    function buyBack(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing) external virtual {
+    /// @param deadline Unix timestamp after which the call reverts (0 disables the check).
+    function buyBack(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing, uint256 deadline)
+        external
+        virtual
+    {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
+
+        // Deadline guard against stale mempool execution; 0 opts out for callers that don't need it
+        if (deadline != 0 && block.timestamp > deadline) {
+            revert DeadlineExpired(deadline, block.timestamp);
+        }
 
         // Get token balance
         uint256 balance = IERC20(secondToken).balanceOf(address(this));

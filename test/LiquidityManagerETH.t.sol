@@ -797,7 +797,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         deal(WETH, address(buyBackBurner), 0.5 ether);
 
         // Perform V3 swap in BBB using the whitelisted 0.3% fee tier pool
-        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER);
+        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER, 0);
     }
 
     /// @dev M-01: checkPoolAndGetCenterPrice must revert (not fall open to slot0) when observe()

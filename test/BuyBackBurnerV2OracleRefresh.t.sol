@@ -136,7 +136,7 @@ contract BuyBackBurnerV2OracleRefreshTest is Test {
         secondToken.mint(address(bbb), amountIn);
 
         assertEq(oracle.updatePriceCount(), 0, "sanity: no pre-buyBack refresh");
-        bbb.buyBack(address(secondToken), amountIn);
+        bbb.buyBack(address(secondToken), amountIn, 0);
 
         assertEq(oracle.updatePriceCount(), 1, "updatePrice must be called exactly once per buyBack");
         // The updatePrice call happens before getTWAP by construction: see contracts/utils/
@@ -161,14 +161,14 @@ contract BuyBackBurnerV2OracleRefreshTest is Test {
         router.setRealizedOut(expectedMin);
 
         secondToken.mint(address(bbb), amountInEach);
-        bbb.buyBack(address(secondToken), amountInEach);
+        bbb.buyBack(address(secondToken), amountInEach, 0);
 
         // Second buyBack without warping. The real oracle's updatePrice would return false
         // inside minUpdateInterval and skip the write; BuyBackBurner ignores the return value
         // and continues to getTWAP, so back-to-back buyBacks never self-DoS. Our mock always
         // returns true and counts the call — both invocations reach updatePrice.
         secondToken.mint(address(bbb), amountInEach);
-        bbb.buyBack(address(secondToken), amountInEach);
+        bbb.buyBack(address(secondToken), amountInEach, 0);
 
         assertEq(oracle.updatePriceCount(), 2, "updatePrice attempts on each buyBack");
     }

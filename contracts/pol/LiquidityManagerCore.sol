@@ -632,6 +632,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
+        // Upper bound: values above MAX_BPS would underflow the (MAX_BPS - maxSlippage) math in
+        // _optimizeTicksAndMintPosition / _increase / _decreaseLiquidity. initialize() already enforces this;
+        // mirror it here so admin updates cannot drop the invariant.
+        if (newMaxSlippage > MAX_BPS) {
+            revert Overflow(newMaxSlippage, MAX_BPS);
+        }
+
         maxSlippage = newMaxSlippage;
         emit MaxSlippageUpdated(newMaxSlippage);
     }

@@ -445,6 +445,24 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
+        // Vulnerabilities list (historical) item #12 — refundFromStaking revert referenced `depository`
+        // instead of `dispenser`. Asserts the error parameters now match the access check.
+        it("refundFromStaking revert should reference the dispenser address, not depository", async function () {
+            // Wire a distinct dispenser address so depository != dispenser
+            const dispenserSigner = signers[3];
+            await tokenomics.connect(deployer).changeManagers(AddressZero, deployer.address, dispenserSigner.address);
+            expect(await tokenomics.depository()).to.equal(deployer.address);
+            expect(await tokenomics.dispenser()).to.equal(dispenserSigner.address);
+            expect(await tokenomics.depository()).to.not.equal(await tokenomics.dispenser());
+
+            // Revert arg[1] must be the dispenser, not the depository
+            await expect(
+                tokenomics.connect(signers[1]).refundFromStaking(10)
+            ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly").withArgs(
+                signers[1].address, dispenserSigner.address
+            );
+        });
+
         it("Should fail when calling initializer once again", async function () {
             await expect(
                 tokenomics.initializeTokenomics(AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, 0,

@@ -107,7 +107,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 olasReceived = IToken(OLAS).balanceOf(BURNER) - burnerBefore;
         assertGt(olasReceived, 0);
@@ -126,7 +126,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         assertLt(lastTsBefore, postWarp, "setup: lastObservation must be stale pre-buyBack");
 
         deal(WETH, address(buyBackBurner), 0.1 ether);
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         // After buyBack the oracle's last observation must have advanced to the current block.
         (, uint256 lastTsAfter) = oracleV2.lastObservation();
@@ -136,7 +136,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
     }
 
     /// @dev buyBack adjusts amount to full balance when requested amount exceeds it.
@@ -144,7 +144,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
 
         assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -155,7 +155,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0);
+        buyBackBurner.buyBack(WETH, 0, 0);
 
         assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -262,9 +262,32 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
     function testBuyBackActivityCounter() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
+    }
+
+    /// @dev L-01: buyBack reverts when the supplied deadline has elapsed, even with a funded proxy.
+    function testBuyBackRevertsOnExpiredDeadline() public {
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+
+        uint256 past = block.timestamp - 1;
+        vm.expectRevert();
+        buyBackBurner.buyBack(WETH, 0.1 ether, past);
+
+        // Funds must still be intact and subsequent buyBack with a fresh deadline must work.
+        uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
+        buyBackBurner.buyBack(WETH, 0.1 ether, block.timestamp + 600);
+        assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
+    }
+
+    /// @dev L-01: buyBack honours deadline == 0 as an opt-out (no deadline enforcement).
+    function testBuyBackDeadlineZeroOptsOut() public {
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+
+        uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
+        assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
     }
 
     /// @dev Proxy upgrade path: deprecated `maxSlippage` slot is preserved across upgrade,
@@ -287,7 +310,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
         // buyBack with unpopulated per-token slippage → amountOutMin == full TWAP → DEX reverts.
         deal(WETH, address(buyBackBurner), 0.1 ether);
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         // Owner populates new map.
         address[] memory tokens = new address[](1);
@@ -298,7 +321,7 @@ contract BuyBackBurnerUniswapETH is BaseSetup {
 
         // Next buyBack succeeds.
         uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
         assertGt(IToken(OLAS).balanceOf(BURNER) - burnerBefore, 0);
 
         // Legacy slot remains unchanged after all operations.
