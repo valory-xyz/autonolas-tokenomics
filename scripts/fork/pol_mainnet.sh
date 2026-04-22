@@ -119,7 +119,7 @@ echo "${green}$contractName deployed at: $oracleV2Address${reset}"
 #oracleV2Address="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
 contractName="LiquidityManagerETH"
 contractPath="contracts/pol/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $timelockAddress $positionManagerV3 $neighborhoodScannerAddress $observationCardinality $maxSlippage $oracleV2Address $routerV2Address"
+constructorArgs="$olasAddress $timelockAddress $positionManagerV3 $neighborhoodScannerAddress $observationCardinality $oracleV2Address $routerV2Address"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 
@@ -144,7 +144,7 @@ fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$liquidityManagerETHAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,uint16,address,address)" $constructorArgs)"
+  contractParams="$liquidityManagerETHAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   TENDERLY_VERIFIER_URL="$TENDERLY_VIRTUAL_TESTNET_RPC/verify/etherscan"

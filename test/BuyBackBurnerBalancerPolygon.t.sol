@@ -266,13 +266,20 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
 
-    /// @dev buyBack reverts when oracle observation is stale.
-    function testBuyBackStaleOracle() public {
+    /// @dev M-03: buyBack auto-refreshes a stale TWAP observation in V2 _buyOLAS, so
+    ///      a buyBack issued past maxStaleness succeeds and the oracle's lastObservation
+    ///      advances to the current block.
+    function testBuyBackRefreshesStaleOracle() public {
         vm.warp(block.timestamp + maxStalenessSeconds + 1);
+        uint256 postWarp = block.timestamp;
+
+        (, uint256 lastTsBefore) = oracleV2.lastObservation();
+        assertLt(lastTsBefore, postWarp, "setup: lastObservation must be stale pre-buyBack");
 
         deal(WMATIC, address(buyBackBurner), 100 ether);
-
-        vm.expectRevert();
         buyBackBurner.buyBack(WMATIC, 100 ether, 0);
+
+        (, uint256 lastTsAfter) = oracleV2.lastObservation();
+        assertEq(lastTsAfter, postWarp, "V2 _buyOLAS must refresh the TWAP observation");
     }
 }
