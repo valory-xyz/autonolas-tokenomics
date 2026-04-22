@@ -835,7 +835,7 @@ contract Tokenomics is TokenomicsConstants {
     function refundFromStaking(uint256 amount) external {
         // Check for the dispenser access
         if (dispenser != msg.sender) {
-            revert ManagerOnly(msg.sender, depository);
+            revert ManagerOnly(msg.sender, dispenser);
         }
 
         uint256 eCounter = epochCounter;

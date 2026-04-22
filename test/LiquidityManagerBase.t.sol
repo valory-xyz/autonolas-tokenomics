@@ -461,7 +461,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Perform V3 swap in BBB using the whitelisted tick spacing pool.
         // The Balancer V2 pool is too shallow after 95% LP drain, so use the V3 Slipstream path
         // which bypasses the V2 oracle TWAP check.
-        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING);
+        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING, 0);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

@@ -15,11 +15,14 @@
   - [9. claimStakingIncentives / _calculateStakingIncentivesBatch functions](#9-claimstakingincentives--_calculatestakingincentivesbatch-functions)
   - [10. migrate function](#10-migrate-function)
   - [11. _sendMessage function](#11-_sendmessage-function)
-  - [12. refundFromStaking function (incorrect manager address in error message)](#12-refundfromstaking-function-incorrect-manager-address-in-error-message)
-  - [13. getInflationForYear function (double-applied mint cap for years >= 10)](#13-getinflationforyear-function-double-applied-mint-cap-for-years--10)
-  - [14. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#14-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
-  - [15. checkpoint function (effectiveBond not corrected at year boundaries)](#15-checkpoint-function-effectivebond-not-corrected-at-year-boundaries)
-  - [16. updateInflationPerSecondAndFractions function (effectiveBond reset)](#16-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [12. calculateStakingIncentives function (public state-mutating call bricks zero-weight epoch refund)](#12-calculatestakingincentives-function-public-state-mutating-call-bricks-zero-weight-epoch-refund)
+  - [13. updateInflationPerSecondAndFractions function (effectiveBond reset)](#13-updateinflationpersecondandfractions-function-effectivebond-reset)
+  - [14. BalancerPriceOracle.updatePrice flash-loan steerability within minUpdateInterval](#14-balancerpriceoracleupdateprice-flash-loan-steerability-within-minupdateinterval)
+  - [15. LiquidityManagerCore.convertToV3 front-run via permissionless collectFees](#15-liquiditymanagercoreconverttov3-front-run-via-permissionless-collectfees)
+  - [16. LiquidityManagerCore slippage derived from spot-derived amounts in _increaseLiquidity / _decreaseLiquidity](#16-liquiditymanagercore-slippage-derived-from-spot-derived-amounts-in-_increaseliquidity--_decreaseliquidity)
+  - [17. changeRegistries can lock pending user incentives](#17-changeregistries-can-lock-pending-user-incentives)
+  - [18. _trackServiceDonations precision loss via integer division](#18-_trackservicedonations-precision-loss-via-integer-division)
+  - [19. checkpoint permanently unusable after MAX_EPOCH_LENGTH without a call](#19-checkpoint-permanently-unusable-after-max_epoch_length-without-a-call)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -177,44 +180,7 @@ This function forms required data to send tokens and messages to L2 in all the o
 
 Although this action does not result in loss of funds (which are sent separately), it could deliberately pass a smaller amount of gas such that a corresponding function on L2 reverts. This can then be corrected via the **processDataMaintenance()** function. In the absence of contract re-deployment, users are advised to pass a sufficient amount of gas, or just have it set to zero, such that the fallback value takes care of it.
 
-### 12. `refundFromStaking` function (incorrect manager address in error message)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #130)
-
-The following function is implemented in the Tokenomics contract:
-
-```solidity
-function refundFromStaking(uint256 amount) external
-```
-
-The `refundFromStaking()` function contains a copy-paste error where the revert message in the ManagerOnly check shows the depository address instead of the dispenser address, despite the access control check correctly verifying the dispenser. This originates from Tokenomics.sol line 838.
-
-The revert message references an incorrect address, but the actual access control is enforced correctly. No funds are at risk; this is purely a cosmetic/debugging clarity issue. The revert string should be updated to reference the correct dispenser address for clarity.
-
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 13. `getInflationForYear` function (double-applied mint cap for years >= 10)
-
-**Severity**: Low
-**Source**: Code4rena 2026-01 Olas audit (submission #S-893)
-
-The following functions are implemented in the TokenomicsConstants contract:
-
-```solidity
-function _calculateSupplyCapAfterYear10(uint256 firstYear, uint256 lastYear) internal pure returns (uint256)
-function getInflationForYear(uint256 numYears) public pure returns (uint256 inflationAmount)
-```
-
-The `getInflationForYear(numYears)` function, for numYears >= 11, calls `_calculateSupplyCapAfterYear10(1, numYears)` which returns the post-compounded supply cap of the current year. It then applies the `MAX_MINT_CAP_FRACTION` to this already-compounded value. This means the mint fraction f is effectively applied twice: once during cap compounding and once in the inflation computation, resulting in an effective rate of f + f^2 instead of f.
-
-For example, with f = 0.02 (2%), the actual inflation for year 11 becomes S10 * (f + f^2) = S10 * 0.0204, yielding 2.04% instead of the intended 2.00%. The correct fix requires computing inflation from the previous year's supply cap: `_calculateSupplyCapAfterYear10(1, numYears - 1)`.
-
-This issue will be reconsidered in due time, as tokenomics is being constantly refactored.
-
-Source code: [TokenomicsConstants.sol](contracts/TokenomicsConstants.sol)
-
-### 14. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
+### 12. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
 
 **Severity**: High
 **Source**: Code4rena 2026-01 Olas audit (submission #S-907)
@@ -231,24 +197,7 @@ In order not to re-deploy the contract, the protocol just needs to delegate a mi
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
-### 15. `checkpoint` function (effectiveBond not corrected at year boundaries)
-
-**Severity**: Informative
-**Source**: Code4rena 2026-01 Olas audit (submission #S-1030)
-
-The following function is implemented in the Tokenomics contract:
-
-```solidity
-function checkpoint() external returns (bool)
-```
-
-The `checkpoint()` function does not correct effectiveBond downward at year boundaries where inflation decreases. In principle, if the inflation schedule were to decrease at a year's boundary, the effectiveBond value could remain stale at the higher previous-year level, potentially allowing more bonding than the new year's inflation schedule supports.
-
-This is not an issue for the moment since every year the inflation slightly increases. This issue will be reconsidered in due time, as tokenomics is being constantly refactored.
-
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
-
-### 16. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
+### 13. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
 
 **Severity**: Informative
 **Source**: Internal audit 14
@@ -262,6 +211,118 @@ function updateInflationPerSecondAndFractions(uint256 _inflationPerSecond, uint2
 This owner-only function resets `effectiveBond` to just `curMaxBond` (the current epoch's bond allocation), discarding the accumulated leftover bond capacity from all prior epochs. In contrast, `checkpoint()` uses the additive pattern `curMaxBond += effectiveBond` before assigning. On the deployed contract, this would reduce effectiveBond from 5.66M OLAS to 484K OLAS (a 91% drop), temporarily limiting new bond product creation until capacity rebuilds via subsequent `checkpoint()` calls (~242K OLAS per epoch).
 
 This is not externally exploitable: the function is restricted to the contract owner (Timelock = DAO governance). The reset direction is conservative -- it under-counts available bond capacity, never over-counts -- so no OLAS can be over-minted. The DAO must ensure that all bonding products are closed before calling `updateInflationPerSecondAndFractions()`, so that no outstanding product supply exceeds the reset effectiveBond. The effectiveBond rebuilds naturally through subsequent `checkpoint()` calls.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 14. BalancerPriceOracle.updatePrice flash-loan steerability within `minUpdateInterval`
+
+**Severity**: Medium — accepted residual
+**Source**: Internal audit 15 (M-02) / C4A 2026-01 H-03 (partial)
+**Status**: Acknowledged — no code change; track via monitoring
+
+`BalancerPriceOracle.updatePrice()` reads spot balances from the Balancer Vault once per `minUpdateInterval` and commits them as the new observation. Within that window, a flash-loan move that happens to coincide with the update is committed to state — the commit-on-success pattern (which fixed the rejected-update corruption from C4A H-11) does not reject the adversarial sample because `getPrice()` returns non-zero on the manipulated balance.
+
+Mitigations in place:
+- `updatePrice()` is rate-limited via `minUpdateInterval`, so at most one spot sample per window can land.
+- `getTWAP()` enforces `maxStaleness` on `lastObservation`, so obviously-old data is rejected downstream.
+- `buyBack(...)` is the only on-chain consumer of the TWAP on the V2 path; V3 uses a separate TWAP source.
+
+Residual risk: within any single `minUpdateInterval`, a well-timed flash-loan move into the Balancer pool can still commit a skewed sample. The fix would be architectural (swap oracle source to Vault-on-swap callbacks or a different TWAP primitive) rather than a small code edit — not planned for this PR.
+
+Mitigation plan: off-chain monitoring of `ObservationUpdated` events against moving-average sanity bands, alert + pause on deviation beyond the configured `maxSlippage`. Escalates to High if `updatePrice` ever becomes permissionlessly callable with a tighter cadence, or if `buyBack` volumes scale to the point where flash-loan damage per window crosses a material threshold.
+
+Source code: [BalancerPriceOracle.sol](contracts/oracles/BalancerPriceOracle.sol)
+
+### 15. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-02) — tracked forward as internal audit 15 (L-03)
+
+The following functions are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function convertToV3(address[] memory tokens, bytes32 v2Pool, int24 feeTierOrTickSpacing, int24[] memory tickShifts, uint16 olasBurnRate, bool scan) external
+function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing) external
+```
+
+`convertToV3()` expects tokens to be transferred to the contract before the call and consumes the current balance. `collectFees()` is permissionless and, via `_manageUtilityAmounts(tokens, MAX_BPS, true)`, burns all OLAS held by the contract. A keeper that stages a direct OLAS transfer and then calls `convertToV3` in a separate transaction can be front-run by an attacker who calls `collectFees` between the two txs, burning the staged OLAS before it is paired into V3 liquidity.
+
+Exposure: owner-gated conversion flow + permissionless fee collection. The realized risk is low when the operator avoids the "bare direct transfer → convertToV3" pattern; staging OLAS inside the same tx that calls `convertToV3` defuses the race. Document in the admin playbook; the preferred architectural fix (atomic transfer-and-convert path, or a conversion-in-flight flag that skips `collectFees` OLAS burn) is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 16. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-04) — tracked forward as internal audit 15 (L-04)
+
+The following internal helpers are implemented in the LiquidityManagerCore contract:
+
+```solidity
+function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts) internal
+function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate) internal
+```
+
+Both helpers compute `amountsMin[i] = amounts[i] * (MAX_BPS - maxSlippage) / MAX_BPS` using amounts derived from slot0 (`_getPriceAndObservationIndexFromSlot0`), not from the TWAP-derived sqrt price. Even though `changeRanges` / `convertToV3` apply the TWAP deviation guard via `checkPoolAndGetCenterPrice` separately, the slippage math here is anchored to the instantaneous price. Realized worst-case slippage in an admin-initiated op can therefore stack up to `maxSlippage + ±MAX_ALLOWED_DEVIATION` (the deviation band).
+
+Exposure: admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`). The realized risk is low in normal DAO-paced operations, but increases the MEV window on owner-initiated liquidity operations. The architectural fix — use the TWAP-derived center price as the anchor for `amountsMin`, then apply `maxSlippage` — is out of scope for internal audit 15's low bundle.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 17. `changeRegistries` can lock pending user incentives
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-06)
+
+The following function is implemented in the Tokenomics contract:
+
+```solidity
+function changeRegistries(address _componentRegistry, address _agentRegistry, address _serviceRegistry) external
+```
+
+`changeRegistries()` updates registry pointers without a pre-condition that pending owner incentives have been claimed. `accountOwnerIncentives()` verifies unit ownership against the *current* registry addresses, so component/agent owners that accrued incentives under the previous registry can lose access to those incentives if a registry swap happens before they claim.
+
+**Disposition:** not planned. The function is owner-gated (Timelock / DAO governance), and the operational workflow is to ensure all outstanding incentives have been claimed before registries are rotated. A migration-preserving implementation is out of scope for this cycle — documented here so the DAO operations playbook tracks it.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 18. `_trackServiceDonations` precision loss via integer division
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-09)
+
+The following internal function is implemented in the Tokenomics contract:
+
+```solidity
+function _trackServiceDonations(address donator, uint256[] memory serviceIds, uint256[] memory amounts, uint256 donationETH) internal
+```
+
+Per-service donation is split across the service's `numServiceUnits` component/agent owners via integer division:
+
+```solidity
+uint96 amount = uint96(amounts[i] / numServiceUnits);
+```
+
+When `amounts[i] % numServiceUnits != 0`, the remainder is truncated. Aggregated across every donation event each service ever receives, owners collectively receive a few wei less than the donated amount; the lost dust is not credited anywhere and does not inflate `effectiveBond`.
+
+**Disposition:** not planned. The loss per event is bounded by `numServiceUnits − 1` wei (single-digit wei for realistic service sizes), does not accumulate into any exploitable protocol state, and the distribution codepath is on the fading-out Tokenomics donation surface. Documented for completeness; no code change.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+### 19. `checkpoint` permanently unusable after `MAX_EPOCH_LENGTH` without a call
+
+**Severity**: Low
+**Source**: Code4rena 2026-01 Olas audit (L-13)
+
+The following function is implemented in the Tokenomics contract:
+
+```solidity
+function checkpoint() external returns (bool)
+```
+
+If `checkpoint()` is not called for a duration that exceeds `MAX_EPOCH_LENGTH` from the last settled checkpoint, subsequent calls can land in a state where arithmetic based on `block.timestamp - prevEpochTime` exceeds the limits embedded in the epoch accounting, permanently wedging the checkpoint advancement path on the live proxy. Recovery would require a Tokenomics implementation upgrade.
+
+**Disposition:** not planned for this audit cycle — the code path is entangled with enough of the `checkpoint()` accounting that landing a surgical fix here without broader refactor risk was deemed not worth the effort. Operationally mitigated by: (a) the DAO's existing keeper cadence, which calls `checkpoint()` well within `MAX_EPOCH_LENGTH`; (b) monitoring alerts on missed checkpoint windows. Documented so a future Tokenomics refactor that opens this code path can bundle the fix.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
