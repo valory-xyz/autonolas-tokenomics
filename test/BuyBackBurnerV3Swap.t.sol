@@ -177,7 +177,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         // Realized output == expected minimum (swap passes by a hair)
         _prepareSwap(slippage, expectedMin);
 
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))));
+        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
 
         assertEq(router.lastAmountOutMinimum(), expectedMin, "amountOutMin must match TWAP quote x slippage");
     }
@@ -238,7 +238,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         olasFlipped.mint(address(flippedRouter), expectedMin);
         flippedRouter.setRealizedOut(expectedMin);
 
-        localBbb.buyBack(address(tokenFlipped), amountIn, int24(int256(uint256(FEE_TIER))));
+        localBbb.buyBack(address(tokenFlipped), amountIn, int24(int256(uint256(FEE_TIER))), 0);
 
         assertEq(flippedRouter.lastAmountOutMinimum(), expectedMin, "amountOutMin must match TWAP quote x slippage");
     }
@@ -259,7 +259,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         _prepareSwap(slippage, expectedMin - 1);
 
         vm.expectRevert(bytes("Too little received"));
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))));
+        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
     }
 
     // -----------------------------------------------------------------------
@@ -279,7 +279,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         olas.mint(address(router), fullQuote);
         router.setRealizedOut(fullQuote);
 
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))));
+        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
 
         assertEq(router.lastAmountOutMinimum(), fullQuote, "unset slippage -> amountOutMin = full TWAP quote");
     }
@@ -299,6 +299,6 @@ contract BuyBackBurnerV3SwapTest is Test {
         secondToken.mint(address(bbb), 1e18);
 
         vm.expectRevert(abi.encodeWithSelector(UnauthorizedPool.selector, address(0xCAFE)));
-        bbb.buyBack(address(secondToken), 1e18, int24(int256(uint256(FEE_TIER))));
+        bbb.buyBack(address(secondToken), 1e18, int24(int256(uint256(FEE_TIER))), 0);
     }
 }

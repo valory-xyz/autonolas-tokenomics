@@ -43,6 +43,10 @@ error RangeBounds(int24 low, int24 center, int24 high);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev TWAP observation read failed.
+/// @param pool Pool address.
+error ObservationFailed(address pool);
+
 interface INeighborhoodScanner {
     /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
     /// @notice 1. Adjusts extreme boundaries, if required.
@@ -226,6 +230,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             assembly {
                 sqrtPriceX96 := mload(add(returnData, 32))
                 observationIndex := mload(add(returnData, 96))
+            }
+        }
+    }
+
+    /// @dev Reads slot0().observationCardinality, tolerating non-canonical pools that don't implement slot0().
+    /// @param pool Pool address.
+    /// @return cardinality Observation cardinality (0 if the call failed).
+    function _getObservationCardinality(address pool) internal view returns (uint16 cardinality) {
+        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
+        (bool success, bytes memory returnData) = pool.staticcall(payload);
+        if (success) {
+            // observationCardinality is at slot 4 (index 3) in slot0's return layout,
+            // so byte offset 32 (length prefix) + 3 * 32 = 128.
+            assembly {
+                cardinality := mload(add(returnData, 128))
             }
         }
     }
@@ -611,6 +630,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check for zero value
         if (newMaxSlippage == 0) {
             revert ZeroValue();
+        }
+
+        // Upper bound: values above MAX_BPS would underflow the (MAX_BPS - maxSlippage) math in
+        // _optimizeTicksAndMintPosition / _increase / _decreaseLiquidity. initialize() already enforces this;
+        // mirror it here so admin updates cannot drop the invariant.
+        if (newMaxSlippage > MAX_BPS) {
+            revert Overflow(newMaxSlippage, MAX_BPS);
         }
 
         maxSlippage = newMaxSlippage;
@@ -1116,9 +1142,16 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
 
-        // If the call has failed - observe was not successful, meaning the pool has not have enough activity yet
-        if (!success) {
-            return centerSqrtPriceX96;
+        // If observe() reverts, distinguish a freshly-initialized pool (cardinality == 1,
+        // no historical data to blend) from a pool that has real history but whose observe()
+        // was crafted to fail. Fresh pools fall back to slot0 — the same tolerance the original
+        // code had; pools with cardinality >= 2 must produce a TWAP, otherwise something is
+        // wrong and we refuse to fail-open the slippage guard.
+        if (!success || returnData.length == 0) {
+            if (_getObservationCardinality(pool) <= 1) {
+                return centerSqrtPriceX96;
+            }
+            revert ObservationFailed(pool);
         }
 
         // Get returned values from oracle: TWAP price and TWAP-derived sqrt price

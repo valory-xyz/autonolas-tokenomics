@@ -115,7 +115,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBack() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -125,14 +125,14 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
     }
 
     /// @dev buyBack adjusts amount to full balance when requested amount exceeds it.
     function testBuyBackAdjustsToBalance() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -142,7 +142,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackZeroAmountUsesBalance() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0);
+        buyBackBurner.buyBack(WETH, 0, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -248,7 +248,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackAndRelay() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -262,7 +262,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackActivityCounter() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
@@ -274,6 +274,6 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
     }
 }
