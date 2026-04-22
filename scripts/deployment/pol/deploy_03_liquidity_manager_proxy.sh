@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Deploys LiquidityManagerProxy pointing at the LiquidityManager implementation from
+# deploy_02_liquidity_manager_*.sh. The proxy constructor delegatecall-initializes the impl
+# via LiquidityManagerCore.initialize(uint16 _maxSlippage).
+#
+# Globals fields consumed:
+#   liquidityManagerAddress       : LiquidityManager impl (written by deploy_02_*)
+#   liquidityManagerMaxSlippage   : uint16 in BPS (MAX_BPS = 10_000); e.g. "500" = 5%
+# Globals fields written:
+#   liquidityManagerProxyAddress  : deployed proxy address
+
 red=$(tput setaf 1)
 green=$(tput setaf 2)
 reset=$(tput sgr0)
@@ -32,33 +42,24 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   fi
 fi
 
-# For ETH mainnet: just burner and timelock, for others: bridge2Burner and bridgeMediator
-if [ $chainId == 1 ] || [ $chainId == 11155111 ]; then
-  bridge2BurnerAddress=$(jq -r '.burnerAddress' $globals)
-  bridgeMediatorAddress=$(jq -r ".timelockAddress" $globals)
-else
-  bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
-  bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
+liquidityManagerAddress=$(jq -r '.liquidityManagerAddress' $globals)
+liquidityManagerMaxSlippage=$(jq -r '.liquidityManagerMaxSlippage' $globals)
+
+if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ] \
+   || [ "$liquidityManagerAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! liquidityManagerAddress (impl) is not set in $globals${reset}"
+  exit 1
+fi
+if [ -z "$liquidityManagerMaxSlippage" ] || [ "$liquidityManagerMaxSlippage" == "null" ]; then
+  echo "${red}!!! liquidityManagerMaxSlippage is not set in $globals${reset}"
+  exit 1
 fi
 
-liquidityManagerAddress=$(jq -r '.liquidityManagerProxyAddress' $globals)
-swapRouterV3Address=$(jq -r '.swapRouterV3Address' $globals)
+proxyData=$(cast calldata "initialize(uint16)" $liquidityManagerMaxSlippage)
 
-# V3 path is optional: the BuyBackBurner constructor accepts address(0) for liquidityManager
-# and swapRouter, and V3-touching functions revert V3PathDisabled at runtime. Normalise empty
-# strings / jq nulls to the zero address so forge create does not reject them.
-# NOTE: we wire the LiquidityManager *proxy* here, not the impl — the BBB calls factoryV3()
-# through it and the proxy delegatecall-reads the impl's immutables.
-if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
-  liquidityManagerAddress="0x0000000000000000000000000000000000000000"
-fi
-if [ -z "$swapRouterV3Address" ] || [ "$swapRouterV3Address" == "null" ]; then
-  swapRouterV3Address="0x0000000000000000000000000000000000000000"
-fi
-
-contractName="BuyBackBurnerUniswap"
-contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$liquidityManagerAddress $bridge2BurnerAddress $bridgeMediatorAddress $swapRouterV3Address"
+contractName="LiquidityManagerProxy"
+contractPath="contracts/proxies/$contractName.sol:$contractName"
+constructorArgs="$liquidityManagerAddress $proxyData"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -79,10 +80,10 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-buyBackBurnerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+liquidityManagerProxyAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#buyBackBurnerAddress}
+outputLength=${#liquidityManagerProxyAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -91,11 +92,11 @@ if [ $outputLength != 42 ]; then
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"liquidityManagerProxyAddress":"'$liquidityManagerProxyAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address)" $constructorArgs)"
+  contractParams="$liquidityManagerProxyAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,bytes)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -108,4 +109,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}$contractName deployed at: $buyBackBurnerAddress${reset}"
+echo "${green}$contractName deployed at: $liquidityManagerProxyAddress${reset}"

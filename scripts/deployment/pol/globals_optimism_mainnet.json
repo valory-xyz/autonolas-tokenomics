@@ -16,6 +16,8 @@
   "observationCardinality": "60",
   "neighborhoodScannerAddress": "",
   "liquidityManagerAddress": "",
+  "liquidityManagerMaxSlippage": "500",
+  "liquidityManagerProxyAddress": "",
   "buyBackBurnerProxyAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
   "v3Pools": [],
   "v3PoolStatuses": [],

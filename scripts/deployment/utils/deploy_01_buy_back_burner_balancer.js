@@ -12,7 +12,8 @@ async function main() {
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
     const gasPriceInGwei = parsedData.gasPriceInGwei;
-    const liquidityManagerAddress = parsedData.liquidityManagerAddress;
+    // NOTE: pass the LiquidityManager *proxy* here, not the impl.
+    const liquidityManagerAddress = parsedData.liquidityManagerProxyAddress;
     const bridge2BurnerAddress = parsedData.bridge2BurnerAddress || parsedData.burnerAddress;
     const treasuryAddress = parsedData.bridgeMediatorAddress || parsedData.timelockAddress;
     const swapRouterV3Address = parsedData.swapRouterV3Address;
