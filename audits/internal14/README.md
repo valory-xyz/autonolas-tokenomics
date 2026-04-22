@@ -54,24 +54,30 @@ Fixed (permissionless buyBack/transfer attack surface):
 NOT FIXED (design-level, Low):
 - Uniform maxSlippage for all token pairs (C4A finding) → still global, not per-token
 
-### LiquidityManager: 3/3 V2 fixed + 5/5 V3 addressed by scope exclusion = 8/8
+### LiquidityManager: 3/3 V2 fixed + 3/3 V3 price-guard fixed + 2 V3 admin-scope = 8/8
 
 V2 findings (permissionless V2 liquidity removal in ETH + Optimism) — ALL FIXED:
 - amountMin=1 → TWAP-based fair reserve minAmountsOut ✓
 - validatePrice(maxSlippage/100) → getTWAP() ✓ (removes BPS/% mismatch)
 - SlippageLimitBreached error → removed (now enforced by router via minAmountsOut) ✓
 
-V3 findings (LiquidityManagerCore.sol = ZERO changes) — ADDRESSED BY EXCLUSION:
-- TWAP compares to itself in checkPoolAndGetCenterPrice() → V3 admin-only
-- Observation index for TWAP history → V3 admin-only
-- changeRanges price manipulation → V3 admin-only
+V3 findings — #17/#18/#19 FIXED IN CODE (PR #272 + #273):
+- TWAP compares to itself in checkPoolAndGetCenterPrice() (#17/#18, C4R S-347/S-471) → FIXED:
+  TWAP decoded into separate `twapSqrtPriceX96`; `instantPrice` computed from preserved
+  slot0 value; deviation check compares real instant vs TWAP; returns `twapSqrtPriceX96` ✓
+- changeRanges silent single-sided routing to treasury (#19, C4R S-668) → FIXED:
+  `if (amounts[0] == 0 || amounts[1] == 0) revert ZeroValue()` replaces silent skip ✓
+- V3 swap path in BuyBackBurner restored (PR #273) ✓
+
+V3 findings remaining in admin-trust scope (not externally exploitable):
 - block.timestamp deadline in V3 operations → V3 admin-only
 - Incorrect liquidity optimization → V3 admin-only
 
 Developer strategy: V3 LP management is owner-only (convertToV3, changeRanges,
 collectFees, decreaseLiquidity, increaseLiquidity all gated by `msg.sender == owner`).
-The permissionless attack surface (BuyBackBurner) had V3 swap path entirely removed.
-V3 findings are in admin-trust scope — not externally exploitable.
+Price-guard correctness in checkPoolAndGetCenterPrice and changeRanges is now verified
+by unit tests (test/LiquidityManagerCorePriceGuard.t.sol) and fork tests
+(test/LiquidityManagerETH.t.sol).
 
 ### LPSwapCelo: internal audit 13 findings FIXED ✓
 - LP tokens locked in contract → fixed (sent to BRIDGE_MEDIATOR) ✓
@@ -157,6 +163,8 @@ File: contracts/utils/BuyBackBurner.sol:103,160
 Suggested fix: mapping(address => uint256) mapMaxSlippage per secondToken.
 ```
 [x] Fixed. Global maxSlippage deprecated (proxy legacy). Added mapping(address => uint256) mapTokenMaxSlippages with owner-only setMaxSlippages() setter. _buyOLAS() now reads per-token slippage. _initialize() in Uniswap/Balancer children no longer sets maxSlippage.
+
+Fork test: `testProxyUpgradePathMaxSlippagePreserved` in test/BuyBackBurnerUniswapETH.t.sol verifies the upgrade path — seeds the deprecated `maxSlippage` slot (slot 4), asserts `buyBack` reverts when `mapTokenMaxSlippages[secondToken]` is unset, then confirms a successful `buyBack` after the owner calls `setMaxSlippages`, with the deprecated slot value preserved throughout.
 
 ### Notes. Unchecked ERC20 transfer return values in BuyBackBurner and LPSwapCelo
 ```

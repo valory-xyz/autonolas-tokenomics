@@ -455,24 +455,13 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Mock fund more OLAS, not to fail for min OLAS transfer
         deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
-        // Set V2 oracle mapping for WETH
-        address[] memory secondTokens = new address[](1);
-        secondTokens[0] = WETH;
-        address[] memory v2Oracles = new address[](1);
-        v2Oracles[0] = address(oracleV2);
-        vm.prank(BBB_OWNER);
-        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
-
-        // Warm up oracle
-        vm.warp(block.timestamp + minUpdateIntervalSeconds);
-        oracleV2.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
-
         // Mock WETH balance on BBB
         deal(WETH, BUY_BACK_BURNER, 0.5 ether);
 
-        // Perform V2 swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether);
+        // Perform V3 swap in BBB using the whitelisted tick spacing pool.
+        // The Balancer V2 pool is too shallow after 95% LP drain, so use the V3 Slipstream path
+        // which bypasses the V2 oracle TWAP check.
+        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING, 0);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

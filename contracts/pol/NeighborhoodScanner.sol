@@ -660,14 +660,28 @@ contract NeighborhoodScanner {
     }
 
     /// @dev Calculates amount value in token1-value: amount * P, where P = (sqrtP^2)/2^192.
+    /// @notice Uses Uniswap V3 OracleLibrary.getQuoteAtTick's split formulation to avoid the
+    ///         cumulative rounding error of the prior two-step mulDiv form (C4R 2026-01 L-08).
+    ///         For sqrtP that fits in uint128 (the common case — e.g. reserve-ratio prices up to
+    ///         ~2^64:1) we take the single-step path, computing ratioX192 = sqrtP^2 losslessly in
+    ///         uint256 and doing one FullMath.mulDiv. For sqrtP above 2^128 we fall back to a
+    ///         two-step with 2^64 as the first-stage scale so the intermediate fits in uint256.
     /// @param amount Amount value.
     /// @param sqrtP Sqrt price.
     function value0InToken1(uint256 amount, uint160 sqrtP) internal pure returns (uint256) {
         if (amount == 0) return 0;
-        // amount * sqrtP / 2^96
-        uint256 intermediate = FullMath.mulDiv(amount, sqrtP, FixedPoint96.Q96);
-        // (amount * sqrtP / 2^96) * sqrtP / 2^96  == amount * (sqrtP^2) / 2^192
-        return FullMath.mulDiv(intermediate, sqrtP, FixedPoint96.Q96);
+        // Single-step path: sqrtP ≤ 2^128 ⇒ sqrtP² fits in uint256, so amount * sqrtP² / 2^192
+        // is a single FullMath.mulDiv with no cumulative rounding.
+        if (sqrtP <= type(uint128).max) {
+            uint256 ratioX192 = uint256(sqrtP) * sqrtP;
+            return FullMath.mulDiv(amount, ratioX192, 1 << 192);
+        }
+        // Two-step path, used only when sqrtP > 2^128 (extreme-ratio pools) where sqrtP²
+        // overflows uint256. Scaling by 2^64 first keeps the intermediate within uint256:
+        //   ratioX128 = sqrtP² / 2^64   (< 2^256 since sqrtP < 2^160 ⇒ sqrtP² < 2^320)
+        //   result    = amount · ratioX128 / 2^128
+        uint256 ratioX128 = FullMath.mulDiv(sqrtP, sqrtP, 1 << 64);
+        return FullMath.mulDiv(amount, ratioX128, 1 << 128);
     }
 
     /// @dev Calculates accumulated value of (amounts[0], amounts[1]) in token1-value.

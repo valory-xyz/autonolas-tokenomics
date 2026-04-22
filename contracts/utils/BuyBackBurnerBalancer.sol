@@ -135,8 +135,9 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
     /// @param tickSpacing Tick spacing.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 tickSpacing)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 tickSpacing, uint256 amountOutMin)
         internal
         virtual
         override
@@ -151,7 +152,7 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: secondTokenAmount,
-            amountOutMinimum: 1,
+            amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
         });
 

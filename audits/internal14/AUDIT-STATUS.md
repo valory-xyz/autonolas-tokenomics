@@ -22,7 +22,7 @@
 - UniswapPriceOracle, BalancerPriceOracle (REWRITTEN — proper TWAP)
 - BuyBackBurner v0.3.0 (REWRITTEN — TWAP slippage protection)
 - Result: 0 High/Medium in fixed version
-- LiquidityManagerCore V3 TWAP-to-self: acknowledged, admin-only scope
+- LiquidityManagerCore V3 price-guard: FIXED in code (C4R #17/#18/#19, PR #272)
 
 ### Stream 4: New/Under-Audited Contracts ✓
 - LPSwapCelo.sol (341 LOC): 0 High/Medium, internal audit 13 fixes verified
@@ -68,7 +68,7 @@ All three proxy contracts audited: TokenomicsProxy, BuyBackBurnerProxy, Liquidit
 - [x] Proxy admin takeover: SAFE — `changeTokenomicsImplementation` requires `msg.sender == owner`, which is the owner stored in proxy storage (set during `initializeTokenomics` via delegatecall)
 - [x] Owner transfer: SAFE — `changeOwner` requires current owner, no two-step but acceptable for DAO-owned contracts
 - [x] DelegatecallOnly guard: Only in `checkpoint()` — other functions rely on role checks (owner/treasury/depository/dispenser). This is SAFE because those role addresses are in proxy storage, not attacker-controllable
-- [x] Storage layout across upgrades: BuyBackBurner has deprecated slots (nativeToken, oracle) marked as "proxy legacy" — these preserve layout compatibility. SAFE
+- [x] Storage layout across upgrades: BuyBackBurner has deprecated slots (nativeToken, oracle, maxSlippage) marked as "proxy legacy" — these preserve layout compatibility. SAFE. Verified by fork test `testProxyUpgradePathMaxSlippagePreserved` (test/BuyBackBurnerUniswapETH.t.sol): seeds deprecated `maxSlippage` slot, asserts next `buyBack` reverts until owner populates `mapTokenMaxSlippages`, and confirms the deprecated slot is preserved after upgrade.
 - [x] TokenomicsProxy fallback: No `receive()` function — ETH sent with empty calldata will go through `fallback()` which delegates to implementation. Implementation also has no `receive()`. Result: plain ETH transfers revert. SAFE behavior
 - [x] BuyBackBurnerProxy/LiquidityManagerProxy: Have `payable` fallback, so ETH can be sent. BuyBackBurner has `receive()` that emits FundsReceived. SAFE
 - [x] No `getImplementation()` on TokenomicsProxy: The proxy itself does NOT expose a getter for the implementation slot (unlike BuyBackBurnerProxy which has `getImplementation()`). The implementation's `tokenomicsImplementation()` function serves this purpose via delegatecall. SAFE but inconsistent

@@ -445,6 +445,24 @@ describe("Tokenomics", async () => {
             ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly");
         });
 
+        // Vulnerabilities list (historical) item #12 — refundFromStaking revert referenced `depository`
+        // instead of `dispenser`. Asserts the error parameters now match the access check.
+        it("refundFromStaking revert should reference the dispenser address, not depository", async function () {
+            // Wire a distinct dispenser address so depository != dispenser
+            const dispenserSigner = signers[3];
+            await tokenomics.connect(deployer).changeManagers(AddressZero, deployer.address, dispenserSigner.address);
+            expect(await tokenomics.depository()).to.equal(deployer.address);
+            expect(await tokenomics.dispenser()).to.equal(dispenserSigner.address);
+            expect(await tokenomics.depository()).to.not.equal(await tokenomics.dispenser());
+
+            // Revert arg[1] must be the dispenser, not the depository
+            await expect(
+                tokenomics.connect(signers[1]).refundFromStaking(10)
+            ).to.be.revertedWithCustomError(tokenomics, "ManagerOnly").withArgs(
+                signers[1].address, dispenserSigner.address
+            );
+        });
+
         it("Should fail when calling initializer once again", async function () {
             await expect(
                 tokenomics.initializeTokenomics(AddressZero, AddressZero, AddressZero, AddressZero, AddressZero, 0,
@@ -1102,6 +1120,144 @@ describe("Tokenomics", async () => {
             expect(await tokenomics.epochLen()).to.equal(epochLen + 100);
 
             // Restore to the state of the snapshot
+            await snapshot.restore();
+        });
+
+        it("M-04: decreasing-year boundary (Y2→Y3) does not revert with the effectiveBond fix", async function () {
+            // The else-if branch added at Tokenomics.sol:1182 is a defensive guard for the
+            // decreasing-year scenario described in C4A 2026-01 S-1030 (Internal audit 15 M-04).
+            // In every sane checkpoint flow we traced, the anticipation at line 1263 pre-credits
+            // the blended Y2/Y3 maxBond into effectiveBond, and the settlement's blended
+            // incentives[4] either matches (diffSec == epochLen) or exceeds (late settlement)
+            // curMaxBond — so the `else if (incentives[4] < curMaxBond)` branch is not
+            // triggered by naturally-timed checkpoints. The branch remains in place as a safety
+            // net against asymmetric maxBondFraction / updateInflationPerSecondAndFractions
+            // patterns that could otherwise leak over-credit forward.
+            //
+            // This test exercises the year-crossing path end-to-end to guarantee that (a) the
+            // boundary is handled without revert under the new code, and (b) effectiveBond and
+            // currentYear end up in the expected post-crossing shape.
+
+            const snapshot = await helpers.takeSnapshot();
+
+            const timeLaunch = Number(await tokenomics.timeLaunch());
+
+            // MAX_EPOCH_LENGTH is ONE_YEAR - 1 day, so each forward hop stays below that.
+            // Pattern per year crossing: (1) settle an in-year epoch close to the boundary, then
+            // (2) settle the epoch that actually crosses so `currentYear` advances.
+            const twoDays = 2 * 86400;
+
+            // Y0 → Y1
+            await helpers.time.increaseTo(timeLaunch + oneYear - twoDays);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + oneYear + epochLen);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(1);
+
+            // Y1 → Y2
+            await helpers.time.increaseTo(timeLaunch + 2 * oneYear - twoDays);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + 2 * oneYear + epochLen);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(2);
+
+            // Y2 → Y3 — the first boundary in the OLAS inflation schedule where inflation
+            // DECREASES (40,400,000 → 25,260,023 OLAS). Walk across it and assert the checkpoint
+            // settles cleanly without reverting and with a non-zero effectiveBond.
+            await helpers.time.increaseTo(timeLaunch + 3 * oneYear - epochLen / 2);
+            await tokenomics.checkpoint();
+            await helpers.time.increaseTo(timeLaunch + 3 * oneYear + epochLen / 2);
+            await tokenomics.checkpoint();
+            expect(await tokenomics.currentYear()).to.equal(3);
+
+            const effectiveBondAfter = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            const maxBondAfter = ethers.BigNumber.from(await tokenomics.maxBond());
+            expect(effectiveBondAfter).to.be.gt(0);
+            // maxBond for Y3 must be strictly below a pure-Y2 epoch (Y3 rate < Y2 rate).
+            const maxBondY2Equivalent = ethers.BigNumber.from(epochLen)
+                .mul(ethers.BigNumber.from(await tokenomics.getInflationForYear(2)))
+                .div(ethers.BigNumber.from(oneYear))
+                .mul(50)
+                .div(100);
+            expect(maxBondAfter).to.be.lt(maxBondY2Equivalent);
+
+            await snapshot.restore();
+        });
+
+        it("M-04: else-if branch reduces effectiveBond when stored maxBond is synthetically inflated", async function () {
+            // This test drives the `else if (incentives[4] < curMaxBond)` branch directly by
+            // overwriting the packed storage slot for `maxBond` just before a checkpoint, then
+            // asserting that effectiveBond decreases by the full over-credit. In natural flows
+            // this condition does not arise (the anticipation block at Tokenomics.sol:1263
+            // keeps curMaxBond and the settled incentives[4] in sync), but it's reachable via
+            // admin-driven flows that reset maxBond out of band — the branch must produce the
+            // correct arithmetic when it fires.
+
+            const snapshot = await helpers.takeSnapshot();
+
+            // Drive one settled in-year epoch to populate maxBond / effectiveBond from the
+            // natural checkpoint path.
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const naturalMaxBond = ethers.BigNumber.from(await tokenomics.maxBond());
+            const effectiveBondPre = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            expect(naturalMaxBond).to.be.gt(0, "setup: natural maxBond must be non-zero");
+
+            // Tokenomics storage layout: slot 0 packs `address owner` (20 bytes, low) with
+            // `uint96 maxBond` (12 bytes, high). Build a new slot value that keeps the owner
+            // intact and doubles maxBond so that the next settlement's natural incentives[4]
+            // will be strictly less than the stored curMaxBond, firing the new else-if.
+            const SLOT0 = "0x0";
+            const currentSlot = await network.provider.send("eth_getStorageAt",
+                [tokenomics.address, SLOT0, "latest"]);
+            const currentSlotBN = ethers.BigNumber.from(currentSlot);
+            const mask160 = ethers.BigNumber.from(2).pow(160).sub(1);
+            const ownerAddrBits = currentSlotBN.and(mask160);
+            const inflatedMaxBond = naturalMaxBond.mul(2);
+            const newSlot = inflatedMaxBond.shl(160).or(ownerAddrBits);
+            const newSlotHex = ethers.utils.hexZeroPad(newSlot.toHexString(), 32);
+            await network.provider.send("hardhat_setStorageAt",
+                [tokenomics.address, SLOT0, newSlotHex]);
+
+            // Re-read maxBond to confirm the override stuck and owner is preserved.
+            expect(await tokenomics.maxBond()).to.equal(inflatedMaxBond);
+            expect(await tokenomics.owner()).to.equal(deployer.address);
+
+            // Next checkpoint — the settled epoch's natural incentives[4] is roughly
+            // `naturalMaxBond` worth of inflation, which is half of the injected maxBond.
+            // The else-if branch must subtract the difference from effectiveBond and then
+            // credit the recomputed maxBond via line 1290 additively.
+            await helpers.time.increase(epochLen);
+            await tokenomics.checkpoint();
+
+            const effectiveBondPost = ethers.BigNumber.from(await tokenomics.effectiveBond());
+            const maxBondPost = ethers.BigNumber.from(await tokenomics.maxBond());
+
+            // With the fix:
+            //   effectiveBondPost = effectiveBondPre - (inflatedMaxBond - naturalMaxBond) + maxBondPost
+            // Without the fix, the else-if wouldn't fire and effectiveBond would grow by
+            // exactly maxBondPost. So the fix path reduces effectiveBond relative to the
+            // natural increment by `inflatedMaxBond - naturalMaxBond`.
+            //
+            // Allow small rounding drift from the internal inflationPerEpoch blending math —
+            // the strict `<` plus approximate equality below captures both the direction and
+            // the magnitude.
+            const naturalIncrement = effectiveBondPre.add(maxBondPost);
+            expect(effectiveBondPost).to.be.lt(naturalIncrement,
+                "else-if must subtract the synthetic over-credit");
+
+            const overCredited = inflatedMaxBond.sub(naturalMaxBond);
+            const fixedIncrement = naturalIncrement.sub(overCredited);
+            const delta = effectiveBondPost.gt(fixedIncrement)
+                ? effectiveBondPost.sub(fixedIncrement)
+                : fixedIncrement.sub(effectiveBondPost);
+            // Absolute tolerance: one second's worth of inflation (timing dust from diffSec
+            // drifting by a block off the exact epochLen boundary).
+            const oneSecondInflation = ethers.BigNumber.from(await tokenomics.inflationPerSecond());
+            expect(delta).to.be.lte(oneSecondInflation.mul(2),
+                "effectiveBond matches the fix's arithmetic within 2 seconds of drift");
+
             await snapshot.restore();
         });
     });
