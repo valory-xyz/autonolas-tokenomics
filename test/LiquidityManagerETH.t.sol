@@ -818,6 +818,47 @@ contract LiquidityManagerETHTest is BaseSetup {
         liquidityManager.checkPoolAndGetCenterPrice(maturePool);
     }
 
+    /// @dev H-02 positive path: V3 buyBack with TWAP-derived amountOutMinimum (mapTokenMaxSlippages honored).
+    ///      Converts V2 → V3 to produce a pool with real OLAS liquidity, then swaps WETH → OLAS via
+    ///      BuyBackBurner.buyBack(WETH, amount, FEE_TIER) and asserts OLAS lands at the burner.
+    function testV3BuyBackWithTwapSlippage() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 0, true);
+
+        uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
+
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, FEE_TIER, 0);
+
+        uint256 received = IToken(OLAS).balanceOf(BURNER) - burnerBefore;
+        assertGt(received, 0, "V3 buyBack should deliver OLAS to burner");
+    }
+
+    /// @dev H-02 negative path: tightening slippage to 1 bps forces the router to revert on realized output
+    ///      (no real V3 swap can hit ±0.01% of a TWAP-derived quote once fees are paid).
+    function testV3BuyBackRevertsOnTightSlippage() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 0, true);
+
+        // Drop per-token slippage to 1 bps
+        address[] memory tokens = new address[](1);
+        tokens[0] = WETH;
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = 1;
+        buyBackBurner.setMaxSlippages(tokens, slippages);
+
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+
+        vm.expectRevert();
+        buyBackBurner.buyBack(WETH, 0.1 ether, FEE_TIER, 0);
+    }
+
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.
     function testConvertToV3FullScanTransferPosition() public {
         int24[] memory tickShifts = new int24[](2);

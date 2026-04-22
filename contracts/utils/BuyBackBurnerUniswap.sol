@@ -104,8 +104,9 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
     /// @param token Token address.
     /// @param tokenAmount Token amount.
     /// @param feeTier Fee tier.
+    /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address token, uint256 tokenAmount, int24 feeTier)
+    function _performSwap(address token, uint256 tokenAmount, int24 feeTier, uint256 amountOutMin)
         internal
         virtual
         override
@@ -119,7 +120,7 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
             fee: uint24(feeTier),
             recipient: address(this),
             amountIn: tokenAmount,
-            amountOutMinimum: 1,
+            amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
         });
 
