@@ -192,7 +192,7 @@ Operator deployment audit on the internal15 stack revealed that the `BuyBackBurn
 `contracts/utils/BuyBackBurner.sol`:
 - Constructor relaxes the zero check on `_liquidityManager` and `_swapRouter`. `_bridge2Burner` and `_treasury` remain required.
 - New `error V3PathDisabled()`.
-- Two internal view guards: `_requireV3Enabled()` (both V3 immutables non-zero), `_requireLiquidityManager()` (LM only — used by `checkPoolPrices` since `swapRouter` is not on its read path).
+- One internal view guard `_requireV3Enabled()` (reverts when either V3 immutable is zero); the LM-only check used by `checkPoolPrices` is inlined since it's the only call site.
 - Guards applied to: `buyBack(V3 4-arg)`, `_buyOLAS(V3)`, `setV3PoolStatuses`, `checkPoolPrices`.
 
 `scripts/deployment/utils/deploy_01_buy_back_burner_balancer.sh` and `deploy_02_buy_back_burner_uniswap.sh` normalise empty-string / `null` for `liquidityManagerAddress` and `swapRouterV3Address` to `0x0000…0` so `forge create` accepts them.

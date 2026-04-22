@@ -149,7 +149,7 @@ contract BuyBackBurnerV3DisabledTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // checkPoolPrices uses _requireLiquidityManager (LM only, not swapRouter)
+    // checkPoolPrices gates on liquidityManager only (swapRouter is not on its read path)
     // -----------------------------------------------------------------------
 
     function test_checkPoolPrices_revertsV3PathDisabled_whenLMZero() public {

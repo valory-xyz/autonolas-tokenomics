@@ -340,7 +340,7 @@ The `BuyBackBurner` constructor (`contracts/utils/BuyBackBurner.sol`) takes four
 - `buyBack(address, uint256, int24, uint256)` (V3 4-arg overload)
 - `_buyOLAS(address, uint256, int24)` (V3 internal — defense in depth)
 - `setV3PoolStatuses(address[], bool[])` — pool whitelisting is meaningless without a swap path
-- `checkPoolPrices(...)` — gates on `_requireLiquidityManager()` (LM-only) since `swapRouter` is not on its read path
+- `checkPoolPrices(...)` — gates on `liquidityManager == address(0)` only since `swapRouter` is not on its read path
 
 The V2 path (`buyBack(address, uint256, uint256)`) and admin setters (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `transferToken`, `updateOraclePrice`, `changeImplementation`) are unaffected. `setMaxSlippages` is intentionally ungated because `mapTokenMaxSlippages` is read by both V2 and V3 paths.
 

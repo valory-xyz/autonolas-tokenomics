@@ -174,15 +174,6 @@ abstract contract BuyBackBurner {
         }
     }
 
-    /// @dev Reverts with V3PathDisabled when liquidityManager is zero. Used by surfaces that
-    ///      need the LiquidityManager but do not touch swapRouter (e.g. `checkPoolPrices`,
-    ///      a read-only diagnostic helper).
-    function _requireLiquidityManager() internal view {
-        if (liquidityManager == address(0)) {
-            revert V3PathDisabled();
-        }
-    }
-
     /// @dev BuyBackBurner initializer.
     /// @param payload Initializer payload.
     function _initialize(bytes memory payload) internal virtual;
@@ -435,7 +426,9 @@ abstract contract BuyBackBurner {
         view
     {
         // checkPoolPrices delegates to liquidityManager; swapRouter is not read here
-        _requireLiquidityManager();
+        if (liquidityManager == address(0)) {
+            revert V3PathDisabled();
+        }
 
         // Get factory address
         address factory = IUniswapV3(uniV3PositionManager).factory();
@@ -553,14 +546,14 @@ abstract contract BuyBackBurner {
         external
         virtual
     {
-        // Fail fast when V3 is disabled — avoids any state writes and mirrors the guard inside _buyOLAS
-        _requireV3Enabled();
-
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
         }
         _locked = 2;
+
+        // Fail fast when V3 is disabled — mirrors the guard inside _buyOLAS
+        _requireV3Enabled();
 
         // Deadline guard against stale mempool execution; 0 opts out for callers that don't need it
         if (deadline != 0 && block.timestamp > deadline) {
