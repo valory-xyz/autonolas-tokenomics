@@ -1168,12 +1168,23 @@ contract Tokenomics is TokenomicsConstants {
         // Effective bond accumulates bonding leftovers from previous epochs (with the last max bond value set)
         // It is given the value of the maxBond for the next epoch as a credit
         // The difference between recalculated max bond per epoch and maxBond value must be reflected in effectiveBond,
-        // since the epoch checkpoint delay was not accounted for initially
-        // This has to be always true, or incentives[4] == curMaxBond if the epoch is settled exactly at the epochLen time
+        // since the epoch checkpoint delay was not accounted for initially.
+        // At most year boundaries inflation grows, so `incentives[4] > curMaxBond` holds and the block below
+        // credits the under-count to effectiveBond. At year boundaries where inflation DECREASES
+        // (see TokenomicsConstants.getInflationForYear: Y2→Y3 and Y9→Y10) the opposite holds:
+        // incentives[4] < curMaxBond, meaning effectiveBond was over-credited by curMaxBond at the start of
+        // this epoch and must be reduced by the over-count to keep future bond issuance inside the new year's cap.
+        // (C4A 2026-01 S-1030 / Internal audit 15 M-04.)
         if (incentives[4] > curMaxBond) {
-            // Adjust the effectiveBond
+            // Adjust the effectiveBond upward
             incentives[4] = effectiveBond + incentives[4] - curMaxBond;
             effectiveBond = uint96(incentives[4]);
+        } else if (incentives[4] < curMaxBond) {
+            // Adjust the effectiveBond downward, flooring at zero for the edge case where bonders have
+            // already consumed more than the new cap allows. The reset direction stays conservative —
+            // it under-counts remaining bond capacity, never over-counts, so no OLAS can be over-minted.
+            uint256 overCredited = curMaxBond - incentives[4];
+            effectiveBond = (effectiveBond > overCredited) ? uint96(effectiveBond - overCredited) : 0;
         }
 
         // Get the tokenomics point of the next epoch

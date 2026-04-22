@@ -207,6 +207,10 @@ abstract contract BuyBackBurner {
         // Check for zero address
         require(poolOracle != address(0), "Zero oracle address");
 
+        // Pull a fresh TWAP observation if the rate-limit window has elapsed. The oracle returns false
+        // (without reverting) when called inside the window, so back-to-back buyBack calls are not DoSed.
+        IOracle(poolOracle).updatePrice();
+
         // Get TWAP price (OLAS per secondToken) in 1e18 format
         uint256 twap = IOracle(poolOracle).getTWAP();
 

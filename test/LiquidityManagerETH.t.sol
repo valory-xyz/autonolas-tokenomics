@@ -9,7 +9,7 @@ import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {FullMath} from "../contracts/libraries/FullMath.sol";
 import {FixedPoint96} from "../contracts/libraries/FixedPoint96.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
-import {ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
+import {ObservationFailed, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {UniswapPriceOracle} from "../contracts/oracles/UniswapPriceOracle.sol";
@@ -798,6 +798,24 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         // Perform V3 swap in BBB using the whitelisted 0.3% fee tier pool
         buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER, 0);
+    }
+
+    /// @dev M-01: checkPoolAndGetCenterPrice must revert (not fall open to slot0) when observe()
+    ///      reverts on a pool that claims rich history (cardinality >= 2). Uses the mainnet
+    ///      USDC/WETH 0.3% V3 pool as a known-mature pool and `vm.mockCallRevert` to force
+    ///      observe() to revert; asserts the new `ObservationFailed(pool)` error propagates
+    ///      instead of the fail-open slot0 fallback.
+    function testCheckPoolAndGetCenterPrice_RevertsOnObserveRevertForkOverlay() public {
+        // Well-known mature V3 pool with cardinality ~15k+ on mainnet — guarantees the
+        // cardinality-based escape hatch for fresh pools does NOT apply here.
+        address maturePool = 0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8; // USDC/WETH 0.3%
+
+        // Overlay observe(uint32[]) on the pool so any getTWAP attempt reverts.
+        bytes memory observeSelector = abi.encodeWithSelector(bytes4(keccak256("observe(uint32[])")));
+        vm.mockCallRevert(maturePool, observeSelector, "OLD");
+
+        vm.expectRevert(abi.encodeWithSelector(ObservationFailed.selector, maturePool));
+        liquidityManager.checkPoolAndGetCenterPrice(maturePool);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.
