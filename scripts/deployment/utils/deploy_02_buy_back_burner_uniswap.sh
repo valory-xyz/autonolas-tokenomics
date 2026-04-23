@@ -44,16 +44,48 @@ fi
 liquidityManagerAddress=$(jq -r '.liquidityManagerProxyAddress' $globals)
 swapRouterV3Address=$(jq -r '.swapRouterV3Address' $globals)
 
-# V3 path is optional: the BuyBackBurner constructor accepts address(0) for liquidityManager
-# and swapRouter, and V3-touching functions revert V3PathDisabled at runtime. Normalise empty
-# strings / jq nulls to the zero address so forge create does not reject them.
-# NOTE: we wire the LiquidityManager *proxy* here, not the impl — the BBB calls factoryV3()
-# through it and the proxy delegatecall-reads the impl's immutables.
-if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
-  liquidityManagerAddress="0x0000000000000000000000000000000000000000"
+# V3 path is optional. Policy (fail-closed by default — see PR #278 review):
+#   - Both fields populated (non-zero): V3 enabled.
+#   - Both fields empty / null / zero: V3 disabled — REQUIRES explicit V3_DISABLED=true opt-in.
+#     Without the opt-in we refuse to deploy, so a misconfigured V3-intended chain
+#     cannot silently land in V3-disabled mode and only surface at runtime via
+#     V3PathDisabled.
+#   - Mixed (one zero, one non-zero): rejected unconditionally — likely a globals
+#     misconfiguration (e.g. swap router populated but LM proxy not yet deployed).
+#
+# NOTE: when V3 is enabled, we wire the LiquidityManager *proxy* here, not the impl —
+# the BBB calls factoryV3() through it and the proxy delegatecall-reads the impl's
+# immutables, preserving a future changeImplementation() upgrade path.
+ZERO_ADDR="0x0000000000000000000000000000000000000000"
+lmEmpty=0; rtEmpty=0
+[ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ] || [ "$liquidityManagerAddress" == "$ZERO_ADDR" ] && lmEmpty=1
+[ -z "$swapRouterV3Address" ]     || [ "$swapRouterV3Address" == "null" ]     || [ "$swapRouterV3Address" == "$ZERO_ADDR" ]     && rtEmpty=1
+
+if [ $lmEmpty -ne $rtEmpty ]; then
+  echo "${red}!!! Partial V3 config in $globals — refusing to deploy."
+  echo "    liquidityManagerProxyAddress and swapRouterV3Address must BOTH be populated"
+  echo "    (V3 enabled) or BOTH be empty/zero (V3 disabled)."
+  echo "    Got:"
+  echo "      liquidityManagerProxyAddress = '$liquidityManagerAddress'"
+  echo "      swapRouterV3Address          = '$swapRouterV3Address'${reset}"
+  exit 1
 fi
-if [ -z "$swapRouterV3Address" ] || [ "$swapRouterV3Address" == "null" ]; then
-  swapRouterV3Address="0x0000000000000000000000000000000000000000"
+
+if [ $lmEmpty -eq 1 ]; then
+  if [ "$V3_DISABLED" != "true" ]; then
+    echo "${red}!!! liquidityManagerProxyAddress and swapRouterV3Address are both empty/zero in $globals."
+    echo ""
+    echo "    To deploy a V3-disabled (V2-only) BBB, opt in explicitly:"
+    echo "        V3_DISABLED=true ./scripts/deployment/utils/deploy_02_buy_back_burner_uniswap.sh $1"
+    echo ""
+    echo "    Otherwise populate BOTH fields in $globals before re-running."
+    echo "    (LiquidityManager proxy: deploy via scripts/deployment/pol/deploy_03_liquidity_manager_proxy.sh,"
+    echo "     then copy the resulting liquidityManagerProxyAddress here.)${reset}"
+    exit 1
+  fi
+  liquidityManagerAddress="$ZERO_ADDR"
+  swapRouterV3Address="$ZERO_ADDR"
+  echo "${green}V3_DISABLED=true acknowledged — deploying V2-only BBB (LM/swapRouter set to address(0)).${reset}"
 fi
 
 contractName="BuyBackBurnerUniswap"
