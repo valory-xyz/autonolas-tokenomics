@@ -7,6 +7,20 @@ merge-base with `main`: `1d07c94` (5 commits, 26 files, +954 / −148 LOC)<br>
 
 > **Closing review (2026-04-22):** the final disposition of every internal15 finding — across PRs #272, #273, #275, #276, #277 — is recorded in [`FINAL_REVIEW.md`](FINAL_REVIEW.md). That document is the authoritative justification for the resolution of all issues in this audit: per-finding evidence on the composite tip, on-chain verification of the H-01 non-manifestation, the dated C-01 OpSec waiver, and the regression scan. Verdict: **green** — no further re-audit required for the internal15 cycle.
 
+## C4R 2026-01 fix matrix (PR #273 payload)
+
+Stated purpose of PR #273 = three C4R 2026-01 price-guard fixes. All three landed in a single code commit with tests/docs in a follow-up commit; the PR merged at `9bb4b03`.
+
+| C4R | Summary | Status | Fix commit |
+|-----|---------|--------|------------|
+| **#17** | Variable overwrite in `checkPoolAndGetCenterPrice` — `twapSqrtPriceX96` conflated with `centerSqrtPriceX96` | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+| **#18** | Logic inversion in instant-vs-TWAP price guard (direction not preserved) | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+| **#19** | `changeRanges` silently routes single-sided liquidity to treasury instead of reverting | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+
+Tests + doc cleanup: [`d22b0f5`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d22b0f518f9c97d89c1d7814076a81e0b739ca11). PR merge: [`9bb4b03`](https://github.com/valory-xyz/autonolas-tokenomics/commit/9bb4b03cb822faa5ec01fc1a13a44bd2fdd0252b).
+
+For the full internal-audit-15 finding set (H-01 / H-02 / M-01…M-04 / L-01…L-05 / I-01…I-03 / C-01) and their dispositions + fix commits, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md) §1.
+
 ## Objectives
 This re-audit is driven by the developer reversing the **"fix-by-exclusion"** approach from Internal14. Internal14 verified that the V3 swap path in `BuyBackBurner` had been **removed** ("V3 ABI mismatch → V3 swap path removed entirely"); PR #272 **restores** it, and PR #273 layers on top the three C4R 2026-01 price-guard fixes (#17/#18/#19).
 
@@ -51,10 +65,10 @@ Registries/governance items (C4A H-05, H-06, H-07, H-09, H-10) are handled in th
 | C4A | Repo | Status on PR #272+273 |
 |-----|------|-----------------------|
 | H-01 Broken TWAP validation (UniswapPriceOracle spot = TWAP) | tokenomics/oracles | **FIXED** — full rewrite with two stored observations + rate-limit + counterfactual extrapolation |
-| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | tokenomics/pol | **FIXED (this PR)** — TWAP decoded into separate `twapSqrtPriceX96`; returns TWAP |
+| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | tokenomics/pol | **FIXED** in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (this PR — C4R #17) — TWAP decoded into separate `twapSqrtPriceX96`; returns TWAP |
 | H-03 Balancer oracle uses vault spot balances → steerable | tokenomics/oracles | **PARTIAL** — `getPrice()` still reads spot balances; rate-limited updates + commit-on-success mitigate but do not remove steer within `minUpdateInterval` → tracked as **M-02 (this report)** |
 | H-04 Incorrect TWAP in BalancerPriceOracle | tokenomics/oracles | **FIXED** — new rolling-observations TWAP |
-| H-08 Logic inversion in price guard + fail-open | tokenomics/pol | **Logic FIXED (this PR via #17/#18)**; fail-open staticcall residual → tracked as **M-01 (this report)** |
+| H-08 Logic inversion in price guard + fail-open | tokenomics/pol | **Logic FIXED** in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (this PR — C4R #17/#18); fail-open staticcall residual → tracked as **M-01 (this report)** |
 | H-11 `cumulativePrice` corrupted on rejected update | tokenomics/oracles | **FIXED** — commit-on-success pattern |
 
 ### Medium (tokenomics-scope subset)
@@ -67,16 +81,17 @@ Registries/governance items (C4A M-01 governance, M-08, M-10) are handled in the
 | M-03 Price cumulative used inverted | tokenomics/oracles | **FIXED** — `direction == 0 → price0CumulativeLast` |
 | M-04 DoS unit mismatch in UniswapPriceOracle | tokenomics/oracles | **RESOLVED by replacement** |
 | M-05 `BalancerPriceOracle.validatePrice` uses stale TWAP | tokenomics/oracles | **FIXED** — `maxStaleness` enforced |
-| M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED (this PR via #19)** — `revert ZeroValue()` on single-sided |
+| M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED** in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (this PR — C4R #19) — `revert ZeroValue()` on single-sided |
 | M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) |
 | **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **FIXED** on branch `fix-medium-audit15` — `else if (incentives[4] < curMaxBond)` branch added with saturating subtraction at `Tokenomics.sol:1182`; `docs/Vulnerabilities_list_tokenomics.md#15` rationale + severity corrected. Tracked as **M-04 (this report)** |
 | M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **FIXED** on branch `fix-v3-swap-slippage` — TWAP-derived `amountOutMinimum` wired through `_performSwap` V3 overrides, `mapTokenMaxSlippages[secondToken]` now read on the V3 path (closes this report's H-02) |
 | M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed |
 
 ### C4R 2026-01 PR-body items (the stated purpose of PR #273): 3/3 FIXED
-- **#17 variable overwrite** — `twapSqrtPriceX96` decoded separately; returns TWAP
-- **#18 logic inversion** — real instant-vs-TWAP compare, direction-preserving
-- **#19 `changeRanges` single-sided** — `revert ZeroValue()` on zero amount
+All three fixed in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (tests + docs in [`d22b0f5`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d22b0f518f9c97d89c1d7814076a81e0b739ca11)):
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#17 variable overwrite** — `twapSqrtPriceX96` decoded separately; returns TWAP
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#18 logic inversion** — real instant-vs-TWAP compare, direction-preserving
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#19 `changeRanges` single-sided** — `revert ZeroValue()` on zero amount
 
 ### Low (tokenomics-scope subset)
 
@@ -130,13 +145,13 @@ The following **are not documented** in the list and should be added with curren
 | Missing C4A item | Current status | Suggested doc-list severity |
 |------------------|----------------|------------------------------|
 | H-01 UniswapPriceOracle TWAP = spot | FIXED (rewrite) | High — mark as FIXED |
-| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | FIXED (PR #273 #17) | High — mark as FIXED |
+| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | FIXED in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273, C4R #17) | High — mark as FIXED |
 | H-03 Balancer vault-balance steerability | PARTIAL (rate-limited) | High — mark as PARTIAL with residual link |
 | H-04 Incorrect TWAP formula (Balancer) | FIXED (rewrite) | High — mark as FIXED |
 | H-08 Logic inversion + fail-open in price guard | Logic FIXED, fail-open residual | High — mark as PARTIAL |
 | H-11 `cumulativePrice` corrupted on rejection | FIXED (commit-on-success) | High — mark as FIXED |
 | M-02, M-03, M-04, M-05, M-12 (oracle set) | FIXED by rewrite | Medium — batch entry referencing rewrite commit |
-| M-06 `changeRanges` single-sided silent fail | FIXED (PR #273 #19) | Medium — mark as FIXED |
+| M-06 `changeRanges` single-sided silent fail | FIXED in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273, C4R #19) | Medium — mark as FIXED |
 | M-07 Slipstream `refundETH` DoS | FIXED (`receive()` added at `BuyBackBurner.sol:585`) | Medium — mark as FIXED |
 | **M-11 V3 `amountOutMinimum = 1`** | **NOT FIXED** (re-opened by PR #272) | **Medium → High** — the restored V3 path re-introduces this unfixed |
 | **L-02 `convertToV3` front-run burns OLAS via `collectFees`** | NOT FIXED | Low — document + mitigation note |
