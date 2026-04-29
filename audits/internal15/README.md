@@ -494,7 +494,7 @@ manipulation.
 File: contracts/oracles/BalancerPriceOracle.sol — updatePrice()
 ```
 
-**Disposition (branch `fix-medium-audit15`):** tracked as an accepted residual in `docs/Vulnerabilities_list_tokenomics.md` item #20. The fix is architectural (swap the oracle source or rely on Vault-on-swap callbacks) rather than a local code edit — not in scope for this PR. Mitigations already in place: rate-limited updates, `maxStaleness` enforcement on `getTWAP()`, and per-token `mapTokenMaxSlippages` on the buyBack consumer. Off-chain monitoring on `ObservationUpdated` deviations is the primary control going forward; escalates to High if `updatePrice` ever becomes permissionlessly callable at tighter cadence or if `buyBack` volumes grow materially.
+**Disposition (branch `fix-medium-audit15`):** tracked as an accepted residual in `docs/Vulnerabilities_list_tokenomics.md` item #14 (renumbered from #20 in the source list during the L-bundle merge). The fix is architectural (swap the oracle source or rely on Vault-on-swap callbacks) rather than a local code edit — not in scope for this PR. Mitigations already in place: rate-limited updates, `maxStaleness` enforcement on `getTWAP()`, and per-token `mapTokenMaxSlippages` on the buyBack consumer. Off-chain monitoring on `ObservationUpdated` deviations is the primary control going forward; escalates to High if `updatePrice` ever becomes permissionlessly callable at tighter cadence or if `buyBack` volumes grow materially.
 
 [x] Documented as residual.
 
@@ -732,6 +732,55 @@ Entry #20 added to `docs/Vulnerabilities_list_tokenomics.md` with FIXED status a
 
 [x] Closed by branch `fix-low-audit15`.
 
+### Low. L-06 `BuyBackBurner.transfer()` can sweep V3-eligible secondTokens to treasury — late finding (2026-04-29), code fix pending
+
+**Surfaced after** `FINAL_REVIEW.md` was issued (2026-04-22). Recorded here for the audit trail; full disposition lives in `FINAL_REVIEW.md` §8.1.
+
+```
+BuyBackBurner.transfer(token) at contracts/utils/BuyBackBurner.sol:621-656
+gates on mapV2Oracles[token] != address(0). The V3 swap path authorizes
+by *pool* (mapV3Pools[pool]), not by *token*, so a V3-only secondToken
+(for example a stable wired up via setV3PoolStatuses + setMaxSlippages
+but never given a V2 oracle) has mapV2Oracles[secondToken] == address(0)
+and passes the eligibility check.
+
+Any external caller can front-run the V3 buyBack overload with
+transfer(secondToken) and divert the accumulated input balance to
+treasury, bypassing the V3 swap into OLAS. No funds lost (treasury is
+owner-controlled), but the V3 buyBack-and-burn workflow is publicly
+griefable until the operator drains treasury back into BBB and retries.
+
+Affected surface:
+  - buyBack(address, uint256, int24, uint256)   (V3 4-arg overload)
+  - any chain where the V3 path is enabled with at least one secondToken
+    that has no V2 oracle (intended common case on V3-only chains)
+
+Files: contracts/utils/BuyBackBurner.sol
+       - transfer(address)              lines 621-656
+       - setV3PoolStatuses(...)         lines 384-411
+       - mapV2Oracles / mapV3Pools      lines 142-144
+
+Suggested fix (preferred):
+  Add `mapping(address => uint256) public mapV3SecondTokenRefs;`
+  - In setV3PoolStatuses, when toggling pool status, read pool.token0() /
+    token1(), pick the non-OLAS side as secondToken, and inc/dec the ref
+    count. Skip the bookkeeping when the new status equals the old one
+    so toggles are idempotent.
+  - In transfer(), additionally revert with UnauthorizedToken(token)
+    when mapV3SecondTokenRefs[token] > 0.
+
+  Storage-append-only — no impact on existing slot layout.
+  No re-init needed; bookkeeping is rebuilt by the operator re-toggling
+  V3 pool whitelist via setV3PoolStatuses (or by a one-shot owner-only
+  backfill helper if preferred).
+```
+
+**Operational mitigation (until fix lands):** off-chain monitor on every BBB proxy with V3 enabled, alerting on `TokenTransferred` events whose `to == treasury` and whose token is in the V3 secondToken set. On detection, the operator drains the diverted balance from treasury back into BBB and re-triggers the V3 `buyBack`.
+
+Tracked in `docs/Vulnerabilities_list_tokenomics.md` #21.
+
+[ ] Open — code fix pending. Closes when `mapV3SecondTokenRefs` (or equivalent) fix lands and `transfer()` rejects V3-eligible secondTokens.
+
 ### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory
 ```
 Owner can whitelist an arbitrary address as a V3 pool. If the owner is
@@ -765,9 +814,20 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Critical | 1 (C-01 ownership rotation tracked as deployment-time operational item per company policy) |
 | High     | 0 (H-02 FIXED on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 1 (M-02 acknowledged residual; M-01, M-03, M-04 FIXED on `fix-medium-audit15`) |
-| Low      | 0 (L-01 + L-05 FIXED on `fix-low-audit15`; L-02 annotation-only, L-03 / L-04 documented residuals) |
+| Low      | 1 open (L-06 late finding 2026-04-29, code fix pending; L-01 + L-05 FIXED on `fix-low-audit15`; L-02 annotation-only, L-03 / L-04 documented residuals) |
 | Notes    | 3 |
-| **Total**| **5 residual; 9 closed** |
+| **Total**| **6 residual; 9 closed** |
+
+**Orthogonal Code / Deployment status split** (full per-finding matrix in `FINAL_REVIEW.md` §1; the table above conflates source-side and on-chain-side closure into a single severity count, which is exactly what the §1 split is meant to disambiguate):
+
+| Bucket | Count | Findings |
+|--------|------:|----------|
+| ✅ Fixed in code, 🟡 Pending redeploy of an existing on-chain proxy (Tokenomics) | 2 | M-04, legacy VL #12 typo |
+| ✅ Fixed in code, ⚪ Never deployed (lands with the fresh BBB / LMC / NeighborhoodScanner deploy bundle) | 7 | H-02, M-01, M-03, L-01, L-02, L-05, C4A L-08 |
+| 📝 Documented (vulnerabilities-list residual), code unchanged | 8 | M-02 (#14), L-03 (#15), L-04 (#16), C4A-L-06 (#17), C4A-L-09 (#18), C4A-L-13 (#19), VL #12 current, I-01 (#22) |
+| 🔴 Not fixed (open) — code fix pending | 1 | L-06 (late finding; documented in VL #21) |
+| ⚖️ Rejected on review / 🔄 Resolved by replacement | 2 | S-893, C4A L-15 |
+| — Not a code finding (OpSec / methodology / cosmetic) | 4 | C-01, H-01, I-02, I-03 |
 
 ### Test coverage gaps
 
@@ -809,7 +869,7 @@ Required before deployment:
 9. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96). Entries #17–#20 added on branch `fix-low-audit15` cover the low bundle (L-02 annotation, L-03/L-04 documented residuals, L-05 FIXED).
 
 Tracked follow-ups (not blocking):
-- **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#20`; off-chain monitoring is the primary control.
+- **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#14`; off-chain monitoring is the primary control.
 - ~~L-02 / L-03 / L-04~~ — annotated + documented in `docs/Vulnerabilities_list_tokenomics.md` on branch `fix-low-audit15`. L-03 and L-04 remain tracked residuals (architectural fixes out of scope for the low bundle).
 
 ### Deployment-script impact sweep for the medium bundle
