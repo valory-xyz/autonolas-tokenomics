@@ -1,11 +1,24 @@
 # Internal audit 15 of autonolas-tokenomics — PR #273 re-audit (v2.22 methodology)
+
+> ## 👉 Start here: [`FINAL_REVIEW.md`](FINAL_REVIEW.md) — ultimate guide for C4R 2026-01 disposition
+>
+> [`FINAL_REVIEW.md`](FINAL_REVIEW.md) is the **authoritative, consolidated record** of how every internal15 / C4A 2026-01 finding has been addressed across PRs #272 + #273 + #275 + #276 + #277 (and the late 2026-04-29 follow-up). It contains:
+>
+> - **§1** — orthogonal **Code status × Deployment status** matrix for every finding, with file:line evidence on the composite tip and an aggregate split.
+> - **§1 (action items)** — the on-chain deploy bundle that closes every 🟡 *Pending redeploy* / ⚪ *Code fix only — never deployed* row.
+> - **§2** — on-chain verification that H-01 cannot manifest under the chosen fresh-redeploy rollout.
+> - **§3** — dated C-01 OpSec waiver.
+> - **§4** — regression scan + ABI-change disclosure.
+> - **§6** — verdict.
+> - **§8** — post-closing addendum (late finding L-06 + doc hygiene corrections, 2026-04-29).
+>
+> Read `FINAL_REVIEW.md` first if you are a downstream re-auditor, an Immunefi reviewer, a deploy-time operator, or a new team member trying to understand the current state of the codebase. Use this `README.md` only when you need the underlying *why* — full original finding text, attack scenarios, suggested-fix code blocks, methodology, deployment-script impact sweep — that `FINAL_REVIEW.md` cites back into.
+
 The review has been performed based on the contract code in the following repository:<br>
 `https://github.com/valory-xyz/autonolas-tokenomics` <br>
 branch: `fix-v3-price-guards`, tip `ead1c83` — stacked on PR #272 `restore-v3-bbb`<br>
 merge-base with `main`: `1d07c94` (5 commits, 26 files, +954 / −148 LOC)<br>
 **Assumption**: PR #272 + PR #273 treated as merged into `main`.<br>
-
-> **Closing review (2026-04-22):** the final disposition of every internal15 finding — across PRs #272, #273, #275, #276, #277 — is recorded in [`FINAL_REVIEW.md`](FINAL_REVIEW.md). That document is the authoritative justification for the resolution of all issues in this audit: per-finding evidence on the composite tip, on-chain verification of the H-01 non-manifestation, the dated C-01 OpSec waiver, and the regression scan. Verdict: **green** — no further re-audit required for the internal15 cycle.
 
 ## C4R 2026-01 fix matrix (PR #273 payload)
 
