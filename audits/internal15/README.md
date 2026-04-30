@@ -10,7 +10,7 @@
 > - **§3** — dated C-01 OpSec waiver.
 > - **§4** — regression scan + ABI-change disclosure.
 > - **§6** — verdict.
-> - **§8** — post-closing addendum (late finding L-06 + doc hygiene corrections, 2026-04-29).
+> - **§8** — post-closing addendum (late finding L-06 — surfaced 2026-04-29, FIXED 2026-04-30 by reshape of `mapV3Pools` to mirror `mapV2Oracles`; closes I-01 as a side effect).
 >
 > Read `FINAL_REVIEW.md` first if you are a downstream re-auditor, an Immunefi reviewer, a deploy-time operator, or a new team member trying to understand the current state of the codebase. Use this `README.md` only when you need the underlying *why* — full original finding text, attack scenarios, suggested-fix code blocks, methodology, deployment-script impact sweep — that `FINAL_REVIEW.md` cites back into.
 
@@ -745,66 +745,66 @@ Entry #20 added to `docs/Vulnerabilities_list_tokenomics.md` with FIXED status a
 
 [x] Closed by branch `fix-low-audit15`.
 
-### Low. L-06 `BuyBackBurner.transfer()` can sweep V3-eligible secondTokens to treasury — late finding (2026-04-29), code fix pending
+### Low. L-06 `BuyBackBurner.transfer()` can sweep V3-eligible secondTokens to treasury — FIXED (2026-04-30)
 
-**Surfaced after** `FINAL_REVIEW.md` was issued (2026-04-22). Recorded here for the audit trail; full disposition lives in `FINAL_REVIEW.md` §8.1.
+**Surfaced after** `FINAL_REVIEW.md` was issued (2026-04-22), code-fixed 2026-04-30 by reshaping `mapV3Pools` to mirror `mapV2Oracles` (keyed by secondToken, value = pool address). Closes I-01 as a side effect via setter-time canonicality check. Tests + fork test in the same change.
 
 ```
-BuyBackBurner.transfer(token) at contracts/utils/BuyBackBurner.sol:621-656
-gates on mapV2Oracles[token] != address(0). The V3 swap path authorizes
-by *pool* (mapV3Pools[pool]), not by *token*, so a V3-only secondToken
-(for example a stable wired up via setV3PoolStatuses + setMaxSlippages
-but never given a V2 oracle) has mapV2Oracles[secondToken] == address(0)
-and passes the eligibility check.
+Original finding: BuyBackBurner.transfer(token) gated only on
+mapV2Oracles[token] != address(0). The V3 swap path authorized by
+*pool* (mapV3Pools[pool] = bool), not by *token*, so a V3-only
+secondToken (a stable wired up via setV3PoolStatuses + setMaxSlippages
+but never given a V2 oracle) had mapV2Oracles[secondToken] == address(0)
+and passed the eligibility check. An external caller could front-run
+the V3 buyBack overload with transfer(secondToken), divert the
+accumulated input balance to treasury, and grief the V3 swap into OLAS.
 
-Any external caller can front-run the V3 buyBack overload with
-transfer(secondToken) and divert the accumulated input balance to
-treasury, bypassing the V3 swap into OLAS. No funds lost (treasury is
-owner-controlled), but the V3 buyBack-and-burn workflow is publicly
-griefable until the operator drains treasury back into BBB and retries.
-
-Affected surface:
-  - buyBack(address, uint256, int24, uint256)   (V3 4-arg overload)
-  - any chain where the V3 path is enabled with at least one secondToken
-    that has no V2 oracle (intended common case on V3-only chains)
-
-Files: contracts/utils/BuyBackBurner.sol
-       - transfer(address)              lines 621-656
-       - setV3PoolStatuses(...)         lines 384-411
-       - mapV2Oracles / mapV3Pools      lines 142-144
-
-Suggested fix (preferred):
-  Add `mapping(address => uint256) public mapV3SecondTokenRefs;`
-  - In setV3PoolStatuses, when toggling pool status, read pool.token0() /
-    token1(), pick the non-OLAS side as secondToken, and inc/dec the ref
-    count. Skip the bookkeeping when the new status equals the old one
-    so toggles are idempotent.
-  - In transfer(), additionally revert with UnauthorizedToken(token)
-    when mapV3SecondTokenRefs[token] > 0.
-
-  Storage-append-only — no impact on existing slot layout.
-  No re-init needed; bookkeeping is rebuilt by the operator re-toggling
-  V3 pool whitelist via setV3PoolStatuses (or by a one-shot owner-only
-  backfill helper if preferred).
+Files affected: contracts/utils/BuyBackBurner.sol
+                contracts/utils/BuyBackBurnerUniswap.sol
+                contracts/utils/BuyBackBurnerBalancer.sol
 ```
 
-**Operational mitigation (until fix lands):** off-chain monitor on every BBB proxy with V3 enabled, alerting on `TokenTransferred` events whose `to == treasury` and whose token is in the V3 secondToken set. On detection, the operator drains the diverted balance from treasury back into BBB and re-triggers the V3 `buyBack`.
+**Fix applied (`fix-l06-v3-second-token-mapping` branch):** restructure `mapV3Pools` from `mapping(address => bool)` (pool → whitelisted) to `mapping(address => address)` (secondToken → pool). The shape now mirrors `mapV2Oracles`: same key, same delete-via-zero semantic, same setter signature `setV3Pools(secondTokens[], pools[])` mirroring `setV2Oracles(secondTokens[], oracles[])`. Two consequences:
 
-Tracked in `docs/Vulnerabilities_list_tokenomics.md` #21.
+1. **`transfer(address token)` gate** is now a single combined check:
+   ```solidity
+   if (mapV2Oracles[token] != address(0) || mapV3Pools[token] != address(0)) {
+       revert UnauthorizedToken(token);
+   }
+   ```
+   No fee tier param needed — the V3 leg keys directly off `secondToken`. The L-06 attack vector (caller picks a non-whitelisted fee tier to bypass) is structurally unreachable. No LM-zero guard is needed because `setV3Pools` calls `_requireV3Enabled()`, so `mapV3Pools` is provably empty when V3 is disabled at deployment.
+2. **`buyBack(...)` collapses to a single auto-routing entry point.** The V3 4-arg overload `buyBack(address, uint256, int24, uint256)` is removed; the V2-shape `buyBack(address, uint256, uint256)` auto-routes by reading `mapV3Pools[token]` first (V3 path) and falling through to the V2 path otherwise. Fee tier (Uniswap V3) / tick spacing (Slipstream) is read from the pool itself at swap time via per-child `_readPoolFeeOrTickSpacing(pool)`.
+3. **I-01 closes as a side effect.** `setV3Pools` now requires `factoryV3.getPool(secondToken, OLAS, pool's fee/tickSpacing) == pool` for every non-zero pool — operator can no longer point a wrong pool address at a token. Without this check, an admin-supplied non-canonical pool would let the V3 TWAP guard read from one pool while the swap router routed through a different pool (mismatch, slippage guard meaningless).
 
-[ ] Open — code fix pending. Closes when `mapV3SecondTokenRefs` (or equivalent) fix lands and `transfer()` rejects V3-eligible secondTokens.
+ABI changes (off-chain consumers must update):
+- `setV3PoolStatuses(address[], bool[])` → `setV3Pools(address[] secondTokens, address[] pools)`
+- `mapV3Pools(address) returns (bool)` → `mapV3Pools(address) returns (address)`
+- `buyBack(address, uint256, int24, uint256)` REMOVED — callers use `buyBack(address, uint256, uint256)` instead
+- New event `V3PoolsUpdated(address[] secondTokens, address[] pools)` replacing `V3PoolStatusesUpdated`
 
-### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory
+Test bundle:
+- Unit: `test/BuyBackBurnerTransferV3.t.sol` — 13 tests covering transfer-blocked, setter canonicality (positive + non-canonical revert + factory-returns-zero + delist + zero-secondToken + OLAS-secondToken + array mismatch + event), and unrelated-token sweep still works.
+- Fork (ETH mainnet): `test/BuyBackBurnerTransferV3ETH.t.sol` — 4 tests against real Uniswap V3 factory, real OLAS/WETH 1.0% pool, real USDC/WETH 0.3% pool used as a non-canonical sample. Verifies the canonical-factory check passes/rejects correctly and transfer is gated against a real V3 pool.
+- Existing suites updated: `BuyBackBurnerV3Disabled.t.sol`, `BuyBackBurnerV3Swap.t.sol`, `LiquidityManagerETH.t.sol`, `LiquidityManagerBase.t.sol`, `LowFindingsAudit15.t.sol`. All 123 unit tests pass (forge test).
+- Deploy script `scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh` updated to use `setV3Pools(address[],address[])`.
+
+VL entry #21 (open) and #22 (I-01 acknowledged-residual) both deleted on this branch since the team's policy is to remove closed entries.
+
+[x] Closed by branch `fix-l06-v3-second-token-mapping`. Side-effect closure of I-01 (setV3Pools canonicality check).
+
+### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory — FIXED (2026-04-30, side effect of L-06 fix)
 ```
-Owner can whitelist an arbitrary address as a V3 pool. If the owner is
+Owner could whitelist an arbitrary address as a V3 pool. If the owner is
 compromised (see C-01), an adversarial pool with a cooperating observe()
 (see M-01) becomes a drain vector.
 
-Suggested fix:
+Original suggested fix:
   require(IUniswapV3Factory(factory).getPool(token0, token1, fee) == pool,
           NotCanonicalV3Pool());
 ```
-[ ] Captured via C-01 ownership rotation — if owner is Safe + timelock this is low risk.
+**Fix applied (`fix-l06-v3-second-token-mapping` branch):** the L-06 reshape of `mapV3Pools` (secondToken → pool) and the resulting `setV3Pools` setter now perform exactly this check at config time — for each non-zero pool, the setter reads `pool.fee()` (Uniswap V3) / `pool.tickSpacing()` (Slipstream) and requires `factoryV3.getPool(secondToken, OLAS, that) == pool`. Mismatch reverts with `UnauthorizedPool(pool)`. Covered by unit + fork tests.
+
+[x] Closed by branch `fix-l06-v3-second-token-mapping` as a side effect of L-06.
 
 ### Notes. I-02 Token ordering via `>`
 Token ordering uses strict `>`. OK for EVM addresses (cannot be equal).<br>
@@ -827,18 +827,17 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Critical | 1 (C-01 ownership rotation tracked as deployment-time operational item per company policy) |
 | High     | 0 (H-02 FIXED on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 1 (M-02 acknowledged residual; M-01, M-03, M-04 FIXED on `fix-medium-audit15`) |
-| Low      | 1 open (L-06 late finding 2026-04-29, code fix pending; L-01 + L-05 FIXED on `fix-low-audit15`; L-02 annotation-only, L-03 / L-04 documented residuals) |
-| Notes    | 3 |
-| **Total**| **6 residual; 9 closed** |
+| Low      | 0 (L-01 + L-05 FIXED on `fix-low-audit15`; L-06 FIXED on `fix-l06-v3-second-token-mapping` 2026-04-30; L-02 annotation-only, L-03 / L-04 documented residuals) |
+| Notes    | 3 (I-01 FIXED on `fix-l06-v3-second-token-mapping` as a side effect; I-02 N/A; I-03 team policy) |
+| **Total**| **5 residual; 11 closed** |
 
 **Orthogonal Code / Deployment status split** (full per-finding matrix in `FINAL_REVIEW.md` §1; the table above conflates source-side and on-chain-side closure into a single severity count, which is exactly what the §1 split is meant to disambiguate):
 
 | Bucket | Count | Findings |
 |--------|------:|----------|
 | ✅ Fixed in code, 🟡 Pending redeploy of an existing on-chain proxy (Tokenomics) | 2 | M-04, legacy VL #12 typo |
-| ✅ Fixed in code, ⚪ Never deployed (lands with the fresh BBB / LMC / NeighborhoodScanner deploy bundle) | 7 | H-02, M-01, M-03, L-01, L-02, L-05, C4A L-08 |
-| 📝 Documented (vulnerabilities-list residual), code unchanged | 8 | M-02 (#14), L-03 (#15), L-04 (#16), C4A-L-06 (#17), C4A-L-09 (#18), C4A-L-13 (#19), VL #12 current, I-01 (#22) |
-| 🔴 Not fixed (open) — code fix pending | 1 | L-06 (late finding; documented in VL #21) |
+| ✅ Fixed in code, ⚪ Never deployed (lands with the fresh BBB / LMC / NeighborhoodScanner deploy bundle) | 9 | H-02, M-01, M-03, L-01, L-02, L-05, **L-06**, **I-01**, C4A L-08 |
+| 📝 Documented (vulnerabilities-list residual), code unchanged | 6 | M-02 (#14), L-03 (#15), L-04 (#16), C4A-L-06 (#17), C4A-L-09 (#18), C4A-L-13 (#19), VL #12 current |
 | ⚖️ Rejected on review / 🔄 Resolved by replacement | 2 | S-893, C4A L-15 |
 | — Not a code finding (OpSec / methodology / cosmetic) | 4 | C-01, H-01, I-02, I-03 |
 

@@ -100,52 +100,40 @@ contract BuyBackBurnerV3DisabledTest is Test {
         return BuyBackBurnerUniswap(payable(address(proxy)));
     }
 
-    function test_buyBackV3_revertsV3PathDisabled_whenLMZero() public {
+    // The V3 4-arg `buyBack(address, uint256, int24, uint256)` overload was removed when
+    // setV3Pools collapsed feeTier into the stored pool. The V3 path is now reachable only when
+    // mapV3Pools[token] != 0, which is only possible when V3 is enabled at deploy time (setV3Pools
+    // calls _requireV3Enabled). Hence the three former "buyBackV3 reverts V3PathDisabled" tests
+    // are folded into the setV3Pools tests below.
+
+    function test_setV3Pools_revertsV3PathDisabled_whenLMZero() public {
         BuyBackBurnerUniswap bbb = _deployProxy(address(0), ROUTER);
-        vm.expectRevert(V3PathDisabled.selector);
-        bbb.buyBack(address(0xCAFE), 1 ether, int24(3000), 0);
-    }
-
-    function test_buyBackV3_revertsV3PathDisabled_whenSwapRouterZero() public {
-        BuyBackBurnerUniswap bbb = _deployProxy(LM, address(0));
-        vm.expectRevert(V3PathDisabled.selector);
-        bbb.buyBack(address(0xCAFE), 1 ether, int24(3000), 0);
-    }
-
-    function test_buyBackV3_revertsV3PathDisabled_whenBothZero() public {
-        BuyBackBurnerUniswap bbb = _deployProxy(address(0), address(0));
-        vm.expectRevert(V3PathDisabled.selector);
-        bbb.buyBack(address(0xCAFE), 1 ether, int24(3000), 0);
-    }
-
-    function test_setV3PoolStatuses_revertsV3PathDisabled_whenLMZero() public {
-        BuyBackBurnerUniswap bbb = _deployProxy(address(0), ROUTER);
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = address(0xCAFE);
         address[] memory pools = new address[](1);
         pools[0] = address(0xBEEF);
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
         vm.expectRevert(V3PathDisabled.selector);
-        bbb.setV3PoolStatuses(pools, statuses);
+        bbb.setV3Pools(secondTokens, pools);
     }
 
-    function test_setV3PoolStatuses_revertsV3PathDisabled_whenSwapRouterZero() public {
+    function test_setV3Pools_revertsV3PathDisabled_whenSwapRouterZero() public {
         BuyBackBurnerUniswap bbb = _deployProxy(LM, address(0));
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = address(0xCAFE);
         address[] memory pools = new address[](1);
         pools[0] = address(0xBEEF);
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
         vm.expectRevert(V3PathDisabled.selector);
-        bbb.setV3PoolStatuses(pools, statuses);
+        bbb.setV3Pools(secondTokens, pools);
     }
 
     /// @dev Owner check fires before the V3 guard, so non-owner callers see OwnerOnly even on a V3-off deployment.
-    function test_setV3PoolStatuses_ownerCheckTakesPrecedence() public {
+    function test_setV3Pools_ownerCheckTakesPrecedence() public {
         BuyBackBurnerUniswap bbb = _deployProxy(address(0), address(0));
+        address[] memory secondTokens = new address[](1);
         address[] memory pools = new address[](1);
-        bool[] memory statuses = new bool[](1);
         vm.prank(address(0xCAFE));
         vm.expectRevert(abi.encodeWithSelector(OwnerOnly.selector, address(0xCAFE), address(this)));
-        bbb.setV3PoolStatuses(pools, statuses);
+        bbb.setV3Pools(secondTokens, pools);
     }
 
     // -----------------------------------------------------------------------
