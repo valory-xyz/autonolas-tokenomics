@@ -158,4 +158,95 @@ contract BuyBackBurnerTransferV3ETHTest is Test {
         assertEq(IERC20Like(WETH).balanceOf(address(bbb)), 0);
         assertEq(IERC20Like(WETH).balanceOf(TREASURY) - treasuryBefore, 1 ether);
     }
+
+    // -----------------------------------------------------------------------
+    // Combined V2 + V3 gate — transfer must block when either side is configured
+    // -----------------------------------------------------------------------
+
+    /// @dev If the operator has wired both a V2 oracle AND a V3 pool for the same secondToken,
+    ///      transfer() must still block (any path's authorization is enough). This covers the
+    ///      "OR" semantics of the combined check.
+    function testTransfer_blocksWhenBothV2AndV3Configured() public {
+        _whitelistPool(WETH, OLAS_WETH_POOL_1);
+
+        // Wire a V2 oracle for WETH too — sentinel address is fine, transfer() only checks non-zero
+        address[] memory tokens = new address[](1);
+        tokens[0] = WETH;
+        address[] memory oracles = new address[](1);
+        oracles[0] = address(0xBABE);
+        bbb.setV2Oracles(tokens, oracles);
+
+        deal(WETH, address(bbb), 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedToken.selector, WETH));
+        bbb.transfer(WETH);
+    }
+
+    /// @dev Transfer must still block on the V2 leg alone (V3 unconfigured) — regression check.
+    function testTransfer_blocksV2OracleOnly_realFactory() public {
+        // No V3 pool; V2 oracle only
+        address[] memory tokens = new address[](1);
+        tokens[0] = USDC;
+        address[] memory oracles = new address[](1);
+        oracles[0] = address(0xBABE);
+        bbb.setV2Oracles(tokens, oracles);
+
+        deal(USDC, address(bbb), 1_000e6);
+
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedToken.selector, USDC));
+        bbb.transfer(USDC);
+    }
+
+    /// @dev Transfer must still allow sweeping a token that's neither V2-mapped nor V3-paired.
+    ///      Sanity that the gate hasn't accidentally become deny-by-default for arbitrary tokens.
+    function testTransfer_allowsTrulyStrayToken_realFactory() public {
+        _whitelistPool(WETH, OLAS_WETH_POOL_1);
+
+        // USDC is not in either path on this BBB
+        deal(USDC, address(bbb), 1_000e6);
+        uint256 treasuryBefore = IERC20Like(USDC).balanceOf(TREASURY);
+
+        bbb.transfer(USDC);
+        assertEq(IERC20Like(USDC).balanceOf(address(bbb)), 0);
+        assertEq(IERC20Like(USDC).balanceOf(TREASURY) - treasuryBefore, 1_000e6);
+    }
+
+    // -----------------------------------------------------------------------
+    // Setter accepts/rejects edge cases against real factory
+    // -----------------------------------------------------------------------
+
+    /// @dev Cannot configure a V3 pool for OLAS itself (operator misconfiguration guard).
+    function testSetV3Pools_revertsWhenSecondTokenIsOlas_realFactory() public {
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = OLAS;
+        address[] memory pools = new address[](1);
+        pools[0] = OLAS_WETH_POOL_1;
+
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedToken.selector, OLAS));
+        bbb.setV3Pools(secondTokens, pools);
+    }
+
+    /// @dev Trying to whitelist OLAS/WETH at fee=3000 must fail — that pool doesn't exist on mainnet,
+    ///      so the factory returns address(0) but the operator tried to register a non-zero address.
+    function testSetV3Pools_revertsForNonexistentFeeTier_realFactory() public {
+        // Verify the pool truly doesn't exist on Uniswap V3 mainnet today
+        assertEq(IFactoryV3(FACTORY_V3).getPool(WETH, OLAS, uint24(3000)), address(0));
+
+        // Attempt to register the OLAS/WETH 1.0% pool while claiming fee=3000 — pool's fee() = 10000,
+        // setter reads fee() = 10000, factory.getPool(WETH, OLAS, 10000) = OLAS_WETH_POOL_1 (matches),
+        // so this actually passes! The operator's "claimed fee" is implicit in the pool.fee() reader,
+        // not in any caller-supplied param. Asserting acceptance is the right behavior.
+        _whitelistPool(WETH, OLAS_WETH_POOL_1);
+        assertEq(bbb.mapV3Pools(WETH), OLAS_WETH_POOL_1);
+
+        // Now attempt to whitelist the USDC/WETH pool against WETH's slot. This pool's fee() = 3000,
+        // factory.getPool(WETH, OLAS, 3000) returns address(0), so the canonicality check rejects.
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory pools = new address[](1);
+        pools[0] = USDC_WETH_POOL_03;
+
+        vm.expectRevert(abi.encodeWithSelector(UnauthorizedPool.selector, USDC_WETH_POOL_03));
+        bbb.setV3Pools(secondTokens, pools);
+    }
 }
