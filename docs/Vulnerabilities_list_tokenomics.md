@@ -338,9 +338,9 @@ The `BuyBackBurner` constructor (`contracts/utils/BuyBackBurner.sol`) takes four
 
 **Resolution.** `_liquidityManager` and `_swapRouter` are now optional — pass `address(0)` to deploy an implementation with the V3 path disabled. `_bridge2Burner` and `_treasury` remain required. A new error `V3PathDisabled()` is reverted by every V3-touching surface when either V3 immutable is unset:
 
-- `buyBack(address, uint256, int24, uint256)` (V3 4-arg overload)
-- `_buyOLAS(address, uint256, int24)` (V3 internal — defense in depth)
-- `setV3PoolStatuses(address[], bool[])` — pool whitelisting is meaningless without a swap path
+- `buyBack(address, uint256, uint256)` (auto-routes V3 first when `mapV3Pools[token] != 0`, V2 fallback otherwise; post-PR #280 the V3 4-arg overload is removed)
+- `_buyOLAS(address, uint256, address)` (V3 internal — defense in depth; takes the canonical pool, fee/tickSpacing read from it)
+- `setV3Pools(address[] secondTokens, address[] pools)` — pool whitelisting is meaningless without a swap path (renamed from `setV3PoolStatuses` in PR #280)
 - `checkPoolPrices(...)` — gates on `liquidityManager == address(0)` only since `swapRouter` is not on its read path
 
 The V2 path (`buyBack(address, uint256, uint256)`) and admin setters (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `transferToken`, `updateOraclePrice`, `changeImplementation`) are unaffected. `setMaxSlippages` is intentionally ungated because `mapTokenMaxSlippages` is read by both V2 and V3 paths.

@@ -173,7 +173,7 @@ Full diff `ead1c83..HEAD` against `contracts/`:
 **ABI change (non-breaking for on-chain code, breaking for keeper tooling):**
 
 - `buyBack(address,uint256)` → `buyBack(address,uint256,uint256 deadline)`
-- `buyBack(address,uint256,int24)` → `buyBack(address,uint256,int24,uint256 deadline)`
+- `buyBack(address,uint256,int24)` → `buyBack(address,uint256,int24,uint256 deadline)` *(historical — the V3 4-arg overload was subsequently removed by PR #280's L-06 reshape; V3 now auto-routes through the V2-shape signature. See §8.)*
 
 The internal `_performSwap` signatures also gain `uint256 amountOutMin` (not externally observable). Off-chain bot / keeper scripts that submit `buyBack` transactions must be updated; `deadline == 0` opts out of the deadline check. This is not listed as a finding because it is an intended consequence of L-01 and must, by construction, change the external signature.
 
@@ -194,7 +194,7 @@ The internal `_performSwap` signatures also gain `uint256 amountOutMin` (not ext
 
 Gaps (not blockers):
 - No fork test asserting `router` / `balancerVault` / `balancerPoolId` survive a proxy upgrade. The team's remediation path is fresh re-deploy, not upgrade; the absence is consistent with the chosen strategy but the upgrade path is not under test.
-- No unit test for `setV3PoolStatuses` factory-ancestry enforcement (I-01 is acknowledged-and-deferred).
+- ~~No unit test for `setV3PoolStatuses` factory-ancestry enforcement (I-01 is acknowledged-and-deferred).~~ — **Closed by PR #280**: I-01 is now fixed (factory ancestry verified at setter time inside `setV3Pools`) and covered by `BuyBackBurnerTransferV3.t.sol` (canonical / non-canonical / factory-returns-zero) plus `BuyBackBurnerTransferV3ETH.t.sol` (real Uniswap V3 mainnet factory). See §8.
 
 ---
 
@@ -248,14 +248,14 @@ Operator deployment audit on the internal15 stack revealed that the `BuyBackBurn
 - Constructor relaxes the zero check on `_liquidityManager` and `_swapRouter`. `_bridge2Burner` and `_treasury` remain required.
 - New `error V3PathDisabled()`.
 - One internal view guard `_requireV3Enabled()` (reverts when either V3 immutable is zero); the LM-only check used by `checkPoolPrices` is inlined since it's the only call site.
-- Guards applied to: `buyBack(V3 4-arg)`, `_buyOLAS(V3)`, `setV3PoolStatuses`, `checkPoolPrices`.
+- Guards applied to: `buyBack(V3 4-arg)`, `_buyOLAS(V3)`, `setV3PoolStatuses`, `checkPoolPrices`. *(Post-PR #280 reshape: the V3 4-arg `buyBack` overload is removed and `setV3PoolStatuses` is renamed to `setV3Pools(address[], address[])`; the `_requireV3Enabled()` guard now applies on `buyBack(3-arg, V3-routed)`, `_buyOLAS(V3)`, `setV3Pools`, `checkPoolPrices`.)*
 
-`scripts/deployment/utils/deploy_01_buy_back_burner_balancer.sh` and `deploy_02_buy_back_burner_uniswap.sh` normalise empty-string / `null` for `liquidityManagerAddress` and `swapRouterV3Address` to `0x0000…0` so `forge create` accepts them.
+`scripts/deployment/utils/deploy_01_buy_back_burner_balancer.sh` and `deploy_02_buy_back_burner_uniswap.sh` require `liquidityManagerProxyAddress` and `swapRouterV3Address` to be set explicitly in the globals JSON — a real address for V3-enabled, or `0x0000000000000000000000000000000000000000` for V3-disabled. Empty / `null` is rejected with `exit 1`, on the basis that an unset field means "operator hasn't decided yet" and silent normalisation would mask a misconfigured deploy.
 
 `test/BuyBackBurnerV3Disabled.t.sol` — 19 new unit tests:
 - Constructor accepts zero `_liquidityManager` / `_swapRouter` / both; still reverts on zero `_bridge2Burner` / `_treasury` (Uniswap + Balancer variants).
 - `buyBack(V3)` reverts `V3PathDisabled` on each of LM-zero / swapRouter-zero / both-zero.
-- `setV3PoolStatuses` reverts `V3PathDisabled` on LM-zero / swapRouter-zero; owner check fires before the V3 guard.
+- `setV3PoolStatuses` reverts `V3PathDisabled` on LM-zero / swapRouter-zero; owner check fires before the V3 guard. *(Renamed to `setV3Pools` post-PR #280; the V3PathDisabled guard semantics carry through unchanged.)*
 - `checkPoolPrices` reverts `V3PathDisabled` only when LM is zero; passes through with `swapRouter == 0`.
 - V2 admin surfaces (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `changeImplementation`) succeed on a V3-disabled deployment.
 
