@@ -1,5 +1,11 @@
 # Internal Audit 16 — `fix-l06-v3-second-token-mapping` re-audit + broad-scope sweep
 
+> ## 👉 Looking for the C4R 2026-01 cross-reference? See [`FINAL_REVIEW.md`](FINAL_REVIEW.md)
+>
+> [`FINAL_REVIEW.md`](FINAL_REVIEW.md) is a **C4R-ID-keyed re-presentation** of every tokenomics-scope C4R 2026-01 finding (28 in total — 6 H + 9 M + 13 L) with the fix commit hash or `docs/Vulnerabilities_list_tokenomics.md` entry number cited inline. Read it first if you arrive holding the [C4R draft gist](https://gist.github.com/kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38) and want a single landing page that answers "C4R L-01 — fixed where?" without triangulating across [`audits/internal15/README.md`](../internal15/README.md), [`audits/internal15/FINAL_REVIEW.md`](../internal15/FINAL_REVIEW.md), and the VL doc.
+>
+> Use *this* `README.md` for the internal16 cycle's own work product — the L-06 / I-01 fix re-audit, broad-scope sweep, methodology codification (variant-extension asymmetric gate completeness), 1 MEDIUM + 5 LOW + 3 INFO new findings, agent-Critical false-positive analysis.
+
 **Branch under audit**: `fix-l06-v3-second-token-mapping` (HEAD `5fadd70`).
 **Merge-base with `main`**: `1d07c94`.
 **Predecessor audit**: `audits/internal15/README.md` (closed 2026-04-30 with L-06 + I-01 flipped to ✅ Fixed via this branch).
