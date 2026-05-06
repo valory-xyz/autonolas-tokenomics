@@ -126,6 +126,9 @@ forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
 # Fork tests (Arbitrum)
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv
 
+# Fork tests (Optimism)
+forge test -f $FORK_OPTIMISM_NODE_URL --mc BuyBackBurnerTransferV3Optimism -vvv
+
 # Fork tests (Celo)
 forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv
 ```

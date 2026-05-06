@@ -171,16 +171,14 @@ contract BaseSetup is Test {
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerUniswap(payable(address(buyBackBurnerProxy)));
 
-        // Whitelist V3 pool
-        address[] memory pools = new address[](1);
-        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        buyBackBurner.setV3PoolStatuses(pools, statuses);
-
-        // Set V2 oracle mapping for WETH
+        // Configure V3 pool for WETH (the secondToken on this fork)
         address[] memory secondTokens = new address[](1);
         secondTokens[0] = WETH;
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        buyBackBurner.setV3Pools(secondTokens, pools);
+
+        // Set V2 oracle mapping for WETH
         address[] memory oraclesArr = new address[](1);
         oraclesArr[0] = address(oracleV2);
         buyBackBurner.setV2Oracles(secondTokens, oraclesArr);
@@ -797,7 +795,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         deal(WETH, address(buyBackBurner), 0.5 ether);
 
         // Perform V3 swap in BBB using the whitelisted 0.3% fee tier pool
-        buyBackBurner.buyBack(WETH, 0.5 ether, FEE_TIER, 0);
+        buyBackBurner.buyBack(WETH, 0.5 ether, 0);
     }
 
     /// @dev M-01: checkPoolAndGetCenterPrice must revert (not fall open to slot0) when observe()
@@ -831,7 +829,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
 
         deal(WETH, address(buyBackBurner), 0.1 ether);
-        buyBackBurner.buyBack(WETH, 0.1 ether, FEE_TIER, 0);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 received = IToken(OLAS).balanceOf(BURNER) - burnerBefore;
         assertGt(received, 0, "V3 buyBack should deliver OLAS to burner");
@@ -856,7 +854,7 @@ contract LiquidityManagerETHTest is BaseSetup {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 0.1 ether, FEE_TIER, 0);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.

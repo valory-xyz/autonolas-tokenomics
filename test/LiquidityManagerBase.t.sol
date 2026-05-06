@@ -194,13 +194,13 @@ contract BaseSetup is Test {
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerBalancer(payable(BUY_BACK_BURNER));
 
-        // Whitelist V3 pool
+        // Configure V3 pool for WETH (the secondToken; OLAS is in TOKENS but the API is keyed by secondToken)
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
         address[] memory pools = new address[](1);
         pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
         vm.prank(BBB_OWNER);
-        buyBackBurner.setV3PoolStatuses(pools, statuses);
+        buyBackBurner.setV3Pools(secondTokens, pools);
     }
 }
 
@@ -461,7 +461,7 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Perform V3 swap in BBB using the whitelisted tick spacing pool.
         // The Balancer V2 pool is too shallow after 95% LP drain, so use the V3 Slipstream path
         // which bypasses the V2 oracle TWAP check.
-        buyBackBurner.buyBack(WETH, 0.5 ether, TICK_SPACING, 0);
+        buyBackBurner.buyBack(WETH, 0.5 ether, 0);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

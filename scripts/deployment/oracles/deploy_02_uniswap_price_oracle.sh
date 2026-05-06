@@ -79,9 +79,17 @@ if [ $outputLength != 42 ]; then
   exit 0
 fi
 
-# Write new deployed contract back into JSON
+# Write new deployed contract back into JSON (oracles + utils + pol if present)
 echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globals)" > $globals
 echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
+
+# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_eth.sh
+# reads uniswapPriceOracleAddress from there. ETH mainnet has pol/globals_eth_mainnet.json;
+# silently skip on chains that don't.
+globalsPol="$(dirname "$0")/../pol/globals_$1.json"
+if [ -f "$globalsPol" ]; then
+  echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' "$globalsPol")" > "$globalsPol"
+fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

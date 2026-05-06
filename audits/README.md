@@ -30,6 +30,8 @@ An internal audit with a focus on verifying all: [internal audit 14](audits/inte
 
 An internal audit with a focus on verifying all vs C4A report: [internal audit 15](audits/internal15).
 
+An internal audit with a focus on verifying all vs l06-issue: [internal audit 16](audits/internal16).
+
 ### External audit
 Final audit reports are listed in their historical order:
 - [v1](audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
