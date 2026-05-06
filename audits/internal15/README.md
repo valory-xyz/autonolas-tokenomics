@@ -1,11 +1,38 @@
 # Internal audit 15 of autonolas-tokenomics — PR #273 re-audit (v2.22 methodology)
+
+> ## 👉 Start here: [`FINAL_REVIEW.md`](FINAL_REVIEW.md) — ultimate guide for C4R 2026-01 disposition
+>
+> [`FINAL_REVIEW.md`](FINAL_REVIEW.md) is the **authoritative, consolidated record** of how every internal15 / C4A 2026-01 finding has been addressed across PRs #272 + #273 + #275 + #276 + #277 (and the late 2026-04-29 follow-up). It contains:
+>
+> - **§1** — orthogonal **Code status × Deployment status** matrix for every finding, with file:line evidence on the composite tip and an aggregate split.
+> - **§1 (action items)** — the on-chain deploy bundle that closes every 🟡 *Pending redeploy* / ⚪ *Code fix only — never deployed* row.
+> - **§2** — on-chain verification that H-01 cannot manifest under the chosen fresh-redeploy rollout.
+> - **§3** — dated C-01 OpSec waiver.
+> - **§4** — regression scan + ABI-change disclosure.
+> - **§6** — verdict.
+> - **§8** — post-closing addendum (late finding L-06 — surfaced 2026-04-29, FIXED 2026-04-30 by reshape of `mapV3Pools` to mirror `mapV2Oracles`; closes I-01 as a side effect).
+>
+> Read `FINAL_REVIEW.md` first if you are a downstream re-auditor, an Immunefi reviewer, a deploy-time operator, or a new team member trying to understand the current state of the codebase. Use this `README.md` only when you need the underlying *why* — full original finding text, attack scenarios, suggested-fix code blocks, methodology, deployment-script impact sweep — that `FINAL_REVIEW.md` cites back into.
+
 The review has been performed based on the contract code in the following repository:<br>
 `https://github.com/valory-xyz/autonolas-tokenomics` <br>
 branch: `fix-v3-price-guards`, tip `ead1c83` — stacked on PR #272 `restore-v3-bbb`<br>
 merge-base with `main`: `1d07c94` (5 commits, 26 files, +954 / −148 LOC)<br>
 **Assumption**: PR #272 + PR #273 treated as merged into `main`.<br>
 
-> **Closing review (2026-04-22):** the final disposition of every internal15 finding — across PRs #272, #273, #275, #276, #277 — is recorded in [`FINAL_REVIEW.md`](FINAL_REVIEW.md). That document is the authoritative justification for the resolution of all issues in this audit: per-finding evidence on the composite tip, on-chain verification of the H-01 non-manifestation, the dated C-01 OpSec waiver, and the regression scan. Verdict: **green** — no further re-audit required for the internal15 cycle.
+## C4R 2026-01 fix matrix (PR #273 payload)
+
+Stated purpose of PR #273 = three C4R 2026-01 price-guard fixes. All three landed in a single code commit with tests/docs in a follow-up commit; the PR merged at `9bb4b03`.
+
+| C4R | Summary | Status | Fix commit |
+|-----|---------|--------|------------|
+| **#17** | Variable overwrite in `checkPoolAndGetCenterPrice` — `twapSqrtPriceX96` conflated with `centerSqrtPriceX96` | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+| **#18** | Logic inversion in instant-vs-TWAP price guard (direction not preserved) | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+| **#19** | `changeRanges` silently routes single-sided liquidity to treasury instead of reverting | **FIXED** | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) |
+
+Tests + doc cleanup: [`d22b0f5`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d22b0f518f9c97d89c1d7814076a81e0b739ca11). PR merge: [`9bb4b03`](https://github.com/valory-xyz/autonolas-tokenomics/commit/9bb4b03cb822faa5ec01fc1a13a44bd2fdd0252b).
+
+For the full internal-audit-15 finding set (H-01 / H-02 / M-01…M-04 / L-01…L-05 / I-01…I-03 / C-01) and their dispositions + fix commits, see [`FINAL_REVIEW.md`](FINAL_REVIEW.md) §1.
 
 ## Objectives
 This re-audit is driven by the developer reversing the **"fix-by-exclusion"** approach from Internal14. Internal14 verified that the V3 swap path in `BuyBackBurner` had been **removed** ("V3 ABI mismatch → V3 swap path removed entirely"); PR #272 **restores** it, and PR #273 layers on top the three C4R 2026-01 price-guard fixes (#17/#18/#19).
@@ -48,55 +75,56 @@ Scope verification was performed against the tokenomics-scope subset of the C4A 
 
 Registries/governance items (C4A H-05, H-06, H-07, H-09, H-10) are handled in the corresponding repos and are not tracked here.
 
-| C4A | Repo | Status on PR #272+273 |
-|-----|------|-----------------------|
-| H-01 Broken TWAP validation (UniswapPriceOracle spot = TWAP) | tokenomics/oracles | **FIXED** — full rewrite with two stored observations + rate-limit + counterfactual extrapolation |
-| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | tokenomics/pol | **FIXED (this PR)** — TWAP decoded into separate `twapSqrtPriceX96`; returns TWAP |
-| H-03 Balancer oracle uses vault spot balances → steerable | tokenomics/oracles | **PARTIAL** — `getPrice()` still reads spot balances; rate-limited updates + commit-on-success mitigate but do not remove steer within `minUpdateInterval` → tracked as **M-02 (this report)** |
-| H-04 Incorrect TWAP in BalancerPriceOracle | tokenomics/oracles | **FIXED** — new rolling-observations TWAP |
-| H-08 Logic inversion in price guard + fail-open | tokenomics/pol | **Logic FIXED (this PR via #17/#18)**; fail-open staticcall residual → tracked as **M-01 (this report)** |
-| H-11 `cumulativePrice` corrupted on rejected update | tokenomics/oracles | **FIXED** — commit-on-success pattern |
+| C4A | Repo | Status | Fix commit |
+|-----|------|--------|------------|
+| H-01 Broken TWAP validation (UniswapPriceOracle spot = TWAP) | tokenomics/oracles | **FIXED** — full rewrite with two stored observations + rate-limit + counterfactual extrapolation | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) (V2 oracle rewrite) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) (`getTWAP()` extraction) |
+| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | tokenomics/pol | **FIXED** (C4R #17) — TWAP decoded into separate `twapSqrtPriceX96`; returns TWAP | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR [#273](https://github.com/valory-xyz/autonolas-tokenomics/pull/273)) |
+| H-03 Balancer oracle uses vault spot balances → steerable | tokenomics/oracles | **PARTIAL** — `getPrice()` still reads spot balances; rate-limited updates + commit-on-success mitigate but do not remove steer within `minUpdateInterval` → tracked as **M-02 (this report)** | [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) (rate-limit + commit-on-success); residual unfixed by design |
+| H-04 Incorrect TWAP in BalancerPriceOracle | tokenomics/oracles | **FIXED** — new rolling-observations TWAP | [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) |
+| H-08 Logic inversion in price guard + fail-open | tokenomics/pol | **Logic FIXED** (C4R #17/#18); fail-open staticcall residual surfaced as this report's **M-01**, then closed in PR [#276](https://github.com/valory-xyz/autonolas-tokenomics/pull/276) | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273 — logic) + [`b1542da`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b1542da) (PR #276 — fail-open closed) |
+| H-11 `cumulativePrice` corrupted on rejected update | tokenomics/oracles | **FIXED** — commit-on-success pattern | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) + [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) |
 
 ### Medium (tokenomics-scope subset)
 
 Registries/governance items (C4A M-01 governance, M-08, M-10) are handled in the corresponding repos and are not tracked here.
 
-| C4A | Repo | Status on PR #272+273 |
-|-----|------|-----------------------|
-| M-02 Uniswap `sync()` per-block grief | tokenomics/oracles | **FIXED** — new oracle is rate-limited via `minUpdateInterval` |
-| M-03 Price cumulative used inverted | tokenomics/oracles | **FIXED** — `direction == 0 → price0CumulativeLast` |
-| M-04 DoS unit mismatch in UniswapPriceOracle | tokenomics/oracles | **RESOLVED by replacement** |
-| M-05 `BalancerPriceOracle.validatePrice` uses stale TWAP | tokenomics/oracles | **FIXED** — `maxStaleness` enforced |
-| M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED (this PR via #19)** — `revert ZeroValue()` on single-sided |
-| M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) |
-| **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **FIXED** on branch `fix-medium-audit15` — `else if (incentives[4] < curMaxBond)` branch added with saturating subtraction at `Tokenomics.sol:1182`; `docs/Vulnerabilities_list_tokenomics.md#15` rationale + severity corrected. Tracked as **M-04 (this report)** |
-| M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **FIXED** on branch `fix-v3-swap-slippage` — TWAP-derived `amountOutMinimum` wired through `_performSwap` V3 overrides, `mapTokenMaxSlippages[secondToken]` now read on the V3 path (closes this report's H-02) |
-| M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed |
+| C4A | Repo | Status | Fix commit |
+|-----|------|--------|------------|
+| M-02 Uniswap `sync()` per-block grief | tokenomics/oracles | **FIXED** — new oracle is rate-limited via `minUpdateInterval` | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) |
+| M-03 Price cumulative used inverted | tokenomics/oracles | **FIXED** — `direction == 0 → price0CumulativeLast` | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) |
+| M-04 DoS unit mismatch in UniswapPriceOracle | tokenomics/oracles | **RESOLVED by replacement** | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) (V2 oracle rewrite) |
+| M-05 `BalancerPriceOracle.validatePrice` uses stale TWAP | tokenomics/oracles | **FIXED** — `maxStaleness` enforced | [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) |
+| M-06 `changeRanges` silently sends liquidity to treasury | tokenomics/pol | **FIXED** (C4R #19) — `revert ZeroValue()` on single-sided | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR [#273](https://github.com/valory-xyz/autonolas-tokenomics/pull/273)) |
+| M-07 Malicious user DoS Slipstream buyBack via `refundETH` | tokenomics/utils | **FIXED** — `receive() external payable {}` added at `BuyBackBurner.sol:585` (inherited by Balancer child) | [`62f5c6f`](https://github.com/valory-xyz/autonolas-tokenomics/commit/62f5c6f93d841186eaafe7880a5f9c94129ad216) (Internal14 cycle) |
+| **M-09 `checkpoint()` no downward `effectiveBond` correction at year boundaries** | **tokenomics/Tokenomics.sol** | **FIXED** — `else if (incentives[4] < curMaxBond)` branch added with saturating subtraction at `Tokenomics.sol:1182`; tracked as this report's **M-04** | [`9447968`](https://github.com/valory-xyz/autonolas-tokenomics/commit/9447968) (PR [#276](https://github.com/valory-xyz/autonolas-tokenomics/pull/276)) |
+| M-11 `amountOutMinimum = 1` on Slipstream/V3 swap | tokenomics/utils | **FIXED** — TWAP-derived `amountOutMinimum` wired through `_performSwap` V3 overrides, `mapTokenMaxSlippages[secondToken]` now read on the V3 path (closes this report's **H-02**) | [`b45b9fa`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b45b9fa) (PR [#275](https://github.com/valory-xyz/autonolas-tokenomics/pull/275)) |
+| M-12 Balancer oracle deadlock from cumulative weight | tokenomics/oracles | **FIXED** — new oracle uses rolling observations, old `cumulativePrice / averagePrice` deadlock formula removed | [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) |
 
 ### C4R 2026-01 PR-body items (the stated purpose of PR #273): 3/3 FIXED
-- **#17 variable overwrite** — `twapSqrtPriceX96` decoded separately; returns TWAP
-- **#18 logic inversion** — real instant-vs-TWAP compare, direction-preserving
-- **#19 `changeRanges` single-sided** — `revert ZeroValue()` on zero amount
+All three fixed in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (tests + docs in [`d22b0f5`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d22b0f518f9c97d89c1d7814076a81e0b739ca11)):
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#17 variable overwrite** — `twapSqrtPriceX96` decoded separately; returns TWAP
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#18 logic inversion** — real instant-vs-TWAP compare, direction-preserving
+- [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) — **#19 `changeRanges` single-sided** — `revert ZeroValue()` on zero amount
 
 ### Low (tokenomics-scope subset)
 
 Registries-scope C4A Lows (L-11, L-12) are handled in the registries repo and are not tracked here.
 
-| C4A | Status |
-|-----|--------|
-| L-01 V3 slippage bypass (JIT / low-tick-liquidity) | **FIXED (together with H-02)** on branch `fix-v3-swap-slippage` — TWAP-derived `amountOutMinimum` closes the sandwich surface |
-| L-02 `convertToV3` front-run burns OLAS via `collectFees` | **NOT FIXED** — permissionless `collectFees` still allows burn-before-convert race; tracked as **L-03 (this report)** |
-| L-03 slot0 fallback on new pools (few observations) | **PARTIAL** — subsumed by M-01 this report (fail-open) + additional `_increaseLiquidity` / `_decreaseLiquidity` direct slot0 reads remain |
-| L-04 Ineffective slippage from spot in `_increaseLiquidity`/`_decreaseLiquidity` | **NOT FIXED** — LMC admin-only surface; flagged as **L-04 (this report)** |
-| L-05 V2 oracle TWAP = spot | **FIXED** (H-01 rewrite) |
-| L-06 Registry-address changes lock incentives | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #17 of `docs/Vulnerabilities_list_tokenomics.md`. Owner-gated; operational mitigation only |
-| L-07 Post-swap slippage double-count | **FIXED** — old post-swap comparison removed (Internal14) |
-| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | **FIXED** on branch `fix-low-audit15` — switched to Uniswap OracleLibrary single-step formulation (`amount · sqrtP² / 2^192`), two-step fallback retained only for `sqrtP > 2^128`. Covered by 9 forge unit tests in `test/NeighborhoodScannerPrecision.t.sol` |
-| L-09 Precision loss in `_trackServiceDonations` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #18 of `docs/Vulnerabilities_list_tokenomics.md`. Bounded to `numServiceUnits − 1` wei per donation event; not exploitable |
-| L-10 V2 `validatePrice(maxSlippage/100)` forbids sub-1% | **FIXED** (oracle rewrite removed `/100` divisor) |
-| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | **DOCUMENTED residual** on branch `fix-low-audit15` — not planned; added as item #19 of `docs/Vulnerabilities_list_tokenomics.md`. Entangled with epoch accounting, surgical fix deferred; DAO keeper cadence + off-chain monitoring mitigate operationally |
-| L-14 `changeMaxSlippage` no upper BPS check | **FIXED** on branch `fix-low-audit15` — `LiquidityManagerCore.changeMaxSlippage` rejects `newMaxSlippage > MAX_BPS`; tracked as this report's **L-05** |
-| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | **RESOLVED BY REPLACEMENT** — rewritten `UniswapPriceOracle` (ETH-fork) has no `maxSlippage` or `validatePrice` surface; slippage enforcement moved to `BuyBackBurner.mapTokenMaxSlippages`, bounded by `MAX_BPS` in `setMaxSlippages` on `BuyBackBurner.sol`. C4R finding targets a function that no longer exists |
+| C4A | Status | Fix commit |
+|-----|--------|------------|
+| L-01 V3 slippage bypass (JIT / low-tick-liquidity) | **FIXED (together with H-02)** — TWAP-derived `amountOutMinimum` closes the sandwich surface | [`b45b9fa`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b45b9fa) (PR [#275](https://github.com/valory-xyz/autonolas-tokenomics/pull/275)) |
+| L-02 `convertToV3` front-run burns OLAS via `collectFees` | **NOT FIXED** (residual) — permissionless `collectFees` still allows burn-before-convert race; tracked as this report's **L-03**, documented residual | [`34e1a85`](https://github.com/valory-xyz/autonolas-tokenomics/commit/34e1a85) (doc-only, PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-03 slot0 fallback on new pools (few observations) | **PARTIAL** — subsumed by this report's **M-01** for cardinality ≥ 2; residual `_increaseLiquidity` / `_decreaseLiquidity` slot0 reads tracked as this report's **L-04** | [`b1542da`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b1542da) (PR [#276](https://github.com/valory-xyz/autonolas-tokenomics/pull/276) — M-01 portion) |
+| L-04 Ineffective slippage from spot in `_increaseLiquidity`/`_decreaseLiquidity` | **NOT FIXED** (residual) — LMC admin-only surface; flagged as this report's **L-04**, documented residual | [`34e1a85`](https://github.com/valory-xyz/autonolas-tokenomics/commit/34e1a85) (doc-only, PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-05 V2 oracle TWAP = spot | **FIXED** (H-01 rewrite) | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) |
+| L-06 Registry-address changes lock incentives | **DOCUMENTED residual** — not planned; added as item #17 of `docs/Vulnerabilities_list_tokenomics.md`. Owner-gated; operational mitigation only | [`eb55924`](https://github.com/valory-xyz/autonolas-tokenomics/commit/eb55924) (doc-only, PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-07 Post-swap slippage double-count | **FIXED** — old post-swap comparison removed (Internal14 cycle) | [`62f5c6f`](https://github.com/valory-xyz/autonolas-tokenomics/commit/62f5c6f93d841186eaafe7880a5f9c94129ad216) (Internal14) |
+| L-08 Precision loss in `NeighborhoodScanner.value0InToken1` | **FIXED** — switched to Uniswap OracleLibrary single-step formulation (`amount · sqrtP² / 2^192`), two-step fallback retained only for `sqrtP > 2^128`. Covered by 9 forge unit tests in `test/NeighborhoodScannerPrecision.t.sol` | [`eb55924`](https://github.com/valory-xyz/autonolas-tokenomics/commit/eb55924) (PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-09 Precision loss in `_trackServiceDonations` | **DOCUMENTED residual** — not planned; added as item #18 of `docs/Vulnerabilities_list_tokenomics.md`. Bounded to `numServiceUnits − 1` wei per donation event; not exploitable | [`eb55924`](https://github.com/valory-xyz/autonolas-tokenomics/commit/eb55924) (doc-only, PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-10 V2 `validatePrice(maxSlippage/100)` forbids sub-1% | **FIXED** — oracle rewrite removed `/100` divisor | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) |
+| L-13 `checkpoint()` permanently unusable if not called within `MAX_EPOCH_LENGTH` | **DOCUMENTED residual** — not planned; added as item #19 of `docs/Vulnerabilities_list_tokenomics.md`. Entangled with epoch accounting, surgical fix deferred; DAO keeper cadence + off-chain monitoring mitigate operationally | [`eb55924`](https://github.com/valory-xyz/autonolas-tokenomics/commit/eb55924) (doc-only, PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-14 `changeMaxSlippage` no upper BPS check | **FIXED** — `LiquidityManagerCore.changeMaxSlippage` rejects `newMaxSlippage > MAX_BPS`; tracked as this report's **L-05** | [`34e1a85`](https://github.com/valory-xyz/autonolas-tokenomics/commit/34e1a85) (PR [#277](https://github.com/valory-xyz/autonolas-tokenomics/pull/277)) |
+| L-15 `UniswapPriceOracle` maxSlippage not `< 100` | **RESOLVED BY REPLACEMENT** — rewritten `UniswapPriceOracle` has no `maxSlippage` or `validatePrice` surface; slippage enforcement moved to `BuyBackBurner.mapTokenMaxSlippages`, bounded by `MAX_BPS` in `setMaxSlippages` on `BuyBackBurner.sol`. C4R finding targets a function that no longer exists | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) |
 
 ### BuyBackBurner V3 restoration (previously "removed — fix by exclusion")
 
@@ -130,13 +158,13 @@ The following **are not documented** in the list and should be added with curren
 | Missing C4A item | Current status | Suggested doc-list severity |
 |------------------|----------------|------------------------------|
 | H-01 UniswapPriceOracle TWAP = spot | FIXED (rewrite) | High — mark as FIXED |
-| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | FIXED (PR #273 #17) | High — mark as FIXED |
+| H-02 Variable overwrite in `checkPoolAndGetCenterPrice` | FIXED in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273, C4R #17) | High — mark as FIXED |
 | H-03 Balancer vault-balance steerability | PARTIAL (rate-limited) | High — mark as PARTIAL with residual link |
 | H-04 Incorrect TWAP formula (Balancer) | FIXED (rewrite) | High — mark as FIXED |
 | H-08 Logic inversion + fail-open in price guard | Logic FIXED, fail-open residual | High — mark as PARTIAL |
 | H-11 `cumulativePrice` corrupted on rejection | FIXED (commit-on-success) | High — mark as FIXED |
 | M-02, M-03, M-04, M-05, M-12 (oracle set) | FIXED by rewrite | Medium — batch entry referencing rewrite commit |
-| M-06 `changeRanges` single-sided silent fail | FIXED (PR #273 #19) | Medium — mark as FIXED |
+| M-06 `changeRanges` single-sided silent fail | FIXED in [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273, C4R #19) | Medium — mark as FIXED |
 | M-07 Slipstream `refundETH` DoS | FIXED (`receive()` added at `BuyBackBurner.sol:585`) | Medium — mark as FIXED |
 | **M-11 V3 `amountOutMinimum = 1`** | **NOT FIXED** (re-opened by PR #272) | **Medium → High** — the restored V3 path re-introduces this unfixed |
 | **L-02 `convertToV3` front-run burns OLAS via `collectFees`** | NOT FIXED | Low — document + mitigation note |
@@ -479,7 +507,7 @@ manipulation.
 File: contracts/oracles/BalancerPriceOracle.sol — updatePrice()
 ```
 
-**Disposition (branch `fix-medium-audit15`):** tracked as an accepted residual in `docs/Vulnerabilities_list_tokenomics.md` item #20. The fix is architectural (swap the oracle source or rely on Vault-on-swap callbacks) rather than a local code edit — not in scope for this PR. Mitigations already in place: rate-limited updates, `maxStaleness` enforcement on `getTWAP()`, and per-token `mapTokenMaxSlippages` on the buyBack consumer. Off-chain monitoring on `ObservationUpdated` deviations is the primary control going forward; escalates to High if `updatePrice` ever becomes permissionlessly callable at tighter cadence or if `buyBack` volumes grow materially.
+**Disposition (branch `fix-medium-audit15`):** tracked as an accepted residual in `docs/Vulnerabilities_list_tokenomics.md` item #14 (renumbered from #20 in the source list during the L-bundle merge). The fix is architectural (swap the oracle source or rely on Vault-on-swap callbacks) rather than a local code edit — not in scope for this PR. Mitigations already in place: rate-limited updates, `maxStaleness` enforcement on `getTWAP()`, and per-token `mapTokenMaxSlippages` on the buyBack consumer. Off-chain monitoring on `ObservationUpdated` deviations is the primary control going forward; escalates to High if `updatePrice` ever becomes permissionlessly callable at tighter cadence or if `buyBack` volumes grow materially.
 
 [x] Documented as residual.
 
@@ -717,17 +745,66 @@ Entry #20 added to `docs/Vulnerabilities_list_tokenomics.md` with FIXED status a
 
 [x] Closed by branch `fix-low-audit15`.
 
-### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory
+### Low. L-06 `BuyBackBurner.transfer()` can sweep V3-eligible secondTokens to treasury — FIXED (2026-04-30)
+
+**Surfaced after** `FINAL_REVIEW.md` was issued (2026-04-22), code-fixed 2026-04-30 by reshaping `mapV3Pools` to mirror `mapV2Oracles` (keyed by secondToken, value = pool address). Closes I-01 as a side effect via setter-time canonicality check. Tests + fork test in the same change.
+
 ```
-Owner can whitelist an arbitrary address as a V3 pool. If the owner is
+Original finding: BuyBackBurner.transfer(token) gated only on
+mapV2Oracles[token] != address(0). The V3 swap path authorized by
+*pool* (mapV3Pools[pool] = bool), not by *token*, so a V3-only
+secondToken (a stable wired up via setV3PoolStatuses + setMaxSlippages
+but never given a V2 oracle) had mapV2Oracles[secondToken] == address(0)
+and passed the eligibility check. An external caller could front-run
+the V3 buyBack overload with transfer(secondToken), divert the
+accumulated input balance to treasury, and grief the V3 swap into OLAS.
+
+Files affected: contracts/utils/BuyBackBurner.sol
+                contracts/utils/BuyBackBurnerUniswap.sol
+                contracts/utils/BuyBackBurnerBalancer.sol
+```
+
+**Fix applied (`fix-l06-v3-second-token-mapping` branch):** restructure `mapV3Pools` from `mapping(address => bool)` (pool → whitelisted) to `mapping(address => address)` (secondToken → pool). The shape now mirrors `mapV2Oracles`: same key, same delete-via-zero semantic, same setter signature `setV3Pools(secondTokens[], pools[])` mirroring `setV2Oracles(secondTokens[], oracles[])`. Two consequences:
+
+1. **`transfer(address token)` gate** is now a single combined check:
+   ```solidity
+   if (mapV2Oracles[token] != address(0) || mapV3Pools[token] != address(0)) {
+       revert UnauthorizedToken(token);
+   }
+   ```
+   No fee tier param needed — the V3 leg keys directly off `secondToken`. The L-06 attack vector (caller picks a non-whitelisted fee tier to bypass) is structurally unreachable. No LM-zero guard is needed because `setV3Pools` calls `_requireV3Enabled()`, so `mapV3Pools` is provably empty when V3 is disabled at deployment.
+2. **`buyBack(...)` collapses to a single auto-routing entry point.** The V3 4-arg overload `buyBack(address, uint256, int24, uint256)` is removed; the V2-shape `buyBack(address, uint256, uint256)` auto-routes by reading `mapV3Pools[token]` first (V3 path) and falling through to the V2 path otherwise. Fee tier (Uniswap V3) / tick spacing (Slipstream) is read from the pool itself at swap time via per-child `_readPoolFeeOrTickSpacing(pool)`.
+3. **I-01 closes as a side effect.** `setV3Pools` now requires `factoryV3.getPool(secondToken, OLAS, pool's fee/tickSpacing) == pool` for every non-zero pool — operator can no longer point a wrong pool address at a token. Without this check, an admin-supplied non-canonical pool would let the V3 TWAP guard read from one pool while the swap router routed through a different pool (mismatch, slippage guard meaningless).
+
+ABI changes (off-chain consumers must update):
+- `setV3PoolStatuses(address[], bool[])` → `setV3Pools(address[] secondTokens, address[] pools)`
+- `mapV3Pools(address) returns (bool)` → `mapV3Pools(address) returns (address)`
+- `buyBack(address, uint256, int24, uint256)` REMOVED — callers use `buyBack(address, uint256, uint256)` instead
+- New event `V3PoolsUpdated(address[] secondTokens, address[] pools)` replacing `V3PoolStatusesUpdated`
+
+Test bundle:
+- Unit: `test/BuyBackBurnerTransferV3.t.sol` — 13 tests covering transfer-blocked, setter canonicality (positive + non-canonical revert + factory-returns-zero + delist + zero-secondToken + OLAS-secondToken + array mismatch + event), and unrelated-token sweep still works.
+- Fork (ETH mainnet): `test/BuyBackBurnerTransferV3ETH.t.sol` — 4 tests against real Uniswap V3 factory, real OLAS/WETH 1.0% pool, real USDC/WETH 0.3% pool used as a non-canonical sample. Verifies the canonical-factory check passes/rejects correctly and transfer is gated against a real V3 pool.
+- Existing suites updated: `BuyBackBurnerV3Disabled.t.sol`, `BuyBackBurnerV3Swap.t.sol`, `LiquidityManagerETH.t.sol`, `LiquidityManagerBase.t.sol`, `LowFindingsAudit15.t.sol`. All 123 unit tests pass (forge test).
+- Deploy script `scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh` updated to use `setV3Pools(address[],address[])`.
+
+VL entry #21 (open) and #22 (I-01 acknowledged-residual) both deleted on this branch since the team's policy is to remove closed entries.
+
+[x] Closed by branch `fix-l06-v3-second-token-mapping`. Side-effect closure of I-01 (setV3Pools canonicality check).
+
+### Notes. I-01 `setV3PoolStatuses` does not verify pool is returned by factory — FIXED (2026-04-30, side effect of L-06 fix)
+```
+Owner could whitelist an arbitrary address as a V3 pool. If the owner is
 compromised (see C-01), an adversarial pool with a cooperating observe()
 (see M-01) becomes a drain vector.
 
-Suggested fix:
+Original suggested fix:
   require(IUniswapV3Factory(factory).getPool(token0, token1, fee) == pool,
           NotCanonicalV3Pool());
 ```
-[ ] Captured via C-01 ownership rotation — if owner is Safe + timelock this is low risk.
+**Fix applied (`fix-l06-v3-second-token-mapping` branch):** the L-06 reshape of `mapV3Pools` (secondToken → pool) and the resulting `setV3Pools` setter now perform exactly this check at config time — for each non-zero pool, the setter reads `pool.fee()` (Uniswap V3) / `pool.tickSpacing()` (Slipstream) and requires `factoryV3.getPool(secondToken, OLAS, that) == pool`. Mismatch reverts with `UnauthorizedPool(pool)`. Covered by unit + fork tests.
+
+[x] Closed by branch `fix-l06-v3-second-token-mapping` as a side effect of L-06.
 
 ### Notes. I-02 Token ordering via `>`
 Token ordering uses strict `>`. OK for EVM addresses (cannot be equal).<br>
@@ -750,9 +827,19 @@ Audit hygiene — the PR removes entries wholesale rather than annotating them a
 | Critical | 1 (C-01 ownership rotation tracked as deployment-time operational item per company policy) |
 | High     | 0 (H-02 FIXED on `fix-v3-swap-slippage`; H-01 demoted to Info under fresh re-deployment plan) |
 | Medium   | 1 (M-02 acknowledged residual; M-01, M-03, M-04 FIXED on `fix-medium-audit15`) |
-| Low      | 0 (L-01 + L-05 FIXED on `fix-low-audit15`; L-02 annotation-only, L-03 / L-04 documented residuals) |
-| Notes    | 3 |
-| **Total**| **5 residual; 9 closed** |
+| Low      | 0 (L-01 + L-05 FIXED on `fix-low-audit15`; L-06 FIXED on `fix-l06-v3-second-token-mapping` 2026-04-30; L-02 annotation-only, L-03 / L-04 documented residuals) |
+| Notes    | 3 (I-01 FIXED on `fix-l06-v3-second-token-mapping` as a side effect; I-02 N/A; I-03 team policy) |
+| **Total**| **5 residual; 11 closed** |
+
+**Orthogonal Code / Deployment status split** (full per-finding matrix in `FINAL_REVIEW.md` §1; the table above conflates source-side and on-chain-side closure into a single severity count, which is exactly what the §1 split is meant to disambiguate):
+
+| Bucket | Count | Findings |
+|--------|------:|----------|
+| ✅ Fixed in code, 🟡 Pending redeploy of an existing on-chain proxy (Tokenomics) | 2 | M-04, legacy VL #12 typo |
+| ✅ Fixed in code, ⚪ Never deployed (lands with the fresh BBB / LMC / NeighborhoodScanner deploy bundle) | 9 | H-02, M-01, M-03, L-01, L-02, L-05, **L-06**, **I-01**, C4A L-08 |
+| 📝 Documented (vulnerabilities-list residual), code unchanged | 6 | M-02 (#14), L-03 (#15), L-04 (#16), C4A-L-06 (#17), C4A-L-09 (#18), C4A-L-13 (#19), VL #12 current |
+| ⚖️ Rejected on review / 🔄 Resolved by replacement | 2 | S-893, C4A L-15 |
+| — Not a code finding (OpSec / methodology / cosmetic) | 4 | C-01, H-01, I-02, I-03 |
 
 ### Test coverage gaps
 
@@ -794,7 +881,7 @@ Required before deployment:
 9. Update `docs/Vulnerabilities_list_tokenomics.md`: add the tokenomics-scope C4A 2026-01 items with FIXED/PARTIAL/NOT-FIXED status + resolving commit hash; correct item #15 rationale (the "inflation always increases" claim contradicts TokenomicsConstants.sol:85-96). Entries #17–#20 added on branch `fix-low-audit15` cover the low bundle (L-02 annotation, L-03/L-04 documented residuals, L-05 FIXED).
 
 Tracked follow-ups (not blocking):
-- **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#20`; off-chain monitoring is the primary control.
+- **M-02** — acknowledged architectural residual (`BalancerPriceOracle.updatePrice` spot sample inside `minUpdateInterval`). Documented in `docs/Vulnerabilities_list_tokenomics.md#14`; off-chain monitoring is the primary control.
 - ~~L-02 / L-03 / L-04~~ — annotated + documented in `docs/Vulnerabilities_list_tokenomics.md` on branch `fix-low-audit15`. L-03 and L-04 remain tracked residuals (architectural fixes out of scope for the low bundle).
 
 ### Deployment-script impact sweep for the medium bundle

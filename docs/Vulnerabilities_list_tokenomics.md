@@ -23,6 +23,11 @@
   - [17. changeRegistries can lock pending user incentives](#17-changeregistries-can-lock-pending-user-incentives)
   - [18. _trackServiceDonations precision loss via integer division](#18-_trackservicedonations-precision-loss-via-integer-division)
   - [19. checkpoint permanently unusable after MAX_EPOCH_LENGTH without a call](#19-checkpoint-permanently-unusable-after-max_epoch_length-without-a-call)
+  - [20. BuyBackBurner V3 path is per-chain optional](#20-buybackburner-v3-path-is-per-chain-optional-post-internal15-follow-up)
+  - [21. Depository OLAS transfer return value not checked](#21-depository-olas-transfer-return-value-not-checked)
+  - [22. Bridge2BurnerOptimism TOKEN_GAS_LIMIT hardcoded](#22-bridge2burneroptimism-token_gas_limit-hardcoded)
+  - [23. setV2Oracles and setV3Pools are not mutually exclusive](#23-setv2oracles-and-setv3pools-are-not-mutually-exclusive)
+  - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -323,6 +328,101 @@ function checkpoint() external returns (bool)
 If `checkpoint()` is not called for a duration that exceeds `MAX_EPOCH_LENGTH` from the last settled checkpoint, subsequent calls can land in a state where arithmetic based on `block.timestamp - prevEpochTime` exceeds the limits embedded in the epoch accounting, permanently wedging the checkpoint advancement path on the live proxy. Recovery would require a Tokenomics implementation upgrade.
 
 **Disposition:** not planned for this audit cycle — the code path is entangled with enough of the `checkpoint()` accounting that landing a surgical fix here without broader refactor risk was deemed not worth the effort. Operationally mitigated by: (a) the DAO's existing keeper cadence, which calls `checkpoint()` well within `MAX_EPOCH_LENGTH`; (b) monitoring alerts on missed checkpoint windows. Documented so a future Tokenomics refactor that opens this code path can bundle the fix.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+---
+
+### 20. BuyBackBurner V3 path is per-chain optional (post-internal15 follow-up)
+
+**Severity**: Notes / operational
+**Source**: Internal follow-up to PR #272 (`restore-v3-bbb`) deployment audit
+
+The `BuyBackBurner` constructor (`contracts/utils/BuyBackBurner.sol`) takes four addresses: `_liquidityManager`, `_bridge2Burner`, `_treasury`, `_swapRouter`. Prior to this change, all four were checked non-zero. That blocked V2-only chain deployments (gnosis, polygon, arbitrum) where no Uniswap V3 / Slipstream router exists, and forced operators to deploy a `LiquidityManager` upfront on every chain even if V3 was not in scope.
+
+**Resolution.** `_liquidityManager` and `_swapRouter` are now optional — pass `address(0)` to deploy an implementation with the V3 path disabled. `_bridge2Burner` and `_treasury` remain required. A new error `V3PathDisabled()` is reverted by every V3-touching surface when either V3 immutable is unset:
+
+- `buyBack(address, uint256, uint256)` (auto-routes V3 first when `mapV3Pools[token] != 0`, V2 fallback otherwise; post-PR #280 the V3 4-arg overload is removed)
+- `_buyOLAS(address, uint256, address)` (V3 internal — defense in depth; takes the canonical pool, fee/tickSpacing read from it)
+- `setV3Pools(address[] secondTokens, address[] pools)` — pool whitelisting is meaningless without a swap path (renamed from `setV3PoolStatuses` in PR #280)
+- `checkPoolPrices(...)` — gates on `liquidityManager == address(0)` only since `swapRouter` is not on its read path
+
+The V2 path (`buyBack(address, uint256, uint256)`) and admin setters (`setV2Oracles`, `setMaxSlippages`, `changeOwner`, `transferToken`, `updateOraclePrice`, `changeImplementation`) are unaffected. `setMaxSlippages` is intentionally ungated because `mapTokenMaxSlippages` is read by both V2 and V3 paths.
+
+**To enable V3 on a chain that initially deployed without it:** deploy a new `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer` implementation with non-zero `_liquidityManager` and `_swapRouter`, then call `changeImplementation` on the proxy. Immutables are encoded in bytecode, so the new impl swap atomically enables the V3 path. Storage maps `mapV3Pools` and `mapTokenMaxSlippages` survive the upgrade.
+
+Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+Tests: [BuyBackBurnerV3Disabled.t.sol](test/BuyBackBurnerV3Disabled.t.sol) — 19 unit tests covering constructor relaxation, all four guarded surfaces, and V2/admin sanity.
+
+---
+
+### 21. Depository OLAS transfer return value not checked
+
+**Severity**: Notes / code hygiene
+**Source**: Internal audit 16 (INFO-2)
+
+The following call is made inside the Depository payout path:
+
+```solidity
+IToken(olas).transfer(msg.sender, payout);
+```
+
+The boolean return value is not checked. A non-standard ERC20 implementation that returned `false` instead of reverting on failure would silently let the call succeed without transferring the payout.
+
+**Disposition:** not planned. The token argument here is the canonical OLAS contract — a standard revert-on-failure ERC20 with no path that returns `false` from `transfer`. The risk is theoretical, not realistic. A future refactor to use `SafeTransferLib.safeTransfer` would normalize the call style across the codebase; documented for completeness.
+
+Source code: [Depository.sol](contracts/Depository.sol)
+
+---
+
+### 22. Bridge2BurnerOptimism `TOKEN_GAS_LIMIT` hardcoded
+
+**Severity**: Notes / operational
+**Source**: Internal audit 16 (L-NEW-1)
+
+`Bridge2BurnerOptimism` passes a constant `TOKEN_GAS_LIMIT = 300_000` to `withdrawTo` as the L1 receive-side gas budget:
+
+```solidity
+uint32 public constant TOKEN_GAS_LIMIT = 300_000;
+// ...
+IBridge(l2TokenRelayer).withdrawTo(olas, OLAS_BURNER, olasAmount, TOKEN_GAS_LIMIT, "0x");
+```
+
+If `OLAS_BURNER` (the L1 receiver) were ever upgraded to a contract whose receive-side `transfer` / `mint` callback exceeded 300 K gas, the bridged messages would fail at L1 finalization.
+
+**Disposition:** not planned. The current `OLAS_BURNER` L1 receive footprint is well under 300 K and there is no roadmap that would push it higher. Failed L1 messages are not value-loss events: they can be replayed with more gas through the standard Optimism bridge replay mechanism. Documented as the explicit assumption "OLAS_BURNER L1 receive < 300 K gas". A setter would only be revisited if `OLAS_BURNER` is ever materially refactored.
+
+Source code: [Bridge2BurnerOptimism.sol](contracts/utils/Bridge2BurnerOptimism.sol)
+
+---
+
+### 23. `setV2Oracles` and `setV3Pools` are not mutually exclusive
+
+**Severity**: Notes / operational
+**Source**: Internal audit 16 (INFO-1)
+
+After the L-06 reshape, both `mapV2Oracles[token]` and `mapV3Pools[token]` can be set non-zero for the same `token`. Auto-routing in `buyBack(secondToken, ...)` prefers V3 when `mapV3Pools[secondToken] != address(0)`, so a stale V2 oracle entry is silently unreachable while a V3 pool is configured. The combined `transfer()` rescue gate handles either-or-both states correctly (V2-non-zero alone is sufficient to revert), so no fund-loss path opens up.
+
+**Disposition:** not planned for code. Both setters are owner-only and the security gate is symmetric. The footgun is operational only — a stale V2 oracle entry can mislead an off-chain reader of `mapV2Oracles` into thinking V2 is the active path when V3 has taken over. Operational runbook: when migrating an existing V2-oracle token to V3, explicitly call `setV2Oracles(token, address(0))` before `setV3Pools(token, pool)` to keep on-chain state matching off-chain intent.
+
+Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+
+---
+
+### 24. Tokenomics M-09 `effectiveBond` saturating subtraction at year boundaries
+
+**Severity**: Notes / accepted residual
+**Source**: Internal audit 16 (post-fix design note around C4R M-09)
+
+The fix for C4R M-09 (downward inflation correction at year boundaries) introduces a saturating subtraction:
+
+```solidity
+effectiveBond = (effectiveBond > overCredited) ? uint96(effectiveBond - overCredited) : 0;
+```
+
+When `overCredited > effectiveBond` — i.e., users have already bonded against more capacity than the post-correction inflation would allow — the residual is floored at zero rather than carried forward as future debt. The "lost" residual represents bonds already minted as OLAS to bond holders during the over-credited period; those bonds cannot be retroactively unminted.
+
+**Disposition:** intentional. The alternative — carry-forward residual debt that suppresses future epochs' bond capacity — would penalize future periods for past inflation transitions and require a perpetual bookkeeping field to track the unwind. The exposure window is bounded to year-boundary downward-inflation transitions: **Y2 → Y3** (already past at 2025-06-30; phantom capacity already realized on the live `0xc096…ce300` proxy under the pre-fix code) and **Y9 → Y10** (still ahead — protected by the fix once the redeploy lands). Realized impact at each boundary is small — a one-time minor over-issuance bounded by the difference between old- and new-inflation rates over the transition epoch — and not exploitable for ongoing extraction.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 

@@ -55,6 +55,12 @@ interface IFactory {
     function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool);
 }
 
+// UniswapV3 pool — minimal reader interface (fee tier is immutable on the pool)
+interface IUniswapV3Pool {
+    /// @notice The pool's fee in hundredths of a bip, i.e. 1e-6
+    function fee() external view returns (uint24);
+}
+
 /// @dev Value underflow.
 /// @param provided Underflow value.
 /// @param min Minimum possible value.
@@ -100,13 +106,15 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
         olasAmount = amounts[1];
     }
 
-    /// @dev Performs swap for OLAS on V3 DEX.
+    /// @dev Performs swap for OLAS on V3 DEX. The fee tier is read from the pool itself (immutable on
+    ///      Uniswap V3 pools), so callers don't need to pass it through. Pool canonicality has already
+    ///      been verified at config time by `setV3Pools`.
     /// @param token Token address.
     /// @param tokenAmount Token amount.
-    /// @param feeTier Fee tier.
+    /// @param pool V3 pool address (resolved by base from mapV3Pools[token]).
     /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address token, uint256 tokenAmount, int24 feeTier, uint256 amountOutMin)
+    function _performSwap(address token, uint256 tokenAmount, address pool, uint256 amountOutMin)
         internal
         virtual
         override
@@ -117,7 +125,7 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
         IRouterV3.ExactInputSingleParams memory params = IRouterV3.ExactInputSingleParams({
             tokenIn: token,
             tokenOut: olas,
-            fee: uint24(feeTier),
+            fee: IUniswapV3Pool(pool).fee(),
             recipient: address(this),
             amountIn: tokenAmount,
             amountOutMinimum: amountOutMin,
@@ -126,6 +134,13 @@ contract BuyBackBurnerUniswap is BuyBackBurner {
 
         // Swap tokens
         olasAmount = IRouterV3(swapRouter).exactInputSingle(params);
+    }
+
+    /// @dev Reads the V3 pool's fee tier. Used by `setV3Pools` to verify factory ancestry.
+    /// @param pool Uniswap V3 pool address.
+    /// @return Fee tier as int24.
+    function _readPoolFeeOrTickSpacing(address pool) internal view virtual override returns (int24) {
+        return int24(int256(uint256(IUniswapV3Pool(pool).fee())));
     }
 
     /// @dev BuyBackBurner initializer.

@@ -148,32 +148,10 @@ contract LowFindingsAudit15 is Test {
         buyBackBurner.buyBack(DUMMY_NATIVE, 0, block.timestamp);
     }
 
-    function test_L01_buyBack_V3_revertsWhenDeadlinePassed() public {
-        _deployBuyBackBurner();
-
-        vm.warp(10_000);
-
-        uint256 pastDeadline = block.timestamp - 1;
-        vm.expectRevert(abi.encodeWithSelector(DeadlineExpired.selector, pastDeadline, block.timestamp));
-        buyBackBurner.buyBack(DUMMY_NATIVE, 1 ether, int24(3000), pastDeadline);
-    }
-
-    function test_L01_buyBack_V3_deadlineZeroOptsOut() public {
-        _deployBuyBackBurner();
-
-        vm.warp(10_000);
-
-        // Stub balanceOf(address(this)) to zero so the path proceeds past the deadline guard
-        vm.mockCall(
-            DUMMY_NATIVE,
-            abi.encodeWithSignature("balanceOf(address)", address(buyBackBurner)),
-            abi.encode(uint256(0))
-        );
-
-        // deadline == 0 → check skipped; path fails later on ZeroValue balance check.
-        vm.expectRevert(ZeroValue.selector);
-        buyBackBurner.buyBack(DUMMY_NATIVE, 0, int24(3000), 0);
-    }
+    // The former V3-specific deadline tests were folded into the V2-shape tests above when the V3
+    // 4-arg `buyBack(address, uint256, int24, uint256)` overload was removed (auto-routing collapsed
+    // it into the unified `buyBack(address, uint256, uint256)`). Both V2 and V3 paths now share the
+    // same deadline guard at the top of buyBack — covered by the two tests above.
 
     // ------------------------------------------------------------------
     // L-05 — changeMaxSlippage upper bound

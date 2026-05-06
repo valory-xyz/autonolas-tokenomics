@@ -1,7 +1,15 @@
 # Protocol-Owned Liquidity (POL) deployment
 
-Forge-based shell scripts for deploying `NeighborhoodScanner` + `LiquidityManagerETH` /
-`LiquidityManagerOptimism`, plus the post-deploy V3 wiring for the BuyBackBurner proxy.
+Forge-based shell scripts for deploying `NeighborhoodScanner`, `LiquidityManagerETH` /
+`LiquidityManagerOptimism` (impl), `LiquidityManagerProxy` (proxy), plus the post-deploy V3
+wiring for the BuyBackBurner proxy.
+
+> **POL is per-chain optional.** As of the V3-optional `BuyBackBurner` change
+> (Vulnerabilities_list item #21), chains that deploy `BuyBackBurner` with
+> `liquidityManagerAddress = ""` and `swapRouterV3Address = ""` get a working V2-only
+> deployment. The V3 path reverts `V3PathDisabled` until a new impl is deployed with both
+> addresses populated and `changeImplementation` is called on the proxy. Skip the entire
+> `pol/` directory for V2-only chains — no LM, no scanner, no V3 wire step.
 
 ## Prerequisites (run first, from other folders)
 
@@ -16,8 +24,9 @@ Forge-based shell scripts for deploying `NeighborhoodScanner` + `LiquidityManage
 Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`, `mode_mainnet`):
 
 ```bash
-./scripts/deployment/pol/deploy_01_neighborhood_scanner.sh   eth_mainnet
-./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh  eth_mainnet
+./scripts/deployment/pol/deploy_01_neighborhood_scanner.sh    eth_mainnet
+./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh   eth_mainnet
+./scripts/deployment/pol/deploy_03_liquidity_manager_proxy.sh eth_mainnet
 
 # Populate v3Pools / v3PoolStatuses / v3SecondTokens / v3MaxSlippages in globals first,
 # then:
@@ -25,12 +34,17 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`, `mo
 ```
 
 For Optimism / Mode, replace `deploy_02_liquidity_manager_eth.sh` with
-`deploy_02_liquidity_manager_optimism.sh`.
+`deploy_02_liquidity_manager_optimism.sh`. The proxy step (`deploy_03_liquidity_manager_proxy.sh`)
+is chain-agnostic — same script for ETH, Optimism, etc. — because the proxy constructor is
+`(impl, initData)` where `initData = initialize(uint16 _maxSlippage)` is identical across
+LiquidityManagerCore-derived impls.
 
-After `deploy_02` writes `liquidityManagerAddress` into the local `globals_*.json`, copy that
-value into `scripts/deployment/utils/globals_*.json` so the BBB implementation step (utils/02)
-picks it up. Alternatively, deploy order can be reorganised so the LM is deployed before the
-BBB implementation.
+After `deploy_03` writes `liquidityManagerProxyAddress` into the local `globals_*.json`, copy
+that value into `scripts/deployment/utils/globals_*.json` (same field name) so the BBB
+implementation step (utils/01 or utils/02) picks it up. **Always wire the proxy address into
+the BBB, not the impl** — the BBB calls `liquidityManager.factoryV3()` at runtime, and the
+proxy delegatecall-reads the impl's immutables. Wiring the impl directly would break a future
+`changeImplementation()` upgrade.
 
 ## Globals fields
 
@@ -47,6 +61,9 @@ BBB implementation.
 | `routerV2Address` (ETH) | deploy_02 | Uniswap V2 Router |
 | `balancerVaultAddress` (L2s) | deploy_02 | Balancer V2 Vault |
 | `bridge2BurnerAddress` (L2s) | deploy_02 | Bridge2BurnerOptimism/Mode (from `utils/deploy_00b_bridge2burner_*.sh`) |
+| `liquidityManagerAddress` | deploy_02→deploy_03 | Written by deploy_02 (impl); consumed by deploy_03 as proxy constructor target |
+| `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `500` (5%) — tune per chain before running deploy_03 |
+| `liquidityManagerProxyAddress` | deploy_03 (writes) | Proxy address — copy into `utils/globals_*.json` for BBB impl deploy |
 | `buyBackBurnerProxyAddress` | script_03 | BBB proxy address (copied from `utils/globals_*.json`) |
 | `v3Pools`, `v3PoolStatuses` | script_03 | Parallel arrays; `v3PoolStatuses` must be all `true` to whitelist |
 | `v3SecondTokens`, `v3MaxSlippages` | script_03 | Parallel arrays; slippage in bps (e.g. `500` = 5%) |

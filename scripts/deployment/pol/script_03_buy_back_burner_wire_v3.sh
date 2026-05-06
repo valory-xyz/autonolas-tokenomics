@@ -1,20 +1,20 @@
 #!/bin/bash
 
-# Post-deploy V3 wiring for BuyBackBurner proxies. Whitelists V3 pools and sets per-token
-# slippage caps for the V3 buyBack path. Run AFTER both:
+# Post-deploy V3 wiring for BuyBackBurner proxies. Configures V3 pools per second token and
+# sets per-token slippage caps for the V3 buyBack path. Run AFTER both:
 #   - the BuyBackBurner proxy is deployed (utils/deploy_03_*.sh or utils/deploy_04_*.sh)
 #   - the LiquidityManager is deployed (pol/deploy_02_liquidity_manager_*.sh)
 #
 # Without this wiring, V3 buyBack reverts:
-#   - UnauthorizedPool(pool) at BuyBackBurner.sol:251 if pool is not whitelisted
-#   - DEX-side amountOutMinimum revert at BuyBackBurner.sol:269-271 if mapTokenMaxSlippages
-#     is unset (amountOutMin == TWAP quote is not realistically reachable)
+#   - UnauthorizedToken(secondToken) inside _buyOLASV3 if mapV3Pools[secondToken] is unset
+#   - DEX-side amountOutMinimum revert if mapTokenMaxSlippages is unset (amountOutMin == TWAP
+#     quote is not realistically reachable)
 #
 # Globals fields consumed:
 #   buyBackBurnerProxyAddress  : already populated by utils/deploy_03/04 step
-#   v3Pools                    : array of V3 pool addresses to whitelist
-#   v3PoolStatuses             : array of bools matching v3Pools (set true to whitelist)
-#   v3SecondTokens             : array of token addresses for V3 buyBack
+#   v3SecondTokens             : array of token addresses for V3 buyBack (the non-OLAS side)
+#   v3Pools                    : array of canonical V3 pool addresses matching v3SecondTokens
+#                                (factory ancestry is enforced on-chain by setV3Pools)
 #   v3MaxSlippages             : array of bps (uint256) matching v3SecondTokens
 
 red=$(tput setaf 1)
@@ -42,9 +42,8 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 buyBackBurnerProxyAddress=$(jq -r '.buyBackBurnerProxyAddress' $globals)
-v3Pools=$(jq -rc '.v3Pools' $globals)
-v3PoolStatuses=$(jq -rc '.v3PoolStatuses' $globals)
 v3SecondTokens=$(jq -rc '.v3SecondTokens' $globals)
+v3Pools=$(jq -rc '.v3Pools' $globals)
 v3MaxSlippages=$(jq -rc '.v3MaxSlippages' $globals)
 
 # Check for Alchemy keys
@@ -78,8 +77,8 @@ fi
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-echo "${green}Whitelist V3 pools on BuyBackBurner proxy${reset}"
-castArgs="$buyBackBurnerProxyAddress setV3PoolStatuses(address[],bool[]) $v3Pools $v3PoolStatuses"
+echo "${green}Configure V3 pools per secondToken on BuyBackBurner proxy${reset}"
+castArgs="$buyBackBurnerProxyAddress setV3Pools(address[],address[]) $v3SecondTokens $v3Pools"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)

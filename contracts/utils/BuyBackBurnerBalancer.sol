@@ -63,6 +63,12 @@ interface ICLFactory {
     function getPool(address tokenA, address tokenB, int24 tickSpacing) external view returns (address pool);
 }
 
+// Slipstream CL pool — minimal reader interface (tick spacing is immutable on the pool)
+interface ICLPool {
+    /// @notice The pool's tick spacing
+    function tickSpacing() external view returns (int24);
+}
+
 // ERC20 interface
 interface IERC20 {
     /// @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -131,13 +137,15 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         olasAmount = IBalancer(balVault).swap(singleSwap, fundManagement, amountOutMin, block.timestamp);
     }
 
-    /// @dev Performs swap for OLAS on Slipstream CL DEX.
+    /// @dev Performs swap for OLAS on Slipstream CL DEX. The tick spacing is read from the pool itself
+    ///      (immutable on Slipstream pools), so callers don't need to pass it through. Pool canonicality
+    ///      has already been verified at config time by `setV3Pools`.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
-    /// @param tickSpacing Tick spacing.
+    /// @param pool Slipstream pool address (resolved by base from mapV3Pools[secondToken]).
     /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
-    function _performSwap(address secondToken, uint256 secondTokenAmount, int24 tickSpacing, uint256 amountOutMin)
+    function _performSwap(address secondToken, uint256 secondTokenAmount, address pool, uint256 amountOutMin)
         internal
         virtual
         override
@@ -148,7 +156,7 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: secondToken,
             tokenOut: olas,
-            tickSpacing: tickSpacing,
+            tickSpacing: ICLPool(pool).tickSpacing(),
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: secondTokenAmount,
@@ -158,6 +166,13 @@ contract BuyBackBurnerBalancer is BuyBackBurner {
 
         // Swap tokens
         olasAmount = ISwapRouter(swapRouter).exactInputSingle(params);
+    }
+
+    /// @dev Reads the Slipstream pool's tick spacing. Used by `setV3Pools` to verify factory ancestry.
+    /// @param pool Slipstream pool address.
+    /// @return Tick spacing as int24.
+    function _readPoolFeeOrTickSpacing(address pool) internal view virtual override returns (int24) {
+        return ICLPool(pool).tickSpacing();
     }
 
     /// @dev BuyBackBurner initializer.
