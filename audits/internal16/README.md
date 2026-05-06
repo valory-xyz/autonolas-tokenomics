@@ -27,7 +27,8 @@ L-06 was a late finding — surfaced 2026-04-29, after `audits/internal15/FINAL_
 | **New findings (this re-audit, broad scope)** | **1 MEDIUM** (Bridge2BurnerPolygon L1 destination architecture gap), **5 LOW** (Optimism gas limit, approval cleanup, no-rescue, Tokenomics integer truncation pattern, GenericBondCalculator flash-loan view), **2 INFO** (V2/V3 setter mutual-exclusivity, Depository OLAS transfer return) |
 | **Agent-flagged Critical claims investigated** | 3 of 3 verified as **false positives** with concrete file:line reasoning (see §6) |
 | **C-01 OpSec carry-over from internal-15** | Unchanged — 7 BBB proxies still EOA-owned; acknowledged-and-deferred (§11) |
-| **Verdict** | ⚠ **PASS-WITH-FINDINGS** — branch mergeable; M-1-NEW Polygon recommendation is a pre-Mode-F-production gate |
+| **M-1-NEW Polygon Bridge2Burner L1 destination** | ✅ Fixed — `relayToL1Burner()` now forwards OLAS to the Polygon bridge mediator (governance-owned, code-deployed on both L2 and its L1 mirror). Sidesteps Polygon PoS bridge's missing recipient parameter. |
+| **Verdict** | ⚠ **PASS-WITH-FINDINGS** — branch mergeable; M-1-NEW Polygon recommendation now closed (see §3) |
 
 ---
 
@@ -225,11 +226,17 @@ function _buyOLASV3(address secondToken, uint256 secondTokenAmount) internal vir
 
 ## §3. New findings (broad-scope re-audit)
 
-### 🟡 M-1 — Bridge2BurnerPolygon: L1 destination is L1-mirror of L2 contract, not OLAS_BURNER
+### 🟡 M-1 — Bridge2BurnerPolygon: L1 destination is L1-mirror of L2 contract, not OLAS_BURNER — ✅ Fixed
 
-**File**: `contracts/utils/Bridge2BurnerPolygon.sol:42`.
+**Resolution**: `relayToL1Burner()` no longer calls Polygon's `ChildERC20.withdraw(amount)`. OLAS is forwarded to the
+Polygon bridge mediator (`0x9338b5153AE39BB89f50468E608eD9d764B755fD`), the L2 contract that L1 governance reaches over
+fx-portal. Final disposition (keep, transfer, trigger PoS-bridge burn) is governance's call, not this contract's.
+Sidesteps the Polygon PoS bridge's missing recipient parameter and matches the existing "send-to-bridge-mediator"
+pattern already used by `LPSwapCelo` for leftover-token routing on Celo.
 
-The contract calls Polygon's `ChildERC20.withdraw(amount)`:
+**File**: `contracts/utils/Bridge2BurnerPolygon.sol`.
+
+Original finding (preserved for historical record): the contract used to call Polygon's `ChildERC20.withdraw(amount)`:
 
 ```solidity
 IBridge(l2TokenRelayer).withdraw(olasAmount);

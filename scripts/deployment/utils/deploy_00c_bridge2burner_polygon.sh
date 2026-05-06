@@ -33,10 +33,12 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 olasAddress=$(jq -r '.olasAddress' $globals)
+bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 
 contractName="Bridge2BurnerPolygon"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $olasAddress"
+# Second arg is the L2 bridge mediator (held in the inherited l2TokenRelayer slot); see Bridge2BurnerPolygon NatSpec.
+constructorArgs="$olasAddress $bridgeMediatorAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
