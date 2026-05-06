@@ -252,10 +252,10 @@ module.exports = {
                 settings: {
                     optimizer: {
                         enabled: true,
-                        runs: 20,
+                        runs: 200,
                     },
                     evmVersion: "prague",
-                    viaIR: isCoverage ? true : false,
+                    viaIR: true,
                 },
             },
             {
