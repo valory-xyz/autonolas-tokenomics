@@ -60,6 +60,7 @@ forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
 forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv   # Polygon
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv  # Arbitrum
+forge test -f $FORK_OPTIMISM_NODE_URL --mc BuyBackBurnerTransferV3Optimism -vvv  # Optimism
 forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv             # Celo
 ```
 

@@ -59,8 +59,9 @@ contract BaseSetup is Test {
         vm.warp(block.timestamp + minUpdateIntervalSeconds);
         oracleV2.updatePrice();
 
-        // Deploy Bridge2Burner (l2TokenRelayer is OLAS itself for Polygon PoS withdrawTo)
-        bridge2Burner = new Bridge2BurnerPolygon(OLAS, OLAS);
+        // Deploy Bridge2Burner — second arg is the Polygon L2 bridge mediator address, stored in the inherited
+        // l2TokenRelayer slot. On Polygon TIMELOCK is the bridge mediator (see Bridge2BurnerPolygon NatSpec).
+        bridge2Burner = new Bridge2BurnerPolygon(OLAS, TIMELOCK);
 
         // Deploy BuyBackBurnerBalancer implementation
         // liquidityManager and swapRouter are placeholders (unused for V2 buyBack path)
@@ -243,7 +244,7 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
         buyBackBurner.changeOwner(dev);
     }
 
-    /// @dev Full flow: buyBack WMATIC then relay OLAS to L1 via Polygon PoS bridge.
+    /// @dev Full flow: buyBack WMATIC then forward OLAS to the Polygon bridge mediator (L2 governance custody).
     function testBuyBackAndRelay() public {
         deal(WMATIC, address(buyBackBurner), 100 ether);
 
@@ -252,9 +253,14 @@ contract BuyBackBurnerBalancerPolygon is BaseSetup {
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
 
+        address bridgeMediator = bridge2Burner.l2TokenRelayer();
+        assertEq(bridgeMediator, TIMELOCK, "constructor must store the bridge mediator in l2TokenRelayer");
+        uint256 mediatorBalBefore = IToken(OLAS).balanceOf(bridgeMediator);
+
         bridge2Burner.relayToL1Burner();
 
         assertEq(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
+        assertEq(IToken(OLAS).balanceOf(bridgeMediator) - mediatorBalBefore, olasBal);
     }
 
     /// @dev buyBack increments activity counter.
