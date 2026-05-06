@@ -8,7 +8,9 @@
 #   liquidityManagerAddress       : LiquidityManager impl (written by deploy_02_*)
 #   liquidityManagerMaxSlippage   : uint16 in BPS (MAX_BPS = 10_000); e.g. "500" = 5%
 # Globals fields written:
-#   liquidityManagerProxyAddress  : deployed proxy address
+#   liquidityManagerProxyAddress  : deployed proxy address (written to BOTH this folder's
+#                                   globals_<network>.json AND ../utils/globals_<network>.json
+#                                   so the BBB impl deploy step picks it up automatically)
 
 red=$(tput setaf 1)
 green=$(tput setaf 2)
@@ -18,6 +20,13 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
+  exit 0
+fi
+
+# Get utils globals file — proxy address is consumed by BBB impl deploy step
+globalsUtils="$(dirname "$0")/../utils/globals_$1.json"
+if [ ! -f $globalsUtils ]; then
+  echo "${red}!!! $globalsUtils is not found${reset}"
   exit 0
 fi
 
@@ -91,8 +100,9 @@ if [ $outputLength != 42 ]; then
   exit 0
 fi
 
-# Write new deployed contract back into JSON
+# Write new deployed contract back into JSON (both pol/ and utils/)
 echo "$(jq '. += {"liquidityManagerProxyAddress":"'$liquidityManagerProxyAddress'"}' $globals)" > $globals
+echo "$(jq '. += {"liquidityManagerProxyAddress":"'$liquidityManagerProxyAddress'"}' $globalsUtils)" > $globalsUtils
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

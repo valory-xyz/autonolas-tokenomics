@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC20} from "../lib/solmate/src/tokens/ERC20.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
-import {BuyBackBurner, UnauthorizedPool} from "../contracts/utils/BuyBackBurner.sol";
+import {BuyBackBurner} from "../contracts/utils/BuyBackBurner.sol";
 import {BuyBackBurnerUniswap} from "../contracts/utils/BuyBackBurnerUniswap.sol";
 import {BuyBackBurnerProxy} from "../contracts/utils/BuyBackBurnerProxy.sol";
 
@@ -24,6 +24,15 @@ contract MockFactory {
     address public pool;
     function setPool(address _pool) external { pool = _pool; }
     function getPool(address, address, uint24) external view returns (address) { return pool; }
+}
+
+// ---------------------------------------------------------------------------
+// Mock V3 pool — exposes the immutable fee() reader needed by setV3Pools (canonicality check)
+// and by _performSwap V3 (router input).
+// ---------------------------------------------------------------------------
+contract MockV3PoolWithFee {
+    uint24 public immutable fee;
+    constructor(uint24 _fee) { fee = _fee; }
 }
 
 // ---------------------------------------------------------------------------
@@ -89,13 +98,16 @@ contract BuyBackBurnerV3SwapTest is Test {
     MockLiquidityManager internal lm;
     MockSwapRouterV3 internal router;
     BuyBackBurnerUniswap internal bbb;
-    address internal pool = address(0xBEEF);
+    address internal pool;
     address internal bridge2Burner = address(0xB10B);
     address internal treasury = address(0x7157);
 
     function setUp() public {
         olas = new MockERC20("OLAS", "OLAS");
         secondToken = new MockERC20("Token", "TK");
+        // Real pool stub exposing fee() so setV3Pools' canonicality check passes (factory mock returns
+        // this pool for any (token0, token1, fee) lookup).
+        pool = address(new MockV3PoolWithFee(FEE_TIER));
         factory = new MockFactory();
         factory.setPool(pool);
         lm = new MockLiquidityManager(address(factory));
@@ -115,12 +127,12 @@ contract BuyBackBurnerV3SwapTest is Test {
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(impl), initPayload);
         bbb = BuyBackBurnerUniswap(payable(address(proxy)));
 
-        // Whitelist the V3 pool
+        // Configure the V3 pool for secondToken
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = address(secondToken);
         address[] memory pools = new address[](1);
         pools[0] = pool;
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        bbb.setV3PoolStatuses(pools, statuses);
+        bbb.setV3Pools(secondTokens, pools);
     }
 
     // -----------------------------------------------------------------------
@@ -177,7 +189,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         // Realized output == expected minimum (swap passes by a hair)
         _prepareSwap(slippage, expectedMin);
 
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
+        bbb.buyBack(address(secondToken), amountIn, 0);
 
         assertEq(router.lastAmountOutMinimum(), expectedMin, "amountOutMin must match TWAP quote x slippage");
     }
@@ -214,11 +226,12 @@ contract BuyBackBurnerV3SwapTest is Test {
         BuyBackBurnerProxy proxy = new BuyBackBurnerProxy(address(impl), initPayload);
         BuyBackBurnerUniswap localBbb = BuyBackBurnerUniswap(payable(address(proxy)));
 
+        // Configure the V3 pool for the flipped secondToken
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = address(tokenFlipped);
         address[] memory pools = new address[](1);
         pools[0] = pool;
-        bool[] memory statuses = new bool[](1);
-        statuses[0] = true;
-        localBbb.setV3PoolStatuses(pools, statuses);
+        localBbb.setV3Pools(secondTokens, pools);
 
         uint160 centerSqrt = TickMath.getSqrtRatioAtTick(0);
         lm.setCenterSqrtPriceX96(centerSqrt);
@@ -238,7 +251,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         olasFlipped.mint(address(flippedRouter), expectedMin);
         flippedRouter.setRealizedOut(expectedMin);
 
-        localBbb.buyBack(address(tokenFlipped), amountIn, int24(int256(uint256(FEE_TIER))), 0);
+        localBbb.buyBack(address(tokenFlipped), amountIn, 0);
 
         assertEq(flippedRouter.lastAmountOutMinimum(), expectedMin, "amountOutMin must match TWAP quote x slippage");
     }
@@ -259,7 +272,7 @@ contract BuyBackBurnerV3SwapTest is Test {
         _prepareSwap(slippage, expectedMin - 1);
 
         vm.expectRevert(bytes("Too little received"));
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
+        bbb.buyBack(address(secondToken), amountIn, 0);
     }
 
     // -----------------------------------------------------------------------
@@ -279,26 +292,28 @@ contract BuyBackBurnerV3SwapTest is Test {
         olas.mint(address(router), fullQuote);
         router.setRealizedOut(fullQuote);
 
-        bbb.buyBack(address(secondToken), amountIn, int24(int256(uint256(FEE_TIER))), 0);
+        bbb.buyBack(address(secondToken), amountIn, 0);
 
         assertEq(router.lastAmountOutMinimum(), fullQuote, "unset slippage -> amountOutMin = full TWAP quote");
     }
 
     // -----------------------------------------------------------------------
-    // Unwhitelisted pool → UnauthorizedPool revert (slippage guard is unreachable
-    // unless the pool passes the whitelist)
+    // Unconfigured V3 pool → buyBack falls through to the V2 path. Without a V2 oracle
+    // configured either, the V2 path reverts with "Zero oracle address".
     // -----------------------------------------------------------------------
 
-    function test_unwhitelistedPool_reverts() public {
-        // Re-point factory at a different address that BBB has NOT whitelisted
-        factory.setPool(address(0xCAFE));
-
-        uint160 centerSqrt = TickMath.getSqrtRatioAtTick(0);
-        lm.setCenterSqrtPriceX96(centerSqrt);
+    function test_unconfiguredV3_fallsThroughToV2() public {
+        // Clear the V3 mapping for secondToken
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = address(secondToken);
+        address[] memory pools = new address[](1);
+        pools[0] = address(0);
+        bbb.setV3Pools(secondTokens, pools);
 
         secondToken.mint(address(bbb), 1e18);
 
-        vm.expectRevert(abi.encodeWithSelector(UnauthorizedPool.selector, address(0xCAFE)));
-        bbb.buyBack(address(secondToken), 1e18, int24(int256(uint256(FEE_TIER))), 0);
+        // V2 path is also unconfigured → reverts on missing oracle
+        vm.expectRevert(bytes("Zero oracle address"));
+        bbb.buyBack(address(secondToken), 1e18, 0);
     }
 }

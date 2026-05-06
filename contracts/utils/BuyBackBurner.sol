@@ -92,7 +92,7 @@ abstract contract BuyBackBurner {
     event ImplementationUpdated(address indexed implementation);
     event OwnerUpdated(address indexed owner);
     event OraclesUpdated(address[] secondTokens, address[] oracles);
-    event V3PoolStatusesUpdated(address[] pools, bool[] statuses);
+    event V3PoolsUpdated(address[] secondTokens, address[] pools);
     event BuyBack(address indexed secondToken, uint256 secondTokenAmount, uint256 olasAmount);
     event OraclePriceUpdated(address indexed oracle, address indexed sender);
     event TokenTransferred(address indexed destination, uint256 amount);
@@ -140,8 +140,10 @@ abstract contract BuyBackBurner {
 
     // Map of second token address => whitelisted V2 oracle address
     mapping(address => address) public mapV2Oracles;
-    // Map of V3 pool address => whitelisted status
-    mapping(address => bool) public mapV3Pools;
+    // Map of second token address => whitelisted V3 pool address (V3 swap path).
+    // Keyed by secondToken — same shape as mapV2Oracles — so transfer() can block V3-eligible secondTokens
+    // in O(1) without needing a separate fee tier / tick spacing argument from the caller.
+    mapping(address => address) public mapV3Pools;
     // Map of second token address => max slippage in BPS
     mapping(address => uint256) public mapTokenMaxSlippages;
 
@@ -167,7 +169,7 @@ abstract contract BuyBackBurner {
     }
 
     /// @dev Reverts with V3PathDisabled when either V3 immutable is zero. Guards every
-    ///      V3-touching function (buyBack V3 overload, _buyOLAS V3, setV3PoolStatuses).
+    ///      V3-touching function (_buyOLASV3 inside buyBack auto-routing, setV3Pools).
     function _requireV3Enabled() internal view {
         if (liquidityManager == address(0) || swapRouter == address(0)) {
             revert V3PathDisabled();
@@ -191,13 +193,14 @@ abstract contract BuyBackBurner {
     /// @dev Performs swap for OLAS on V3 DEX.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
+    /// @param pool V3 pool address — child reads its own fee tier or tick spacing from this address
+    ///        to populate the swap router's input.
     /// @param amountOutMin Minimum acceptable OLAS output.
     /// @return olasAmount Obtained OLAS amount.
     function _performSwap(
         address secondToken,
         uint256 secondTokenAmount,
-        int24 feeTierOrTickSpacing,
+        address pool,
         uint256 amountOutMin
     ) internal virtual returns (uint256 olasAmount);
 
@@ -211,6 +214,12 @@ abstract contract BuyBackBurner {
         view
         virtual
         returns (address);
+
+    /// @dev Reads the V3 pool's fee tier (Uniswap V3) or tick spacing (Slipstream).
+    ///      Used at setter time to verify the pool is canonical with respect to the configured factory.
+    /// @param pool V3 pool address.
+    /// @return Fee tier or tick spacing as int24.
+    function _readPoolFeeOrTickSpacing(address pool) internal view virtual returns (int24);
 
     /// @dev Buys OLAS on V2 DEX.
     /// @param secondToken Second token address.
@@ -238,38 +247,31 @@ abstract contract BuyBackBurner {
         olasAmount = _performSwap(secondToken, secondTokenAmount, amountOutMin);
     }
 
-    /// @dev Buys OLAS on V3 DEX.
+    /// @dev Buys OLAS on V3 DEX. Pool is resolved from `mapV3Pools[secondToken]`; fee tier / tick spacing
+    ///      is read from the pool at swap time.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
     /// @return olasAmount Obtained OLAS amount.
-    function _buyOLAS(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing)
-        internal
-        virtual
-        returns (uint256 olasAmount)
-    {
+    function _buyOLASV3(address secondToken, uint256 secondTokenAmount) internal virtual returns (uint256 olasAmount) {
         // V3 path requires both liquidityManager and swapRouter to be set at deployment
         _requireV3Enabled();
 
-        address localOlas = olas;
+        address pool = mapV3Pools[secondToken];
 
-        address[] memory tokens = new address[](2);
-        (tokens[0], tokens[1]) = (secondToken > localOlas) ? (localOlas, secondToken) : (secondToken, localOlas);
-
-        // Get factory from LiquidityManager
-        // Actual factoryV3 is fetched from LiquidityManager, since LiquidityManager is proxy and factory might change
-        address factoryV3 = ILiquidityManager(liquidityManager).factoryV3();
-
-        // Get V3 pool from liquidity manager
-        address pool = getV3Pool(factoryV3, tokens, feeTierOrTickSpacing);
-
-        // Check for whitelisted pool address
-        if (!mapV3Pools[pool]) {
-            revert UnauthorizedPool(pool);
+        // No V3 pool configured for this secondToken
+        if (pool == address(0)) {
+            revert UnauthorizedToken(secondToken);
         }
 
         // Apply TWAP-based deviation guard and capture the TWAP-derived sqrt price
         uint160 centerSqrtPriceX96 = ILiquidityManager(liquidityManager).checkPoolAndGetCenterPrice(pool);
+
+        address localOlas = olas;
+
+        // Determine OLAS's position in the canonical (token0, token1) ordering for the price-branch logic.
+        // The pool is guaranteed canonical at config time (setV3Pools enforces factory ancestry), so the
+        // ordering implied by `secondToken > localOlas` matches the pool's actual token0/token1.
+        bool olasIsToken1 = (secondToken < localOlas);
 
         // Derive the TWAP-implied OLAS quote for secondTokenAmount.
         // Uniswap V3 pools encode price(token0 → token1) = (sqrtPriceX96 / 2^96)^2. Compute
@@ -278,7 +280,7 @@ abstract contract BuyBackBurner {
         //   olas == token0: olasQuote = secondTokenAmount * 2^128 / priceX128
         uint256 priceX128 =
             FixedPointMathLib.mulDivDown(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), 1 << 64);
-        uint256 olasQuote = (localOlas == tokens[1])
+        uint256 olasQuote = olasIsToken1
             ? FixedPointMathLib.mulDivDown(secondTokenAmount, priceX128, 1 << 128)
             : FixedPointMathLib.mulDivDown(secondTokenAmount, 1 << 128, priceX128);
 
@@ -286,8 +288,9 @@ abstract contract BuyBackBurner {
         uint256 amountOutMin =
             FixedPointMathLib.mulDivDown(olasQuote, MAX_BPS - mapTokenMaxSlippages[secondToken], MAX_BPS);
 
-        // Perform swap to OLAS with amountOutMin enforced by the router
-        olasAmount = _performSwap(secondToken, secondTokenAmount, feeTierOrTickSpacing, amountOutMin);
+        // Perform swap to OLAS with amountOutMin enforced by the router. The child reads the swap-router-
+        // facing fee tier / tick spacing from `pool` itself (canonical at config time).
+        olasAmount = _performSwap(secondToken, secondTokenAmount, pool, amountOutMin);
     }
 
     /// @dev BuyBackBurner initializer.
@@ -378,36 +381,65 @@ abstract contract BuyBackBurner {
         emit OraclesUpdated(secondTokens, oracles);
     }
 
-    /// @dev Sets V3 pool statuses.
-    /// @param pools Set of V3 pools.
-    /// @param statuses Set of corresponding pool statuses.
-    function setV3PoolStatuses(address[] memory pools, bool[] memory statuses) external virtual {
+    /// @dev Sets V3 pool addresses for given second tokens. Mirrors `setV2Oracles` — same shape,
+    ///      same key, same delete-via-zero semantic.
+    /// @notice Setting pools[i] = address(0) clears the V3 swap path for secondTokens[i] and re-enables
+    ///         transfer() to sweep that token to treasury. Each non-zero pool is verified to be canonical
+    ///         under the configured factory: factoryV3.getPool(secondToken, OLAS, pool's fee/tickSpacing)
+    ///         must equal the supplied pool. This closes the I-01 admin-trust surface (a non-canonical
+    ///         pool would let the TWAP guard read from one pool while the swap routes through another).
+    /// @param secondTokens Set of second tokens.
+    /// @param pools Set of corresponding V3 pool addresses (address(0) to remove).
+    function setV3Pools(address[] memory secondTokens, address[] memory pools) external virtual {
         // Check for the ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
         }
 
-        // Whitelisting V3 pools is pointless when the V3 path is disabled
+        // Configuring V3 pools is pointless when the V3 path is disabled
         _requireV3Enabled();
 
-        uint256 numPools = pools.length;
+        uint256 numTokens = secondTokens.length;
 
         // Check for array sizes
-        if (numPools == 0 || numPools != statuses.length) {
+        if (numTokens == 0 || numTokens != pools.length) {
             revert WrongArrayLength();
         }
 
+        address localOlas = olas;
+        address factoryV3 = ILiquidityManager(liquidityManager).factoryV3();
+
         // Process data
-        for (uint256 i = 0; i < numPools; ++i) {
-            // Check for zero addresses
-            if (pools[i] == address(0)) {
+        for (uint256 i = 0; i < numTokens; ++i) {
+            // Check for zero address
+            if (secondTokens[i] == address(0)) {
                 revert ZeroAddress();
             }
 
-            mapV3Pools[pools[i]] = statuses[i];
+            // Check for second token to not be OLAS
+            if (secondTokens[i] == localOlas) {
+                revert UnauthorizedToken(secondTokens[i]);
+            }
+
+            address pool = pools[i];
+            if (pool != address(0)) {
+                // Verify the pool is canonical: factory.getPool(secondToken, OLAS, pool's fee or tick spacing) == pool.
+                // Skipping this would let an admin-supplied non-canonical address divert the V3 TWAP read
+                // (since the swap router resolves to a different pool from the same fee tier).
+                address[] memory tokens = new address[](2);
+                (tokens[0], tokens[1]) = (secondTokens[i] > localOlas)
+                    ? (localOlas, secondTokens[i])
+                    : (secondTokens[i], localOlas);
+                int24 feeOrSpacing = _readPoolFeeOrTickSpacing(pool);
+                if (getV3Pool(factoryV3, tokens, feeOrSpacing) != pool) {
+                    revert UnauthorizedPool(pool);
+                }
+            }
+
+            mapV3Pools[secondTokens[i]] = pool;
         }
 
-        emit V3PoolStatusesUpdated(pools, statuses);
+        emit V3PoolsUpdated(secondTokens, pools);
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle.
@@ -483,8 +515,13 @@ abstract contract BuyBackBurner {
         emit MaxSlippagesUpdated(secondTokens, maxSlippages);
     }
 
-    /// @dev Buys OLAS on V2 DEX.
-    /// @notice if secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
+    /// @dev Buys OLAS for `secondToken`. The swap path is selected automatically:
+    ///      - if `mapV3Pools[secondToken] != 0` → V3 path (pool & fee/tickSpacing read from storage)
+    ///      - else if `mapV2Oracles[secondToken] != 0` → V2 path
+    ///      - else revert
+    ///      The previous V3 overload `buyBack(address, uint256, int24, uint256)` is removed; the int24
+    ///      argument is no longer needed because the pool itself encodes the fee tier / tick spacing.
+    /// @notice If secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
     /// @param secondToken Second token address.
     /// @param secondTokenAmount Suggested second token amount.
     /// @param deadline Unix timestamp after which the call reverts (0 disables the check).
@@ -517,68 +554,17 @@ abstract contract BuyBackBurner {
         // Record msg.sender activity
         mapAccountActivities[msg.sender]++;
 
-        // Buy OLAS
-        uint256 olasAmount = _buyOLAS(secondToken, secondTokenAmount);
+        // Auto-route: V3 if the secondToken has a configured V3 pool, else V2.
+        // V3 takes precedence — once an operator points mapV3Pools[token] at a pool, that's the active path
+        // for the token. To switch back to V2, clear the V3 entry via setV3Pools(token, address(0)).
+        uint256 olasAmount;
+        if (mapV3Pools[secondToken] != address(0)) {
+            olasAmount = _buyOLASV3(secondToken, secondTokenAmount);
+        } else {
+            olasAmount = _buyOLAS(secondToken, secondTokenAmount);
+        }
 
         emit BuyBack(localSecondToken, secondTokenAmount, olasAmount);
-
-        // Get OLAS contract balance
-        olasAmount = IERC20(olas).balanceOf(address(this));
-
-        // Transfer OLAS to bridge2Burner contract
-        bool success = IERC20(olas).transfer(bridge2Burner, olasAmount);
-        if (!success) {
-            revert TransferFailed(olas, bridge2Burner, olasAmount);
-        }
-
-        emit TokenTransferred(bridge2Burner, olasAmount);
-
-        _locked = 1;
-    }
-
-    /// @dev Buys OLAS on V3 DEX.
-    /// @notice if secondTokenAmount is zero or above the balance, it will be adjusted to current second token balance.
-    /// @param secondToken Second token address.
-    /// @param secondTokenAmount Suggested second token amount.
-    /// @param feeTierOrTickSpacing Fee tier or tick spacing.
-    /// @param deadline Unix timestamp after which the call reverts (0 disables the check).
-    function buyBack(address secondToken, uint256 secondTokenAmount, int24 feeTierOrTickSpacing, uint256 deadline)
-        external
-        virtual
-    {
-        // Reentrancy guard
-        if (_locked > 1) {
-            revert ReentrancyGuard();
-        }
-        _locked = 2;
-
-        // Fail fast when V3 is disabled — mirrors the guard inside _buyOLAS
-        _requireV3Enabled();
-
-        // Deadline guard against stale mempool execution; 0 opts out for callers that don't need it
-        if (deadline != 0 && block.timestamp > deadline) {
-            revert DeadlineExpired(deadline, block.timestamp);
-        }
-
-        // Get token balance
-        uint256 balance = IERC20(secondToken).balanceOf(address(this));
-
-        // Adjust second token amount, if needed
-        if (secondTokenAmount == 0 || secondTokenAmount > balance) {
-            secondTokenAmount = balance;
-        }
-
-        if (secondTokenAmount == 0) {
-            revert ZeroValue();
-        }
-
-        // Record msg.sender activity
-        mapAccountActivities[msg.sender]++;
-
-        // Buy OLAS
-        uint256 olasAmount = _buyOLAS(secondToken, secondTokenAmount, feeTierOrTickSpacing);
-
-        emit BuyBack(secondToken, secondTokenAmount, olasAmount);
 
         // Get OLAS contract balance
         olasAmount = IERC20(olas).balanceOf(address(this));
@@ -619,8 +605,12 @@ abstract contract BuyBackBurner {
     ///         return value. To support such tokens, use SafeERC20.safeTransfer() or handle the return data manually.
     /// @param token Token address.
     function transfer(address token) external {
-        // Check that token is not set for swapping into OLAS
-        if (mapV2Oracles[token] != address(0)) {
+        // Check that token is not authorized for either swap path. mapV3Pools is only populated via
+        // setV3Pools, which calls _requireV3Enabled() — so when V3 is disabled at deployment, mapV3Pools
+        // is necessarily empty and this V3 leg is harmlessly always-false. No explicit liquidityManager
+        // guard is needed here. Closes the L-06 griefing surface where an external caller could otherwise
+        // front-run buyBack and divert a V3-eligible secondToken to treasury.
+        if (mapV2Oracles[token] != address(0) || mapV3Pools[token] != address(0)) {
             revert UnauthorizedToken(token);
         }
 

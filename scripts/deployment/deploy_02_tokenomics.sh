@@ -32,14 +32,9 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   fi
 fi
 
-olasAddress=$(jq -r '.olasAddress' $globals)
-l2GatewayRouterAddress=$(jq -r '.l2GatewayRouterAddress' $globals)
-l1OlasAddress=$(jq -r '.l1OlasAddress' $globals)
-
-contractName="Bridge2BurnerArbitrum"
-contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $l2GatewayRouterAddress $l1OlasAddress"
-contractArgs="$contractPath --constructor-args $constructorArgs"
+contractName="Tokenomics"
+contractPath="contracts/$contractName.sol:$contractName"
+contractArgs="$contractPath"
 
 # Get deployer based on the ledger flag
 if [ "$useLedger" == "true" ]; then
@@ -59,10 +54,10 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-bridge2BurnerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+tokenomicsAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#bridge2BurnerAddress}
+outputLength=${#tokenomicsAddress}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
@@ -70,20 +65,12 @@ if [ $outputLength != 42 ]; then
   exit 0
 fi
 
-# Write new deployed contract back into JSON (utils + pol if present)
-echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' $globals)" > $globals
-
-# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_*.sh
-# reads bridge2BurnerAddress from there. V3-enabled chains have pol/globals_*.json; V2-only
-# chains (gnosis, polygon, arbitrum, celo) do not — silently skip in that case.
-globalsPol="$(dirname "$0")/../pol/globals_$1.json"
-if [ -f "$globalsPol" ]; then
-  echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' "$globalsPol")" > "$globalsPol"
-fi
+# Write new deployed contract back into JSON
+echo "$(jq '. += {"tokenomicsFourAddress":"'$tokenomicsAddress'"}' $globals)" > $globals
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$bridge2BurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address)" $constructorArgs)"
+  contractParams="$tokenomicsAddress $contractPath"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -96,4 +83,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}$contractName deployed at: $bridge2BurnerAddress${reset}"
+echo "${green}$contractName deployed at: $tokenomicsAddress${reset}"
