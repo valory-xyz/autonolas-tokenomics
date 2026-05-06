@@ -27,7 +27,17 @@ L-06 was a late finding — surfaced 2026-04-29, after `audits/internal15/FINAL_
 | **New findings (this re-audit, broad scope)** | **1 MEDIUM** (Bridge2BurnerPolygon L1 destination architecture gap), **5 LOW** (Optimism gas limit, approval cleanup, no-rescue, Tokenomics integer truncation pattern, GenericBondCalculator flash-loan view), **2 INFO** (V2/V3 setter mutual-exclusivity, Depository OLAS transfer return) |
 | **Agent-flagged Critical claims investigated** | 3 of 3 verified as **false positives** with concrete file:line reasoning (see §6) |
 | **C-01 OpSec carry-over from internal-15** | Unchanged — 7 BBB proxies still EOA-owned; acknowledged-and-deferred (§11) |
-| **Verdict** | ⚠ **PASS-WITH-FINDINGS** — branch mergeable; M-1-NEW Polygon recommendation is a pre-Mode-F-production gate |
+| **M-1-NEW Polygon Bridge2Burner L1 destination** | ✅ Fixed — `relayToL1Burner()` now forwards OLAS to the Polygon bridge mediator (governance-owned, code-deployed on both L2 and its L1 mirror). Sidesteps Polygon PoS bridge's missing recipient parameter. |
+| **L-NEW-2 Bridge2Burner approval cleanup** | ✅ Fixed — Arbitrum / Gnosis / Optimism variants now reset OLAS approval to `0` after the bridge call. |
+| **L-NEW-1 Bridge2BurnerOptimism `TOKEN_GAS_LIMIT` hardcoded** | 📝 Documented as VL **#22** — accepted residual; 300 K gas is well above current `OLAS_BURNER` L1 receive footprint and not expected to rise; failed L1 messages are replayable via the standard Optimism replay mechanism. |
+| **INFO-1 `setV2Oracles` / `setV3Pools` not mutually exclusive** | 📝 Documented as VL **#23** — owner-only setters with symmetric security gate; operational-only footgun. Runbook: clear the V2 oracle entry before configuring a V3 pool for the same token. |
+| **INFO-2 Depository OLAS transfer return value not checked** | 📝 Documented as VL **#21** — code-hygiene only; OLAS is the canonical revert-on-failure ERC20. Future SafeTransferLib normalization out of scope. |
+| **L-NEW-3 Bridge2Burner family lacks emergency rescue** | ⚖️ Intentionally rejected — adding owner-gated rescue would expand the C-01 EOA blast radius into a currently trustless contract. Permissionless trust model preserved. |
+| **L-NEW-4 Tokenomics integer truncation in incentive pattern** | 📝 Already covered by VL **#18** (`_trackServiceDonations` precision loss) — same residual class; no separate VL entry required. |
+| **L-NEW-5 GenericBondCalculator flash-loan view** | ⚖️ Already mitigated — view-only function; bond payouts use stored `priceLP` set at create-time. No code change indicated. |
+| **INFO-3 ABI break impact summary** | 📝 Documented in §3 of this README — release-notes / off-repo consumers concern. |
+| **M-09 saturating-subtraction design note** | 📝 Documented as VL **#24** — intentional design (residual bonds already minted cannot be retroactively unminted); exposure window bounded to Y2→Y3 (already past) and Y9→Y10 (still ahead). |
+| **Verdict** | ⚠ **PASS-WITH-FINDINGS** — branch mergeable; M-1-NEW + L-NEW-2 closed in code; remaining LOW/INFO items dispositioned in `docs/Vulnerabilities_list_tokenomics.md` (#21–#24) or rejected with rationale. |
 
 ---
 
@@ -225,11 +235,17 @@ function _buyOLASV3(address secondToken, uint256 secondTokenAmount) internal vir
 
 ## §3. New findings (broad-scope re-audit)
 
-### 🟡 M-1 — Bridge2BurnerPolygon: L1 destination is L1-mirror of L2 contract, not OLAS_BURNER
+### 🟡 M-1 — Bridge2BurnerPolygon: L1 destination is L1-mirror of L2 contract, not OLAS_BURNER — ✅ Fixed
 
-**File**: `contracts/utils/Bridge2BurnerPolygon.sol:42`.
+**Resolution**: `relayToL1Burner()` no longer calls Polygon's `ChildERC20.withdraw(amount)`. OLAS is forwarded to the
+Polygon bridge mediator (`0x9338b5153AE39BB89f50468E608eD9d764B755fD`), the L2 contract that L1 governance reaches over
+fx-portal. Final disposition (keep, transfer, trigger PoS-bridge burn) is governance's call, not this contract's.
+Sidesteps the Polygon PoS bridge's missing recipient parameter and matches the existing "send-to-bridge-mediator"
+pattern already used by `LPSwapCelo` for leftover-token routing on Celo.
 
-The contract calls Polygon's `ChildERC20.withdraw(amount)`:
+**File**: `contracts/utils/Bridge2BurnerPolygon.sol`.
+
+Original finding (preserved for historical record): the contract used to call Polygon's `ChildERC20.withdraw(amount)`:
 
 ```solidity
 IBridge(l2TokenRelayer).withdraw(olasAmount);
@@ -264,7 +280,7 @@ Both use bridge primitives with a `_to` recipient parameter and route to OLAS_BU
 
 **Recommended fix**: pick one of options 1-3 and document the choice explicitly in the contract NatSpec. If option 1 is chosen, document the deployment procedure (same EOA + nonce on L1 vs Polygon).
 
-### 🟢 L-NEW-1 — Bridge2BurnerOptimism `TOKEN_GAS_LIMIT = 300_000` hardcoded
+### 🟢 L-NEW-1 — Bridge2BurnerOptimism `TOKEN_GAS_LIMIT = 300_000` hardcoded — 📝 Documented (VL #22)
 
 **File**: `contracts/utils/Bridge2BurnerOptimism.sol:41,63`.
 
@@ -274,13 +290,15 @@ Mitigation by Optimism bridge spec: failed L1 messages can be replayed with more
 
 **Recommended**: make `TOKEN_GAS_LIMIT` owner-settable, or document the implicit assumption «OLAS_BURNER L1 receive < 300K gas».
 
-### 🟢 L-NEW-2 — Token approvals to bridges not cleared after relay
+**Disposition**: documented as VL **#22**. The team accepts the residual — current `OLAS_BURNER` L1 receive footprint is well under 300 K gas and there is no roadmap that would push it higher; bridge replay is available for the operational tail.
 
-**Files**: `contracts/utils/Bridge2BurnerArbitrum.sol:66`, `Bridge2BurnerGnosis.sol:45`, `Bridge2BurnerOptimism.sol:60`.
+### 🟢 L-NEW-2 — Token approvals to bridges not cleared after relay — ✅ Fixed
 
-After successful `withdraw`/`outboundTransfer`, the residual approval to `l2TokenRelayer` is not reset. The bridge primitives consume the approved amount, so practical residual is zero; but if `l2TokenRelayer` is ever an upgradeable contract that gets compromised, leftover allowance from prior calls could be exploited. Mitigated by trust model: l2TokenRelayer addresses (Arbitrum L2GatewayRouter, Gnosis Omnibridge, Optimism L2StandardBridge) are immutable infrastructure.
+**Resolution**: Each of `Bridge2BurnerArbitrum`, `Bridge2BurnerGnosis`, `Bridge2BurnerOptimism` now calls `IToken(olas).approve(l2TokenRelayer, 0)` immediately after the successful bridge primitive (`outboundTransfer` / `relayTokens` / `withdrawTo`). The Polygon variant doesn't approve at all under M-1's transfer-based path, so it is unaffected.
 
-**Recommended**: add `IToken(olas).approve(l2TokenRelayer, 0)` after each successful bridge call.
+**Files** (original finding, retained for context): `contracts/utils/Bridge2BurnerArbitrum.sol:66`, `Bridge2BurnerGnosis.sol:45`, `Bridge2BurnerOptimism.sol:60`.
+
+After successful `withdraw`/`outboundTransfer`, the residual approval to `l2TokenRelayer` was not reset. The bridge primitives consume the approved amount, so practical residual is zero; but if `l2TokenRelayer` is ever an upgradeable contract that gets compromised, leftover allowance from prior calls could be exploited. Mitigated by trust model: l2TokenRelayer addresses (Arbitrum L2GatewayRouter, Gnosis Omnibridge, Optimism L2StandardBridge) are immutable infrastructure.
 
 ### 🟢 L-NEW-3 — Bridge2Burner family lacks emergency rescue
 
@@ -315,7 +333,7 @@ Same disposition as C4A L-09 — acknowledged residual.
 
 Same class as residual oracle concerns — already-bounded pattern.
 
-### ℹ️ INFO-1 — `setV2Oracles` and `setV3Pools` are not mutually exclusive (operational footgun)
+### ℹ️ INFO-1 — `setV2Oracles` and `setV3Pools` are not mutually exclusive (operational footgun) — 📝 Documented (VL #23)
 
 After the L-06 reshape, both `mapV2Oracles[token]` and `mapV3Pools[token]` can be set non-zero for the same `token`. Consequences:
 
@@ -326,7 +344,9 @@ After the L-06 reshape, both `mapV2Oracles[token]` and `mapV3Pools[token]` can b
 
 **Recommended (operational)**: when migrating an existing V2-oracle token to V3, explicitly call `setV2Oracles(token, address(0))` first to clear the V2 entry. Add a deployment-runbook note alongside `scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh`.
 
-### ℹ️ INFO-2 — Depository OLAS transfer return value not checked
+**Disposition**: documented as VL **#23**. Owner-only setters with symmetric on-chain security gate; the footgun is operational only.
+
+### ℹ️ INFO-2 — Depository OLAS transfer return value not checked — 📝 Documented (VL #21)
 
 **File**: `contracts/Depository.sol:390`.
 
@@ -337,6 +357,8 @@ IToken(olas).transfer(msg.sender, payout);
 No bool return check. Acceptable for OLAS specifically because OLAS is the deployed canonical Olas token contract — known standard ERC20 with revert-on-failure semantics. A non-standard `transfer` returning `false` silently is not realistic for OLAS.
 
 Code-hygiene only. Should use `SafeTransferLib.safeTransfer` for consistency.
+
+**Disposition**: documented as VL **#21**. OLAS is the canonical revert-on-failure ERC20; the return-check is theoretical hardening only. SafeTransferLib normalization deferred.
 
 ### ℹ️ INFO-3 — ABI break impact summary
 

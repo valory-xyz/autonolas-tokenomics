@@ -1,7 +1,7 @@
 # Internal audit 16 — closing PR review (C4R 2026-01 tokenomics-scope cross-reference)
 
 **Date:** 2026-05-05
-**Scope:** Every C4R 2026-01 Olas finding whose code lives in `autonolas-tokenomics`. Registries / governance findings are listed once in §3 with a pointer to the responsible repo and otherwise omitted from the matrices.
+**Scope:** Every C4R 2026-01 Olas finding whose code lives in `autonolas-tokenomics`. Registries / governance findings are out of scope for this repo and omitted entirely from the matrices below — see the corresponding sibling-repo audit trails for their dispositions.
 **Source of truth — C4R draft report:** [gist `kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38`](https://gist.github.com/kobi-c4/e232003edf0a4aa5fef5d0b6f0717b38)
 **Source of truth — fix dispositions / on-chain implications:** [`audits/internal15/FINAL_REVIEW.md`](../internal15/FINAL_REVIEW.md). This doc is a C4R-ID-keyed re-presentation of the same dispositions, intended as a single landing page for downstream auditors who arrive holding the C4R draft and want to know, finding-by-finding, where each one was addressed.
 
@@ -32,7 +32,7 @@ A given finding can map to two commits (e.g. an oracle rewrite + a follow-up `ge
 
 ## §2. Tokenomics-scope C4R findings — full matrix
 
-### High (6 of 11; 5 are registries/governance — see §3)
+### High (6 of 11; 5 are registries/governance, out of scope for this repo)
 
 | C4R | Title | Code status | Where it landed | Evidence on `main` |
 |-----|-------|-------------|-----------------|---------------------|
@@ -43,7 +43,7 @@ A given finding can map to two commits (e.g. an oracle rewrite + a follow-up `ge
 | **H-08** | Logic inversion in `LiquidityManagerCore.checkPoolAndGetCenterPrice()` (instant vs TWAP direction) + fail-open early returns | ✅ Fixed in code | [`c8ca1d8`](https://github.com/valory-xyz/autonolas-tokenomics/commit/c8ca1d80a459bea23a66efca7555b1922dd4523d) (PR #273, C4R #18 — direction-preserving compare) + [`b1542da`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b1542da) (PR #276 — fail-open closed) | `contracts/pol/LiquidityManagerCore.sol:checkPoolAndGetCenterPrice` — real instant-vs-TWAP comparison preserves direction; cardinality ≥ 2 path now reverts on observe failure rather than returning unprotected spot. Same fix as H-02 — these two C4R IDs cover overlapping bugs in the same function. |
 | **H-11** | `cumulativePrice` corrupted on rejected `BalancerPriceOracle.updatePrice` calls | ✅ Fixed in code | [`0948e8b`](https://github.com/valory-xyz/autonolas-tokenomics/commit/0948e8b8a2db1ed1464a47a7f3aafb6d7daf69cb) + [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) | `contracts/oracles/BalancerPriceOracle.sol` (and the matching `UniswapPriceOracle.sol`) — commit-on-success pattern: state writes happen only after the new sample passes the slippage band check against the prior observation. Rejected samples leave `cumulativePrice` and `lastObservation` untouched. |
 
-### Medium (9 of 12; 3 are registries/governance — see §3)
+### Medium (9 of 12; 3 are registries/governance, out of scope for this repo)
 
 | C4R | Title | Code status | Where it landed | Evidence on `main` |
 |-----|-------|-------------|-----------------|---------------------|
@@ -57,7 +57,7 @@ A given finding can map to two commits (e.g. an oracle rewrite + a follow-up `ge
 | **M-11** | V3 `_performSwap` uses `amountOutMinimum = 1` (no slippage protection on Uniswap V3 / Slipstream swap) | ✅ Fixed in code | [`b45b9fa`](https://github.com/valory-xyz/autonolas-tokenomics/commit/b45b9fa) (PR [#275](https://github.com/valory-xyz/autonolas-tokenomics/pull/275)) | `contracts/utils/BuyBackBurner.sol:_buyOLASV3` — TWAP-derived `amountOutMin` computed from `checkPoolAndGetCenterPrice` × `mapTokenMaxSlippages[secondToken]`; passed through to both Uniswap (`BuyBackBurnerUniswap._performSwap`) and Balancer/Slipstream (`BuyBackBurnerBalancer._performSwap`) children. Same fix simultaneously closes C4R **L-01**. |
 | **M-12** | `BalancerPriceOracle` deadlock from cumulative-price weight (oracle becomes inertial; rejected updates freeze state) | ✅ Fixed in code | [`33468a4`](https://github.com/valory-xyz/autonolas-tokenomics/commit/33468a4f72eff39c0ace5c2fb93cd07e575dbfee) + [`d2515a6`](https://github.com/valory-xyz/autonolas-tokenomics/commit/d2515a6fe4232cfda70d6d4ae6fbb570305f0076) | `contracts/oracles/BalancerPriceOracle.sol` — the deadlock-prone `cumulativePrice / averagePrice` formula is gone; the new oracle uses a two-observation rolling window with bounded staleness. The "frozen cumulative weight dominates new time period" deadlock is structurally absent. |
 
-### Low / QA (13 of 15; 2 are registries — see §3)
+### Low / QA (13 of 15; 2 are registries, out of scope for this repo)
 
 | C4R | Title | Code status | Where it landed | Evidence on `main` |
 |-----|-------|-------------|-----------------|---------------------|
@@ -77,26 +77,7 @@ A given finding can map to two commits (e.g. an oracle rewrite + a follow-up `ge
 
 ---
 
-## §3. C4R findings out of scope for this repo (cross-repo pointers)
-
-These C4R findings are real, valid, and not dropped — but their fix lives in a sibling repo. Per [`audits/internal15/README.md` Scope restriction](../internal15/README.md), this audit trail tracks only `autonolas-tokenomics`. Listed once below for completeness.
-
-| C4R | Title | Repo | Where to look |
-|-----|-------|------|----------------|
-| **H-05** | Insolvency via Cross-Service Reentrancy in `StakingBase._withdraw` | `autonolas-registries` | `contracts/staking/StakingBase.sol` in `autonolas-registries` audit trail |
-| **H-06** | Service owner can steal protocol tokens via reentrancy in `ServiceManager.create` | `autonolas-registries` | `contracts/ServiceManager.sol` + `contracts/ServiceRegistry.sol` |
-| **H-07** | Missing deadline parameter in `registerAgentsWithSignature` | `autonolas-registries` | `contracts/ServiceManager.sol` |
-| **H-09** | Missing maximum bond signature parameter | `autonolas-registries` | `contracts/ServiceManager.sol` |
-| **H-10** | Token Callback Reentrancy in `_claim` / `_withdraw` / `create` | `autonolas-registries` | `StakingBase.sol` + `ServiceManager.sol` |
-| **M-01** | Arbitrum Retryable-Ticket refund/value not verified — Timelock ETH exfiltration | `autonolas-governance` | `contracts/multisigs/GuardCM.sol` + `ProcessBridgedDataArbitrum.sol` |
-| **M-08** | Incorrect proportional reward splits when an operator has been slashed | `autonolas-registries` | `contracts/staking/StakingBase.sol` |
-| **M-10** | Services can earn undeserved rewards by manipulating checkpoint timing during reward droughts | `autonolas-registries` | `contracts/staking/StakingBase.sol` + `StakingActivityChecker.sol` |
-| **L-11** | Invalid reward distribution config locks user funds | `autonolas-registries` | `contracts/staking/StakingBase.sol` |
-| **L-12** | Precision loss in `calculateStakingReward` proportional distribution | `autonolas-registries` | `contracts/staking/StakingBase.sol` |
-
----
-
-## §4. Aggregate roll-up
+## §3. Aggregate roll-up
 
 ### By disposition (tokenomics-scope C4R findings only — 28 total)
 
@@ -124,7 +105,7 @@ These C4R findings are real, valid, and not dropped — but their fix lives in a
 
 ---
 
-## §5. Fix-commit roll-up by PR
+## §4. Fix-commit roll-up by PR
 
 The same fix commits cited above, organised by the PR that landed them. Useful when a reader wants to verify a *PR* rather than a finding. Disposition matrix in §2 cites the *commit* (more granular); this table cites the *PR*.
 
@@ -141,7 +122,7 @@ The same fix commits cited above, organised by the PR that landed them. Useful w
 
 ---
 
-## §6. Quick reference — VL # ↔ current `Vulnerabilities_list_tokenomics.md` entry
+## §5. Quick reference — VL # ↔ current `Vulnerabilities_list_tokenomics.md` entry
 
 The "VL #N" citations in §2 follow the numbering in [`docs/Vulnerabilities_list_tokenomics.md`](../../docs/Vulnerabilities_list_tokenomics.md) at the time of writing (HEAD `5fadd70`). Per team policy, VL entries are removed when fixed; the live numbering may shift over time as entries close. The mapping below is a snapshot.
 
@@ -159,7 +140,7 @@ VL entries #1–#13 predate the C4R 2026-01 cycle and originate from earlier int
 
 ---
 
-## §7. Verdict
+## §6. Verdict
 
 Every C4R 2026-01 tokenomics-scope finding has a known disposition on the current code:
 

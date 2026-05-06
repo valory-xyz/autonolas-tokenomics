@@ -33,10 +33,12 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 olasAddress=$(jq -r '.olasAddress' $globals)
+bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 
 contractName="Bridge2BurnerPolygon"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $olasAddress"
+# Second arg is the L2 bridge mediator (held in the inherited l2TokenRelayer slot); see Bridge2BurnerPolygon NatSpec.
+constructorArgs="$olasAddress $bridgeMediatorAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -68,8 +70,16 @@ if [ $outputLength != 42 ]; then
   exit 0
 fi
 
-# Write new deployed contract back into JSON
+# Write new deployed contract back into JSON (utils + pol if present)
 echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' $globals)" > $globals
+
+# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_*.sh
+# reads bridge2BurnerAddress from there. V3-enabled chains have pol/globals_*.json; V2-only
+# chains (gnosis, polygon, arbitrum, celo) do not — silently skip in that case.
+globalsPol="$(dirname "$0")/../pol/globals_$1.json"
+if [ -f "$globalsPol" ]; then
+  echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' "$globalsPol")" > "$globalsPol"
+fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
