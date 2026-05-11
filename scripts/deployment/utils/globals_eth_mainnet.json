@@ -11,7 +11,6 @@
   "olasAddress": "0x0001A500A6B18995B03f44bb040A5fFc28E45CB0",
   "nativeTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
   "routerV2Address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-  "maxBuyBackSlippage": "10",
   "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a",
   "liquidityManagerProxyAddress": "",
   "swapRouterV3Address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",

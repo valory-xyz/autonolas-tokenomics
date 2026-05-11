@@ -36,10 +36,11 @@ olasAddress=$(jq -r '.olasAddress' $globals)
 nativeTokenAddress=$(jq -r '.nativeTokenAddress' $globals)
 uniswapPriceOracleAddress=$(jq -r '.uniswapPriceOracleAddress' $globals)
 routerV2Address=$(jq -r '.routerV2Address' $globals)
-maxBuyBackSlippage=$(jq -r '.maxBuyBackSlippage' $globals)
 buyBackBurnerAddress=$(jq -r '.buyBackBurnerAddress' $globals)
 
-proxyPayload=$(cast abi-encode "f(address[],uint256)" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]" $maxBuyBackSlippage)
+# BuyBackBurnerUniswap._initialize decodes (address[]) — slippage is per-token via
+# setMaxSlippages, not a global initializer field.
+proxyPayload=$(cast abi-encode "f(address[])" "[$olasAddress,$nativeTokenAddress,$uniswapPriceOracleAddress,$routerV2Address]")
 proxyData=$(cast calldata "initialize(bytes)" $proxyPayload)
 
 contractName="BuyBackBurnerProxy"
