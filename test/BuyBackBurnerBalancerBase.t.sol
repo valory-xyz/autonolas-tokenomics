@@ -64,7 +64,9 @@ contract BaseSetup is Test {
         bridge2Burner = new Bridge2BurnerOptimism(OLAS, L2_TOKEN_RELAYER);
 
         // Deploy BuyBackBurnerBalancer implementation
-        BuyBackBurnerBalancer buyBackBurnerImpl = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
+        // liquidityManager and swapRouter are placeholders (unused for V2 buyBack path)
+        BuyBackBurnerBalancer buyBackBurnerImpl =
+            new BuyBackBurnerBalancer(address(0xdead), address(bridge2Burner), TIMELOCK, address(0xdead));
 
         // Construct proxy init payload: (accounts, balancerPoolId)
         address[] memory accounts = new address[](4);
@@ -113,7 +115,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBack() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -123,14 +125,14 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     /// @dev buyBack with zero balance reverts.
     function testBuyBackZeroBalance() public {
         vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
     }
 
     /// @dev buyBack adjusts amount to full balance when requested amount exceeds it.
     function testBuyBackAdjustsToBalance() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 1 ether);
+        buyBackBurner.buyBack(WETH, 1 ether, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -140,7 +142,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackZeroAmountUsesBalance() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0);
+        buyBackBurner.buyBack(WETH, 0, 0);
 
         assertGt(IToken(OLAS).balanceOf(address(bridge2Burner)), 0);
         assertEq(IToken(WETH).balanceOf(address(buyBackBurner)), 0);
@@ -246,7 +248,7 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackAndRelay() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         uint256 olasBal = IToken(OLAS).balanceOf(address(bridge2Burner));
         assertGt(olasBal, 0);
@@ -260,18 +262,25 @@ contract BuyBackBurnerBalancerBase is BaseSetup {
     function testBuyBackActivityCounter() public {
         deal(WETH, address(buyBackBurner), 0.1 ether);
 
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
         assertEq(buyBackBurner.mapAccountActivities(address(this)), 1);
     }
 
-    /// @dev buyBack reverts when oracle observation is stale.
-    function testBuyBackStaleOracle() public {
+    /// @dev M-03: buyBack auto-refreshes a stale TWAP observation in V2 _buyOLAS, so
+    ///      a buyBack issued past maxStaleness succeeds and the oracle's lastObservation
+    ///      advances to the current block.
+    function testBuyBackRefreshesStaleOracle() public {
         vm.warp(block.timestamp + maxStalenessSeconds + 1);
+        uint256 postWarp = block.timestamp;
+
+        (, uint256 lastTsBefore) = oracleV2.lastObservation();
+        assertLt(lastTsBefore, postWarp, "setup: lastObservation must be stale pre-buyBack");
 
         deal(WETH, address(buyBackBurner), 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
 
-        vm.expectRevert();
-        buyBackBurner.buyBack(WETH, 0.1 ether);
+        (, uint256 lastTsAfter) = oracleV2.lastObservation();
+        assertEq(lastTsAfter, postWarp, "V2 _buyOLAS must refresh the TWAP observation");
     }
 }

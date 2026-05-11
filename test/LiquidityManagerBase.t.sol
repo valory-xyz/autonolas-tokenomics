@@ -185,7 +185,7 @@ contract BaseSetup is Test {
         initialAmounts[1] = (v2Liquidity * initialAmounts[1]) / totalSupply;
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerBalancer(address(bridge2Burner), TIMELOCK);
+        buyBackBurner = new BuyBackBurnerBalancer(address(liquidityManager), address(bridge2Burner), TIMELOCK, ROUTER_V3);
 
         // Change BBB implementation
         vm.prank(BBB_OWNER);
@@ -193,6 +193,14 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerBalancer(payable(BUY_BACK_BURNER));
+
+        // Configure V3 pool for WETH (the secondToken; OLAS is in TOKENS but the API is keyed by secondToken)
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory pools = new address[](1);
+        pools[0] = ISlipstream(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], TICK_SPACING);
+        vm.prank(BBB_OWNER);
+        buyBackBurner.setV3Pools(secondTokens, pools);
     }
 }
 
@@ -447,24 +455,13 @@ contract LiquidityManagerBaseTest is BaseSetup {
         // Mock fund more OLAS, not to fail for min OLAS transfer
         deal(OLAS, address(bridge2Burner), bridge2Burner.MIN_OLAS_BALANCE());
 
-        // Set V2 oracle mapping for WETH
-        address[] memory secondTokens = new address[](1);
-        secondTokens[0] = WETH;
-        address[] memory v2Oracles = new address[](1);
-        v2Oracles[0] = address(oracleV2);
-        vm.prank(BBB_OWNER);
-        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
-
-        // Warm up oracle
-        vm.warp(block.timestamp + minUpdateIntervalSeconds);
-        oracleV2.updatePrice();
-        vm.warp(block.timestamp + minTwapWindowSeconds + 1);
-
         // Mock WETH balance on BBB
         deal(WETH, BUY_BACK_BURNER, 0.5 ether);
 
-        // Perform V2 swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether);
+        // Perform V3 swap in BBB using the whitelisted tick spacing pool.
+        // The Balancer V2 pool is too shallow after 95% LP drain, so use the V3 Slipstream path
+        // which bypasses the V2 oracle TWAP check.
+        buyBackBurner.buyBack(WETH, 0.5 ether, 0);
 
         // Bridge OLAS to burn
         bridge2Burner.relayToL1Burner();

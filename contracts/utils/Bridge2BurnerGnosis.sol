@@ -31,7 +31,7 @@ contract Bridge2BurnerGnosis is Bridge2Burner {
     constructor(address _olas, address _l2TokenRelayer) Bridge2Burner(_olas, _l2TokenRelayer) {}
 
     /// @dev Relays OLAS to L1 Burner contract.
-    function relayToL1Burner() external virtual {
+    function relayToL1Burner() external virtual override {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
@@ -46,6 +46,9 @@ contract Bridge2BurnerGnosis is Bridge2Burner {
 
         // Relay OLAS to L1 Burner contract
         IBridge(l2TokenRelayer).relayTokens(olas, OLAS_BURNER, olasAmount);
+
+        // Reset residual approval (defensive — bridge consumes the exact approved amount, but explicit zero is hygiene)
+        IToken(olas).approve(l2TokenRelayer, 0);
 
         _locked = 1;
     }

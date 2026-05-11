@@ -15,6 +15,14 @@ The format is based on [Common Changelog](https://common-changelog.org).
 [1.0.0]: https://github.com/valory-xyz/autonolas-tokenomics/releases/tag/v1.0.0
 
 
+## [Unreleased]
+
+### Fixed
+
+- `LiquidityManagerCore.checkPoolAndGetCenterPrice`: TWAP decoded into a separate local variable; `instantPrice` computed from the preserved slot0 value; deviation check now compares real instantaneous price against TWAP, preventing flash-loan manipulation (C4R 2026-01 #17/#18, S-347/S-471) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272))
+- `LiquidityManagerCore.changeRanges`: replaced silent single-sided skip with `revert ZeroValue()` when either collected amount is zero, preventing silent routing of value to treasury (C4R 2026-01 #19, S-668) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272))
+- `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer`: V3 swap path restored after price-guard correctness confirmed ([#273](https://github.com/valory-xyz/autonolas-tokenomics/pull/273))
+
 ## [v1.3.3] - 2025-07-16
 
 ### Changed

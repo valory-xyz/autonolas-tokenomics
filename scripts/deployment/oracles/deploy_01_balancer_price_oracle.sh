@@ -80,9 +80,17 @@ if [ $outputLength != 42 ]; then
   exit 0
 fi
 
-# Write new deployed contract back into JSON
+# Write new deployed contract back into JSON (oracles + utils + pol if present)
 echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globals)" > $globals
 echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
+
+# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_*.sh
+# reads balancerPriceOracleAddress from there. V3-enabled chains (base, optimism) have
+# pol/globals_*.json; V2-only chains (gnosis, polygon, arbitrum) do not — silently skip.
+globalsPol="$(dirname "$0")/../pol/globals_$1.json"
+if [ -f "$globalsPol" ]; then
+  echo "$(jq '. += {"balancerPriceOracleAddress":"'$balancerPriceOracleAddress'"}' "$globalsPol")" > "$globalsPol"
+fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

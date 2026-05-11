@@ -41,9 +41,28 @@ else
   bridgeMediatorAddress=$(jq -r ".bridgeMediatorAddress" $globals)
 fi
 
+liquidityManagerAddress=$(jq -r '.liquidityManagerProxyAddress' $globals)
+swapRouterV3Address=$(jq -r '.swapRouterV3Address' $globals)
+
+# Both fields must be set explicitly in globals — real addresses for V3-enabled,
+# `0x0000000000000000000000000000000000000000` for V3-disabled. Empty/null means
+# "operator hasn't decided yet" and we refuse to deploy.
+# NOTE: for V3-enabled, wire the LiquidityManager *proxy*, not the impl — the BBB
+# calls factoryV3() through it and the proxy delegatecall-reads the impl's immutables.
+if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
+  echo "${red}!!! liquidityManagerProxyAddress is not set in $globals."
+  echo "    Populate with the LM proxy address (V3 enabled) or 0x0000000000000000000000000000000000000000 (V3 disabled).${reset}"
+  exit 1
+fi
+if [ -z "$swapRouterV3Address" ] || [ "$swapRouterV3Address" == "null" ]; then
+  echo "${red}!!! swapRouterV3Address is not set in $globals."
+  echo "    Populate with the concentrated-liquidity router address (V3 enabled) or 0x0000000000000000000000000000000000000000 (V3 disabled).${reset}"
+  exit 1
+fi
+
 contractName="BuyBackBurnerUniswap"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-constructorArgs="$bridge2BurnerAddress $bridgeMediatorAddress"
+constructorArgs="$liquidityManagerAddress $bridge2BurnerAddress $bridgeMediatorAddress $swapRouterV3Address"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -80,7 +99,7 @@ echo "$(jq '. += {"buyBackBurnerAddress":"'$buyBackBurnerAddress'"}' $globals)" 
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address)" $constructorArgs)"
+  contractParams="$buyBackBurnerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

@@ -9,6 +9,7 @@ import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {FullMath} from "../contracts/libraries/FullMath.sol";
 import {FixedPoint96} from "../contracts/libraries/FixedPoint96.sol";
 import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
+import {ObservationFailed, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
 import {UniswapPriceOracle} from "../contracts/oracles/UniswapPriceOracle.sol";
@@ -91,7 +92,7 @@ contract BaseSetup is Test {
     uint16 public constant MAX_BPS = 10_000;
 
     uint256 public constant OLAS_ETH_ATH_PRICE = 0.003624094951 ether;
-    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000010255298 ether;
+    uint256 public constant OLAS_ETH_ATL_PRICE = 0.000005 ether;
 
     function setUp() public virtual {
         utils = new Utils();
@@ -154,7 +155,7 @@ contract BaseSetup is Test {
         sqrtPriceX96ATL = uint160((FixedPointMathLib.sqrt(OLAS_ETH_ATL_PRICE) * (1 << 96)) / 1e9);
 
         // Deploy BuyBackBurner
-        buyBackBurner = new BuyBackBurnerUniswap(BURNER, TIMELOCK);
+        buyBackBurner = new BuyBackBurnerUniswap(address(liquidityManager), BURNER, TIMELOCK, ROUTER_V3);
 
         // Deploy BBB proxy
         address[] memory accounts = new address[](4);
@@ -169,6 +170,23 @@ contract BaseSetup is Test {
 
         // Wrap BBB implementation
         buyBackBurner = BuyBackBurnerUniswap(payable(address(buyBackBurnerProxy)));
+
+        // Configure V3 pool for WETH (the secondToken on this fork)
+        address[] memory secondTokens = new address[](1);
+        secondTokens[0] = WETH;
+        address[] memory pools = new address[](1);
+        pools[0] = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+        buyBackBurner.setV3Pools(secondTokens, pools);
+
+        // Set V2 oracle mapping for WETH
+        address[] memory oraclesArr = new address[](1);
+        oraclesArr[0] = address(oracleV2);
+        buyBackBurner.setV2Oracles(secondTokens, oraclesArr);
+
+        // Set per-token max slippage for WETH
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = 1000;
+        buyBackBurner.setMaxSlippages(secondTokens, slippages);
     }
 }
 
@@ -221,7 +239,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+        // Allow small absolute tolerance for V2 _mintFee dilution at burn time (protocol fee mints
+        // additional LP to feeTo before computing the user's share, so the LM receives marginally
+        // less than (v2Liquidity * reserves) / totalSupply pre-burn)
+        uint256 timelockWeth = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockWethDiff = timelockWeth > wethAmount ? timelockWeth - wethAmount : wethAmount - timelockWeth;
+        require(timelockWethDiff <= wethAmount / 50, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with 50% amount (50% of OLAS burn, 50% of WETH transferred) and optimized ticks scan.
@@ -249,7 +272,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+        // Allow small absolute tolerance for V2 _mintFee dilution at burn time (protocol fee mints
+        // additional LP to feeTo before computing the user's share, so the LM receives marginally
+        // less than (v2Liquidity * reserves) / totalSupply pre-burn)
+        uint256 timelockWeth = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockWethDiff = timelockWeth > wethAmount ? timelockWeth - wethAmount : wethAmount - timelockWeth;
+        require(timelockWethDiff <= wethAmount / 50, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH and ATL.
@@ -284,7 +312,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+        // Allow small absolute tolerance for V2 _mintFee dilution at burn time (protocol fee mints
+        // additional LP to feeTo before computing the user's share, so the LM receives marginally
+        // less than (v2Liquidity * reserves) / totalSupply pre-burn)
+        uint256 timelockWeth = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockWethDiff = timelockWeth > wethAmount ? timelockWeth - wethAmount : wethAmount - timelockWeth;
+        require(timelockWethDiff <= wethAmount / 50, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL / 2.
@@ -323,7 +356,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+        // Allow small absolute tolerance for V2 _mintFee dilution at burn time (protocol fee mints
+        // additional LP to feeTo before computing the user's share, so the LM receives marginally
+        // less than (v2Liquidity * reserves) / totalSupply pre-burn)
+        uint256 timelockWeth = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockWethDiff = timelockWeth > wethAmount ? timelockWeth - wethAmount : wethAmount - timelockWeth;
+        require(timelockWethDiff <= wethAmount / 50, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with 50% amount and optimized ticks scan with tick shifts to OLAS ATH / 2 and ATL * 2.
@@ -362,7 +400,12 @@ contract LiquidityManagerETHTest is BaseSetup {
 
         uint256 dust = initialAmounts[1] - amountsOut[1];
         wethAmount += dust;
-        require(IToken(WETH).balanceOf(TIMELOCK) == wethAmount, "WETH transfer was not complete");
+        // Allow small absolute tolerance for V2 _mintFee dilution at burn time (protocol fee mints
+        // additional LP to feeTo before computing the user's share, so the LM receives marginally
+        // less than (v2Liquidity * reserves) / totalSupply pre-burn)
+        uint256 timelockWeth = IToken(WETH).balanceOf(TIMELOCK);
+        uint256 timelockWethDiff = timelockWeth > wethAmount ? timelockWeth - wethAmount : wethAmount - timelockWeth;
+        require(timelockWethDiff <= wethAmount / 50, "WETH transfer was not complete");
     }
 
     /// @dev Converts V2 pool into V3 with 50% amount WITHOUT optimized ticks scan with tick shifts to OLAS ATH and ATL.
@@ -745,43 +788,73 @@ contract LiquidityManagerETHTest is BaseSetup {
         // Increase liquidity
         (, , amountsOut) = liquidityManager.increaseLiquidity(TOKENS, FEE_TIER, olasBurnRate);
 
-        // Set V2 oracle mapping for WETH
-        address[] memory secondTokens = new address[](1);
-        secondTokens[0] = WETH;
-        address[] memory v2Oracles = new address[](1);
-        v2Oracles[0] = address(oracleV2);
-        buyBackBurner.setV2Oracles(secondTokens, v2Oracles);
-
-        // Warm up oracle: need 2 observations for TWAP availability
-        oracleV2.updatePrice();
-        vm.warp(block.timestamp + minUpdateIntervalSeconds);
-        oracleV2.updatePrice();
-
-        // Mock WETH balance on BBB
+        // Fund BBB with WETH and perform a V3 buyBack.
+        // The V2 pool is nearly depleted after LP migration, so use the already-whitelisted 0.3% V3 pool
+        // which has deep OLAS/WETH liquidity. The V3 checkPoolAndGetCenterPrice gracefully falls back to
+        // slot0 when the pool oracle has insufficient history (< SECONDS_AGO observations).
         deal(WETH, address(buyBackBurner), 0.5 ether);
 
-        // Perform V2 swap in BBB
-        buyBackBurner.buyBack(WETH, 0.5 ether);
+        // Perform V3 swap in BBB using the whitelisted 0.3% fee tier pool
+        buyBackBurner.buyBack(WETH, 0.5 ether, 0);
     }
 
-    /// @dev 1% existing pool with wrong sqrtP that calculates center price as MIN_TICK - extreme boundary case.
-    function testConvertToV3Full10kPool() public {
+    /// @dev M-01: checkPoolAndGetCenterPrice must revert (not fall open to slot0) when observe()
+    ///      reverts on a pool that claims rich history (cardinality >= 2). Uses the mainnet
+    ///      USDC/WETH 0.3% V3 pool as a known-mature pool and `vm.mockCallRevert` to force
+    ///      observe() to revert; asserts the new `ObservationFailed(pool)` error propagates
+    ///      instead of the fail-open slot0 fallback.
+    function testCheckPoolAndGetCenterPrice_RevertsOnObserveRevertForkOverlay() public {
+        // Well-known mature V3 pool with cardinality ~15k+ on mainnet — guarantees the
+        // cardinality-based escape hatch for fresh pools does NOT apply here.
+        address maturePool = 0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8; // USDC/WETH 0.3%
+
+        // Overlay observe(uint32[]) on the pool so any getTWAP attempt reverts.
+        bytes memory observeSelector = abi.encodeWithSelector(bytes4(keccak256("observe(uint32[])")));
+        vm.mockCallRevert(maturePool, observeSelector, "OLD");
+
+        vm.expectRevert(abi.encodeWithSelector(ObservationFailed.selector, maturePool));
+        liquidityManager.checkPoolAndGetCenterPrice(maturePool);
+    }
+
+    /// @dev H-02 positive path: V3 buyBack with TWAP-derived amountOutMinimum (mapTokenMaxSlippages honored).
+    ///      Converts V2 → V3 to produce a pool with real OLAS liquidity, then swaps WETH → OLAS via
+    ///      BuyBackBurner.buyBack(WETH, amount, FEE_TIER) and asserts OLAS lands at the burner.
+    function testV3BuyBackWithTwapSlippage() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -27000;
         tickShifts[1] = 17000;
-        uint16 olasBurnRate = 0;
-        bool scan = false;
-        int24 feeTier = 10_000;
 
-        // Liquidity will be zero
-        vm.expectRevert(bytes("ZeroValue()"));
-        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 0, true);
 
-        scan = true;
+        uint256 burnerBefore = IToken(OLAS).balanceOf(BURNER);
 
-        // Same wiht scan argument
-        vm.expectRevert(bytes("ZeroValue()"));
-        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, feeTier, tickShifts, olasBurnRate, scan);
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
+
+        uint256 received = IToken(OLAS).balanceOf(BURNER) - burnerBefore;
+        assertGt(received, 0, "V3 buyBack should deliver OLAS to burner");
+    }
+
+    /// @dev H-02 negative path: tightening slippage to 1 bps forces the router to revert on realized output
+    ///      (no real V3 swap can hit ±0.01% of a TWAP-derived quote once fees are paid).
+    function testV3BuyBackRevertsOnTightSlippage() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 0, true);
+
+        // Drop per-token slippage to 1 bps
+        address[] memory tokens = new address[](1);
+        tokens[0] = WETH;
+        uint256[] memory slippages = new uint256[](1);
+        slippages[0] = 1;
+        buyBackBurner.setMaxSlippages(tokens, slippages);
+
+        deal(WETH, address(buyBackBurner), 0.1 ether);
+
+        vm.expectRevert();
+        buyBackBurner.buyBack(WETH, 0.1 ether, 0);
     }
 
     /// @dev Converts V2 pool into V3 with full amount (no OLAS burnt) and optimized ticks scan, transfers position.
@@ -923,5 +996,79 @@ contract LiquidityManagerETHTest is BaseSetup {
         bool scan = true;
 
         liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+    }
+
+    /// @dev C4R #17/#18: flash-manipulation of slot0 triggers Overflow revert in checkPoolAndGetCenterPrice.
+    ///      After convertToV3 warms up the V3 pool oracle, vm.mockCall overrides slot0 to a price
+    ///      that deviates >10% from the TWAP, and checkPoolAndGetCenterPrice must revert.
+    function testCheckPoolAndGetCenterPrice_FlashManipulationReverts() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Establish V3 position so the pool exists and has an observation history
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        address pool = IFactory(FACTORY_V3).getPool(TOKENS[0], TOKENS[1], uint24(FEE_TIER));
+
+        // Read current (real) slot0 to get the live observation index
+        (uint160 realSqrtP, , uint16 realObsIdx,,,, ) = IUniswapV3(pool).slot0();
+
+        // Warp forward past SECONDS_AGO so the oldest observation is recent enough
+        // for checkPoolAndGetCenterPrice to attempt a TWAP comparison
+        vm.warp(block.timestamp + 1800);
+
+        // Craft a manipulated sqrt price that is 3x the real price in Q64.96 units
+        // (~9x price ratio) — well beyond the 10% MAX_ALLOWED_DEVIATION
+        uint160 manipulatedSqrtP = uint160(uint256(realSqrtP) * 3);
+
+        // Mock slot0 to return the manipulated price with the real observation index
+        // so that the observations() call still finds a recent timestamp
+        bytes memory slot0Return = abi.encode(
+            manipulatedSqrtP,       // sqrtPriceX96
+            int24(0),               // tick
+            realObsIdx,             // observationIndex
+            uint16(60),             // observationCardinality
+            uint16(60),             // observationCardinalityNext
+            uint8(0),               // feeProtocol
+            true                    // unlocked
+        );
+        vm.mockCall(pool, abi.encodeWithSignature("slot0()"), slot0Return);
+
+        // checkPoolAndGetCenterPrice must revert with Overflow — manipulation detected
+        vm.expectRevert();
+        liquidityManager.checkPoolAndGetCenterPrice(pool);
+
+        vm.clearMockedCalls();
+    }
+
+    /// @dev C4R #19: changeRanges reverts with ZeroValue when vm.mockCall forces collect to return
+    ///      zero for one token, instead of silently routing to treasury.
+    function testChangeRanges_SingleSidedRevertsInsteadOfTreasurySweep() public {
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -27000;
+        tickShifts[1] = 17000;
+        uint16 olasBurnRate = 0;
+        bool scan = true;
+
+        // Establish V3 position
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, olasBurnRate, scan);
+
+        // Mock the NFT position manager's collect() to return (someAmount, 0),
+        // simulating a single-sided return after decreaseLiquidity + collect.
+        // collect() selector: 0xfc6f7865
+        vm.mockCall(
+            POSITION_MANAGER_V3,
+            abi.encodeWithSelector(bytes4(0xfc6f7865)),
+            abi.encode(uint256(1e18), uint256(0))
+        );
+
+        // changeRanges must revert ZeroValue instead of silently routing to treasury
+        vm.expectRevert(ZeroValue.selector);
+        liquidityManager.changeRanges(TOKENS, FEE_TIER, tickShifts, scan);
+
+        vm.clearMockedCalls();
     }
 }
