@@ -28,6 +28,7 @@
   - [22. Bridge2BurnerOptimism TOKEN_GAS_LIMIT hardcoded](#22-bridge2burneroptimism-token_gas_limit-hardcoded)
   - [23. setV2Oracles and setV3Pools are not mutually exclusive](#23-setv2oracles-and-setv3pools-are-not-mutually-exclusive)
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
+  - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -425,4 +426,30 @@ When `overCredited > effectiveBond` — i.e., users have already bonded against 
 **Disposition:** intentional. The alternative — carry-forward residual debt that suppresses future epochs' bond capacity — would penalize future periods for past inflation transitions and require a perpetual bookkeeping field to track the unwind. The exposure window is bounded to year-boundary downward-inflation transitions: **Y2 → Y3** (already past at 2025-06-30; phantom capacity already realized on the live `0xc096…ce300` proxy under the pre-fix code) and **Y9 → Y10** (still ahead — protected by the fix once the redeploy lands). Realized impact at each boundary is small — a one-time minor over-issuance bounded by the difference between old- and new-inflation rates over the transition epoch — and not exploitable for ongoing extraction.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+---
+
+### 25. Dispenser `mapRemovedNomineeEpochs` not cleared on `addNominee` (two-contract invariant coupling)
+
+**Severity**: Informative — defense-in-depth observation
+**Source**: Cross-cycle dispatch audit 2026-05-11
+
+The following functions are implemented in the Dispenser contract:
+
+```solidity
+function addNominee(bytes32 nomineeHash) external
+function removeNominee(bytes32 nomineeHash) external
+```
+
+`removeNominee()` sets `mapRemovedNomineeEpochs[nomineeHash] = eCounter` and that slot is never cleared elsewhere. `addNominee()` re-initializes `mapLastClaimedStakingEpochs[nomineeHash]` to the current epoch counter but does **not** clear `mapRemovedNomineeEpochs[nomineeHash]`. Consequently, the Dispenser in isolation contains a latent failure mode: if the same `nomineeHash` were ever re-added after removal, `_checkpointNomineeAndGetClaimedEpochCounters()` would revert with `Overflow(firstClaimedEpoch, epochRemoved - 1)` on every claim attempt during the second lifecycle (the slot from the first lifecycle still satisfies `firstClaimedEpoch >= epochRemoved`).
+
+The path is unreachable on the deployed system because the safety invariant lives in the sister governance contract `VoteWeighting._addNominee()`, which reverts on both `mapNomineeIds[nomineeHash] > 0` (already added) and `mapRemovedNominees[nomineeHash] > 0` (previously removed). "Remove is final" is enforced upstream, so the Dispenser slot can never be exercised under the second-lifecycle scenario.
+
+**Disposition:** not planned for code. The Dispenser is a deployed proxy implementation that cannot be modified without a redeploy. The invariant coupling is recorded here so that future maintainers know:
+
+- `Dispenser.changeManagers(_voteWeighting, ...)` (owner-gated) makes `voteWeighting` mutable; repointing to a VoteWeighting that does not enforce "remove is final" would make this path reachable. Issue #8 already flags the broader operational risk of swapping `voteWeighting`.
+- A future Dispenser variant (e.g., for a new chain or a refactor) must either (a) clear `mapRemovedNomineeEpochs[nomineeHash]` inside `addNominee`, or (b) explicitly assume the upstream VoteWeighting guarantees "remove is final" and document the assumption.
+- Failure mode is a hard revert, not a silent zero-claim — funds accrued under the first lifecycle remain accessible via the original claim window and cannot be silently stranded.
+
+Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
