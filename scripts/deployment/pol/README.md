@@ -21,7 +21,7 @@ wiring for the BuyBackBurner proxy.
 
 ## Step sequence
 
-Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`, `mode_mainnet`):
+Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`):
 
 ```bash
 ./scripts/deployment/pol/deploy_01_neighborhood_scanner.sh    eth_mainnet
@@ -33,7 +33,7 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`, `mo
 ./scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh eth_mainnet
 ```
 
-For Optimism / Mode, replace `deploy_02_liquidity_manager_eth.sh` with
+For Optimism, replace `deploy_02_liquidity_manager_eth.sh` with
 `deploy_02_liquidity_manager_optimism.sh`. The proxy step (`deploy_03_liquidity_manager_proxy.sh`)
 is chain-agnostic — same script for ETH, Optimism, etc. — because the proxy constructor is
 `(impl, initData)` where `initData = initialize(uint16 _maxSlippage)` is identical across
@@ -53,14 +53,14 @@ proxy delegatecall-reads the impl's immutables. Wiring the impl directly would b
 | `olasAddress` | deploy_02 | OLAS token on target chain |
 | `timelockAddress` (ETH) | deploy_02 | Treasury on L1 |
 | `bridgeMediatorAddress` (L2s) | deploy_02 | Treasury on L2 |
-| `positionManagerV3Address` | deploy_02 | Uniswap V3 NonfungiblePositionManager (ETH: `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`). On Optimism / Mode this is Slipstream's equivalent — populate per chain |
+| `positionManagerV3Address` | deploy_02 | Uniswap V3 NonfungiblePositionManager (ETH: `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`). On Optimism this is Velodrome Slipstream's equivalent — populate per chain |
 | `neighborhoodScannerAddress` | deploy_02 | Written by deploy_01 |
 | `observationCardinality` | deploy_02 | uint16, observation buffer for fresh V3 pools (default 60) |
 | `uniswapPriceOracleAddress` (ETH) | deploy_02 | From oracles step |
 | `balancerPriceOracleAddress` (L2s) | deploy_02 | From oracles step |
 | `routerV2Address` (ETH) | deploy_02 | Uniswap V2 Router |
 | `balancerVaultAddress` (L2s) | deploy_02 | Balancer V2 Vault |
-| `bridge2BurnerAddress` (L2s) | deploy_02 | Bridge2BurnerOptimism/Mode (from `utils/deploy_00b_bridge2burner_*.sh`) |
+| `bridge2BurnerAddress` (L2s) | deploy_02 | Bridge2BurnerOptimism (from `utils/deploy_00b_bridge2burner_*.sh`) |
 | `liquidityManagerAddress` | deploy_02→deploy_03 | Written by deploy_02 (impl); consumed by deploy_03 as proxy constructor target |
 | `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `500` (5%) — tune per chain before running deploy_03 |
 | `liquidityManagerProxyAddress` | deploy_03 (writes) | Proxy address — copy into `utils/globals_*.json` for BBB impl deploy |
