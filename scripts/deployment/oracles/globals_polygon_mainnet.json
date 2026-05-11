@@ -13,5 +13,5 @@
   "minTwapWindowSeconds": "900",
   "minUpdateIntervalSeconds": "900",
   "balancerPriceOracleAddress": "0x1853D16c2ccC6d26fe50b24F35Ee460C33E66d07",
-  "maxStalenessSeconds": "900"
+  "maxStalenessSeconds": "86400"
 }

@@ -37,10 +37,11 @@ nativeTokenAddress=$(jq -r '.nativeTokenAddress' $globals)
 balancerPriceOracleAddress=$(jq -r '.balancerPriceOracleAddress' $globals)
 balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
 balancerPoolId=$(jq -r '.balancerPoolId' $globals)
-maxBuyBackSlippage=$(jq -r '.maxBuyBackSlippage' $globals)
 buyBackBurnerAddress=$(jq -r '.buyBackBurnerAddress' $globals)
 
-proxyPayload=$(cast abi-encode "f(address[],bytes32,uint256)" "[$olasAddress,$nativeTokenAddress,$balancerPriceOracleAddress,$balancerVaultAddress]" $balancerPoolId $maxBuyBackSlippage)
+# BuyBackBurnerBalancer._initialize decodes (address[], bytes32) — slippage is per-token via
+# setMaxSlippages, not a global initializer field.
+proxyPayload=$(cast abi-encode "f(address[],bytes32)" "[$olasAddress,$nativeTokenAddress,$balancerPriceOracleAddress,$balancerVaultAddress]" $balancerPoolId)
 proxyData=$(cast calldata "initialize(bytes)" $proxyPayload)
 
 contractName="BuyBackBurnerProxy"
