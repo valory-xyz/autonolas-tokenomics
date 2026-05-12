@@ -151,6 +151,28 @@ The two checks operate in different units (price vs amount) and at different poi
 
 Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
 
+### V2 oracle vs V3 oracle — relationship of the freshness/window parameters
+
+The V2 / Balancer side (`UniswapPriceOracle`, `BalancerPriceOracle`) is governed by `minTwapWindowSeconds = 900s`, `minUpdateIntervalSeconds = 900s`, `maxStalenessSeconds = 86400s` (1 day). The V3 side (`LiquidityManagerCore` + `BuyBackBurner` V3 path) is governed by `SECONDS_AGO = 1800s` plus the per-pool `observationCardinality`. These are conceptually answering the same question — "what's a recent TWAP we can trust?" — but the underlying machinery is different, so the parameter sets are not directly comparable.
+
+**Different machinery, different governance.** V2 has no built-in oracle (audit15 H-01/H-04 forced us to ship our own), so the V2 path is *caller-driven*: someone has to call `updatePrice()` to advance the 2-slot rolling buffer. V3 pools maintain their own observations array, written automatically on every swap (max one observation per block). The V2 oracle window is *dynamic* (`block.timestamp − prevObservation.timestamp`); V3's is *fixed* at `SECONDS_AGO = 1800s`.
+
+| Concept being bounded | V2 oracle | V3 oracle (LM + BBB V3 path) |
+|---|---|---|
+| Window floor (reject TWAP if window too narrow) | `minTwapWindow = 900s` | N/A — `SECONDS_AGO` is the window |
+| Window ceiling (reject TWAP if data too stale) | `maxStaleness = 86400s` (1 day) | implicit: `if (oldestTs + SECONDS_AGO < now) → fallback to slot0` (1800s threshold, `LiquidityManagerCore.sol:1144`) |
+| Write rate limiter | `minUpdateInterval = 900s` (anti-griefing) | block time + "max one obs per block" (pool-enforced) |
+| Buffer depth | 2 slots (`prev`, `last`) | `observationCardinality` (120 / 300) |
+| Who keeps it fresh | caller; since PR #276 / M-03 the BBB V2 buyBack auto-refreshes | the pool itself, on every swap |
+
+**Why the numeric asymmetry in staleness thresholds (1 day vs 30 min).** V2 oracle data is operator-curated — observations only advance when *someone* calls `updatePrice()`. We tolerate gaps up to a day because the data freshness is owner-controlled and the rate limiter (`minUpdateInterval`) prevents griefers from collapsing the TWAP window by spamming updates. V3 oracle data is swap-curated — the pool maintains itself, so 30 minutes with no swaps already means "this pool is essentially dormant" and we fall back to slot0 rather than try to interpolate a TWAP from data older than the window itself. Different data sources, different reliability expectations.
+
+**`observationCardinality` is not analogous to `maxStaleness`.** V2's `maxStaleness` is a *time-based* freshness check; `observationCardinality` is a *capacity-based* buffer-size limit. The closest V3 analog to `maxStaleness` is the `oldestTs + SECONDS_AGO < now` fallback (which fires at 1800s, not 86400s, for the reason above). `observationCardinality` controls a different concern entirely — how much pool activity the buffer can absorb before `observe([SECONDS_AGO])` runs out of room and reverts.
+
+**Why `SECONDS_AGO = 1800s` is the right pick.** A 30-min TWAP window is the canonical V3 oracle window (Uniswap docs example; Aave V3; most production V3 oracle wrappers) and was reviewed at this value in `internal15` / `internal16`. Lower values (e.g. 300–600s) weaken manipulation resistance: on a thin OLAS pool, an attacker with modest capital can move the TWAP itself over a few blocks of sustained pressure, where 30 min of sustained pressure is much costlier. Higher values (e.g. 3600s) would freeze the LM/BBB during real OLAS price moves — a legitimate 10% move over 30 min would push slot0 outside the deviation guard's tolerance against the older TWAP. The L2 cardinality-vs-SECONDS_AGO mismatch (300 × 2s = 600s nominal worst-case < 1800s) is not a reason to lower `SECONDS_AGO` — that would weaken manipulation resistance to make a number look prettier. Cardinality is the per-pool, mutable lever; `SECONDS_AGO` is the system-wide, immutable policy. They serve different purposes.
+
+**The two oracle subsystems are independent by design.** They cover the same OLAS token but feed different code paths (V2 oracle → BBB V2 buyBack `amountOutMinimum`; V3 oracle → LM `checkPoolAndGetCenterPrice` + BBB V3 buyBack `amountOutMinimum`). No data is shared between them. Each is calibrated to its own data-source reliability profile. An asymmetric "spot" price during a real move is a known acceptance — fine for OLAS, would need revisiting only if either oracle were wired into a fund-flow path more sensitive than slippage protection.
+
 ### Obsolete fields
 
 `v3PoolStatuses` was removed from `globals_<chain>_mainnet.json` and from `scripts/deployment/pol/README.md`. The on-chain setter is `BuyBackBurner.setV3Pools(address[] secondTokens, address[] pools)` (`contracts/utils/BuyBackBurner.sol:393`) — two arrays, no statuses — and `script_03_buy_back_burner_wire_v3.sh` already never read it.
