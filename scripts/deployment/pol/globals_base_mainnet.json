@@ -13,7 +13,7 @@
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPriceOracleAddress": "0x586D916819d9B707101f81e4cDD22cE119D1C220",
   "bridge2BurnerAddress": "",
-  "observationCardinality": "120",
+  "observationCardinality": "300",
   "neighborhoodScannerAddress": "",
   "liquidityManagerAddress": "",
   "liquidityManagerMaxSlippage": "1000",

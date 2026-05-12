@@ -82,7 +82,7 @@ Values currently in `scripts/deployment/pol/globals_<chain>_mainnet.json`:
 
 | Field | ETH | Base | Optimism |
 |---|---|---|---|
-| `observationCardinality` | 60 | 120 | 120 |
+| `observationCardinality` | 120 | 300 | 300 |
 | `liquidityManagerMaxSlippage` | 1000 | 1000 | 1000 |
 
 ### `observationCardinality` (constructor arg → `LiquidityManagerCore.observationCardinality`, immutable)
@@ -96,24 +96,41 @@ IUniswapV3(v3Pool).increaseObservationCardinalityNext(observationCardinality);
 
 The Uniswap V3 buffer can hold at most one observation per block, so the nominal worst-case TWAP coverage from a freshly-initialized pool is `cardinality × block_time`:
 
-- ETH (12s blocks): `60 × 12s = 720s` nominal worst-case coverage.
-- Base/Optimism (2s blocks): `120 × 2s = 240s` nominal worst-case coverage.
+- ETH (12s blocks): `120 × 12s = 1440s` nominal worst-case coverage (~80% of `SECONDS_AGO`).
+- Base/Optimism (2s blocks): `300 × 2s = 600s` nominal worst-case coverage (~33% of `SECONDS_AGO`).
 
-These nominal values do **not** match the contract's `SECONDS_AGO = 1800s` TWAP window; matching it directly (`cardinality ≈ 1024` on 2s-block L2s) is rejected because of gas. Empirical proof in `test/LiquidityManagerObservationCardinalityGasETH.t.sol` (ETH fork):
+These nominal values do **not** match the contract's `SECONDS_AGO = 1800s` TWAP window; matching it directly (`cardinality ≈ 1024` on 2s-block L2s) is rejected because of gas — see the empirical table below.
 
-| `observationCardinality` arg | `increaseObservationCardinalityNext` gas |
+**Anchoring** — values were chosen against mid-volume production V3 pool cardinality precedent on ETH mainnet ([Alex Roan gist](https://gist.github.com/alexroan/71b38d387ed2a86bf3abdf3acd0f8415)):
+
+| Reference pool | Production `observationCardinality` |
 |---|---|
-| 60 | ~1.32M |
-| 120 | ~2.66M |
-| 1024 | **~22.76M** — exceeds realistic L1 tx budget once V3 mint (~500k–1M) and LM accounting are layered on top |
+| ETH/USDC 0.05% | 720 |
+| ETH/USDC 0.3% | 1440 |
+| DAI/ETH | 300 |
+| UNI/ETH | 300 |
+| LINK/ETH | 144 |
+| OHM/USDC, stETH/ETH | 1 (default — never bumped) |
 
-The 60 / 120 choice is safe in practice because:
+OLAS sits below LINK on ETH and below DAI/UNI on the L2 mid-volume side. So `120` (ETH) and `300` (L2) anchor to that band: ETH slightly below the LINK reference because OLAS volume is meaningfully lower than LINK; L2s at the DAI/UNI level because cheap L2 gas allows the wider envelope without budget pressure.
 
-1. **One observation written per block, not per swap.** For sparsely-traded OLAS pools the buffer covers real-time windows far longer than the nominal worst-case — a 120-slot buffer can span many hours on Base if the pool sees one swap per minute.
+**Empirical gas** — measured in `test/LiquidityManagerObservationCardinalityGasETH.t.sol` (ETH fork):
+
+| `observationCardinality` arg | `increaseObservationCardinalityNext` gas | Note |
+|---|---|---|
+| 120 | ~2.66M | Production ETH choice |
+| 300 | ~6.66M | Production Base/Optimism choice |
+| 1024 | **~22.76M** | Reference — exceeds realistic L1 tx budget once V3 mint (~500k–1M) and LM accounting are layered; also exceeds the operator-side 16M L2 ceiling |
+
+Both production values are safe in practice because:
+
+1. **One observation written per block, not per swap.** For sparsely-traded OLAS pools the buffer covers real-time windows far longer than the nominal worst-case — a 300-slot buffer covers `300 × 60s = 18000s = 5 hours` on Base under a "one swap per minute" surge, well past `SECONDS_AGO=1800s`.
 2. **`checkPoolAndGetCenterPrice` falls back to slot0 for freshly-initialized pools** (`LiquidityManagerCore.sol:1145-1153`, audit `internal15` M-01 / `internal16` "TWAP observation cardinality" note) — `observe()` reverts on `cardinality <= 1`, and the contract degrades gracefully with the deviation guard still in force.
 3. **`increaseObservationCardinalityNext` is permissionless on the pool.** If a specific pool needs more buffer than the constructor default, anyone can call it directly via `cast send <pool> "increaseObservationCardinalityNext(uint16)" <N>` after deployment — no LM redeploy needed. The constructor immutable is only the baseline for the first `convertToV3` against a fresh pool.
 
-Optimism uses the same 120 as Base because both run 2s blocks; the Velodrome Slipstream pool is a Uniswap V3 fork with identical observation semantics.
+Optimism uses the same 300 as Base because both run 2s blocks; the Velodrome Slipstream pool is a Uniswap V3 fork with identical observation semantics.
+
+**Operational runbook (cardinality wrap-around).** The buffer is sized for typical OLAS-pool activity, not for the worst case of one observation per block sustained across the full 1800s window. If the pool enters a sustained-activity regime that risks exhausting the buffer (e.g. post-launch interest surge, MEV bot routing, deep DEX-aggregator integration), `convertToV3` and the BBB V3 buyBack will start to revert with `ObservationFailed(pool)`. Detection signal: `(oldestObservationAge / SECONDS_AGO)` per active V3 pool drops below ~1.5×, queryable via `IUniswapV3.observations(observationIndex)`. Mitigation: anyone can bump the affected pool's cardinality via `cast send <pool> "increaseObservationCardinalityNext(uint16)" <new_value>` — operation is permissionless and idempotent (no effect if `new_value` ≤ current `cardinalityNext`). Recommended ramp: double the current value each step (`300 → 600 → 1200`) until the activity regime stabilizes. Failure mode is service degradation only — no fund loss path.
 
 ### `liquidityManagerMaxSlippage` (initialize arg → `LiquidityManagerCore.maxSlippage`, mutable)
 
@@ -123,7 +140,14 @@ Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy
 - `_increaseLiquidity` (`LiquidityManagerCore.sol:432-433`)
 - `_decreaseLiquidity` (`LiquidityManagerCore.sol:374-375`)
 
-Production value `1000` (= 10%) is chosen to align with the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`) — the slot0-vs-TWAP deviation guard checked by `checkPoolAndGetCenterPrice`. With both at 10%, the position-manager `amount0Min` / `amount1Min` guard does not reject mints that the upstream deviation guard has already accepted. Setting it lower (e.g. 500 bps = 5%) creates a band — 5–10% deviation — where the LM is willing to operate but the V3 mint reverts on the amount-min check, forcing operator retries.
+Production value `1000` (= 10%) is chosen to align with the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`).
+
+**Why the two guards co-exist.** `MAX_ALLOWED_DEVIATION` and `liquidityManagerMaxSlippage` are not redundant despite operating at the same percentage:
+
+- `MAX_ALLOWED_DEVIATION` (constant, contract-level) is a **pre-flight pool-sanity gate in price space**: rejects operation outright when `slot0` has been pushed more than 10% off TWAP, an anti-manipulation primitive. Tamper-evident — owners cannot loosen it without redeploying the implementation.
+- `liquidityManagerMaxSlippage` (storage, mutable, per-deploy) is a **post-flight execution gate in amount space**: the V3 NPM's own `amount0Min`/`amount1Min` parameter, which the mint signature requires us to pass. Tunable via `changeMaxSlippage()`.
+
+The two checks operate in different units (price vs amount) and at different points in the call lifecycle. Even with `slot0 == TWAP` exactly, the V3 mint's amount math is non-linear in the tick range — a 10% price-space tolerance does not produce exactly 10% amount-space drift, it can be more or less depending on tick width and where slot0 sits. Setting `liquidityManagerMaxSlippage` to the same percentage as `MAX_ALLOWED_DEVIATION` is a coherence heuristic: give the mint enough amount-space slack to land what the upstream deviation guard has already accepted as a sane pool state. Setting it lower (e.g. 500 bps = 5%) creates a 5–10% band where the LM is willing to operate but the V3 mint reverts on the amount-min check; setting it higher leaves the deviation guard doing all the work and the amount-min check effectively disabled.
 
 Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
 

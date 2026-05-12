@@ -11,7 +11,7 @@
   "positionManagerV3Address": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
   "routerV2Address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
   "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a",
-  "observationCardinality": "60",
+  "observationCardinality": "120",
   "neighborhoodScannerAddress": "",
   "liquidityManagerAddress": "",
   "liquidityManagerMaxSlippage": "1000",
