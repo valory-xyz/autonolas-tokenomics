@@ -28,7 +28,7 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`):
 ./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh   eth_mainnet
 ./scripts/deployment/pol/deploy_03_liquidity_manager_proxy.sh eth_mainnet
 
-# Populate v3Pools / v3PoolStatuses / v3SecondTokens / v3MaxSlippages in globals first,
+# Populate v3Pools / v3SecondTokens / v3MaxSlippages in globals first,
 # then:
 ./scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh eth_mainnet
 ```
@@ -55,18 +55,18 @@ proxy delegatecall-reads the impl's immutables. Wiring the impl directly would b
 | `bridgeMediatorAddress` (L2s) | deploy_02 | Treasury on L2 |
 | `positionManagerV3Address` | deploy_02 | Uniswap V3 NonfungiblePositionManager (ETH: `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`). On Optimism this is Velodrome Slipstream's equivalent — populate per chain |
 | `neighborhoodScannerAddress` | deploy_02 | Written by deploy_01 |
-| `observationCardinality` | deploy_02 | uint16, observation buffer for fresh V3 pools (default 60) |
+| `observationCardinality` | deploy_02 | uint16, observation buffer for fresh V3 pools. Sized by chain block time × intended worst-case TWAP window: ETH `60` (60 × 12s = 720s), Base/Optimism `120` (120 × 2s = 240s). Sufficient given typical OLAS-pool activity (one observation usually spans many blocks) and the slot0 fallback for fresh pools. Higher values inflate the cold-SSTORE cost of `increaseObservationCardinalityNext` (~20k gas/slot) and risk OOG on the first `convertToV3` mint |
 | `uniswapPriceOracleAddress` (ETH) | deploy_02 | From oracles step |
 | `balancerPriceOracleAddress` (L2s) | deploy_02 | From oracles step |
 | `routerV2Address` (ETH) | deploy_02 | Uniswap V2 Router |
 | `balancerVaultAddress` (L2s) | deploy_02 | Balancer V2 Vault |
 | `bridge2BurnerAddress` (L2s) | deploy_02 | Bridge2BurnerOptimism (from `utils/deploy_00b_bridge2burner_*.sh`) |
 | `liquidityManagerAddress` | deploy_02→deploy_03 | Written by deploy_02 (impl); consumed by deploy_03 as proxy constructor target |
-| `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `500` (5%) — tune per chain before running deploy_03 |
+| `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `1000` (10%) — matches the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`) so the V3 `amount0Min`/`amount1Min` guard doesn't reject mints that the upstream slot0-vs-TWAP deviation check has already accepted. Updatable post-deploy via `changeMaxSlippage()` (line 624) |
 | `liquidityManagerProxyAddress` | deploy_03 (writes) | Proxy address — copy into `utils/globals_*.json` for BBB impl deploy |
 | `buyBackBurnerProxyAddress` | script_03 | BBB proxy address (copied from `utils/globals_*.json`) |
-| `v3Pools`, `v3PoolStatuses` | script_03 | Parallel arrays; `v3PoolStatuses` must be all `true` to whitelist |
-| `v3SecondTokens`, `v3MaxSlippages` | script_03 | Parallel arrays; slippage in bps (e.g. `500` = 5%) |
+| `v3Pools`, `v3SecondTokens` | script_03 | Parallel arrays; `setV3Pools(secondTokens, pools)` |
+| `v3MaxSlippages` | script_03 | Parallel to `v3SecondTokens`; slippage in bps (e.g. `500` = 5%) |
 
 ## Why the wire step is mandatory
 

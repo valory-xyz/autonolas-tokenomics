@@ -75,3 +75,58 @@ Pick based on how much of the V3-coverage goal you want to land in this cycle:
 
 - **Arbitrum + Polygon**: add `pol/globals_<chain>_mainnet.json`; deploy `NeighborhoodScanner` → new `LiquidityManagerBalancerUniswap` impl → `LiquidityManagerProxy` → copy proxy address into `utils/globals_<chain>_mainnet.json` → `deploy_01_buy_back_burner_balancer.sh` + `changeImplementation`.
 - **Everything else**: same as Option A.
+
+## LM deployment parameter rationale
+
+Values currently in `scripts/deployment/pol/globals_<chain>_mainnet.json`:
+
+| Field | ETH | Base | Optimism |
+|---|---|---|---|
+| `observationCardinality` | 60 | 120 | 120 |
+| `liquidityManagerMaxSlippage` | 1000 | 1000 | 1000 |
+
+### `observationCardinality` (constructor arg → `LiquidityManagerCore.observationCardinality`, immutable)
+
+Used once per fresh pool inside `convertToV3`:
+
+```solidity
+IUniswapV3(v3Pool).increaseObservationCardinalityNext(observationCardinality);
+```
+(`LiquidityManagerCore.sol:733`)
+
+The Uniswap V3 buffer can hold at most one observation per block, so the nominal worst-case TWAP coverage from a freshly-initialized pool is `cardinality × block_time`:
+
+- ETH (12s blocks): `60 × 12s = 720s` nominal worst-case coverage.
+- Base/Optimism (2s blocks): `120 × 2s = 240s` nominal worst-case coverage.
+
+These nominal values do **not** match the contract's `SECONDS_AGO = 1800s` TWAP window; matching it directly (`cardinality ≈ 1024` on 2s-block L2s) is rejected because of gas. Empirical proof in `test/LiquidityManagerObservationCardinalityGasETH.t.sol` (ETH fork):
+
+| `observationCardinality` arg | `increaseObservationCardinalityNext` gas |
+|---|---|
+| 60 | ~1.32M |
+| 120 | ~2.66M |
+| 1024 | **~22.76M** — exceeds realistic L1 tx budget once V3 mint (~500k–1M) and LM accounting are layered on top |
+
+The 60 / 120 choice is safe in practice because:
+
+1. **One observation written per block, not per swap.** For sparsely-traded OLAS pools the buffer covers real-time windows far longer than the nominal worst-case — a 120-slot buffer can span many hours on Base if the pool sees one swap per minute.
+2. **`checkPoolAndGetCenterPrice` falls back to slot0 for freshly-initialized pools** (`LiquidityManagerCore.sol:1145-1153`, audit `internal15` M-01 / `internal16` "TWAP observation cardinality" note) — `observe()` reverts on `cardinality <= 1`, and the contract degrades gracefully with the deviation guard still in force.
+3. **`increaseObservationCardinalityNext` is permissionless on the pool.** If a specific pool needs more buffer than the constructor default, anyone can call it directly via `cast send <pool> "increaseObservationCardinalityNext(uint16)" <N>` after deployment — no LM redeploy needed. The constructor immutable is only the baseline for the first `convertToV3` against a fresh pool.
+
+Optimism uses the same 120 as Base because both run 2s blocks; the Velodrome Slipstream pool is a Uniswap V3 fork with identical observation semantics.
+
+### `liquidityManagerMaxSlippage` (initialize arg → `LiquidityManagerCore.maxSlippage`, mutable)
+
+Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy constructor (`deploy_03_liquidity_manager_proxy.sh`), used in three places to compute `amount{0,1}Min` for V3 position manager calls:
+
+- `_optimizeTicksAndMintPosition` (`LiquidityManagerCore.sol:552-553`)
+- `_increaseLiquidity` (`LiquidityManagerCore.sol:432-433`)
+- `_decreaseLiquidity` (`LiquidityManagerCore.sol:374-375`)
+
+Production value `1000` (= 10%) is chosen to align with the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`) — the slot0-vs-TWAP deviation guard checked by `checkPoolAndGetCenterPrice`. With both at 10%, the position-manager `amount0Min` / `amount1Min` guard does not reject mints that the upstream deviation guard has already accepted. Setting it lower (e.g. 500 bps = 5%) creates a band — 5–10% deviation — where the LM is willing to operate but the V3 mint reverts on the amount-min check, forcing operator retries.
+
+Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
+
+### Obsolete fields
+
+`v3PoolStatuses` was removed from `globals_<chain>_mainnet.json` and from `scripts/deployment/pol/README.md`. The on-chain setter is `BuyBackBurner.setV3Pools(address[] secondTokens, address[] pools)` (`contracts/utils/BuyBackBurner.sol:393`) — two arrays, no statuses — and `script_03_buy_back_burner_wire_v3.sh` already never read it.

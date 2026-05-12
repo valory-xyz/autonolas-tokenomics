@@ -53,6 +53,7 @@ forge test --mc LPSwapCeloSlippageTest -vvv
 ### Test — Forge Fork Tests (require RPC node URL for the target chain)
 ```bash
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv       # ETH mainnet
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv      # Base

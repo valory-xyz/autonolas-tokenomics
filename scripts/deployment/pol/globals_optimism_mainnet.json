@@ -13,14 +13,13 @@
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPriceOracleAddress": "0x2C3F556Ff33B6b5279C85CA99ed2Ba8351A2E9Bf",
   "bridge2BurnerAddress": "",
-  "observationCardinality": "60",
+  "observationCardinality": "120",
   "neighborhoodScannerAddress": "",
   "liquidityManagerAddress": "",
-  "liquidityManagerMaxSlippage": "500",
+  "liquidityManagerMaxSlippage": "1000",
   "liquidityManagerProxyAddress": "",
   "buyBackBurnerProxyAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
   "v3Pools": [],
-  "v3PoolStatuses": [],
   "v3SecondTokens": [],
   "v3MaxSlippages": []
 }

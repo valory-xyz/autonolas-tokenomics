@@ -14,11 +14,10 @@
   "observationCardinality": "60",
   "neighborhoodScannerAddress": "",
   "liquidityManagerAddress": "",
-  "liquidityManagerMaxSlippage": "500",
+  "liquidityManagerMaxSlippage": "1000",
   "liquidityManagerProxyAddress": "",
   "buyBackBurnerProxyAddress": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F",
   "v3Pools": [],
-  "v3PoolStatuses": [],
   "v3SecondTokens": [],
   "v3MaxSlippages": []
 }
