@@ -75,3 +75,104 @@ Pick based on how much of the V3-coverage goal you want to land in this cycle:
 
 - **Arbitrum + Polygon**: add `pol/globals_<chain>_mainnet.json`; deploy `NeighborhoodScanner` → new `LiquidityManagerBalancerUniswap` impl → `LiquidityManagerProxy` → copy proxy address into `utils/globals_<chain>_mainnet.json` → `deploy_01_buy_back_burner_balancer.sh` + `changeImplementation`.
 - **Everything else**: same as Option A.
+
+## LM deployment parameter rationale
+
+Values currently in `scripts/deployment/pol/globals_<chain>_mainnet.json`:
+
+| Field | ETH | Base | Optimism |
+|---|---|---|---|
+| `observationCardinality` | 120 | 300 | 300 |
+| `liquidityManagerMaxSlippage` | 1000 | 1000 | 1000 |
+
+### `observationCardinality` (constructor arg → `LiquidityManagerCore.observationCardinality`, immutable)
+
+Used once per fresh pool inside `convertToV3`:
+
+```solidity
+IUniswapV3(v3Pool).increaseObservationCardinalityNext(observationCardinality);
+```
+(`LiquidityManagerCore.sol:733`)
+
+The Uniswap V3 buffer can hold at most one observation per block, so the nominal worst-case TWAP coverage from a freshly-initialized pool is `cardinality × block_time`:
+
+- ETH (12s blocks): `120 × 12s = 1440s` nominal worst-case coverage (~80% of `SECONDS_AGO`).
+- Base/Optimism (2s blocks): `300 × 2s = 600s` nominal worst-case coverage (~33% of `SECONDS_AGO`).
+
+These nominal values do **not** match the contract's `SECONDS_AGO = 1800s` TWAP window; matching it directly (`cardinality ≈ 1024` on 2s-block L2s) is rejected because of gas — see the empirical table below.
+
+**Anchoring** — values were chosen against mid-volume production V3 pool cardinality precedent on ETH mainnet ([Alex Roan gist](https://gist.github.com/alexroan/71b38d387ed2a86bf3abdf3acd0f8415)):
+
+| Reference pool | Production `observationCardinality` |
+|---|---|
+| ETH/USDC 0.05% | 720 |
+| ETH/USDC 0.3% | 1440 |
+| DAI/ETH | 300 |
+| UNI/ETH | 300 |
+| LINK/ETH | 144 |
+| OHM/USDC, stETH/ETH | 1 (default — never bumped) |
+
+OLAS sits below LINK on ETH and below DAI/UNI on the L2 mid-volume side. So `120` (ETH) and `300` (L2) anchor to that band: ETH slightly below the LINK reference because OLAS volume is meaningfully lower than LINK; L2s at the DAI/UNI level because cheap L2 gas allows the wider envelope without budget pressure.
+
+**Empirical gas** — measured in `test/LiquidityManagerObservationCardinalityGasETH.t.sol` (ETH fork):
+
+| `observationCardinality` arg | `increaseObservationCardinalityNext` gas | Note |
+|---|---|---|
+| 120 | ~2.66M | Production ETH choice |
+| 300 | ~6.66M | Production Base/Optimism choice |
+| 1024 | **~22.76M** | Reference — exceeds realistic L1 tx budget once V3 mint (~500k–1M) and LM accounting are layered; also exceeds the operator-side 16M L2 ceiling |
+
+Both production values are safe in practice because:
+
+1. **One observation written per block, not per swap.** For sparsely-traded OLAS pools the buffer covers real-time windows far longer than the nominal worst-case — a 300-slot buffer covers `300 × 60s = 18000s = 5 hours` on Base under a "one swap per minute" surge, well past `SECONDS_AGO=1800s`.
+2. **`checkPoolAndGetCenterPrice` falls back to slot0 for freshly-initialized pools** (`LiquidityManagerCore.sol:1145-1153`, audit `internal15` M-01 / `internal16` "TWAP observation cardinality" note) — `observe()` reverts on `cardinality <= 1`, and the contract degrades gracefully with the deviation guard still in force.
+3. **`increaseObservationCardinalityNext` is permissionless on the pool.** If a specific pool needs more buffer than the constructor default, anyone can call it directly via `cast send <pool> "increaseObservationCardinalityNext(uint16)" <N>` after deployment — no LM redeploy needed. The constructor immutable is only the baseline for the first `convertToV3` against a fresh pool.
+
+Optimism uses the same 300 as Base because both run 2s blocks; the Velodrome Slipstream pool is a Uniswap V3 fork with identical observation semantics.
+
+**Operational runbook (cardinality wrap-around).** The buffer is sized for typical OLAS-pool activity, not for the worst case of one observation per block sustained across the full 1800s window. If the pool enters a sustained-activity regime that risks exhausting the buffer (e.g. post-launch interest surge, MEV bot routing, deep DEX-aggregator integration), `convertToV3` and the BBB V3 buyBack will start to revert with `ObservationFailed(pool)`. Detection signal: `(oldestObservationAge / SECONDS_AGO)` per active V3 pool drops below ~1.5×, queryable via `IUniswapV3.observations(observationIndex)`. Mitigation: anyone can bump the affected pool's cardinality via `cast send <pool> "increaseObservationCardinalityNext(uint16)" <new_value>` — operation is permissionless and idempotent (no effect if `new_value` ≤ current `cardinalityNext`). Recommended ramp: double the current value each step (`300 → 600 → 1200`) until the activity regime stabilizes. Failure mode is service degradation only — no fund loss path.
+
+### `liquidityManagerMaxSlippage` (initialize arg → `LiquidityManagerCore.maxSlippage`, mutable)
+
+Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy constructor (`deploy_03_liquidity_manager_proxy.sh`), used in three places to compute `amount{0,1}Min` for V3 position manager calls:
+
+- `_optimizeTicksAndMintPosition` (`LiquidityManagerCore.sol:552-553`)
+- `_increaseLiquidity` (`LiquidityManagerCore.sol:432-433`)
+- `_decreaseLiquidity` (`LiquidityManagerCore.sol:374-375`)
+
+Production value `1000` (= 10%) is chosen to align with the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`).
+
+**Why the two guards co-exist.** `MAX_ALLOWED_DEVIATION` and `liquidityManagerMaxSlippage` are not redundant despite operating at the same percentage:
+
+- `MAX_ALLOWED_DEVIATION` (constant, contract-level) is a **pre-flight pool-sanity gate in price space**: rejects operation outright when `slot0` has been pushed more than 10% off TWAP, an anti-manipulation primitive. Tamper-evident — owners cannot loosen it without redeploying the implementation.
+- `liquidityManagerMaxSlippage` (storage, mutable, per-deploy) is a **post-flight execution gate in amount space**: the V3 NPM's own `amount0Min`/`amount1Min` parameter, which the mint signature requires us to pass. Tunable via `changeMaxSlippage()`.
+
+The two checks operate in different units (price vs amount) and at different points in the call lifecycle. Even with `slot0 == TWAP` exactly, the V3 mint's amount math is non-linear in the tick range — a 10% price-space tolerance does not produce exactly 10% amount-space drift, it can be more or less depending on tick width and where slot0 sits. Setting `liquidityManagerMaxSlippage` to the same percentage as `MAX_ALLOWED_DEVIATION` is a coherence heuristic: give the mint enough amount-space slack to land what the upstream deviation guard has already accepted as a sane pool state. Setting it lower (e.g. 500 bps = 5%) creates a 5–10% band where the LM is willing to operate but the V3 mint reverts on the amount-min check; setting it higher leaves the deviation guard doing all the work and the amount-min check effectively disabled.
+
+Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
+
+### V2 oracle vs V3 oracle — relationship of the freshness/window parameters
+
+The V2 / Balancer side (`UniswapPriceOracle`, `BalancerPriceOracle`) is governed by `minTwapWindowSeconds = 900s`, `minUpdateIntervalSeconds = 900s`, `maxStalenessSeconds = 86400s` (1 day). The V3 side (`LiquidityManagerCore` + `BuyBackBurner` V3 path) is governed by `SECONDS_AGO = 1800s` plus the per-pool `observationCardinality`. These are conceptually answering the same question — "what's a recent TWAP we can trust?" — but the underlying machinery is different, so the parameter sets are not directly comparable.
+
+**Different machinery, different governance.** V2 has no built-in oracle (audit15 H-01/H-04 forced us to ship our own), so the V2 path is *caller-driven*: someone has to call `updatePrice()` to advance the 2-slot rolling buffer. V3 pools maintain their own observations array, written automatically on every swap (max one observation per block). The V2 oracle window is *dynamic* (`block.timestamp − prevObservation.timestamp`); V3's is *fixed* at `SECONDS_AGO = 1800s`.
+
+| Concept being bounded | V2 oracle | V3 oracle (LM + BBB V3 path) |
+|---|---|---|
+| Window floor (reject TWAP if window too narrow) | `minTwapWindow = 900s` | N/A — `SECONDS_AGO` is the window |
+| Window ceiling (reject TWAP if data too stale) | `maxStaleness = 86400s` (1 day) | implicit: `if (oldestTs + SECONDS_AGO < now) → fallback to slot0` (1800s threshold, `LiquidityManagerCore.sol:1144`) |
+| Write rate limiter | `minUpdateInterval = 900s` (anti-griefing) | block time + "max one obs per block" (pool-enforced) |
+| Buffer depth | 2 slots (`prev`, `last`) | `observationCardinality` (120 / 300) |
+| Who keeps it fresh | caller; since PR #276 / M-03 the BBB V2 buyBack auto-refreshes | the pool itself, on every swap |
+
+**Why the numeric asymmetry in staleness thresholds (1 day vs 30 min).** V2 oracle data is operator-curated — observations only advance when *someone* calls `updatePrice()`. We tolerate gaps up to a day because the data freshness is owner-controlled and the rate limiter (`minUpdateInterval`) prevents griefers from collapsing the TWAP window by spamming updates. V3 oracle data is swap-curated — the pool maintains itself, so 30 minutes with no swaps already means "this pool is essentially dormant" and we fall back to slot0 rather than try to interpolate a TWAP from data older than the window itself. Different data sources, different reliability expectations.
+
+**`observationCardinality` is not analogous to `maxStaleness`.** V2's `maxStaleness` is a *time-based* freshness check; `observationCardinality` is a *capacity-based* buffer-size limit. The closest V3 analog to `maxStaleness` is the `oldestTs + SECONDS_AGO < now` fallback (which fires at 1800s, not 86400s, for the reason above). `observationCardinality` controls a different concern entirely — how much pool activity the buffer can absorb before `observe([SECONDS_AGO])` runs out of room and reverts.
+
+**Why `SECONDS_AGO = 1800s` is the right pick.** A 30-min TWAP window is the canonical V3 oracle window (Uniswap docs example; Aave V3; most production V3 oracle wrappers) and was reviewed at this value in `internal15` / `internal16`. Lower values (e.g. 300–600s) weaken manipulation resistance: on a thin OLAS pool, an attacker with modest capital can move the TWAP itself over a few blocks of sustained pressure, where 30 min of sustained pressure is much costlier. Higher values (e.g. 3600s) would freeze the LM/BBB during real OLAS price moves — a legitimate 10% move over 30 min would push slot0 outside the deviation guard's tolerance against the older TWAP. The L2 cardinality-vs-SECONDS_AGO mismatch (300 × 2s = 600s nominal worst-case < 1800s) is not a reason to lower `SECONDS_AGO` — that would weaken manipulation resistance to make a number look prettier. Cardinality is the per-pool, mutable lever; `SECONDS_AGO` is the system-wide, immutable policy. They serve different purposes.
+
+**The two oracle subsystems are independent by design.** They cover the same OLAS token but feed different code paths (V2 oracle → BBB V2 buyBack `amountOutMinimum`; V3 oracle → LM `checkPoolAndGetCenterPrice` + BBB V3 buyBack `amountOutMinimum`). No data is shared between them. Each is calibrated to its own data-source reliability profile. An asymmetric "spot" price during a real move is a known acceptance — fine for OLAS, would need revisiting only if either oracle were wired into a fund-flow path more sensitive than slippage protection.
+
+### Obsolete fields
+
+`v3PoolStatuses` was removed from `globals_<chain>_mainnet.json` and from `scripts/deployment/pol/README.md`. The on-chain setter is `BuyBackBurner.setV3Pools(address[] secondTokens, address[] pools)` (`contracts/utils/BuyBackBurner.sol:393`) — two arrays, no statuses — and `script_03_buy_back_burner_wire_v3.sh` already never read it.

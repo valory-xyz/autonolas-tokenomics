@@ -118,7 +118,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // keccak256("PROXY_LIQUIDITY_MANAGER") = "0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
     bytes32 public constant PROXY_LIQUIDITY_MANAGER =
         0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
-    // Max allowed price deviation for TWAP pool values (10%) in 1e18 format
+    // Max allowed price deviation for TWAP pool values (10%) in 1e18 format.
+    // Operates in price space as a pre-flight pool-sanity gate (anti-manipulation): rejects mints
+    // when slot0 has been pushed more than this far from the TWAP. The companion deploy parameter
+    // `maxSlippage` should be set to the same percentage so the V3 NPM `amount{0,1}Min` post-flight
+    // amount-space check doesn't reject mints that this pre-flight check has already accepted.
     uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
@@ -141,7 +145,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // Owner address
     address public owner;
 
-    // Max slippage for pool operations (in BPS, bound by 10_000)
+    // Max slippage for pool operations (in BPS, bound by 10_000). Operates in amount space as a
+    // post-flight execution gate: the V3 NPM uses `amount{0,1}Min = amountsIn * (MAX_BPS - maxSlippage)
+    // / MAX_BPS`. Companion to `MAX_ALLOWED_DEVIATION` — set to the same percentage at deploy
+    // (`LiquidityManagerCore.initialize`) and tunable post-deploy via `changeMaxSlippage`.
     uint16 public maxSlippage;
 
     // Reentrancy lock
