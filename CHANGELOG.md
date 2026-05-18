@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org).
 
+[1.4.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.3.3...v1.4.3
 [1.3.3]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.4...v1.3.2
 [1.2.4]: https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.2.3...v1.2.4
@@ -17,11 +18,39 @@ The format is based on [Common Changelog](https://common-changelog.org).
 
 ## [Unreleased]
 
+## [v1.4.3] - 2026-05-18
+
+### Added
+
+- Protocol-Owned Liquidity: `LiquidityManagerCore`, `LiquidityManagerETH`, `LiquidityManagerOptimism`, and `LiquidityManagerProxy` for managing Uniswap V3 protocol-owned positions with on-chain TWAP price guards ([#228](https://github.com/valory-xyz/autonolas-tokenomics/pull/228), [#229](https://github.com/valory-xyz/autonolas-tokenomics/pull/229), [#230](https://github.com/valory-xyz/autonolas-tokenomics/pull/230), [#231](https://github.com/valory-xyz/autonolas-tokenomics/pull/231), [#232](https://github.com/valory-xyz/autonolas-tokenomics/pull/232), [#233](https://github.com/valory-xyz/autonolas-tokenomics/pull/233))
+- `Bridge2Burner` contracts (Gnosis, Optimism, Polygon, Arbitrum variants) with fork tests and deployment scripts ([#238](https://github.com/valory-xyz/autonolas-tokenomics/pull/238), [#240](https://github.com/valory-xyz/autonolas-tokenomics/pull/240))
+- `LPSwapCelo` to migrate whOLAS-CELO Ubeswap V2 liquidity to OLAS-CELO with TWAP-based slippage protection; bridges leftover OLAS via OP-stack L2StandardBridge and whOLAS via Wormhole Token Bridge
+- V3 swap path in `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer`, optional per-chain, with V3 pool mapping and per-token max-slippage controls ([#243](https://github.com/valory-xyz/autonolas-tokenomics/pull/243), [#247](https://github.com/valory-xyz/autonolas-tokenomics/pull/247), [#278](https://github.com/valory-xyz/autonolas-tokenomics/pull/278))
+- `WormholeDepositProcessorL1` / `WormholeTargetDispenserL2` deployment on Celo with OLAS bridging setup ([#253](https://github.com/valory-xyz/autonolas-tokenomics/pull/253), [#254](https://github.com/valory-xyz/autonolas-tokenomics/pull/254))
+- `CONTRIBUTING.md` and Gitleaks configuration ([#248](https://github.com/valory-xyz/autonolas-tokenomics/pull/248))
+
+### Changed
+
+- `BalancerPriceOracle` / `UniswapPriceOracle` V2: two-observation rolling window (no TWAP blackout after `updatePrice`) and `maxStalenessSeconds` bound; require 2-call warmup ([#258](https://github.com/valory-xyz/autonolas-tokenomics/pull/258), [#262](https://github.com/valory-xyz/autonolas-tokenomics/pull/262), [#263](https://github.com/valory-xyz/autonolas-tokenomics/pull/263))
+- `OptimismDepositProcessorL1`: cut 32 unused bits from input bridge data ([#252](https://github.com/valory-xyz/autonolas-tokenomics/pull/252))
+- Vulnerabilities list migrated to Markdown (`docs/Vulnerabilities_list_tokenomics.md`) and folded in C4R findings ([#270](https://github.com/valory-xyz/autonolas-tokenomics/pull/270))
+- LM deployment parameters tuned: cardinality re-anchored to mid-volume V3 precedent, deviation/slippage co-existence clarified ([#286](https://github.com/valory-xyz/autonolas-tokenomics/pull/286))
+- Unified Balancer oracle `maxStalenessSeconds = 86400` across chains; dropped dead `maxBuyBackSlippage` from proxy init payloads ([#285](https://github.com/valory-xyz/autonolas-tokenomics/pull/285))
+- Switched submodules to HTTPS ([#251](https://github.com/valory-xyz/autonolas-tokenomics/pull/251))
+- Deployment of oracle and BuyBackBurner contracts across Ethereum, Arbitrum, Polygon, Base, Gnosis, and Celo ([#246](https://github.com/valory-xyz/autonolas-tokenomics/pull/246), [#287](https://github.com/valory-xyz/autonolas-tokenomics/pull/287))
+- `slot0` reads converted to low-level assembly for forward compatibility across V3 pool variants ([#241](https://github.com/valory-xyz/autonolas-tokenomics/pull/241))
+
 ### Fixed
 
-- `LiquidityManagerCore.checkPoolAndGetCenterPrice`: TWAP decoded into a separate local variable; `instantPrice` computed from the preserved slot0 value; deviation check now compares real instantaneous price against TWAP, preventing flash-loan manipulation (C4R 2026-01 #17/#18, S-347/S-471) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272))
-- `LiquidityManagerCore.changeRanges`: replaced silent single-sided skip with `revert ZeroValue()` when either collected amount is zero, preventing silent routing of value to treasury (C4R 2026-01 #19, S-668) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272))
-- `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer`: V3 swap path restored after price-guard correctness confirmed ([#273](https://github.com/valory-xyz/autonolas-tokenomics/pull/273))
+- `LiquidityManagerCore.checkPoolAndGetCenterPrice`: TWAP decoded into a separate local variable; `instantPrice` computed from the preserved slot0 value; deviation check compares real instantaneous price against TWAP, preventing flash-loan manipulation; revert on `observe()` failure (C4R 2026-01 #17/#18 S-347/S-471, internal audit 15 M-01) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272), [#273](https://github.com/valory-xyz/autonolas-tokenomics/pull/273))
+- `LiquidityManagerCore.changeRanges`: replaced silent single-sided skip with `revert ZeroValue()` (C4R 2026-01 #19 S-668) ([#272](https://github.com/valory-xyz/autonolas-tokenomics/pull/272))
+- `Tokenomics.checkpoint`: correct `effectiveBond` at decreasing-year boundaries (internal audit 15 M-04)
+- `BuyBackBurner._performSwap` (V3): honor `mapTokenMaxSlippages` (internal audit 15 H-02 / C4A M-11) ([#275](https://github.com/valory-xyz/autonolas-tokenomics/pull/275))
+- `BuyBackBurner._buyOLAS` (V2): auto-refresh TWAP observation before swap (internal audit 15 M-03)
+- `BuyBackBurner`: reshape `mapV3Pools` to mirror `mapV2Oracles` (audit 15 L-06 / I-01) ([#280](https://github.com/valory-xyz/autonolas-tokenomics/pull/280), [#281](https://github.com/valory-xyz/autonolas-tokenomics/pull/281))
+- `Bridge2Burner`: close Polygon L1 destination (M-1) and approval cleanup on revert (L-NEW-2) (internal audit 16) ([#282](https://github.com/valory-xyz/autonolas-tokenomics/pull/282), [#283](https://github.com/valory-xyz/autonolas-tokenomics/pull/283))
+- Static audit and ownership CSV refresh ([#255](https://github.com/valory-xyz/autonolas-tokenomics/pull/255), [#256](https://github.com/valory-xyz/autonolas-tokenomics/pull/256))
+- Completed internal audits 10–16 and external Code4rena audit (C4R 2026-01) with corresponding fix bundles
 
 ## [v1.3.3] - 2025-07-16
 
