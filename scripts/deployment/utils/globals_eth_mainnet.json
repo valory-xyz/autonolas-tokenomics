@@ -11,9 +11,9 @@
   "olasAddress": "0x0001A500A6B18995B03f44bb040A5fFc28E45CB0",
   "nativeTokenAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
   "routerV2Address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-  "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a",
-  "liquidityManagerProxyAddress": "",
+  "uniswapPriceOracleAddress": "0x4C7E9e711dAe61F93846D5CfC64CF0d1BCf78F0F",
+  "liquidityManagerProxyAddress": "0x83Adc54B2828E99a6DA3A11263C75E38E0A1a215",
   "swapRouterV3Address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-  "buyBackBurnerAddress": "0x07749207793DC1f9208BFCAAA08ef1ea204402A6",
+  "buyBackBurnerAddress": "0xCF05126771A21a93Da5A596d5CF67d8Ed9F5e6e5",
   "buyBackBurnerProxyAddress": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F"
 }

@@ -84,18 +84,33 @@
       },
       {
         "name": "UniswapPriceOracle",
-        "artifact": "abis/0.8.28/UniswapPriceOracle.json",
-        "address": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a"
+        "artifact": "abis/0.8.30/UniswapPriceOracle.json",
+        "address": "0x4C7E9e711dAe61F93846D5CfC64CF0d1BCf78F0F"
       },
       {
         "name": "BuyBackBurnerUniswap",
-        "artifact": "abis/0.8.28/BuyBackBurnerUniswap.json",
-        "address": "0x07749207793DC1f9208BFCAAA08ef1ea204402A6"
+        "artifact": "abis/0.8.30/BuyBackBurnerUniswap.json",
+        "address": "0xCF05126771A21a93Da5A596d5CF67d8Ed9F5e6e5"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F"
+      },
+      {
+        "name": "NeighborhoodScanner",
+        "artifact": "abis/0.8.30/NeighborhoodScanner.json",
+        "address": "0x8C31cd6d5d90BB536e045A59C71b85154De1C190"
+      },
+      {
+        "name": "LiquidityManagerETH",
+        "artifact": "abis/0.8.30/LiquidityManagerETH.json",
+        "address": "0x0171D7178fbf3B48E75675DEE2EA3EfecEf775C1"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x83Adc54B2828E99a6DA3A11263C75E38E0A1a215"
       }
     ]
   },
@@ -110,18 +125,23 @@
       },
       {
         "name": "BalancerPriceOracle",
-        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
-        "address": "0x1853D16c2ccC6d26fe50b24F35Ee460C33E66d07"
+        "artifact": "abis/0.8.30/BalancerPriceOracle.json",
+        "address": "0x43117542A48588be59018A16443Ae75942ffDe91"
       },
       {
         "name": "BuyBackBurnerBalancer",
-        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
-        "address": "0x2Ef503950Be67a98746F484DA0bBAdA339DF3326"
+        "artifact": "abis/0.8.30/BuyBackBurnerBalancer.json",
+        "address": "0x1262136cac6a06A782DC94eb3a3dF0b4d09FF6A6"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0x88943F63E29cd436B62cFfE332aD54De92AdCE98"
+      },
+      {
+        "name": "Bridge2BurnerPolygon",
+        "artifact": "abis/0.8.30/Bridge2BurnerPolygon.json",
+        "address": "0xE6e03DD62D11f88A11D65663B398ED2B3Be2070c"
       }
     ]
   },
@@ -136,18 +156,23 @@
       },
       {
         "name": "BalancerPriceOracle",
-        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
-        "address": "0xFa4dD5CE7A99E86a45a45250ca4EB18Ba3d16187"
+        "artifact": "abis/0.8.30/BalancerPriceOracle.json",
+        "address": "0x7c2E4027C81ce72E59dFb947Cd45dBF6c2737AeC"
       },
       {
         "name": "BuyBackBurnerBalancer",
-        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
-        "address": "0x47Cb42216f08AB8E69F1321ACfEFd435b3c36943"
+        "artifact": "abis/0.8.30/BuyBackBurnerBalancer.json",
+        "address": "0xa343F8956A039beDdEAcBA4B64A7d36d4784648f"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0x153196110040A0c729227C603Db3A6c6D91851B2"
+      },
+      {
+        "name": "Bridge2BurnerGnosis",
+        "artifact": "abis/0.8.30/Bridge2BurnerGnosis.json",
+        "address": "0xD0E5095dF49a2C852ffce0ea4d9BbC7D5197FA49"
       }
     ]
   },
@@ -162,18 +187,23 @@
       },
       {
         "name": "BalancerPriceOracle",
-        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
-        "address": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89"
+        "artifact": "abis/0.8.30/BalancerPriceOracle.json",
+        "address": "0x93111f6C267068A5d7356114D61d0f09bFD53a54"
       },
       {
         "name": "BuyBackBurnerBalancer",
-        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
-        "address": "0x4891f5894634DcD6d11644fe8E56756EF2681582"
+        "artifact": "abis/0.8.30/BuyBackBurnerBalancer.json",
+        "address": "0xE3e5Df46060370af5Fd37B2aA11e7dac3cCB4bd0"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
+      },
+      {
+        "name": "Bridge2BurnerArbitrum",
+        "artifact": "abis/0.8.30/Bridge2BurnerArbitrum.json",
+        "address": "0xA123748Ce7609F507060F947b70298D0bde621E6"
       }
     ]
   },
@@ -188,18 +218,38 @@
       },
       {
         "name": "BalancerPriceOracle",
-        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
-        "address": "0x2C3F556Ff33B6b5279C85CA99ed2Ba8351A2E9Bf"
+        "artifact": "abis/0.8.30/BalancerPriceOracle.json",
+        "address": "0x887A511e3DfE4dDa77c0b1783c01d9920351A83D"
       },
       {
         "name": "BuyBackBurnerBalancer",
-        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
-        "address": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89"
+        "artifact": "abis/0.8.30/BuyBackBurnerBalancer.json",
+        "address": "0x7F69B6783855772d10A4bc2AFAaE650599F040DB"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0x4891f5894634DcD6d11644fe8E56756EF2681582"
+      },
+      {
+        "name": "Bridge2BurnerOptimism",
+        "artifact": "abis/0.8.30/Bridge2BurnerOptimism.json",
+        "address": "0x820ca542d5876FDEf240584F6f3924852D527FED"
+      },
+      {
+        "name": "NeighborhoodScanner",
+        "artifact": "abis/0.8.30/NeighborhoodScanner.json",
+        "address": "0xDC175E77d11246c79B23D7088750eb59160DD6b7"
+      },
+      {
+        "name": "LiquidityManagerOptimism",
+        "artifact": "abis/0.8.30/LiquidityManagerOptimism.json",
+        "address": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A"
       }
     ]
   },
@@ -214,18 +264,38 @@
       },
       {
         "name": "BalancerPriceOracle",
-        "artifact": "abis/0.8.28/BalancerPriceOracle.json",
-        "address": "0x586D916819d9B707101f81e4cDD22cE119D1C220"
+        "artifact": "abis/0.8.30/BalancerPriceOracle.json",
+        "address": "0x36DAD4628D5e406Dc85c4b2261888952aaE254A2"
       },
       {
         "name": "BuyBackBurnerBalancer",
-        "artifact": "abis/0.8.28/BuyBackBurnerBalancer.json",
-        "address": "0xEea5F1e202dc43607273d54101fF8b58FB008A99"
+        "artifact": "abis/0.8.30/BuyBackBurnerBalancer.json",
+        "address": "0x7db6bb33bc6E39cCC4E6a213e8D4D953f6aB1E58"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
         "address": "0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426"
+      },
+      {
+        "name": "Bridge2BurnerOptimism",
+        "artifact": "abis/0.8.30/Bridge2BurnerOptimism.json",
+        "address": "0xd856Dc50d65541C131f28BE5CE59644d74E1b523"
+      },
+      {
+        "name": "NeighborhoodScanner",
+        "artifact": "abis/0.8.30/NeighborhoodScanner.json",
+        "address": "0x96a475Cf364999dE5317d13f66E8e3c072bA1c0a"
+      },
+      {
+        "name": "LiquidityManagerOptimism",
+        "artifact": "abis/0.8.30/LiquidityManagerOptimism.json",
+        "address": "0x1D64516E7654F23dB7cE2ddaD00FFb3E765cf5ce"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x2ACD313B892C9922E470e4950e907d5EAa70fC2a"
       }
     ]
   },

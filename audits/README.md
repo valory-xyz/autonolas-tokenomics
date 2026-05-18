@@ -37,4 +37,5 @@ Final audit reports are listed in their historical order:
 - [v1](audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
 - [v2](https://sourcehat.com/audits/AutonolasTokenomics/);
 - [v3](https://code4rena.com/reports/2023-12-autonolas);
-- [v4](https://code4rena.com/reports/2024-05-olas).
+- [v4](https://code4rena.com/reports/2024-05-olas);
+- [v5](https://code4rena.com/reports/2026-01-olas).

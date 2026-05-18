@@ -12,6 +12,6 @@
   "balancerPoolId": "0xaf8912a3c4f55a8584b67df30ee0ddf0e60e01f80002000000000000000004fc",
   "minTwapWindowSeconds": "900",
   "minUpdateIntervalSeconds": "900",
-  "balancerPriceOracleAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",
+  "balancerPriceOracleAddress": "0x93111f6C267068A5d7356114D61d0f09bFD53a54",
   "maxStalenessSeconds": "86400"
 }

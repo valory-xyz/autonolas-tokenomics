@@ -11,5 +11,5 @@
   "minTwapWindowSeconds": "900",
   "minUpdateIntervalSeconds": "900",
   "maxStalenessSeconds": "86400",
-  "uniswapPriceOracleAddress": "0xfB81f2D75DCE6ff54A501E8660028d7595019C4a"
+  "uniswapPriceOracleAddress": "0x4C7E9e711dAe61F93846D5CfC64CF0d1BCf78F0F"
 }
