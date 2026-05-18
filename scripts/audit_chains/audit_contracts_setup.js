@@ -66,7 +66,7 @@ function loadDeploymentGlobals(chainSlug) {
         const path = `scripts/deployment/${bucket}/globals_${chainSlug}.json`;
         try {
             out[bucket] = JSON.parse(fs.readFileSync(path, "utf8"));
-        } catch (e) {
+        } catch {
             // optional: not every chain has every bucket (e.g., no pol on gnosis/polygon/arbitrum)
         }
     }
@@ -959,7 +959,7 @@ async function checkBuyBackBurnerImpl(provider, utilsGlobals, configContracts, c
 // Check BuyBackBurnerProxy: storage slot points to expected impl, owner is set,
 // and (via delegatecall through the proxy) state vars are properly initialized.
 async function checkBuyBackBurnerProxy(chainId, provider, utilsGlobals, configContracts, contractName, log,
-                                       expectedImplName) {
+    expectedImplName) {
     await checkBytecode(provider, configContracts, contractName, log);
     // Find the proxy entry and the impl entry — instantiate the proxy with the impl's ABI so we can read state.
     let proxyAddress;
