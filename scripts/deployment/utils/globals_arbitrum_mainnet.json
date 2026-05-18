@@ -14,9 +14,10 @@
   "nativeTokenAddress": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
   "balancerVaultAddress": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
   "balancerPoolId": "0xaf8912a3c4f55a8584b67df30ee0ddf0e60e01f80002000000000000000004fc",
-  "balancerPriceOracleAddress": "0x71f78A4692B665232969Dc01216f44d4d1E6ee89",
+  "balancerPriceOracleAddress": "0x93111f6C267068A5d7356114D61d0f09bFD53a54",
   "liquidityManagerProxyAddress": "0x0000000000000000000000000000000000000000",
   "swapRouterV3Address": "0x0000000000000000000000000000000000000000",
-  "buyBackBurnerAddress": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
-  "buyBackBurnerProxyAddress": "0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
+  "buyBackBurnerAddress": "0xE3e5Df46060370af5Fd37B2aA11e7dac3cCB4bd0",
+  "buyBackBurnerProxyAddress": "0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9",
+  "bridge2BurnerAddress": "0xA123748Ce7609F507060F947b70298D0bde621E6"
 }

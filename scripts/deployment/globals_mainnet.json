@@ -33,5 +33,5 @@
   "maxNumStakingTargets": "10",
   "minStakingWeight": "50",
   "maxStakingIncentive": "60000000000000000000000",
-  "tokenomicsFourAddress": "0x1ce191601e7f2777EEB797149d6e65aE40dF0e93"
+  "tokenomicsFourAddress": "0xaeeC8bC8E5Fe28BC4dF2e9586b222924b8a0d5e9"
 }
