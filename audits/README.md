@@ -33,9 +33,11 @@ An internal audit with a focus on verifying all vs C4A report: [internal audit 1
 An internal audit with a focus on verifying all vs l06-issue: [internal audit 16](audits/internal16).
 
 ### External audit
-Final audit reports are listed in their historical order:
+Final audit reports are listed in their historical order. Each external
+report is also archived as a PDF in this folder so it remains available
+even if the original hosting goes offline.
 - [v1](audits/Autonolas%20Tokenomics%20Smart%20Contract%20Audit.pdf);
 - [v2](https://sourcehat.com/audits/AutonolasTokenomics/);
-- [v3](https://code4rena.com/reports/2023-12-autonolas);
-- [v4](https://code4rena.com/reports/2024-05-olas);
-- [v5](https://code4rena.com/reports/2026-01-olas).
+- [v3](audits/Code4rena_Olas_audit_report_2023-12.pdf) (also at [code4rena.com](https://code4rena.com/reports/2023-12-autonolas));
+- [v4](audits/Code4rena_Olas_audit_report_2024-05.pdf) (also at [code4rena.com](https://code4rena.com/reports/2024-05-olas));
+- [v5](audits/Code4rena_Olas_audit_report_2026-02.pdf) (also at [code4rena.com](https://code4rena.com/reports/2026-01-olas)).
