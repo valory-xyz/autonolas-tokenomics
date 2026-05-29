@@ -15,6 +15,7 @@
   "lpSwapMaxSlippage": "500",
   "liquidityManagerProxyAddress": "0x0000000000000000000000000000000000000000",
   "swapRouterV3Address": "0x0000000000000000000000000000000000000000",
-  "buyBackBurnerAddress": "0x4E82BC73BFB9647074aA71CBF467e66c1808C571",
-  "buyBackBurnerProxyAddress": "0x11949cBC85d8793B360029E26b18ae759708e28b"
+  "buyBackBurnerAddress": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020",
+  "buyBackBurnerProxyAddress": "0x847bBE8b474e0820215f818858e23F5f5591855A",
+  "bridge2BurnerAddress": "0x0e998DaAedaCD59ba2F65558a29417b69f05D972"
 }
