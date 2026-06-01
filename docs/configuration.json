@@ -315,13 +315,18 @@
       },
       {
         "name": "BuyBackBurnerUniswap",
-        "artifact": "abis/0.8.28/BuyBackBurnerUniswap.json",
-        "address": "0x4E82BC73BFB9647074aA71CBF467e66c1808C571"
+        "artifact": "abis/0.8.30/BuyBackBurnerUniswap.json",
+        "address": "0xf24eE42edA0fc9b33B7D41B06Ee8ccD2Ef7C5020"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.28/BuyBackBurnerProxy.json",
-        "address": "0x11949cBC85d8793B360029E26b18ae759708e28b"
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "address": "0x847bBE8b474e0820215f818858e23F5f5591855A"
+      },
+      {
+        "name": "Bridge2BurnerOptimism",
+        "artifact": "abis/0.8.30/Bridge2BurnerOptimism.json",
+        "address": "0x0e998DaAedaCD59ba2F65558a29417b69f05D972"
       }
     ]
   },
