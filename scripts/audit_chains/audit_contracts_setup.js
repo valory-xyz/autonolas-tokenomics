@@ -37,22 +37,6 @@ function customExpect(arg1, arg2, log) {
     }
 }
 
-// Custom expect for contain clause that is wrapped into try / catch block
-function customExpectContain(arg1, arg2, log) {
-    try {
-        expect(arg1).contain(arg2);
-    } catch (error) {
-        console.log(log);
-        if (error.status) {
-            console.error(error.status);
-            console.log("\n");
-        } else {
-            console.error(error);
-            console.log("\n");
-        }
-    }
-}
-
 // Read storage slot and return the lower-20-bytes as a checksummed address
 async function readSlotAddress(provider, contractAddress, slot) {
     const raw = await provider.getStorageAt(contractAddress, slot);
