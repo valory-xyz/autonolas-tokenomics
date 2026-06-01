@@ -798,7 +798,9 @@ async function checkModeTargetDispenserL2(chainId, provider, globalsInstance, co
     customExpect(l1DepositProcessor, globalsInstance["modeDepositProcessorL1Address"], log + ", function: l1DepositProcessor()");
 }
 
-// Check CeloTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name
+// Check CeloTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name.
+// After the Wormhole→OP-stack migration (proposal_23_migrate_l2_dispenser_celo.js) the Celo target
+// dispenser is an OptimismTargetDispenserL2 instance, wired via Celo's OP-stack L2CrossDomainMessenger.
 async function checkCeloTargetDispenserL2(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
     await checkBytecode(provider, configContracts, contractName, log);
@@ -811,15 +813,11 @@ async function checkCeloTargetDispenserL2(chainId, provider, globalsInstance, co
 
     // Check L2 message relayer
     const l2MessageRelayer = await celoTargetDispenserL2.l2MessageRelayer();
-    customExpect(l2MessageRelayer, globalsInstance["wormholeL2MessageRelayer"], log + ", function: l2MessageRelayer()");
+    customExpect(l2MessageRelayer, globalsInstance["celoL2CrossDomainMessengerAddress"], log + ", function: l2MessageRelayer()");
 
     // Check L1 deposit processor
     const l1DepositProcessor = await celoTargetDispenserL2.l1DepositProcessor();
     customExpect(l1DepositProcessor, globalsInstance["celoDepositProcessorL1Address"], log + ", function: l1DepositProcessor()");
-
-    // Check L2 wormhole core
-    const wormhole = await celoTargetDispenserL2.wormhole();
-    customExpect(wormhole, globalsInstance["wormholeL2CoreAddress"], log + ", function: wormhole()");
 }
 
 // ===================== Oracle / BBB / LM / Bridge2Burner / Scanner checks =====================
@@ -1365,17 +1363,26 @@ async function main() {
         }
         chainNumber++;
 
-        // Celo — TargetDispenserL2 was migrated from Wormhole-bridged to OP-stack (see
-        // scripts/proposals/proposal_23_migrate_l2_dispenser_celo.js). The Wormhole-specific
-        // checks no longer apply; skip with a notice so the rest of the audit (and CSV writing)
-        // can complete. New BBB/Oracle for Celo were not redeployed this cycle either.
+        // Celo — TargetDispenserL2 was migrated from Wormhole-bridged to OP-stack
+        // (see scripts/proposals/proposal_23_migrate_l2_dispenser_celo.js). The block
+        // mirrors the Optimism / Base structure for OP-stack chains; the Celo-specific
+        // exclusions are: BalancerPriceOracle (Celo uses the legacy UniswapPriceOracle,
+        // which is itself excluded — outdated, not redeployable for now),
+        // NeighborhoodScanner, LiquidityManagerOptimism, and LiquidityManagerProxy
+        // (none of those are deployed on Celo). Bridge2Burner and BBB Uniswap+Proxy
+        // were (re)deployed on Celo in PR #292.
         console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
-        try {
-            initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
-            log = initLog + ", contract: " + "CeloTargetDispenserL2";
-            await checkCeloTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "WormholeTargetDispenserL2", log);
-        } catch (e) {
-            console.log("  [SKIP] Celo TargetDispenser check skipped: " + (e.message || e));
+        initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+        log = initLog + ", contract: " + "CeloTargetDispenserL2";
+        await checkCeloTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "OptimismTargetDispenserL2", log);
+        {
+            const dg = deploymentGlobals["celo"];
+            log = initLog + ", contract: Bridge2BurnerOptimism";
+            await checkBridge2Burner(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "Bridge2BurnerOptimism", log);
+            log = initLog + ", contract: BuyBackBurnerUniswap";
+            await checkBuyBackBurnerImpl(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerUniswap", log);
+            log = initLog + ", contract: BuyBackBurnerProxy";
+            await checkBuyBackBurnerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerProxy", log, "BuyBackBurnerUniswap");
         }
         chainNumber++;
 
