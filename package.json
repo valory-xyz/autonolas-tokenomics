@@ -61,5 +61,9 @@
     "eth-permit": "^0.2.3",
     "ethereum-sources-downloader": "^0.2.3",
     "wormhole-solidity-sdk": "^0.0.4"
+  },
+  "resolutions": {
+    "axios": ">=1.16.0",
+    "ws": ">=8.20.1"
   }
 }
