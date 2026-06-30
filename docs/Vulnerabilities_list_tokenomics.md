@@ -29,6 +29,7 @@
   - [23. setV2Oracles and setV3Pools are not mutually exclusive](#23-setv2oracles-and-setv3pools-are-not-mutually-exclusive)
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
+  - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -452,4 +453,38 @@ The path is unreachable on the deployed system because the safety invariant live
 - Failure mode is a hard revert, not a silent zero-claim — funds accrued under the first lifecycle remain accessible via the original claim window and cannot be silently stranded.
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
+
+---
+
+### 26. `LiquidityManagerCore.checkPoolAndGetCenterPrice` fail-open on stale-observation / inactive pools
+
+**Severity**: Low — acknowledged; code fix planned
+**Source**: Internal triage (2026-06)
+
+The following internal helper is implemented in the LiquidityManagerCore contract:
+
+```solidity
+function checkPoolAndGetCenterPrice(address pool) internal returns (uint160 sqrtP)
+```
+
+`checkPoolAndGetCenterPrice` derives a 30-minute TWAP "center" price from the Uniswap V3 oracle and validates that the pool's `slot0` price lies within `MAX_ALLOWED_DEVIATION` of it. The helper has two early-return branches that bypass the deviation check and return the raw `slot0` sqrt price:
+
+1. **Cardinality ≤ 1** — a freshly-created pool with no observation history.
+2. **Latest observation older than 30 minutes** — any pool, including a long-deployed one, that has gone quiet for the TWAP window.
+
+Branch (1) is closed operationally by the V2→V3 protocol-owned-liquidity migration runbook (`docs/liquidity_migration_runbook.md`): the pool is created in advance, pre-seeded with real wide-range liquidity, observation cardinality is bumped, and a working 30-minute TWAP plus a recent trade are confirmed before `convertToV3` is ever called — a "fresh" pool is never the pool the seed runs against.
+
+Branch (2) is **not** closed by the runbook. An already-seeded pool that experiences a quiet stretch >30 minutes — normal in a low-activity market — returns `slot0` to every caller that consumes the guard: `convertToV3`, `increaseLiquidity`, `changeRanges`, and the permissionless `BuyBackBurner.buyBack` V3 path.
+
+**No funds are at risk on the deployed system:**
+
+- The high-impact callers (`convertToV3`, `increaseLiquidity`, `changeRanges`, `decreaseLiquidity`) are `onlyOwner` (Timelock / DAO governance) — not reachable by a third party.
+- `LiquidityManagerCore` is not a custodial contract. OLAS / secondary-token balance only exists transiently while a DAO-staged operation is in flight (governed by the migration runbook); there is no standing balance on the contract for a third party to extract via a mis-priced operation on a stale pool.
+- The permissionless `BuyBackBurner.buyBack` V3 path is bounded independently of this guard by `BuyBackBurner`'s own per-token `maxSlippage` and the V2 fallback route, so a mis-priced V3 quote on a stale pool does not translate into unbounded extraction.
+
+**Planned code fix.** Remove both fail-open early returns from `checkPoolAndGetCenterPrice` and revert when a 30-minute TWAP cannot be verified. Every caller that consumes the guard's price inherits the revert: on an unverifiable pool the call fails, and no liquidity is added or traded at a price the contract cannot stand behind. The revert is a refusal, not a permanent denial — a single subsequent swap on the pool repopulates the observation buffer, the TWAP becomes verifiable again, and the next call proceeds normally. No on-chain action by the DAO is required to "unstick" the contract.
+
+**Interim operational mitigation.** As with the fresh-pool case, before submitting any owner-initiated `convertToV3` / `increaseLiquidity` / `changeRanges` transaction the DAO confirms the pool exposes a working 30-minute TWAP and a recent trade (the migration-runbook pre-flight generalises to any subsequent owner-initiated liquidity op on the same pool).
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
 
