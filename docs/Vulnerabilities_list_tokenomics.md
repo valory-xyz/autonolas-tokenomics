@@ -30,6 +30,7 @@
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
+  - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -482,9 +483,44 @@ Branch (2) is **not** closed by the runbook. An already-seeded pool that experie
 - `LiquidityManagerCore` is not a custodial contract. OLAS / secondary-token balance only exists transiently while a DAO-staged operation is in flight (governed by the migration runbook); there is no standing balance on the contract for a third party to extract via a mis-priced operation on a stale pool.
 - The permissionless `BuyBackBurner.buyBack` V3 path is bounded independently of this guard by `BuyBackBurner`'s own per-token `maxSlippage` and the V2 fallback route, so a mis-priced V3 quote on a stale pool does not translate into unbounded extraction.
 
-**Planned code fix.** Remove both fail-open early returns from `checkPoolAndGetCenterPrice` and revert when a 30-minute TWAP cannot be verified. Every caller that consumes the guard's price inherits the revert: on an unverifiable pool the call fails, and no liquidity is added or traded at a price the contract cannot stand behind. The revert is a refusal, not a permanent denial — a single subsequent swap on the pool repopulates the observation buffer, the TWAP becomes verifiable again, and the next call proceeds normally. No on-chain action by the DAO is required to "unstick" the contract.
+**Planned code fix (single `LiquidityManagerCore` implementation upgrade, applied via `changeImplementation` on the existing zero-position proxies).** The fix:
+
+1. **Removes both fail-open early returns** from `checkPoolAndGetCenterPrice` and reverts (`NotEnoughHistory`) when a 30-minute TWAP cannot be verified. Every price-consuming caller (`convertToV3`, `changeRanges`, `increaseLiquidity`, and the permissionless `BuyBackBurner.buyBack`) inherits the revert: on an unverifiable pool the call fails, and no liquidity is added or traded at a price the contract cannot stand behind.
+2. **Keeps exits and fee collection live** — the one structural consequence of (1). `decreaseLiquidity` stops depending on the guard and takes **owner-supplied `minAmount0` / `minAmount1`** (set by governance in the same transaction), so a withdrawal succeeds in every pool state and stays sandwich-bounded without a TWAP; `collectFees` likewise drops the guard gate and burns only the just-collected fee.
+3. **Anchors add/withdraw slippage to a trusted price** — `_increaseLiquidity`'s `amountMin` is derived from the TWAP center rather than raw `slot0`.
+
+The revert in (1) is a refusal, not a permanent denial — a single subsequent swap on the pool repopulates the observation buffer, the TWAP becomes verifiable again, and the next call proceeds normally. No on-chain action by the DAO is required to "unstick" the contract.
+
+Steps (2)–(3) also close items **#15** (`collectFees` burn-all) and **#16** (spot-derived `amountMin`) in the same release; both will be removed from this list once the implementation is live.
+
+**Deployment sequencing (preserves "no funds at risk").** The "no third-party extraction on the deployed system" property above holds only while the LiquidityManager is unseeded and non-custodial. The rollout deploys the fixed implementation **before** any protocol-owned liquidity is seeded — the migration runbook's seed step runs only after the fixed impl is live — so there is never a window in which standing value sits behind the unfixed guard.
+
+**Post-fix liveness (accepted residual).** After the fix, a pool with no trade for >30 minutes reverts entries/trades (`increaseLiquidity` / `changeRanges` / `buyBack`) until the next swap. This is intended fail-closed behaviour: it never locks funds, exits always succeed, and it self-heals on the next swap with no operator action.
 
 **Interim operational mitigation.** As with the fresh-pool case, before submitting any owner-initiated `convertToV3` / `increaseLiquidity` / `changeRanges` transaction the DAO confirms the pool exposes a working 30-minute TWAP and a recent trade (the migration-runbook pre-flight generalises to any subsequent owner-initiated liquidity op on the same pool).
 
 Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+
+### 27. BuyBackBurner `buyBack` unused in default operation — swap paths retained as compatibility surface
+
+**Severity**: Notes / operational
+**Source**: Internal decision following recurring external submissions of the item #14 class (2026-06 / 2026-07)
+
+The item #14 class — `BalancerPriceOracle` single-block flash-loan steerability — is structural to any sample-based oracle over a Balancer V2 `WeightedPool`: no in-place patch (drop the same-tx refresh, reject `age == 0`, add a spot-vs-TWAP deviation gate) simultaneously preserves single-block manipulation resistance and operational liveness during real volatility. Rather than continue to iterate on the Balancer V2 oracle path, the operational decision for the current deployment is that `BuyBackBurner.buyBack` is not exercised in production:
+
+- **No `secondToken` is whitelisted for either swap path in the default state.** `mapV2Oracles` and `mapV3Pools` are both empty on the deployed `BuyBackBurner*` proxies; `setV2Oracles` (`BuyBackBurner.sol:353`) and `setV3Pools` (`BuyBackBurner.sol:393`) are `owner`-gated (Timelock / DAO), so only DAO governance can change this.
+- **The permissionless `buyBack(secondToken, ...)` entry point has no reachable code path.** `_buyOLAS` reverts at the whitelist gate (`BuyBackBurner.sol:233`, `require(poolOracle != address(0), "Zero oracle address")`) and `_buyOLASV3` reverts at the analogous V3 zero-pool check inside `_requireV3Enabled()` / pool lookup. Consequently the item #14 class has no live consumer: the Balancer TWAP can be steered on-chain, but nothing reads it into a swap floor.
+- **Collected funds flow via `transfer(token)` (`BuyBackBurner.sol:607–646`), not via `buyBack`.** `transfer` is permissionless but gated on `mapV2Oracles[token] == 0 && mapV3Pools[token] == 0`, so it only routes tokens that are not registered for a swap path — which, in the default state, is every token that lands on the contract. OLAS is forwarded to `bridge2Burner` (burn); every other token is forwarded to `treasury`. Neither branch consults any oracle, so nothing is price-manipulable on the operating path.
+
+**Retained-as-compatibility scope.** `_buyOLAS` (V2/Balancer), `_buyOLASV3` (V3/Uniswap-Slipstream), and the `setV2Oracles` / `setV3Pools` whitelists are kept in the source, not deprecated, so a future decision to re-enable in-BBB swaps does not require a contract change. If in-BBB swaps are re-enabled later, the expected direction is Uniswap V3 only — an observation-accumulator TWAP sourced from a sufficiently-funded pool (with concentrated liquidity around the active tick so single-block manipulation is not flash-loanable in the way Balancer V2 spot reserves are). Populating `mapV2Oracles` on a Balancer-path proxy is not planned; any such governance proposal should be flagged in review.
+
+**No funds are at risk on the deployed system:**
+
+- Item #14's residual (flash-loan-timed `updatePrice()` commits a skewed sample) has no consumer while `mapV2Oracles` is empty. The oracle can be manipulated on-chain, but the buyback floor that reads it is never computed.
+- Both swap-path whitelists are `owner`-gated; no third party can flip the default state.
+- The default fund-flow path (`transfer(token)`) is oracle-free and non-swap: a straight `IERC20.transfer` to `treasury` (or `bridge2Burner` for OLAS), so there is no price surface for a flash-loan to exploit even if a well-intentioned actor calls it.
+
+**Posture (no code change).** Item #14 remains "Acknowledged — no code change; track via monitoring"; item #27 records the complementary operating decision that keeps the item #14 class unreachable in practice: do not populate `mapV2Oracles` on any Balancer-path proxy, and do not populate `mapV3Pools` unless and until a specific Uniswap V3 pool has been selected against the depth / TWAP-window criteria above and the V3 `_buyOLAS` path has been separately reviewed for that pool. Off-chain monitoring of `OraclesUpdated` (from `setV2Oracles`) and the equivalent V3 setter event catches any drift from this posture at governance-proposal time.
+
+Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 
