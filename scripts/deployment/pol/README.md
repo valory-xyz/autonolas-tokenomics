@@ -74,8 +74,9 @@ one:
   4. confirm off-chain that `observe([1800, 0])` succeeds, the latest observation is younger than 1800s,
      and the buffer spans ≥ 1800s.
 
-  Never seed POL on the un-upgraded impl. (The full migration runbook is maintained separately and
-  accompanies the migration.)
+  Never seed POL on the un-upgraded impl. See the full
+  [V2 → V3 migration runbook](../../../docs/liquidity_migration_runbook.md) for the complete pre-warm,
+  oracle warm-up, cross-chain LP transfer, and pre-flight checklist.
 
 ## Globals fields
 
