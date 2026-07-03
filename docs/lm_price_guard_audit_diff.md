@@ -19,12 +19,18 @@ the git diff. Tags let a reviewer trace each behavioural change.
 
 ## New behaviour to note (not a new vulnerability)
 
-- **Fail-closed liveness residual.** Entries/trades (`convertToV3` / `increaseLiquidity` / `changeRanges` /
+- **Quiet-pool liveness residual.** Entries/trades (`convertToV3` / `increaseLiquidity` / `changeRanges` /
   `buyBack`) revert on a pool quiet for >1800s until the next swap. Intended, self-healing, never locks
-  funds, and **exits always work** (`[FIX-2b]`). Documented in VL#26 so it is not re-triaged as a DoS.
+  funds; exits are unaffected (the exit gate is skipped on a quiet pool). Documented in VL#26 so it is not
+  re-triaged as a DoS.
+- **Extreme-move exit residual (audit M-1).** On a verifiable pool the exit deviation gate can't tell
+  manipulation from genuine fast volatility, so `decreaseLiquidity` reverts while `slot0` is
+  >`MAX_ALLOWED_DEVIATION` off the lagging TWAP. Funds are never at risk; retry after re-convergence.
+  Accepted (POL exits are governance-timed). Documented in VL#26.
 - **Deliberate entry/exit asymmetry.** Entries/trades fail-**closed** (an empty pool's `slot0` is free to
-  move → catastrophic); the exit path fails-**open**-soft (an exit pool always holds our own liquidity →
-  the residual is a capital-bounded slip, never the empty-pool catastrophe).
+  move → catastrophic); the exit path only gates on deviation and otherwise fails-**open** on a quiet pool
+  (an exit pool always holds our own liquidity → the residual is a capital-bounded slip, never the
+  empty-pool catastrophe).
 
 ## Coverage / access unchanged
 
