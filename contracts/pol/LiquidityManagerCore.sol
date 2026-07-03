@@ -329,9 +329,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param pool Pool address.
     /// @param positionId Position Id.
     /// @param decreaseRate Rate of position decrease in BPS.
+    /// @param applyDeviationGate True to run the slot0-vs-TWAP deviation gate (_getExitSqrtPrice); false
+    ///        when the caller has already validated the pool (e.g. changeRanges), to skip a second TWAP read.
     /// @return liquidity Decreased liquidity amount.
     /// @return amountsOut Amounts from liquidity.
-    function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate)
+    function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate, bool applyDeviationGate)
         internal
         returns (uint128 liquidity, uint256[] memory amountsOut)
     {
@@ -353,10 +355,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Deviation-gated slot0 price: reverts if slot0 is >MAX_ALLOWED_DEVIATION off the TWAP on a
-        // verifiable pool, else raw slot0 (fail-open). amountMin below is derived from this slot0 price,
-        // which is the exact price the position manager withdraws at, so a fair exit is always satisfiable.
-        uint160 sqrtPriceX96 = _getExitSqrtPrice(pool);
+        // Price the exit off slot0 (the exact price the position manager withdraws at) so amountMin is
+        // always satisfiable. When applyDeviationGate is set, _getExitSqrtPrice additionally reverts if
+        // slot0 is >MAX_ALLOWED_DEVIATION off the TWAP (anti-manipulation). changeRanges passes false
+        // because it has already run that gate via checkPoolAndGetCenterPrice — this avoids a second TWAP
+        // observe for the same pool in the same call.
+        uint160 sqrtPriceX96;
+        if (applyDeviationGate) {
+            sqrtPriceX96 = _getExitSqrtPrice(pool);
+        } else {
+            (sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
+            if (sqrtPriceX96 == 0) {
+                revert ZeroValue();
+            }
+        }
 
         // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
@@ -445,8 +457,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         emit LiquidityIncreased(positionId, amountsIn, liquidity);
     }
 
-    /// @dev Manages utility token amounts.
+    /// @dev Manages utility token amounts, based on the contract's whole balance.
     /// @notice Non-OLAS token is always transferred to treasury, OLAS is either burnt or transferred as well.
+    ///         This operates on `balanceOf(this)` and is used only by the owner-only entry/exit paths
+    ///         (convertToV3 / increaseLiquidity / decreaseLiquidity / changeRanges), where sweeping the whole
+    ///         balance is intended. The permissionless collectFees instead uses _manageCollectedAmounts,
+    ///         scoped to just the collected fees, so it cannot burn separately-staged OLAS (VL#15).
     /// @param tokens Token addresses.
     /// @param utilizationRate Token utilization rate, in BPS.
     /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
@@ -825,8 +841,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check current pool prices (fails closed on an unverifiable pool)
         uint160 centerSqrtPriceX96 = checkPoolAndGetCenterPrice(pool);
 
-        // Decrease liquidity fully (soft-priced floor; the pool was just validated fail-closed above)
-        _decreaseLiquidity(pool, currentPositionId, MAX_BPS);
+        // Decrease liquidity fully. The pool was just validated by checkPoolAndGetCenterPrice above, so
+        // skip the redundant deviation gate (amountMin is still priced off the current slot0).
+        _decreaseLiquidity(pool, currentPositionId, MAX_BPS, false);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(currentPositionId);
@@ -960,8 +977,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Decrease liquidity (soft-priced slippage floor computed at execution; always-exitable)
-        (liquidity,) = _decreaseLiquidity(pool, positionId, decreaseRate);
+        // Decrease liquidity (deviation-gated slot0 floor computed at execution; always-exitable within the gate)
+        (liquidity,) = _decreaseLiquidity(pool, positionId, decreaseRate, true);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(positionId);
