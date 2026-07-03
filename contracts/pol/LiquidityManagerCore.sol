@@ -43,9 +43,10 @@ error RangeBounds(int24 low, int24 center, int24 high);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
-/// @dev TWAP observation read failed.
+/// @dev Pool cannot produce a verifiable SECONDS_AGO TWAP (freshly-created / cardinality <= 1, or
+///      no trade within the TWAP window). The price guard fails closed rather than trusting slot0.
 /// @param pool Pool address.
-error ObservationFailed(address pool);
+error NotEnoughHistory(address pool);
 
 interface INeighborhoodScanner {
     /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
@@ -241,21 +242,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
     }
 
-    /// @dev Reads slot0().observationCardinality, tolerating non-canonical pools that don't implement slot0().
-    /// @param pool Pool address.
-    /// @return cardinality Observation cardinality (0 if the call failed).
-    function _getObservationCardinality(address pool) internal view returns (uint16 cardinality) {
-        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
-        (bool success, bytes memory returnData) = pool.staticcall(payload);
-        if (success) {
-            // observationCardinality is at slot 4 (index 3) in slot0's return layout,
-            // so byte offset 32 (length prefix) + 3 * 32 = 128.
-            assembly {
-                cardinality := mload(add(returnData, 128))
-            }
-        }
-    }
-
     /// @dev Gets V3 pool based on token addresses and fee tier or tick spacing.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
@@ -332,7 +318,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         emit FeesCollected(msg.sender, positionId, amounts);
     }
 
-    /// @dev Decreases liquidity for specified pool.
+    /// @dev Decreases liquidity for a position.
+    /// @notice The slippage floor is derived at execution from a soft-priced fair value (_getExitSqrtPrice):
+    ///         the TWAP when the pool is verifiable (with slot0 bounded to it), otherwise the raw slot0
+    ///         (fail-open) so an exit is always possible. Because it is evaluated at call time it never goes
+    ///         stale across a governance delay; the residual on an unverifiable-but-liquid pool is a
+    ///         capital-bounded slip, never the empty-pool catastrophe (an exit pool always holds our own
+    ///         liquidity).
     /// @param pool Pool address.
     /// @param positionId Position Id.
     /// @param decreaseRate Rate of position decrease in BPS.
@@ -360,24 +352,19 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Get current pool sqrt price
-        (uint160 sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
-        // Check for zero value
-        if (sqrtPriceX96 == 0) {
-            revert ZeroValue();
-        }
+        // Soft-priced fair value: TWAP when verifiable (slot0 bounded within MAX_ALLOWED_DEVIATION),
+        // otherwise slot0 (fail-open) so a withdrawal is always possible even on a quiet pool.
+        uint160 sqrtPriceX96 = _getExitSqrtPrice(pool);
 
         // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
         sqrtAB[0] = TickMath.getSqrtRatioAtTick(ticks[0]);
         sqrtAB[1] = TickMath.getSqrtRatioAtTick(ticks[1]);
 
-        // Get amounts based on liquidity
+        // Get amounts based on liquidity, then apply the slippage floor
         uint256[] memory amountsMin = new uint256[](2);
         (amountsMin[0], amountsMin[1]) =
             LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtAB[0], sqrtAB[1], liquidity);
-
-        // Get minimum amounts according to slippage
         amountsMin[0] = amountsMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
         amountsMin[1] = amountsMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
 
@@ -397,18 +384,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         emit LiquidityDecreased(positionId, amountsOut, liquidity);
     }
 
-    /// @dev Increases liquidity for specified pool.
-    /// @param pool Pool address.
+    /// @dev Increases liquidity for a position.
+    /// @notice The center sqrt price is the caller's checkPoolAndGetCenterPrice (TWAP) result, so the
+    ///         liquidity math and the amountMin floor anchor to a verified price, not the manipulable slot0.
     /// @param positionId Position Id.
     /// @param inputAmounts Input amounts.
+    /// @param sqrtPriceX96 Center (TWAP-derived) sqrt price.
     /// @return liquidity Decreased liquidity amount.
     /// @return amountsIn Amounts in liquidity.
-    function _increaseLiquidity(address pool, uint256 positionId, uint256[] memory inputAmounts)
+    function _increaseLiquidity(uint256 positionId, uint256[] memory inputAmounts, uint160 sqrtPriceX96)
         internal
         returns (uint128 liquidity, uint256[] memory amountsIn)
     {
-        // Get current pool sqrt price
-        (uint160 sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
         // Check for zero value
         if (sqrtPriceX96 == 0) {
             revert ZeroValue();
@@ -485,6 +472,49 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Get token balances
+        uint256 olasAmount;
+        uint256 tokenAmount;
+        address secondToken;
+
+        // Check for OLAS token and swap values, if needed
+        if (tokens[0] == olas) {
+            secondToken = tokens[1];
+            olasAmount = amounts[0];
+            tokenAmount = amounts[1];
+        } else {
+            secondToken = tokens[0];
+            olasAmount = amounts[1];
+            tokenAmount = amounts[0];
+        }
+
+        // Manage OLAS token
+        if (olasAmount > 0) {
+            if (olasBurnOrTransfer) {
+                // Directly burn or transfer OLAS to Burner contract
+                _burn(olasAmount);
+            } else {
+                // Transfer OLAS to Treasury contract
+                IToken(olas).transfer(treasury, olasAmount);
+            }
+        }
+
+        // Transfer another token to Treasury
+        if (tokenAmount > 0) {
+            SafeTransferLib.safeTransfer(secondToken, treasury, tokenAmount);
+        }
+
+        emit UtilityAmountsManaged(olas, secondToken, olasAmount, tokenAmount, olasBurnOrTransfer);
+    }
+
+    /// @dev Burns / transfers explicitly-provided amounts instead of the contract's whole balance.
+    /// @notice Used by collectFees so only the just-collected fees are handled; any OLAS or second token
+    ///         separately staged on the contract (e.g. pre-funded for a pending convertToV3) is untouched.
+    /// @param tokens Token addresses.
+    /// @param amounts Amounts to manage, parallel to tokens.
+    /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
+    function _manageCollectedAmounts(address[] memory tokens, uint256[] memory amounts, bool olasBurnOrTransfer)
+        internal
+    {
         uint256 olasAmount;
         uint256 tokenAmount;
         address secondToken;
@@ -739,8 +769,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             // Increase observation cardinality
             IUniswapV3(v3Pool).increaseObservationCardinalityNext(observationCardinality);
         } else {
-            // Increase liquidity with actual ticks, since position already exists
-            (liquidity, amounts) = _increaseLiquidity(v3Pool, positionId, amounts);
+            // Increase liquidity with actual ticks, since position already exists (anchor to TWAP center)
+            (liquidity, amounts) = _increaseLiquidity(positionId, amounts, sqrtP);
         }
 
         // Manage token leftovers - transfer both to treasury
@@ -790,10 +820,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Check current pool prices
+        // Check current pool prices (fails closed on an unverifiable pool)
         uint160 centerSqrtPriceX96 = checkPoolAndGetCenterPrice(pool);
 
-        // Decrease liquidity
+        // Decrease liquidity fully (soft-priced floor; the pool was just validated fail-closed above)
         _decreaseLiquidity(pool, currentPositionId, MAX_BPS);
 
         // Collect fees and tokens removed from liquidity
@@ -854,8 +884,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Check current pool prices
-        checkPoolAndGetCenterPrice(pool);
+        // No price guard here: fee collection is not price-sandwichable and must stay live on a quiet
+        // pool. Only the just-collected amounts are managed, never the contract's whole balance.
 
         // Collect fees
         amounts = _collectFees(positionId);
@@ -865,8 +895,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Manage collected fees: burn OLAS, transfer another token
-        _manageUtilityAmounts(tokens, MAX_BPS, true);
+        // Manage only the collected fees: burn OLAS, transfer another token to treasury
+        _manageCollectedAmounts(tokens, amounts, true);
 
         emit PositionFeesCollected(pool, positionId, tokens, amounts);
 
@@ -874,6 +904,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Decreases liquidity for specified pool.
+    /// @notice The slippage floor is derived at execution from a soft-priced fair value (TWAP when the
+    ///         pool is verifiable, else slot0 - see _getExitSqrtPrice) rather than caller-supplied absolute
+    ///         minimums, so it never goes stale across a governance delay and the exit is always possible.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
     /// @param decreaseRate Rate of position decrease in BPS.
@@ -925,10 +958,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Check current pool prices
-        checkPoolAndGetCenterPrice(pool);
-
-        // Decrease liquidity
+        // Decrease liquidity (soft-priced slippage floor computed at execution; always-exitable)
         (liquidity,) = _decreaseLiquidity(pool, positionId, decreaseRate);
 
         // Collect fees and tokens removed from liquidity
@@ -1006,15 +1036,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Check current pool prices
-        checkPoolAndGetCenterPrice(pool);
+        // Check current pool prices and capture the TWAP center (fails closed on an unverifiable pool)
+        uint160 sqrtP = checkPoolAndGetCenterPrice(pool);
 
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
         IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
 
-        // Increase liquidity
-        (liquidity, amounts) = _increaseLiquidity(pool, positionId, amounts);
+        // Increase liquidity (amountMin anchored to the TWAP center)
+        (liquidity, amounts) = _increaseLiquidity(positionId, amounts, sqrtP);
 
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
@@ -1121,11 +1151,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         price = mulDiv(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
     }
 
-    /// @dev Checks pool prices via Uniswap V3 built-in oracle.
-    /// @notice Returns the TWAP-derived sqrt price when the pool has sufficient history, otherwise the
-    ///         instantaneous slot0 sqrt price. When both are available, reverts if the deviation between
-    ///         the instantaneous price (from slot0) and the TWAP price exceeds MAX_ALLOWED_DEVIATION,
-    ///         preventing flash-loan driven price manipulation.
+    /// @dev Checks pool prices via Uniswap V3 built-in oracle and returns the TWAP-derived sqrt price.
+    /// @notice Fails closed: reverts with NotEnoughHistory when the pool cannot produce a verifiable
+    ///         SECONDS_AGO TWAP (freshly-created / cardinality <= 1, or no trade within SECONDS_AGO).
+    ///         When a TWAP is available, reverts if the deviation between the instantaneous slot0 price
+    ///         and the TWAP price exceeds MAX_ALLOWED_DEVIATION, preventing flash-loan driven manipulation.
+    ///         The revert is a refusal, not a permanent denial: a single subsequent swap on the pool
+    ///         repopulates the observation buffer and the next call proceeds normally.
     /// @param pool Pool address.
     /// @return centerSqrtPriceX96 Calculated center SQRT price.
     function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96) {
@@ -1137,28 +1169,23 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Get oldest observations timestamp
-        (uint32 oldestTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
+        // Get latest observation timestamp
+        (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
 
-        // Check if the pool had enough activity during last SECONDS_AGO period
-        if (oldestTimestamp + SECONDS_AGO < block.timestamp) {
-            return centerSqrtPriceX96;
+        // Fail closed: if the pool has not traded within the last SECONDS_AGO period, a TWAP cannot be
+        // verified (inactive pool). Refuse rather than fall back to the manipulable slot0 price.
+        if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
+            revert NotEnoughHistory(pool);
         }
 
         bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
         // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
 
-        // If observe() reverts, distinguish a freshly-initialized pool (cardinality == 1,
-        // no historical data to blend) from a pool that has real history but whose observe()
-        // was crafted to fail. Fresh pools fall back to slot0 — the same tolerance the original
-        // code had; pools with cardinality >= 2 must produce a TWAP, otherwise something is
-        // wrong and we refuse to fail-open the slippage guard.
+        // Fail closed: a freshly-created pool (cardinality <= 1) or any pool whose observe() cannot
+        // interpolate the SECONDS_AGO window has no verifiable TWAP. Refuse rather than return slot0.
         if (!success || returnData.length == 0) {
-            if (_getObservationCardinality(pool) <= 1) {
-                return centerSqrtPriceX96;
-            }
-            revert ObservationFailed(pool);
+            revert NotEnoughHistory(pool);
         }
 
         // Get returned values from oracle: TWAP price and TWAP-derived sqrt price
@@ -1185,5 +1212,56 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
         centerSqrtPriceX96 = twapSqrtPriceX96;
+    }
+
+    /// @dev Soft-priced fair value for exits / maintenance (decreaseLiquidity).
+    /// @notice Returns the TWAP-derived sqrt price when the pool can produce a verifiable SECONDS_AGO TWAP,
+    ///         reverting only if the instantaneous slot0 price deviates more than MAX_ALLOWED_DEVIATION from
+    ///         it. When no TWAP is available (freshly-created / cardinality <= 1, or no trade within
+    ///         SECONDS_AGO) it returns the raw slot0 (fail-open). Unlike checkPoolAndGetCenterPrice it never
+    ///         reverts merely because the pool is quiet, so a withdrawal is always possible. The residual on
+    ///         an unverifiable-but-liquid pool is a capital-bounded slip (an exit pool always holds our own
+    ///         liquidity), not the empty-pool catastrophe that the fail-closed entry guard prevents.
+    /// @param pool Pool address.
+    /// @return sqrtPriceX96 Fair sqrt price: TWAP-derived when verifiable, otherwise slot0.
+    function _getExitSqrtPrice(address pool) internal view returns (uint160 sqrtPriceX96) {
+        uint16 observationIndex;
+        // Get current pool sqrt price and observation index
+        (sqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
+        // Check for zero value
+        if (sqrtPriceX96 == 0) {
+            revert ZeroValue();
+        }
+
+        // Inactive pool: no verifiable TWAP -> fall back to slot0 so the exit still works
+        (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
+        if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
+            return sqrtPriceX96;
+        }
+
+        // Fresh pool / observe() unavailable: fall back to slot0
+        bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
+        (bool success, bytes memory returnData) = address(this).staticcall(payload);
+        if (!success || returnData.length == 0) {
+            return sqrtPriceX96;
+        }
+
+        (uint256 twapPrice, uint160 twapSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
+
+        // Verifiable: bound the instantaneous slot0 price to the TWAP, then price the exit off the TWAP
+        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
+        uint256 instantPrice = mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
+
+        uint256 deviation;
+        if (twapPrice > 0) {
+            deviation = (instantPrice > twapPrice)
+                ? mulDiv((instantPrice - twapPrice), 1e18, twapPrice)
+                : mulDiv((twapPrice - instantPrice), 1e18, twapPrice);
+        }
+        if (deviation > MAX_ALLOWED_DEVIATION) {
+            revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
+        }
+
+        sqrtPriceX96 = twapSqrtPriceX96;
     }
 }
