@@ -379,8 +379,9 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         assertEq(result, instantSqrtPriceX96, "fresh pool must fall back to slot0 for the exit");
     }
 
-    /// @dev Mature pool, slot0 within deviation: returns the TWAP-derived sqrt price (not raw slot0).
-    function test_getExitSqrtPrice_matureWithinDeviation_returnsTwap() public {
+    /// @dev Mature pool, slot0 within deviation: returns the gated slot0 price (NOT the TWAP), so amountMin
+    ///      is computed at the exact price the position manager withdraws at (no PSC / "too little" edge).
+    function test_getExitSqrtPrice_matureWithinDeviation_returnsSlot0() public {
         int24 twapTick = 0;
         uint160 twapSqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(3); // tiny deviation
@@ -389,7 +390,23 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         pool.setCardinality(60);
 
         uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
-        assertEq(result, twapSqrtPriceX96, "mature pool must price the exit off the TWAP");
+        assertEq(result, instantSqrtPriceX96, "mature pool must price the exit off slot0 (gated), not the TWAP");
+        assertTrue(result != twapSqrtPriceX96, "must not return the TWAP sqrt price");
+    }
+
+    /// @dev Mature pool, slot0 near the deviation bound but within it (~9.4%): still passes the gate and
+    ///      returns slot0. This is the case that would previously mis-price amountMin at the TWAP and could
+    ///      revert the exit; now a fair exit is always satisfiable.
+    function test_getExitSqrtPrice_matureNearBound_returnsSlot0() public {
+        int24 twapTick = 0;
+        // tick 900 -> price ~1.0942 -> ~9.4% deviation, just under MAX_ALLOWED_DEVIATION (10%)
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(900);
+
+        _configurePoolWithHistory(instantSqrtPriceX96, twapTick);
+        pool.setCardinality(60);
+
+        uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "near-bound-but-within must return slot0 without reverting");
     }
 
     /// @dev Mature pool, slot0 deviates > 10% from TWAP: still fail-CLOSED (reverts Overflow), so the

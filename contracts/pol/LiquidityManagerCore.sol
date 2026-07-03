@@ -319,12 +319,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Decreases liquidity for a position.
-    /// @notice The slippage floor is derived at execution from a soft-priced fair value (_getExitSqrtPrice):
-    ///         the TWAP when the pool is verifiable (with slot0 bounded to it), otherwise the raw slot0
-    ///         (fail-open) so an exit is always possible. Because it is evaluated at call time it never goes
-    ///         stale across a governance delay; the residual on an unverifiable-but-liquid pool is a
-    ///         capital-bounded slip, never the empty-pool catastrophe (an exit pool always holds our own
-    ///         liquidity).
+    /// @notice The slippage floor is derived at execution from the deviation-gated slot0 price
+    ///         (_getExitSqrtPrice): reverts if slot0 is >MAX_ALLOWED_DEVIATION off the TWAP on a verifiable
+    ///         pool, else raw slot0 (fail-open) so an exit is always possible on a quiet pool. Because
+    ///         amountMin is derived from the same slot0 price the position manager withdraws at, a fair exit
+    ///         is always satisfiable within the gate, and it never goes stale across a governance delay. The
+    ///         residual on an unverifiable-but-liquid pool is a capital-bounded slip, never the empty-pool
+    ///         catastrophe (an exit pool always holds our own liquidity).
     /// @param pool Pool address.
     /// @param positionId Position Id.
     /// @param decreaseRate Rate of position decrease in BPS.
@@ -352,8 +353,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Soft-priced fair value: TWAP when verifiable (slot0 bounded within MAX_ALLOWED_DEVIATION),
-        // otherwise slot0 (fail-open) so a withdrawal is always possible even on a quiet pool.
+        // Deviation-gated slot0 price: reverts if slot0 is >MAX_ALLOWED_DEVIATION off the TWAP on a
+        // verifiable pool, else raw slot0 (fail-open). amountMin below is derived from this slot0 price,
+        // which is the exact price the position manager withdraws at, so a fair exit is always satisfiable.
         uint160 sqrtPriceX96 = _getExitSqrtPrice(pool);
 
         // Get sqrt prices for ticks
@@ -904,9 +906,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Decreases liquidity for specified pool.
-    /// @notice The slippage floor is derived at execution from a soft-priced fair value (TWAP when the
-    ///         pool is verifiable, else slot0 - see _getExitSqrtPrice) rather than caller-supplied absolute
-    ///         minimums, so it never goes stale across a governance delay and the exit is always possible.
+    /// @notice The slippage floor is derived at execution from the deviation-gated slot0 price (see
+    ///         _getExitSqrtPrice) rather than caller-supplied absolute minimums, so it never goes stale
+    ///         across a governance delay and a fair exit is always satisfiable within the deviation gate.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
     /// @param decreaseRate Rate of position decrease in BPS.
@@ -1214,16 +1216,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         centerSqrtPriceX96 = twapSqrtPriceX96;
     }
 
-    /// @dev Soft-priced fair value for exits / maintenance (decreaseLiquidity).
-    /// @notice Returns the TWAP-derived sqrt price when the pool can produce a verifiable SECONDS_AGO TWAP,
-    ///         reverting only if the instantaneous slot0 price deviates more than MAX_ALLOWED_DEVIATION from
-    ///         it. When no TWAP is available (freshly-created / cardinality <= 1, or no trade within
-    ///         SECONDS_AGO) it returns the raw slot0 (fail-open). Unlike checkPoolAndGetCenterPrice it never
-    ///         reverts merely because the pool is quiet, so a withdrawal is always possible. The residual on
-    ///         an unverifiable-but-liquid pool is a capital-bounded slip (an exit pool always holds our own
-    ///         liquidity), not the empty-pool catastrophe that the fail-closed entry guard prevents.
+    /// @dev Deviation-gated slot0 price for exits / maintenance (decreaseLiquidity).
+    /// @notice When the pool can produce a verifiable SECONDS_AGO TWAP, this reverts if the instantaneous
+    ///         slot0 price deviates more than MAX_ALLOWED_DEVIATION from the TWAP (anti-manipulation gate);
+    ///         otherwise (freshly-created / cardinality <= 1, or no trade within SECONDS_AGO) it skips the
+    ///         gate (fail-open). In BOTH cases it returns the raw slot0 price — the exact price the position
+    ///         manager withdraws at — so a caller's amountMin = amounts(slot0) * (1 - maxSlippage) is always
+    ///         satisfiable and a fair exit never reverts on the amount check. Unlike checkPoolAndGetCenterPrice
+    ///         it never reverts merely because the pool is quiet, so a withdrawal is always possible within
+    ///         the gate. The residual on an unverifiable-but-liquid pool is a capital-bounded slip (an exit
+    ///         pool always holds our own liquidity), not the empty-pool catastrophe the fail-closed entry
+    ///         guard prevents.
     /// @param pool Pool address.
-    /// @return sqrtPriceX96 Fair sqrt price: TWAP-derived when verifiable, otherwise slot0.
+    /// @return sqrtPriceX96 The slot0 sqrt price, verified within MAX_ALLOWED_DEVIATION of the TWAP when one
+    ///         is available.
     function _getExitSqrtPrice(address pool) internal view returns (uint160 sqrtPriceX96) {
         uint16 observationIndex;
         // Get current pool sqrt price and observation index
@@ -1233,22 +1239,24 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Inactive pool: no verifiable TWAP -> fall back to slot0 so the exit still works
+        // Inactive pool: no verifiable TWAP -> skip the gate so the exit still works
         (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
         if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
             return sqrtPriceX96;
         }
 
-        // Fresh pool / observe() unavailable: fall back to slot0
+        // Fresh pool / observe() unavailable: skip the gate
         bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
         if (!success || returnData.length == 0) {
             return sqrtPriceX96;
         }
 
-        (uint256 twapPrice, uint160 twapSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
+        (uint256 twapPrice,) = abi.decode(returnData, (uint256, uint160));
 
-        // Verifiable: bound the instantaneous slot0 price to the TWAP, then price the exit off the TWAP
+        // Verifiable: reject a slot0 that deviates more than MAX_ALLOWED_DEVIATION from the TWAP
+        // (anti-manipulation gate) but keep pricing the exit off slot0 itself, so amountMin computed from
+        // slot0 always matches what the position manager returns and a fair exit does not revert.
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
         uint256 instantPrice = mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
 
@@ -1262,6 +1270,6 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
         }
 
-        sqrtPriceX96 = twapSqrtPriceX96;
+        // sqrtPriceX96 is already the slot0 price; return it (gated) rather than the TWAP price.
     }
 }
