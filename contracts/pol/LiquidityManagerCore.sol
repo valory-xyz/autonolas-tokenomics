@@ -1244,6 +1244,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     ///         the gate. The residual on an unverifiable-but-liquid pool is a capital-bounded slip (an exit
     ///         pool always holds our own liquidity), not the empty-pool catastrophe the fail-closed entry
     ///         guard prevents.
+    ///         Accepted liveness residual: the deviation gate cannot distinguish manipulation from a genuine
+    ///         fast market move, so on a verifiable pool the exit is temporarily blocked while slot0 sits
+    ///         >MAX_ALLOWED_DEVIATION from the (lagging) 30-min TWAP. Funds are never at risk — retry once the
+    ///         pool re-converges within the bound (self-heals as the TWAP catches up or arbitrage restores price).
     /// @param pool Pool address.
     /// @return sqrtPriceX96 The slot0 sqrt price, verified within MAX_ALLOWED_DEVIATION of the TWAP when one
     ///         is available.
