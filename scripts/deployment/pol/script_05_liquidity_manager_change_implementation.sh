@@ -40,6 +40,16 @@ networkURL=$(jq -r '.networkURL' $globals)
 liquidityManagerAddress=$(jq -r '.liquidityManagerAddress' $globals)
 liquidityManagerProxyAddress=$(jq -r '.liquidityManagerProxyAddress' $globals)
 
+# Guard against a misconfigured globals file — changeImplementation(0x0/null) would brick the proxy
+if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
+  echo "${red}!!! liquidityManagerAddress is empty in $globals — deploy the new implementation first${reset}"
+  exit 0
+fi
+if [ -z "$liquidityManagerProxyAddress" ] || [ "$liquidityManagerProxyAddress" == "null" ]; then
+  echo "${red}!!! liquidityManagerProxyAddress is empty in $globals${reset}"
+  exit 0
+fi
+
 # Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
   case $chainId in
