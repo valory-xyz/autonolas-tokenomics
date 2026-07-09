@@ -24,7 +24,7 @@ pragma solidity ^0.8.30;
 // =============================================================================
 
 import {Test} from "forge-std/Test.sol";
-import {LiquidityManagerCore} from "../contracts/pol/LiquidityManagerCore.sol";
+import {LiquidityManagerCore, NotEnoughHistory, Overflow} from "../contracts/pol/LiquidityManagerCore.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
 
 /// @dev Programmable mock V3 pool: attacker controls slot0; history drives the
@@ -94,7 +94,8 @@ contract LiquidityManagerPriceGuardRegressionTest is Test {
         pool.setCardinality(1);
         pool.setLatestObsTimestamp(uint32(block.timestamp));
         pool.setObserveReverts(true); // no verifiable history
-        vm.expectRevert(); // NotEnoughHistory — never price a fresh pool off slot0
+        // Typed revert: a regression that reverts for a *different* reason must not slip through
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
         lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
@@ -103,7 +104,7 @@ contract LiquidityManagerPriceGuardRegressionTest is Test {
         pool.pushPrice(manipulated);
         pool.setCardinality(60);
         pool.setLatestObsTimestamp(1); // last trade far in the past -> inactive
-        vm.expectRevert(); // NotEnoughHistory
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
         lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
@@ -112,7 +113,8 @@ contract LiquidityManagerPriceGuardRegressionTest is Test {
         pool.pushPrice(manipulated);   // slot0 ~ tick 6931
         pool.setCardinality(60);
         pool.setLatestObsTimestamp(uint32(block.timestamp)); // active; observe() -> TWAP tick 0
-        vm.expectRevert(); // Overflow(deviation, MAX_ALLOWED_DEVIATION)
+        // Selector-only match (deviation arg is price-dependent): pins the revert to Overflow, not "any revert"
+        vm.expectPartialRevert(Overflow.selector);
         lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
@@ -121,7 +123,7 @@ contract LiquidityManagerPriceGuardRegressionTest is Test {
         pool.pushPrice(manipulated);
         pool.setCardinality(60);
         pool.setLatestObsTimestamp(uint32(block.timestamp));
-        vm.expectRevert(); // Overflow — anti-manipulation gate on exit
+        vm.expectPartialRevert(Overflow.selector); // anti-manipulation gate on exit
         lm.exposedExitSqrtPrice(address(pool));
     }
 

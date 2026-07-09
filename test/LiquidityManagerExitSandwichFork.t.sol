@@ -16,9 +16,24 @@ pragma solidity ^0.8.30;
 // Run: forge test --mc LiquidityManagerExitSandwichFork --fork-url $ETH_RPC -vvv
 // =============================================================================
 
-import "./LiquidityManagerETH.t.sol"; // LiquidityManagerETHTest harness + IUniswapV3 + IFactory
+import "./LiquidityManagerETH.t.sol"; // BaseSetup harness + IUniswapV3 + IFactory
 
-contract LiquidityManagerExitSandwichForkTest is LiquidityManagerETHTest {
+// Inherits BaseSetup (the fork harness: setUp, constants, `liquidityManager`, `TOKENS`), NOT the concrete
+// LiquidityManagerETHTest — inheriting the latter would re-declare and re-run its whole ETH fork suite under
+// this contract's name (a second, duplicate execution of ~25 fork tests). This is a fork-only PoC and is not
+// in the CI foundry allowlist; when run without an ETH mainnet fork, setUp() self-skips (block.chainid != 1)
+// so `forge test` without --fork-url does not error on the harness's mainnet reads.
+contract LiquidityManagerExitSandwichForkTest is BaseSetup {
+    function setUp() public override {
+        // Only meaningful on an ETH mainnet fork (chainid 1); off-fork the default chainid is 31337 and the
+        // harness's mainnet reads would revert. Skip the whole contract in that case rather than error.
+        if (block.chainid != 1) {
+            vm.skip(true);
+            return;
+        }
+        super.setUp();
+    }
+
     function test_L1_exitSandwich_manipulatedSlot0_reverts_honestExit_succeeds() public {
         int24[] memory tickShifts = new int24[](2);
         tickShifts[0] = -25000;
