@@ -329,11 +329,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param pool Pool address.
     /// @param positionId Position Id.
     /// @param decreaseRate Rate of position decrease in BPS.
-    /// @param applyDeviationGate True to run the slot0-vs-TWAP deviation gate (_getExitSqrtPrice); false
-    ///        when the caller has already validated the pool (e.g. changeRanges), to skip a second TWAP read.
     /// @return liquidity Decreased liquidity amount.
     /// @return amountsOut Amounts from liquidity.
-    function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate, bool applyDeviationGate)
+    function _decreaseLiquidity(address pool, uint256 positionId, uint16 decreaseRate)
         internal
         returns (uint128 liquidity, uint256[] memory amountsOut)
     {
@@ -355,20 +353,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Price the exit off slot0 (the exact price the position manager withdraws at) so amountMin is
-        // always satisfiable. When applyDeviationGate is set, _getExitSqrtPrice additionally reverts if
-        // slot0 is >MAX_ALLOWED_DEVIATION off the TWAP (anti-manipulation). changeRanges passes false
-        // because it has already run that gate via checkPoolAndGetCenterPrice — this avoids a second TWAP
-        // observe for the same pool in the same call.
-        uint160 sqrtPriceX96;
-        if (applyDeviationGate) {
-            sqrtPriceX96 = _getExitSqrtPrice(pool);
-        } else {
-            (sqrtPriceX96,) = _getPriceAndObservationIndexFromSlot0(pool);
-            if (sqrtPriceX96 == 0) {
-                revert ZeroValue();
-            }
-        }
+        // Price the exit off slot0 (the exact price the position manager withdraws at) so amountMin is always
+        // satisfiable, and always run the deviation gate: _getExitSqrtPrice reverts if slot0 is
+        // >MAX_ALLOWED_DEVIATION off the TWAP (anti-manipulation). Running it unconditionally is a fail-safe
+        // default — the anti-manipulation gate can never be silently skipped by a caller's omission. On the
+        // changeRanges reposition path the pool has already passed checkPoolAndGetCenterPrice earlier in the
+        // same call, so this gate is guaranteed to pass there and only costs a redundant TWAP observe (gas,
+        // not a functional change); on a genuinely quiet pool _getExitSqrtPrice fails open and returns slot0.
+        uint160 sqrtPriceX96 = _getExitSqrtPrice(pool);
 
         // Get sqrt prices for ticks
         uint160[] memory sqrtAB = new uint160[](2);
@@ -461,8 +453,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @notice Non-OLAS token is always transferred to treasury, OLAS is either burnt or transferred as well.
     ///         This operates on `balanceOf(this)` and is used only by the owner-only entry/exit paths
     ///         (convertToV3 / increaseLiquidity / decreaseLiquidity / changeRanges), where sweeping the whole
-    ///         balance is intended. The permissionless collectFees instead uses _manageCollectedAmounts,
-    ///         scoped to just the collected fees, so it cannot burn separately-staged OLAS (VL#15).
+    ///         balance is intended. The permissionless collectFees instead passes just the collected fees to
+    ///         the shared _manageAmounts primitive, so it cannot burn separately-staged OLAS (VL#15).
     /// @param tokens Token addresses.
     /// @param utilizationRate Token utilization rate, in BPS.
     /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
@@ -489,48 +481,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             updatedBalances[1] -= amounts[1];
         }
 
-        // Get token balances
-        uint256 olasAmount;
-        uint256 tokenAmount;
-        address secondToken;
-
-        // Check for OLAS token and swap values, if needed
-        if (tokens[0] == olas) {
-            secondToken = tokens[1];
-            olasAmount = amounts[0];
-            tokenAmount = amounts[1];
-        } else {
-            secondToken = tokens[0];
-            olasAmount = amounts[1];
-            tokenAmount = amounts[0];
-        }
-
-        // Manage OLAS token
-        if (olasAmount > 0) {
-            if (olasBurnOrTransfer) {
-                // Directly burn or transfer OLAS to Burner contract
-                _burn(olasAmount);
-            } else {
-                // Transfer OLAS to Treasury contract
-                IToken(olas).transfer(treasury, olasAmount);
-            }
-        }
-
-        // Transfer another token to Treasury
-        if (tokenAmount > 0) {
-            SafeTransferLib.safeTransfer(secondToken, treasury, tokenAmount);
-        }
-
-        emit UtilityAmountsManaged(olas, secondToken, olasAmount, tokenAmount, olasBurnOrTransfer);
+        // Burn / transfer the resolved amounts via the shared primitive (OLAS ordering, burn-vs-transfer, event)
+        _manageAmounts(tokens, amounts, olasBurnOrTransfer);
     }
 
-    /// @dev Burns / transfers explicitly-provided amounts instead of the contract's whole balance.
-    /// @notice Used by collectFees so only the just-collected fees are handled; any OLAS or second token
-    ///         separately staged on the contract (e.g. pre-funded for a pending convertToV3) is untouched.
+    /// @dev Shared primitive: routes explicitly-provided amounts — OLAS burnt or transferred to treasury,
+    ///      the second token transferred to treasury — and emits UtilityAmountsManaged.
+    /// @notice Both the balance-based owner paths (via _manageUtilityAmounts) and the scoped permissionless
+    ///         collectFees path funnel through here, so the OLAS-ordering / burn-vs-transfer / event logic
+    ///         lives in exactly one place. Passing explicit amounts (rather than reading balanceOf) is what
+    ///         lets collectFees handle only the just-collected fees and leave separately-staged OLAS
+    ///         untouched (VL#15).
     /// @param tokens Token addresses.
     /// @param amounts Amounts to manage, parallel to tokens.
     /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
-    function _manageCollectedAmounts(address[] memory tokens, uint256[] memory amounts, bool olasBurnOrTransfer)
+    function _manageAmounts(address[] memory tokens, uint256[] memory amounts, bool olasBurnOrTransfer)
         internal
     {
         uint256 olasAmount;
@@ -841,9 +806,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Check current pool prices (fails closed on an unverifiable pool)
         uint160 centerSqrtPriceX96 = checkPoolAndGetCenterPrice(pool);
 
-        // Decrease liquidity fully. The pool was just validated by checkPoolAndGetCenterPrice above, so
-        // skip the redundant deviation gate (amountMin is still priced off the current slot0).
-        _decreaseLiquidity(pool, currentPositionId, MAX_BPS, false);
+        // Decrease liquidity fully. _decreaseLiquidity always runs the exit deviation gate (fail-safe
+        // default); here the pool was just validated by checkPoolAndGetCenterPrice above with no intervening
+        // pool interaction, so that gate is guaranteed to pass and only costs a redundant TWAP observe.
+        _decreaseLiquidity(pool, currentPositionId, MAX_BPS);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(currentPositionId);
@@ -915,7 +881,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Manage only the collected fees: burn OLAS, transfer another token to treasury
-        _manageCollectedAmounts(tokens, amounts, true);
+        _manageAmounts(tokens, amounts, true);
 
         emit PositionFeesCollected(pool, positionId, tokens, amounts);
 
@@ -978,7 +944,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Decrease liquidity (deviation-gated slot0 floor computed at execution; always-exitable within the gate)
-        (liquidity,) = _decreaseLiquidity(pool, positionId, decreaseRate, true);
+        (liquidity,) = _decreaseLiquidity(pool, positionId, decreaseRate);
 
         // Collect fees and tokens removed from liquidity
         amounts = _collectFees(positionId);
@@ -1180,43 +1146,72 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @param pool Pool address.
     /// @return centerSqrtPriceX96 Calculated center SQRT price.
     function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96) {
+        // Read the raw price facts, then apply the ENTRY policy (fail closed) explicitly here.
+        (, bool twapAvailable, uint160 twapSqrtPriceX96, uint256 deviation) = _getPoolPriceFacts(pool);
+
+        // Fail closed: an unverifiable pool (inactive, freshly-created / cardinality <= 1, or observe()
+        // cannot interpolate the SECONDS_AGO window) has no verifiable TWAP. Refuse rather than fall back
+        // to the manipulable slot0 price.
+        if (!twapAvailable) {
+            revert NotEnoughHistory(pool);
+        }
+
+        // Reject a slot0 that deviates more than MAX_ALLOWED_DEVIATION from the TWAP (flash-manipulation guard)
+        if (deviation > MAX_ALLOWED_DEVIATION) {
+            revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
+        }
+
+        // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
+        centerSqrtPriceX96 = twapSqrtPriceX96;
+    }
+
+    /// @dev Reads the raw price facts a pool exposes, WITHOUT applying any fail-open/fail-closed policy.
+    /// @notice Isolates the security-critical primitive shared by the entry guard (checkPoolAndGetCenterPrice,
+    ///         fail-closed) and the exit floor (_getExitSqrtPrice, deviation-gated soft) — slot0 read,
+    ///         inactivity check, observe() availability, and the slot0-vs-TWAP deviation math — so the two
+    ///         paths cannot drift apart. Each caller decides what to do when no TWAP is available and how to
+    ///         act on the deviation; this function itself never encodes that policy.
+    /// @param pool Pool address.
+    /// @return slot0SqrtPriceX96 Instantaneous slot0 sqrt price (reverts ZeroValue if zero).
+    /// @return twapAvailable True iff the pool produced a verifiable SECONDS_AGO TWAP (active + observe ok).
+    /// @return twapSqrtPriceX96 TWAP-derived sqrt price (0 when twapAvailable is false).
+    /// @return deviation slot0-vs-TWAP deviation scaled to 1e18 (0 when twapAvailable is false).
+    function _getPoolPriceFacts(address pool)
+        internal
+        view
+        returns (uint160 slot0SqrtPriceX96, bool twapAvailable, uint160 twapSqrtPriceX96, uint256 deviation)
+    {
         uint16 observationIndex;
         // Get current pool sqrt price and observation index
-        (centerSqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
+        (slot0SqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
         // Check for zero value
-        if (centerSqrtPriceX96 == 0) {
+        if (slot0SqrtPriceX96 == 0) {
             revert ZeroValue();
         }
 
-        // Get latest observation timestamp
+        // Inactive pool: no trade within SECONDS_AGO -> no verifiable TWAP
         (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
-
-        // Fail closed: if the pool has not traded within the last SECONDS_AGO period, a TWAP cannot be
-        // verified (inactive pool). Refuse rather than fall back to the manipulable slot0 price.
         if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
-            revert NotEnoughHistory(pool);
+            return (slot0SqrtPriceX96, false, 0, 0);
         }
 
+        // Freshly-created pool (cardinality <= 1) or any pool whose observe() cannot interpolate the window
         bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
-        // Check TWAP or historical data
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
-
-        // Fail closed: a freshly-created pool (cardinality <= 1) or any pool whose observe() cannot
-        // interpolate the SECONDS_AGO window has no verifiable TWAP. Refuse rather than return slot0.
         if (!success || returnData.length == 0) {
-            revert NotEnoughHistory(pool);
+            return (slot0SqrtPriceX96, false, 0, 0);
         }
 
         // Get returned values from oracle: TWAP price and TWAP-derived sqrt price
         // Note: twapSqrtPriceX96 is kept separate from the instantaneous slot0 value above, so that the
-        // deviation check below compares the true instant price against the TWAP (not TWAP against itself)
-        (uint256 twapPrice, uint160 twapSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
+        // deviation compares the true instant price against the TWAP (not TWAP against itself)
+        uint256 twapPrice;
+        (twapPrice, twapSqrtPriceX96) = abi.decode(returnData, (uint256, uint160));
 
-        // Get instant price from the original slot0 sqrt price (preserved from above)
+        // Get instant price from the slot0 sqrt price
         // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        uint256 instantPrice = mulDiv(uint256(centerSqrtPriceX96), uint256(centerSqrtPriceX96), (1 << 64));
+        uint256 instantPrice = mulDiv(uint256(slot0SqrtPriceX96), uint256(slot0SqrtPriceX96), (1 << 64));
 
-        uint256 deviation;
         // Calculate price deviation between instantaneous and TWAP prices
         if (twapPrice > 0) {
             deviation = (instantPrice > twapPrice)
@@ -1224,13 +1219,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
                 : mulDiv((twapPrice - instantPrice), 1e18, twapPrice);
         }
 
-        // Check price deviation
-        if (deviation > MAX_ALLOWED_DEVIATION) {
-            revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
-        }
-
-        // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
-        centerSqrtPriceX96 = twapSqrtPriceX96;
+        twapAvailable = true;
     }
 
     /// @dev Deviation-gated slot0 price for exits / maintenance (decreaseLiquidity).
@@ -1252,41 +1241,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @return sqrtPriceX96 The slot0 sqrt price, verified within MAX_ALLOWED_DEVIATION of the TWAP when one
     ///         is available.
     function _getExitSqrtPrice(address pool) internal view returns (uint160 sqrtPriceX96) {
-        uint16 observationIndex;
-        // Get current pool sqrt price and observation index
-        (sqrtPriceX96, observationIndex) = _getPriceAndObservationIndexFromSlot0(pool);
-        // Check for zero value
-        if (sqrtPriceX96 == 0) {
-            revert ZeroValue();
-        }
+        // Read the raw price facts, then apply the EXIT policy (deviation-gated soft floor) explicitly here.
+        bool twapAvailable;
+        uint256 deviation;
+        (sqrtPriceX96, twapAvailable,, deviation) = _getPoolPriceFacts(pool);
 
-        // Inactive pool: no verifiable TWAP -> skip the gate so the exit still works
-        (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
-        if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
+        // Unverifiable pool (inactive / freshly-created / observe() unavailable): skip the gate so the exit
+        // still works, pricing off slot0. Capital-bounded on an exit pool (it holds our own liquidity),
+        // never the empty-pool catastrophe the fail-closed entry guard prevents.
+        if (!twapAvailable) {
             return sqrtPriceX96;
         }
-
-        // Fresh pool / observe() unavailable: skip the gate
-        bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
-        (bool success, bytes memory returnData) = address(this).staticcall(payload);
-        if (!success || returnData.length == 0) {
-            return sqrtPriceX96;
-        }
-
-        (uint256 twapPrice,) = abi.decode(returnData, (uint256, uint160));
 
         // Verifiable: reject a slot0 that deviates more than MAX_ALLOWED_DEVIATION from the TWAP
         // (anti-manipulation gate) but keep pricing the exit off slot0 itself, so amountMin computed from
         // slot0 always matches what the position manager returns and a fair exit does not revert.
-        // Max result is uint160 * uint160 == uint320, not to overflow: 320 - 256 = 64 (2^64)
-        uint256 instantPrice = mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), (1 << 64));
-
-        uint256 deviation;
-        if (twapPrice > 0) {
-            deviation = (instantPrice > twapPrice)
-                ? mulDiv((instantPrice - twapPrice), 1e18, twapPrice)
-                : mulDiv((twapPrice - instantPrice), 1e18, twapPrice);
-        }
         if (deviation > MAX_ALLOWED_DEVIATION) {
             revert Overflow(deviation, MAX_ALLOWED_DEVIATION);
         }
