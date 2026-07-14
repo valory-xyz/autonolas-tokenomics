@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
-import {LiquidityManagerCore, ObservationFailed, Overflow, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
+import {LiquidityManagerCore, NotEnoughHistory, Overflow, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
@@ -159,6 +159,11 @@ contract TestLiquidityManagerCore is LiquidityManagerCore {
         uint256[] memory a = new uint256[](2);
         return (0, 0, a);
     }
+
+    /// @dev Exposes the internal soft-priced exit helper for unit testing.
+    function exposedGetExitSqrtPrice(address pool) external view returns (uint160) {
+        return _getExitSqrtPrice(pool);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +174,9 @@ contract TestLiquidityManagerCore is LiquidityManagerCore {
 // Test contract
 // ---------------------------------------------------------------------------
 
-/// @dev Unit tests for LiquidityManagerCore price-guard fixes (C4R #17/#18/#19).
+/// @dev Unit tests for the LiquidityManagerCore price guard (checkPoolAndGetCenterPrice), fail-closed.
+///      Covers T1 (both triggers revert), T13 (mature-pool deviation still reverts), and the healthy
+///      within-deviation path that returns the TWAP sqrt price.
 ///      Run: forge test --mc LiquidityManagerCorePriceGuard -vvv
 contract LiquidityManagerCorePriceGuardTest is Test {
     uint32 internal constant SECONDS_AGO = 1800;
@@ -267,21 +274,23 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // test_checkPoolAndGetCenterPrice_returnsSlot0WhenNoHistory
+    // T1 (inactive-pool trigger): fail closed instead of returning slot0
     // -----------------------------------------------------------------------
 
-    /// @dev Oldest observation too old → condition satisfied → early return of slot0 price.
-    function test_checkPoolAndGetCenterPrice_returnsSlot0WhenNoHistory() public {
+    /// @dev Latest observation older than SECONDS_AGO (inactive pool) → the guard used to return the
+    ///      raw slot0; after the fix it fails closed with NotEnoughHistory rather than pricing against
+    ///      the manipulable slot0.
+    function test_checkPoolAndGetCenterPrice_revertsWhenInactive() public {
         int24 instantTick = 500;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
         pool.setSlot0(instantSqrtPriceX96, 0);
-        // oldestTimestamp is in the far past — condition (oldestTimestamp + SECONDS_AGO < block.timestamp)
-        // is TRUE → early return with slot0 value
+        // latest observation is in the far past — (latestObsTimestamp + SECONDS_AGO < block.timestamp)
+        // is TRUE → inactive-pool trigger → must revert
         pool.setOldestTimestamp(1); // timestamp = 1, far before block.timestamp = 10_000
 
-        uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
-        assertEq(result, instantSqrtPriceX96, "should return slot0 when no sufficient history");
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
     // -----------------------------------------------------------------------
@@ -298,34 +307,32 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // test_checkPoolAndGetCenterPrice_revertsWhenObserveFails (M-01)
+    // T1 (new-pool trigger): fail closed when observe() cannot produce a TWAP
     // -----------------------------------------------------------------------
 
-    /// @dev observe() reverts on a pool whose cardinality >= 2 (i.e., a pool that claims to
-    ///      have history) → the guard used to fail-open to slot0; after the M-01 fix it must
-    ///      revert with ObservationFailed. Cardinality == 1 is covered separately below
-    ///      (fresh-pool fallback preserved to avoid regressing convertToV3 on new pools).
+    /// @dev observe() reverts on a matured pool (cardinality >= 2) that claims history → no verifiable
+    ///      TWAP → fail closed with NotEnoughHistory (never returns slot0).
     function test_checkPoolAndGetCenterPrice_revertsOnObserveRevert() public {
         int24 instantTick = 100;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
         pool.setSlot0(instantSqrtPriceX96, 0);
         pool.setCardinality(60);                    // active pool claiming rich history
-        // Recent enough that the oldestTimestamp + SECONDS_AGO early-return does NOT fire;
-        // the function therefore commits to the TWAP branch and must enforce it.
+        // Recent enough that the inactive-pool early-return does NOT fire; the function commits to the
+        // TWAP branch and must enforce it.
         pool.setOldestTimestamp(uint32(block.timestamp));
         // Make observe() revert → staticcall returns success=false → revert expected.
         pool.setObserveData(0, 0, true);
 
-        vm.expectRevert(abi.encodeWithSelector(ObservationFailed.selector, address(pool)));
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
         lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
-    /// @dev observe() reverts on a pool whose cardinality == 1 (freshly-initialized pool, no
-    ///      history to blend from) → fall back to slot0. Preserves the original behavior for
-    ///      `convertToV3` on just-created pools, where the M-01 revert would otherwise break
-    ///      first-time V3 position setup.
-    function test_checkPoolAndGetCenterPrice_fallsBackOnObserveRevertWithCardinalityOne() public {
+    /// @dev observe() reverts on a freshly-created pool (cardinality == 1, no history) → the guard used
+    ///      to fall back to raw slot0 (the fail-open the migration exploited); after the fix it fails
+    ///      closed with NotEnoughHistory. The legitimate first seed is instead enabled by pre-warming
+    ///      the pool per the migration runbook (covered in the fork suite).
+    function test_checkPoolAndGetCenterPrice_revertsOnObserveRevertWithCardinalityOne() public {
         int24 instantTick = 100;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
@@ -334,20 +341,89 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         pool.setOldestTimestamp(uint32(block.timestamp));
         pool.setObserveData(0, 0, true);
 
-        uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
-        assertEq(result, instantSqrtPriceX96, "cardinality == 1 must fall back to slot0");
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
     // -----------------------------------------------------------------------
-    // test_changeRanges_revertsZeroValue (#19)
-    // Note: changeRanges() internally calls _decreaseLiquidity → positionManagerV3.positions()
-    // which requires a real on-chain position, making full mock-only testing impractical.
-    // The revert guard `if (amounts[0] == 0 || amounts[1] == 0) revert ZeroValue()` is
-    // verified here via direct unit inspection of the guard condition, and via fork tests
-    // in LiquidityManagerETH.t.sol (testChangeRanges_SingleSidedRevertsInsteadOfTreasurySweep).
-    //
-    // What we CAN test non-fork: the revert is emitted by checkPoolAndGetCenterPrice when
-    // called from the public entry-point (changeRanges calls it). The zero-amount guard
-    // itself is deferred to the fork test — see notes in the deliverables report.
+    // _getExitSqrtPrice — soft-priced exit floor (decreaseLiquidity)
+    // Unlike checkPoolAndGetCenterPrice this fails OPEN on an unverifiable pool (returns slot0) so an
+    // exit is always possible, but still fail-CLOSED on a mature pool whose slot0 deviates > 10%.
     // -----------------------------------------------------------------------
+
+    /// @dev Inactive pool (latest observation older than SECONDS_AGO): returns raw slot0 (fail-open), so
+    ///      a withdrawal is never bricked on a quiet pool. Contrast with checkPoolAndGetCenterPrice which
+    ///      reverts here.
+    function test_getExitSqrtPrice_inactivePool_returnsSlot0() public {
+        int24 instantTick = 500;
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setOldestTimestamp(1); // far past -> inactive trigger
+
+        uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "inactive pool must fall back to slot0 for the exit");
+    }
+
+    /// @dev Fresh pool (cardinality == 1, observe reverts): returns raw slot0 (fail-open).
+    function test_getExitSqrtPrice_freshPool_returnsSlot0() public {
+        int24 instantTick = 100;
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setCardinality(1);
+        pool.setOldestTimestamp(uint32(block.timestamp)); // not inactive -> goes to observe
+        pool.setObserveData(0, 0, true); // observe reverts
+
+        uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "fresh pool must fall back to slot0 for the exit");
+    }
+
+    /// @dev Mature pool, slot0 within deviation: returns the gated slot0 price (NOT the TWAP), so amountMin
+    ///      is computed at the exact price the position manager withdraws at (no PSC / "too little" edge).
+    function test_getExitSqrtPrice_matureWithinDeviation_returnsSlot0() public {
+        int24 twapTick = 0;
+        uint160 twapSqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(3); // tiny deviation
+
+        _configurePoolWithHistory(instantSqrtPriceX96, twapTick);
+        pool.setCardinality(60);
+
+        uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "mature pool must price the exit off slot0 (gated), not the TWAP");
+        assertTrue(result != twapSqrtPriceX96, "must not return the TWAP sqrt price");
+    }
+
+    /// @dev Mature pool, slot0 near the deviation bound but within it (~9.4%): still passes the gate and
+    ///      returns slot0. This is the case that would previously mis-price amountMin at the TWAP and could
+    ///      revert the exit; now a fair exit is always satisfiable.
+    function test_getExitSqrtPrice_matureNearBound_returnsSlot0() public {
+        int24 twapTick = 0;
+        // tick 900 -> price ~1.0942 -> ~9.4% deviation, just under MAX_ALLOWED_DEVIATION (10%)
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(900);
+
+        _configurePoolWithHistory(instantSqrtPriceX96, twapTick);
+        pool.setCardinality(60);
+
+        uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
+        assertEq(result, instantSqrtPriceX96, "near-bound-but-within must return slot0 without reverting");
+    }
+
+    /// @dev Mature pool, slot0 deviates > 10% from TWAP: still fail-CLOSED (reverts Overflow), so the
+    ///      exit cannot be sandwiched on a mature pool.
+    function test_getExitSqrtPrice_matureDeviation_reverts() public {
+        int24 twapTick = 0;
+        uint160 twapSqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(1000); // > 10% off
+
+        _configurePoolWithHistory(instantSqrtPriceX96, twapTick);
+        pool.setCardinality(60);
+
+        uint256 twapPrice = mulDiv(uint256(twapSqrtPriceX96), uint256(twapSqrtPriceX96), (1 << 64));
+        uint256 instantPrice = mulDiv(uint256(instantSqrtPriceX96), uint256(instantSqrtPriceX96), (1 << 64));
+        uint256 deviation = mulDiv((instantPrice - twapPrice), 1e18, twapPrice);
+
+        vm.expectRevert(abi.encodeWithSelector(Overflow.selector, deviation, MAX_ALLOWED_DEVIATION));
+        lm.exposedGetExitSqrtPrice(address(pool));
+    }
 }
