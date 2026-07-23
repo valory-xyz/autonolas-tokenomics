@@ -228,6 +228,9 @@ error WrongAmount(uint256 provided, uint256 expected);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
 /// @dev The contract is paused.
 error Paused();
 
@@ -263,7 +266,7 @@ contract Dispenser {
     }
 
     event OwnerUpdated(address indexed owner);
-    event TokenomicsUpdated(address indexed tokenomics);
+    event ImplementationUpdated(address indexed implementation);
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
     event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
@@ -280,16 +283,28 @@ contract Dispenser {
     event AddNomineeHash(bytes32 indexed nomineeHash);
     event RemoveNomineeHash(bytes32 indexed nomineeHash);
 
+    // Dispenser proxy address slot
+    // keccak256("PROXY_DISPENSER") = "0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83"
+    bytes32 public constant PROXY_DISPENSER = 0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83;
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
+
+    // Immutables live in the implementation bytecode, not proxy storage: they are re-settable by deploying
+    // a new implementation and calling changeImplementation. Every new implementation deploy must pass the
+    // correct constructor args — a wrong value silently rewires the proxy.
     uint256 public immutable defaultMinStakingWeight;
     uint256 public immutable defaultMaxStakingIncentive;
     // OLAS token address
     address public immutable olas;
+    // Tokenomics proxy address (stable by construction — the proxy address never changes)
+    address public immutable tokenomics;
     // Retainer address in bytes32 form
     bytes32 public immutable retainer;
     // Retainer hash of a Nominee struct composed of retainer address with block.chainid
     bytes32 public immutable retainerHash;
+
+    // Storage layout below is consumed via the DispenserProxy delegatecall and is FROZEN: never remove,
+    // reorder, retype or insert in the middle — new variables are appended strictly after the last mapping.
 
     // Max number of epochs to claim staking incentives for
     uint256 public maxNumClaimingEpochs;
@@ -302,8 +317,6 @@ contract Dispenser {
     // Pause state
     Pause public paused;
 
-    // Tokenomics contract address
-    address public tokenomics;
     // Treasury contract address
     address public treasury;
     // Vote Weighting contract address
@@ -320,36 +333,27 @@ contract Dispenser {
     // Mapping for epoch number => refunded all the staking inflation due to zero total voting power
     mapping(uint256 => bool) public mapZeroWeightEpochRefunded;
 
-    /// @dev Dispenser constructor.
+    /// @dev Dispenser implementation constructor: sets the implementation-bytecode immutables only.
+    /// @notice The mutable state is set via initialize() delegatecall-ed by the DispenserProxy constructor.
     /// @param _olas OLAS token address.
-    /// @param _tokenomics Tokenomics address.
-    /// @param _treasury Treasury address.
-    /// @param _voteWeighting Vote Weighting address.
+    /// @param _tokenomics Tokenomics proxy address.
+    /// @param _retainer Retainer address in bytes32 form.
+    /// @param _defaultMinStakingWeight Default min staking weight (bounded by uint16).
+    /// @param _defaultMaxStakingIncentive Default max staking incentive (bounded by uint96).
     constructor(
         address _olas,
         address _tokenomics,
-        address _treasury,
-        address _voteWeighting,
         bytes32 _retainer,
-        uint256 _maxNumClaimingEpochs,
-        uint256 _maxNumStakingTargets,
         uint256 _defaultMinStakingWeight,
         uint256 _defaultMaxStakingIncentive
     ) {
-        owner = msg.sender;
-        _locked = 1;
-        // Staking incentives must be paused at the time of deployment because staking parameters are not live yet
-        paused = Pause.StakingIncentivesPaused;
-
         // Check for at least one zero contract address
-        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) ||
-            _voteWeighting == address(0) || _retainer == 0) {
+        if (_olas == address(0) || _tokenomics == address(0) || _retainer == 0) {
             revert ZeroAddress();
         }
 
         // Check for zero value staking parameters
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0 || _defaultMinStakingWeight == 0 ||
-            _defaultMaxStakingIncentive == 0) {
+        if (_defaultMinStakingWeight == 0 || _defaultMaxStakingIncentive == 0) {
             revert ZeroValue();
         }
 
@@ -363,15 +367,69 @@ contract Dispenser {
 
         olas = _olas;
         tokenomics = _tokenomics;
-        treasury = _treasury;
-        voteWeighting = _voteWeighting;
 
         retainer = _retainer;
         retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
-        maxNumClaimingEpochs = _maxNumClaimingEpochs;
-        maxNumStakingTargets = _maxNumStakingTargets;
         defaultMinStakingWeight = _defaultMinStakingWeight;
         defaultMaxStakingIncentive = _defaultMaxStakingIncentive;
+    }
+
+    /// @dev Initializes the dispenser proxy storage.
+    /// @notice Delegatecall-ed by the DispenserProxy constructor; the caller becomes the owner.
+    /// @param _treasury Treasury address.
+    /// @param _voteWeighting Vote Weighting address.
+    /// @param _maxNumClaimingEpochs Maximum number of epochs to claim staking incentives for.
+    /// @param _maxNumStakingTargets Maximum number of staking targets on a single chain Id.
+    function initialize(
+        address _treasury,
+        address _voteWeighting,
+        uint256 _maxNumClaimingEpochs,
+        uint256 _maxNumStakingTargets
+    ) external {
+        // Check that the proxy storage has not been initialized yet
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
+
+        // Check for at least one zero contract address
+        if (_treasury == address(0) || _voteWeighting == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value staking parameters
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+            revert ZeroValue();
+        }
+
+        owner = msg.sender;
+        _locked = 1;
+        // Staking incentives must be paused at the time of deployment because staking parameters are not live yet
+        paused = Pause.StakingIncentivesPaused;
+
+        treasury = _treasury;
+        voteWeighting = _voteWeighting;
+        maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        maxNumStakingTargets = _maxNumStakingTargets;
+    }
+
+    /// @dev Changes the dispenser implementation contract address behind the proxy.
+    /// @param implementation Dispenser implementation contract address.
+    function changeImplementation(address implementation) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (implementation == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Store the implementation address under the designated storage slot
+        assembly {
+            sstore(PROXY_DISPENSER, implementation)
+        }
+        emit ImplementationUpdated(implementation);
     }
 
     /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
@@ -685,19 +743,14 @@ contract Dispenser {
     }
 
     /// @dev Changes various managing contract addresses.
-    /// @param _tokenomics Tokenomics address.
+    /// @notice The tokenomics address is an implementation immutable (it points at the stable TokenomicsProxy);
+    ///         changing it requires deploying a new implementation and calling changeImplementation.
     /// @param _treasury Treasury address.
     /// @param _voteWeighting Vote Weighting address.
-    function changeManagers(address _tokenomics, address _treasury, address _voteWeighting) external {
+    function changeManagers(address _treasury, address _voteWeighting) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Change Tokenomics contract address
-        if (_tokenomics != address(0)) {
-            tokenomics = _tokenomics;
-            emit TokenomicsUpdated(_tokenomics);
         }
 
         // Change Treasury contract address

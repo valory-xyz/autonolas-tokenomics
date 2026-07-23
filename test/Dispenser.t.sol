@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
 import {Dispenser} from "../contracts/Dispenser.sol";
+import {DispenserProxy} from "../contracts/proxies/DispenserProxy.sol";
 import "../contracts/Tokenomics.sol";
 import {TokenomicsProxy} from "../contracts/proxies/TokenomicsProxy.sol";
 import {Treasury} from "../contracts/Treasury.sol";
@@ -56,24 +57,32 @@ contract BaseSetup is Test {
         componentRegistry = new MockRegistry();
         agentRegistry = new MockRegistry();
         serviceRegistry = new MockRegistry();
-        dispenser = new Dispenser(address(olas), deployer, deployer, deployer, retainer, 100, 100, 100, 1 ether);
 
-        // Depository contract is irrelevant here, so we are using a deployer's address
-        // Correct tokenomics address will be added below
-        treasury = new Treasury(address(olas), deployer, deployer, address(dispenser));
+        // Depository and dispenser contracts are irrelevant at this point, so we are using a deployer's address
+        // Correct tokenomics and dispenser addresses will be added below
+        treasury = new Treasury(address(olas), deployer, deployer, deployer);
 
         Tokenomics tokenomicsMaster = new Tokenomics();
         // Depository contract is irrelevant here, so we are using a deployer's address
+        // Dispenser address is a placeholder until the dispenser proxy is deployed below
         bytes memory proxyData = abi.encodeWithSelector(tokenomicsMaster.initializeTokenomics.selector,
-            address(olas), address(treasury), deployer, address(dispenser), address(ve), epochLen,
+            address(olas), address(treasury), deployer, deployer, address(ve), epochLen,
             address(componentRegistry), address(agentRegistry), address(serviceRegistry), address(0));
         TokenomicsProxy tokenomicsProxy = new TokenomicsProxy(address(tokenomicsMaster), proxyData);
         tokenomics = Tokenomics(address(tokenomicsProxy));
 
-        // Change tokenomics address
-        treasury.changeManagers(address(tokenomics), address(0), address(0));
-        // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        dispenser.changeManagers(address(tokenomics), address(treasury), address(0));
+        // Deploy dispenser implementation (tokenomics proxy address is an implementation immutable) and proxy
+        // Vote Weighting contract is irrelevant here, so we are using a deployer's address
+        Dispenser dispenserMaster = new Dispenser(address(olas), address(tokenomics), retainer, 100, 1 ether);
+        bytes memory dispenserData = abi.encodeWithSelector(dispenserMaster.initialize.selector,
+            address(treasury), deployer, 100, 100);
+        DispenserProxy dispenserProxy = new DispenserProxy(address(dispenserMaster), dispenserData);
+        dispenser = Dispenser(address(dispenserProxy));
+
+        // Change tokenomics and dispenser addresses in treasury
+        treasury.changeManagers(address(tokenomics), address(0), address(dispenser));
+        // Change the dispenser address in tokenomics to the correct one
+        tokenomics.changeManagers(address(0), address(0), address(dispenser));
 
         // Set treasury contract as a minter for OLAS
         olas.changeMinter(address(treasury));
