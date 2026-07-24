@@ -57,7 +57,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
-    event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
+    event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount,
+        uint256 withheldAmount);
     event LeftoversRefunded(address indexed sender, uint256 leftovers);
 
     // receiveMessage selector (Ethereum chain)
@@ -516,6 +517,11 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         No further write interaction with the contract is going to be possible.
     ///         If the withheld amount is nonzero, it is regulated by the DAO directly on the L1 side.
     ///         If there are outstanding queued requests, they are processed by the DAO directly on the L2 side.
+    ///         The migrated OLAS balance AND the current withheldAmount are both emitted in the Migrated event:
+    ///         the new L2 target dispenser deploys with withheldAmount == 0, so the DAO must restore it via
+    ///         updateWithheldAmountMaintenance(withheldAmount) on the new contract right after migration, or the
+    ///         inflation information (OLAS already minted and held on L2) is lost. Emitting it here makes the
+    ///         exact value to restore part of the migration record rather than off-chain tribal knowledge.
     function migrate(address newL2TargetDispenser) external {
         // Reentrancy guard
         if (_locked > 1) {
@@ -556,7 +562,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         // Zero the owner
         owner = address(0);
 
-        emit Migrated(msg.sender, newL2TargetDispenser, amount);
+        // Emit the withheld amount alongside the migrated OLAS balance: it is the exact value the DAO must
+        // restore on the new dispenser via updateWithheldAmountMaintenance(), so it must be in the record
+        emit Migrated(msg.sender, newL2TargetDispenser, amount, withheldAmount);
 
         // _locked is now set to 2 for good
     }
