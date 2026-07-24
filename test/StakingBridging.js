@@ -610,14 +610,23 @@ describe("StakingBridging", async () => {
             // Initial withheld amount is zero
             expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(0);
 
-            // Migrate the contract to a new one
-            await arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address);
+            // The current withheld amount to be carried across the migration (vuln-list #10)
+            const withheldToCarry = await arbitrumTargetDispenserL2.withheldAmount();
+            expect(withheldToCarry).to.equal(defaultAmount);
+
+            // Migrate the contract to a new one: the Migrated event must surface both the OLAS balance and the
+            // withheld amount the DAO needs to restore on the new dispenser, so it is part of the on-chain record
+            await expect(arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address))
+                .to.emit(arbitrumTargetDispenserL2, "Migrated")
+                .withArgs(deployer.address, newArbitrumTargetDispenserL2.address, defaultAmount, withheldToCarry);
 
             // Update withheldAmount by the DAO
             const withheldAmount = await olas.balanceOf(newArbitrumTargetDispenserL2.address);
             await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldAmount);
 
             expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(withheldAmount);
+            // The restored value matches what the Migrated event reported
+            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.equal(withheldToCarry);
         });
     });
 
