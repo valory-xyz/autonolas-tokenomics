@@ -234,6 +234,9 @@ error AlreadyInitialized();
 /// @dev The contract is paused.
 error Paused();
 
+/// @dev The contract is unpaused.
+error Unpaused();
+
 /// @dev Incentives claim has failed.
 /// @param account Account address.
 /// @param reward Reward amount.
@@ -709,14 +712,21 @@ contract Dispenser {
             if (transferAmounts[i] > 0) {
                 uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
                 if (withheldAmount > 0) {
+                    uint256 withheldUsed;
                     if (withheldAmount >= transferAmounts[i]) {
+                        withheldUsed = transferAmounts[i];
                         withheldAmount -= transferAmounts[i];
                         transferAmounts[i] = 0;
                     } else {
+                        withheldUsed = withheldAmount;
                         transferAmounts[i] -= withheldAmount;
                         withheldAmount = 0;
                     }
                     mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
+
+                    // The withheld-covered portion is paid from OLAS already minted under a previous allocation;
+                    // add it to the return amount so the caller refunds it back to staking inflation
+                    totalAmounts[2] += withheldUsed;
                 }
             }
 
@@ -761,6 +771,14 @@ contract Dispenser {
 
         // Change Vote Weighting contract address
         if (_voteWeighting != address(0)) {
+            // Swapping the Vote Weighting contract orphans the per-nominee claim cursors recorded under the
+            // previous nominee set: any staking incentives not yet claimed become unreachable. Require staking
+            // incentives to be paused first, so all outstanding claims are settled before the swap
+            Pause currentPause = paused;
+            if (currentPause != Pause.StakingIncentivesPaused && currentPause != Pause.AllPaused) {
+                revert Unpaused();
+            }
+
             voteWeighting = _voteWeighting;
             emit VoteWeightingUpdated(_voteWeighting);
         }
@@ -832,6 +850,12 @@ contract Dispenser {
         }
 
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+
+        // Clear a possible removal epoch left from a previous nominee lifecycle: without this, a re-added
+        // nominee would permanently revert in _checkpointNomineeAndGetClaimedEpochCounters (the claim cursor
+        // just set above always satisfies firstClaimedEpoch >= epochRemoved). The Dispenser no longer relies
+        // on the upstream Vote Weighting enforcing "remove is final"
+        delete mapRemovedNomineeEpochs[nomineeHash];
 
         emit AddNomineeHash(nomineeHash);
     }
@@ -937,6 +961,9 @@ contract Dispenser {
 
     /// @dev Calculates staking incentives for a specific staking target.
     /// @notice Call this function via staticcall in order not to write in the nominee checkpoint map.
+    ///         A state-mutating call refunds zero-total-weight epochs back to staking inflation atomically with
+    ///         setting their one-way refunded flag, so a standalone external call cannot strand the refund;
+    ///         the returned totalReturnAmount accordingly does not include the zero-weight epoch amounts.
     /// @param numClaimedEpochs Specified number of claimed epochs.
     /// @param chainId Chain Id.
     /// @param stakingTarget Staking target corresponding to the chain Id.
@@ -1016,8 +1043,11 @@ contract Dispenser {
 
             // Check if the totalWeightSum is zero, then all staking incentives must be returned back to tokenomics
             if (totalWeightSum == 0) {
+                // The one-way refunded flag and the actual refund are performed atomically in the same call:
+                // this function is public, and setting the flag while deferring the refund to the caller would
+                // let a standalone external call permanently mark the epoch refunded without any refund executed
                 mapZeroWeightEpochRefunded[j] = true;
-                totalReturnAmount += stakingPoint.stakingIncentive;
+                ITokenomics(tokenomics).refundFromStaking(stakingPoint.stakingIncentive);
                 continue;
             }
 
@@ -1140,16 +1170,24 @@ contract Dispenser {
             // as normalized amounts are returned from another side
             uint256 withheldAmount = mapChainIdWithheldAmounts[chainId];
             if (withheldAmount > 0) {
+                uint256 withheldUsed;
                 // If withheld amount is enough to cover all the staking incentives, the transfer of OLAS is not needed
                 if (withheldAmount >= transferAmount) {
+                    withheldUsed = transferAmount;
                     withheldAmount -= transferAmount;
                     transferAmount = 0;
                 } else {
                     // Otherwise, reduce the transfer of tokens for the OLAS withheld amount
+                    withheldUsed = withheldAmount;
                     transferAmount -= withheldAmount;
                     withheldAmount = 0;
                 }
                 mapChainIdWithheldAmounts[chainId] = withheldAmount;
+
+                // The withheld-covered portion of the incentives is paid from OLAS that was already minted under
+                // a previous allocation; return the current allocation for that portion back to staking inflation
+                // so the reused amount is not double-counted as inflation spent
+                ITokenomics(tokenomics).refundFromStaking(withheldUsed);
             }
 
             // Check if minting is needed as the actual OLAS transfer is required
