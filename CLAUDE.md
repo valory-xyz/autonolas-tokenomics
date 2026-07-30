@@ -56,6 +56,7 @@ forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv       # ETH mainn
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
+forge test -f $FORK_ETH_NODE_URL --mc StakingClaimForkETH -vvv        # proxied Dispenser claim path vs live Tokenomics/Treasury
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv      # Base
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
