@@ -30,15 +30,10 @@ contract MockVoteWeighting {
     }
 
     /// @dev Checkpoint to fill data for both a specific nominee and common for all nominees.
-    /// @param account Address of the nominee.
-    /// @param chainId Chain Id.
-    function checkpointNominee(bytes32 account, uint256 chainId) external view {
-        Nominee memory nominee = Nominee(account, chainId);
-        bytes32 nomineeHash = keccak256(abi.encode(nominee));
-        if (mapNomineeIds[nomineeHash] == 0) {
-            revert();
-        }
-    }
+    /// @notice No-op for an unregistered nominee, mirroring the real Curve-style gauge controller (it
+    ///         operates on zero-initialized weight points and does not revert). The authoritative
+    ///         "exists for claiming" gate is the Dispenser's own mapLastClaimedStakingEpochs check.
+    function checkpointNominee(bytes32 account, uint256 chainId) external view {}
 
     /// @dev Set staking weight.
     function setNomineeRelativeWeight(address account, uint256 chainId, uint256 weight) external {

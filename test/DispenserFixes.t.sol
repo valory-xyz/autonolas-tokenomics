@@ -36,8 +36,8 @@ contract MockDepositProcessor {
 }
 
 /// @dev Regression tests for the Dispenser vulnerability-list fixes (each fails on the pre-fix code):
-///      #12 zero-weight epoch refund is atomic with its one-way flag (public calculateStakingIncentives
-///          can no longer permanently strand the refund);
+///      #12 calculateStakingIncentives is view — a standalone call mutates nothing (cannot strand a
+///          zero-weight epoch's refund); the claim path refunds it exactly once and never double-refunds;
 ///      #9  the withheld-covered portion of claimed incentives is returned to staking inflation
 ///          (single and batch claim paths);
 ///      #25 addNominee clears mapRemovedNomineeEpochs so a removed-then-re-added nominee is claimable;
@@ -140,15 +140,25 @@ contract DispenserFixesTest is Test {
         return keccak256(abi.encode(_targetBytes32(), CHAIN_ID));
     }
 
+    /// @dev True if `value` appears in `arr` (used to check the sparse zeroWeightEpochs return).
+    function _arrayContains(uint256[] memory arr, uint256 value) internal pure returns (bool) {
+        for (uint256 i = 0; i < arr.length; ++i) {
+            if (arr[i] == value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // -----------------------------------------------------------------------
     // #12 — zero-weight epoch refund is atomic with the one-way flag
     // -----------------------------------------------------------------------
 
-    /// @dev A standalone external call to the public calculateStakingIncentives on a zero-total-weight epoch
-    ///      must execute the refund in the same transaction it sets mapZeroWeightEpochRefunded. On the pre-fix
-    ///      code the flag was set but the refund was left to the caller, permanently stranding the epoch's
-    ///      staking inflation.
-    function test_fix12_standaloneCalculate_zeroWeight_refundsAtomically() public {
+    /// @dev calculateStakingIncentives is view: a standalone call on a zero-total-weight epoch mutates nothing
+    ///      (it reports the epoch as returnable but neither sets mapZeroWeightEpochRefunded nor refunds), so it
+    ///      can never strand the epoch's inflation. The refund happens exactly once via the claim path, and a
+    ///      subsequent claim must not refund it again.
+    function test_fix12_viewCalculate_zeroWeight_refundsOnceViaClaim() public {
         // Nominate the target; no votes are ever cast, so nomineeRelativeWeight returns (0, 0)
         vw.addNominee(STAKING_TARGET, CHAIN_ID);
 
@@ -164,21 +174,86 @@ contract DispenserFixesTest is Test {
         uint256 currentEpoch = tokenomics.epochCounter();
         uint256 potBefore = _stakingIncentiveOf(currentEpoch);
 
-        // Standalone state-mutating call by an arbitrary account (NOT via the claim path)
+        // Standalone view call by an arbitrary account (NOT via the claim path): reports the zero-weight epoch,
+        // mutates nothing
         vm.prank(address(0xA77ACC));
-        dispenser.calculateStakingIncentives(10, CHAIN_ID, _targetBytes32(), 18);
+        (, uint256 returnAmount, , , uint256[] memory zeroWeightEpochs) =
+            dispenser.calculateStakingIncentives(10, CHAIN_ID, _targetBytes32(), 18);
+        assertEq(returnAmount, epochIncentive, "zero-weight incentive reported as returnable");
+        assertTrue(_arrayContains(zeroWeightEpochs, claimableEpoch), "zero-weight epoch reported");
+        // The view call left state untouched: flag unset and the staking pot unchanged
+        assertFalse(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "view call must not set the flag");
+        assertEq(_stakingIncentiveOf(currentEpoch), potBefore, "view call must not refund");
 
-        // The one-way flag is set...
-        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "zero-weight flag must be set");
-
-        // ...and the refund happened in the same tx: the epoch's incentive is back in the staking pot
-        uint256 potAfter = _stakingIncentiveOf(currentEpoch);
-        assertEq(potAfter - potBefore, epochIncentive, "flagged epoch incentive must be refunded atomically");
-
-        // A subsequent claim skips the refunded epoch and must not refund it again
+        // The claim path refunds the zero-weight epoch exactly once and sets the flag
         dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
-        uint256 potFinal = _stakingIncentiveOf(currentEpoch);
-        assertEq(potFinal, potAfter, "no double refund on the claim path");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "flag set on claim");
+        uint256 potAfter = _stakingIncentiveOf(currentEpoch);
+        assertEq(potAfter - potBefore, epochIncentive, "zero-weight incentive refunded once");
+    }
+
+    /// @dev Cross-transaction dedup: a second target claiming the SAME zero-weight epoch in a later tx must not
+    ///      refund it again — the persisted mapZeroWeightEpochRefunded flag makes the (view) calculation skip it.
+    function test_fix12_separateClaims_zeroWeight_noDoubleRefund() public {
+        address target2 = address(0x57A7); // fresh nominee, no votes -> shares the zero-weight epoch
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        vw.addNominee(target2, CHAIN_ID);
+
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        // First target claim (tx 1): refunds the zero-weight epoch once and sets the flag
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        uint256 potAfterFirst = _stakingIncentiveOf(currentEpoch);
+        assertEq(potAfterFirst - potBefore, epochIncentive, "first claim refunds the epoch once");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "flag set");
+
+        // Second target claim (tx 2) for the same epoch: flag already set -> no additional refund
+        dispenser.claimStakingIncentives(10, CHAIN_ID, bytes32(uint256(uint160(target2))), "");
+        assertEq(_stakingIncentiveOf(currentEpoch), potAfterFirst, "no double refund across separate claims");
+    }
+
+    /// @dev Two targets share the same zero-total-weight epoch in a single batch claim. Zero-weight is a
+    ///      property of the epoch, so both targets would each want to refund its full incentive. The dispenser
+    ///      sets mapZeroWeightEpochRefunded for the first target before the second target's (view) calculation,
+    ///      so the epoch's inflation is refunded exactly once for the batch, not once per target.
+    function test_fix12_batchZeroWeight_dedupRefundsOnce() public {
+        // Two nominees on the same chain, neither ever voted for -> shared zero-total-weight epochs
+        address target2 = address(0x57A7); // strictly greater than STAKING_TARGET (0x57A6) for ascending order
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        vw.addNominee(target2, CHAIN_ID);
+
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        assertGt(epochIncentive, 0, "settled epoch must carry staking incentive");
+
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        // Single-chain batch claim over both targets (ascending order required)
+        uint256[] memory chainIds = new uint256[](1);
+        chainIds[0] = CHAIN_ID;
+        bytes32[][] memory stakingTargets = new bytes32[][](1);
+        stakingTargets[0] = new bytes32[](2);
+        stakingTargets[0][0] = _targetBytes32();
+        stakingTargets[0][1] = bytes32(uint256(uint160(target2)));
+        bytes[] memory bridgePayloads = new bytes[](1);
+        uint256[] memory valueAmounts = new uint256[](1);
+
+        dispenser.claimStakingIncentivesBatch(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+
+        // The shared zero-weight epoch is refunded once for the whole batch, not once per target
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "flag set once");
+        uint256 potAfter = _stakingIncentiveOf(currentEpoch);
+        assertEq(potAfter - potBefore, epochIncentive, "zero-weight epoch refunded exactly once for the batch");
     }
 
     // -----------------------------------------------------------------------
