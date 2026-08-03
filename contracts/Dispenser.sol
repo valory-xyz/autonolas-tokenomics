@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.30;
 
 // Deposit Processor interface
 interface IDepositProcessor {
@@ -272,7 +272,6 @@ contract Dispenser {
     event ImplementationUpdated(address indexed implementation);
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
-    event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp, uint256[] unitTypes, uint256[] unitIds);
     event StakingIncentivesClaimed(address indexed account, uint256 chainId, bytes32 stakingTarget,
         uint256 stakingIncentive, uint256 transferAmount, uint256 returnAmount);
@@ -292,14 +291,9 @@ contract Dispenser {
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
 
-    // Immutables live in the implementation bytecode, not proxy storage: they are re-settable by deploying
-    // a new implementation and calling changeImplementation. Every new implementation deploy must pass the
-    // correct constructor args — a wrong value silently rewires the proxy.
-    uint256 public immutable defaultMinStakingWeight;
-    uint256 public immutable defaultMaxStakingIncentive;
     // OLAS token address
     address public immutable olas;
-    // Tokenomics proxy address (stable by construction — the proxy address never changes)
+    // Tokenomics proxy address
     address public immutable tokenomics;
     // Retainer address in bytes32 form
     bytes32 public immutable retainer;
@@ -341,31 +335,14 @@ contract Dispenser {
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics proxy address.
     /// @param _retainer Retainer address in bytes32 form.
-    /// @param _defaultMinStakingWeight Default min staking weight (bounded by uint16).
-    /// @param _defaultMaxStakingIncentive Default max staking incentive (bounded by uint96).
     constructor(
         address _olas,
         address _tokenomics,
-        bytes32 _retainer,
-        uint256 _defaultMinStakingWeight,
-        uint256 _defaultMaxStakingIncentive
+        bytes32 _retainer
     ) {
         // Check for at least one zero contract address
         if (_olas == address(0) || _tokenomics == address(0) || _retainer == 0) {
             revert ZeroAddress();
-        }
-
-        // Check for zero value staking parameters
-        if (_defaultMinStakingWeight == 0 || _defaultMaxStakingIncentive == 0) {
-            revert ZeroValue();
-        }
-
-        // Check for maximum values
-        if (_defaultMinStakingWeight > type(uint16).max) {
-            revert Overflow(_defaultMinStakingWeight, type(uint16).max);
-        }
-        if (_defaultMaxStakingIncentive > type(uint96).max) {
-            revert Overflow(_defaultMaxStakingIncentive, type(uint96).max);
         }
 
         olas = _olas;
@@ -373,8 +350,6 @@ contract Dispenser {
 
         retainer = _retainer;
         retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
-        defaultMinStakingWeight = _defaultMinStakingWeight;
-        defaultMaxStakingIncentive = _defaultMaxStakingIncentive;
     }
 
     /// @dev Initializes the dispenser proxy storage.
@@ -784,26 +759,6 @@ contract Dispenser {
         }
     }
 
-    /// @dev Changes staking params by the DAO.
-    /// @param _maxNumClaimingEpochs Maximum number of epochs to claim staking incentives for.
-    /// @param _maxNumStakingTargets Maximum number of staking targets available to claim for on a single chain Id.
-    function changeStakingParams(uint256 _maxNumClaimingEpochs, uint256 _maxNumStakingTargets) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check if values are zero
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
-            revert ZeroValue();
-        }
-
-        maxNumClaimingEpochs = _maxNumClaimingEpochs;
-        maxNumStakingTargets = _maxNumStakingTargets;
-
-        emit StakingParamsUpdated(_maxNumClaimingEpochs, _maxNumStakingTargets);
-    }
-
     /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
     /// @notice It is the contract owner responsibility to set correct L1 deposit processor contracts
     ///         and corresponding supported L2 chain Ids.
@@ -1020,15 +975,8 @@ contract Dispenser {
             ITokenomics.StakingPoint memory stakingPoint =
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
-            // Check for staking parameters to all make sense
-            if (stakingPoint.stakingFraction > 0) {
-                // Check for unset values
-                if (stakingPoint.minStakingWeight == 0 && stakingPoint.maxStakingIncentive == 0) {
-                    stakingPoint.minStakingWeight = uint16(defaultMinStakingWeight);
-                    stakingPoint.maxStakingIncentive = uint96(defaultMaxStakingIncentive);
-                }
-            } else {
-                // No staking incentives in this epoch
+            // No staking incentives in this epoch
+            if (stakingPoint.stakingFraction == 0) {
                 continue;
             }
 

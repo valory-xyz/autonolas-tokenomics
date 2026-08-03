@@ -11,8 +11,6 @@
 #   olasAddress            : OLAS token address
 #   tokenomicsProxyAddress : Tokenomics PROXY address (implementation immutable)
 #   retainerAddress        : retainer in bytes32 form
-#   minStakingWeight       : default min staking weight (bounded by uint16)
-#   maxStakingIncentive    : default max staking incentive (bounded by uint96)
 # Globals fields written:
 #   dispenserAddress       : deployed Dispenser implementation address (consumed by deploy_07b_*)
 
@@ -49,8 +47,6 @@ fi
 olasAddress=$(jq -r '.olasAddress' $globals)
 tokenomicsProxyAddress=$(jq -r '.tokenomicsProxyAddress' $globals)
 retainerAddress=$(jq -r '.retainerAddress' $globals)
-minStakingWeight=$(jq -r '.minStakingWeight' $globals)
-maxStakingIncentive=$(jq -r '.maxStakingIncentive' $globals)
 
 if [ -z "$tokenomicsProxyAddress" ] || [ "$tokenomicsProxyAddress" == "null" ] \
    || [ "$tokenomicsProxyAddress" == "0x0000000000000000000000000000000000000000" ]; then
@@ -60,7 +56,7 @@ fi
 
 contractName="Dispenser"
 contractPath="contracts/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $tokenomicsProxyAddress $retainerAddress $minStakingWeight $maxStakingIncentive"
+constructorArgs="$olasAddress $tokenomicsProxyAddress $retainerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -97,7 +93,7 @@ echo "$(jq '. += {"dispenserAddress":"'$dispenserAddress'"}' $globals)" > $globa
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$dispenserAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,bytes32,uint256,uint256)" $constructorArgs)"
+  contractParams="$dispenserAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,bytes32)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

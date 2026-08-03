@@ -73,7 +73,7 @@ contract BaseSetup is Test {
 
         // Deploy dispenser implementation (tokenomics proxy address is an implementation immutable) and proxy
         // Vote Weighting contract is irrelevant here, so we are using a deployer's address
-        Dispenser dispenserMaster = new Dispenser(address(olas), address(tokenomics), retainer, 100, 1 ether);
+        Dispenser dispenserMaster = new Dispenser(address(olas), address(tokenomics), retainer);
         bytes memory dispenserData = abi.encodeWithSelector(dispenserMaster.initialize.selector,
             address(treasury), deployer, 100, 100);
         DispenserProxy dispenserProxy = new DispenserProxy(address(dispenserMaster), dispenserData);

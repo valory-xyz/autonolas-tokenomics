@@ -24,7 +24,7 @@ contract DispenserProxyTest is Test {
     Dispenser internal dispenser;
 
     function setUp() public {
-        dispenserMaster = new Dispenser(OLAS, TOKENOMICS, RETAINER, 100, 1 ether);
+        dispenserMaster = new Dispenser(OLAS, TOKENOMICS, RETAINER);
         bytes memory initData = abi.encodeWithSelector(Dispenser.initialize.selector,
             TREASURY, VOTE_WEIGHTING, 10, 20);
         DispenserProxy proxy = new DispenserProxy(address(dispenserMaster), initData);
@@ -71,8 +71,6 @@ contract DispenserProxyTest is Test {
         assertEq(dispenser.olas(), OLAS, "olas");
         assertEq(dispenser.tokenomics(), TOKENOMICS, "tokenomics");
         assertEq(dispenser.retainer(), RETAINER, "retainer");
-        assertEq(dispenser.defaultMinStakingWeight(), 100, "defaultMinStakingWeight");
-        assertEq(dispenser.defaultMaxStakingIncentive(), 1 ether, "defaultMaxStakingIncentive");
 
         // The implementation address sits in the dedicated proxy slot
         bytes32 rawImplementation = vm.load(address(dispenser), PROXY_DISPENSER);
@@ -108,11 +106,12 @@ contract DispenserProxyTest is Test {
     }
 
     function test_changeImplementation_swapsLogicAndPreservesState() public {
-        // Mutate proxy storage first so preservation is observable
-        dispenser.changeStakingParams(42, 84);
+        // Mutate proxy storage after init so preservation is observable
+        address newTreasury = address(0x7EA52);
+        dispenser.changeManagers(newTreasury, address(0));
 
-        // New implementation with different immutables (models a fixed / re-parameterized build)
-        Dispenser newMaster = new Dispenser(OLAS, TOKENOMICS, RETAINER, 200, 2 ether);
+        // New implementation build
+        Dispenser newMaster = new Dispenser(OLAS, TOKENOMICS, RETAINER);
 
         vm.expectEmit(true, false, false, false, address(dispenser));
         emit ImplementationUpdated(address(newMaster));
@@ -124,14 +123,15 @@ contract DispenserProxyTest is Test {
 
         // Proxy storage preserved across the upgrade
         assertEq(dispenser.owner(), address(this), "owner preserved");
-        assertEq(dispenser.treasury(), TREASURY, "treasury preserved");
+        assertEq(dispenser.treasury(), newTreasury, "treasury preserved");
         assertEq(dispenser.voteWeighting(), VOTE_WEIGHTING, "voteWeighting preserved");
-        assertEq(dispenser.maxNumClaimingEpochs(), 42, "maxNumClaimingEpochs preserved");
-        assertEq(dispenser.maxNumStakingTargets(), 84, "maxNumStakingTargets preserved");
+        assertEq(dispenser.maxNumClaimingEpochs(), 10, "maxNumClaimingEpochs preserved");
+        assertEq(dispenser.maxNumStakingTargets(), 20, "maxNumStakingTargets preserved");
         assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.StakingIncentivesPaused), "paused preserved");
 
         // Immutable reads now come from the new implementation bytecode
-        assertEq(dispenser.defaultMinStakingWeight(), 200, "new defaultMinStakingWeight");
-        assertEq(dispenser.defaultMaxStakingIncentive(), 2 ether, "new defaultMaxStakingIncentive");
+        assertEq(dispenser.olas(), OLAS, "olas");
+        assertEq(dispenser.tokenomics(), TOKENOMICS, "tokenomics");
+        assertEq(dispenser.retainer(), RETAINER, "retainer");
     }
 }

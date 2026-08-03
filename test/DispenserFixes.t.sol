@@ -87,7 +87,7 @@ contract DispenserFixesTest is Test {
         tokenomics = Tokenomics(address(tokenomicsProxy));
 
         // Deploy dispenser implementation and proxy
-        Dispenser dispenserMaster = new Dispenser(address(olas), address(tokenomics), retainer, 100, 1 ether);
+        Dispenser dispenserMaster = new Dispenser(address(olas), address(tokenomics), retainer);
         bytes memory dispenserData = abi.encodeWithSelector(dispenserMaster.initialize.selector,
             address(treasury), deployer, 100, 100);
         DispenserProxy dispenserProxy = new DispenserProxy(address(dispenserMaster), dispenserData);
@@ -113,6 +113,8 @@ contract DispenserFixesTest is Test {
 
         // Enable staking inflation from the next epoch and settle two epochs so a claimable epoch exists
         tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 50);
+        // Staking parameters (maxStakingIncentive, minStakingWeight) — always non-zero on a live Tokenomics
+        tokenomics.changeStakingParams(1 ether, 100);
 
         // Unpause staking incentives (nominees cannot be added while paused)
         dispenser.setPauseState(Dispenser.Pause.Unpaused);

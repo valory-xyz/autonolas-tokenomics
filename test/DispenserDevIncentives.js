@@ -10,10 +10,7 @@ describe("DispenserDevIncentives", async () => {
     const oneMonth = 86400 * 30;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
-    const defaultMinStakingWeight = 100;
-    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const retainer = "0x" + "5".repeat(64);
-    const moreThanMaxUint96 = "79228162514264337593543950337";
 
     let signers;
     let deployer;
@@ -78,8 +75,7 @@ describe("DispenserDevIncentives", async () => {
 
         // Deploy dispenser master implementation (tokenomics proxy address is an implementation immutable)
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer,
-            defaultMinStakingWeight, defaultMaxStakingIncentive);
+        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
         await dispenserMaster.deployed();
 
         // Deploy dispenser proxy; Vote Weighting contract is irrelevant here, so we are using a deployer's address
@@ -152,31 +148,19 @@ describe("DispenserDevIncentives", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(AddressZero, AddressZero, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, AddressZero, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, HashZero, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, retainer, 0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, retainer, 10, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, retainer, moreThanMaxUint96, moreThanMaxUint96)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, retainer, 10, moreThanMaxUint96)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
         });
 
         it("Should fail when initializing with incorrect values or twice", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
-            const dispenserMaster = await Dispenser.deploy(deployer.address, deployer.address, retainer, 10, 10);
+            const dispenserMaster = await Dispenser.deploy(deployer.address, deployer.address, retainer);
             await dispenserMaster.deployed();
 
             await expect(

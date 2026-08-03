@@ -118,10 +118,8 @@ contract StakingClaimForkETH is Test {
     address internal constant TREASURY = 0xa0DA53447C0f6C4987964d8463da7e6628B30f82;
     address internal constant TIMELOCK = 0x3C1fF68f5aa342D296d4DEe4Bb1cACCA912D95fE;
 
-    // Dispenser implementation immutables (mainnet defaults)
+    // Dispenser implementation immutable
     bytes32 internal constant RETAINER = bytes32(uint256(0xdEaD));
-    uint256 internal constant DEFAULT_MIN_STAKING_WEIGHT = 50;
-    uint256 internal constant DEFAULT_MAX_STAKING_INCENTIVE = 60_000 ether;
 
     // A non-L1 EVM chain Id for the staking target (must differ from block.chainid == 1)
     uint256 internal constant CHAIN_ID = 100;
@@ -137,8 +135,7 @@ contract StakingClaimForkETH is Test {
 
         // Deploy the new Dispenser implementation against the LIVE Tokenomics proxy, then the proxy.
         // Vote Weighting is a placeholder here (set after the proxy exists, under the initial pause).
-        Dispenser dispenserImpl =
-            new Dispenser(OLAS, TOKENOMICS, RETAINER, DEFAULT_MIN_STAKING_WEIGHT, DEFAULT_MAX_STAKING_INCENTIVE);
+        Dispenser dispenserImpl = new Dispenser(OLAS, TOKENOMICS, RETAINER);
         bytes memory initData = abi.encodeWithSelector(dispenserImpl.initialize.selector,
             TREASURY, address(this), uint256(1), uint256(10));
         DispenserProxy dispenserProxy = new DispenserProxy(address(dispenserImpl), initData);
