@@ -57,6 +57,10 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event Drain(address indexed owner, uint256 amount);
     event TargetDispenserPaused();
     event TargetDispenserUnpaused();
+    /// @dev Emitted on migrate(). NOTE: this 4-arg form changed the event signature/topic0 from the previous
+    ///      Migrated(address,address,uint256). During the L2 cutover both forms coexist on-chain (already-deployed
+    ///      dispensers emit the 3-arg form, new ones this 4-arg form), so any indexer, subgraph or monitor keyed on
+    ///      the old topic0 must handle both.
     event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount,
         uint256 withheldAmount);
     event LeftoversRefunded(address indexed sender, uint256 leftovers);
@@ -522,6 +526,12 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         updateWithheldAmountMaintenance(withheldAmount) on the new contract right after migration, or the
     ///         inflation information (OLAS already minted and held on L2) is lost. Emitting it here makes the
     ///         exact value to restore part of the migration record rather than off-chain tribal knowledge.
+    ///         The value to restore is the emitted withheldAmount, NOT the migrated balance (they differ when
+    ///         residual OLAS sits on the contract). No expectedWithheldAmount parameter is taken: pause / migrate /
+    ///         updateWithheldAmountMaintenance ship as one atomic DAO L1->L2 proposal that already passes the
+    ///         emitted value, and the operator would read any "expected" value from this same storage — so a
+    ///         confirmation argument would add ceremony without safety. Post-migration the old getter still
+    ///         returns withheldAmount; the event is an indexable record, not the recovery mechanism.
     function migrate(address newL2TargetDispenser) external {
         // Reentrancy guard
         if (_locked > 1) {
