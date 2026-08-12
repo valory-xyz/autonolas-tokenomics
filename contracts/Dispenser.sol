@@ -369,8 +369,11 @@ contract Dispenser {
             revert AlreadyInitialized();
         }
 
-        // Check for at least one zero contract address
-        if (_treasury == address(0) || _voteWeighting == address(0)) {
+        // Check for a zero Treasury address. The Vote Weighting address is intentionally allowed to be zero
+        // here: on a fresh proxy deploy the Vote Weighting contract does not exist yet (it is deployed with
+        // this proxy's address baked in as an immutable), so it is wired in afterwards via changeManagers()
+        // while staking incentives stay paused. No claim path can run with a zero Vote Weighting.
+        if (_treasury == address(0)) {
             revert ZeroAddress();
         }
 

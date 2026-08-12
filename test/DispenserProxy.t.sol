@@ -77,6 +77,24 @@ contract DispenserProxyTest is Test {
         assertEq(address(uint160(uint256(rawImplementation))), address(dispenserMaster), "implementation slot");
     }
 
+    function test_initialize_zeroVoteWeighting_allowed() public {
+        // A fresh proxy is deployed with a zero Vote Weighting on purpose: VoteWeighting binds this proxy's
+        // address as an immutable, so it does not exist yet at init. It is wired later via changeManagers.
+        Dispenser master = new Dispenser(OLAS, TOKENOMICS, RETAINER);
+        bytes memory initData = abi.encodeWithSelector(Dispenser.initialize.selector,
+            TREASURY, address(0), 10, 20);
+        Dispenser proxied = Dispenser(address(new DispenserProxy(address(master), initData)));
+
+        assertEq(proxied.voteWeighting(), address(0), "voteWeighting zero at init");
+        assertEq(proxied.treasury(), TREASURY, "treasury set");
+        // Still paused, so no claim path can run against the zero Vote Weighting
+        assertEq(uint256(proxied.paused()), uint256(Dispenser.Pause.StakingIncentivesPaused), "paused");
+
+        // changeManagers wires the real Vote Weighting while paused
+        proxied.changeManagers(address(0), VOTE_WEIGHTING);
+        assertEq(proxied.voteWeighting(), VOTE_WEIGHTING, "voteWeighting wired");
+    }
+
     function test_initialize_proxyReinit_reverts() public {
         vm.expectRevert(AlreadyInitialized.selector);
         dispenser.initialize(TREASURY, VOTE_WEIGHTING, 10, 20);

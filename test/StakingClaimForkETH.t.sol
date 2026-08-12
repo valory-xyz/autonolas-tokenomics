@@ -133,11 +133,12 @@ contract StakingClaimForkETH is Test {
     function setUp() public {
         epochLen = ITokenomicsFork(TOKENOMICS).epochLen();
 
-        // Deploy the new Dispenser implementation against the LIVE Tokenomics proxy, then the proxy.
-        // Vote Weighting is a placeholder here (set after the proxy exists, under the initial pause).
+        // Deploy the new Dispenser implementation against the LIVE Tokenomics proxy, then the proxy. Vote
+        // Weighting is initialized to the zero address (it is deployed against the proxy address afterwards,
+        // exactly as on mainnet), then wired via changeManagers under the initial pause.
         Dispenser dispenserImpl = new Dispenser(OLAS, TOKENOMICS, RETAINER);
         bytes memory initData = abi.encodeWithSelector(dispenserImpl.initialize.selector,
-            TREASURY, address(this), uint256(1), uint256(10));
+            TREASURY, address(0), uint256(1), uint256(10));
         DispenserProxy dispenserProxy = new DispenserProxy(address(dispenserImpl), initData);
         dispenser = Dispenser(address(dispenserProxy));
 

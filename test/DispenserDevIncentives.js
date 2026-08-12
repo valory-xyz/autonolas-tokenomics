@@ -166,9 +166,11 @@ describe("DispenserDevIncentives", async () => {
             await expect(
                 dispenserMaster.initialize(AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            // Vote Weighting is allowed to be zero at init (wired later via changeManagers), so a zero VW no
+            // longer trips ZeroAddress — this call fails on the zero maxNumClaimingEpochs instead
             await expect(
                 dispenserMaster.initialize(deployer.address, AddressZero, 0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
             await expect(
                 dispenserMaster.initialize(deployer.address, deployer.address, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
@@ -176,8 +178,13 @@ describe("DispenserDevIncentives", async () => {
                 dispenserMaster.initialize(deployer.address, deployer.address, 10, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
 
-            // Initialize and check that a repeated initialization is not possible
-            await dispenserMaster.initialize(deployer.address, deployer.address, 10, 10);
+            // Initialize with a ZERO Vote Weighting (allowed: it is deployed against the proxy address
+            // afterwards and wired via changeManagers), then check that a repeated initialization is not possible
+            await dispenserMaster.initialize(deployer.address, AddressZero, 10, 10);
+            expect(await dispenserMaster.voteWeighting()).to.equal(AddressZero);
+            // Wire the real Vote Weighting in afterwards while staking incentives are paused
+            await dispenserMaster.changeManagers(AddressZero, deployer.address);
+            expect(await dispenserMaster.voteWeighting()).to.equal(deployer.address);
             await expect(
                 dispenserMaster.initialize(deployer.address, deployer.address, 10, 10)
             ).to.be.revertedWithCustomError(dispenser, "AlreadyInitialized");
