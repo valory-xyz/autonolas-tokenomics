@@ -786,9 +786,10 @@ contract Dispenser {
 
         // Change Vote Weighting contract address
         if (_voteWeighting != address(0)) {
-            // Swapping the Vote Weighting contract orphans the per-nominee claim cursors recorded under the
-            // previous nominee set: any staking incentives not yet claimed become unreachable. Require staking
-            // incentives to be paused first, so all outstanding claims are settled before the swap
+            // Swapping the Vote Weighting contract does NOT orphan the claim cursors themselves — they are keyed
+            // by keccak256(Nominee(target, chainId)), independent of the Vote Weighting instance. What becomes
+            // unreachable is any pending claim for a nominee that is not re-added to the new Vote Weighting.
+            // Require staking incentives to be paused first, so outstanding claims can be settled before the swap.
             Pause currentPause = paused;
             if (currentPause != Pause.StakingIncentivesPaused && currentPause != Pause.AllPaused) {
                 revert Unpaused();
@@ -844,6 +845,9 @@ contract Dispenser {
             revert Paused();
         }
 
+        // A newly added nominee starts claiming from the CURRENT epoch, so historical epochs are never traversed
+        // on this deployment. This greenfield-cursor property is what makes a fresh Dispenser safe against any
+        // pre-existing zero-staking-param epochs, and is the reason the default-param fallback could be dropped.
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
 
         // Clear a possible removal epoch left from a previous nominee lifecycle: without this, a re-added
@@ -1026,6 +1030,12 @@ contract Dispenser {
             if (stakingPoint.stakingFraction == 0) {
                 continue;
             }
+
+            // Cross-contract invariant, load-bearing since the Dispenser dropped its default-param fallback:
+            // Tokenomics never settles a StakingPoint with stakingFraction > 0 and a zero maxStakingIncentive /
+            // minStakingWeight (changeStakingParams rejects zero and the epoch carry-forward preserves both). Were
+            // that ever violated, maxStakingIncentive == 0 clamps this epoch's incentive to zero (fully returned)
+            // and minStakingWeight == 0 disables the weight threshold — i.e. zero incentives, never over-payment.
 
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
