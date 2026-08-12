@@ -418,6 +418,20 @@ contract Dispenser {
         emit ImplementationUpdated(implementation);
     }
 
+    /// @dev Reverts if a staking target nominee is not claimable (was never added to Vote Weighting).
+    /// @notice Guards the checkpointNominee call in the claim paths: on the real Vote Weighting,
+    ///         checkpointNominee reverts (NomineeDoesNotExist) for an unregistered nominee, so this makes the
+    ///         Dispenser's own ZeroValue the authoritative not-claimable error and ensures checkpointNominee is
+    ///         only ever called for a live nominee. Mirrors the first check in _getClaimedEpochCounters.
+    /// @param stakingTarget Staking target address in bytes32 form.
+    /// @param chainId Chain Id.
+    function _requireClaimableNominee(bytes32 stakingTarget, uint256 chainId) internal view {
+        bytes32 nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
+        if (mapLastClaimedStakingEpochs[nomineeHash] == 0) {
+            revert ZeroValue();
+        }
+    }
+
     /// @dev Gets the claimable epoch counters for a nominee, bounded by the current and removal epochs.
     /// @notice View only — it does NOT checkpoint the nominee in Vote Weighting (that is a separate
     ///         checkpointNominee call in the claim/retain flow); "counters" here are the claim cursors.
@@ -679,6 +693,10 @@ contract Dispenser {
                 if (stakingTargets[i][j] == retainer) {
                     revert WrongAccount(retainer);
                 }
+
+                // Guard claimability before checkpointing (see claimStakingIncentives): keeps ZeroValue the
+                // authoritative not-claimable error and only checkpoints a live nominee
+                _requireClaimableNominee(stakingTargets[i][j], chainIds[i]);
 
                 // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
                 IVoteWeighting(voteWeighting).checkpointNominee(stakingTargets[i][j], chainIds[i]);
@@ -1124,6 +1142,12 @@ contract Dispenser {
         // Get deposit processor bridging decimals corresponding to a chain Id
         address depositProcessor = mapChainIdDepositProcessors[chainId];
         uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+
+        // Ensure the nominee is claimable before checkpointing it. On the real Vote Weighting, checkpointNominee
+        // reverts (NomineeDoesNotExist) for a nominee that was never added, so guard with the Dispenser's own
+        // cursor first: this keeps ZeroValue the authoritative "not claimable" error and only ever checkpoints a
+        // live nominee (mirrors the retain() ordering, where the cursor check precedes the checkpoint)
+        _requireClaimableNominee(stakingTarget, chainId);
 
         // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
         IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
