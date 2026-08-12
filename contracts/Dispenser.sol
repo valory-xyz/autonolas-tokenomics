@@ -332,6 +332,11 @@ contract Dispenser {
 
     /// @dev Dispenser implementation constructor: sets the implementation-bytecode immutables only.
     /// @notice The mutable state is set via initialize() delegatecall-ed by the DispenserProxy constructor.
+    /// @notice Immutable vs proxy storage rationale: olas / tokenomics / retainer are fixed identities that never
+    ///         change for a deployment (tokenomics is the stable TokenomicsProxy address), so they live in
+    ///         implementation bytecode. treasury / voteWeighting (repointable managers via changeManagers) and
+    ///         maxNumClaimingEpochs / maxNumStakingTargets (init-time bounds) are proxy storage instead, so they
+    ///         survive an implementation upgrade and can be (re)set without deploying a new implementation.
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics proxy address.
     /// @param _retainer Retainer address in bytes32 form.
@@ -1363,6 +1368,14 @@ contract Dispenser {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Do not let staking incentives go live before Vote Weighting is wired. A fresh proxy initializes with a
+        // zero voteWeighting (set later via changeManagers); claims would fail-safe with ZeroValue anyway, but this
+        // makes the deploy invariant explicit rather than emergent.
+        if (pauseState != Pause.StakingIncentivesPaused && pauseState != Pause.AllPaused &&
+            voteWeighting == address(0)) {
+            revert ZeroAddress();
         }
 
         paused = pauseState;

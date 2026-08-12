@@ -100,7 +100,12 @@ zeroAddress="0x0000000000000000000000000000000000000000"
 echo "${green}Locking the implementation (initialize on the impl itself)...${reset}"
 lockResult=$(cast send --rpc-url $networkURL$API_KEY $walletArgs $dispenserAddress \
   "initialize(address,address,uint256,uint256)" $deployer $zeroAddress 1 1)
-echo "$lockResult" | grep -i "status"
+lockStatus=$(echo "$lockResult" | grep -iE '^status' | grep -oiE '1 \(success\)|0 \(failed\)')
+if [ -z "$lockStatus" ] || [[ "$lockStatus" == 0* ]]; then
+  echo "${red}!!! Implementation lock tx did not succeed — impl left unlocked. Harmless (the impl cannot affect the proxy), but investigate.${reset}"
+else
+  echo "${green}Implementation locked (status: $lockStatus)${reset}"
+fi
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
