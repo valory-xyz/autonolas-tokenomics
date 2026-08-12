@@ -37,8 +37,11 @@ contract StakingL2MigrateForkOP is Test {
     address internal constant NEW_L1_PROCESSOR = 0x00000000000000000000000000000000DeaDBeef;
     uint256 internal constant L1_SOURCE_CHAIN_ID = 1;
 
-    // OLAS carried on the L2 dispenser (withheld inflation) to be migrated
+    // Physical OLAS balance on the L2 dispenser, transferred in full by migrate()
     uint256 internal constant CARRIED = 12_345 ether;
+    // Accounting withheldAmount to restore on the new dispenser — deliberately BELOW the physical balance (as
+    // a residual would leave it), so the test proves the restore uses the emitted value, not the migrated balance
+    uint256 internal constant WITHHELD = 10_000 ether;
 
     // Mirror of DefaultTargetDispenserL2.Migrated for expectEmit
     event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount,
@@ -55,9 +58,9 @@ contract StakingL2MigrateForkOP is Test {
             L1_SOURCE_CHAIN_ID);
 
         // Seed the OLD dispenser with real OLAS (as undelivered/withheld inflation would sit on L2) and set its
-        // accounting withheldAmount to match (Phase 0 records this; it must be restored on the new contract)
+        // accounting withheldAmount BELOW the balance (Phase 0 records this; it must be restored on the new one)
         deal(OLAS, address(oldDispenser), CARRIED);
-        oldDispenser.updateWithheldAmountMaintenance(CARRIED);
+        oldDispenser.updateWithheldAmountMaintenance(WITHHELD);
     }
 
     // -----------------------------------------------------------------------
@@ -72,9 +75,9 @@ contract StakingL2MigrateForkOP is Test {
         // migrate requires paused
         oldDispenser.pause();
 
-        // The Migrated event carries the exact amount + withheldAmount the DAO must restore
+        // The Migrated event carries the full migrated balance AND the (smaller) withheldAmount to restore
         vm.expectEmit(true, true, false, true, address(oldDispenser));
-        emit Migrated(address(this), address(newDispenser), CARRIED, CARRIED);
+        emit Migrated(address(this), address(newDispenser), CARRIED, WITHHELD);
         oldDispenser.migrate(address(newDispenser));
 
         // Real OLAS moved old -> new, in full
@@ -88,9 +91,10 @@ contract StakingL2MigrateForkOP is Test {
         vm.expectRevert();
         oldDispenser.migrate(address(newDispenser));
 
-        // Restore the withheld accounting on the new dispenser (Phase 3 step 12)
-        newDispenser.updateWithheldAmountMaintenance(CARRIED);
-        assertEq(newDispenser.withheldAmount(), CARRIED, "withheld restored on the new dispenser");
+        // Restore the withheld accounting from the EMITTED value (not the migrated balance) — Phase 3 step 12
+        newDispenser.updateWithheldAmountMaintenance(WITHHELD);
+        assertEq(newDispenser.withheldAmount(), WITHHELD, "withheld restored to the emitted value");
+        assertTrue(newDispenser.withheldAmount() != CARRIED, "restored withheld is not the migrated balance");
     }
 
     // -----------------------------------------------------------------------
