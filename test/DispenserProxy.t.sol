@@ -95,6 +95,32 @@ contract DispenserProxyTest is Test {
         assertEq(proxied.voteWeighting(), VOTE_WEIGHTING, "voteWeighting wired");
     }
 
+    /// @dev Merged-state interaction of the zero-VW initialize (allow zero) and the go-live guard: a fresh proxy
+    ///      with voteWeighting == 0 cannot be brought live until Vote Weighting is wired. This is barrier 1 (the
+    ///      setPauseState guard); barrier 2 is _requireClaimableNominee returning a clean ZeroValue on a claim
+    ///      (covered in DispenserFixes.test_claim_neverAddedNominee_revertsZeroValueBeforeCheckpoint).
+    function test_setPauseState_requiresVoteWeighting_beforeGoLive() public {
+        Dispenser master = new Dispenser(OLAS, TOKENOMICS, RETAINER);
+        bytes memory initData = abi.encodeWithSelector(Dispenser.initialize.selector,
+            TREASURY, address(0), 10, 20);
+        Dispenser proxied = Dispenser(address(new DispenserProxy(address(master), initData)));
+
+        // Cannot let staking incentives go live while voteWeighting is unset (both staking-active states)
+        vm.expectRevert(ZeroAddress.selector);
+        proxied.setPauseState(Dispenser.Pause.Unpaused);
+        vm.expectRevert(ZeroAddress.selector);
+        proxied.setPauseState(Dispenser.Pause.DevIncentivesPaused);
+
+        // Re-pausing transitions stay allowed with a zero Vote Weighting
+        proxied.setPauseState(Dispenser.Pause.AllPaused);
+        proxied.setPauseState(Dispenser.Pause.StakingIncentivesPaused);
+
+        // Once Vote Weighting is wired (while paused), going live is permitted
+        proxied.changeManagers(address(0), VOTE_WEIGHTING);
+        proxied.setPauseState(Dispenser.Pause.Unpaused);
+        assertEq(uint256(proxied.paused()), uint256(Dispenser.Pause.Unpaused), "live after wiring");
+    }
+
     function test_initialize_proxyReinit_reverts() public {
         vm.expectRevert(AlreadyInitialized.selector);
         dispenser.initialize(TREASURY, VOTE_WEIGHTING, 10, 20);
