@@ -12,7 +12,7 @@ async function main() {
     const provider = await ethers.providers.getDefaultProvider(providerName);
 
     // Get all the necessary contract addresses
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
     const depositProcessorL1Addresses = [parsedData.arbitrumDepositProcessorL1Address, parsedData.baseDepositProcessorL1Address,
         parsedData.celoDepositProcessorL1Address, parsedData.gnosisDepositProcessorL1Address,
         parsedData.modeDepositProcessorL1Address, parsedData.optimismDepositProcessorL1Address,
@@ -22,11 +22,11 @@ async function main() {
         parsedData.optimismL2TargetChainId, parsedData.polygonL2TargetChainId];
 
     // Get dispenser contract instance
-    const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
+    const dispenser = await ethers.getContractAt("Dispenser", dispenserProxyAddress);
 
     // Proposal preparation
     console.log("Proposal 10. Set Deposit Processor and Chain Id in Dispenser for Mode");
-    const targets = [dispenserAddress];
+    const targets = [dispenserProxyAddress];
     const values = [0];
     const callDatas = [
         dispenser.interface.encodeFunctionData("setDepositProcessorChainIds", [depositProcessorL1Addresses, l2TargetChainIds])

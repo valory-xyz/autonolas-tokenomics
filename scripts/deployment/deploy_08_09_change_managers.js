@@ -29,14 +29,14 @@ async function main() {
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const treasuryAddress = parsedData.treasuryAddress;
     const depositoryAddress = parsedData.depositoryAddress;
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
     const AddressZero = "0x" + "0".repeat(40);
 
     // Transaction signing and execution
     console.log("8. EOA to change managers for TokenomicsProxy");
     const tokenomicsProxy = await ethers.getContractAt("Tokenomics", tokenomicsProxyAddress);
     console.log("You are signing the following transaction: TokenomicsProxy.connect(EOA).changeManagers()");
-    let result = await tokenomicsProxy.connect(EOA).changeManagers(treasuryAddress, depositoryAddress, dispenserAddress);
+    let result = await tokenomicsProxy.connect(EOA).changeManagers(treasuryAddress, depositoryAddress, dispenserProxyAddress);
     if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
@@ -48,7 +48,7 @@ async function main() {
     console.log("9. EOA to change managers for Treasury");
     const treasury = await ethers.getContractAt("Treasury", treasuryAddress);
     console.log("You are signing the following transaction: Treasury.connect(EOA).changeManagers()");
-    result = await treasury.connect(EOA).changeManagers(AddressZero, depositoryAddress, dispenserAddress);
+    result = await treasury.connect(EOA).changeManagers(AddressZero, depositoryAddress, dispenserProxyAddress);
     if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }

@@ -64,6 +64,24 @@ if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
   exit 1
 fi
 
+if [ -z "$treasuryAddress" ] || [ "$treasuryAddress" == "null" ] \
+   || [ "$treasuryAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! treasuryAddress is not set in $globals${reset}"
+  exit 1
+fi
+
+# maxNumClaimingEpochs / maxNumStakingTargets are set once at initialize() with no runtime setter, so a bad
+# value here is only fixable by an implementation redeploy — validate they are present and non-zero
+if [ -z "$maxNumClaimingEpochs" ] || [ "$maxNumClaimingEpochs" == "null" ] || [ "$maxNumClaimingEpochs" == "0" ]; then
+  echo "${red}!!! maxNumClaimingEpochs is not set (or zero) in $globals${reset}"
+  exit 1
+fi
+
+if [ -z "$maxNumStakingTargets" ] || [ "$maxNumStakingTargets" == "null" ] || [ "$maxNumStakingTargets" == "0" ]; then
+  echo "${red}!!! maxNumStakingTargets is not set (or zero) in $globals${reset}"
+  exit 1
+fi
+
 # Vote Weighting is wired later via script_dispenser_change_managers.sh — initialize with the zero address
 voteWeightingAddress="0x0000000000000000000000000000000000000000"
 proxyData=$(cast calldata "initialize(address,address,uint256,uint256)" $treasuryAddress $voteWeightingAddress $maxNumClaimingEpochs $maxNumStakingTargets)

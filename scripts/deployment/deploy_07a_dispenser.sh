@@ -91,6 +91,17 @@ fi
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"dispenserAddress":"'$dispenserAddress'"}' $globals)" > $globals
 
+# Lock the standalone implementation: claim its (inert) storage owner so nobody else can initialize() it.
+# The implementation is only ever delegatecall-ed by the proxy against the PROXY's storage, so the impl's own
+# storage is never used and these are throwaway values (Vote Weighting is allowed to be zero at initialize).
+# This sets owner != 0 on the impl, making a later initialize() revert AlreadyInitialized. Best-effort (the
+# impl holds no funds and cannot affect the proxy, so an unlocked impl is harmless — this just removes the question).
+zeroAddress="0x0000000000000000000000000000000000000000"
+echo "${green}Locking the implementation (initialize on the impl itself)...${reset}"
+lockResult=$(cast send --rpc-url $networkURL$API_KEY $walletArgs $dispenserAddress \
+  "initialize(address,address,uint256,uint256)" $deployer $zeroAddress 1 1)
+echo "$lockResult" | grep -i "status"
+
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
   contractParams="$dispenserAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,bytes32)" $constructorArgs)"

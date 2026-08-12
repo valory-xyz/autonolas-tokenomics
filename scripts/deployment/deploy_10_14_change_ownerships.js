@@ -31,7 +31,7 @@ async function main() {
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const treasuryAddress = parsedData.treasuryAddress;
     const depositoryAddress = parsedData.depositoryAddress;
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
 
     // Transaction signing and execution
     console.log("10. EOA to transfer ownership rights of DonatorBlacklist to Timelock");
@@ -83,14 +83,14 @@ async function main() {
 
     // Transaction signing and execution
     console.log("14. EOA to transfer ownership rights of Dispenser to Timelock");
-    const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
+    const dispenser = await ethers.getContractAt("Dispenser", dispenserProxyAddress);
     console.log("You are signing the following transaction: Dispenser.connect(EOA).changeOwner()");
     result = await dispenser.connect(EOA).changeOwner(timelockAddress);
     if (providerName === "sepolia") {
         await new Promise(r => setTimeout(r, 60000));
     }
     // Transaction details
-    console.log("Contract address:", dispenserAddress);
+    console.log("Contract address:", dispenserProxyAddress);
     console.log("Transaction:", result.hash);
 }
 

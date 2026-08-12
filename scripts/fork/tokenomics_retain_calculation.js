@@ -22,7 +22,7 @@ async function main() {
     // Get all the necessary contract addresses
     const timelockAddress = parsedData.timelockAddress;
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
 
     // Timelock address is specified via the "-u" command to ganache node
     const signer = provider.getSigner(timelockAddress);
@@ -46,7 +46,7 @@ async function main() {
     abi = parsedFile["abi"];
 
     // Tokenomics contract instance
-    const dispenser = new ethers.Contract(dispenserAddress, abi, wallet);
+    const dispenser = new ethers.Contract(dispenserProxyAddress, abi, wallet);
     console.log("Dispenser address", dispenser.address);
 
     const epochCounter = await tokenomics.epochCounter();
