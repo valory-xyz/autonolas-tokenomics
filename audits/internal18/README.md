@@ -17,6 +17,37 @@
 
 All five vuln-list items (#8/#9/#10/#12/#25) are correctly closed, the proxy refactor is behaviour-preserving, and no regression was found. The contract changes are sound to merge. The **on-chain deployment**, however, should wait on the planned **PR-D** (deploy scripts + an L1 mainnet-fork test of the proxied claim path), because the constructor/`initialize` signatures changed and none of that deploy machinery is present or exercised yet (§5).
 
+> **Superseded 2026-08-13 — read this before relying on any section below.**
+>
+> This audit is a point-in-time record pinned to `396e0a5` (#311's head on 2026-07-27). The stack
+> continued through **#313 → #314 → #315**, all merged to `main` on 2026-08-13, and four statements
+> below no longer describe the shipped code. The verdict itself stands — every item it green-lights
+> is still closed — but the following supersede it:
+>
+> 1. **Item #12's shipped fix is not the atomic-inline form described in §2 and the compliance
+>    table.** #315 made `calculateStakingIncentives` `public view`: it no longer checkpoints, no
+>    longer writes `mapZeroWeightEpochRefunded`, and no longer calls `refundFromStaking`. It returns
+>    a sparse `zeroWeightEpochs[]` and folds the zero-weight amounts into `totalReturnAmount`; the
+>    two claim paths own the effects. The item-12 hazard is therefore closed *by construction*
+>    (a standalone call mutates nothing) rather than by atomicity. §2's supporting argument — that
+>    the added external call "breaks no preview path" because there is no `staticcall` consumer — is
+>    the reasoning #315 deliberately reversed. See **internal19 Part B** for the review of the
+>    shipped design.
+> 2. **§5's "five bytecode immutables" is now three.** #314 removed `defaultMinStakingWeight` /
+>    `defaultMaxStakingIncentive` along with the claim-time fallback; the constructor is
+>    `(olas, tokenomics, retainer)`. See **internal19 Part A**.
+> 3. **§4's regression sweep no longer holds for `Dispenser.changeManagers`.** #314 added
+>    `scripts/deployment/script_dispenser_change_managers.sh`, which calls `changeManagers(address,address)`
+>    on the Dispenser proxy — it is the script that wires Vote Weighting in after deploy (the
+>    Dispenser's `initialize` accepts a zero `voteWeighting` so the otherwise-circular deploy order
+>    resolves). The sweep's conclusion — that no *pre-existing* caller broke — is unaffected.
+> 4. **§5's PR-D release condition is satisfied.** #313 landed the deploy scripts and the L1
+>    mainnet-fork test of the proxied claim path (`StakingClaimForkETH`); #314 and #315 followed.
+>
+> Not covered by any audit at the time of writing: `cf881af` (zero-`voteWeighting` `initialize`) and
+> `cfceafb` (`setPauseState` rejecting go-live while `voteWeighting == address(0)`), both of which
+> post-date internal19's pinned commits.
+
 ## Method (everything verified first-hand)
 
 Built the release tree with Foundry, ran the Dispenser test suites, traced the staking-incentive accounting by hand across both claim paths, recomputed the proxy storage slot, and swept every changed signature for downstream callers. `forge test --mc Dispenser` on the release head: **17/17** (DispenserProxy 9, DispenserFixes 5, Dispenser 3); committed tree compiles clean.
@@ -79,8 +110,8 @@ The constructor now takes five bytecode immutables and `initialize` is new, so t
 | #8 changeManagers voteWeighting | Informative | #310 `changeManagers` pause-gate | ✔ correct |
 | #9 withheld reuse inflation accounting | Low | #310 both claim paths | ✔ correct |
 | #10 migrate withheldAmount visibility | Low | #311 `Migrated` event | ✔ correct (event-only) |
-| #12 zero-weight refund atomicity | High | #310 `calculateStakingIncentives` | ✔ correct (atomic; no double-refund) |
+| #12 zero-weight refund atomicity | High | #310 `calculateStakingIncentives` | ✔ correct as audited — **superseded**: #315 reworked this to a `view` calc with effects in the claim paths (see the Superseded note above and internal19 Part B) |
 | #25 addNominee removed-epoch clearing | Informative | #310 `addNominee` | ✔ correct |
 | Proxy refactor (#309) | — | new `DispenserProxy` + `initialize`/`changeImplementation` | ✔ behaviour-preserving; upgrade path consistent |
 | Regression | — | changed signatures | ✔ no script/caller breaks; tree compiles |
-| Deploy readiness | — | — | ⚠ conditional on PR-D (deploy scripts + L1 fork test) |
+| Deploy readiness | — | — | ⚠ conditional on PR-D — **satisfied** by #313 (deploy scripts + `StakingClaimForkETH`), merged 2026-08-13 |
