@@ -142,6 +142,15 @@ never be seeded at a bad price (the guard refuses). Before the first seed on any
    With the pool warm, the guard runs: a seed whose `slot0` is within 10% of the TWAP mints at the TWAP
    price; a >10% deviation reverts.
 
+   Sizing `N` for **peak** churn is a **hard release gate**, not just a mint prerequisite. An undersized
+   buffer that later wraps below 1800s makes the *mint* fail closed (safe — it refuses), but it also makes the
+   **exit** deviation gate fail *open*: `observe(1800)` reverting sends `_getExitSqrtPrice` to raw `slot0` with
+   no gate, so a sandwich can move the exit price. Crucially, a front-run swap re-activating the pool does
+   **not** rescue this branch (writing an observation shortens the buffer's span, it does not extend it) —
+   unlike the inactive-pool fail-open, which is self-defeating for an attacker. So `N` must cover the pool's
+   peak swap rate before any POL is seeded, and the buffer-span check is a release gate per pool, not a
+   one-time confirmation.
+
 3. **Optional defense-in-depth — submit privately where available.** On **ETH (L1)** the seed can be
    submitted through a builder/private relay so it is not exposed to public-mempool ordering. On
    **L2 (OP-stack)** a Timelock-triggered `convertToV3` runs as a deterministic deposit transaction with

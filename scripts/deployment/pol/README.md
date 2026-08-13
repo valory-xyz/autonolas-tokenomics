@@ -70,9 +70,17 @@ one:
   first seed. Deploy the fixed impl first, then, **before** running the seed:
   1. create + initialize the V3 pool at the true price;
   2. pre-seed real wide-range liquidity (so `slot0` is no longer free to move);
-  3. `increaseObservationCardinalityNext(N)` and let trades populate the observation buffer;
-  4. confirm off-chain that `observe([1800, 0])` succeeds, the latest observation is younger than 1800s,
-     and the buffer spans ≥ 1800s;
+  3. `increaseObservationCardinalityNext(N)` with **N sized so the buffer spans ≥ 1800s at the pool's PEAK
+     swap rate**, not just today's — each swap that changes the tick overwrites the oldest observation, so a
+     buffer that spans ≥ 1800s at current churn can wrap below 1800s during a volatility burst. This is a
+     **hard release gate with a per-pool number**, not a confirm-once step (`N ≥ ceil(1800 / min_block_time)
+     × peak_ticks_crossed_per_block`, rounded up generously). Let trades populate the buffer;
+  4. confirm off-chain that `observe([1800, 0])` succeeds, the latest observation is younger than 1800s, and
+     the buffer spans ≥ 1800s. **Why this is load-bearing:** if the buffer ever spans < 1800s, `observe(1800)`
+     reverts, `_getExitSqrtPrice` fails open to raw `slot0`, and the exit deviation gate silently switches off.
+     A front-run swap re-activating the pool does **not** rescue this branch — writing an observation shortens
+     the buffer's span, it does not extend it. (The *inactive*-pool fail-open is self-defeating for an attacker;
+     this buffer-wrap one is not, which is why N must be sized for peak churn up front.);
   5. **hand proxy ownership to the Timelock / `BridgeMediator`.** The EOA-ownership above is justified only
      while POL is not operational — seeding makes the LM custodial, so ownership must be the DAO **before**
      the first seed (this is what the "inert to non-owners, owner is the DAO" safety framing rests on).
