@@ -418,12 +418,28 @@ contract Dispenser {
         emit ImplementationUpdated(implementation);
     }
 
-    /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
+    /// @dev Reverts if a staking target nominee is not claimable (was never added to Vote Weighting).
+    /// @notice Guards the checkpointNominee call in the claim paths: on the real Vote Weighting,
+    ///         checkpointNominee reverts (NomineeDoesNotExist) for an unregistered nominee, so this makes the
+    ///         Dispenser's own ZeroValue the authoritative not-claimable error and ensures checkpointNominee is
+    ///         only ever called for a live nominee. Mirrors the first check in _getClaimedEpochCounters.
+    /// @param stakingTarget Staking target address in bytes32 form.
+    /// @param chainId Chain Id.
+    function _requireClaimableNominee(bytes32 stakingTarget, uint256 chainId) internal view {
+        bytes32 nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
+        if (mapLastClaimedStakingEpochs[nomineeHash] == 0) {
+            revert ZeroValue();
+        }
+    }
+
+    /// @dev Gets the claimable epoch counters for a nominee, bounded by the current and removal epochs.
+    /// @notice View only — it does NOT checkpoint the nominee in Vote Weighting (that is a separate
+    ///         checkpointNominee call in the claim/retain flow); "counters" here are the claim cursors.
     /// @param nomineeHash Hash of a Nominee(stakingTarget, chainId).
     /// @param numClaimedEpochs Specified number of claimed epochs.
     /// @return firstClaimedEpoch First claimed epoch number.
     /// @return lastClaimedEpoch Last claimed epoch number (not included in claiming).
-    function _checkpointNomineeAndGetClaimedEpochCounters(
+    function _getClaimedEpochCounters(
         bytes32 nomineeHash,
         uint256 numClaimedEpochs
     ) internal view returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
@@ -678,12 +694,28 @@ contract Dispenser {
                     revert WrongAccount(retainer);
                 }
 
+                // Guard claimability before checkpointing (see claimStakingIncentives): keeps ZeroValue the
+                // authoritative not-claimable error and only checkpoints a live nominee
+                _requireClaimableNominee(stakingTargets[i][j], chainIds[i]);
+
+                // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
+                IVoteWeighting(voteWeighting).checkpointNominee(stakingTargets[i][j], chainIds[i]);
+
                 // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
-                (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
+                (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
+                    uint256[] memory zeroWeightEpochs) =
                     calculateStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
 
                 // Write last claimed epoch counter to start claiming from the next time
                 mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+
+                // Mark zero-weight epochs refunded (amount already in returnAmount). Setting the flag here, before
+                // the next target's calculateStakingIncentives call, dedupes zero-weight epochs shared across targets
+                for (uint256 k = 0; k < zeroWeightEpochs.length; ++k) {
+                    if (zeroWeightEpochs[k] != 0) {
+                        mapZeroWeightEpochRefunded[zeroWeightEpochs[k]] = true;
+                    }
+                }
 
                 stakingIncentives[i][j] = stakingIncentive;
                 transferAmounts[i] += stakingIncentive;
@@ -754,9 +786,10 @@ contract Dispenser {
 
         // Change Vote Weighting contract address
         if (_voteWeighting != address(0)) {
-            // Swapping the Vote Weighting contract orphans the per-nominee claim cursors recorded under the
-            // previous nominee set: any staking incentives not yet claimed become unreachable. Require staking
-            // incentives to be paused first, so all outstanding claims are settled before the swap
+            // Swapping the Vote Weighting contract does NOT orphan the claim cursors themselves — they are keyed
+            // by keccak256(Nominee(target, chainId)), independent of the Vote Weighting instance. What becomes
+            // unreachable is any pending claim for a nominee that is not re-added to the new Vote Weighting.
+            // Require staking incentives to be paused first, so outstanding claims can be settled before the swap.
             Pause currentPause = paused;
             if (currentPause != Pause.StakingIncentivesPaused && currentPause != Pause.AllPaused) {
                 revert Unpaused();
@@ -812,12 +845,15 @@ contract Dispenser {
             revert Paused();
         }
 
+        // A newly added nominee starts claiming from the CURRENT epoch, so historical epochs are never traversed
+        // on this deployment. This greenfield-cursor property is what makes a fresh Dispenser safe against any
+        // pre-existing zero-staking-param epochs, and is the reason the default-param fallback could be dropped.
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
 
         // Clear a possible removal epoch left from a previous nominee lifecycle: without this, a re-added
-        // nominee would permanently revert in _checkpointNomineeAndGetClaimedEpochCounters (the claim cursor
-        // just set above always satisfies firstClaimedEpoch >= epochRemoved). The Dispenser no longer relies
-        // on the upstream Vote Weighting enforcing "remove is final"
+        // nominee would permanently revert in _getClaimedEpochCounters (the claim cursor just set above always
+        // satisfies firstClaimedEpoch >= epochRemoved). The Dispenser no longer relies on the upstream Vote
+        // Weighting enforcing "remove is final"
         delete mapRemovedNomineeEpochs[nomineeHash];
 
         emit AddNomineeHash(nomineeHash);
@@ -931,20 +967,27 @@ contract Dispenser {
     /// @param chainId Chain Id.
     /// @param stakingTarget Staking target corresponding to the chain Id.
     /// @param bridgingDecimals Number of supported token decimals able to be transferred across the bridge.
+    /// @notice View only: the caller must checkpoint the nominee in Vote Weighting BEFORE calling this, and
+    ///         mark every returned zero-weight epoch as refunded (see `zeroWeightEpochs`). Because the
+    ///         function mutates nothing, a standalone call can never strand a zero-weight epoch's inflation.
     /// @return totalStakingIncentive Total staking incentive across all the claimed epochs.
-    /// @return totalReturnAmount Total return amount across all the claimed epochs.
+    /// @return totalReturnAmount Total return amount across all the claimed epochs (includes zero-weight epochs).
     /// @return lastClaimedEpoch Last claimed epoch number (not included in claiming).
     /// @return nomineeHash Hash of a Nominee(stakingTarget, chainId).
+    /// @return zeroWeightEpochs Sparse array over [firstClaimedEpoch, lastClaimedEpoch): a non-zero slot is a
+    ///         zero-total-weight epoch number the caller must set in `mapZeroWeightEpochRefunded` (epoch is
+    ///         never zero, so a zero slot means "not a zero-weight epoch"). Its incentive is in totalReturnAmount.
     function calculateStakingIncentives(
         uint256 numClaimedEpochs,
         uint256 chainId,
         bytes32 stakingTarget,
         uint256 bridgingDecimals
-    ) public returns (
+    ) public view returns (
         uint256 totalStakingIncentive,
         uint256 totalReturnAmount,
         uint256 lastClaimedEpoch,
-        bytes32 nomineeHash
+        bytes32 nomineeHash,
+        uint256[] memory zeroWeightEpochs
     ) {
         // Check for the correct chain Id
         if (chainId == 0) {
@@ -966,10 +1009,10 @@ contract Dispenser {
 
         uint256 firstClaimedEpoch;
         (firstClaimedEpoch, lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(nomineeHash, numClaimedEpochs);
+            _getClaimedEpochCounters(nomineeHash, numClaimedEpochs);
 
-        // Checkpoint staking target nominee in the Vote Weighting contract
-        IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
+        // Sparse zero-weight epoch record indexed by (j - firstClaimedEpoch); the caller sets the refunded flag
+        zeroWeightEpochs = new uint256[](lastClaimedEpoch - firstClaimedEpoch);
 
         // Traverse all the claimed epochs
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
@@ -988,6 +1031,12 @@ contract Dispenser {
                 continue;
             }
 
+            // Cross-contract invariant, load-bearing since the Dispenser dropped its default-param fallback:
+            // Tokenomics never settles a StakingPoint with stakingFraction > 0 and a zero maxStakingIncentive /
+            // minStakingWeight (changeStakingParams rejects zero and the epoch carry-forward preserves both). Were
+            // that ever violated, maxStakingIncentive == 0 clamps this epoch's incentive to zero (fully returned)
+            // and minStakingWeight == 0 disables the weight threshold — i.e. zero incentives, never over-payment.
+
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
             // Get the staking weight for each epoch and the total weight
@@ -997,13 +1046,13 @@ contract Dispenser {
             (uint256 stakingWeight, uint256 totalWeightSum) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(stakingTarget, chainId, endTime);
 
-            // Check if the totalWeightSum is zero, then all staking incentives must be returned back to tokenomics
+            // Zero total vote weight: the whole epoch's staking incentive returns to inflation. Record the epoch
+            // so the caller sets mapZeroWeightEpochRefunded once (this view function cannot); the amount is folded
+            // into totalReturnAmount, which the caller refunds. Safe for batch: the caller sets the flag before the
+            // next target's call, so the mapZeroWeightEpochRefunded skip above dedupes shared zero-weight epochs.
             if (totalWeightSum == 0) {
-                // The one-way refunded flag and the actual refund are performed atomically in the same call:
-                // this function is public, and setting the flag while deferring the refund to the caller would
-                // let a standalone external call permanently mark the epoch refunded without any refund executed
-                mapZeroWeightEpochRefunded[j] = true;
-                ITokenomics(tokenomics).refundFromStaking(stakingPoint.stakingIncentive);
+                zeroWeightEpochs[j - firstClaimedEpoch] = j;
+                totalReturnAmount += stakingPoint.stakingIncentive;
                 continue;
             }
 
@@ -1104,12 +1153,29 @@ contract Dispenser {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
         uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
 
+        // Ensure the nominee is claimable before checkpointing it. On the real Vote Weighting, checkpointNominee
+        // reverts (NomineeDoesNotExist) for a nominee that was never added, so guard with the Dispenser's own
+        // cursor first: this keeps ZeroValue the authoritative "not claimable" error and only ever checkpoints a
+        // live nominee (mirrors the retain() ordering, where the cursor check precedes the checkpoint)
+        _requireClaimableNominee(stakingTarget, chainId);
+
+        // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
+        IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
+
         // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
-        (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
+        (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
+            uint256[] memory zeroWeightEpochs) =
             calculateStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgingDecimals);
 
         // Write last claimed epoch counter to start claiming from the next time
         mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+
+        // Mark zero-weight epochs refunded (their incentive is already part of returnAmount)
+        for (uint256 i = 0; i < zeroWeightEpochs.length; ++i) {
+            if (zeroWeightEpochs[i] != 0) {
+                mapZeroWeightEpochRefunded[zeroWeightEpochs[i]] = true;
+            }
+        }
 
         // Refund returned amount back to tokenomics inflation
         if (returnAmount > 0) {
@@ -1259,7 +1325,7 @@ contract Dispenser {
 
         // Get first and last claimed epochs
         (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
+            _getClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
 
         // Checkpoint staking target nominee in the Vote Weighting contract
         IVoteWeighting(voteWeighting).checkpointNominee(retainer, block.chainid);
