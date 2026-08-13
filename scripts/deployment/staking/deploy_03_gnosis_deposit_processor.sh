@@ -26,7 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
 gnosisOmniBridgeAddress=$(jq -r '.gnosisOmniBridgeAddress' $globals)
 gnosisAMBForeignAddress=$(jq -r '.gnosisAMBForeignAddress' $globals)
 gnosisL2TargetChainId=$(jq -r '.gnosisL2TargetChainId' $globals)
@@ -46,7 +46,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/GnosisDepositProcessorL1.sol:GnosisDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserAddress $gnosisOmniBridgeAddress $gnosisAMBForeignAddress $gnosisL2TargetChainId"
+constructorArgs="$olasAddress $dispenserProxyAddress $gnosisOmniBridgeAddress $gnosisAMBForeignAddress $gnosisL2TargetChainId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

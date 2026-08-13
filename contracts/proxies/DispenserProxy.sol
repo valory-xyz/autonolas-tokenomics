@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.30;
 
 /// @dev Proxy initialization failed.
 error InitializationFailed();
@@ -23,6 +23,7 @@ error ZeroValue();
 /// @title DispenserProxy - Smart contract for dispenser proxy
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
+/// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 contract DispenserProxy {
     // Code position in storage is keccak256("PROXY_DISPENSER") = "0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83"
     bytes32 public constant PROXY_DISPENSER = 0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83;

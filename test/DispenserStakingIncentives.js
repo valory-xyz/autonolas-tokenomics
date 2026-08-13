@@ -20,8 +20,6 @@ describe("DispenserStakingIncentives", async () => {
     const delta = 100;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
-    const defaultMinStakingWeight = 100;
-    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const maxUint256 = ethers.constants.MaxUint256;
     const defaultGasLimit = "2000000";
     const retainer = "0x" + "0".repeat(24) + "5".repeat(40);
@@ -94,8 +92,7 @@ describe("DispenserStakingIncentives", async () => {
 
         // Deploy dispenser master implementation (tokenomics proxy address is an implementation immutable)
         const Dispenser = await ethers.getContractFactory("Dispenser");
-        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer,
-            defaultMinStakingWeight, defaultMaxStakingIncentive);
+        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
         await dispenserMaster.deployed();
 
         // Deploy dispenser proxy; Vote Weighting address is a placeholder until the mock is deployed below
@@ -218,24 +215,6 @@ describe("DispenserStakingIncentives", async () => {
             await expect(
                 vw.removeNominee(stakingInstance.address, chainId)
             ).to.be.revertedWithCustomError(dispenser, "Overflow");
-        });
-
-        it("Changing staking parameters", async () => {
-            // Should fail when not called by the owner
-            await expect(
-                dispenser.connect(signers[1]).changeStakingParams(0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
-
-            // Set arbitrary parameters
-            await dispenser.changeStakingParams(10, 10);
-
-            // Trying to set parameters to zero
-            await expect(
-                dispenser.changeStakingParams(0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
-            await expect(
-                dispenser.changeStakingParams(10, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
 
         it("Should fail when setting deposit processors and chain Ids with incorrect parameters", async () => {
@@ -569,22 +548,32 @@ describe("DispenserStakingIncentives", async () => {
                     bridgePayloads, [0, 1])
             ).to.be.revertedWithCustomError(dispenser, "WrongAmount");
 
-            // Change dispenser staking params
-            await dispenser.changeStakingParams(1, 1);
+            // maxNumClaimingEpochs and maxNumStakingTargets are fixed at initialize(); deploy a
+            // small-bounds dispenser (1, 1) to exercise the input-bound Overflow checks
+            const Dispenser = await ethers.getContractFactory("Dispenser");
+            const dispenserSmallMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
+            await dispenserSmallMaster.deployed();
+            const dispenserSmallData = dispenserSmallMaster.interface.encodeFunctionData("initialize",
+                [treasury.address, vw.address, 1, 1]);
+            const DispenserProxy = await ethers.getContractFactory("DispenserProxy");
+            const dispenserSmallProxy = await DispenserProxy.deploy(dispenserSmallMaster.address, dispenserSmallData);
+            await dispenserSmallProxy.deployed();
+            const dispenserSmall = await ethers.getContractAt("Dispenser", dispenserSmallProxy.address);
+
             // Too many staking targets
             await expect(
-                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[1], stakingTargets[0]]],
+                dispenserSmall.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[1], stakingTargets[0]]],
                     [bridgePayloads[0]], [valueAmounts[0]])
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
 
             // Too many epochs to claim for
             await expect(
-                dispenser.claimStakingIncentivesBatch(numClaimedEpochs + 1, chainIds, stakingTargetsFinal,
+                dispenserSmall.claimStakingIncentivesBatch(numClaimedEpochs + 1, chainIds, stakingTargetsFinal,
                     bridgePayloads, valueAmounts)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
             await expect(
-                dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTargets[0], bridgePayloads[0])
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+                dispenserSmall.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTargets[0], bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
 
             // Trying to claim when staking is paused
             await dispenser.setPauseState(2);

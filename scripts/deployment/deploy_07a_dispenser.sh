@@ -11,8 +11,6 @@
 #   olasAddress            : OLAS token address
 #   tokenomicsProxyAddress : Tokenomics PROXY address (implementation immutable)
 #   retainerAddress        : retainer in bytes32 form
-#   minStakingWeight       : default min staking weight (bounded by uint16)
-#   maxStakingIncentive    : default max staking incentive (bounded by uint96)
 # Globals fields written:
 #   dispenserAddress       : deployed Dispenser implementation address (consumed by deploy_07b_*)
 
@@ -49,8 +47,6 @@ fi
 olasAddress=$(jq -r '.olasAddress' $globals)
 tokenomicsProxyAddress=$(jq -r '.tokenomicsProxyAddress' $globals)
 retainerAddress=$(jq -r '.retainerAddress' $globals)
-minStakingWeight=$(jq -r '.minStakingWeight' $globals)
-maxStakingIncentive=$(jq -r '.maxStakingIncentive' $globals)
 
 if [ -z "$tokenomicsProxyAddress" ] || [ "$tokenomicsProxyAddress" == "null" ] \
    || [ "$tokenomicsProxyAddress" == "0x0000000000000000000000000000000000000000" ]; then
@@ -60,7 +56,7 @@ fi
 
 contractName="Dispenser"
 contractPath="contracts/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $tokenomicsProxyAddress $retainerAddress $minStakingWeight $maxStakingIncentive"
+constructorArgs="$olasAddress $tokenomicsProxyAddress $retainerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -95,9 +91,25 @@ fi
 # Write new deployed contract back into JSON
 echo "$(jq '. += {"dispenserAddress":"'$dispenserAddress'"}' $globals)" > $globals
 
+# Lock the standalone implementation: claim its (inert) storage owner so nobody else can initialize() it.
+# The implementation is only ever delegatecall-ed by the proxy against the PROXY's storage, so the impl's own
+# storage is never used and these are throwaway values (Vote Weighting is allowed to be zero at initialize).
+# This sets owner != 0 on the impl, making a later initialize() revert AlreadyInitialized. Best-effort (the
+# impl holds no funds and cannot affect the proxy, so an unlocked impl is harmless — this just removes the question).
+zeroAddress="0x0000000000000000000000000000000000000000"
+echo "${green}Locking the implementation (initialize on the impl itself)...${reset}"
+lockResult=$(cast send --rpc-url $networkURL$API_KEY $walletArgs $dispenserAddress \
+  "initialize(address,address,uint256,uint256)" $deployer $zeroAddress 1 1)
+lockStatus=$(echo "$lockResult" | grep -iE '^status' | grep -oiE '1 \(success\)|0 \(failed\)')
+if [ -z "$lockStatus" ] || [[ "$lockStatus" == 0* ]]; then
+  echo "${red}!!! Implementation lock tx did not succeed — impl left unlocked. Harmless (the impl cannot affect the proxy), but investigate.${reset}"
+else
+  echo "${green}Implementation locked (status: $lockStatus)${reset}"
+fi
+
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$dispenserAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,bytes32,uint256,uint256)" $constructorArgs)"
+  contractParams="$dispenserAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,bytes32)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
