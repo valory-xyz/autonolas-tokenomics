@@ -126,11 +126,10 @@ contract LiquidityManagerIncreaseDeadBandForkETHTest is BaseSetup {
         }
         console2.log("=== dead band observed within the gate:", anyDeadBand ? 1 : 0, "===");
 
-        // PROOF (review #306.1): on the current code the dead band is real — at least one cell is inside the
-        // 10% pre-flight gate yet increaseLiquidity reverts. Observed to trigger at <1% deviation for the
-        // narrowest range. This confirms the finding and motivates re-anchoring amountMin to slot0.
-        // NOTE: once the fix lands (amountMin derived from the execution price, not the TWAP), invert this to
-        // assertFalse(anyDeadBand) so it becomes the regression guard.
-        assertTrue(anyDeadBand, "expected the pre-fix TWAP-anchored amountMin dead band within the gate");
+        // REGRESSION GUARD (review #306.1): amountMin is now anchored to slot0 (the execution price) on both
+        // entry paths (mint and increase), so no cell inside the 10% pre-flight gate should have the entry
+        // revert. Before the fix this sweep produced dead-band cells at 0.65%-6.95% deviation for narrow ranges
+        // (half-widths 120/600/1800); the fix must keep this empty.
+        assertFalse(anyDeadBand, "dead band within the gate after the slot0 re-anchor - regression");
     }
 }

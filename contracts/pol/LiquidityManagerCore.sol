@@ -390,12 +390,40 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         emit LiquidityDecreased(positionId, amountsOut, liquidity);
     }
 
+    /// @dev slot0-anchored min amounts for an entry into [tickLower, tickUpper] with the given desired amounts.
+    /// @notice Mirrors what the position manager does at execution (getLiquidityForAmounts then
+    ///         getAmountsForLiquidity at slot0), so amountMin is always satisfiable at the price the mint /
+    ///         increase executes at — the fix for the TWAP-vs-slot0 dead band (finding #306.1). The range stays
+    ///         placed around the TWAP center; only the floor moves to slot0, exactly as _decreaseLiquidity does
+    ///         on the exit. Manipulation resistance stays in the pre-flight checkPoolAndGetCenterPrice gate.
+    /// @param slot0SqrtPriceX96 slot0 (execution) sqrt price.
+    /// @param tickLower Lower tick of the position range.
+    /// @param tickUpper Upper tick of the position range.
+    /// @param desired Desired input amounts forwarded to the position manager.
+    /// @return aMin Slippage-floored min amounts, anchored to slot0.
+    function _slot0MinAmounts(uint160 slot0SqrtPriceX96, int24 tickLower, int24 tickUpper, uint256[] memory desired)
+        internal
+        view
+        returns (uint256[] memory aMin)
+    {
+        uint160 sqrtLower = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtUpper = TickMath.getSqrtRatioAtTick(tickUpper);
+        uint128 liquidity =
+            LiquidityAmounts.getLiquidityForAmounts(slot0SqrtPriceX96, sqrtLower, sqrtUpper, desired[0], desired[1]);
+        aMin = new uint256[](2);
+        (aMin[0], aMin[1]) =
+            LiquidityAmounts.getAmountsForLiquidity(slot0SqrtPriceX96, sqrtLower, sqrtUpper, liquidity);
+        aMin[0] = aMin[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        aMin[1] = aMin[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+    }
+
     /// @dev Increases liquidity for a position.
-    /// @notice The center sqrt price is the caller's checkPoolAndGetCenterPrice (TWAP) result, so the
-    ///         liquidity math and the amountMin floor anchor to a verified price, not the manipulable slot0.
+    /// @notice The liquidity math and the amountMin floor anchor to slot0 (the exact price the position manager
+    ///         executes at), not the TWAP center — the entry analog of _decreaseLiquidity's _getExitSqrtPrice.
+    ///         Manipulation resistance lives in the caller's checkPoolAndGetCenterPrice pre-flight gate.
     /// @param positionId Position Id.
     /// @param inputAmounts Input amounts.
-    /// @param sqrtPriceX96 Center (TWAP-derived) sqrt price.
+    /// @param sqrtPriceX96 slot0 (execution) sqrt price.
     /// @return liquidity Decreased liquidity amount.
     /// @return amountsIn Amounts in liquidity.
     function _increaseLiquidity(uint256 positionId, uint256[] memory inputAmounts, uint160 sqrtPriceX96)
@@ -567,10 +595,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Get min amounts
-        uint256[] memory aMin = new uint256[](2);
-        aMin[0] = amountsIn[0] * (MAX_BPS - maxSlippage) / MAX_BPS;
-        aMin[1] = amountsIn[1] * (MAX_BPS - maxSlippage) / MAX_BPS;
+        // Range placement stays anchored to the TWAP center (sqrtP, manipulation-resistant), but amountMin is
+        // anchored to slot0 — the exact price NPM.mint() executes at. Otherwise a slot0 != TWAP within the 10%
+        // gate creates a dead band where the pre-flight guard accepts but the mint reverts (finding #306.1).
+        // Mirrors _decreaseLiquidity; manipulation resistance stays in the caller's checkPoolAndGetCenterPrice.
+        (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(_getV3Pool(tokens, feeTierOrTickSpacing));
+        uint256[] memory aMin = _slot0MinAmounts(slot0Sqrt, optimizedTicks[0], optimizedTicks[1], amountsIn);
 
         // Mint V3 position
         (positionId, liquidity, amountsIn) =
@@ -752,8 +782,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             // Increase observation cardinality
             IUniswapV3(v3Pool).increaseObservationCardinalityNext(observationCardinality);
         } else {
-            // Increase liquidity with actual ticks, since position already exists (anchor to TWAP center)
-            (liquidity, amounts) = _increaseLiquidity(positionId, amounts, sqrtP);
+            // Position already exists: increase liquidity. sqrtP (checkPoolAndGetCenterPrice) above is the
+            // pre-flight manipulation gate; anchor the increase's amountMin to slot0 (the execution price) to
+            // avoid the #306.1 dead band, mirroring _decreaseLiquidity.
+            (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(v3Pool);
+            (liquidity, amounts) = _increaseLiquidity(positionId, amounts, slot0Sqrt);
         }
 
         // Manage token leftovers - transfer both to treasury
@@ -1021,15 +1054,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Check current pool prices and capture the TWAP center (fails closed on an unverifiable pool)
-        uint160 sqrtP = checkPoolAndGetCenterPrice(pool);
+        // Pre-flight manipulation gate (fails closed on an unverifiable pool or slot0 > 10% off the TWAP)
+        checkPoolAndGetCenterPrice(pool);
+        // Anchor the liquidity math and amountMin to slot0 (the price the position manager executes at), not the
+        // TWAP center — the entry analog of _decreaseLiquidity's _getExitSqrtPrice; fixes the #306.1 dead band.
+        (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(pool);
 
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
         IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
 
-        // Increase liquidity (amountMin anchored to the TWAP center)
-        (liquidity, amounts) = _increaseLiquidity(positionId, amounts, sqrtP);
+        // Increase liquidity (amountMin anchored to slot0)
+        (liquidity, amounts) = _increaseLiquidity(positionId, amounts, slot0Sqrt);
 
         // Manage token leftovers - transfer both to treasury
         _manageUtilityAmounts(tokens, MAX_BPS, false);
