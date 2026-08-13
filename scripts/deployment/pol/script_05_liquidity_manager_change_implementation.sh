@@ -41,13 +41,15 @@ liquidityManagerAddress=$(jq -r '.liquidityManagerAddress' $globals)
 liquidityManagerProxyAddress=$(jq -r '.liquidityManagerProxyAddress' $globals)
 
 # Guard against a misconfigured globals file — changeImplementation(0x0/null) would brick the proxy
-if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ]; then
-  echo "${red}!!! liquidityManagerAddress is empty in $globals — deploy the new implementation first${reset}"
-  exit 0
+if [ -z "$liquidityManagerAddress" ] || [ "$liquidityManagerAddress" == "null" ] \
+   || [ "$liquidityManagerAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! liquidityManagerAddress is empty/zero in $globals — deploy the new implementation first${reset}"
+  exit 1
 fi
-if [ -z "$liquidityManagerProxyAddress" ] || [ "$liquidityManagerProxyAddress" == "null" ]; then
-  echo "${red}!!! liquidityManagerProxyAddress is empty in $globals${reset}"
-  exit 0
+if [ -z "$liquidityManagerProxyAddress" ] || [ "$liquidityManagerProxyAddress" == "null" ] \
+   || [ "$liquidityManagerProxyAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! liquidityManagerProxyAddress is empty/zero in $globals${reset}"
+  exit 1
 fi
 
 # Check for Alchemy keys
@@ -82,3 +84,22 @@ echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)
 echo "$result" | grep "status"
+
+# Assert the tx succeeded — a reverted changeImplementation would otherwise print a status line and look done
+txStatus=$(echo "$result" | grep -iE '^status' | grep -oiE '1 \(success\)|0 \(failed\)')
+if [ -z "$txStatus" ] || [[ "$txStatus" == 0* ]]; then
+  echo "${red}!!! changeImplementation transaction did not succeed${reset}"
+  exit 1
+fi
+
+# Post-condition: read back the implementation slot and confirm the swap actually landed. The proxy stores the
+# implementation at keccak256("PROXY_LIQUIDITY_MANAGER"). This is the only safety net for a single-signer upgrade.
+implSlot="0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
+storedRaw=$(cast storage $liquidityManagerProxyAddress $implSlot --rpc-url $networkURL$API_KEY)
+storedImpl="0x${storedRaw: -40}"
+echo "  implementation slot -> $storedImpl (must be $liquidityManagerAddress)"
+if [ "$(echo $storedImpl | tr '[:upper:]' '[:lower:]')" != "$(echo $liquidityManagerAddress | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "${red}!!! Implementation slot does not match liquidityManagerAddress — the upgrade did not land${reset}"
+  exit 1
+fi
+echo "${green}LiquidityManager implementation upgraded and verified${reset}"
