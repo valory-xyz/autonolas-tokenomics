@@ -46,6 +46,49 @@ the BBB, not the impl** — the BBB calls `liquidityManager.factoryV3()` at runt
 proxy delegatecall-reads the impl's immutables. Wiring the impl directly would break a future
 `changeImplementation()` upgrade.
 
+## Upgrading the implementation (`changeImplementation`)
+
+To roll a new `LiquidityManager*` implementation onto an **already-deployed** proxy (e.g. the
+price-guard fail-closed fix), do **not** deploy a fresh proxy — swap the impl behind the existing
+one:
+
+```bash
+# 1. Deploy the new implementation (writes liquidityManagerAddress in globals):
+./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh eth_mainnet
+# 2. Point the proxy at it:
+./scripts/deployment/pol/script_05_liquidity_manager_change_implementation.sh eth_mainnet
+```
+
+- **Owner = deployer EOA.** The LM proxies are still owned by the Autonolas deployer (ownership was
+  left with the deployer while POL is not operational), so `changeImplementation` is a plain
+  single-signer `cast send`, **not** a Timelock/DAO proposal.
+- **Storage-safe.** The fail-closed fix changes only function bodies + one `error` (no storage layout
+  change), so the swap preserves proxy storage. Do **not** re-run `deploy_01` (scanner) or `deploy_03`
+  (proxy).
+- **Ordering — upgrade before seeding.** The fixed guard is **fail-closed**: the first `convertToV3`
+  reverts (`NotEnoughHistory`) on a brand-new / quiet pool. So the pool must be **pre-warmed** before the
+  first seed. Deploy the fixed impl first, then, **before** running the seed:
+  1. create + initialize the V3 pool at the true price;
+  2. pre-seed real wide-range liquidity (so `slot0` is no longer free to move);
+  3. `increaseObservationCardinalityNext(N)` with **N sized so the buffer spans ≥ 1800s at the pool's PEAK
+     swap rate**, not just today's — each swap that changes the tick overwrites the oldest observation, so a
+     buffer that spans ≥ 1800s at current churn can wrap below 1800s during a volatility burst. This is a
+     **hard release gate with a per-pool number**, not a confirm-once step (`N ≥ ceil(1800 / min_block_time)
+     × peak_ticks_crossed_per_block`, rounded up generously). Let trades populate the buffer;
+  4. confirm off-chain that `observe([1800, 0])` succeeds, the latest observation is younger than 1800s, and
+     the buffer spans ≥ 1800s. **Why this is load-bearing:** if the buffer ever spans < 1800s, `observe(1800)`
+     reverts, `_getExitSqrtPrice` fails open to raw `slot0`, and the exit deviation gate silently switches off.
+     A front-run swap re-activating the pool does **not** rescue this branch — writing an observation shortens
+     the buffer's span, it does not extend it. (The *inactive*-pool fail-open is self-defeating for an attacker;
+     this buffer-wrap one is not, which is why N must be sized for peak churn up front.);
+  5. **hand proxy ownership to the Timelock / `BridgeMediator`.** The EOA-ownership above is justified only
+     while POL is not operational — seeding makes the LM custodial, so ownership must be the DAO **before**
+     the first seed (this is what the "inert to non-owners, owner is the DAO" safety framing rests on).
+
+  Never seed POL on the un-upgraded impl, and never seed into an EOA-owned proxy. See the full
+  [V2 → V3 migration runbook](../../../docs/liquidity_migration_runbook.md) for the complete pre-warm,
+  oracle warm-up, cross-chain LP transfer, and pre-flight checklist.
+
 ## Globals fields
 
 | Field | Consumed by | Notes |
