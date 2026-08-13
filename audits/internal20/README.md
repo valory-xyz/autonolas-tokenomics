@@ -7,7 +7,7 @@ accompanying deployment runbook / audit-diff (docs). POL subsystem: `convertToV3
 `checkPoolAndGetCenterPrice` / `getTwapFromOracle` / `_getExitSqrtPrice`, plus the permissionless
 `BuyBackBurner.buyBack` V3 path that reuses the same guard.
 
-**Verdict: PASS — 0 Critical / 0 High / 0 Medium.** 5 findings, all Info/Low, none blocking (R1–R5).
+**Verdict: PASS — 0 Critical / 0 High / 0 Medium.** 6 findings, all Info/Low, none blocking (R1–R6).
 The remediation correctly converts the price guard from *fail-open* to *fail-closed* on entries and to a
 *deviation-gated soft floor* on exits, closes the fee-collection scope-burn, and is storage-layout safe
 for a `changeImplementation` upgrade.
@@ -23,8 +23,8 @@ remediation:
 
 | Change | Effect |
 |---|---|
-| **FIX-1** — `checkPoolAndGetCenterPrice` fail-closed | On an unverifiable pool the entry path now **reverts** (`NotEnoughHistory`) instead of returning `slot0`; when a TWAP exists it reverts if `|slot0 − TWAP| / TWAP > MAX_ALLOWED_DEVIATION` (10%) and returns the **TWAP-derived** price for minting. |
-| **FIX-2a** — `_increaseLiquidity` anchor | `amountMin` and the liquidity math are anchored to the caller's TWAP center (passed as a typed parameter), not the manipulable `slot0`. |
+| **FIX-1** — `checkPoolAndGetCenterPrice` fail-closed | On an unverifiable pool the entry path now **reverts** (`NotEnoughHistory`) instead of returning `slot0`; when a TWAP exists it reverts if `|slot0 − TWAP| / TWAP > MAX_ALLOWED_DEVIATION` (10%) and returns the **TWAP-derived** center price used to place the mint range (the amount-space floor is anchored separately to `slot0` — FIX-2a). |
+| **FIX-2a** — entry `amountMin` anchor (mint **and** increase) | On both entry paths — the initial mint (`_optimizeTicksAndMintPosition`) and `_increaseLiquidity` — `amountMin` and the liquidity math are anchored to **`slot0`** (the price the NPM actually executes at) via the new `_slot0MinAmounts` helper, while range **placement** stays on the manipulation-resistant TWAP center. Anchoring the floor to the TWAP while the NPM mints at `slot0` created an in-gate dead band (finding #306.1); manipulation resistance is retained in the FIX-1 pre-flight deviation gate, so the floor is always satisfiable at the executed price. |
 | **FIX-2b** — `_getExitSqrtPrice` soft floor | New exit/maintenance price source: reverts on `slot0`-vs-TWAP deviation `>10%` on a **verifiable** pool, else skips the gate (fail-open) so a withdrawal is **always possible** on a quiet pool; returns raw `slot0` (the exact price the position manager withdraws at). |
 | **FIX-3** — `collectFees` scope-burn | New `_manageCollectedAmounts` burns/transfers only the **just-collected** fees, not `balanceOf(this)`, so separately-staged OLAS is no longer griefable and the donation-inflation vector is closed; the guard is removed from `collectFees` (fee collection consumes no price and must stay live). |
 | **FIX-5** — cleanup | Rename `oldestTimestamp -> latestObsTimestamp` (the value read is the *latest* observation, not the oldest — the old name was a misnomer) and removal of the now-unused `_getObservationCardinality` helper. |
@@ -54,7 +54,7 @@ are safe on an unverifiable pool therefore covers **all** of C.
 | C2 | entry on a stale/inactive matured pool | entry | **CLOSED** — inactive revert |
 | C3 | permissionless `BuyBackBurner.buyBack` V3 path | entry (same guard) | **CLOSED** — inherits C1/C2/C4 |
 | C4 | entry on a mature pool, single-block `slot0` push | entry | **CLOSED** — deviation gate reverts `>10%`, prices off TWAP |
-| C5 | `_increaseLiquidity` `amountMin` spot-anchored | entry | **CLOSED** — anchored to TWAP center |
+| C5 | entry `amountMin` spot-anchored (mint + `_increaseLiquidity`) | entry | **CLOSED** — anchored to `slot0` (execution price) via `_slot0MinAmounts`; the interim TWAP-center anchor is what caused the #306.1 dead band, now removed (see R6 — the deviation gate is the sole entry defence) |
 | C6 | `decreaseLiquidity` withdraw-sandwich | exit | **BOUNDED** — §2.1 |
 | C7 | `collectFees` burn-all + donation-inflation | none (no price) | **CLOSED** — burns only collected |
 | C8 | cardinality/stale liveness | entry | **ACCEPTED** self-healing residual — R1 |
@@ -101,15 +101,16 @@ A fix to a fail-open guard can introduce a new bug only by (M1) locking funds, (
 | Δ added | New-bug candidate | Refutation |
 |---|---|---|
 | New reverts `NotEnoughHistory` / deviation `Overflow` | DoS on a quiet/volatile pool | Self-healing: one swap repopulates the buffer / re-convergence clears the gate. Blocks only **entries/trades** (M4); exits unaffected on a quiet pool, only *temporarily* blocked on a genuine extreme move (M1 holds — retry). No permanent lock. |
-| `_getExitSqrtPrice` soft floor | withdraw-sandwich | Refuted by L1: attacker's front-run self-defeats the fail-open; quiet residual is capital-bounded. |
+| `_getExitSqrtPrice` soft floor | withdraw-sandwich | Refuted by L1: attacker's front-run self-defeats the fail-open; quiet residual is capital-bounded. Stronger still, `decreaseLiquidity` is not sandwichable in either direction **independent of the gate**: an LP basket burned at a manipulated `Pm` and valued at the true `Pt` has `dV/dPm = (L / 2√Pm)·(1 − Pt/Pm)` — negative below `Pt`, positive above — so any manipulation hands the LM a basket worth **more** at the true price. Verified on the buffer-wrap branch (#306.2), where the gate is provably off yet measured loss is 0 bps. |
 | `amountMin` = `amounts(slot0)·(1−maxSlippage)` on exit | "the min protects nothing" | By design — the min is *not* the exit's manipulation defence (the deviation gate is); it only guards intra-tx price drift (nil in one atomic tx). Intended, not a regression; the gate is strictly *added* protection. |
 | `collectFees` scope-burn | burns less → strands OLAS? | Strictly safer than burn-all: staged OLAS no longer griefable, donation-inflation closed. Removes value-loss, adds none; permissionless preserved (M2). |
-| TWAP anchor on `_increaseLiquidity` | stricter min → DoS legit increase? | On a verifiable pool (required post-FIX-1) TWAP ≈ `slot0` within 10%, so a fair increase satisfies the min; on an unverifiable pool the entry already reverted at FIX-1. |
+| slot0 anchor on entry `amountMin` (mint + increase) | "the min protects nothing" | By design: post-fix the desired amounts and the floor are both computed at `slot0` in the executing tx, so `amount{0,1}Min` is **vacuous** (can never bind) — matching pre-#306 behaviour and upstream V3 integrations. This removes the #306.1 dead band and makes the FIX-1 pre-flight deviation gate (`MAX_ALLOWED_DEVIATION` = 10%) the **sole** entry manipulation defence. That is intentional, but it means the parameter deserves review as a security parameter, not a sanity bound (recorded as R6). |
 | `staticcall(this.getTwapFromOracle)` | reentrancy | `view` staticcall — cannot mutate state or reenter; all state-changing externals keep the single `_locked` latch. |
 | new `error` + local rename | storage-layout shift → upgrade corruption | Errors/locals occupy no storage; base↔fix state-variable layout is identical (slot0 `owner`/`maxSlippage`/`_locked`, slot1 map). `changeImplementation` is storage-safe. |
 
 Each Δ maps to a refuted candidate; no added behaviour is left unaccounted. The fix is a **conservative
-delta** — it only adds reverts on unverifiable entries, tightens an anchor, narrows a burn, and adds an
+delta** — it only adds reverts on unverifiable entries, re-anchors the entry floor to the execution price
+(closing the #306.1 dead band), narrows a burn, and adds an
 always-exitable exit gate. **No new bug.**
 
 The three non-obvious "can't-fix-both" traps are individually avoided: fail-closing the exit (would lock
@@ -175,6 +176,17 @@ instead.
   (Minor sub-note: the OLAS leg uses plain `transfer` while the second token uses `safeTransfer` — safe
   because OLAS is trusted, but `safeTransfer` on both is the fail-safe default; pre-existing.)
 
+- **R6 (Info, security parameter) — post-fix, `MAX_ALLOWED_DEVIATION` is the *sole* entry manipulation
+  defence.** The #306.1 fix anchors `amount{0,1}Min` on both entry paths to `slot0` (the execution price),
+  so the amount-space floor is **vacuous by construction** — desired amounts and floor are computed at the
+  same `slot0` in the executing tx, so it can never bind (this is correct, and matches pre-#306 behaviour and
+  upstream V3 integrations; it is what removes the dead band). Manipulation resistance therefore rests
+  **entirely** on the FIX-1 pre-flight deviation gate: an entry reverts iff `|slot0 − TWAP| / TWAP >
+  MAX_ALLOWED_DEVIATION` (10%, price space). Intentional, but it promotes the constant from a sanity bound to
+  a security parameter — it alone bounds how far a single-block `slot0` manipulation can move a mint/increase
+  price. Review the 10% value against the shallowest POL pool's single-block manipulability, and treat any
+  future change to it as a security change (not a tuning knob).
+
 **Accepted residuals (documented, self-healing, no funds at risk):** quiet-pool → entries/buyBack revert
 until the next swap; a genuine extreme move → exit temporarily reverts until re-convergence. Both never lock
 funds.
@@ -189,7 +201,7 @@ invariant the compiler does not enforce. This is codified secure-design doctrine
 Schroeder's *fail-safe defaults* (every path defaults to deny/safe) and *economy of mechanism* (small enough
 to verify); the *temporal-coupling* anti-pattern ("correct only if X was called first, unenforced");
 *make-illegal-states-unrepresentable* (type-driven design); and the general guidance to validate assumptions
-at the point of use, not by caller convention. None of R1–R5 is a live bug; each closes a latent
+at the point of use, not by caller convention. None of R1–R6 is a live bug; each closes a latent
 robustness/maintenance gap before any future change to the POL subsystem.
 
 ---
