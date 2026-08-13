@@ -13,6 +13,11 @@ pragma solidity ^0.8.30;
 // testCheckPoolAndGetCenterPrice_FlashManipulationReverts, extended to the exit
 // path (_getExitSqrtPrice) which #306's soft floor relies on.
 //
+// Caveat: the attack step drives slot0 via vm.mockCall, not a real swap, so real pool mechanics on the
+// attack leg (tick crossing, observation writes) are not exercised — only the read the gate performs. The
+// pool, its observation history and the honest-exit leg are real-forked; the mock isolates the slot0 jump
+// while leaving observations() (hence the 30-min TWAP) untouched, which is the property under test.
+//
 // Run: forge test --mc LiquidityManagerExitSandwichFork --fork-url $ETH_RPC -vvv
 // =============================================================================
 
@@ -57,8 +62,9 @@ contract LiquidityManagerExitSandwichForkTest is BaseSetup {
             abi.encode(manip, int24(0), realObsIdx, uint16(60), uint16(60), uint8(0), true)
         );
 
-        // L1: the owner's exit under the sandwich must REVERT (Overflow deviation gate).
-        vm.expectRevert();
+        // L1: the owner's exit under the sandwich must REVERT with the deviation gate's Overflow selector
+        // specifically (a bare expectRevert would pass on any revert, including an unrelated one).
+        vm.expectPartialRevert(bytes4(keccak256("Overflow(uint256,uint256)")));
         liquidityManager.decreaseLiquidity(TOKENS, FEE_TIER, 1000, 0);
 
         vm.clearMockedCalls();
