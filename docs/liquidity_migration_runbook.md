@@ -36,9 +36,13 @@ position, sweeping leftovers to the treasury.
    reserves / current price.
 3. **Pre-warm the V3 pool** (§5): add real wide-range liquidity and let arbitrage / trades populate the
    pool's built-in observation history. This is required for the fail-closed mint-side TWAP guard (§3).
-4. **Deploy `LiquidityManagerETH` + `LiquidityManagerProxy`; set Timelock as owner** (or upgrade the
-   existing proxy to the fixed impl via `changeImplementation`, deployment README).
-5. **Transfer V2 LP from Treasury → LiquidityManager** (DAO vote: `Treasury.withdraw(LM, amount, pair)`).
+4. **Deploy `LiquidityManagerETH` + `LiquidityManagerProxy`; set Timelock as owner** (or, on the existing
+   proxies, upgrade to the fixed impl via `changeImplementation`, deployment README). **Either way, proxy
+   ownership must be the Timelock before any POL is seeded** — the EOA-ownership is justified only while POL
+   is not operational (seeding makes the LM custodial), and this is exactly what the "inert to non-owners,
+   owner is the DAO" safety framing and VL#26's "no funds at risk" rest on.
+5. **Transfer V2 LP from Treasury → LiquidityManager** (DAO vote: `Treasury.withdraw(LM, amount, pair)`) —
+   only after step 4's ownership handover to the Timelock.
 6. **`convertToV3(...)`** with tick shifts defined from the actual center price (DAO).
 
 ### 1.2 Base and other L2s (Balancer → Slipstream / Uniswap V3)
@@ -50,7 +54,9 @@ position, sweeping leftovers to the treasury.
    price.
 4. **Pre-warm the V3 pool** (§5) — build observation history and keep the price correct via arbitrage.
 5. **Deploy `LiquidityManagerOptimism` + `LiquidityManagerProxy`; set the chain's `BridgeMediator` as
-   owner** (or upgrade the existing proxy to the fixed impl).
+   owner** (or upgrade the existing proxy to the fixed impl). **Ownership must be the `BridgeMediator`
+   before seeding (step 6)** — same reason as §1.1: seeding makes the LM custodial, so it cannot land in an
+   EOA-owned proxy.
 6. **Transfer V2 LP from Treasury → LiquidityManager via the Wormhole Token Bridge** — Timelock-direct,
    `value 0`, `l2Recipient = LiquidityManagerProxy`; redeem the VAA on L2 (§2).
 7. **`convertToV3(...)`** with tick shifts from the actual center price (DAO on L2).

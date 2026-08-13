@@ -72,9 +72,12 @@ one:
   2. pre-seed real wide-range liquidity (so `slot0` is no longer free to move);
   3. `increaseObservationCardinalityNext(N)` and let trades populate the observation buffer;
   4. confirm off-chain that `observe([1800, 0])` succeeds, the latest observation is younger than 1800s,
-     and the buffer spans ≥ 1800s.
+     and the buffer spans ≥ 1800s;
+  5. **hand proxy ownership to the Timelock / `BridgeMediator`.** The EOA-ownership above is justified only
+     while POL is not operational — seeding makes the LM custodial, so ownership must be the DAO **before**
+     the first seed (this is what the "inert to non-owners, owner is the DAO" safety framing rests on).
 
-  Never seed POL on the un-upgraded impl. See the full
+  Never seed POL on the un-upgraded impl, and never seed into an EOA-owned proxy. See the full
   [V2 → V3 migration runbook](../../../docs/liquidity_migration_runbook.md) for the complete pre-warm,
   oracle warm-up, cross-chain LP transfer, and pre-flight checklist.
 
