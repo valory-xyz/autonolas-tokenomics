@@ -187,6 +187,66 @@ instead.
   price. Review the 10% value against the shallowest POL pool's single-block manipulability, and treat any
   future change to it as a security change (not a tuning knob).
 
+  ### R6 addendum — the review R6 asks for, run against live mainnet state
+
+  Read from Ethereum mainnet at block **25,747,913** (2026-08-13):
+
+  - The POL to migrate is the Treasury's V2 OLAS/WETH LP position in pair
+    `0x09D1d767eDF8Fa23A64C51fa559E0688E526812F` — **99.986%** of the pair's supply, i.e. **23,383,332 OLAS
+    + 309.01 WETH ≈ 618 WETH** total value, at a spot of `1.3215e-5` WETH/OLAS.
+  - The 0.3% V3 OLAS/WETH pool (the tier `convertToV3` and the fork tests use) **does not exist yet**. The
+    only OLAS/WETH V3 pool today is the 1% tier (`0x18f7B33172F5150949EeF05EbB3b5D4Fe245f391`) and its
+    active `liquidity()` is **0**.
+
+  So the pool the guard protects will be seeded by this POL and effectively nothing else: **its depth is our
+  own position**. That makes "the shallowest POL pool" concrete, and the manipulability question answerable
+  in closed form rather than by rule of thumb.
+
+  **Cost to obtain the maximum deviation the gate permits.** Concentrating the POL over the runbook's
+  `-25000 / +15000` tick range gives `L = min(x/(1/√P − 1/√B), y/(√P − √A))`, WETH-side binding. Pushing
+  `slot0` by `dev` costs `L·(√P·√(1+dev) − √P)` in WETH (up) or the token0 mirror (down):
+
+  | deviation | capital in | round-trip fee @ 0.3% |
+  |---|---|---|
+  | 2% | 4.3 WETH | 0.03 WETH |
+  | **10% (the gate's limit)** | **21.1 WETH** | **0.13 WETH** |
+
+  The capital is flash-loanable and returns on the reversal, so the real cost of buying the maximum permitted
+  manipulation is **~0.13 WETH — about 0.02% of the position it is attacking**.
+
+  **What the manipulation extracts.** LM loss for an entry minted at a manipulated `slot0`, measured as the
+  position unwound at the *true* price plus the leftovers swept to treasury, against the honest-mint baseline
+  of 618.02 WETH:
+
+  | slot0 deviation | LM value | LM loss | loss (bps) | attacker fee |
+  |---|---|---|---|---|
+  | ±1% | 618.01 | 0.01 WETH | 0.2 | 0.01 WETH |
+  | ±2% | 617.98 | 0.04 WETH | 0.7 | 0.03 WETH |
+  | ±5% | 617.73–617.77 | 0.25–0.30 WETH | 4–5 | 0.07 WETH |
+  | **±10%** | **616.73–617.10** | **0.92–1.30 WETH** | **15–21** | 0.14 WETH |
+
+  (LM loss is the harm measure; attacker profit is bounded above by it, since part of the divergence is
+  deadweight rather than captured.)
+
+  **Conclusion — 10% is too loose, though the exposure is smaller than the cost ratio suggests.** At the
+  gate's limit an attacker nets roughly 0.8–1.2 WETH per entry for ~0.13 WETH of fees. Profitable, but a few
+  thousand dollars, and only against owner/DAO-gated operations (`convertToV3`, `increaseLiquidity`,
+  `changeRanges`) — per-operation exposure, not continuous.
+
+  **Recommendation: tighten `MAX_ALLOWED_DEVIATION` to 2–3% before any POL is seeded.** Loss scales roughly
+  with `dev²`, so 10% → 2% cuts extraction ~30× (21 bps → 0.7 bps) while the attacker's cost barely moves.
+  The liveness price is close to zero: on a pool that is ~100% our own liquidity, `slot0`-vs-30-minute-TWAP
+  should sit well below 1% outside genuine volatility, and the failure mode is the self-healing
+  revert-and-retry already accepted as a residual above.
+
+  Two caveats that argue for doing this **now**:
+
+  1. **The loss scales linearly with POL size.** The same 10% gets proportionally worse as POL grows; the
+     table above is a floor, not a ceiling.
+  2. **`MAX_ALLOWED_DEVIATION` is a `constant`**, so changing it costs an implementation deploy plus
+     `changeImplementation`. That is cheap today, before seeding — and materially less so once the proxies
+     are custodial.
+
 **Accepted residuals (documented, self-healing, no funds at risk):** quiet-pool → entries/buyBack revert
 until the next swap; a genuine extreme move → exit temporarily reverts until re-convergence. Both never lock
 funds.
