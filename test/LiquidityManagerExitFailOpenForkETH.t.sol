@@ -129,15 +129,73 @@ contract LiquidityManagerExitFailOpenForkETHTest is BaseSetup {
 
         console2.log("=== exit fail-open exploited for non-zero loss:", anyExploited ? 1 : 0, "===");
 
-        // FINDING (review #306.2): the fail-open exit branch is NOT exploitable for the LM's positions.
-        // Two structural reasons, both observed above:
+        // FINDING (review #306.2) — INACTIVE-pool fail-open trigger: NOT exploitable for the LM's positions.
         //  (1) the ENTRY guard fails closed, so the LM only holds positions on pools that were verifiable at
-        //      mint; the exit only meets fail-open when such a pool later goes INACTIVE.
+        //      mint; this exit only meets fail-open when such a pool later goes INACTIVE.
         //  (2) a sandwich attacker's front-run swap re-activates the pool (writes an observation), re-engaging
         //      the deviation gate against the still-stale TWAP: every manipulation large enough to move slot0
         //      past ~10% is caught (exit reverts Overflow), and every smaller one produces no measurable loss.
-        // So the "no empty-pool catastrophe" property holds empirically (via gate re-engagement, not a capital
-        // bound), and the optional owner-floor backstop is not required. Guard against regressions:
-        assertFalse(anyExploited, "fail-open exit produced a measurable loss - branch became exploitable");
+        // So on THIS trigger the "no empty-pool catastrophe" property holds via gate re-engagement, not a
+        // capital bound. NOTE: the SECOND fail-open trigger — observe(1800) reverting because the buffer wrapped
+        // below 1800s under churn — is genuinely reachable (re-activation does NOT rescue it), but the test
+        // below shows it still extracts no value from a decreaseLiquidity. Guard against regressions:
+        assertFalse(anyExploited, "inactive-pool fail-open exit produced a measurable loss - branch became exploitable");
+    }
+
+    /// @dev The OTHER fail-open trigger: observe(1800) reverts because the observation buffer no longer spans
+    ///      1800s (cardinality wrapped under churn). Unlike the inactive-pool branch, re-activation does NOT
+    ///      rescue it — a front-run swap writes an observation but that shortens the buffer's span, it does not
+    ///      extend it — so the exit deviation gate genuinely stays OFF (confirmed below: entry fails closed, and
+    ///      a 20M-OLAS manipulation the gate would otherwise catch does not revert the exit). And yet the LM
+    ///      loses no value: removing liquidity at a manipulated price returns amounts worth >= the fair value at
+    ///      the true price (the standard LP result — the exit amountMin guards the token SPLIT, not value). So
+    ///      the gate being off on this branch is not a value-extraction hole for decreaseLiquidity; the R1
+    ///      cardinality gate is defense-in-depth (keep the gate on, avoid the unbalanced-split residual), not a
+    ///      fix for a loss. Simulated by mocking observe() to revert while the pool stays active.
+    function test_exit_failOpen_bufferWrap_noValueLoss() public {
+        if (block.chainid != 1) {
+            vm.skip(true);
+            return;
+        }
+
+        int24[] memory tickShifts = new int24[](2);
+        tickShifts[0] = -6000;
+        tickShifts[1] = 6000;
+        liquidityManager.convertToV3(TOKENS, PAIR_V2_BYTES32, FEE_TIER, tickShifts, 0, false);
+        address pool = _pool();
+
+        // Honest price + baseline exit (pool verifiable, gate passes with no manipulation).
+        (uint160 sqrtP0,,,,,,) = IUniswapV3(pool).slot0();
+        uint256 price0 = _priceE18(sqrtP0);
+        uint256 snap = vm.snapshotState();
+        (, , uint256[] memory hAmts) = ILMExit(address(liquidityManager)).decreaseLiquidity(TOKENS, FEE_TIER, 2000, 0);
+        uint256 honestValue = _valueWeth(hAmts, price0);
+        vm.revertToState(snap);
+
+        // Buffer-wrap state: observe(1800) reverts while observations() (the inactivity check) still reads
+        // recent, so the pool is "active" but has no verifiable TWAP -> _getExitSqrtPrice fails open, no gate.
+        vm.mockCallRevert(pool, abi.encodeWithSelector(bytes4(keccak256("observe(uint32[])"))), bytes(""));
+
+        // Sanity: the entry guard fails closed here (a mint would refuse), but the exit falls open below.
+        bool entryFailsClosed;
+        try ILMExit(address(liquidityManager)).checkPoolAndGetCenterPrice(pool) { entryFailsClosed = false; }
+        catch { entryFailsClosed = true; }
+        assertTrue(entryFailsClosed, "entry should fail closed under a buffer-wrap");
+
+        // Attacker manipulates slot0 (a real swap; does not call observe(), so the mock persists), then the LM
+        // exits into the ungated fail-open branch at the manipulated price. This is a manipulation the deviation
+        // gate WOULD have caught on a verifiable pool (>10% off TWAP); here the gate is off, yet the exit does
+        // NOT revert — proving the branch is genuinely reachable, not gate-rescued like the inactive one.
+        _swap(OLAS, WETH, 20_000_000 ether);
+        (, , uint256[] memory aAmts) = ILMExit(address(liquidityManager)).decreaseLiquidity(TOKENS, FEE_TIER, 2000, 0);
+        uint256 attackedValue = _valueWeth(aAmts, price0); // withdrawn amounts valued at the HONEST price
+        uint256 lossBps = honestValue > attackedValue ? (honestValue - attackedValue) * 1e4 / honestValue : 0;
+        console2.log("buffer-wrap fail-open lossBps (at true price):", lossBps);
+
+        // No value extraction: even with the gate provably off, removing liquidity at the manipulated price
+        // returns amounts worth >= the fair value at the true price (the amountMin guards the token split, not
+        // value). So the buffer-wrap fail-open is reachable but not a decreaseLiquidity value-loss hole; R1
+        // (sizing observationCardinality for peak churn) is defense-in-depth, not a loss fix.
+        assertLe(lossBps, 10, "buffer-wrap fail-open should not extract value from a liquidity removal");
     }
 }
