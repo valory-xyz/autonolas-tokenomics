@@ -18,7 +18,7 @@ async function main() {
     const optimismDepositProcessorL1Address = parsedData.optimismDepositProcessorL1Address;
     const polygonDepositProcessorL1Address = parsedData.polygonDepositProcessorL1Address;
     const ethereumDepositProcessorAddress = parsedData.ethereumDepositProcessorAddress;
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
@@ -40,7 +40,7 @@ async function main() {
     const gnosisDepositProcessorL1 = await ethers.getContractAt("GnosisDepositProcessorL1", gnosisDepositProcessorL1Address);
     const optimismDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", optimismDepositProcessorL1Address);
     const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
-    const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
+    const dispenser = await ethers.getContractAt("Dispenser", dispenserProxyAddress);
 
     // Transaction signing and execution
     console.log("10. EOA to set deposit processors in Dispenser");

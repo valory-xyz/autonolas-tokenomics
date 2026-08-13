@@ -56,12 +56,15 @@ forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv       # ETH mainn
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
+forge test -f $FORK_ETH_NODE_URL --mc StakingClaimForkETH -vvv        # proxied Dispenser claim path vs live Tokenomics/Treasury
+forge test -f $FORK_ETH_NODE_URL --mc StakingL1ProcessorForkETH -vvv  # new Dispenser proxy vs real EthereumDepositProcessor (L1 migration leg)
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv      # Base
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
 forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv   # Polygon
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv  # Arbitrum
 forge test -f $FORK_OPTIMISM_NODE_URL --mc BuyBackBurnerTransferV3Optimism -vvv  # Optimism
+forge test -f $FORK_OPTIMISM_NODE_URL --mc StakingL2MigrateForkOP -vvv         # L2 target dispenser pause/migrate/withheld cutover (L2 migration leg)
 forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv             # Celo
 ```
 

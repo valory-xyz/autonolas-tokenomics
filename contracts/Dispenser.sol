@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.30;
 
 // Deposit Processor interface
 interface IDepositProcessor {
@@ -228,8 +228,14 @@ error WrongAmount(uint256 provided, uint256 expected);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev The contract is already initialized.
+error AlreadyInitialized();
+
 /// @dev The contract is paused.
 error Paused();
+
+/// @dev The contract is unpaused.
+error Unpaused();
 
 /// @dev Incentives claim has failed.
 /// @param account Account address.
@@ -263,10 +269,9 @@ contract Dispenser {
     }
 
     event OwnerUpdated(address indexed owner);
-    event TokenomicsUpdated(address indexed tokenomics);
+    event ImplementationUpdated(address indexed implementation);
     event TreasuryUpdated(address indexed treasury);
     event VoteWeightingUpdated(address indexed voteWeighting);
-    event StakingParamsUpdated(uint256 maxNumClaimingEpochs, uint256 maxNumStakingTargets);
     event IncentivesClaimed(address indexed owner, uint256 reward, uint256 topUp, uint256[] unitTypes, uint256[] unitIds);
     event StakingIncentivesClaimed(address indexed account, uint256 chainId, bytes32 stakingTarget,
         uint256 stakingIncentive, uint256 transferAmount, uint256 returnAmount);
@@ -280,16 +285,23 @@ contract Dispenser {
     event AddNomineeHash(bytes32 indexed nomineeHash);
     event RemoveNomineeHash(bytes32 indexed nomineeHash);
 
+    // Dispenser proxy address slot
+    // keccak256("PROXY_DISPENSER") = "0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83"
+    bytes32 public constant PROXY_DISPENSER = 0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83;
     // Maximum chain Id as per EVM specs
     uint256 public constant MAX_EVM_CHAIN_ID = type(uint64).max / 2 - 36;
-    uint256 public immutable defaultMinStakingWeight;
-    uint256 public immutable defaultMaxStakingIncentive;
+
     // OLAS token address
     address public immutable olas;
+    // Tokenomics proxy address
+    address public immutable tokenomics;
     // Retainer address in bytes32 form
     bytes32 public immutable retainer;
     // Retainer hash of a Nominee struct composed of retainer address with block.chainid
     bytes32 public immutable retainerHash;
+
+    // Storage layout below is consumed via the DispenserProxy delegatecall and is FROZEN: never remove,
+    // reorder, retype or insert in the middle — new variables are appended strictly after the last mapping.
 
     // Max number of epochs to claim staking incentives for
     uint256 public maxNumClaimingEpochs;
@@ -302,8 +314,6 @@ contract Dispenser {
     // Pause state
     Pause public paused;
 
-    // Tokenomics contract address
-    address public tokenomics;
     // Treasury contract address
     address public treasury;
     // Vote Weighting contract address
@@ -320,66 +330,116 @@ contract Dispenser {
     // Mapping for epoch number => refunded all the staking inflation due to zero total voting power
     mapping(uint256 => bool) public mapZeroWeightEpochRefunded;
 
-    /// @dev Dispenser constructor.
+    /// @dev Dispenser implementation constructor: sets the implementation-bytecode immutables only.
+    /// @notice The mutable state is set via initialize() delegatecall-ed by the DispenserProxy constructor.
+    /// @notice Immutable vs proxy storage rationale: olas / tokenomics / retainer are fixed identities that never
+    ///         change for a deployment (tokenomics is the stable TokenomicsProxy address), so they live in
+    ///         implementation bytecode. treasury / voteWeighting (repointable managers via changeManagers) and
+    ///         maxNumClaimingEpochs / maxNumStakingTargets (init-time bounds) are proxy storage instead, so they
+    ///         survive an implementation upgrade and can be (re)set without deploying a new implementation.
     /// @param _olas OLAS token address.
-    /// @param _tokenomics Tokenomics address.
-    /// @param _treasury Treasury address.
-    /// @param _voteWeighting Vote Weighting address.
+    /// @param _tokenomics Tokenomics proxy address.
+    /// @param _retainer Retainer address in bytes32 form.
     constructor(
         address _olas,
         address _tokenomics,
+        bytes32 _retainer
+    ) {
+        // Check for at least one zero contract address
+        if (_olas == address(0) || _tokenomics == address(0) || _retainer == 0) {
+            revert ZeroAddress();
+        }
+
+        olas = _olas;
+        tokenomics = _tokenomics;
+
+        retainer = _retainer;
+        retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
+    }
+
+    /// @dev Initializes the dispenser proxy storage.
+    /// @notice Delegatecall-ed by the DispenserProxy constructor; the caller becomes the owner.
+    /// @param _treasury Treasury address.
+    /// @param _voteWeighting Vote Weighting address.
+    /// @param _maxNumClaimingEpochs Maximum number of epochs to claim staking incentives for.
+    /// @param _maxNumStakingTargets Maximum number of staking targets on a single chain Id.
+    function initialize(
         address _treasury,
         address _voteWeighting,
-        bytes32 _retainer,
         uint256 _maxNumClaimingEpochs,
-        uint256 _maxNumStakingTargets,
-        uint256 _defaultMinStakingWeight,
-        uint256 _defaultMaxStakingIncentive
-    ) {
+        uint256 _maxNumStakingTargets
+    ) external {
+        // Check that the proxy storage has not been initialized yet
+        if (owner != address(0)) {
+            revert AlreadyInitialized();
+        }
+
+        // Check for a zero Treasury address. The Vote Weighting address is intentionally allowed to be zero
+        // here: on a fresh proxy deploy the Vote Weighting contract does not exist yet (it is deployed with
+        // this proxy's address baked in as an immutable), so it is wired in afterwards via changeManagers()
+        // while staking incentives stay paused. No claim path can run with a zero Vote Weighting.
+        if (_treasury == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Check for zero value staking parameters
+        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
+            revert ZeroValue();
+        }
+
         owner = msg.sender;
         _locked = 1;
         // Staking incentives must be paused at the time of deployment because staking parameters are not live yet
         paused = Pause.StakingIncentivesPaused;
 
-        // Check for at least one zero contract address
-        if (_olas == address(0) || _tokenomics == address(0) || _treasury == address(0) ||
-            _voteWeighting == address(0) || _retainer == 0) {
+        treasury = _treasury;
+        voteWeighting = _voteWeighting;
+        maxNumClaimingEpochs = _maxNumClaimingEpochs;
+        maxNumStakingTargets = _maxNumStakingTargets;
+    }
+
+    /// @dev Changes the dispenser implementation contract address behind the proxy.
+    /// @param implementation Dispenser implementation contract address.
+    function changeImplementation(address implementation) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Check for the zero address
+        if (implementation == address(0)) {
             revert ZeroAddress();
         }
 
-        // Check for zero value staking parameters
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0 || _defaultMinStakingWeight == 0 ||
-            _defaultMaxStakingIncentive == 0) {
-            revert ZeroValue();
+        // Store the implementation address under the designated storage slot
+        assembly {
+            sstore(PROXY_DISPENSER, implementation)
         }
-
-        // Check for maximum values
-        if (_defaultMinStakingWeight > type(uint16).max) {
-            revert Overflow(_defaultMinStakingWeight, type(uint16).max);
-        }
-        if (_defaultMaxStakingIncentive > type(uint96).max) {
-            revert Overflow(_defaultMaxStakingIncentive, type(uint96).max);
-        }
-
-        olas = _olas;
-        tokenomics = _tokenomics;
-        treasury = _treasury;
-        voteWeighting = _voteWeighting;
-
-        retainer = _retainer;
-        retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
-        maxNumClaimingEpochs = _maxNumClaimingEpochs;
-        maxNumStakingTargets = _maxNumStakingTargets;
-        defaultMinStakingWeight = _defaultMinStakingWeight;
-        defaultMaxStakingIncentive = _defaultMaxStakingIncentive;
+        emit ImplementationUpdated(implementation);
     }
 
-    /// @dev Checkpoints specified staking target (nominee in Vote Weighting) and gets claimed epoch counters.
+    /// @dev Reverts if a staking target nominee is not claimable (was never added to Vote Weighting).
+    /// @notice Guards the checkpointNominee call in the claim paths: on the real Vote Weighting,
+    ///         checkpointNominee reverts (NomineeDoesNotExist) for an unregistered nominee, so this makes the
+    ///         Dispenser's own ZeroValue the authoritative not-claimable error and ensures checkpointNominee is
+    ///         only ever called for a live nominee. Mirrors the first check in _getClaimedEpochCounters.
+    /// @param stakingTarget Staking target address in bytes32 form.
+    /// @param chainId Chain Id.
+    function _requireClaimableNominee(bytes32 stakingTarget, uint256 chainId) internal view {
+        bytes32 nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
+        if (mapLastClaimedStakingEpochs[nomineeHash] == 0) {
+            revert ZeroValue();
+        }
+    }
+
+    /// @dev Gets the claimable epoch counters for a nominee, bounded by the current and removal epochs.
+    /// @notice View only — it does NOT checkpoint the nominee in Vote Weighting (that is a separate
+    ///         checkpointNominee call in the claim/retain flow); "counters" here are the claim cursors.
     /// @param nomineeHash Hash of a Nominee(stakingTarget, chainId).
     /// @param numClaimedEpochs Specified number of claimed epochs.
     /// @return firstClaimedEpoch First claimed epoch number.
     /// @return lastClaimedEpoch Last claimed epoch number (not included in claiming).
-    function _checkpointNomineeAndGetClaimedEpochCounters(
+    function _getClaimedEpochCounters(
         bytes32 nomineeHash,
         uint256 numClaimedEpochs
     ) internal view returns (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) {
@@ -634,12 +694,28 @@ contract Dispenser {
                     revert WrongAccount(retainer);
                 }
 
+                // Guard claimability before checkpointing (see claimStakingIncentives): keeps ZeroValue the
+                // authoritative not-claimable error and only checkpoints a live nominee
+                _requireClaimableNominee(stakingTargets[i][j], chainIds[i]);
+
+                // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
+                IVoteWeighting(voteWeighting).checkpointNominee(stakingTargets[i][j], chainIds[i]);
+
                 // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
-                (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
+                (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
+                    uint256[] memory zeroWeightEpochs) =
                     calculateStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
 
                 // Write last claimed epoch counter to start claiming from the next time
                 mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+
+                // Mark zero-weight epochs refunded (amount already in returnAmount). Setting the flag here, before
+                // the next target's calculateStakingIncentives call, dedupes zero-weight epochs shared across targets
+                for (uint256 k = 0; k < zeroWeightEpochs.length; ++k) {
+                    if (zeroWeightEpochs[k] != 0) {
+                        mapZeroWeightEpochRefunded[zeroWeightEpochs[k]] = true;
+                    }
+                }
 
                 stakingIncentives[i][j] = stakingIncentive;
                 transferAmounts[i] += stakingIncentive;
@@ -651,14 +727,21 @@ contract Dispenser {
             if (transferAmounts[i] > 0) {
                 uint256 withheldAmount = mapChainIdWithheldAmounts[chainIds[i]];
                 if (withheldAmount > 0) {
+                    uint256 withheldUsed;
                     if (withheldAmount >= transferAmounts[i]) {
+                        withheldUsed = transferAmounts[i];
                         withheldAmount -= transferAmounts[i];
                         transferAmounts[i] = 0;
                     } else {
+                        withheldUsed = withheldAmount;
                         transferAmounts[i] -= withheldAmount;
                         withheldAmount = 0;
                     }
                     mapChainIdWithheldAmounts[chainIds[i]] = withheldAmount;
+
+                    // The withheld-covered portion is paid from OLAS already minted under a previous allocation;
+                    // add it to the return amount so the caller refunds it back to staking inflation
+                    totalAmounts[2] += withheldUsed;
                 }
             }
 
@@ -685,19 +768,14 @@ contract Dispenser {
     }
 
     /// @dev Changes various managing contract addresses.
-    /// @param _tokenomics Tokenomics address.
+    /// @notice The tokenomics address is an implementation immutable (it points at the stable TokenomicsProxy);
+    ///         changing it requires deploying a new implementation and calling changeImplementation.
     /// @param _treasury Treasury address.
     /// @param _voteWeighting Vote Weighting address.
-    function changeManagers(address _tokenomics, address _treasury, address _voteWeighting) external {
+    function changeManagers(address _treasury, address _voteWeighting) external {
         // Check for the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Change Tokenomics contract address
-        if (_tokenomics != address(0)) {
-            tokenomics = _tokenomics;
-            emit TokenomicsUpdated(_tokenomics);
         }
 
         // Change Treasury contract address
@@ -708,29 +786,18 @@ contract Dispenser {
 
         // Change Vote Weighting contract address
         if (_voteWeighting != address(0)) {
+            // Swapping the Vote Weighting contract does NOT orphan the claim cursors themselves — they are keyed
+            // by keccak256(Nominee(target, chainId)), independent of the Vote Weighting instance. What becomes
+            // unreachable is any pending claim for a nominee that is not re-added to the new Vote Weighting.
+            // Require staking incentives to be paused first, so outstanding claims can be settled before the swap.
+            Pause currentPause = paused;
+            if (currentPause != Pause.StakingIncentivesPaused && currentPause != Pause.AllPaused) {
+                revert Unpaused();
+            }
+
             voteWeighting = _voteWeighting;
             emit VoteWeightingUpdated(_voteWeighting);
         }
-    }
-
-    /// @dev Changes staking params by the DAO.
-    /// @param _maxNumClaimingEpochs Maximum number of epochs to claim staking incentives for.
-    /// @param _maxNumStakingTargets Maximum number of staking targets available to claim for on a single chain Id.
-    function changeStakingParams(uint256 _maxNumClaimingEpochs, uint256 _maxNumStakingTargets) external {
-        // Check for the contract ownership
-        if (msg.sender != owner) {
-            revert OwnerOnly(msg.sender, owner);
-        }
-
-        // Check if values are zero
-        if (_maxNumClaimingEpochs == 0 || _maxNumStakingTargets == 0) {
-            revert ZeroValue();
-        }
-
-        maxNumClaimingEpochs = _maxNumClaimingEpochs;
-        maxNumStakingTargets = _maxNumStakingTargets;
-
-        emit StakingParamsUpdated(_maxNumClaimingEpochs, _maxNumStakingTargets);
     }
 
     /// @dev Sets deposit processor contracts addresses and L2 chain Ids.
@@ -778,7 +845,16 @@ contract Dispenser {
             revert Paused();
         }
 
+        // A newly added nominee starts claiming from the CURRENT epoch, so historical epochs are never traversed
+        // on this deployment. This greenfield-cursor property is what makes a fresh Dispenser safe against any
+        // pre-existing zero-staking-param epochs, and is the reason the default-param fallback could be dropped.
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
+
+        // Clear a possible removal epoch left from a previous nominee lifecycle: without this, a re-added
+        // nominee would permanently revert in _getClaimedEpochCounters (the claim cursor just set above always
+        // satisfies firstClaimedEpoch >= epochRemoved). The Dispenser no longer relies on the upstream Vote
+        // Weighting enforcing "remove is final"
+        delete mapRemovedNomineeEpochs[nomineeHash];
 
         emit AddNomineeHash(nomineeHash);
     }
@@ -884,24 +960,34 @@ contract Dispenser {
 
     /// @dev Calculates staking incentives for a specific staking target.
     /// @notice Call this function via staticcall in order not to write in the nominee checkpoint map.
+    ///         A state-mutating call refunds zero-total-weight epochs back to staking inflation atomically with
+    ///         setting their one-way refunded flag, so a standalone external call cannot strand the refund;
+    ///         the returned totalReturnAmount accordingly does not include the zero-weight epoch amounts.
     /// @param numClaimedEpochs Specified number of claimed epochs.
     /// @param chainId Chain Id.
     /// @param stakingTarget Staking target corresponding to the chain Id.
     /// @param bridgingDecimals Number of supported token decimals able to be transferred across the bridge.
+    /// @notice View only: the caller must checkpoint the nominee in Vote Weighting BEFORE calling this, and
+    ///         mark every returned zero-weight epoch as refunded (see `zeroWeightEpochs`). Because the
+    ///         function mutates nothing, a standalone call can never strand a zero-weight epoch's inflation.
     /// @return totalStakingIncentive Total staking incentive across all the claimed epochs.
-    /// @return totalReturnAmount Total return amount across all the claimed epochs.
+    /// @return totalReturnAmount Total return amount across all the claimed epochs (includes zero-weight epochs).
     /// @return lastClaimedEpoch Last claimed epoch number (not included in claiming).
     /// @return nomineeHash Hash of a Nominee(stakingTarget, chainId).
+    /// @return zeroWeightEpochs Sparse array over [firstClaimedEpoch, lastClaimedEpoch): a non-zero slot is a
+    ///         zero-total-weight epoch number the caller must set in `mapZeroWeightEpochRefunded` (epoch is
+    ///         never zero, so a zero slot means "not a zero-weight epoch"). Its incentive is in totalReturnAmount.
     function calculateStakingIncentives(
         uint256 numClaimedEpochs,
         uint256 chainId,
         bytes32 stakingTarget,
         uint256 bridgingDecimals
-    ) public returns (
+    ) public view returns (
         uint256 totalStakingIncentive,
         uint256 totalReturnAmount,
         uint256 lastClaimedEpoch,
-        bytes32 nomineeHash
+        bytes32 nomineeHash,
+        uint256[] memory zeroWeightEpochs
     ) {
         // Check for the correct chain Id
         if (chainId == 0) {
@@ -923,10 +1009,10 @@ contract Dispenser {
 
         uint256 firstClaimedEpoch;
         (firstClaimedEpoch, lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(nomineeHash, numClaimedEpochs);
+            _getClaimedEpochCounters(nomineeHash, numClaimedEpochs);
 
-        // Checkpoint staking target nominee in the Vote Weighting contract
-        IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
+        // Sparse zero-weight epoch record indexed by (j - firstClaimedEpoch); the caller sets the refunded flag
+        zeroWeightEpochs = new uint256[](lastClaimedEpoch - firstClaimedEpoch);
 
         // Traverse all the claimed epochs
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
@@ -940,17 +1026,16 @@ contract Dispenser {
             ITokenomics.StakingPoint memory stakingPoint =
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
-            // Check for staking parameters to all make sense
-            if (stakingPoint.stakingFraction > 0) {
-                // Check for unset values
-                if (stakingPoint.minStakingWeight == 0 && stakingPoint.maxStakingIncentive == 0) {
-                    stakingPoint.minStakingWeight = uint16(defaultMinStakingWeight);
-                    stakingPoint.maxStakingIncentive = uint96(defaultMaxStakingIncentive);
-                }
-            } else {
-                // No staking incentives in this epoch
+            // No staking incentives in this epoch
+            if (stakingPoint.stakingFraction == 0) {
                 continue;
             }
+
+            // Cross-contract invariant, load-bearing since the Dispenser dropped its default-param fallback:
+            // Tokenomics never settles a StakingPoint with stakingFraction > 0 and a zero maxStakingIncentive /
+            // minStakingWeight (changeStakingParams rejects zero and the epoch carry-forward preserves both). Were
+            // that ever violated, maxStakingIncentive == 0 clamps this epoch's incentive to zero (fully returned)
+            // and minStakingWeight == 0 disables the weight threshold — i.e. zero incentives, never over-payment.
 
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
@@ -961,9 +1046,12 @@ contract Dispenser {
             (uint256 stakingWeight, uint256 totalWeightSum) =
                 IVoteWeighting(voteWeighting).nomineeRelativeWeight(stakingTarget, chainId, endTime);
 
-            // Check if the totalWeightSum is zero, then all staking incentives must be returned back to tokenomics
+            // Zero total vote weight: the whole epoch's staking incentive returns to inflation. Record the epoch
+            // so the caller sets mapZeroWeightEpochRefunded once (this view function cannot); the amount is folded
+            // into totalReturnAmount, which the caller refunds. Safe for batch: the caller sets the flag before the
+            // next target's call, so the mapZeroWeightEpochRefunded skip above dedupes shared zero-weight epochs.
             if (totalWeightSum == 0) {
-                mapZeroWeightEpochRefunded[j] = true;
+                zeroWeightEpochs[j - firstClaimedEpoch] = j;
                 totalReturnAmount += stakingPoint.stakingIncentive;
                 continue;
             }
@@ -1065,12 +1153,29 @@ contract Dispenser {
         address depositProcessor = mapChainIdDepositProcessors[chainId];
         uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
 
+        // Ensure the nominee is claimable before checkpointing it. On the real Vote Weighting, checkpointNominee
+        // reverts (NomineeDoesNotExist) for a nominee that was never added, so guard with the Dispenser's own
+        // cursor first: this keeps ZeroValue the authoritative "not claimable" error and only ever checkpoints a
+        // live nominee (mirrors the retain() ordering, where the cursor check precedes the checkpoint)
+        _requireClaimableNominee(stakingTarget, chainId);
+
+        // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
+        IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
+
         // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
-        (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash) =
+        (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
+            uint256[] memory zeroWeightEpochs) =
             calculateStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgingDecimals);
 
         // Write last claimed epoch counter to start claiming from the next time
         mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
+
+        // Mark zero-weight epochs refunded (their incentive is already part of returnAmount)
+        for (uint256 i = 0; i < zeroWeightEpochs.length; ++i) {
+            if (zeroWeightEpochs[i] != 0) {
+                mapZeroWeightEpochRefunded[zeroWeightEpochs[i]] = true;
+            }
+        }
 
         // Refund returned amount back to tokenomics inflation
         if (returnAmount > 0) {
@@ -1087,16 +1192,24 @@ contract Dispenser {
             // as normalized amounts are returned from another side
             uint256 withheldAmount = mapChainIdWithheldAmounts[chainId];
             if (withheldAmount > 0) {
+                uint256 withheldUsed;
                 // If withheld amount is enough to cover all the staking incentives, the transfer of OLAS is not needed
                 if (withheldAmount >= transferAmount) {
+                    withheldUsed = transferAmount;
                     withheldAmount -= transferAmount;
                     transferAmount = 0;
                 } else {
                     // Otherwise, reduce the transfer of tokens for the OLAS withheld amount
+                    withheldUsed = withheldAmount;
                     transferAmount -= withheldAmount;
                     withheldAmount = 0;
                 }
                 mapChainIdWithheldAmounts[chainId] = withheldAmount;
+
+                // The withheld-covered portion of the incentives is paid from OLAS that was already minted under
+                // a previous allocation; return the current allocation for that portion back to staking inflation
+                // so the reused amount is not double-counted as inflation spent
+                ITokenomics(tokenomics).refundFromStaking(withheldUsed);
             }
 
             // Check if minting is needed as the actual OLAS transfer is required
@@ -1212,7 +1325,7 @@ contract Dispenser {
 
         // Get first and last claimed epochs
         (uint256 firstClaimedEpoch, uint256 lastClaimedEpoch) =
-            _checkpointNomineeAndGetClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
+            _getClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
 
         // Checkpoint staking target nominee in the Vote Weighting contract
         IVoteWeighting(voteWeighting).checkpointNominee(retainer, block.chainid);
@@ -1321,6 +1434,14 @@ contract Dispenser {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Do not let staking incentives go live before Vote Weighting is wired. A fresh proxy initializes with a
+        // zero voteWeighting (set later via changeManagers); claims would fail-safe with ZeroValue anyway, but this
+        // makes the deploy invariant explicit rather than emergent.
+        if (pauseState != Pause.StakingIncentivesPaused && pauseState != Pause.AllPaused &&
+            voteWeighting == address(0)) {
+            revert ZeroAddress();
         }
 
         paused = pauseState;

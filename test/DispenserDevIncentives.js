@@ -10,10 +10,7 @@ describe("DispenserDevIncentives", async () => {
     const oneMonth = 86400 * 30;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
-    const defaultMinStakingWeight = 100;
-    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const retainer = "0x" + "5".repeat(64);
-    const moreThanMaxUint96 = "79228162514264337593543950337";
 
     let signers;
     let deployer;
@@ -54,25 +51,19 @@ describe("DispenserDevIncentives", async () => {
         ve = await VE.deploy();
         await ve.deployed();
 
-        const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            retainer, maxNumClaimingEpochs, maxNumStakingTargets, defaultMinStakingWeight, defaultMaxStakingIncentive);
-        await dispenser.deployed();
-
+        // Dispenser address is a placeholder until the dispenser proxy is deployed below
         const Treasury = await ethers.getContractFactory("Treasury");
-        treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, dispenser.address);
+        treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
         await treasury.deployed();
-
-        // Update for the correct treasury contract
-        await dispenser.changeManagers(AddressZero, treasury.address, AddressZero);
 
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         // Deploy master tokenomics contract
         const tokenomicsMaster = await tokenomicsFactory.deploy();
         await tokenomicsMaster.deployed();
 
+        // Dispenser address is a placeholder until the dispenser proxy is deployed below
         const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
-            [olas.address, treasury.address, deployer.address, dispenser.address, ve.address, epochLen,
+            [olas.address, treasury.address, deployer.address, deployer.address, ve.address, epochLen,
                 componentRegistry.address, agentRegistry.address, serviceRegistry.address, AddressZero]);
         // Deploy tokenomics proxy based on the needed tokenomics initialization
         const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
@@ -82,15 +73,30 @@ describe("DispenserDevIncentives", async () => {
         // Get the tokenomics proxy contract
         tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
+        // Deploy dispenser master implementation (tokenomics proxy address is an implementation immutable)
+        const Dispenser = await ethers.getContractFactory("Dispenser");
+        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
+        await dispenserMaster.deployed();
+
+        // Deploy dispenser proxy; Vote Weighting contract is irrelevant here, so we are using a deployer's address
+        const dispenserData = dispenserMaster.interface.encodeFunctionData("initialize",
+            [treasury.address, deployer.address, maxNumClaimingEpochs, maxNumStakingTargets]);
+        const DispenserProxy = await ethers.getContractFactory("DispenserProxy");
+        const dispenserProxy = await DispenserProxy.deploy(dispenserMaster.address, dispenserData);
+        await dispenserProxy.deployed();
+
+        // Get the dispenser proxy contract
+        dispenser = await ethers.getContractAt("Dispenser", dispenserProxy.address);
+
         const Attacker = await ethers.getContractFactory("ReentrancyAttacker");
         attacker = await Attacker.deploy(dispenser.address, treasury.address);
         await attacker.deployed();
 
-        // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        await dispenser.changeManagers(tokenomics.address, treasury.address, AddressZero);
+        // Update tokenomics and dispenser addresses in treasury
+        await treasury.changeManagers(tokenomics.address, AddressZero, dispenser.address);
 
-        // Update tokenomics address in treasury
-        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
+        // Update dispenser address in tokenomics
+        await tokenomics.changeManagers(AddressZero, AddressZero, dispenser.address);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -105,18 +111,18 @@ describe("DispenserDevIncentives", async () => {
 
             // Trying to change managers from a non-owner account address
             await expect(
-                dispenser.connect(account).changeManagers(deployer.address, deployer.address, deployer.address)
+                dispenser.connect(account).changeManagers(deployer.address, deployer.address)
             ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
 
-            // Changing treasury, tokenomics and vote weighting addresses
-            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address, deployer.address);
-            expect(await dispenser.tokenomics()).to.equal(deployer.address);
+            // Changing treasury and vote weighting addresses; tokenomics is an implementation immutable
+            const tokenomicsAddress = await dispenser.tokenomics();
+            await dispenser.connect(deployer).changeManagers(deployer.address, deployer.address);
             expect(await dispenser.treasury()).to.equal(deployer.address);
             expect(await dispenser.voteWeighting()).to.equal(deployer.address);
+            expect(await dispenser.tokenomics()).to.equal(tokenomicsAddress);
 
             // Trying to change to zero addresses and making sure nothing has changed
-            await dispenser.connect(deployer).changeManagers(AddressZero, AddressZero, AddressZero);
-            expect(await dispenser.tokenomics()).to.equal(deployer.address);
+            await dispenser.connect(deployer).changeManagers(AddressZero, AddressZero);
             expect(await dispenser.treasury()).to.equal(deployer.address);
             expect(await dispenser.voteWeighting()).to.equal(deployer.address);
 
@@ -142,40 +148,51 @@ describe("DispenserDevIncentives", async () => {
         it("Should fail if deploying a dispenser with a zero address", async function () {
             const Dispenser = await ethers.getContractFactory("Dispenser");
             await expect(
-                Dispenser.deploy(AddressZero, AddressZero, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
+                Dispenser.deploy(AddressZero, AddressZero, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, AddressZero, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
+                Dispenser.deploy(deployer.address, AddressZero, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, AddressZero, AddressZero, HashZero, 0, 0, 0, 0)
+                Dispenser.deploy(deployer.address, deployer.address, HashZero)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+        });
+
+        it("Should fail when initializing with incorrect values or twice", async function () {
+            const Dispenser = await ethers.getContractFactory("Dispenser");
+            const dispenserMaster = await Dispenser.deploy(deployer.address, deployer.address, retainer);
+            await dispenserMaster.deployed();
+
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, AddressZero, HashZero, 0, 0, 0, 0)
+                dispenserMaster.initialize(AddressZero, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
+            // Vote Weighting is allowed to be zero at init (wired later via changeManagers), so a zero VW no
+            // longer trips ZeroAddress — this call fails on the zero maxNumClaimingEpochs instead
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, HashZero, 0, 0, 0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroAddress");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 0, 0, 0, 0)
+                dispenserMaster.initialize(deployer.address, AddressZero, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 0, 0, 0)
+                dispenserMaster.initialize(deployer.address, deployer.address, 0, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10, 0, 0)
+                dispenserMaster.initialize(deployer.address, deployer.address, 10, 0)
             ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+
+            // Initialize with a ZERO Vote Weighting (allowed: it is deployed against the proxy address
+            // afterwards and wired via changeManagers), then check that a repeated initialization is not possible
+            await dispenserMaster.initialize(deployer.address, AddressZero, 10, 10);
+            expect(await dispenserMaster.voteWeighting()).to.equal(AddressZero);
+            // Wire the real Vote Weighting in afterwards while staking incentives are paused
+            await dispenserMaster.changeManagers(AddressZero, deployer.address);
+            expect(await dispenserMaster.voteWeighting()).to.equal(deployer.address);
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10, 10, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
+                dispenserMaster.initialize(deployer.address, deployer.address, 10, 10)
+            ).to.be.revertedWithCustomError(dispenser, "AlreadyInitialized");
+
+            // The already-initialized dispenser proxy must not be re-initializable either
             await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10,
-                    moreThanMaxUint96, moreThanMaxUint96)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
-            await expect(
-                Dispenser.deploy(deployer.address, deployer.address, deployer.address, deployer.address, retainer, 10, 10,
-                    10, moreThanMaxUint96)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+                dispenser.initialize(deployer.address, deployer.address, 10, 10)
+            ).to.be.revertedWithCustomError(dispenser, "AlreadyInitialized");
         });
 
         it("Should fail when trying to claim during the paused statke", async function () {

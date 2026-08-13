@@ -26,7 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
 optimismL1StandardBridgeProxyAddress=$(jq -r '.optimismL1StandardBridgeProxyAddress' $globals)
 optimismL1CrossDomainMessengerProxyAddress=$(jq -r '.optimismL1CrossDomainMessengerProxyAddress' $globals)
 optimismL2TargetChainId=$(jq -r '.optimismL2TargetChainId' $globals)
@@ -47,7 +47,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserAddress $optimismL1StandardBridgeProxyAddress $optimismL1CrossDomainMessengerProxyAddress $optimismL2TargetChainId $optimismOLASAddress"
+constructorArgs="$olasAddress $dispenserProxyAddress $optimismL1StandardBridgeProxyAddress $optimismL1CrossDomainMessengerProxyAddress $optimismL2TargetChainId $optimismOLASAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
