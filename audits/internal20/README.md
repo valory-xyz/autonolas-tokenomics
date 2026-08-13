@@ -1,4 +1,4 @@
-# Internal Audit 18 — LiquidityManagerCore price-guard fail-closed remediation
+# Internal Audit 20 — LiquidityManagerCore price-guard fail-closed remediation
 
 **Scope:** PR #306 (`fix/lm-price-guard-failclosed`) + PR #307 (`docs/lm-guard-deployment-runbook`),
 base `main` (`029b5574`). Reviewed file: `contracts/pol/LiquidityManagerCore.sol` (production) and the
