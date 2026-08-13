@@ -594,11 +594,15 @@ describe("StakingBridging", async () => {
             // Pause the deposit processor
             await arbitrumTargetDispenserL2.pause();
 
-            // Deposit some OLAS to the contract
-            await olas.mint(arbitrumTargetDispenserL2.address, defaultAmount);
+            // Deposit OLAS to the contract. Deliberately make the physical balance EXCEED the accounting
+            // withheld amount (as a residual would), so migration carries a balance != withheld. This is what
+            // lets the test prove the restore uses the emitted withheld value rather than the migrated balance.
+            const balanceToMigrate = defaultAmount + 50;
+            const withheldToRestore = defaultAmount;
+            await olas.mint(arbitrumTargetDispenserL2.address, balanceToMigrate);
 
-            // Update withheldAmount by the DAO
-            await arbitrumTargetDispenserL2.updateWithheldAmountMaintenance(defaultAmount);
+            // Update withheldAmount by the DAO (strictly below the physical balance)
+            await arbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldToRestore);
 
             // Deploy another contract
             const ArbitrumTargetDispenserL2 = await ethers.getContractFactory("ArbitrumTargetDispenserL2");
@@ -610,14 +614,26 @@ describe("StakingBridging", async () => {
             // Initial withheld amount is zero
             expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(0);
 
-            // Migrate the contract to a new one
-            await arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address);
+            // The current withheld amount to be carried across the migration (vuln-list #10)
+            const withheldToCarry = await arbitrumTargetDispenserL2.withheldAmount();
+            expect(withheldToCarry).to.equal(withheldToRestore);
 
-            // Update withheldAmount by the DAO
-            const withheldAmount = await olas.balanceOf(newArbitrumTargetDispenserL2.address);
-            await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldAmount);
+            // Migrate: the Migrated event surfaces BOTH the full OLAS balance and the withheld amount to restore.
+            // These differ here, so the withheld arg genuinely reflects storage, not the transferred balance.
+            await expect(arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address))
+                .to.emit(arbitrumTargetDispenserL2, "Migrated")
+                .withArgs(deployer.address, newArbitrumTargetDispenserL2.address, balanceToMigrate, withheldToCarry);
 
-            expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(withheldAmount);
+            // The full balance migrated across
+            expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(balanceToMigrate);
+
+            // The DAO restores from the EMITTED withheld amount (not the migrated balance)
+            await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldToCarry);
+
+            // The restored value is the emitted withheld amount, strictly less than the migrated balance —
+            // which is exactly what proves the balance was not used as the restore source
+            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.equal(withheldToCarry);
+            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.not.equal(balanceToMigrate);
         });
     });
 

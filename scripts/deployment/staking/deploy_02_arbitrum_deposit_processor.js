@@ -30,7 +30,7 @@ async function main() {
     const ArbitrumDepositProcessorL1 = await ethers.getContractFactory("ArbitrumDepositProcessorL1");
     console.log("You are signing the following transaction: ArbitrumDepositProcessorL1.connect(EOA).deploy()");
     const arbitrumDepositProcessorL1 = await ArbitrumDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.arbitrumL1ERC20GatewayRouterAddress,
+        parsedData.dispenserProxyAddress, parsedData.arbitrumL1ERC20GatewayRouterAddress,
         parsedData.arbitrumInboxAddress, parsedData.arbitrumL2TargetChainId, parsedData.arbitrumL1ERC20GatewayAddress,
         parsedData.arbitrumOutboxAddress, parsedData.arbitrumBridgeAddress);
     const result = await arbitrumDepositProcessorL1.deployed();

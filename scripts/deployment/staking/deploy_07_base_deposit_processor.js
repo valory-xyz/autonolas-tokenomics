@@ -30,7 +30,7 @@ async function main() {
     const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
     console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
     const baseDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.baseL1StandardBridgeProxyAddress,
+        parsedData.dispenserProxyAddress, parsedData.baseL1StandardBridgeProxyAddress,
         parsedData.baseL1CrossDomainMessengerProxyAddress, parsedData.baseL2TargetChainId,
         parsedData.baseOLASAddress);
     const result = await baseDepositProcessorL1.deployed();

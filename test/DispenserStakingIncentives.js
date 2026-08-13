@@ -20,8 +20,6 @@ describe("DispenserStakingIncentives", async () => {
     const delta = 100;
     const maxNumClaimingEpochs = 10;
     const maxNumStakingTargets = 100;
-    const defaultMinStakingWeight = 100;
-    const defaultMaxStakingIncentive = ethers.utils.parseEther("1");
     const maxUint256 = ethers.constants.MaxUint256;
     const defaultGasLimit = "2000000";
     const retainer = "0x" + "0".repeat(24) + "5".repeat(40);
@@ -70,30 +68,19 @@ describe("DispenserStakingIncentives", async () => {
         // Add a default implementation mocked as a proxy address itself
         await stakingProxyFactory.addImplementation(stakingInstance.address, stakingInstance.address);
 
-        const Dispenser = await ethers.getContractFactory("Dispenser");
-        dispenser = await Dispenser.deploy(olas.address, deployer.address, deployer.address, deployer.address,
-            retainer, maxNumClaimingEpochs, maxNumStakingTargets, defaultMinStakingWeight, defaultMaxStakingIncentive);
-        await dispenser.deployed();
-
-        // Vote Weighting mock
-        const VoteWeighting = await ethers.getContractFactory("MockVoteWeighting");
-        vw = await VoteWeighting.deploy(dispenser.address);
-        await vw.deployed();
-
+        // Dispenser address is a placeholder until the dispenser proxy is deployed below
         const Treasury = await ethers.getContractFactory("Treasury");
-        treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, dispenser.address);
+        treasury = await Treasury.deploy(olas.address, deployer.address, deployer.address, deployer.address);
         await treasury.deployed();
-
-        // Update for the correct treasury contract
-        await dispenser.changeManagers(AddressZero, treasury.address, AddressZero);
 
         const tokenomicsFactory = await ethers.getContractFactory("Tokenomics");
         // Deploy master tokenomics contract
         const tokenomicsMaster = await tokenomicsFactory.deploy();
         await tokenomicsMaster.deployed();
 
+        // Dispenser address is a placeholder until the dispenser proxy is deployed below
         const proxyData = tokenomicsMaster.interface.encodeFunctionData("initializeTokenomics",
-            [olas.address, treasury.address, deployer.address, dispenser.address, deployer.address, epochLen,
+            [olas.address, treasury.address, deployer.address, deployer.address, deployer.address, epochLen,
                 deployer.address, deployer.address, deployer.address, AddressZero]);
         // Deploy tokenomics proxy based on the needed tokenomics initialization
         const TokenomicsProxy = await ethers.getContractFactory("TokenomicsProxy");
@@ -103,11 +90,34 @@ describe("DispenserStakingIncentives", async () => {
         // Get the tokenomics proxy contract
         tokenomics = await ethers.getContractAt("Tokenomics", tokenomicsProxy.address);
 
-        // Change the tokenomics and treasury addresses in the dispenser to correct ones
-        await dispenser.changeManagers(tokenomics.address, treasury.address, vw.address);
+        // Deploy dispenser master implementation (tokenomics proxy address is an implementation immutable)
+        const Dispenser = await ethers.getContractFactory("Dispenser");
+        const dispenserMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
+        await dispenserMaster.deployed();
 
-        // Update tokenomics address in treasury
-        await treasury.changeManagers(tokenomics.address, AddressZero, AddressZero);
+        // Deploy dispenser proxy; Vote Weighting address is a placeholder until the mock is deployed below
+        const dispenserData = dispenserMaster.interface.encodeFunctionData("initialize",
+            [treasury.address, deployer.address, maxNumClaimingEpochs, maxNumStakingTargets]);
+        const DispenserProxy = await ethers.getContractFactory("DispenserProxy");
+        const dispenserProxy = await DispenserProxy.deploy(dispenserMaster.address, dispenserData);
+        await dispenserProxy.deployed();
+
+        // Get the dispenser proxy contract
+        dispenser = await ethers.getContractAt("Dispenser", dispenserProxy.address);
+
+        // Vote Weighting mock
+        const VoteWeighting = await ethers.getContractFactory("MockVoteWeighting");
+        vw = await VoteWeighting.deploy(dispenser.address);
+        await vw.deployed();
+
+        // Change the vote weighting address in the dispenser to the correct one
+        await dispenser.changeManagers(AddressZero, vw.address);
+
+        // Update tokenomics and dispenser addresses in treasury
+        await treasury.changeManagers(tokenomics.address, AddressZero, dispenser.address);
+
+        // Update dispenser address in tokenomics
+        await tokenomics.changeManagers(AddressZero, AddressZero, dispenser.address);
 
         // Mint the initial balance
         await olas.mint(deployer.address, initialMint);
@@ -205,24 +215,6 @@ describe("DispenserStakingIncentives", async () => {
             await expect(
                 vw.removeNominee(stakingInstance.address, chainId)
             ).to.be.revertedWithCustomError(dispenser, "Overflow");
-        });
-
-        it("Changing staking parameters", async () => {
-            // Should fail when not called by the owner
-            await expect(
-                dispenser.connect(signers[1]).changeStakingParams(0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "OwnerOnly");
-
-            // Set arbitrary parameters
-            await dispenser.changeStakingParams(10, 10);
-
-            // Trying to set parameters to zero
-            await expect(
-                dispenser.changeStakingParams(0, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
-            await expect(
-                dispenser.changeStakingParams(10, 0)
-            ).to.be.revertedWithCustomError(dispenser, "ZeroValue");
         });
 
         it("Should fail when setting deposit processors and chain Ids with incorrect parameters", async () => {
@@ -556,22 +548,32 @@ describe("DispenserStakingIncentives", async () => {
                     bridgePayloads, [0, 1])
             ).to.be.revertedWithCustomError(dispenser, "WrongAmount");
 
-            // Change dispenser staking params
-            await dispenser.changeStakingParams(1, 1);
+            // maxNumClaimingEpochs and maxNumStakingTargets are fixed at initialize(); deploy a
+            // small-bounds dispenser (1, 1) to exercise the input-bound Overflow checks
+            const Dispenser = await ethers.getContractFactory("Dispenser");
+            const dispenserSmallMaster = await Dispenser.deploy(olas.address, tokenomics.address, retainer);
+            await dispenserSmallMaster.deployed();
+            const dispenserSmallData = dispenserSmallMaster.interface.encodeFunctionData("initialize",
+                [treasury.address, vw.address, 1, 1]);
+            const DispenserProxy = await ethers.getContractFactory("DispenserProxy");
+            const dispenserSmallProxy = await DispenserProxy.deploy(dispenserSmallMaster.address, dispenserSmallData);
+            await dispenserSmallProxy.deployed();
+            const dispenserSmall = await ethers.getContractAt("Dispenser", dispenserSmallProxy.address);
+
             // Too many staking targets
             await expect(
-                dispenser.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[1], stakingTargets[0]]],
+                dispenserSmall.claimStakingIncentivesBatch(numClaimedEpochs, [chainId], [[stakingTargets[1], stakingTargets[0]]],
                     [bridgePayloads[0]], [valueAmounts[0]])
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
 
             // Too many epochs to claim for
             await expect(
-                dispenser.claimStakingIncentivesBatch(numClaimedEpochs + 1, chainIds, stakingTargetsFinal,
+                dispenserSmall.claimStakingIncentivesBatch(numClaimedEpochs + 1, chainIds, stakingTargetsFinal,
                     bridgePayloads, valueAmounts)
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
             await expect(
-                dispenser.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTargets[0], bridgePayloads[0])
-            ).to.be.revertedWithCustomError(dispenser, "Overflow");
+                dispenserSmall.claimStakingIncentives(numClaimedEpochs + 1, chainId, stakingTargets[0], bridgePayloads[0])
+            ).to.be.revertedWithCustomError(dispenserSmall, "Overflow");
 
             // Trying to claim when staking is paused
             await dispenser.setPauseState(2);
