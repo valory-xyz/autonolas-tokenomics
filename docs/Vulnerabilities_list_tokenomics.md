@@ -465,7 +465,7 @@ Source code: [Dispenser.sol](contracts/Dispenser.sol)
 The following internal helper is implemented in the LiquidityManagerCore contract:
 
 ```solidity
-function checkPoolAndGetCenterPrice(address pool) internal returns (uint160 sqrtP)
+function checkPoolAndGetCenterPrice(address pool) public returns (uint160 sqrtP)
 ```
 
 `checkPoolAndGetCenterPrice` derives a 30-minute TWAP "center" price from the Uniswap V3 oracle and validates that the pool's `slot0` price lies within `MAX_ALLOWED_DEVIATION` of it. The helper has two early-return branches that bypass the deviation check and return the raw `slot0` sqrt price:
