@@ -23,6 +23,7 @@ import {console2} from "forge-std/console2.sol";
 interface ILMDev {
     function getTwapFromOracle(address pool) external view returns (uint256 twapPrice, uint160 twapSqrtPriceX96);
     function checkPoolAndGetCenterPrice(address pool) external view returns (uint160);
+    function MAX_ALLOWED_DEVIATION() external view returns (uint256);
     function increaseLiquidity(address[] memory tokens, int24 feeTierOrTickSpacing, uint16 olasBurnRate)
         external returns (uint256, uint256, uint256[] memory);
 }
@@ -74,7 +75,7 @@ contract LiquidityManagerIncreaseDeadBandForkETHTest is BaseSetup {
         (uint160 slot0Sqrt,,,,,,) = IUniswapV3(pool).slot0();
         (, uint160 twapSqrt) = ILMDev(address(liquidityManager)).getTwapFromOracle(pool);
         uint256 deviation = _deviationE18(slot0Sqrt, twapSqrt);
-        withinGate = deviation <= 1e17;     // MAX_ALLOWED_DEVIATION
+        withinGate = deviation <= ILMDev(address(liquidityManager)).MAX_ALLOWED_DEVIATION();
         // Cap the display for out-of-gate cells (a huge swap can send slot0 far past the range, making the
         // raw ratio meaningless); withinGate already excludes them from the dead-band determination.
         devBps = deviation > 100e18 ? 999999 : deviation / 1e14; // 1e18 -> bps
