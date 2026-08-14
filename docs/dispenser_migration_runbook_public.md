@@ -116,7 +116,7 @@ For every chain with an L2 dispenser (Arbitrum, Gnosis, Optimism, Base, Polygon,
 
 ### Phase 5 — Re-nominate and resume
 
-20. Nominate the staking targets **and the retainer** in VoteWeighting → fires `addNominee` on the new Dispenser, setting fresh cursors at the current epoch (clean because Phase 1 settled everything). Do **not** route any target through `removeNominee` first (permanent brick — §2).
+20. Nominate the staking targets **and the retainer** in VoteWeighting → fires `addNominee` on the new Dispenser, setting fresh cursors at the current epoch (clean because Phase 1 settled everything). Do **not** route any target through `removeNominee` first — removal is **terminal in VoteWeighting** (`_addNominee` reverts `NomineeRemoved`; `mapRemovedNominees[hash]` is set on removal and never cleared). Note the Dispenser-side `mapRemovedNomineeEpochs` brick described in §2 is **fixed** on the new Dispenser (#310, vuln-list item #25 — `addNominee` now clears it), so on the new stack the standing reason is the VoteWeighting side, which is not fixed.
 21. `Dispenser.setPauseState(Unpaused)`. (The Dispenser rejects going live while `voteWeighting == address(0)`, so this only succeeds after step 16.)
 22. **Withheld re-sync (only if a carried L2 balance is material):** the new L1 Dispenser starts with `mapChainIdWithheldAmounts = 0` and does not know about the balance carried in step 14, so it will not *net* the next distribution against it (it bridges fresh OLAS; funds are not lost, the L2 stays "ahead"). To restore netting, trigger a withheld sync from the new L2 dispenser up to the new L1 Dispenser after wiring. If the carried balance is ~0/dust, skip.
 

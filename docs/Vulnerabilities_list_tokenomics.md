@@ -459,13 +459,13 @@ Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
 ### 26. `LiquidityManagerCore.checkPoolAndGetCenterPrice` fail-open on stale-observation / inactive pools
 
-**Severity**: Low — acknowledged; code fix planned
+**Severity**: Low — code fix merged (#306); pending redeploy
 **Source**: Internal triage (2026-06)
 
-The following internal helper is implemented in the LiquidityManagerCore contract:
+The following public helper is implemented in the LiquidityManagerCore contract:
 
 ```solidity
-function checkPoolAndGetCenterPrice(address pool) public returns (uint160 sqrtP)
+function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96)
 ```
 
 `checkPoolAndGetCenterPrice` derives a 30-minute TWAP "center" price from the Uniswap V3 oracle and validates that the pool's `slot0` price lies within `MAX_ALLOWED_DEVIATION` of it. The helper has two early-return branches that bypass the deviation check and return the raw `slot0` sqrt price:
