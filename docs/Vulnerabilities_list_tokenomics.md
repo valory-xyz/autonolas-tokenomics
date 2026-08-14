@@ -459,13 +459,13 @@ Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
 ### 26. `LiquidityManagerCore.checkPoolAndGetCenterPrice` fail-open on stale-observation / inactive pools
 
-**Severity**: Low — acknowledged; code fix planned
+**Severity**: Low — code fix merged (#306); pending redeploy
 **Source**: Internal triage (2026-06)
 
-The following internal helper is implemented in the LiquidityManagerCore contract:
+The following public helper is implemented in the LiquidityManagerCore contract:
 
 ```solidity
-function checkPoolAndGetCenterPrice(address pool) internal returns (uint160 sqrtP)
+function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96)
 ```
 
 `checkPoolAndGetCenterPrice` derives a 30-minute TWAP "center" price from the Uniswap V3 oracle and validates that the pool's `slot0` price lies within `MAX_ALLOWED_DEVIATION` of it. The helper has two early-return branches that bypass the deviation check and return the raw `slot0` sqrt price:
@@ -497,7 +497,7 @@ Step (2) closes item **#15** (`collectFees` burn-all) and the entry side of item
 
 **Post-fix liveness (accepted residuals).** Two intended, self-healing liveness cases, neither of which locks funds:
 - **Quiet pool → entries/trades revert.** A pool with no trade for >30 minutes reverts `increaseLiquidity` / `changeRanges` / `buyBack` (fail-closed) until the next swap repopulates the observation buffer. Exits are unaffected here (the exit gate is skipped on a quiet pool).
-- **Extreme move → exit temporarily blocked.** On a *verifiable* pool the exit deviation gate cannot distinguish manipulation from a genuine fast market move, so `decreaseLiquidity` reverts (`Overflow`) while `slot0` sits >`MAX_ALLOWED_DEVIATION` (10%) from the lagging 30-minute TWAP. Funds are never at risk; the exit succeeds once the pool re-converges within the bound (the TWAP catches up or arbitrage restores price). Acceptable because POL exits are governance-timed, not block-time-critical; a decrease proposal that lands in an extreme window is simply re-submitted after re-convergence.
+- **Extreme move → exit temporarily blocked.** On a *verifiable* pool the exit deviation gate cannot distinguish manipulation from a genuine fast market move, so `decreaseLiquidity` reverts (`Overflow`) while `slot0` sits >`MAX_ALLOWED_DEVIATION` from the lagging 30-minute TWAP. Funds are never at risk; the exit succeeds once the pool re-converges within the bound (the TWAP catches up or arbitrage restores price). Acceptable because POL exits are governance-timed, not block-time-critical; a decrease proposal that lands in an extreme window is simply re-submitted after re-convergence.
 
 **Interim operational mitigation.** As with the fresh-pool case, before submitting any owner-initiated `convertToV3` / `increaseLiquidity` / `changeRanges` transaction the DAO confirms the pool exposes a working 30-minute TWAP and a recent trade (the migration-runbook pre-flight generalises to any subsequent owner-initiated liquidity op on the same pool).
 

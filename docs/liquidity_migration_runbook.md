@@ -114,11 +114,19 @@ independent guards**:
 | Leg | Where | Oracle used | Mechanism |
 |---|---|---|---|
 | **V2 exit** | `_checkTokensAndRemoveLiquidityV2` (`LiquidityManagerUniV2UniV3.sol` / `LiquidityManagerBalancerSlipstream.sol`) | `oracleV2.getTWAP()` — `UniswapPriceOracle` (ETH) / `BalancerPriceOracle` (Base/Optimism) | `minAmountsOut` derived from the constant-product invariant `k` and the TWAP fair price, discounted by `maxSlippage`. Reverts if the V2 exit returns less. |
-| **V3 mint** | `checkPoolAndGetCenterPrice` (`LiquidityManagerCore.sol`) | The V3 pool's own built-in `observe()` TWAP | **Fail-closed:** reverts `NotEnoughHistory` if the pool cannot produce a 30-minute TWAP; otherwise reverts `Overflow` if the instantaneous `slot0` price deviates from the TWAP by more than `MAX_ALLOWED_DEVIATION` (10%); mints at the TWAP-derived sqrt price. |
+| **V3 mint** | `checkPoolAndGetCenterPrice` (`LiquidityManagerCore.sol`) | The V3 pool's own built-in `observe()` TWAP | **Fail-closed:** reverts `NotEnoughHistory` if the pool cannot produce a 30-minute TWAP; otherwise reverts `Overflow` if the instantaneous `slot0` price deviates from the TWAP by more than `MAX_ALLOWED_DEVIATION`; mints at the TWAP-derived sqrt price. |
 
-Both use a 10% bound, mirrored between `MAX_ALLOWED_DEVIATION` (pre-flight, price space) and the
-deploy-time `maxSlippage` (post-flight, amount space) so the V3 NPM's `amount{0,1}Min` check doesn't
-reject a mint the deviation check already accepted.
+The two bounds are **no longer mirrored**, and deliberately so. `MAX_ALLOWED_DEVIATION` (pre-flight,
+price space) is the anti-manipulation gate and is now the *sole* entry defence; the deploy-time
+`maxSlippage` (post-flight, amount space) no longer backstops entries at all, because #306 re-anchored
+`amount{0,1}Min` to `slot0` — the exact price the NPM executes at — which makes that check vacuous by
+construction. Its only live role is the source-side V2/Balancer exit floor, so tightening it to "match"
+the gate would risk reverting legitimate exits on a shallow source pool for no gain.
+
+Mirroring them was the earlier guidance, and it was unsound even then: a price-space tolerance does not
+map to an equal amount-space tolerance, and the gap widens as the tick range narrows. Anchoring the floor
+to the TWAP while the NPM minted at `slot0` opened an in-gate dead band where the pre-flight guard accepted
+a mint the amount-min check then rejected (internal20 finding #306.1). Do not re-couple them.
 
 ### 3.1 The pre-warm is a functional prerequisite (all chains)
 
@@ -139,8 +147,8 @@ never be seeded at a bad price (the guard refuses). Before the first seed on any
    - the buffer actually spans ≥ 1800s (`N` large enough for the pool's peak trade rate; an undersized
      `N` on a busy pool wraps the ring inside the window and `observe` reverts).
 
-   With the pool warm, the guard runs: a seed whose `slot0` is within 10% of the TWAP mints at the TWAP
-   price; a >10% deviation reverts.
+   With the pool warm, the guard runs: a seed whose `slot0` is within `MAX_ALLOWED_DEVIATION` of the TWAP
+   mints at the TWAP price; a larger deviation reverts.
 
    Sizing `N` for **peak** churn is a **hard release gate**, not just a mint prerequisite. An undersized
    buffer that later wraps below 1800s makes the *mint* fail closed (safe — it refuses), but it also makes the
@@ -155,9 +163,9 @@ never be seeded at a bad price (the guard refuses). Before the first seed on any
    submitted through a builder/private relay so it is not exposed to public-mempool ordering. On
    **L2 (OP-stack)** a Timelock-triggered `convertToV3` runs as a deterministic deposit transaction with
    no private path, but OP-stack has no public L2 mempool, so the only exposure is the L1 trigger. With
-   the pre-warm in place (steps 1–2) the pool is not manipulable for free and any >10% move reverts, so
-   the residual on L2 is at most griefing (forced reverts, which merely delay the migration) or a bounded
-   ≤10%+`maxSlippage` slip — never a catastrophic mis-seed.
+   the pre-warm in place (steps 1–2) the pool is not manipulable for free and any move beyond
+   `MAX_ALLOWED_DEVIATION` reverts, so the residual on L2 is at most griefing (forced reverts, which merely
+   delay the migration) or a slip bounded by that same gate — never a catastrophic mis-seed.
 
 ### 3.2 Residual specific to Base / Optimism (Balancer V2-exit oracle)
 
@@ -261,6 +269,7 @@ oracle accrues history ahead of the real migration (this is the *V3-mint* guard'
 - [ ] `LiquidityManager*` deployed; owner = Timelock (ETH) / `BridgeMediator` (L2).
 - [ ] V2 LP transferred Treasury → LiquidityManager (ETH: `Treasury.withdraw`; L2: Wormhole Token Bridge
       `transferTokens` `value 0` to `l2Recipient = LiquidityManagerProxy`, VAA redeemed).
-- [ ] `maxSlippage` set to 10% (matches `MAX_ALLOWED_DEVIATION`) on the proxy.
+- [ ] `maxSlippage` set to 10% on the proxy. (Sized for the **source-side** V2/Balancer exit floor —
+      deliberately *not* matched to `MAX_ALLOWED_DEVIATION`; see the note above.)
 - [ ] **Balancer chains only:** oracle warmed (§4) and off-chain spot-vs-TWAP pre-flight passes.
 - [ ] `convertToV3(...)` submitted with tick shifts from the actual center price.
