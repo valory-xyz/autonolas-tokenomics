@@ -233,11 +233,45 @@ instead.
   thousand dollars, and only against owner/DAO-gated operations (`convertToV3`, `increaseLiquidity`,
   `changeRanges`) — per-operation exposure, not continuous.
 
-  **Recommendation: tighten `MAX_ALLOWED_DEVIATION` to 2–3% before any POL is seeded.** Loss scales roughly
+  **Recommendation: tighten `MAX_ALLOWED_DEVIATION` to 2% before any POL is seeded** (2–3% on the modelling below; 2% after the empirical check that follows). Loss scales roughly
   with `dev²`, so 10% → 2% cuts extraction ~30× (21 bps → 0.7 bps) while the attacker's cost barely moves.
   The liveness price is close to zero: on a pool that is ~100% our own liquidity, `slot0`-vs-30-minute-TWAP
   should sit well below 1% outside genuine volatility, and the failure mode is the self-healing
   revert-and-retry already accepted as a residual above.
+
+  **Empirical check — measured, after the recommendation above was written.** The 2-vs-3% question was
+  settled with data rather than argument. Sampling the live OLAS/WETH V2 pair (which *is* today's POL, so
+  same tokens and same depth class) hourly over ~2.5 days and computing spot vs its own 30-minute TWAP —
+  the same quantity `_getPoolPriceFacts` measures — gives:
+
+  | statistic | deviation |
+  |---|---|
+  | median | 0.000% |
+  | p90 | 0.193% |
+  | p95 | 0.742% |
+  | p99 / max | 7.819% |
+
+  A constant-product pool behaves as V3 with `L = √(x·y)` = 85,004, while the POL concentrated over
+  `-25000/+15000` gives `L` = 119,141 — so the V3 pool is **1.402×** deeper and the same flow moves it
+  `0.713×` as far. A V3 gate of `G` therefore corresponds to a measured V2 deviation of `G × 1.402`.
+
+  | V3 gate | equivalent V2 deviation | samples blocked |
+  |---|---|---|
+  | 2% | > 2.80% | 1 / 59 (1.7%) |
+  | 3% | > 4.21% | 1 / 59 (1.7%) |
+
+  **2% and 3% block identically**, because the distribution is bimodal: 95% of observations sit below
+  0.74%, and the single excursion is 7.819% — which breaches both. There are **zero** observations in the
+  band where 3% would help and 2% would not. So 3% buys no liveness on this data while permitting ~2.2×
+  the extraction (0.083 vs 0.037 WETH).
+
+  Note also *what* the one blocking sample is: a 7.8% deviation is precisely the condition the gate exists
+  to refuse. Blocking there is the gate working, not a false positive.
+
+  **Conclusion: 2%.** (Sample caveats: 59 hourly points over ~2.5 days; hourly snapshots undersample short
+  excursions, so the absolute "fraction blocked" is a floor for every gate. That undersampling is symmetric
+  between the two candidates, and the finding that decides it is the *shape* — no mass between them — not
+  the absolute rate. Worth re-running over a longer window if the value is ever revisited.)
 
   Two caveats that argue for doing this **now**:
 
