@@ -18,6 +18,20 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
+# Check for Alchemy keys (chains whose RPC needs a key appended, e.g. Polygon)
+if [[ "$networkURL" == *"alchemy.com"* ]]; then
+  case $chainId in
+    1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
+    11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
+    137)      API_KEY=$ALCHEMY_API_KEY_MATIC;   keyName="ALCHEMY_API_KEY_MATIC" ;;
+    80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
+  esac
+  if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
+    echo "set $keyName env variable"
+    exit 0
+  fi
+fi
+
 olasAddress=$(jq -r '.olasAddress' $globals)
 treasuryAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 positionManagerV3Address=$(jq -r '.positionManagerV3Address' $globals)
@@ -48,7 +62,7 @@ echo "RPC: $networkURL"
 echo "${green}Deployment of: $contractArgs${reset}"
 
 # Deploy the contract and capture the address
-execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
+execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
 liquidityManagerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
