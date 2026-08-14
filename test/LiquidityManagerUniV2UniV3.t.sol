@@ -287,7 +287,7 @@ contract BaseSetup is Test {
     }
 }
 
-contract LiquidityManagerETHTest is BaseSetup {
+contract LiquidityManagerUniV2UniV3Test is BaseSetup {
     function setUp() public override {
         super.setUp();
     }
