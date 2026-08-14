@@ -138,16 +138,35 @@ Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy
 
 - `_optimizeTicksAndMintPosition` (`LiquidityManagerCore.sol:552-553`)
 - `_increaseLiquidity` (`LiquidityManagerCore.sol:432-433`)
-- `_decreaseLiquidity` (`LiquidityManagerCore.sol:374-375`)
+- `_decreaseLiquidity` (`LiquidityManagerCore.sol:377-378`)
 
-Production value `1000` (= 10%) is chosen to align with the contract's `MAX_ALLOWED_DEVIATION` (10%, `LiquidityManagerCore.sol:122`).
+Production value `1000` (= 10%). It is **no longer** aligned to `MAX_ALLOWED_DEVIATION`, which is now
+**2%** (`2e16`, `LiquidityManagerCore.sol:128`) after the internal20 R6 tightening. The two are
+deliberately decoupled — see the superseded note below.
 
-**Why the two guards co-exist.** `MAX_ALLOWED_DEVIATION` and `liquidityManagerMaxSlippage` are not redundant despite operating at the same percentage:
+**Why the two guards co-exist.** `MAX_ALLOWED_DEVIATION` and `liquidityManagerMaxSlippage` are not
+redundant. (They no longer operate at the same percentage — 2% vs 10% — and no longer should.)
 
-- `MAX_ALLOWED_DEVIATION` (constant, contract-level) is a **pre-flight pool-sanity gate in price space**: rejects operation outright when `slot0` has been pushed more than 10% off TWAP, an anti-manipulation primitive. Tamper-evident — owners cannot loosen it without redeploying the implementation.
+- `MAX_ALLOWED_DEVIATION` (constant, contract-level) is a **pre-flight pool-sanity gate in price space**: rejects operation outright when `slot0` has been pushed more than `MAX_ALLOWED_DEVIATION` off TWAP, an anti-manipulation primitive. Tamper-evident — owners cannot loosen it without redeploying the implementation.
 - `liquidityManagerMaxSlippage` (storage, mutable, per-deploy) is a **post-flight execution gate in amount space**: the V3 NPM's own `amount0Min`/`amount1Min` parameter, which the mint signature requires us to pass. Tunable via `changeMaxSlippage()`.
 
-The two checks operate in different units (price vs amount) and at different points in the call lifecycle. Even with `slot0 == TWAP` exactly, the V3 mint's amount math is non-linear in the tick range — a 10% price-space tolerance does not produce exactly 10% amount-space drift, it can be more or less depending on tick width and where slot0 sits. Setting `liquidityManagerMaxSlippage` to the same percentage as `MAX_ALLOWED_DEVIATION` is a coherence heuristic: give the mint enough amount-space slack to land what the upstream deviation guard has already accepted as a sane pool state. Setting it lower (e.g. 500 bps = 5%) creates a 5–10% band where the LM is willing to operate but the V3 mint reverts on the amount-min check; setting it higher leaves the deviation guard doing all the work and the amount-min check effectively disabled.
+The two checks operate in different units (price vs amount) and at different points in the call lifecycle.
+
+> **Superseded.** The paragraph that stood here recommended setting `liquidityManagerMaxSlippage` to the
+> same percentage as `MAX_ALLOWED_DEVIATION` as a "coherence heuristic". Two changes retired that advice,
+> and the reasoning it rested on was already unsound:
+>
+> - Its own observation was correct — *"a 10% price-space tolerance does not produce exactly 10%
+>   amount-space drift, it can be more or less depending on tick width and where slot0 sits"* — but the
+>   conclusion did not follow. Because the entry floor was anchored to the TWAP while the NPM executed at
+>   `slot0`, the mismatch opened an **in-gate dead band**: deviations the pre-flight guard accepted made
+>   the amount-min check reject the mint unconditionally, from ~0.5% on a narrow range (internal20 #306.1).
+> - #306 re-anchored `amount{0,1}Min` to `slot0`, the exact execution price, so the amount-space check is
+>   now **vacuous by construction** on entries — it cannot bind, and cannot backstop anything.
+>
+> `liquidityManagerMaxSlippage`'s only live role is therefore the **source-side** V2/Balancer exit floor,
+> and it is sized for that. `MAX_ALLOWED_DEVIATION` is the sole entry manipulation defence (internal20 R6),
+> which is why it was tightened to 2% and why the two values are deliberately no longer coupled.
 
 Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
 
