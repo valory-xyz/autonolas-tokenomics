@@ -764,7 +764,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             amounts = _manageUtilityAmounts(tokens, olasBurnRate, true);
         }
 
-        // Check current pool prices
+        // Check current pool prices. NOTE (#324): this gate-verified sqrtP (within 2% of the V3 TWAP) is also the
+        // trusted reference the proposed source-side cross-check would reuse — asserting the V2-removed A:B ratio in
+        // `amounts` matches it — to drop `oracleV2`/`_fairMinAmountsOut` without losing a manipulation gate. The gate
+        // here also guarantees that reference is only trusted on a warmed pool (an unseeded pool's slot0 is stale).
         uint160 sqrtP = checkPoolAndGetCenterPrice(v3Pool);
 
         // Approve tokens for position manager
