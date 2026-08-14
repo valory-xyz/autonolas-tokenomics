@@ -8,7 +8,7 @@ import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol"
 import {TickMath} from "../contracts/libraries/TickMath.sol";
 import {FullMath} from "../contracts/libraries/FullMath.sol";
 import {FixedPoint96} from "../contracts/libraries/FixedPoint96.sol";
-import {LiquidityManagerETH} from "../contracts/pol/LiquidityManagerETH.sol";
+import {LiquidityManagerUniV2UniV3} from "../contracts/pol/LiquidityManagerUniV2UniV3.sol";
 import {NotEnoughHistory, ZeroValue} from "../contracts/pol/LiquidityManagerCore.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
@@ -75,7 +75,7 @@ contract BaseSetup is Test {
     Utils internal utils;
     UniswapPriceOracle internal oracleV2;
     NeighborhoodScanner internal neighborhoodScanner;
-    LiquidityManagerETH internal liquidityManager;
+    LiquidityManagerUniV2UniV3 internal liquidityManager;
     BuyBackBurnerUniswap internal buyBackBurner;
 
     address payable[] internal users;
@@ -134,8 +134,8 @@ contract BaseSetup is Test {
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
 
-        // Deploy LiquidityManagerETH implementation
-        LiquidityManagerETH liquidityManagerImplementation = new LiquidityManagerETH(OLAS, TIMELOCK, POSITION_MANAGER_V3,
+        // Deploy LiquidityManagerUniV2UniV3 implementation
+        LiquidityManagerUniV2UniV3 liquidityManagerImplementation = new LiquidityManagerUniV2UniV3(OLAS, TIMELOCK, POSITION_MANAGER_V3,
             address(neighborhoodScanner), observationCardinality, address(oracleV2), ROUTER_V2);
 
         // Deploy LiquidityManagerProxy
@@ -144,7 +144,7 @@ contract BaseSetup is Test {
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 
         // Wrap proxy into implementation
-        liquidityManager = LiquidityManagerETH(address(liquidityManagerProxy));
+        liquidityManager = LiquidityManagerUniV2UniV3(address(liquidityManagerProxy));
 
         // Get V2 pool balance
         uint256 v2Liquidity = IToken(PAIR_V2).balanceOf(TREASURY);
