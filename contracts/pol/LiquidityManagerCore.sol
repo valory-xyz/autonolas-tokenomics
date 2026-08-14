@@ -121,10 +121,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
     // Max allowed slot0-vs-TWAP price deviation (2%) in 1e18 format. Pre-flight anti-manipulation gate on
     // entries/trades: rejects an operation when slot0 has been pushed more than this far from the TWAP.
-    // Post-#306.1 the entry `amount{0,1}Min` is anchored to slot0 (vacuous by construction), so this gate is
-    // the SOLE entry manipulation defence — tightened from 10% to 2% per internal20 R6 (on a shallow,
-    // ~fully-POL pool a 10% push is buyable for ~0.1% of the position). Treat any change as a security
-    // change, not a tuning knob.
+    // The entry `amount{0,1}Min` is anchored to slot0 (vacuous by construction), so this gate is the SOLE
+    // entry manipulation defence — set to 2% because on a shallow, ~fully-POL pool a wider (e.g. 10%) push is
+    // buyable for a tiny fraction (~0.1%) of the position. Treat any change as a security change, not a
+    // tuning knob.
     uint256 public constant MAX_ALLOWED_DEVIATION = 2e16;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
@@ -147,12 +147,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // Owner address
     address public owner;
 
-    // Max slippage for pool operations (in BPS, bound by 10_000). Post-#306.1 it no longer backstops V3
-    // mints (the entry `amount{0,1}Min` is slot0-anchored, so that amount-space check is vacuous); its live
-    // role is the source-side floor on the V2/Balancer `removeLiquidity`/`exitPool` (the fair-reserve
-    // discount in the source mixin). It is therefore DECOUPLED from `MAX_ALLOWED_DEVIATION` — set it from the
-    // source pool's expected spot-vs-TWAP drift, not the gate. Seeded at `initialize`, tunable via
-    // `changeMaxSlippage`.
+    // Max slippage for pool operations (in BPS, bound by 10_000). It does not backstop V3 mints (the entry
+    // `amount{0,1}Min` is slot0-anchored, so that amount-space check is vacuous); its live role is the
+    // source-side floor on the V2/Balancer `removeLiquidity`/`exitPool` (the fair-reserve discount in the
+    // source mixin). It is therefore DECOUPLED from `MAX_ALLOWED_DEVIATION` — set it from the source pool's
+    // expected spot-vs-TWAP drift, not the gate. Seeded at `initialize`, tunable via `changeMaxSlippage`.
     uint16 public maxSlippage;
 
     // Reentrancy lock
@@ -396,9 +395,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @dev slot0-anchored min amounts for an entry into [tickLower, tickUpper] with the given desired amounts.
     /// @notice Mirrors what the position manager does at execution (getLiquidityForAmounts then
     ///         getAmountsForLiquidity at slot0), so amountMin is always satisfiable at the price the mint /
-    ///         increase executes at — the fix for the TWAP-vs-slot0 dead band (finding #306.1). The range stays
-    ///         placed around the TWAP center; only the floor moves to slot0, exactly as _decreaseLiquidity does
-    ///         on the exit. Manipulation resistance stays in the pre-flight checkPoolAndGetCenterPrice gate.
+    ///         increase executes at — avoiding the TWAP-vs-slot0 dead band. The range stays placed around the
+    ///         TWAP center; only the floor moves to slot0, exactly as _decreaseLiquidity does on the exit.
+    ///         Manipulation resistance stays in the pre-flight checkPoolAndGetCenterPrice gate.
     /// @param slot0SqrtPriceX96 slot0 (execution) sqrt price.
     /// @param tickLower Lower tick of the position range.
     /// @param tickUpper Upper tick of the position range.
@@ -485,7 +484,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     ///         This operates on `balanceOf(this)` and is used only by the owner-only entry/exit paths
     ///         (convertToV3 / increaseLiquidity / decreaseLiquidity / changeRanges), where sweeping the whole
     ///         balance is intended. The permissionless collectFees instead passes just the collected fees to
-    ///         the shared _manageAmounts primitive, so it cannot burn separately-staged OLAS (VL#15).
+    ///         the shared _manageAmounts primitive, so it cannot burn separately-staged OLAS.
     /// @param tokens Token addresses.
     /// @param utilizationRate Token utilization rate, in BPS.
     /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
@@ -522,7 +521,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     ///         collectFees path funnel through here, so the OLAS-ordering / burn-vs-transfer / event logic
     ///         lives in exactly one place. Passing explicit amounts (rather than reading balanceOf) is what
     ///         lets collectFees handle only the just-collected fees and leave separately-staged OLAS
-    ///         untouched (VL#15).
+    ///         untouched.
     /// @param tokens Token addresses.
     /// @param amounts Amounts to manage, parallel to tokens.
     /// @param olasBurnOrTransfer True if OLAS is burnt, false if transferred to treasury.
@@ -599,8 +598,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
 
         // Range placement stays anchored to the TWAP center (sqrtP, manipulation-resistant), but amountMin is
-        // anchored to slot0 — the exact price NPM.mint() executes at. Otherwise a slot0 != TWAP within the 10%
-        // gate creates a dead band where the pre-flight guard accepts but the mint reverts (finding #306.1).
+        // anchored to slot0 — the exact price NPM.mint() executes at. Otherwise a slot0 != TWAP within the
+        // deviation gate creates a dead band where the pre-flight guard accepts but the mint reverts.
         // Mirrors _decreaseLiquidity; manipulation resistance stays in the caller's checkPoolAndGetCenterPrice.
         (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(_getV3Pool(tokens, feeTierOrTickSpacing));
         uint256[] memory aMin = _slot0MinAmounts(slot0Sqrt, optimizedTicks[0], optimizedTicks[1], amountsIn);
@@ -764,10 +763,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             amounts = _manageUtilityAmounts(tokens, olasBurnRate, true);
         }
 
-        // Check current pool prices. NOTE (#324): this gate-verified sqrtP (within 2% of the V3 TWAP) is also the
-        // trusted reference the proposed source-side cross-check would reuse — asserting the V2-removed A:B ratio in
-        // `amounts` matches it — to drop `oracleV2`/`_fairMinAmountsOut` without losing a manipulation gate. The gate
-        // here also guarantees that reference is only trusted on a warmed pool (an unseeded pool's slot0 is stale).
+        // Check current pool prices
         uint160 sqrtP = checkPoolAndGetCenterPrice(v3Pool);
 
         // Approve tokens for position manager
@@ -790,7 +786,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         } else {
             // Position already exists: increase liquidity. sqrtP (checkPoolAndGetCenterPrice) above is the
             // pre-flight manipulation gate; anchor the increase's amountMin to slot0 (the execution price) to
-            // avoid the #306.1 dead band, mirroring _decreaseLiquidity.
+            // avoid the TWAP-vs-slot0 dead band, mirroring _decreaseLiquidity.
             (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(v3Pool);
             (liquidity, amounts) = _increaseLiquidity(positionId, amounts, slot0Sqrt);
         }
@@ -1060,10 +1056,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Pre-flight manipulation gate (fails closed on an unverifiable pool or slot0 > 10% off the TWAP)
+        // Pre-flight manipulation gate (fails closed on an unverifiable pool or slot0 more than
+        // MAX_ALLOWED_DEVIATION off the TWAP)
         checkPoolAndGetCenterPrice(pool);
         // Anchor the liquidity math and amountMin to slot0 (the price the position manager executes at), not the
-        // TWAP center — the entry analog of _decreaseLiquidity's _getExitSqrtPrice; fixes the #306.1 dead band.
+        // TWAP center — the entry analog of _decreaseLiquidity's _getExitSqrtPrice; avoids the TWAP-vs-slot0 dead band.
         (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(pool);
 
         // Approve tokens for position manager

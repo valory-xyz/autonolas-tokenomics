@@ -38,14 +38,8 @@ abstract contract LiquidityManagerSourceBase is LiquidityManagerCore {
 
     /// @dev Computes manipulation-resistant minimum withdrawal amounts from the constant-product invariant.
     /// @notice `k` (reserve0 * reserve1, or balance0 * balance1) is invariant across swaps, so pairing it with
-    ///         the OLAS TWAP yields fair reserves the removal must at least honor (floored by `maxSlippage`).
-    ///         NOTE: whether this TWAP floor (and therefore `oracleV2` and `maxSlippage`) is needed at all is
-    ///         tracked in issue #324 — a proportional removeLiquidity cannot be sandwiched for a value loss
-    ///         (constant-product convexity, per internal20 R6), so it may be droppable. The proposed replacement
-    ///         keeps a manipulation gate WITHOUT the oracle: cross-check the removed A:B ratio against the V3 pool's
-    ///         gate-verified slot0 (already computed by `checkPoolAndGetCenterPrice` in `convertToV3`), re-tasking
-    ///         `maxSlippage` as the V2↔V3 tolerance. Fork-measured separation (honest 0–20 bps vs a real 50-WETH
-    ///         sandwich at ~4007 bps) is in test/LiquidityManagerV2V3CrossCheckForkETH.t.sol. Read #324 before changing.
+    ///         the OLAS TWAP yields fair reserves the removal must at least honor (floored by `maxSlippage`),
+    ///         making the minimum-out resistant to spot-price manipulation of the source pool.
     /// @param k Constant-product invariant of the source pool (product of the two reserves/balances).
     /// @param token0IsOlas True if `tokens[0]` is OLAS (selects which fair reserve gets the TWAP numerator).
     /// @param liquidity This contract's LP/BPT balance being withdrawn.
