@@ -18,6 +18,23 @@ For each contract both figures are given: the full SLoC of the file (whole-file 
 delta against the previously audited version (lines added / removed), so the review can be scoped
 either way.
 
+## Before → after code state (tag diffs)
+
+The changes below are all merged. To see the exact before/after code state, diff the last
+externally-audited tag against the pre-external-audit snapshot of each repo:
+
+- **Tokenomics** — `v1.4.3-post-external-audit` → `1.5.0-pre-external-audit`:
+  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...1.5.0-pre-external-audit
+  The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs #306/#307/#309/#310/#311/#314/#315
+  (currently `main`); until it is pushed, the same diff is
+  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...main
+- **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
+  https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
+  (per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
+
+Per-contract line deltas below are the raw `git diff` (added / removed) against
+`v1.4.3-post-external-audit`; the SLoC figures are `cloc` code lines on the merged file.
+
 ## Governance
 
 The following needs to be audited:
@@ -41,12 +58,12 @@ Ref. PR https://github.com/valory-xyz/autonolas-governance/pull/215
 
 The following needs to be audited:
 
-1. Dispenser.sol — 705 SLoC — delta: +159 / −88 (~247 lines changed)
+1. Dispenser.sol — 717 SLoC — delta: +211 / −90 (~301 lines changed)
 2. DispenserProxy.sol — 34 SLoC — new file (entire file new)
-3. LiquidityManagerCore.sol — 641 SLoC — delta: +158 / −82 (~240 lines changed)
+3. LiquidityManagerCore.sol — 657 SLoC — delta: +197 / −85 (~282 lines changed)
 
 **Contracts Number: 3**
-**Total SLoC (full files): 1380 — Changed lines: ~247 in Dispenser + 34 new in DispenserProxy + ~240 in LiquidityManagerCore**
+**Total SLoC (full files): 1408 — Changed lines: ~301 in Dispenser + 34 new in DispenserProxy + ~282 in LiquidityManagerCore**
 
 ### Scope of changes for Dispenser / DispenserProxy
 
@@ -93,14 +110,14 @@ internal-audit records in `audits/internal18/README.md` and `audits/internal19/R
   `oldestTimestamp` → `latestObsTimestamp` rename; removed the now-unused `_getObservationCardinality`.
 - Storage layout is preserved (external signatures unchanged, one new `error` only), so the change ships
   to the live proxies via a `changeImplementation` upgrade. `LiquidityManagerCore` is the shared
-  implementation base for `LiquidityManagerETH` / `LiquidityManagerOptimism`; the change is confined to
-  the base. ~240-line delta on a 641-SLoC file; listed for a full-file audit.
+  implementation base for the chain-specific liquidity managers; the change is confined to the base.
+  ~282-line delta on a 657-SLoC file; listed for a full-file audit.
 
 Ref. PR https://github.com/valory-xyz/autonolas-tokenomics/pull/306 (deployment routine + audit-diff in
 https://github.com/valory-xyz/autonolas-tokenomics/pull/307).
 
 ## Contracts and SLoC
 
-Overall: **4 contracts and 1817 SLoC** (VoteWeighting.sol 437, Dispenser.sol 705, DispenserProxy.sol 34,
-LiquidityManagerCore.sol 641). Changed-lines scope: ~102 in VoteWeighting, ~247 in Dispenser,
-34 new in DispenserProxy, ~240 in LiquidityManagerCore.
+Overall: **4 contracts and 1845 SLoC** (VoteWeighting.sol 437, Dispenser.sol 717, DispenserProxy.sol 34,
+LiquidityManagerCore.sol 657). Changed-lines scope: ~102 in VoteWeighting, ~301 in Dispenser,
+34 new in DispenserProxy, ~282 in LiquidityManagerCore.
