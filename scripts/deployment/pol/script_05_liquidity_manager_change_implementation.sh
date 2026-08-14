@@ -102,15 +102,18 @@ if [ "$(echo $storedImpl | tr '[:upper:]' '[:lower:]')" != "$(echo $liquidityMan
   echo "${red}!!! Implementation slot does not match liquidityManagerAddress — the upgrade did not land${reset}"
   exit 1
 fi
-# Variant guard: confirm the deployed impl's SOURCE DEX matches what this chain's globals expect. The three
-# leaves (UniV2UniV3 / BalancerSlipstream / BalancerUniV3) share one `liquidityManagerAddress` key, and
-# changeImplementation accepts any address by convention — so running the wrong deploy_02_* for a chain lands a
-# wrong-variant impl that the slot read-back above cannot catch (it only proves the proxy points where globals
-# said). Read a source-distinguishing immutable via the proxy and assert it matches globals. NOTE: this covers
-# the source DEX only; it does not distinguish a Slipstream vs UniV3 target (both are Balancer-source).
+# Variant guard: confirm the deployed impl matches globals on BOTH axes the four leaves (UniV2UniV3 /
+# BalancerSlipstream / BalancerUniV3 / UniV2UniV3Bridge) vary on — SOURCE DEX and BURN MODE. They share one
+# `liquidityManagerAddress` key and changeImplementation accepts any address by convention, so a wrong
+# deploy_02_* lands a wrong-variant impl the slot read-back above cannot catch (it only proves the proxy
+# points where globals said).
 routerV2Address=$(jq -r '.routerV2Address // empty' $globals)
 balancerVaultAddress=$(jq -r '.balancerVaultAddress // empty' $globals)
+bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress // empty' $globals)
 zero="0x0000000000000000000000000000000000000000"
+
+# (1) SOURCE DEX: read a source-distinguishing immutable via the proxy and assert it matches globals. Does NOT
+#     distinguish a Slipstream vs UniV3 target (both Balancer-source, identical getter sets — genuinely unclosable).
 if [ -n "$routerV2Address" ] && [ "$routerV2Address" != "$zero" ]; then
   onchain=$(cast call $liquidityManagerProxyAddress "routerV2()(address)" --rpc-url $networkURL$API_KEY 2>/dev/null)
   echo "  source variant -> UniV2 (routerV2 $onchain, expected $routerV2Address)"
@@ -126,7 +129,29 @@ elif [ -n "$balancerVaultAddress" ] && [ "$balancerVaultAddress" != "$zero" ]; t
     exit 1
   fi
 else
-  echo "${red}!!! Cannot determine expected source variant (neither routerV2Address nor balancerVaultAddress set) — skipping variant check${reset}"
+  # Single-signer EOA path, no proposal review: an unset source key is the case to STOP on, not skip.
+  echo "${red}!!! Cannot determine expected source variant (neither routerV2Address nor balancerVaultAddress set) — aborting${reset}"
+  exit 1
+fi
+
+# (2) BURN MODE: source alone no longer pins the variant — LiquidityManagerUniV2UniV3 (L1 direct OLAS.burn) and
+#     LiquidityManagerUniV2UniV3Bridge (L2 bridge burn) share the same UniV2 source getter. Only the bridge
+#     variants expose bridge2Burner(); the L1-burn leaf does not. Assert against the globals so a wrong burn
+#     mode (e.g. the L1-burn leaf on an L2) is caught here rather than at runtime on the first burn.
+if [ -n "$bridge2BurnerAddress" ] && [ "$bridge2BurnerAddress" != "$zero" ]; then
+  onchain=$(cast call $liquidityManagerProxyAddress "bridge2Burner()(address)" --rpc-url $networkURL$API_KEY 2>/dev/null)
+  echo "  burn mode -> bridge (bridge2Burner $onchain, expected $bridge2BurnerAddress)"
+  if [ "$(echo $onchain | tr '[:upper:]' '[:lower:]')" != "$(echo $bridge2BurnerAddress | tr '[:upper:]' '[:lower:]')" ]; then
+    echo "${red}!!! Deployed impl bridge2Burner != globals bridge2BurnerAddress — wrong burn mode (expected an L2 bridge-burn variant)${reset}"
+    exit 1
+  fi
+else
+  # No bridge2BurnerAddress in globals -> expect an L1 direct-burn variant, which does NOT expose bridge2Burner().
+  if cast call $liquidityManagerProxyAddress "bridge2Burner()(address)" --rpc-url $networkURL$API_KEY >/dev/null 2>&1; then
+    echo "${red}!!! Deployed impl exposes bridge2Burner() but globals has no bridge2BurnerAddress — expected an L1 direct-burn variant${reset}"
+    exit 1
+  fi
+  echo "  burn mode -> L1 direct (bridge2Burner() absent, as expected)"
 fi
 
 echo "${green}LiquidityManager implementation upgraded and verified${reset}"
