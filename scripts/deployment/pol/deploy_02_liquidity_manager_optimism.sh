@@ -27,7 +27,7 @@ oracleV2Address=$(jq -r '.balancerPriceOracleAddress' $globals)
 balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
 bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
 
-contractName="LiquidityManagerOptimism"
+contractName="LiquidityManagerBalancerSlipstream"
 contractPath="contracts/pol/$contractName.sol:$contractName"
 constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $balancerVaultAddress $bridge2BurnerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"

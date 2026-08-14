@@ -36,7 +36,7 @@ position, sweeping leftovers to the treasury.
    reserves / current price.
 3. **Pre-warm the V3 pool** (§5): add real wide-range liquidity and let arbitrage / trades populate the
    pool's built-in observation history. This is required for the fail-closed mint-side TWAP guard (§3).
-4. **Deploy `LiquidityManagerETH` + `LiquidityManagerProxy`; set Timelock as owner** (or, on the existing
+4. **Deploy `LiquidityManagerUniV2UniV3` + `LiquidityManagerProxy`; set Timelock as owner** (or, on the existing
    proxies, upgrade to the fixed impl via `changeImplementation`, deployment README). **Either way, proxy
    ownership must be the Timelock before any POL is seeded** — the EOA-ownership is justified only while POL
    is not operational (seeding makes the LM custodial), and this is exactly what the "inert to non-owners,
@@ -53,7 +53,7 @@ position, sweeping leftovers to the treasury.
 3. **Create and initialize the V3 pool ahead of time** (≥10 days) at the actual V2 reserves / current
    price.
 4. **Pre-warm the V3 pool** (§5) — build observation history and keep the price correct via arbitrage.
-5. **Deploy `LiquidityManagerOptimism` + `LiquidityManagerProxy`; set the chain's `BridgeMediator` as
+5. **Deploy `LiquidityManagerBalancerSlipstream` + `LiquidityManagerProxy`; set the chain's `BridgeMediator` as
    owner** (or upgrade the existing proxy to the fixed impl). **Ownership must be the `BridgeMediator`
    before seeding (step 6)** — same reason as §1.1: seeding makes the LM custodial, so it cannot land in an
    EOA-owned proxy.
@@ -113,7 +113,7 @@ independent guards**:
 
 | Leg | Where | Oracle used | Mechanism |
 |---|---|---|---|
-| **V2 exit** | `_checkTokensAndRemoveLiquidityV2` (`LiquidityManagerETH.sol` / `LiquidityManagerOptimism.sol`) | `oracleV2.getTWAP()` — `UniswapPriceOracle` (ETH) / `BalancerPriceOracle` (Base/Optimism) | `minAmountsOut` derived from the constant-product invariant `k` and the TWAP fair price, discounted by `maxSlippage`. Reverts if the V2 exit returns less. |
+| **V2 exit** | `_checkTokensAndRemoveLiquidityV2` (`LiquidityManagerUniV2UniV3.sol` / `LiquidityManagerBalancerSlipstream.sol`) | `oracleV2.getTWAP()` — `UniswapPriceOracle` (ETH) / `BalancerPriceOracle` (Base/Optimism) | `minAmountsOut` derived from the constant-product invariant `k` and the TWAP fair price, discounted by `maxSlippage`. Reverts if the V2 exit returns less. |
 | **V3 mint** | `checkPoolAndGetCenterPrice` (`LiquidityManagerCore.sol`) | The V3 pool's own built-in `observe()` TWAP | **Fail-closed:** reverts `NotEnoughHistory` if the pool cannot produce a 30-minute TWAP; otherwise reverts `Overflow` if the instantaneous `slot0` price deviates from the TWAP by more than `MAX_ALLOWED_DEVIATION` (10%); mints at the TWAP-derived sqrt price. |
 
 Both use a 10% bound, mirrored between `MAX_ALLOWED_DEVIATION` (pre-flight, price space) and the

@@ -1,7 +1,7 @@
 # Protocol-Owned Liquidity (POL) deployment
 
-Forge-based shell scripts for deploying `NeighborhoodScanner`, `LiquidityManagerETH` /
-`LiquidityManagerOptimism` (impl), `LiquidityManagerProxy` (proxy), plus the post-deploy V3
+Forge-based shell scripts for deploying `NeighborhoodScanner`, `LiquidityManagerUniV2UniV3` /
+`LiquidityManagerBalancerSlipstream` / `LiquidityManagerBalancerUniV3` (impl), `LiquidityManagerProxy` (proxy), plus the post-deploy V3
 wiring for the BuyBackBurner proxy.
 
 > **POL is per-chain optional.** As of the V3-optional `BuyBackBurner` change
