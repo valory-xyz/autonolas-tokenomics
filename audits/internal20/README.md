@@ -247,6 +247,21 @@ instead.
      `changeImplementation`. That is cheap today, before seeding — and materially less so once the proxies
      are custodial.
 
+  ### R6 — actioned in this PR
+
+  `MAX_ALLOWED_DEVIATION` is tightened **10% → 2%** (`2e16`). Feasibility was verified on every LM fork suite
+  at 2%: the happy path is unchanged from the 10% baseline (the pre-warm keeps `slot0` well within 2% of the
+  TWAP) — ETH (UniV2→UniV3) 24/25 (the one failure is the pre-existing unpinned-fork flake), Base
+  (Balancer→Slipstream) 9/9, Base (Balancer→UniV3) 1/1, plus the dead-band / fail-open / exit-sandwich and
+  the non-fork price-guard suites. The boundary tests now read `MAX_ALLOWED_DEVIATION` from the contract
+  rather than hard-coding 10%, so they track whatever value ships.
+
+  Deliberately **not** changed: the `liquidityManagerMaxSlippage` deploy parameter. Post-#306.1 the entry
+  `amount{0,1}Min` is slot0-anchored (vacuous), so `maxSlippage` no longer backstops V3 mints — its only live
+  role is the **source-side** `removeLiquidity`/`exitPool` fair-reserve floor. It is therefore decoupled from
+  the gate; tightening it to "match" would risk reverting legitimate exits on a shallow source pool. The now
+  stale "set them equal" note is corrected in `LiquidityManagerCore` and the deploy README.
+
 **Accepted residuals (documented, self-healing, no funds at risk):** quiet-pool → entries/buyBack revert
 until the next swap; a genuine extreme move → exit temporarily reverts until re-convergence. Both never lock
 funds.
