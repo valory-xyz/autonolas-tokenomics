@@ -66,8 +66,8 @@ Pick based on how much of the V3-coverage goal you want to land in this cycle:
 
 ### Option A
 
-- **ETH**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_eth.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy `liquidityManagerProxyAddress` into `utils/globals_eth_mainnet.json` → BBB impl + `changeImplementation`.
-- **Base + Optimism**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_optimism.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy proxy address → BBB impl + `changeImplementation`. Base needs `pol/globals_base_mainnet.json` added first (copy from `optimism_mainnet`, swap addresses).
+- **ETH**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_univ2univ3.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy `liquidityManagerProxyAddress` into `utils/globals_eth_mainnet.json` → BBB impl + `changeImplementation`.
+- **Base + Optimism**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_balancer_slipstream.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy proxy address → BBB impl + `changeImplementation`. Base needs `pol/globals_base_mainnet.json` added first (copy from `optimism_mainnet`, swap addresses).
 - **Arbitrum + Polygon**: set both V3 fields in `utils/globals_<chain>_mainnet.json` to explicit zero addresses. Then `deploy_01_buy_back_burner_balancer.sh` + `script_01_buy_back_burner_change_implementation.sh`. No LM or pol-directory work on these chains.
 - **Gnosis**: already has zeros in globals. `deploy_01_buy_back_burner_balancer.sh` + `script_01_buy_back_burner_change_implementation.sh`.
 

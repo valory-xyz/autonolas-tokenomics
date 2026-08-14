@@ -25,7 +25,7 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`):
 
 ```bash
 ./scripts/deployment/pol/deploy_01_neighborhood_scanner.sh    eth_mainnet
-./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh   eth_mainnet
+./scripts/deployment/pol/deploy_02_liquidity_manager_univ2univ3.sh   eth_mainnet
 ./scripts/deployment/pol/deploy_03_liquidity_manager_proxy.sh eth_mainnet
 
 # Populate v3Pools / v3SecondTokens / v3MaxSlippages in globals first,
@@ -33,10 +33,11 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`):
 ./scripts/deployment/pol/script_03_buy_back_burner_wire_v3.sh eth_mainnet
 ```
 
-For Optimism, replace `deploy_02_liquidity_manager_eth.sh` with
-`deploy_02_liquidity_manager_optimism.sh`. The proxy step (`deploy_03_liquidity_manager_proxy.sh`)
-is chain-agnostic — same script for ETH, Optimism, etc. — because the proxy constructor is
-`(impl, initData)` where `initData = initialize(uint16 _maxSlippage)` is identical across
+Pick the `deploy_02_liquidity_manager_*` script by the chain's **source → target DEX pair**, not the chain:
+`univ2univ3` (Uniswap V2 → V3, e.g. ETH), `balancer_slipstream` (Balancer → Velodrome/Aerodrome Slipstream,
+e.g. Optimism/Base), or `balancer_univ3` (Balancer → Uniswap V3, e.g. Polygon/Arbitrum). The proxy step
+(`deploy_03_liquidity_manager_proxy.sh`) is chain-agnostic — same script everywhere — because the proxy
+constructor is `(impl, initData)` where `initData = initialize(uint16 _maxSlippage)` is identical across
 LiquidityManagerCore-derived impls.
 
 After `deploy_03` writes `liquidityManagerProxyAddress` into the local `globals_*.json`, copy
@@ -54,7 +55,7 @@ one:
 
 ```bash
 # 1. Deploy the new implementation (writes liquidityManagerAddress in globals):
-./scripts/deployment/pol/deploy_02_liquidity_manager_eth.sh eth_mainnet
+./scripts/deployment/pol/deploy_02_liquidity_manager_univ2univ3.sh eth_mainnet
 # 2. Point the proxy at it:
 ./scripts/deployment/pol/script_05_liquidity_manager_change_implementation.sh eth_mainnet
 ```

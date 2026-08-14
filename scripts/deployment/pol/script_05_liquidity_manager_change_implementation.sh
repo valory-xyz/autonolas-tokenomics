@@ -5,8 +5,8 @@
 # deliberately left with the deployer while POL is not operational), so this is a plain single-signer
 # cast send — NOT a Timelock/DAO proposal.
 #
-# Prerequisite: deploy the new implementation first (deploy_02_liquidity_manager_eth.sh /
-# deploy_02_liquidity_manager_optimism.sh) and write its address into `liquidityManagerAddress` in the
+# Prerequisite: deploy the new implementation first (deploy_02_liquidity_manager_univ2univ3.sh /
+# deploy_02_liquidity_manager_balancer_slipstream.sh) and write its address into `liquidityManagerAddress` in the
 # globals file. The proxy address is read from `liquidityManagerProxyAddress`.
 #
 # IMPORTANT ordering: the fail-closed price guard means the first convertToV3 reverts on a brand-new /
