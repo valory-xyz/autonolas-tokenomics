@@ -144,7 +144,7 @@ contract LiquidityManagerBalancerUniV3BaseTest is Test {
         // Deploy the new Balancer -> UniV3 manager behind the proxy
         LiquidityManagerBalancerUniV3 impl = new LiquidityManagerBalancerUniV3(
             OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality,
-            address(oracleV2), BALANCER_VAULT, address(bridge2Burner)
+            BALANCER_VAULT, address(bridge2Burner)
         );
         bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy proxy = new LiquidityManagerProxy(address(impl), initPayload);

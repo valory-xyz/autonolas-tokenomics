@@ -104,7 +104,7 @@ contract LiquidityManagerUniV2UniV3BridgeForkETHTest is Test {
         // Deploy the new UniV2 -> UniV3 L2-burn manager behind the proxy (treasury = TIMELOCK on this fork)
         LiquidityManagerUniV2UniV3Bridge impl = new LiquidityManagerUniV2UniV3Bridge(
             OLAS, TIMELOCK, POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality,
-            address(oracleV2), ROUTER_V2, BRIDGE_2_BURNER
+            ROUTER_V2, BRIDGE_2_BURNER
         );
         bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
         LiquidityManagerProxy proxy = new LiquidityManagerProxy(address(impl), initPayload);

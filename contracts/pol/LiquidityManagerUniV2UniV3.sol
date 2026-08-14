@@ -24,7 +24,6 @@ contract LiquidityManagerUniV2UniV3 is LiquidityManagerSourceUniV2, LiquidityMan
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _oracleV2 V2 pool related oracle address.
     /// @param _routerV2 Uniswap V2 Router address.
     constructor(
         address _olas,
@@ -32,11 +31,10 @@ contract LiquidityManagerUniV2UniV3 is LiquidityManagerSourceUniV2, LiquidityMan
         address _positionManagerV3,
         address _neighborhoodScanner,
         uint16 _observationCardinality,
-        address _oracleV2,
         address _routerV2
     )
         LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality)
-        LiquidityManagerSourceUniV2(_oracleV2, _routerV2)
+        LiquidityManagerSourceUniV2(_routerV2)
     {}
 
     /// @dev Burns OLAS.

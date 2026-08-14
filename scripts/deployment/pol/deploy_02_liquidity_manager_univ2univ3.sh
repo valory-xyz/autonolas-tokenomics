@@ -35,12 +35,11 @@ treasuryAddress=$(jq -r '.timelockAddress' $globals)
 positionManagerV3Address=$(jq -r '.positionManagerV3Address' $globals)
 neighborhoodScannerAddress=$(jq -r '.neighborhoodScannerAddress' $globals)
 observationCardinality=$(jq -r '.observationCardinality' $globals)
-oracleV2Address=$(jq -r '.uniswapPriceOracleAddress' $globals)
 routerV2Address=$(jq -r '.routerV2Address' $globals)
 
 contractName="LiquidityManagerUniV2UniV3"
 contractPath="contracts/pol/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $routerV2Address"
+constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $routerV2Address"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -77,7 +76,7 @@ echo "$(jq '. += {"liquidityManagerAddress":"'$liquidityManagerAddress'"}' $glob
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$liquidityManagerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,address,address)" $constructorArgs)"
+  contractParams="$liquidityManagerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

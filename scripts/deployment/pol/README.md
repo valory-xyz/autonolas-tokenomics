@@ -13,10 +13,8 @@ wiring for the BuyBackBurner proxy.
 
 ## Prerequisites (run first, from other folders)
 
-1. `scripts/deployment/oracles/` — deploys `UniswapPriceOracle` (ETH) or `BalancerPriceOracle` (L2s).
-   The resulting `uniswapPriceOracleAddress` / `balancerPriceOracleAddress` is copied into `globals_*.json` here.
-2. `scripts/deployment/utils/deploy_01|02_buy_back_burner_*.sh` — deploys the BBB **implementation**.
-3. `scripts/deployment/utils/deploy_03|04_buy_back_burner_*_proxy.sh` — deploys the BBB **proxy**.
+1. `scripts/deployment/utils/deploy_01|02_buy_back_burner_*.sh` — deploys the BBB **implementation**.
+2. `scripts/deployment/utils/deploy_03|04_buy_back_burner_*_proxy.sh` — deploys the BBB **proxy**.
    The resulting `buyBackBurnerProxyAddress` is copied into `globals_*.json` here.
 
 ## Step sequence
@@ -102,13 +100,11 @@ one:
 | `positionManagerV3Address` | deploy_02 | Uniswap V3 NonfungiblePositionManager (ETH: `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`). On Optimism this is Velodrome Slipstream's equivalent — populate per chain |
 | `neighborhoodScannerAddress` | deploy_02 | Written by deploy_01 |
 | `observationCardinality` | deploy_02 | uint16, observation buffer for fresh V3 pools. Per-chain: ETH `120` (120 × 12s = 1440s nominal worst-case), Base/Optimism `300` (300 × 2s = 600s nominal worst-case). Anchored to mid-volume mainnet V3 precedent (LINK/ETH `144`, DAI/UNI/ETH `300` per Alex Roan gist); OLAS volume sits below LINK on ETH and below the L2 mid-volume pools, so these bounds leave generous safety envelope under realistic surge regimes. Higher values inflate the cold-SSTORE cost of `increaseObservationCardinalityNext` (~22.2k gas/slot — see `test/LiquidityManagerObservationCardinalityGasETH.t.sol`) and risk OOG on the first `convertToV3` mint. Per-pool bump is permissionless post-deploy: `cast send <pool> "increaseObservationCardinalityNext(uint16)" <N>` |
-| `uniswapPriceOracleAddress` (ETH) | deploy_02 | From oracles step |
-| `balancerPriceOracleAddress` (L2s) | deploy_02 | From oracles step |
 | `routerV2Address` (ETH) | deploy_02 | Uniswap V2 Router |
 | `balancerVaultAddress` (L2s) | deploy_02 | Balancer V2 Vault |
 | `bridge2BurnerAddress` (L2s) | deploy_02 | Bridge2BurnerOptimism (from `utils/deploy_00b_bridge2burner_*.sh`) |
 | `liquidityManagerAddress` | deploy_02→deploy_03 | Written by deploy_02 (impl); consumed by deploy_03 as proxy constructor target |
-| `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `1000` (10%). **Decoupled from `MAX_ALLOWED_DEVIATION`.** The old rule ("set it equal to the gate") is dead post-#306.1: the V3 entry `amount0Min`/`amount1Min` is now anchored to `slot0` and vacuous, so `maxSlippage` no longer backstops mints. Its live role is the **source-side floor** on the V2/Balancer `removeLiquidity`/`exitPool` (fair-reserve discount). Set it from the source pool's expected spot-vs-TWAP drift — do **not** reflexively tighten it to track the gate (that would risk reverting legit exits on a shallow source pool). The V3 anti-manipulation gate is the separate `MAX_ALLOWED_DEVIATION` **constant** (now 2%, a contract change, not a deploy field). Updatable post-deploy via `changeMaxSlippage()` |
+| `liquidityManagerMaxSlippage` | deploy_03 | uint16 BPS (MAX_BPS = 10_000); seeds `LiquidityManagerCore.initialize(uint16)`. Default `500` (5%). **Decoupled from `MAX_ALLOWED_DEVIATION`.** Its live role is the **source-side manipulation gate**: `convertToV3` cross-checks the ratio of the V2/Balancer-removed tokens against the gate-verified V3 slot0 price and reverts (`RatioDeviation`) when they diverge by more than this. Set it above the honest V2↔V3 basis (bounded by the 2% V3 deviation gate + the source pool's arb/fee band, ~3% total) but below the manipulation regime — do **not** tighten it to track the gate (that risks reverting legit exits on a shallow source pool). The V3 anti-manipulation gate is the separate `MAX_ALLOWED_DEVIATION` **constant** (2%, a contract change, not a deploy field). Updatable post-deploy via `changeMaxSlippage()` |
 | `liquidityManagerProxyAddress` | deploy_03 (writes) | Proxy address — copy into `utils/globals_*.json` for BBB impl deploy |
 | `buyBackBurnerProxyAddress` | script_03 | BBB proxy address (copied from `utils/globals_*.json`) |
 | `v3Pools`, `v3SecondTokens` | script_03 | Parallel arrays; `setV3Pools(secondTokens, pools)` |

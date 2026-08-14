@@ -196,7 +196,7 @@ contract BaseSetup is Test {
 
         // Deploy LiquidityManagerBalancerSlipstream implementation
         LiquidityManagerBalancerSlipstream liquidityManagerImplementation = new LiquidityManagerBalancerSlipstream(OLAS, TIMELOCK,
-            POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality, address(oracleV2),
+            POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality,
             BALANCER_VAULT, address(bridge2Burner));
 
         // Deploy LiquidityManagerProxy

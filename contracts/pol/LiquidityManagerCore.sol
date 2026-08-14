@@ -43,6 +43,13 @@ error RangeBounds(int24 low, int24 center, int24 high);
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
+/// @dev Ratio of the source-removed tokens deviates from the V3 price beyond the allowed slippage — the source
+///      pool was likely manipulated (its spot pushed away from the true price before the removal).
+/// @param removedRatio Ratio of the removed tokens (token1 per token0, 1e18-scaled).
+/// @param referenceRatio V3 pool price from the gate-verified slot0 (token1 per token0, 1e18-scaled).
+/// @param maxSlippageBps Allowed deviation in BPS.
+error RatioDeviation(uint256 removedRatio, uint256 referenceRatio, uint16 maxSlippageBps);
+
 /// @dev Pool cannot produce a verifiable SECONDS_AGO TWAP (freshly-created / cardinality <= 1, or
 ///      no trade within the TWAP window). The price guard fails closed rather than trusting slot0.
 /// @param pool Pool address.
@@ -130,6 +137,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     uint32 public constant SECONDS_AGO = 1800;
     // // Max bps value
     uint16 public constant MAX_BPS = 10_000;
+    // 2**96, the fixed-point base of a Uniswap V3 sqrtPriceX96
+    uint256 public constant Q96 = 0x1000000000000000000000000;
 
     // OLAS token address
     address public immutable olas;
@@ -749,6 +758,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
+        // Capture the removed token ratio before any burn-rate disposal (which scales both tokens by the same
+        // rate and so preserves the ratio). A proportional V2/Balancer removal returns the source pool's spot
+        // ratio; it is cross-checked against the V3 price below to reject a manipulated source pool.
+        uint256 removed0 = amounts[0];
+        uint256 removed1 = amounts[1];
+
         // Get V3 pool
         address v3Pool = _getV3Pool(tokens, feeTierOrTickSpacing);
 
@@ -765,6 +780,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Check current pool prices
         uint160 sqrtP = checkPoolAndGetCenterPrice(v3Pool);
+
+        // Cross-check the removed source ratio against the gate-verified V3 price (only when tokens came from a
+        // source pool removal). This is the sole source-side manipulation gate: a proportional removal cannot
+        // lose value (constant-product convexity), but a manipulated source pool yields a lopsided basket that
+        // would convert inefficiently, so reject it here rather than mint it.
+        if (v2Pool != 0) {
+            _checkRemovedRatioAgainstV3(removed0, removed1, sqrtP);
+        }
 
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
@@ -1202,6 +1225,29 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
         centerSqrtPriceX96 = twapSqrtPriceX96;
+    }
+
+    /// @dev Rejects a manipulated source pool by comparing the removed token ratio to the V3 price.
+    /// @notice `removed1/removed0` is the source pool's spot (token1 per token0); the V3 price derived from
+    ///         `sqrtPriceX96` (already verified within MAX_ALLOWED_DEVIATION of the V3 TWAP by the caller) is the
+    ///         trusted reference. Two pools tracking the same OLAS price arbitrage together, so an honest removal
+    ///         sits within `maxSlippage` of the V3 price while a manipulated source pool sits far outside it.
+    ///         Both ratios are token1-per-token0 because `tokens` are address-sorted, matching the V3 ordering.
+    /// @param removed0 Removed amount of token0.
+    /// @param removed1 Removed amount of token1.
+    /// @param sqrtPriceX96 Gate-verified V3 sqrt price.
+    function _checkRemovedRatioAgainstV3(uint256 removed0, uint256 removed1, uint160 sqrtPriceX96) internal view {
+        // V3 price, token1 per token0, 1e18-scaled: (sqrtP^2 / 2**192) * 1e18. Staged mulDiv keeps every
+        // intermediate within 2**256 (mulDiv is 512-bit correct).
+        uint256 referenceRatio = mulDiv(mulDiv(uint256(sqrtPriceX96), uint256(sqrtPriceX96), Q96), 1e18, Q96);
+        // Removed ratio, token1 per token0, 1e18-scaled.
+        uint256 removedRatio = mulDiv(removed1, 1e18, removed0);
+
+        uint256 diff = removedRatio > referenceRatio ? removedRatio - referenceRatio : referenceRatio - removedRatio;
+        // diff / referenceRatio > maxSlippage / MAX_BPS  <=>  diff > referenceRatio * maxSlippage / MAX_BPS
+        if (diff > mulDiv(referenceRatio, maxSlippage, MAX_BPS)) {
+            revert RatioDeviation(removedRatio, referenceRatio, maxSlippage);
+        }
     }
 
     /// @dev Reads the raw price facts a pool exposes, WITHOUT applying any fail-open/fail-closed policy.

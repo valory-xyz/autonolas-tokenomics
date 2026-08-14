@@ -26,7 +26,6 @@ contract LiquidityManagerUniV2UniV3Bridge is
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _oracleV2 Source pool related oracle address.
     /// @param _routerV2 Uniswap V2 (e.g. Ubeswap) Router address.
     /// @param _bridge2Burner Bridge to Burner address.
     constructor(
@@ -35,12 +34,11 @@ contract LiquidityManagerUniV2UniV3Bridge is
         address _positionManagerV3,
         address _neighborhoodScanner,
         uint16 _observationCardinality,
-        address _oracleV2,
         address _routerV2,
         address _bridge2Burner
     )
         LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality)
-        LiquidityManagerSourceUniV2(_oracleV2, _routerV2)
+        LiquidityManagerSourceUniV2(_routerV2)
         LiquidityManagerBurnViaBridge(_bridge2Burner)
     {}
 }
