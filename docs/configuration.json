@@ -103,8 +103,8 @@
         "address": "0x8C31cd6d5d90BB536e045A59C71b85154De1C190"
       },
       {
-        "name": "LiquidityManagerETH",
-        "artifact": "abis/0.8.30/LiquidityManagerETH.json",
+        "name": "LiquidityManagerUniV2UniV3",
+        "artifact": "abis/0.8.30/LiquidityManagerUniV2UniV3.json",
         "address": "0x0171D7178fbf3B48E75675DEE2EA3EfecEf775C1"
       },
       {
@@ -242,8 +242,8 @@
         "address": "0xDC175E77d11246c79B23D7088750eb59160DD6b7"
       },
       {
-        "name": "LiquidityManagerOptimism",
-        "artifact": "abis/0.8.30/LiquidityManagerOptimism.json",
+        "name": "LiquidityManagerBalancerSlipstream",
+        "artifact": "abis/0.8.30/LiquidityManagerBalancerSlipstream.json",
         "address": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487"
       },
       {
@@ -288,8 +288,8 @@
         "address": "0x96a475Cf364999dE5317d13f66E8e3c072bA1c0a"
       },
       {
-        "name": "LiquidityManagerOptimism",
-        "artifact": "abis/0.8.30/LiquidityManagerOptimism.json",
+        "name": "LiquidityManagerBalancerSlipstream",
+        "artifact": "abis/0.8.30/LiquidityManagerBalancerSlipstream.json",
         "address": "0x1D64516E7654F23dB7cE2ddaD00FFb3E765cf5ce"
       },
       {
