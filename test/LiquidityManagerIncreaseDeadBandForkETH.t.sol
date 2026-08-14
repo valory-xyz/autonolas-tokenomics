@@ -17,7 +17,7 @@ pragma solidity ^0.8.30;
 // Run: forge test --mc LiquidityManagerIncreaseDeadBandForkETH --fork-url $ETH_RPC -vv
 // =============================================================================
 
-import "./LiquidityManagerETH.t.sol"; // BaseSetup harness (fork, OLAS/WETH, _swap, constants)
+import "./LiquidityManagerUniV2UniV3.t.sol"; // BaseSetup harness (fork, OLAS/WETH, _swap, constants)
 import {console2} from "forge-std/console2.sol";
 
 interface ILMDev {

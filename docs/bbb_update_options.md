@@ -10,21 +10,21 @@ Companion to the deployment-parameters flow for the PR #272 + #278 update cycle.
 
 | Chain | V2 source (OLAS LP) | V3 sink | OLAS disposal | LM variant |
 |-------|---------------------|---------|----------------|------------|
-| Ethereum | Uniswap V2 | Uniswap V3 | local `OLAS.burn` | `LiquidityManagerETH` ✓ exists |
-| Optimism | Balancer V2 | Velodrome CL (Slipstream fork) | `Bridge2BurnerOptimism` | `LiquidityManagerOptimism` ✓ exists |
-| Base | Balancer V2 | Aerodrome Slipstream | `Bridge2BurnerOptimism` | `LiquidityManagerOptimism` ✓ exists |
-| Arbitrum | Balancer V2 | **Uniswap V3** | `Bridge2BurnerArbitrum` | ❌ **does not exist** (Balancer V2 + Uniswap V3 + bridge) |
-| Polygon | Balancer V2 | **Uniswap V3** | `Bridge2BurnerPolygon` | ❌ **does not exist** (Balancer V2 + Uniswap V3 + bridge) |
+| Ethereum | Uniswap V2 | Uniswap V3 | local `OLAS.burn` | `LiquidityManagerUniV2UniV3` ✓ exists |
+| Optimism | Balancer V2 | Velodrome CL (Slipstream fork) | `Bridge2BurnerOptimism` | `LiquidityManagerBalancerSlipstream` ✓ exists |
+| Base | Balancer V2 | Aerodrome Slipstream | `Bridge2BurnerOptimism` | `LiquidityManagerBalancerSlipstream` ✓ exists |
+| Arbitrum | Balancer V2 | **Uniswap V3** | `Bridge2BurnerArbitrum` | `LiquidityManagerBalancerUniV3` ✓ exists |
+| Polygon | Balancer V2 | **Uniswap V3** | `Bridge2BurnerPolygon` | `LiquidityManagerBalancerUniV3` ✓ exists |
 | Gnosis | Balancer V2 | — | `Bridge2BurnerGnosis` | N/A — V2-only, no LM needed |
 | Celo | Ubeswap V2 | — | `Bridge2BurnerOptimism` | N/A — excluded this cycle |
 
-The current two LM implementations cover exactly two (V2-source, V3-sink) pairs: Uniswap V2 + Uniswap V3 (= `LiquidityManagerETH`) and Balancer V2 + Slipstream (= `LiquidityManagerOptimism`). Arbitrum and Polygon need a third combination that doesn't exist, but is an easy composition of the two without any new code logic.
+The LM implementations now cover all three (V2-source, V3-sink) pairs: Uniswap V2 + Uniswap V3 (= `LiquidityManagerUniV2UniV3`), Balancer V2 + Slipstream (= `LiquidityManagerBalancerSlipstream`), and Balancer V2 + Uniswap V3 (= `LiquidityManagerBalancerUniV3`, for Arbitrum/Polygon). All three are compositions of the same source/target/burn mixins over `LiquidityManagerCore` — the third added no new logic, only a new combination.
 
 Baseline for both options below: BBB is upgraded on **every non-Celo chain** because the Feb-2025 implementation carries bug fixes and features from PR #272/#278 (V2 oracle rewrite, deadline param on `buyBack`, per-token slippage, reentrancy-first ordering, etc.) that we can't leave out. The two options differ only in whether V3 is enabled on Arbitrum + Polygon.
 
 ## Option A — V3 enabled on ETH + Base + Optimism; V3 disabled on Arbitrum / Polygon / Gnosis
 
-**Scope.** Deploy LM on ETH (`LiquidityManagerETH`), Base + Optimism (`LiquidityManagerOptimism`). Upgrade BBB on all non-Celo chains. On Arbitrum, Polygon, Gnosis the new BBB is deployed with V3 explicitly disabled (both `liquidityManagerProxyAddress` and `swapRouterV3Address` set to `0x0000000000000000000000000000000000000000` in those chains' `utils/globals_*.json`); V3 path is blocked at runtime by `V3PathDisabled`, V2 path continues to work. Deploy details in the [Appendix](#appendix--per-chain-deploy-steps).
+**Scope.** Deploy LM on ETH (`LiquidityManagerUniV2UniV3`), Base + Optimism (`LiquidityManagerBalancerSlipstream`). Upgrade BBB on all non-Celo chains. On Arbitrum, Polygon, Gnosis the new BBB is deployed with V3 explicitly disabled (both `liquidityManagerProxyAddress` and `swapRouterV3Address` set to `0x0000000000000000000000000000000000000000` in those chains' `utils/globals_*.json`); V3 path is blocked at runtime by `V3PathDisabled`, V2 path continues to work. Deploy details in the [Appendix](#appendix--per-chain-deploy-steps).
 
 **Pros.** Whole BBB fleet (except Celo) lands on a single new implementation. Non-V3 fixes propagate everywhere. Gnosis stays V2-only forever, which is correct for that chain. V3 on Arbitrum + Polygon stays off until a later cycle that solves the LM gap.
 
@@ -66,8 +66,8 @@ Pick based on how much of the V3-coverage goal you want to land in this cycle:
 
 ### Option A
 
-- **ETH**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_eth.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy `liquidityManagerProxyAddress` into `utils/globals_eth_mainnet.json` → BBB impl + `changeImplementation`.
-- **Base + Optimism**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_optimism.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy proxy address → BBB impl + `changeImplementation`. Base needs `pol/globals_base_mainnet.json` added first (copy from `optimism_mainnet`, swap addresses).
+- **ETH**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_univ2univ3.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy `liquidityManagerProxyAddress` into `utils/globals_eth_mainnet.json` → BBB impl + `changeImplementation`.
+- **Base + Optimism**: `pol/deploy_01_neighborhood_scanner.sh` → `pol/deploy_02_liquidity_manager_balancer_slipstream.sh` → `pol/deploy_03_liquidity_manager_proxy.sh` → copy proxy address → BBB impl + `changeImplementation`. Base needs `pol/globals_base_mainnet.json` added first (copy from `optimism_mainnet`, swap addresses).
 - **Arbitrum + Polygon**: set both V3 fields in `utils/globals_<chain>_mainnet.json` to explicit zero addresses. Then `deploy_01_buy_back_burner_balancer.sh` + `script_01_buy_back_burner_change_implementation.sh`. No LM or pol-directory work on these chains.
 - **Gnosis**: already has zeros in globals. `deploy_01_buy_back_burner_balancer.sh` + `script_01_buy_back_burner_change_implementation.sh`.
 

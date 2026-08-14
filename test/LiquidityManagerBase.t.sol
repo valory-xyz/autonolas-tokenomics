@@ -5,7 +5,7 @@ import {BuyBackBurnerBalancer} from "../contracts/utils/BuyBackBurnerBalancer.so
 import {Bridge2BurnerOptimism} from "../contracts/utils/Bridge2BurnerOptimism.sol";
 import {FixedPointMathLib} from "../lib/solmate/src/utils/FixedPointMathLib.sol";
 import {IToken} from "../contracts/interfaces/IToken.sol";
-import {LiquidityManagerOptimism} from "../contracts/pol/LiquidityManagerOptimism.sol";
+import {LiquidityManagerBalancerSlipstream} from "../contracts/pol/LiquidityManagerBalancerSlipstream.sol";
 import {NotEnoughHistory} from "../contracts/pol/LiquidityManagerCore.sol";
 import {LiquidityManagerProxy} from "../contracts/proxies/LiquidityManagerProxy.sol";
 import {NeighborhoodScanner} from "../contracts/pol/NeighborhoodScanner.sol";
@@ -139,7 +139,7 @@ contract BaseSetup is Test {
     BalancerPriceOracle internal oracleV2;
     Bridge2BurnerOptimism internal bridge2Burner;
     NeighborhoodScanner internal neighborhoodScanner;
-    LiquidityManagerOptimism internal liquidityManager;
+    LiquidityManagerBalancerSlipstream internal liquidityManager;
     BuyBackBurnerBalancer internal buyBackBurner;
 
     address payable[] internal users;
@@ -194,8 +194,8 @@ contract BaseSetup is Test {
         // Deploy neighborhood scanner
         neighborhoodScanner = new NeighborhoodScanner();
 
-        // Deploy LiquidityManagerOptimism implementation
-        LiquidityManagerOptimism liquidityManagerImplementation = new LiquidityManagerOptimism(OLAS, TIMELOCK,
+        // Deploy LiquidityManagerBalancerSlipstream implementation
+        LiquidityManagerBalancerSlipstream liquidityManagerImplementation = new LiquidityManagerBalancerSlipstream(OLAS, TIMELOCK,
             POSITION_MANAGER_V3, address(neighborhoodScanner), observationCardinality, address(oracleV2),
             BALANCER_VAULT, address(bridge2Burner));
 
@@ -205,7 +205,7 @@ contract BaseSetup is Test {
             new LiquidityManagerProxy(address(liquidityManagerImplementation), initPayload);
 
         // Wrap proxy into implementation
-        liquidityManager = LiquidityManagerOptimism(address(liquidityManagerProxy));
+        liquidityManager = LiquidityManagerBalancerSlipstream(address(liquidityManagerProxy));
 
         // Get pool total supply
         uint256 totalSupply = IToken(POOL_V2).totalSupply();

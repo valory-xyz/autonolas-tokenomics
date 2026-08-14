@@ -22,7 +22,7 @@ pragma solidity ^0.8.30;
 // Run: forge test --mc LiquidityManagerExitFailOpenForkETH --fork-url $ETH_RPC -vv
 // =============================================================================
 
-import "./LiquidityManagerETH.t.sol"; // BaseSetup harness
+import "./LiquidityManagerUniV2UniV3.t.sol"; // BaseSetup harness
 import {console2} from "forge-std/console2.sol";
 
 interface ILMExit {
