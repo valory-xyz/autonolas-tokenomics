@@ -79,12 +79,13 @@ the composition seams and the new leaf:
 10. LiquidityManagerUniV2UniV3.sol — 24 SLoC — new file (leaf; replaces LiquidityManagerETH)
 11. LiquidityManagerBalancerSlipstream.sol — 25 SLoC — new file (leaf; replaces LiquidityManagerOptimism)
 12. LiquidityManagerBalancerUniV3.sol — 25 SLoC — new file (leaf; new Balancer V2 → Uniswap V3 combination)
+13. LiquidityManagerUniV2UniV3Bridge.sol — 25 SLoC — new file (leaf; Uniswap V2 → Uniswap V3 with L2 bridge burn, e.g. Ubeswap → Uniswap V3 on Celo)
 
-**Contracts Number: 12**
-**Total SLoC (full files): 1761** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 657, and the
-LiquidityManager refactor 353 (mixins 279 + leaves 74). Changed-lines scope: ~301 in Dispenser, 34 new in
-DispenserProxy, ~305 in LiquidityManagerCore, and the 353-SLoC refactor (mostly extraction; ~74 SLoC of
-genuinely new leaf/composition code).
+**Contracts Number: 13**
+**Total SLoC (full files): 1786** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 657, and the
+LiquidityManager refactor 378 (mixins 279 + leaves 99). Changed-lines scope: ~301 in Dispenser, 34 new in
+DispenserProxy, ~305 in LiquidityManagerCore, and the 378-SLoC refactor (mostly extraction; ~99 SLoC of
+genuinely new leaf/composition code across the four leaves).
 
 ### Scope of changes for Dispenser / DispenserProxy
 
@@ -162,9 +163,9 @@ Ref. PR https://github.com/valory-xyz/autonolas-tokenomics/pull/319.
 
 ## Contracts and SLoC
 
-Overall: **13 contracts and 2198 SLoC** — governance `VoteWeighting.sol` (437) and 12 tokenomics contracts
-(1761): `Dispenser.sol` 717, `DispenserProxy.sol` 34, `LiquidityManagerCore.sol` 657, and the 9-file
-LiquidityManager refactor 353 (source/target/burn mixins 279 + three leaves 74). Changed-lines scope:
+Overall: **14 contracts and 2223 SLoC** — governance `VoteWeighting.sol` (437) and 13 tokenomics contracts
+(1786): `Dispenser.sol` 717, `DispenserProxy.sol` 34, `LiquidityManagerCore.sol` 657, and the 10-file
+LiquidityManager refactor 378 (source/target/burn mixins 279 + four leaves 99). Changed-lines scope:
 ~102 in VoteWeighting, ~301 in Dispenser, 34 new in DispenserProxy, ~305 in LiquidityManagerCore, and the
-353-SLoC refactor (mostly behavior-preserving extraction from the two removed leaves; ~74 SLoC of genuinely
-new leaf/composition code).
+378-SLoC refactor (mostly behavior-preserving extraction from the two removed leaves; ~99 SLoC of genuinely
+new leaf/composition code across the four leaves).

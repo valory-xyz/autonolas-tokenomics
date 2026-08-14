@@ -34,8 +34,10 @@ Run in order, passing the network suffix (`eth_mainnet`, `optimism_mainnet`):
 ```
 
 Pick the `deploy_02_liquidity_manager_*` script by the chain's **source → target DEX pair**, not the chain:
-`univ2univ3` (Uniswap V2 → V3, e.g. ETH), `balancer_slipstream` (Balancer → Velodrome/Aerodrome Slipstream,
-e.g. Optimism/Base), or `balancer_univ3` (Balancer → Uniswap V3, e.g. Polygon/Arbitrum). The proxy step
+`univ2univ3` (Uniswap V2 → V3, local L1 OLAS burn, e.g. ETH), `balancer_slipstream` (Balancer →
+Velodrome/Aerodrome Slipstream, L2 bridge burn, e.g. Optimism/Base), `balancer_univ3` (Balancer → Uniswap V3,
+L2 bridge burn, e.g. Polygon/Arbitrum), or `univ2univ3_bridge` (Uniswap V2 → Uniswap V3 with L2 bridge burn,
+e.g. Celo/Ubeswap). The proxy step
 (`deploy_03_liquidity_manager_proxy.sh`) is chain-agnostic — same script everywhere — because the proxy
 constructor is `(impl, initData)` where `initData = initialize(uint16 _maxSlippage)` is identical across
 LiquidityManagerCore-derived impls.

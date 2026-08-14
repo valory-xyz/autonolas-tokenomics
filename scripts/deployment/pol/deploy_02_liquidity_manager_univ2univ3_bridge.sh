@@ -18,13 +18,11 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Alchemy keys (chains whose RPC needs a key appended, e.g. Polygon)
+# Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
   case $chainId in
     1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
     11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
-    137)      API_KEY=$ALCHEMY_API_KEY_MATIC;   keyName="ALCHEMY_API_KEY_MATIC" ;;
-    80002)    API_KEY=$ALCHEMY_API_KEY_AMOY;    keyName="ALCHEMY_API_KEY_AMOY" ;;
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
@@ -37,13 +35,13 @@ treasuryAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 positionManagerV3Address=$(jq -r '.positionManagerV3Address' $globals)
 neighborhoodScannerAddress=$(jq -r '.neighborhoodScannerAddress' $globals)
 observationCardinality=$(jq -r '.observationCardinality' $globals)
-oracleV2Address=$(jq -r '.balancerPriceOracleAddress' $globals)
-balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
+oracleV2Address=$(jq -r '.uniswapPriceOracleAddress' $globals)
+routerV2Address=$(jq -r '.routerV2Address' $globals)
 bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
 
-contractName="LiquidityManagerBalancerUniV3"
+contractName="LiquidityManagerUniV2UniV3Bridge"
 contractPath="contracts/pol/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $balancerVaultAddress $bridge2BurnerAddress"
+constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $routerV2Address $bridge2BurnerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

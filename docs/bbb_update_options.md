@@ -16,9 +16,9 @@ Companion to the deployment-parameters flow for the PR #272 + #278 update cycle.
 | Arbitrum | Balancer V2 | **Uniswap V3** | `Bridge2BurnerArbitrum` | `LiquidityManagerBalancerUniV3` ✓ exists |
 | Polygon | Balancer V2 | **Uniswap V3** | `Bridge2BurnerPolygon` | `LiquidityManagerBalancerUniV3` ✓ exists |
 | Gnosis | Balancer V2 | — | `Bridge2BurnerGnosis` | N/A — V2-only, no LM needed |
-| Celo | Ubeswap V2 | — | `Bridge2BurnerOptimism` | N/A — excluded this cycle |
+| Celo | Ubeswap V2 | **Uniswap V3** | `Bridge2BurnerOptimism` | `LiquidityManagerUniV2UniV3Bridge` ✓ exists |
 
-The LM implementations now cover all three (V2-source, V3-sink) pairs: Uniswap V2 + Uniswap V3 (= `LiquidityManagerUniV2UniV3`), Balancer V2 + Slipstream (= `LiquidityManagerBalancerSlipstream`), and Balancer V2 + Uniswap V3 (= `LiquidityManagerBalancerUniV3`, for Arbitrum/Polygon). All three are compositions of the same source/target/burn mixins over `LiquidityManagerCore` — the third added no new logic, only a new combination.
+The LM implementations now cover every (source, target, burn) combination in use: Uniswap V2 → Uniswap V3 with local burn (= `LiquidityManagerUniV2UniV3`, ETH), Balancer V2 → Slipstream with bridge burn (= `LiquidityManagerBalancerSlipstream`, Base/Optimism), Balancer V2 → Uniswap V3 with bridge burn (= `LiquidityManagerBalancerUniV3`, Arbitrum/Polygon), and Uniswap V2 → Uniswap V3 with **bridge** burn (= `LiquidityManagerUniV2UniV3Bridge`, for Celo/Ubeswap → Uniswap V3 on an L2). All are compositions of the same source/target/burn mixins over `LiquidityManagerCore` — each new leaf adds no logic, only a new combination.
 
 Baseline for both options below: BBB is upgraded on **every non-Celo chain** because the Feb-2025 implementation carries bug fixes and features from PR #272/#278 (V2 oracle rewrite, deadline param on `buyBack`, per-token slippage, reentrancy-first ordering, etc.) that we can't leave out. The two options differ only in whether V3 is enabled on Arbitrum + Polygon.
 
