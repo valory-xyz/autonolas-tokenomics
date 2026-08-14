@@ -25,7 +25,14 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          # Pinned to a semver release, not `nightly`. Tracking `nightly` made CI depend on an
+          # unvetted daily build: on 2026-08-14 foundryup resolved a nightly tag whose linux-amd64
+          # asset was never published (HTTP 404) and every job in the repo failed on an upstream
+          # change with no commit of ours involved. A floating toolchain also means the runner that
+          # validates the contracts can change silently between a review and a merge, which this repo
+          # already avoids for solc (0.8.30 pinned in foundry.toml and hardhat.config.js).
+          # Bump deliberately, as a reviewable one-line change.
+          version: v1.7.1
 
       # Run linters
       - name: Run ESLint
