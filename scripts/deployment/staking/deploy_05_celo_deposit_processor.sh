@@ -26,7 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
 celoL1StandardBridgeProxyAddress=$(jq -r '.celoL1StandardBridgeProxyAddress' $globals)
 celoL1CrossDomainMessengerProxyAddress=$(jq -r '.celoL1CrossDomainMessengerProxyAddress' $globals)
 celoL2TargetChainId=$(jq -r '.celoL2TargetChainId' $globals)
@@ -47,7 +47,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserAddress $celoL1StandardBridgeProxyAddress $celoL1CrossDomainMessengerProxyAddress $celoL2TargetChainId $celoOLASAddress"
+constructorArgs="$olasAddress $dispenserProxyAddress $celoL1StandardBridgeProxyAddress $celoL1CrossDomainMessengerProxyAddress $celoL2TargetChainId $celoOLASAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

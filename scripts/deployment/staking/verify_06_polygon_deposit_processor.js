@@ -5,7 +5,7 @@ const parsedData = JSON.parse(dataFromJSON);
 
 module.exports = [
     parsedData.olasAddress,
-    parsedData.dispenserAddress,
+    parsedData.dispenserProxyAddress,
     parsedData.polygonRootChainManagerProxyAddress,
     parsedData.polygonFXRootAddress,
     parsedData.polygonL2TargetChainId,

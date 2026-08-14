@@ -332,6 +332,11 @@ contract Dispenser {
 
     /// @dev Dispenser implementation constructor: sets the implementation-bytecode immutables only.
     /// @notice The mutable state is set via initialize() delegatecall-ed by the DispenserProxy constructor.
+    /// @notice Immutable vs proxy storage rationale: olas / tokenomics / retainer are fixed identities that never
+    ///         change for a deployment (tokenomics is the stable TokenomicsProxy address), so they live in
+    ///         implementation bytecode. treasury / voteWeighting (repointable managers via changeManagers) and
+    ///         maxNumClaimingEpochs / maxNumStakingTargets (init-time bounds) are proxy storage instead, so they
+    ///         survive an implementation upgrade and can be (re)set without deploying a new implementation.
     /// @param _olas OLAS token address.
     /// @param _tokenomics Tokenomics proxy address.
     /// @param _retainer Retainer address in bytes32 form.
@@ -369,8 +374,11 @@ contract Dispenser {
             revert AlreadyInitialized();
         }
 
-        // Check for at least one zero contract address
-        if (_treasury == address(0) || _voteWeighting == address(0)) {
+        // Check for a zero Treasury address. The Vote Weighting address is intentionally allowed to be zero
+        // here: on a fresh proxy deploy the Vote Weighting contract does not exist yet (it is deployed with
+        // this proxy's address baked in as an immutable), so it is wired in afterwards via changeManagers()
+        // while staking incentives stay paused. No claim path can run with a zero Vote Weighting.
+        if (_treasury == address(0)) {
             revert ZeroAddress();
         }
 
@@ -408,6 +416,20 @@ contract Dispenser {
             sstore(PROXY_DISPENSER, implementation)
         }
         emit ImplementationUpdated(implementation);
+    }
+
+    /// @dev Reverts if a staking target nominee is not claimable (was never added to Vote Weighting).
+    /// @notice Guards the checkpointNominee call in the claim paths: on the real Vote Weighting,
+    ///         checkpointNominee reverts (NomineeDoesNotExist) for an unregistered nominee, so this makes the
+    ///         Dispenser's own ZeroValue the authoritative not-claimable error and ensures checkpointNominee is
+    ///         only ever called for a live nominee. Mirrors the first check in _getClaimedEpochCounters.
+    /// @param stakingTarget Staking target address in bytes32 form.
+    /// @param chainId Chain Id.
+    function _requireClaimableNominee(bytes32 stakingTarget, uint256 chainId) internal view {
+        bytes32 nomineeHash = keccak256(abi.encode(IVoteWeighting.Nominee(stakingTarget, chainId)));
+        if (mapLastClaimedStakingEpochs[nomineeHash] == 0) {
+            revert ZeroValue();
+        }
     }
 
     /// @dev Gets the claimable epoch counters for a nominee, bounded by the current and removal epochs.
@@ -672,6 +694,10 @@ contract Dispenser {
                     revert WrongAccount(retainer);
                 }
 
+                // Guard claimability before checkpointing (see claimStakingIncentives): keeps ZeroValue the
+                // authoritative not-claimable error and only checkpoints a live nominee
+                _requireClaimableNominee(stakingTargets[i][j], chainIds[i]);
+
                 // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
                 IVoteWeighting(voteWeighting).checkpointNominee(stakingTargets[i][j], chainIds[i]);
 
@@ -760,9 +786,10 @@ contract Dispenser {
 
         // Change Vote Weighting contract address
         if (_voteWeighting != address(0)) {
-            // Swapping the Vote Weighting contract orphans the per-nominee claim cursors recorded under the
-            // previous nominee set: any staking incentives not yet claimed become unreachable. Require staking
-            // incentives to be paused first, so all outstanding claims are settled before the swap
+            // Swapping the Vote Weighting contract does NOT orphan the claim cursors themselves — they are keyed
+            // by keccak256(Nominee(target, chainId)), independent of the Vote Weighting instance. What becomes
+            // unreachable is any pending claim for a nominee that is not re-added to the new Vote Weighting.
+            // Require staking incentives to be paused first, so outstanding claims can be settled before the swap.
             Pause currentPause = paused;
             if (currentPause != Pause.StakingIncentivesPaused && currentPause != Pause.AllPaused) {
                 revert Unpaused();
@@ -818,6 +845,9 @@ contract Dispenser {
             revert Paused();
         }
 
+        // A newly added nominee starts claiming from the CURRENT epoch, so historical epochs are never traversed
+        // on this deployment. This greenfield-cursor property is what makes a fresh Dispenser safe against any
+        // pre-existing zero-staking-param epochs, and is the reason the default-param fallback could be dropped.
         mapLastClaimedStakingEpochs[nomineeHash] = ITokenomics(tokenomics).epochCounter();
 
         // Clear a possible removal epoch left from a previous nominee lifecycle: without this, a re-added
@@ -1001,6 +1031,12 @@ contract Dispenser {
                 continue;
             }
 
+            // Cross-contract invariant, load-bearing since the Dispenser dropped its default-param fallback:
+            // Tokenomics never settles a StakingPoint with stakingFraction > 0 and a zero maxStakingIncentive /
+            // minStakingWeight (changeStakingParams rejects zero and the epoch carry-forward preserves both). Were
+            // that ever violated, maxStakingIncentive == 0 clamps this epoch's incentive to zero (fully returned)
+            // and minStakingWeight == 0 disables the weight threshold — i.e. zero incentives, never over-payment.
+
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
             // Get the staking weight for each epoch and the total weight
@@ -1116,6 +1152,12 @@ contract Dispenser {
         // Get deposit processor bridging decimals corresponding to a chain Id
         address depositProcessor = mapChainIdDepositProcessors[chainId];
         uint256 bridgingDecimals = IDepositProcessor(depositProcessor).getBridgingDecimals();
+
+        // Ensure the nominee is claimable before checkpointing it. On the real Vote Weighting, checkpointNominee
+        // reverts (NomineeDoesNotExist) for a nominee that was never added, so guard with the Dispenser's own
+        // cursor first: this keeps ZeroValue the authoritative "not claimable" error and only ever checkpoints a
+        // live nominee (mirrors the retain() ordering, where the cursor check precedes the checkpoint)
+        _requireClaimableNominee(stakingTarget, chainId);
 
         // Checkpoint staking target nominee in the Vote Weighting contract before the (view) calculation
         IVoteWeighting(voteWeighting).checkpointNominee(stakingTarget, chainId);
@@ -1392,6 +1434,14 @@ contract Dispenser {
         // Check the contract ownership
         if (msg.sender != owner) {
             revert OwnerOnly(msg.sender, owner);
+        }
+
+        // Do not let staking incentives go live before Vote Weighting is wired. A fresh proxy initializes with a
+        // zero voteWeighting (set later via changeManagers); claims would fail-safe with ZeroValue anyway, but this
+        // makes the deploy invariant explicit rather than emergent.
+        if (pauseState != Pause.StakingIncentivesPaused && pauseState != Pause.AllPaused &&
+            voteWeighting == address(0)) {
+            revert ZeroAddress();
         }
 
         paused = pauseState;

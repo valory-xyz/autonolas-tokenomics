@@ -5,7 +5,7 @@ const parsedData = JSON.parse(dataFromJSON);
 
 module.exports = [
     parsedData.olasAddress,
-    parsedData.dispenserAddress,
+    parsedData.dispenserProxyAddress,
     parsedData.arbitrumL1ERC20GatewayRouterAddress,
     parsedData.arbitrumInboxAddress,
     parsedData.arbitrumL2TargetChainId,

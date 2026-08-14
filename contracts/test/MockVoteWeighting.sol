@@ -12,6 +12,9 @@ struct Nominee {
     uint256 chainId;
 }
 
+/// @dev Nominee does not exist (mirrors the real Vote Weighting error surface).
+error NomineeDoesNotExist(bytes32 account, uint256 chainId);
+
 /// @dev Mocking contract of vote weighting.
 contract MockVoteWeighting {
     address public immutable dispenser;
@@ -30,10 +33,15 @@ contract MockVoteWeighting {
     }
 
     /// @dev Checkpoint to fill data for both a specific nominee and common for all nominees.
-    /// @notice No-op for an unregistered nominee, mirroring the real Curve-style gauge controller (it
-    ///         operates on zero-initialized weight points and does not revert). The authoritative
-    ///         "exists for claiming" gate is the Dispenser's own mapLastClaimedStakingEpochs check.
-    function checkpointNominee(bytes32 account, uint256 chainId) external view {}
+    /// @notice Mirrors the real Vote Weighting: checkpointNominee -> _getWeight reverts NomineeDoesNotExist for a
+    ///         nominee that was never added. The Dispenser guards this call with its own claimable-cursor check
+    ///         (_requireClaimableNominee), so this revert path is only reached if the two ever disagree.
+    function checkpointNominee(bytes32 account, uint256 chainId) external view {
+        bytes32 nomineeHash = keccak256(abi.encode(Nominee(account, chainId)));
+        if (mapNomineeIds[nomineeHash] == 0) {
+            revert NomineeDoesNotExist(account, chainId);
+        }
+    }
 
     /// @dev Set staking weight.
     function setNomineeRelativeWeight(address account, uint256 chainId, uint256 weight) external {

@@ -6,14 +6,22 @@
 # uint256 _maxNumStakingTargets); the caller (deployer) becomes the proxy owner atomically, and
 # staking incentives are paused until the DAO wires and unpauses them.
 #
+# Vote Weighting is initialized to the ZERO address on purpose: it is deployed AFTER this proxy (its
+# `dispenser` immutable binds this proxy's address), so it cannot exist yet at init time. It is wired in
+# afterwards with script_dispenser_change_managers.sh, while the proxy is still paused. This is what breaks
+# the otherwise-circular deploy order (Dispenser <-> Vote Weighting).
+#
+# Deploy order: deploy_07a (impl) -> deploy_07b (proxy, VW = 0) -> deploy Vote Weighting(ve, THIS proxy) ->
+#               script_dispenser_change_managers.sh (sets the real VW) -> set deposit processors -> unpause.
+#
 # Globals fields consumed:
 #   dispenserAddress      : Dispenser implementation (written by deploy_07a_*)
 #   treasuryAddress       : Treasury address
-#   voteWeightingAddress  : Vote Weighting address
 #   maxNumClaimingEpochs  : max number of epochs to claim staking incentives for
 #   maxNumStakingTargets  : max number of staking targets on a single chain Id
 # Globals fields written:
-#   dispenserProxyAddress : deployed proxy address (the live Dispenser address to wire everywhere)
+#   dispenserProxyAddress : deployed proxy address (the live Dispenser address to wire everywhere,
+#                           and the address Vote Weighting must be deployed against)
 
 red=$(tput setaf 1)
 green=$(tput setaf 2)
@@ -47,7 +55,6 @@ fi
 
 dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 treasuryAddress=$(jq -r '.treasuryAddress' $globals)
-voteWeightingAddress=$(jq -r '.voteWeightingAddress' $globals)
 maxNumClaimingEpochs=$(jq -r '.maxNumClaimingEpochs' $globals)
 maxNumStakingTargets=$(jq -r '.maxNumStakingTargets' $globals)
 
@@ -57,6 +64,26 @@ if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
   exit 1
 fi
 
+if [ -z "$treasuryAddress" ] || [ "$treasuryAddress" == "null" ] \
+   || [ "$treasuryAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! treasuryAddress is not set in $globals${reset}"
+  exit 1
+fi
+
+# maxNumClaimingEpochs / maxNumStakingTargets are set once at initialize() with no runtime setter, so a bad
+# value here is only fixable by an implementation redeploy — validate they are present and non-zero
+if [ -z "$maxNumClaimingEpochs" ] || [ "$maxNumClaimingEpochs" == "null" ] || [ "$maxNumClaimingEpochs" == "0" ]; then
+  echo "${red}!!! maxNumClaimingEpochs is not set (or zero) in $globals${reset}"
+  exit 1
+fi
+
+if [ -z "$maxNumStakingTargets" ] || [ "$maxNumStakingTargets" == "null" ] || [ "$maxNumStakingTargets" == "0" ]; then
+  echo "${red}!!! maxNumStakingTargets is not set (or zero) in $globals${reset}"
+  exit 1
+fi
+
+# Vote Weighting is wired later via script_dispenser_change_managers.sh — initialize with the zero address
+voteWeightingAddress="0x0000000000000000000000000000000000000000"
 proxyData=$(cast calldata "initialize(address,address,uint256,uint256)" $treasuryAddress $voteWeightingAddress $maxNumClaimingEpochs $maxNumStakingTargets)
 
 contractName="DispenserProxy"

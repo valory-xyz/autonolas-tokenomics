@@ -30,7 +30,7 @@ async function main() {
     const EthereumDepositProcessor = await ethers.getContractFactory("EthereumDepositProcessor");
     console.log("You are signing the following transaction: EthereumDepositProcessor.connect(EOA).deploy()");
     const ethereumDepositProcessor = await EthereumDepositProcessor.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress);
+        parsedData.dispenserProxyAddress, parsedData.serviceStakingFactoryAddress, parsedData.timelockAddress);
     const result = await ethereumDepositProcessor.deployed();
 
     // Transaction details

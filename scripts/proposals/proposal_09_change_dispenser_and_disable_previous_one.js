@@ -14,7 +14,7 @@ async function main() {
     // Get all the necessary contract addresses
     const tokenomicsProxyAddress = parsedData.tokenomicsProxyAddress;
     const treasuryAddress = parsedData.treasuryAddress;
-    const dispenserAddress = parsedData.dispenserAddress;
+    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
     const arbitrumDepositProcessorL1Address = parsedData.arbitrumDepositProcessorL1Address;
     const baseDepositProcessorL1Address = parsedData.baseDepositProcessorL1Address;
     const celoDepositProcessorL1Address = parsedData.celoDepositProcessorL1Address;
@@ -45,9 +45,9 @@ async function main() {
         oldDispenserAddress];
     const values = [0, 0, 0, 0, 0];
     const callDatas = [
-        tokenomics.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
+        tokenomics.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserProxyAddress]),
         tokenomics.interface.encodeFunctionData("changeStakingParams", [maxStakingIncentive, minStakingWeight]),
-        treasury.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserAddress]),
+        treasury.interface.encodeFunctionData("changeManagers", [AddressZero, AddressZero, dispenserProxyAddress]),
         oldDispenser.interface.encodeFunctionData("changeManagers", [AddressNull, AddressNull]),
         oldDispenser.interface.encodeFunctionData("changeOwner", [AddressNull])
     ];

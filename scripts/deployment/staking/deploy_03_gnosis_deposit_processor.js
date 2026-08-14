@@ -30,7 +30,7 @@ async function main() {
     const GnosisDepositProcessorL1 = await ethers.getContractFactory("GnosisDepositProcessorL1");
     console.log("You are signing the following transaction: GnosisDepositProcessorL1.connect(EOA).deploy()");
     const gnosisDepositProcessorL1 = await GnosisDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.gnosisOmniBridgeAddress,
+        parsedData.dispenserProxyAddress, parsedData.gnosisOmniBridgeAddress,
         parsedData.gnosisAMBForeignAddress, parsedData.gnosisL2TargetChainId);
     const result = await gnosisDepositProcessorL1.deployed();
 

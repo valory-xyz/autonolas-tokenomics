@@ -396,4 +396,19 @@ contract DispenserFixesTest is Test {
         vm.expectRevert(Unpaused.selector);
         dispenser.changeManagers(address(0), newVW);
     }
+
+    // A claim for a never-added nominee must revert ZeroValue from the Dispenser's own claimable-cursor guard,
+    // BEFORE checkpointNominee (which reverts NomineeDoesNotExist on the real Vote Weighting). This locks in the
+    // guard ordering: were the checkpoint to run first, this claim would surface NomineeDoesNotExist instead.
+    function test_claim_neverAddedNominee_revertsZeroValueBeforeCheckpoint() public {
+        bytes32 unregistered = bytes32(uint256(uint160(address(0x9999))));
+
+        // The mock faithfully mirrors the real Vote Weighting: checkpointing an unregistered nominee reverts
+        vm.expectRevert(abi.encodeWithSignature("NomineeDoesNotExist(bytes32,uint256)", unregistered, CHAIN_ID));
+        vw.checkpointNominee(unregistered, CHAIN_ID);
+
+        // Yet the claim path reverts ZeroValue (the guard fires first), not NomineeDoesNotExist
+        vm.expectRevert(abi.encodeWithSignature("ZeroValue()"));
+        dispenser.claimStakingIncentives(10, CHAIN_ID, unregistered, "");
+    }
 }
