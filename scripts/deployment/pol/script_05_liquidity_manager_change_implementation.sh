@@ -5,8 +5,8 @@
 # deliberately left with the deployer while POL is not operational), so this is a plain single-signer
 # cast send — NOT a Timelock/DAO proposal.
 #
-# Prerequisite: deploy the new implementation first (deploy_02_liquidity_manager_eth.sh /
-# deploy_02_liquidity_manager_optimism.sh) and write its address into `liquidityManagerAddress` in the
+# Prerequisite: deploy the new implementation first (deploy_02_liquidity_manager_univ2univ3.sh /
+# deploy_02_liquidity_manager_balancer_slipstream.sh) and write its address into `liquidityManagerAddress` in the
 # globals file. The proxy address is read from `liquidityManagerProxyAddress`.
 #
 # IMPORTANT ordering: the fail-closed price guard means the first convertToV3 reverts on a brand-new /
@@ -102,4 +102,31 @@ if [ "$(echo $storedImpl | tr '[:upper:]' '[:lower:]')" != "$(echo $liquidityMan
   echo "${red}!!! Implementation slot does not match liquidityManagerAddress — the upgrade did not land${reset}"
   exit 1
 fi
+# Variant guard: confirm the deployed impl's SOURCE DEX matches what this chain's globals expect. The three
+# leaves (UniV2UniV3 / BalancerSlipstream / BalancerUniV3) share one `liquidityManagerAddress` key, and
+# changeImplementation accepts any address by convention — so running the wrong deploy_02_* for a chain lands a
+# wrong-variant impl that the slot read-back above cannot catch (it only proves the proxy points where globals
+# said). Read a source-distinguishing immutable via the proxy and assert it matches globals. NOTE: this covers
+# the source DEX only; it does not distinguish a Slipstream vs UniV3 target (both are Balancer-source).
+routerV2Address=$(jq -r '.routerV2Address // empty' $globals)
+balancerVaultAddress=$(jq -r '.balancerVaultAddress // empty' $globals)
+zero="0x0000000000000000000000000000000000000000"
+if [ -n "$routerV2Address" ] && [ "$routerV2Address" != "$zero" ]; then
+  onchain=$(cast call $liquidityManagerProxyAddress "routerV2()(address)" --rpc-url $networkURL$API_KEY 2>/dev/null)
+  echo "  source variant -> UniV2 (routerV2 $onchain, expected $routerV2Address)"
+  if [ "$(echo $onchain | tr '[:upper:]' '[:lower:]')" != "$(echo $routerV2Address | tr '[:upper:]' '[:lower:]')" ]; then
+    echo "${red}!!! Deployed impl routerV2 != globals routerV2Address — wrong LM variant for this chain${reset}"
+    exit 1
+  fi
+elif [ -n "$balancerVaultAddress" ] && [ "$balancerVaultAddress" != "$zero" ]; then
+  onchain=$(cast call $liquidityManagerProxyAddress "balancerVault()(address)" --rpc-url $networkURL$API_KEY 2>/dev/null)
+  echo "  source variant -> Balancer (balancerVault $onchain, expected $balancerVaultAddress)"
+  if [ "$(echo $onchain | tr '[:upper:]' '[:lower:]')" != "$(echo $balancerVaultAddress | tr '[:upper:]' '[:lower:]')" ]; then
+    echo "${red}!!! Deployed impl balancerVault != globals balancerVaultAddress — wrong LM variant for this chain${reset}"
+    exit 1
+  fi
+else
+  echo "${red}!!! Cannot determine expected source variant (neither routerV2Address nor balancerVaultAddress set) — skipping variant check${reset}"
+fi
+
 echo "${green}LiquidityManager implementation upgraded and verified${reset}"

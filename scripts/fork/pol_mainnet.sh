@@ -117,7 +117,7 @@ echo "${green}$contractName deployed at: $oracleV2Address${reset}"
 
 #neighborhoodScannerAddress="0x17806E2a12d5E0F48C9803cd397DB3F044DA3b77"
 #oracleV2Address="0xf805DfF246CC208CD2F08ffaD242b7C32bc93623"
-contractName="LiquidityManagerETH"
+contractName="LiquidityManagerUniV2UniV3"
 contractPath="contracts/pol/$contractName.sol:$contractName"
 constructorArgs="$olasAddress $timelockAddress $positionManagerV3 $neighborhoodScannerAddress $observationCardinality $oracleV2Address $routerV2Address"
 contractArgs="$contractPath --constructor-args $constructorArgs"
@@ -156,7 +156,7 @@ echo "${green}$contractName deployed at: $liquidityManagerETHAddress${reset}"
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-echo "${green}Transfer v2 liquidity to LiquidityManagerETH${reset}"
+echo "${green}Transfer v2 liquidity to LiquidityManagerUniV2UniV3${reset}"
 castArgs="$treasuryAddress withdraw(address,uint256,address) $liquidityManagerETHAddress 63657402469742352862258 $pairAddress"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"

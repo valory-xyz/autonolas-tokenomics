@@ -18,29 +18,18 @@ derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
-# Check for Alchemy keys
-if [[ "$networkURL" == *"alchemy.com"* ]]; then
-  case $chainId in
-    1)        API_KEY=$ALCHEMY_API_KEY_MAINNET; keyName="ALCHEMY_API_KEY_MAINNET" ;;
-    11155111) API_KEY=$ALCHEMY_API_KEY_SEPOLIA; keyName="ALCHEMY_API_KEY_SEPOLIA" ;;
-  esac
-  if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
-    echo "set $keyName env variable"
-    exit 0
-  fi
-fi
-
 olasAddress=$(jq -r '.olasAddress' $globals)
-treasuryAddress=$(jq -r '.timelockAddress' $globals)
+treasuryAddress=$(jq -r '.bridgeMediatorAddress' $globals)
 positionManagerV3Address=$(jq -r '.positionManagerV3Address' $globals)
 neighborhoodScannerAddress=$(jq -r '.neighborhoodScannerAddress' $globals)
 observationCardinality=$(jq -r '.observationCardinality' $globals)
-oracleV2Address=$(jq -r '.uniswapPriceOracleAddress' $globals)
-routerV2Address=$(jq -r '.routerV2Address' $globals)
+oracleV2Address=$(jq -r '.balancerPriceOracleAddress' $globals)
+balancerVaultAddress=$(jq -r '.balancerVaultAddress' $globals)
+bridge2BurnerAddress=$(jq -r '.bridge2BurnerAddress' $globals)
 
-contractName="LiquidityManagerETH"
+contractName="LiquidityManagerBalancerUniV3"
 contractPath="contracts/pol/$contractName.sol:$contractName"
-constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $routerV2Address"
+constructorArgs="$olasAddress $treasuryAddress $positionManagerV3Address $neighborhoodScannerAddress $observationCardinality $oracleV2Address $balancerVaultAddress $bridge2BurnerAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -59,7 +48,7 @@ echo "RPC: $networkURL"
 echo "${green}Deployment of: $contractArgs${reset}"
 
 # Deploy the contract and capture the address
-execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
+execCmd="forge create --broadcast --rpc-url $networkURL $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
 liquidityManagerAddress=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
@@ -77,7 +66,7 @@ echo "$(jq '. += {"liquidityManagerAddress":"'$liquidityManagerAddress'"}' $glob
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$liquidityManagerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,address,address)" $constructorArgs)"
+  contractParams="$liquidityManagerAddress $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint16,address,address,address)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"

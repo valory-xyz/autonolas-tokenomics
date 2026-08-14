@@ -1022,12 +1022,12 @@ async function checkLiquidityManagerImpl(provider, polGlobals, configContracts, 
     customExpect(observationCardinality.toString(), polGlobals["observationCardinality"],
         log + ", function: observationCardinality()");
 
-    if (contractName === "LiquidityManagerETH") {
+    if (contractName === "LiquidityManagerUniV2UniV3") {
         const routerV2 = await impl.routerV2();
         customExpect(norm(routerV2), norm(polGlobals["routerV2Address"]), log + ", function: routerV2()");
         const oracleV2 = await impl.oracleV2();
         customExpect(norm(oracleV2), norm(polGlobals["uniswapPriceOracleAddress"]), log + ", function: oracleV2()");
-    } else if (contractName === "LiquidityManagerOptimism") {
+    } else if (contractName === "LiquidityManagerBalancerSlipstream") {
         const balancerVault = await impl.balancerVault();
         customExpect(norm(balancerVault), norm(polGlobals["balancerVaultAddress"]),
             log + ", function: balancerVault()");
@@ -1245,11 +1245,11 @@ async function main() {
         log = initLog + ", contract: NeighborhoodScanner";
         await checkNeighborhoodScanner(providers[0], configs[0]["contracts"], "NeighborhoodScanner", log);
 
-        log = initLog + ", contract: LiquidityManagerETH";
-        await checkLiquidityManagerImpl(providers[0], mDg.pol, configs[0]["contracts"], "LiquidityManagerETH", log);
+        log = initLog + ", contract: LiquidityManagerUniV2UniV3";
+        await checkLiquidityManagerImpl(providers[0], mDg.pol, configs[0]["contracts"], "LiquidityManagerUniV2UniV3", log);
 
         log = initLog + ", contract: LiquidityManagerProxy";
-        await checkLiquidityManagerProxy(configs[0]["chainId"], providers[0], mDg.pol, configs[0]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerETH");
+        await checkLiquidityManagerProxy(configs[0]["chainId"], providers[0], mDg.pol, configs[0]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerUniV2UniV3");
 
         log = initLog + ", contract: BuyBackBurnerUniswap";
         await checkBuyBackBurnerImpl(providers[0], mDg.utils, configs[0]["contracts"], "BuyBackBurnerUniswap", log);
@@ -1326,10 +1326,10 @@ async function main() {
             await checkBridge2Burner(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "Bridge2BurnerOptimism", log);
             log = initLog + ", contract: NeighborhoodScanner";
             await checkNeighborhoodScanner(providers[chainNumber], configs[chainNumber]["contracts"], "NeighborhoodScanner", log);
-            log = initLog + ", contract: LiquidityManagerOptimism";
-            await checkLiquidityManagerImpl(providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerOptimism", log);
+            log = initLog + ", contract: LiquidityManagerBalancerSlipstream";
+            await checkLiquidityManagerImpl(providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerBalancerSlipstream", log);
             log = initLog + ", contract: LiquidityManagerProxy";
-            await checkLiquidityManagerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerOptimism");
+            await checkLiquidityManagerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerBalancerSlipstream");
             log = initLog + ", contract: BuyBackBurnerBalancer";
             await checkBuyBackBurnerImpl(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerBalancer", log);
             log = initLog + ", contract: BuyBackBurnerProxy";
@@ -1350,10 +1350,10 @@ async function main() {
             await checkBridge2Burner(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "Bridge2BurnerOptimism", log);
             log = initLog + ", contract: NeighborhoodScanner";
             await checkNeighborhoodScanner(providers[chainNumber], configs[chainNumber]["contracts"], "NeighborhoodScanner", log);
-            log = initLog + ", contract: LiquidityManagerOptimism";
-            await checkLiquidityManagerImpl(providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerOptimism", log);
+            log = initLog + ", contract: LiquidityManagerBalancerSlipstream";
+            await checkLiquidityManagerImpl(providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerBalancerSlipstream", log);
             log = initLog + ", contract: LiquidityManagerProxy";
-            await checkLiquidityManagerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerOptimism");
+            await checkLiquidityManagerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.pol, configs[chainNumber]["contracts"], "LiquidityManagerProxy", log, "LiquidityManagerBalancerSlipstream");
             log = initLog + ", contract: BuyBackBurnerBalancer";
             await checkBuyBackBurnerImpl(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerBalancer", log);
             log = initLog + ", contract: BuyBackBurnerProxy";
@@ -1366,7 +1366,7 @@ async function main() {
         // mirrors the Optimism / Base structure for OP-stack chains; the Celo-specific
         // exclusions are: BalancerPriceOracle (Celo uses the legacy UniswapPriceOracle,
         // which is itself excluded — outdated, not redeployable for now),
-        // NeighborhoodScanner, LiquidityManagerOptimism, and LiquidityManagerProxy
+        // NeighborhoodScanner, LiquidityManagerBalancerSlipstream, and LiquidityManagerProxy
         // (none of those are deployed on Celo). Bridge2Burner and BBB Uniswap+Proxy
         // were (re)deployed on Celo in PR #292.
         console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);

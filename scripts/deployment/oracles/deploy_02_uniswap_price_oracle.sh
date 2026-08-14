@@ -83,7 +83,7 @@ fi
 echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globals)" > $globals
 echo "$(jq '. += {"uniswapPriceOracleAddress":"'$uniswapPriceOracleAddress'"}' $globalsUtils)" > $globalsUtils
 
-# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_eth.sh
+# Conditionally dual-write into pol/globals_<network>.json — pol/deploy_02_liquidity_manager_univ2univ3.sh
 # reads uniswapPriceOracleAddress from there. ETH mainnet has pol/globals_eth_mainnet.json;
 # silently skip on chains that don't.
 globalsPol="$(dirname "$0")/../pol/globals_$1.json"
