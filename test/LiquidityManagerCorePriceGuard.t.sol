@@ -180,7 +180,7 @@ contract TestLiquidityManagerCore is LiquidityManagerCore {
 ///      Run: forge test --mc LiquidityManagerCorePriceGuard -vvv
 contract LiquidityManagerCorePriceGuardTest is Test {
     uint32 internal constant SECONDS_AGO = 1800;
-    uint256 internal constant MAX_ALLOWED_DEVIATION = 1e17; // 10% in 1e18
+    uint256 internal MAX_ALLOWED_DEVIATION; // read from the contract in setUp (gate-value agnostic)
 
     MockPool internal pool;
     TestLiquidityManagerCore internal lm;
@@ -193,6 +193,7 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         address scanner = address(new MockPool()); // reuse any non-zero contract
 
         lm = new TestLiquidityManagerCore(address(positionManager), scanner);
+        MAX_ALLOWED_DEVIATION = lm.MAX_ALLOWED_DEVIATION();
         pool = new MockPool();
 
         // Start at a known timestamp so arithmetic is deterministic
@@ -399,14 +400,15 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     ///      revert the exit; now a fair exit is always satisfiable.
     function test_getExitSqrtPrice_matureNearBound_returnsSlot0() public {
         int24 twapTick = 0;
-        // tick 900 -> price ~1.0942 -> ~9.4% deviation, just under MAX_ALLOWED_DEVIATION (10%)
-        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(900);
+        // tick 100 -> price ~1.01 -> ~1% deviation, comfortably within MAX_ALLOWED_DEVIATION for any
+        // gate value we ship (kept below both the 2% and 3% candidates so the test is value-agnostic).
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(100);
 
         _configurePoolWithHistory(instantSqrtPriceX96, twapTick);
         pool.setCardinality(60);
 
         uint160 result = lm.exposedGetExitSqrtPrice(address(pool));
-        assertEq(result, instantSqrtPriceX96, "near-bound-but-within must return slot0 without reverting");
+        assertEq(result, instantSqrtPriceX96, "within-bound deviation must return slot0 without reverting");
     }
 
     /// @dev Mature pool, slot0 deviates > 10% from TWAP: still fail-CLOSED (reverts Overflow), so the

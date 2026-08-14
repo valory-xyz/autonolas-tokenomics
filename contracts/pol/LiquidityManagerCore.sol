@@ -119,12 +119,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // keccak256("PROXY_LIQUIDITY_MANAGER") = "0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd"
     bytes32 public constant PROXY_LIQUIDITY_MANAGER =
         0xf7d1f641b01c7d29322d281367bfc337651cbfb5a9b1c387d2132d8792d212cd;
-    // Max allowed price deviation for TWAP pool values (10%) in 1e18 format.
-    // Operates in price space as a pre-flight pool-sanity gate (anti-manipulation): rejects mints
-    // when slot0 has been pushed more than this far from the TWAP. The companion deploy parameter
-    // `maxSlippage` should be set to the same percentage so the V3 NPM `amount{0,1}Min` post-flight
-    // amount-space check doesn't reject mints that this pre-flight check has already accepted.
-    uint256 public constant MAX_ALLOWED_DEVIATION = 1e17;
+    // Max allowed slot0-vs-TWAP price deviation (2%) in 1e18 format. Pre-flight anti-manipulation gate on
+    // entries/trades: rejects an operation when slot0 has been pushed more than this far from the TWAP.
+    // Post-#306.1 the entry `amount{0,1}Min` is anchored to slot0 (vacuous by construction), so this gate is
+    // the SOLE entry manipulation defence — tightened from 10% to 2% per internal20 R6 (on a shallow,
+    // ~fully-POL pool a 10% push is buyable for ~0.1% of the position). Treat any change as a security
+    // change, not a tuning knob.
+    uint256 public constant MAX_ALLOWED_DEVIATION = 2e16;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
     // // Max bps value
@@ -146,10 +147,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // Owner address
     address public owner;
 
-    // Max slippage for pool operations (in BPS, bound by 10_000). Operates in amount space as a
-    // post-flight execution gate: the V3 NPM uses `amount{0,1}Min = amountsIn * (MAX_BPS - maxSlippage)
-    // / MAX_BPS`. Companion to `MAX_ALLOWED_DEVIATION` — set to the same percentage at deploy
-    // (`LiquidityManagerCore.initialize`) and tunable post-deploy via `changeMaxSlippage`.
+    // Max slippage for pool operations (in BPS, bound by 10_000). Post-#306.1 it no longer backstops V3
+    // mints (the entry `amount{0,1}Min` is slot0-anchored, so that amount-space check is vacuous); its live
+    // role is the source-side floor on the V2/Balancer `removeLiquidity`/`exitPool` (the fair-reserve
+    // discount in the source mixin). It is therefore DECOUPLED from `MAX_ALLOWED_DEVIATION` — set it from the
+    // source pool's expected spot-vs-TWAP drift, not the gate. Seeded at `initialize`, tunable via
+    // `changeMaxSlippage`.
     uint16 public maxSlippage;
 
     // Reentrancy lock
