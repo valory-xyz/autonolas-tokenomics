@@ -53,6 +53,7 @@ forge test --mc LPSwapCeloSlippageTest -vvv
 ### Test — Forge Fork Tests (require RPC node URL for the target chain)
 ```bash
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3 -vvv  # ETH mainnet (UniV2 -> UniV3)
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3BridgeForkETH -vvv  # ETH fork of the UniV2 -> UniV3 L2-burn manager (Celo)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
@@ -106,7 +107,7 @@ L1→L2 incentive distribution uses a paired processor/dispenser pattern per cha
 
 ### Protocol Owned Liquidity (`contracts/pol/`)
 
-- `LiquidityManagerCore` + composable source/target/burn mixins (`LiquidityManagerSourceUniV2` / `SourceBalancer`, `TargetUniV3` / `TargetSlipstream`, `BurnViaBridge`) forming the leaf managers `LiquidityManagerUniV2UniV3` / `LiquidityManagerBalancerSlipstream` / `LiquidityManagerBalancerUniV3` — Manage protocol-owned liquidity positions (Uniswap V3 / Slipstream). Proxy-upgradeable via `LiquidityManagerProxy`.
+- `LiquidityManagerCore` + composable source/target/burn mixins (`LiquidityManagerSourceUniV2` / `SourceBalancer`, `TargetUniV3` / `TargetSlipstream`, `BurnViaBridge`) forming the leaf managers `LiquidityManagerUniV2UniV3` / `LiquidityManagerBalancerSlipstream` / `LiquidityManagerBalancerUniV3` / `LiquidityManagerUniV2UniV3Bridge` (the last is the L2-burn UniV2→UniV3 variant, e.g. Ubeswap→UniV3 on Celo) — Manage protocol-owned liquidity positions (Uniswap V3 / Slipstream). Proxy-upgradeable via `LiquidityManagerProxy`.
 
 ### Utilities (`contracts/utils/`)
 
