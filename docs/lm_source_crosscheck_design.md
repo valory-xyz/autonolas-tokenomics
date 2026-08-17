@@ -41,6 +41,16 @@ token to the treasury** (`convertToV3`'s trailing `_manageUtilityAmounts(tokens,
 are *transferred* to treasury, not burned/lost). Net result: **no value loss** (convexity + leftover retained),
 but a lopsided, inefficient conversion — most POL parked idle in treasury instead of placed in V3.
 
+One step sits between removal and mint that the removal → mint → leftovers walk above skips: when `convertToV3`
+is called with a non-zero `olasBurnRate`, `_manageUtilityAmounts(tokens, olasBurnRate, true)` **burns** that
+rate of the removed OLAS *before* the mint — irreversibly, where leftovers are merely parked. The conclusion
+(no value loss) still holds, for a reason worth stating explicitly rather than leaving implicit: once the
+cross-check exists it reverts the whole transaction, which unwinds the burn atomically, so placing the gate
+*after* the burn is safe. What it does **not** unwind is a *within-tolerance* skew — at a 5% tolerance a
+manipulator can shift the burned OLAS by up to ~5% at swap-fee cost, bounded and value-safe by convexity but
+real, and more relevant the larger the migration's `olasBurnRate`. An **accepted residual**, recorded here
+rather than left for a future reader to find the burn step unconsidered.
+
 ## Proposed replacement — cross-check the V2-removed ratio against the gate-verified V3 slot0
 
 `convertToV3` already computes a trusted price it isn't reusing:
