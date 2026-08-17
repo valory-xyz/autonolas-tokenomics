@@ -58,11 +58,18 @@ one:
 ./scripts/deployment/pol/deploy_02_liquidity_manager_univ2univ3.sh eth_mainnet
 # 2. Point the proxy at it:
 ./scripts/deployment/pol/script_05_liquidity_manager_change_implementation.sh eth_mainnet
+# 3. If liquidityManagerMaxSlippage changed since the proxy was first initialized, apply it (see below):
+./scripts/deployment/pol/script_06_liquidity_manager_change_max_slippage.sh eth_mainnet
 ```
 
 - **Owner = deployer EOA.** The LM proxies are still owned by the Autonolas deployer (ownership was
   left with the deployer while POL is not operational), so `changeImplementation` is a plain
   single-signer `cast send`, **not** a Timelock/DAO proposal.
+- **`maxSlippage` does not follow `changeImplementation`.** It is proxy storage set once by `initialize`
+  (which reverts `AlreadyInitialized` on an upgraded proxy), so a swapped-in-place proxy keeps its
+  original value. When `liquidityManagerMaxSlippage` in globals differs from what the proxy was first
+  initialized with (e.g. the 10% → 5% re-tasking for the V2↔V3 ratio gate), run `script_06` after
+  `script_05`. Fresh proxies (`deploy_03`) `initialize` at the globals value and do not need it.
 - **Storage-safe.** The fail-closed fix changes only function bodies + one `error` (no storage layout
   change), so the swap preserves proxy storage. Do **not** re-run `deploy_01` (scanner) or `deploy_03`
   (proxy).
