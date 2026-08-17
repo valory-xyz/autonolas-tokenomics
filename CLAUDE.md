@@ -36,6 +36,7 @@ npx hardhat test test/Tokenomics.js                          # Single Hardhat te
 ```bash
 forge test --mc Depository -vvv
 forge test --mc Dispenser -vvv
+forge test --mc LiquidityManagerRatioCheckUnit -vvv    # #324 source-side ratio cross-check — arithmetic boundary (no fork)
 forge test --mc Treasury -vvv
 forge test --mc UniswapPriceOracleConstructorTest -vvv
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
