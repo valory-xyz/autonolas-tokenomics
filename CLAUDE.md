@@ -54,6 +54,7 @@ forge test --mc LPSwapCeloSlippageTest -vvv
 ```bash
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3 -vvv  # ETH mainnet (UniV2 -> UniV3)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3BridgeForkETH -vvv  # ETH fork of the UniV2 -> UniV3 L2-burn manager (Celo)
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerV2V3CrossCheckForkETH -vvv  # #324 prototype: V2-removed ratio vs V3-slot0 manipulation cross-check (oracle-drop analysis)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv

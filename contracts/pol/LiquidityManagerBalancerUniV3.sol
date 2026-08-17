@@ -11,7 +11,7 @@ import {LiquidityManagerBurnViaBridge} from "./LiquidityManagerBurnViaBridge.sol
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
 /// @dev Converts protocol-owned Balancer V2 liquidity into a canonical Uniswap V3 concentrated position, for L2s
-///      that run Balancer as the source DEX and Uniswap V3 as the target. Pure composition of the audited
+///      that run Balancer as the source DEX and Uniswap V3 as the target. Pure composition of the existing
 ///      Balancer-source, UniV3-target and L2-burn mixins — it declares no logic of its own.
 contract LiquidityManagerBalancerUniV3 is
     LiquidityManagerSourceBalancer,

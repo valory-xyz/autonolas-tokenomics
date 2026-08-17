@@ -13,7 +13,7 @@ import {LiquidityManagerBurnViaBridge} from "./LiquidityManagerBurnViaBridge.sol
 /// @dev Converts protocol-owned Uniswap-V2-style liquidity (e.g. Ubeswap on Celo) into a canonical Uniswap V3
 ///      concentrated position on an L2, bridging OLAS to L1 for burning. It is the L2-burn sibling of
 ///      `LiquidityManagerUniV2UniV3` (which burns locally on L1): same UniV2 source + UniV3 target, but the
-///      `BurnViaBridge` mixin instead of the direct L1 `OLAS.burn`. Pure composition of the audited
+///      `BurnViaBridge` mixin instead of the direct L1 `OLAS.burn`. Pure composition of the existing
 ///      UniV2-source, UniV3-target and L2-burn mixins — it declares no logic of its own.
 contract LiquidityManagerUniV2UniV3Bridge is
     LiquidityManagerSourceUniV2,
