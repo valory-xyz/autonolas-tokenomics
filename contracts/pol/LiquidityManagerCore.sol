@@ -142,8 +142,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     uint32 public constant SECONDS_AGO = 1800;
     // // Max bps value
     uint16 public constant MAX_BPS = 10_000;
-    // 2**96, the fixed-point base of a Uniswap V3 sqrtPriceX96
-    uint256 public constant Q96 = 0x1000000000000000000000000;
+    // 2**96, the fixed-point base of a Uniswap V3 sqrtPriceX96 (internal math constant — kept off the ABI)
+    uint256 internal constant Q96 = 0x1000000000000000000000000;
 
     // OLAS token address
     address public immutable olas;

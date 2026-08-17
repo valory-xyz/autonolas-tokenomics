@@ -12,9 +12,10 @@ The changes below are a focused follow-up to the previously audited core protoco
 hardening of the governance `VoteWeighting` gauge controller, a rework of the tokenomics `Dispenser`
 (moved behind a proxy, closed vulnerability-list items, and made the staking-incentive calculation a
 pure `view`), a fail-closed price-guard hardening of the protocol-owned-liquidity `LiquidityManagerCore`
-(with the deviation gate tightened to 2%), and a decomposition of the two chain-specific liquidity managers
-into composable source / target / burn mixins plus one new `Balancer V2 → Uniswap V3` combination. All other
-core contracts are unchanged from their last audited state.
+(deviation gate tightened to 2%, and the source-side withdrawal TWAP oracle replaced by an in-contract
+V2↔V3 ratio cross-check), and a decomposition of the two chain-specific liquidity managers into composable
+source / target / burn mixins plus one new `Balancer V2 → Uniswap V3` combination. All other core contracts
+are unchanged from their last audited state.
 
 For each contract both figures are given: the full SLoC of the file (whole-file audit scope) and the
 delta against the previously audited version (lines added / removed), so the review can be scoped
@@ -27,8 +28,8 @@ externally-audited tag against the pre-external-audit snapshot of each repo:
 
 - **Tokenomics** — `v1.4.3-post-external-audit` → `1.5.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...1.5.0-pre-external-audit
-  The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs #306/#307/#309/#310/#311/#314/#315
-  (currently `main`); until it is pushed, the same diff is
+  The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs
+  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326 (currently `main`); until it is pushed, the same diff is
   https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...main
 - **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
@@ -136,14 +137,25 @@ internal-audit records in `audits/internal18/README.md` and `audits/internal19/R
   `latestObsTimestamp` rename; removed the now-unused `_getObservationCardinality`.
 - **R6 gate tightening.** `MAX_ALLOWED_DEVIATION` is tightened 10% → 2% — post-#306.1 the entry `amountMin` is
   vacuous, so this gate is the sole entry manipulation defence (see `audits/internal20/README.md` R6).
-- Storage layout is preserved (external signatures unchanged, one new `error` only), so the change ships to
-  the live proxies via a `changeImplementation` upgrade. `LiquidityManagerCore` is the shared implementation
-  base for the mixin-composed leaf managers (below); the guard + tightening changes are confined to the base.
-  ~305-line delta on a 657-SLoC file; listed for a full-file audit.
+- **Source-side manipulation gate replaces the withdrawal oracle.** The V2/Balancer removal previously derived
+  a TWAP-anchored `minAmountsOut` from a per-chain price oracle (`oracleV2`); that oracle and its
+  `_fairMinAmountsOut` helper are removed and the removal passes zero per-token floors. Instead `convertToV3`
+  cross-checks the ratio of the removed tokens against the already gate-verified V3 `slot0`
+  (`_checkRemovedRatioAgainstV3`) and reverts `RatioDeviation` when it diverges by more than `maxSlippage`
+  (re-tasked from the old floor; default 5%). A proportional removal cannot lose value at the true price
+  (constant-product convexity), so this gates the lopsided-conversion case without any oracle. Design +
+  fork-measured tolerance in `docs/lm_source_crosscheck_design.md`; the check is placed after the
+  `olasBurnRate` burn deliberately (a revert unwinds the burn atomically in the same tx).
+- Storage layout is preserved (external signatures unchanged; two errors added — `RatioDeviation`, and
+  `WrongTokenAddresses` relocated from the removed `SourceBase`), so the change ships to the live proxies via a
+  `changeImplementation` upgrade. `LiquidityManagerCore` is the shared implementation base for the
+  mixin-composed leaf managers (below); the guard, tightening, and cross-check changes are confined to the base.
+  ~335-line delta on a 673-SLoC file; listed for a full-file audit.
 
 Ref. PRs https://github.com/valory-xyz/autonolas-tokenomics/pull/306 (deployment routine + audit-diff in
-https://github.com/valory-xyz/autonolas-tokenomics/pull/307) and
-https://github.com/valory-xyz/autonolas-tokenomics/pull/318 (R6 tightening).
+https://github.com/valory-xyz/autonolas-tokenomics/pull/307),
+https://github.com/valory-xyz/autonolas-tokenomics/pull/318 (R6 tightening), and
+https://github.com/valory-xyz/autonolas-tokenomics/pull/326 (source-side oracle → V2↔V3 ratio cross-check).
 
 ### Scope of changes for the LiquidityManager refactor
 
