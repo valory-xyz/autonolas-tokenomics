@@ -83,7 +83,7 @@ Values currently in `scripts/deployment/pol/globals_<chain>_mainnet.json`:
 | Field | ETH | Base | Optimism |
 |---|---|---|---|
 | `observationCardinality` | 120 | 300 | 300 |
-| `liquidityManagerMaxSlippage` | 1000 | 1000 | 1000 |
+| `liquidityManagerMaxSlippage` | 500 | 500 | 500 |
 
 ### `observationCardinality` (constructor arg → `LiquidityManagerCore.observationCardinality`, immutable)
 
@@ -134,21 +134,20 @@ Optimism uses the same 300 as Base because both run 2s blocks; the Velodrome Sli
 
 ### `liquidityManagerMaxSlippage` (initialize arg → `LiquidityManagerCore.maxSlippage`, mutable)
 
-Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy constructor (`deploy_03_liquidity_manager_proxy.sh`), used in three places to compute `amount{0,1}Min` for V3 position manager calls:
+Seeded via `LiquidityManagerCore.initialize(uint16 _maxSlippage)` from the proxy constructor (`deploy_03_liquidity_manager_proxy.sh`). Its **primary live role** is the tolerance of the source-side **V2↔V3 ratio cross-check** in `convertToV3` (`_checkRemovedRatioAgainstV3`): the removed token ratio must sit within `maxSlippage` of the gate-verified V3 `slot0` or the conversion reverts `RatioDeviation`. It is *also* passed as `amount{0,1}Min` in three V3 position-manager calls, but those are anchored to `slot0` (the execution price) and so are vacuous by construction:
 
-- `_optimizeTicksAndMintPosition` (`LiquidityManagerCore.sol:552-553`)
-- `_increaseLiquidity` (`LiquidityManagerCore.sol:432-433`)
-- `_decreaseLiquidity` (`LiquidityManagerCore.sol:377-378`)
+- `_optimizeTicksAndMintPosition` (`LiquidityManagerCore.sol`)
+- `_increaseLiquidity` (`LiquidityManagerCore.sol`)
+- `_decreaseLiquidity` (`LiquidityManagerCore.sol`)
 
-Production value `1000` (= 10%). It is **no longer** aligned to `MAX_ALLOWED_DEVIATION`, which is now
-**2%** (`2e16`, `LiquidityManagerCore.sol:128`) after the internal20 R6 tightening. The two are
-deliberately decoupled — see the superseded note below.
+Production value `500` (= 5%). It is **not** aligned to `MAX_ALLOWED_DEVIATION`, which is
+**2%** (`2e16`). The two are deliberately decoupled — see the superseded note below.
 
 **Why the two guards co-exist.** `MAX_ALLOWED_DEVIATION` and `liquidityManagerMaxSlippage` are not
 redundant. (They no longer operate at the same percentage — 2% vs 10% — and no longer should.)
 
 - `MAX_ALLOWED_DEVIATION` (constant, contract-level) is a **pre-flight pool-sanity gate in price space**: rejects operation outright when `slot0` has been pushed more than `MAX_ALLOWED_DEVIATION` off TWAP, an anti-manipulation primitive. Tamper-evident — owners cannot loosen it without redeploying the implementation.
-- `liquidityManagerMaxSlippage` (storage, mutable, per-deploy) is a **post-flight execution gate in amount space**: the V3 NPM's own `amount0Min`/`amount1Min` parameter, which the mint signature requires us to pass. Tunable via `changeMaxSlippage()`.
+- `liquidityManagerMaxSlippage` (storage, mutable, per-deploy) is the **source-side V2↔V3 ratio tolerance**: it bounds how far the removed token ratio may sit from the gate-verified V3 `slot0` before `convertToV3` reverts `RatioDeviation`. (It is still passed as the V3 `amount0Min`/`amount1Min`, but those are slot0-anchored and vacuous.) Tunable via `changeMaxSlippage()`.
 
 The two checks operate in different units (price vs amount) and at different points in the call lifecycle.
 
@@ -164,9 +163,11 @@ The two checks operate in different units (price vs amount) and at different poi
 > - #306 re-anchored `amount{0,1}Min` to `slot0`, the exact execution price, so the amount-space check is
 >   now **vacuous by construction** on entries — it cannot bind, and cannot backstop anything.
 >
-> `liquidityManagerMaxSlippage`'s only live role is therefore the **source-side** V2/Balancer exit floor,
-> and it is sized for that. `MAX_ALLOWED_DEVIATION` is the sole entry manipulation defence (internal20 R6),
-> which is why it was tightened to 2% and why the two values are deliberately no longer coupled.
+> `liquidityManagerMaxSlippage`'s live role is now the **V2↔V3 ratio tolerance** in `convertToV3`'s source
+> cross-check: it bounds how far the removed token ratio may sit from the gate-verified V3 `slot0` before
+> `RatioDeviation` reverts (the former source-side exit floor and its oracle were removed; default `500` = 5%).
+> `MAX_ALLOWED_DEVIATION` is the separate V3-pool manipulation gate (2%), which is why the two values are
+> deliberately not coupled.
 
 Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
 

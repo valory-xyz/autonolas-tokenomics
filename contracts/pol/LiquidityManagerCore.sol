@@ -785,6 +785,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // source pool removal). This is the sole source-side manipulation gate: a proportional removal cannot
         // lose value (constant-product convexity), but a manipulated source pool yields a lopsided basket that
         // would convert inefficiently, so reject it here rather than mint it.
+        // This intentionally runs AFTER the olasBurnRate burn above: convertToV3 is one transaction, so a
+        // RatioDeviation revert unwinds the burn atomically. Do not hoist it before the burn.
         if (v2Pool != 0) {
             _checkRemovedRatioAgainstV3(removed0, removed1, sqrtP);
         }

@@ -45,6 +45,16 @@ token to the treasury** (`convertToV3`'s trailing `_manageUtilityAmounts(tokens,
 are *transferred* to treasury, not burned/lost). Net result: **no value loss** (convexity + leftover retained),
 but a lopsided, inefficient conversion — most POL parked idle in treasury instead of placed in V3.
 
+One step sits between removal and mint that the removal → mint → leftovers walk above skips: when `convertToV3`
+is called with a non-zero `olasBurnRate`, `_manageUtilityAmounts(tokens, olasBurnRate, true)` **burns** that
+rate of the removed OLAS *before* the mint — irreversibly, where leftovers are merely parked. The cross-check
+runs *after* this burn, which is safe precisely because `convertToV3` is one transaction: a `RatioDeviation`
+revert unwinds the burn atomically (so placement after the burn is deliberate, not a bug — hoisting it earlier
+buys nothing). What the cross-check does **not** unwind is a *within-tolerance* skew: at 500 bps a manipulator
+can shift the burned OLAS by up to ~5% at swap-fee cost. That is bounded and value-safe by convexity, but it is
+a real property of a rate-on-realized-amounts design, and it matters more the larger the migration's
+`olasBurnRate` — an **accepted residual**, recorded here rather than left implicit.
+
 ## Proposed replacement — cross-check the V2-removed ratio against the gate-verified V3 slot0
 
 `convertToV3` already computes a trusted price it isn't reusing:
@@ -93,11 +103,16 @@ range separates them cleanly.
 ## Tolerance chosen: `maxSlippage = 500` bps (5%)
 
 There is no live OLAS V2↔V3 basis to measure (OLAS is not seeded on a V3 pool anywhere — that is exactly what
-POL migration creates), so the tolerance is set from first principles and demonstrated on a fork-seeded pool.
-Ceiling on the honest V2↔V3 gap: the V3 slot0 is gate-guaranteed within **2%** of the V3 TWAP
-(`MAX_ALLOWED_DEVIATION`), and an honest V2 spot sits within ~1% of the true price (arb/fee band), so an honest
-removal diverges at most **~3%** from the V3 reference. **5%** clears that with margin while rejecting any
-manipulation that moves the ratio >5%. A sub-5% residual manipulation is value-safe regardless, by convexity.
+POL migration creates), so the tolerance is anchored to the fork-seeded measurements below, not derived from a
+formula. The check compares the **V2 removed ratio against the V3 slot0**; their honest divergence is the
+cross-pool arbitrage basis (thin for OLAS, but never exactly zero). **5%** is chosen to sit **above the measured
+honest basis and below the manipulation regime** — the table is the evidence, not an additive band budget.
+
+(The 2% `MAX_ALLOWED_DEVIATION` is *not* a term in that budget: it bounds a **different** quantity — V3 slot0
+vs the V3 TWAP — so it does not add to the V2↔V3 arb basis. Its role is orthogonal: it guarantees the slot0 the
+check compares *against* is itself trustworthy. See the unseeded-pool row in
+`test/LiquidityManagerV2V3CrossCheckForkETH.t.sol`, which the gate rejects before the cross-check is ever
+consulted.)
 
 Measured on an ETH-fork-seeded OLAS/WETH V3 pool (`test/LiquidityManagerV2V3RatioCheckForkETH.t.sol`), a real
 sandwich on the ~272-WETH V2 pool:
@@ -110,8 +125,11 @@ sandwich on the ~272-WETH V2 pool:
 | 20 | 1523 bps | **yes** |
 | 40 | 3154 bps | **yes** |
 
-Honest flow is 0 bps; the 5% line catches sandwiches from ~7 WETH up. `changeMaxSlippage` allows per-chain
-retuning against thinner/deeper source pools.
+Honest flow is 0 bps; the 5% line catches sandwiches from ~7 WETH up. **Accepted residual:** the 5-WETH row
+(371 bps) is *not* rejected — a cheap, sub-tolerance manipulation passes the gate. This is deliberate and safe:
+by convexity the removal is still worth ≥ fair value at the true price, so a sub-5% skew is a bounded efficiency
+loss, never a value loss (and it feeds the within-tolerance burn residual noted above when `olasBurnRate > 0`).
+`changeMaxSlippage` allows per-chain retuning against thinner/deeper source pools.
 
 ## Affected code (implemented)
 
