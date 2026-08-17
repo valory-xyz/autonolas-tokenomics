@@ -169,7 +169,7 @@ The two checks operate in different units (price vs amount) and at different poi
 > `MAX_ALLOWED_DEVIATION` is the separate V3-pool manipulation gate (2%), which is why the two values are
 > deliberately not coupled.
 
-Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)` (`LiquidityManagerCore.sol:624`), so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
+Updatable post-deploy via `LiquidityManagerCore.changeMaxSlippage(uint16)`, so the initial value can be tightened or loosened later based on observed pool behavior without a redeploy.
 
 ### V2 oracle vs V3 oracle — relationship of the freshness/window parameters
 

@@ -1240,6 +1240,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     ///         trusted reference. Two pools tracking the same OLAS price arbitrage together, so an honest removal
     ///         sits within `maxSlippage` of the V3 price while a manipulated source pool sits far outside it.
     ///         Both ratios are token1-per-token0 because `tokens` are address-sorted, matching the V3 ordering.
+    ///         PRECONDITION: this treats the removed ratio as the source pool's spot price. For a Balancer
+    ///         weighted pool spot is `(B1/w1)/(B0/w0)`, which equals the removed `B1/B0` only when the weights
+    ///         are equal — POL pools are 50/50, so this holds. A non-50/50 source pool would make honest
+    ///         removals diverge from the V3 reference and revert (fail-closed and safe — no exploit — but a
+    ///         known precondition rather than an unexplained `RatioDeviation`).
     /// @param removed0 Removed amount of token0.
     /// @param removed1 Removed amount of token1.
     /// @param sqrtPriceX96 Gate-verified V3 sqrt price.
