@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerSourceBase, WrongTokenAddresses} from "./LiquidityManagerSourceBase.sol";
-import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress, WrongTokenAddresses} from "./LiquidityManagerCore.sol";
 import {IToken} from "../interfaces/IToken.sol";
 
 interface IBalancerV2 {
@@ -44,16 +43,16 @@ interface IBalancerV2 {
 /// @author Aleksandr Kuperman - <aleksandr.kuperman@valory.xyz>
 /// @author Andrey Lebedev - <andrey.lebedev@valory.xyz>
 /// @author Mariapia Moscatiello - <mariapia.moscatiello@valory.xyz>
-/// @dev Withdraws protocol-owned liquidity from a Balancer V2 (50/50 weighted) pool via `vault.exitPool`,
-///      with TWAP-anchored slippage protection derived from the pool balances (see `LiquidityManagerSourceBase`).
-abstract contract LiquidityManagerSourceBalancer is LiquidityManagerSourceBase {
+/// @dev Withdraws protocol-owned liquidity from a Balancer V2 (50/50 weighted) pool via `vault.exitPool`. The
+///      exit passes zero per-token floors; source-pool manipulation is gated in `convertToV3` by the
+///      removed-ratio cross-check against the V3 slot0 price (see `LiquidityManagerCore`).
+abstract contract LiquidityManagerSourceBalancer is LiquidityManagerCore {
     // Balancer vault address
     address public immutable balancerVault;
 
     /// @dev LiquidityManagerSourceBalancer constructor.
-    /// @param _oracleV2 Source pool related oracle address.
     /// @param _balancerVault Balancer vault address.
-    constructor(address _oracleV2, address _balancerVault) LiquidityManagerSourceBase(_oracleV2) {
+    constructor(address _balancerVault) {
         // Check for zero address
         if (_balancerVault == address(0)) {
             revert ZeroAddress();
@@ -92,16 +91,10 @@ abstract contract LiquidityManagerSourceBalancer is LiquidityManagerSourceBase {
             revert ZeroValue();
         }
 
-        // Compute TWAP-based manipulation-resistant minAmountsOut
+        // Zero per-token floors. EXACT_BPT_IN_FOR_TOKENS_OUT is proportional, so the exit returns the pool's
+        // current token ratio; a manipulated pool is caught by the removed-ratio vs V3-slot0 cross-check in
+        // convertToV3, which runs before the tokens are committed to the V3 mint (all in the same transaction).
         uint256[] memory minAmountsOut = new uint256[](2);
-        {
-            // Get BPT totalSupply
-            uint256 totalSupply = IToken(poolToken).totalSupply();
-
-            // k = balance0 * balance1 is manipulation-resistant (invariant for 50/50 weighted pool)
-            uint256 k = amounts[0] * amounts[1];
-            (minAmountsOut[0], minAmountsOut[1]) = _fairMinAmountsOut(k, tokens[0] == olas, liquidity, totalSupply);
-        }
 
         IBalancerV2.ExitPoolRequest memory request = IBalancerV2.ExitPoolRequest({
             assets: tokens,

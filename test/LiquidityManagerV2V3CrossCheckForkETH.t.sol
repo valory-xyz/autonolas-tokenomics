@@ -44,8 +44,8 @@ interface IUniV3Pool {
 /// BACKGROUND — what #324 wants to drop, and why it is safe to
 /// ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 /// The source side of the LiquidityManager (`_checkTokensAndRemoveLiquidityV2` in the UniV2 / Balancer source
-/// mixins) currently derives a manipulation-resistant `minAmountsOut` from a per-chain TWAP oracle
-/// (`LiquidityManagerSourceBase._fairMinAmountsOut` -> `IOracle(oracleV2).getTWAP()`). That min-out is the SOLE
+/// mixins) derived a manipulation-resistant `minAmountsOut` from a per-chain TWAP oracle (a shared
+/// `_fairMinAmountsOut` helper -> `IOracle(oracleV2).getTWAP()`). That min-out was the SOLE
 /// purpose of the `oracleV2` deployment and — post-#306.1 — the only live use of the `liquidityManagerMaxSlippage`
 /// deploy parameter. #324 proposes dropping it, because a proportional `removeLiquidity` CANNOT be sandwiched for a
 /// value loss: burning `L` LP at manipulated reserves `(RA', RB')` with `RA'·RB' = k` yields a basket worth

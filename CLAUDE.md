@@ -36,6 +36,7 @@ npx hardhat test test/Tokenomics.js                          # Single Hardhat te
 ```bash
 forge test --mc Depository -vvv
 forge test --mc Dispenser -vvv
+forge test --mc LiquidityManagerRatioCheckUnit -vvv    # #324 source-side ratio cross-check — arithmetic boundary (no fork)
 forge test --mc Treasury -vvv
 forge test --mc UniswapPriceOracleConstructorTest -vvv
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
@@ -55,6 +56,7 @@ forge test --mc LPSwapCeloSlippageTest -vvv
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3 -vvv  # ETH mainnet (UniV2 -> UniV3)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerUniV2UniV3BridgeForkETH -vvv  # ETH fork of the UniV2 -> UniV3 L2-burn manager (Celo)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerV2V3CrossCheckForkETH -vvv  # #324 prototype: V2-removed ratio vs V3-slot0 manipulation cross-check (oracle-drop analysis)
+forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerV2V3RatioCheckForkETH -vvv  # #324 integration: deployed oracle-free convertToV3 — honest passes, manipulated V2 reverts RatioDeviation, 5% tolerance boundary
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerObservationCardinalityGasETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
@@ -147,7 +149,7 @@ After warmup, `getTWAP()` is available immediately after any `updatePrice()` cal
 
 ## Overflow-Safe Fair Reserve Calculation
 
-`LiquidityManagerSourceBase` (shared by the LM leaves via the source mixins) and `LPSwapCelo` compute fair reserves as `sqrt(k * twap / 1e18)`. Use `FixedPointMathLib.mulDivDown(k, twap, 1e18)` inside the `sqrt()` to avoid intermediate overflow when `k` (reserve0 * reserve1) is large.
+`LPSwapCelo` computes fair reserves as `sqrt(k * twap / 1e18)`. Use `FixedPointMathLib.mulDivDown(k, twap, 1e18)` inside the `sqrt()` to avoid intermediate overflow when `k` (reserve0 * reserve1) is large. (The LiquidityManager source mixins previously shared this math via `LiquidityManagerSourceBase`, now removed — source-side manipulation is gated by the V2↔V3 ratio cross-check, not a TWAP fair-reserve floor.)
 
 ## Cross-Chain Governance Proposals
 

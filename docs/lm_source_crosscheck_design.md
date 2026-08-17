@@ -1,21 +1,25 @@
 # LiquidityManager source-side manipulation gate — oracle → V3-slot0 cross-check (issue #324)
 
 This note captures the design that lets the LiquidityManager drop its per-chain source-side TWAP oracle
-(`oracleV2`) without losing a manipulation gate on the V2/Balancer `removeLiquidity` path. It is the design
-half of issue **#324**; the measurement half is the fork prototype
-`test/LiquidityManagerV2V3CrossCheckForkETH.t.sol`.
+(`oracleV2`) without losing a manipulation gate on the V2/Balancer `removeLiquidity` path — issue **#324**.
 
-## Today
+**Status: implemented.** The cross-check is wired into `convertToV3` (`LiquidityManagerCore._checkRemovedRatioAgainstV3`)
+and `oracleV2` / `_fairMinAmountsOut` are removed. Fork evidence: the design prototype
+`test/LiquidityManagerV2V3CrossCheckForkETH.t.sol` (measurements on live pools) and the integration test
+`test/LiquidityManagerV2V3RatioCheckForkETH.t.sol` (the real deployed path: honest convert passes, a real
+V2 sandwich reverts `RatioDeviation`, and the 5% tolerance boundary is measured).
 
-The source mixins (`LiquidityManagerSourceUniV2` / `LiquidityManagerSourceBalancer`) derive a
-manipulation-resistant `minAmountsOut` for the withdrawal from a per-chain TWAP oracle, in
-`LiquidityManagerSourceBase._fairMinAmountsOut` → `IOracle(oracleV2).getTWAP()`. That min-out is:
+## Before this change
+
+The source mixins (`LiquidityManagerSourceUniV2` / `LiquidityManagerSourceBalancer`) derived a
+manipulation-resistant `minAmountsOut` for the withdrawal from a per-chain TWAP oracle — a shared
+`_fairMinAmountsOut` helper calling `IOracle(oracleV2).getTWAP()`. That min-out was:
 
 - the **sole** purpose of the `oracleV2` deployment on every chain, and
 - post-#306.1, the **only live use** of the `liquidityManagerMaxSlippage` deploy parameter (its V3
   `amount{0,1}Min` uses are vacuous — slot0-anchored).
 
-So the oracle is a standing deployment + "is this oracle still current?" maintenance burden whose only job is
+So the oracle was a standing deployment + "is this oracle still current?" maintenance burden whose only job was
 this one floor.
 
 ## Why the floor isn't protecting value
@@ -43,13 +47,13 @@ but a lopsided, inefficient conversion — most POL parked idle in treasury inst
 
 One step sits between removal and mint that the removal → mint → leftovers walk above skips: when `convertToV3`
 is called with a non-zero `olasBurnRate`, `_manageUtilityAmounts(tokens, olasBurnRate, true)` **burns** that
-rate of the removed OLAS *before* the mint — irreversibly, where leftovers are merely parked. The conclusion
-(no value loss) still holds, for a reason worth stating explicitly rather than leaving implicit: once the
-cross-check exists it reverts the whole transaction, which unwinds the burn atomically, so placing the gate
-*after* the burn is safe. What it does **not** unwind is a *within-tolerance* skew — at a 5% tolerance a
-manipulator can shift the burned OLAS by up to ~5% at swap-fee cost, bounded and value-safe by convexity but
-real, and more relevant the larger the migration's `olasBurnRate`. An **accepted residual**, recorded here
-rather than left for a future reader to find the burn step unconsidered.
+rate of the removed OLAS *before* the mint — irreversibly, where leftovers are merely parked. The cross-check
+runs *after* this burn, which is safe precisely because `convertToV3` is one transaction: a `RatioDeviation`
+revert unwinds the burn atomically (so placement after the burn is deliberate, not a bug — hoisting it earlier
+buys nothing). What the cross-check does **not** unwind is a *within-tolerance* skew: at 500 bps a manipulator
+can shift the burned OLAS by up to ~5% at swap-fee cost. That is bounded and value-safe by convexity, but it is
+a real property of a rate-on-realized-amounts design, and it matters more the larger the migration's
+`olasBurnRate` — an **accepted residual**, recorded here rather than left implicit.
 
 ## Proposed replacement — cross-check the V2-removed ratio against the gate-verified V3 slot0
 
@@ -96,23 +100,49 @@ that trustworthy reference.
 Honest flow lands at 0–20 bps; a real manipulation lands ~40%. Any tolerance in the low single-digit-percent
 range separates them cleanly.
 
-## Tolerance sizing — the one thing to measure before shipping
+## Tolerance chosen: `maxSlippage = 500` bps (5%)
 
-The deep-pair basis (≤20 bps) is a *lower bound*. OLAS pools are thinner, so their honest V2↔V3 basis will sit
-above that. Before committing the production tolerance, measure the **real OLAS V2↔V3 basis once the target V3
-pool is seeded** (i.e. after the migration's own pre-warm), and set `maxSlippage` above that honest basis with
-margin, but well below the manipulation regime (whole percent). This is the same class of tuning the current
-`maxSlippage` already required.
+There is no live OLAS V2↔V3 basis to measure (OLAS is not seeded on a V3 pool anywhere — that is exactly what
+POL migration creates), so the tolerance is anchored to the fork-seeded measurements below, not derived from a
+formula. The check compares the **V2 removed ratio against the V3 slot0**; their honest divergence is the
+cross-pool arbitrage basis (thin for OLAS, but never exactly zero). **5%** is chosen to sit **above the measured
+honest basis and below the manipulation regime** — the table is the evidence, not an additive band budget.
 
-## Affected code (when implemented)
+(The 2% `MAX_ALLOWED_DEVIATION` is *not* a term in that budget: it bounds a **different** quantity — V3 slot0
+vs the V3 TWAP — so it does not add to the V2↔V3 arb basis. Its role is orthogonal: it guarantees the slot0 the
+check compares *against* is itself trustworthy. See the unseeded-pool row in
+`test/LiquidityManagerV2V3CrossCheckForkETH.t.sol`, which the gate rejects before the cross-check is ever
+consulted.)
 
-- `contracts/pol/LiquidityManagerCore.sol` — `convertToV3` would pass the already-computed `sqrtP` into the
-  source-side check.
-- `contracts/pol/LiquidityManagerSourceBase.sol` — `_fairMinAmountsOut` (+ `oracleV2`) replaced by the ratio
-  cross-check; `IOracle` import dropped.
-- `contracts/pol/LiquidityManagerSourceUniV2.sol` / `LiquidityManagerSourceBalancer.sol` — call sites updated.
-- Deploy globals / scripts — `uniswapPriceOracleAddress` / `balancerPriceOracleAddress` / `oracleV2` constructor
-  arg retired; `liquidityManagerMaxSlippage` retained (re-tasked).
+Measured on an ETH-fork-seeded OLAS/WETH V3 pool (`test/LiquidityManagerV2V3RatioCheckForkETH.t.sol`), a real
+sandwich on the ~272-WETH V2 pool:
 
-This is a security-relevant change on a security-critical path — it needs review + before/after fork tests, per
-#324.
+| WETH swapped into V2 | removed-ratio vs V3 | rejected by 500 bps? |
+| --- | --- | --- |
+| honest (0) | 0 bps | — |
+| 5 | 371 bps | no |
+| 10 | 748 bps | **yes** |
+| 20 | 1523 bps | **yes** |
+| 40 | 3154 bps | **yes** |
+
+Honest flow is 0 bps; the 5% line catches sandwiches from ~7 WETH up. **Accepted residual:** the 5-WETH row
+(371 bps) is *not* rejected — a cheap, sub-tolerance manipulation passes the gate. This is deliberate and safe:
+by convexity the removal is still worth ≥ fair value at the true price, so a sub-5% skew is a bounded efficiency
+loss, never a value loss (and it feeds the within-tolerance burn residual noted above when `olasBurnRate > 0`).
+`changeMaxSlippage` allows per-chain retuning against thinner/deeper source pools.
+
+## Affected code (implemented)
+
+- `contracts/pol/LiquidityManagerCore.sol` — `convertToV3` passes the removed ratio + the already-computed
+  `sqrtP` into the new `_checkRemovedRatioAgainstV3`; `RatioDeviation` error + `Q96` constant added.
+- `contracts/pol/LiquidityManagerSourceBase.sol` — **deleted**. Once `_fairMinAmountsOut` / `oracleV2` /
+  `IOracle` were gone it held no logic; its one remaining `WrongTokenAddresses` error moved into
+  `LiquidityManagerCore` and the two source mixins now extend `LiquidityManagerCore` directly.
+- `contracts/pol/LiquidityManagerSourceUniV2.sol` / `LiquidityManagerSourceBalancer.sol` — drop the `oracleV2`
+  constructor arg; the removal/exit passes zero per-token floors; extend `LiquidityManagerCore` directly.
+- The four leaves — drop the `_oracleV2` constructor arg.
+- Deploy scripts (`deploy_02_*`) — `oracleV2` constructor arg + `*PriceOracleAddress` read removed;
+  `liquidityManagerMaxSlippage` set to `500` in the pol globals (re-tasked as the V2↔V3 tolerance).
+
+This is a security-relevant change on a security-critical path; it ships with before/after fork tests across all
+four source/target combinations.

@@ -24,7 +24,6 @@ contract LiquidityManagerBalancerUniV3 is
     /// @param _positionManagerV3 Uniswap V3 position manager address.
     /// @param _neighborhoodScanner Neighborhood ticks scanner.
     /// @param _observationCardinality Observation cardinality for fresh pools.
-    /// @param _oracleV2 Source pool related oracle address.
     /// @param _balancerVault Balancer vault address.
     /// @param _bridge2Burner Bridge to Burner address.
     constructor(
@@ -33,12 +32,11 @@ contract LiquidityManagerBalancerUniV3 is
         address _positionManagerV3,
         address _neighborhoodScanner,
         uint16 _observationCardinality,
-        address _oracleV2,
         address _balancerVault,
         address _bridge2Burner
     )
         LiquidityManagerCore(_olas, _treasury, _positionManagerV3, _neighborhoodScanner, _observationCardinality)
-        LiquidityManagerSourceBalancer(_oracleV2, _balancerVault)
+        LiquidityManagerSourceBalancer(_balancerVault)
         LiquidityManagerBurnViaBridge(_bridge2Burner)
     {}
 }

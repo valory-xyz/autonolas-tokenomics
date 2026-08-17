@@ -29,9 +29,9 @@ position, sweeping leftovers to the treasury.
 
 ### 1.1 Mainnet (Ethereum, Uniswap V2 → Uniswap V3)
 
-1. **Deploy the V2 oracle** (`UniswapPriceOracle`) against the existing OLAS V2 pool. No special
-   trading bootstrap is needed — the pool already has organic activity, so the embedded Uniswap V2
-   cumulative-price feed has history.
+1. **No source oracle to deploy.** The V2 exit passes zero per-token floors; source-pool manipulation is
+   gated in `convertToV3` by the V2↔V3 ratio cross-check (§3), so there is no `UniswapPriceOracle` to
+   deploy or warm for the migration.
 2. **Create and initialize the V3 pool ahead of time** (≥10 days), initialized at the actual V2
    reserves / current price.
 3. **Pre-warm the V3 pool** (§5): add real wide-range liquidity and let arbitrage / trades populate the
@@ -47,19 +47,19 @@ position, sweeping leftovers to the treasury.
 
 ### 1.2 Base and other L2s (Balancer → Slipstream / Uniswap V3)
 
-1. **V2 oracle (`BalancerPriceOracle`):** already deployed on Base; deploy one on Optimism.
-2. **Keep the Balancer oracle warm** via periodic `updatePrice()` calls (§4). Without this the V2-exit
-   leg's `getTWAP()` reverts and `convertToV3` is blocked.
-3. **Create and initialize the V3 pool ahead of time** (≥10 days) at the actual V2 reserves / current
+1. **No source oracle to deploy or warm.** The Balancer exit passes zero per-token floors; source-pool
+   manipulation is gated in `convertToV3` by the V2↔V3 ratio cross-check (§3). There is no
+   `BalancerPriceOracle` deploy or warm-up on the migration path anymore.
+2. **Create and initialize the V3 pool ahead of time** (≥10 days) at the actual V2 reserves / current
    price.
-4. **Pre-warm the V3 pool** (§5) — build observation history and keep the price correct via arbitrage.
-5. **Deploy `LiquidityManagerBalancerSlipstream` + `LiquidityManagerProxy`; set the chain's `BridgeMediator` as
+3. **Pre-warm the V3 pool** (§5) — build observation history and keep the price correct via arbitrage.
+4. **Deploy `LiquidityManagerBalancerSlipstream` + `LiquidityManagerProxy`; set the chain's `BridgeMediator` as
    owner** (or upgrade the existing proxy to the fixed impl). **Ownership must be the `BridgeMediator`
-   before seeding (step 6)** — same reason as §1.1: seeding makes the LM custodial, so it cannot land in an
+   before seeding (step 5)** — same reason as §1.1: seeding makes the LM custodial, so it cannot land in an
    EOA-owned proxy.
-6. **Transfer V2 LP from Treasury → LiquidityManager via the Wormhole Token Bridge** — Timelock-direct,
+5. **Transfer V2 LP from Treasury → LiquidityManager via the Wormhole Token Bridge** — Timelock-direct,
    `value 0`, `l2Recipient = LiquidityManagerProxy`; redeem the VAA on L2 (§2).
-7. **`convertToV3(...)`** with tick shifts from the actual center price (DAO on L2).
+6. **`convertToV3(...)`** with tick shifts from the actual center price (DAO on L2).
 
 ---
 
@@ -113,15 +113,16 @@ independent guards**:
 
 | Leg | Where | Oracle used | Mechanism |
 |---|---|---|---|
-| **V2 exit** | `_checkTokensAndRemoveLiquidityV2` (`LiquidityManagerUniV2UniV3.sol` / `LiquidityManagerBalancerSlipstream.sol`) | `oracleV2.getTWAP()` — `UniswapPriceOracle` (ETH) / `BalancerPriceOracle` (Base/Optimism) | `minAmountsOut` derived from the constant-product invariant `k` and the TWAP fair price, discounted by `maxSlippage`. Reverts if the V2 exit returns less. |
+| **V2 exit** | `_checkTokensAndRemoveLiquidityV2` (`LiquidityManagerUniV2UniV3.sol` / `LiquidityManagerBalancerSlipstream.sol`) | none (source oracle removed) | The exit passes **zero per-token floors** (a proportional removal cannot lose value — convexity). Source-pool manipulation is instead gated in `convertToV3`, which cross-checks the removed token ratio against the gate-verified V3 `slot0` and reverts `RatioDeviation` when it diverges by more than `maxSlippage`. |
 | **V3 mint** | `checkPoolAndGetCenterPrice` (`LiquidityManagerCore.sol`) | The V3 pool's own built-in `observe()` TWAP | **Fail-closed:** reverts `NotEnoughHistory` if the pool cannot produce a 30-minute TWAP; otherwise reverts `Overflow` if the instantaneous `slot0` price deviates from the TWAP by more than `MAX_ALLOWED_DEVIATION`; mints at the TWAP-derived sqrt price. |
 
 The two bounds are **no longer mirrored**, and deliberately so. `MAX_ALLOWED_DEVIATION` (pre-flight,
 price space) is the anti-manipulation gate and is now the *sole* entry defence; the deploy-time
 `maxSlippage` (post-flight, amount space) no longer backstops entries at all, because #306 re-anchored
 `amount{0,1}Min` to `slot0` — the exact price the NPM executes at — which makes that check vacuous by
-construction. Its only live role is the source-side V2/Balancer exit floor, so tightening it to "match"
-the gate would risk reverting legitimate exits on a shallow source pool for no gain.
+construction. Its live role is now the **V2↔V3 ratio tolerance** in `convertToV3`'s source cross-check
+(the former source-side exit floor and its oracle were removed); tightening it to "match" the gate would
+risk reverting legitimate exits on a shallow source pool for no gain.
 
 Mirroring them was the earlier guidance, and it was unsound even then: a price-space tolerance does not
 map to an equal amount-space tolerance, and the gap widens as the tick range narrows. Anchoring the floor
@@ -134,7 +135,14 @@ Because the V3-mint guard is **fail-closed**, the first `convertToV3` into a poo
 verifiable TWAP **reverts** (`NotEnoughHistory`). So a pool that is brand-new (no observation history) or
 quiet (no trade within `SECONDS_AGO` = 1800s) cannot be seeded until it is warmed. This is not a
 mitigation for a defect — it is how the fixed contract works, and it means a manipulated empty pool can
-never be seeded at a bad price (the guard refuses). Before the first seed on any chain:
+never be seeded at a bad price (the guard refuses).
+
+> Note: since the source oracle was removed, the target V3 pool's `checkPoolAndGetCenterPrice` is *also* the
+> reference for the **source-side ratio cross-check** (`_checkRemovedRatioAgainstV3`), not just the mint. So
+> the pre-warm is now load-bearing for both guards — a V3 pool that isn't warm fails closed
+> (`NotEnoughHistory`) before either the mint or the cross-check can run, which is the safe direction.
+
+Before the first seed on any chain:
 
 1. **Pre-seed real wide-range liquidity ≥10 days ahead** (§5) and let arbitrage stabilize the price.
    Once the pool holds real liquidity, `slot0` is no longer free to move — manipulation needs real
@@ -167,20 +175,21 @@ never be seeded at a bad price (the guard refuses). Before the first seed on any
    `MAX_ALLOWED_DEVIATION` reverts, so the residual on L2 is at most griefing (forced reverts, which merely
    delay the migration) or a slip bounded by that same gate — never a catastrophic mis-seed.
 
-### 3.2 Residual specific to Base / Optimism (Balancer V2-exit oracle)
+### 3.2 Source-side residual (V2↔V3 ratio cross-check)
 
-The V2-exit guard on Base/Optimism reads `BalancerPriceOracle.getTWAP()`. A Balancer WeightedPool has no
-embedded cumulative feed, so this oracle is a sample-based TWAP that is single-block steerable within its
-update window — the accepted residual tracked as
-[`Vulnerabilities_list_tokenomics.md` item #14](./Vulnerabilities_list_tokenomics.md). Controls:
+The source oracle is gone; source-pool manipulation is now gated in `convertToV3` by cross-checking the
+removed token ratio against the gate-verified V3 `slot0` (`_checkRemovedRatioAgainstV3`), reverting
+`RatioDeviation` beyond `maxSlippage` (default 5%). A proportional removal cannot lose value at the true
+price (constant-product convexity), so the only residual is a **within-tolerance skew**: a sub-`maxSlippage`
+manipulation passes the gate and, with a non-zero `olasBurnRate`, skews the burned OLAS by up to `maxSlippage`
+at swap-fee cost — bounded and value-safe, tracked in `docs/lm_source_crosscheck_design.md`. Controls:
 
 - **`convertToV3` is owner-only** — an attacker cannot trigger it; the only vector is front-running /
   sandwiching the governance migration tx.
-- **Submit the L2 conversion via a private mempool / builder bundle** where available, and rely on
-  OP-stack's absence of a public mempool otherwise, so the migration tx is not exposed to public-mempool
-  sandwiching.
-- **Off-chain pre-flight:** immediately before submitting, assert the Balancer pool spot reserves agree
-  with the freshly-updated TWAP within tolerance; abort otherwise.
+- **Submit the conversion via a private mempool / builder bundle** where available, and rely on OP-stack's
+  absence of a public mempool otherwise, so the migration tx is not exposed to public-mempool sandwiching.
+- **Off-chain pre-flight:** immediately before submitting, assert the source-pool spot ratio agrees with the
+  V3 `slot0` within `maxSlippage` (otherwise `convertToV3` reverts `RatioDeviation`); abort otherwise.
 
 ### 3.3 Uniswap V3 `initialize()` front-run
 
@@ -192,55 +201,21 @@ mempool already makes it effectively private.
 
 ---
 
-## 4. Balancer V2 oracle warm-up & upkeep (Base / Optimism only)
+## 4. Source oracle warm-up — no longer applicable
 
-A Balancer WeightedPool exposes no embedded cumulative price feed, so `BalancerPriceOracle` builds its
-rolling TWAP purely from on-chain `updatePrice()` snapshots. The V2-exit guard calls `oracleV2.getTWAP()`,
-so **the oracle must be warmed and kept fresh or the migration tx reverts** on
-`_checkTokensAndRemoveLiquidityV2`.
-
-Deployed parameters (identical on Base and Optimism —
-`scripts/deployment/oracles/globals_{base,optimism}_mainnet.json`):
-
-| Param | Value | Meaning |
-|---|---|---|
-| `minUpdateInterval` | 900 s (15 min) | A `updatePrice()` is a no-op if < 15 min since the last one. |
-| `minTwapWindow` | 900 s (15 min) | `getTWAP()` reverts unless `now − prevObservation.timestamp` ≥ 15 min. |
-| `maxStaleness` | 86400 s (24 h) | `getTWAP()` reverts if the last observation is > 24 h old. |
-
-### 4.1 What must be done
-
-1. **Warm-up (one-time, ≥10 days before migration, in parallel with the V3-pool history build).**
-   `getTWAP()` needs two populated observations, so call `updatePrice()` **at least twice, ≥15 min apart**.
-   After the 2nd successful call the TWAP is immediately available.
-2. **Ongoing upkeep until migration completes.** Keep calling `updatePrice()` on a fixed cadence so
-   `lastObservation` never ages past `maxStaleness` (24 h). **Hourly** is comfortable (well inside both
-   the 15-min floor and the 24-h ceiling). A call < 15 min after the previous one is a harmless no-op.
-3. **Pre-migration freshness, in the conversion bundle.** Immediately before submitting `convertToV3`,
-   confirm `lastObservation` is recent and the TWAP agrees with live spot within tolerance. If it is
-   stale, call `updatePrice()` first **inside the same private bundle** as the conversion, after asserting
-   the pool spot is un-manipulated — never refresh from the public mempool right before converting.
-
-### 4.2 Owner / mechanism
-
-`updatePrice()` is **permissionless** (rate-limited, not access-controlled). Run it from a keeper bot /
-cron. The upkeep costs only gas.
-
-```bash
-# One warm-up / upkeep call (repeat ≥15 min apart; schedule hourly via cron/keeper)
-cast send <balancerPriceOracleAddress> "updatePrice()" --rpc-url <l2-rpc> <wallet-args>
-
-# Confirm the TWAP is live before migrating (must NOT revert)
-cast call <balancerPriceOracleAddress> "getTWAP()(uint256)" --rpc-url <l2-rpc>
-```
+Earlier revisions warmed a per-chain source oracle (`UniswapPriceOracle` / `BalancerPriceOracle`) that the
+V2/Balancer exit read via `getTWAP()`. That oracle has been **removed**: the exit passes zero per-token
+floors, and source-pool manipulation is gated by the in-contract V2↔V3 ratio cross-check (§3), which needs
+no external oracle and no warm-up. The only history the migration still builds is the **V3 pool's own**
+observation buffer for the mint-side fail-closed guard — covered in §5, not here.
 
 ---
 
 ## 5. Pre-seed: making the V3 pool "live" before migration
 
 After creation/initialization (§1), seed the pool so the market maintains its price and the V3 built-in
-oracle accrues history ahead of the real migration (this is the *V3-mint* guard's history; the Balancer
-*V2-exit* oracle is warmed separately per §4):
+oracle accrues history ahead of the real migration (this is the *V3-mint* guard's history; there is no
+separate source-side oracle to warm — the V2 exit is gated by the ratio cross-check, §3):
 
 - **Add a small, very-wide-range position** — e.g. ~1–5 ETH-equivalent of value, range roughly
   `[tick − 200000, tick + 200000]` (near full-range).
@@ -256,8 +231,6 @@ oracle accrues history ahead of the real migration (this is the *V3-mint* guard'
 
 - [ ] **Fixed `LiquidityManager*` implementation live on the proxy** (`changeImplementation`) — before any
       seed.
-- [ ] V2 oracle deployed (ETH: `UniswapPriceOracle`; L2: `BalancerPriceOracle`, and **warmed** per §4 —
-      ≥2 `updatePrice()` calls ≥15 min apart, hourly upkeep, `getTWAP()` does not revert).
 - [ ] V3 pool created + initialized ≥10 days prior at the true price (all chains, incl. ETH).
 - [ ] **Pre-warm (1) — pool not empty:** pre-seeded with real wide-range liquidity (§5), indexed by
       aggregators, price stabilized by arbitrage.
@@ -269,7 +242,8 @@ oracle accrues history ahead of the real migration (this is the *V3-mint* guard'
 - [ ] `LiquidityManager*` deployed; owner = Timelock (ETH) / `BridgeMediator` (L2).
 - [ ] V2 LP transferred Treasury → LiquidityManager (ETH: `Treasury.withdraw`; L2: Wormhole Token Bridge
       `transferTokens` `value 0` to `l2Recipient = LiquidityManagerProxy`, VAA redeemed).
-- [ ] `maxSlippage` set to 10% on the proxy. (Sized for the **source-side** V2/Balancer exit floor —
+- [ ] `maxSlippage` set to 5% (`500` bps) on the proxy. (Sized as the **V2↔V3 ratio-cross-check tolerance** —
       deliberately *not* matched to `MAX_ALLOWED_DEVIATION`; see the note above.)
-- [ ] **Balancer chains only:** oracle warmed (§4) and off-chain spot-vs-TWAP pre-flight passes.
+- [ ] Off-chain pre-flight: source-pool spot ratio agrees with the V3 `slot0` within `maxSlippage`
+      (otherwise `convertToV3` reverts `RatioDeviation`) — §3.2.
 - [ ] `convertToV3(...)` submitted with tick shifts from the actual center price.

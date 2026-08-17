@@ -136,7 +136,7 @@ contract BaseSetup is Test {
 
         // Deploy LiquidityManagerUniV2UniV3 implementation
         LiquidityManagerUniV2UniV3 liquidityManagerImplementation = new LiquidityManagerUniV2UniV3(OLAS, TIMELOCK, POSITION_MANAGER_V3,
-            address(neighborhoodScanner), observationCardinality, address(oracleV2), ROUTER_V2);
+            address(neighborhoodScanner), observationCardinality, ROUTER_V2);
 
         // Deploy LiquidityManagerProxy
         bytes memory initPayload = abi.encodeWithSignature("initialize(uint16)", maxSlippageBps);
