@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerSourceBase, WrongTokenAddresses} from "./LiquidityManagerSourceBase.sol";
-import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress, WrongTokenAddresses} from "./LiquidityManagerCore.sol";
 import {IToken} from "../interfaces/IToken.sol";
 
 interface IBalancerV2 {
@@ -47,7 +46,7 @@ interface IBalancerV2 {
 /// @dev Withdraws protocol-owned liquidity from a Balancer V2 (50/50 weighted) pool via `vault.exitPool`. The
 ///      exit passes zero per-token floors; source-pool manipulation is gated in `convertToV3` by the
 ///      removed-ratio cross-check against the V3 slot0 price (see `LiquidityManagerCore`).
-abstract contract LiquidityManagerSourceBalancer is LiquidityManagerSourceBase {
+abstract contract LiquidityManagerSourceBalancer is LiquidityManagerCore {
     // Balancer vault address
     address public immutable balancerVault;
 

@@ -148,7 +148,7 @@ After warmup, `getTWAP()` is available immediately after any `updatePrice()` cal
 
 ## Overflow-Safe Fair Reserve Calculation
 
-`LiquidityManagerSourceBase` (shared by the LM leaves via the source mixins) and `LPSwapCelo` compute fair reserves as `sqrt(k * twap / 1e18)`. Use `FixedPointMathLib.mulDivDown(k, twap, 1e18)` inside the `sqrt()` to avoid intermediate overflow when `k` (reserve0 * reserve1) is large.
+`LPSwapCelo` computes fair reserves as `sqrt(k * twap / 1e18)`. Use `FixedPointMathLib.mulDivDown(k, twap, 1e18)` inside the `sqrt()` to avoid intermediate overflow when `k` (reserve0 * reserve1) is large. (The LiquidityManager source mixins previously shared this math via `LiquidityManagerSourceBase`, now removed — source-side manipulation is gated by the V2↔V3 ratio cross-check, not a TWAP fair-reserve floor.)
 
 ## Cross-Chain Governance Proposals
 

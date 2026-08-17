@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LiquidityManagerSourceBase, WrongTokenAddresses} from "./LiquidityManagerSourceBase.sol";
-import {LiquidityManagerCore, ZeroValue, ZeroAddress} from "./LiquidityManagerCore.sol";
+import {LiquidityManagerCore, ZeroValue, ZeroAddress, WrongTokenAddresses} from "./LiquidityManagerCore.sol";
 import {IToken} from "../interfaces/IToken.sol";
 import {IUniswapV2Pair} from "../interfaces/IUniswapV2Pair.sol";
 
@@ -25,7 +24,7 @@ interface IUniswapV2Router02 {
 /// @dev Withdraws protocol-owned liquidity from a Uniswap V2 pair via `router.removeLiquidity`. The withdrawal
 ///      passes zero per-token floors; source-pool manipulation is gated in `convertToV3` by the removed-ratio
 ///      cross-check against the V3 slot0 price (see `LiquidityManagerCore`).
-abstract contract LiquidityManagerSourceUniV2 is LiquidityManagerSourceBase {
+abstract contract LiquidityManagerSourceUniV2 is LiquidityManagerCore {
     // Uniswap V2 Router address
     address public immutable routerV2;
 

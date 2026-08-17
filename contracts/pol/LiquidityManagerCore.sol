@@ -34,6 +34,11 @@ error Overflow(uint256 provided, uint256 max);
 /// @param expected Expected token address.
 error WrongTokenAddress(address[] provided, address expected);
 
+/// @dev Expected token addresses do not match provided ones.
+/// @param provided Provided token addresses.
+/// @param expected Expected token addresses.
+error WrongTokenAddresses(address[] provided, address[] expected);
+
 /// @dev Out of tick range bounds.
 /// @param low Low tick provided.
 /// @param center Center tick provided.

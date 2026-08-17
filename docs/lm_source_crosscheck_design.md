@@ -9,17 +9,17 @@ and `oracleV2` / `_fairMinAmountsOut` are removed. Fork evidence: the design pro
 `test/LiquidityManagerV2V3RatioCheckForkETH.t.sol` (the real deployed path: honest convert passes, a real
 V2 sandwich reverts `RatioDeviation`, and the 5% tolerance boundary is measured).
 
-## Today
+## Before this change
 
-The source mixins (`LiquidityManagerSourceUniV2` / `LiquidityManagerSourceBalancer`) derive a
-manipulation-resistant `minAmountsOut` for the withdrawal from a per-chain TWAP oracle, in
-`LiquidityManagerSourceBase._fairMinAmountsOut` → `IOracle(oracleV2).getTWAP()`. That min-out is:
+The source mixins (`LiquidityManagerSourceUniV2` / `LiquidityManagerSourceBalancer`) derived a
+manipulation-resistant `minAmountsOut` for the withdrawal from a per-chain TWAP oracle — a shared
+`_fairMinAmountsOut` helper calling `IOracle(oracleV2).getTWAP()`. That min-out was:
 
 - the **sole** purpose of the `oracleV2` deployment on every chain, and
 - post-#306.1, the **only live use** of the `liquidityManagerMaxSlippage` deploy parameter (its V3
   `amount{0,1}Min` uses are vacuous — slot0-anchored).
 
-So the oracle is a standing deployment + "is this oracle still current?" maintenance burden whose only job is
+So the oracle was a standing deployment + "is this oracle still current?" maintenance burden whose only job was
 this one floor.
 
 ## Why the floor isn't protecting value
@@ -135,10 +135,11 @@ loss, never a value loss (and it feeds the within-tolerance burn residual noted 
 
 - `contracts/pol/LiquidityManagerCore.sol` — `convertToV3` passes the removed ratio + the already-computed
   `sqrtP` into the new `_checkRemovedRatioAgainstV3`; `RatioDeviation` error + `Q96` constant added.
-- `contracts/pol/LiquidityManagerSourceBase.sol` — `_fairMinAmountsOut` + `oracleV2` + `IOracle` removed; now a
-  thin shared base.
+- `contracts/pol/LiquidityManagerSourceBase.sol` — **deleted**. Once `_fairMinAmountsOut` / `oracleV2` /
+  `IOracle` were gone it held no logic; its one remaining `WrongTokenAddresses` error moved into
+  `LiquidityManagerCore` and the two source mixins now extend `LiquidityManagerCore` directly.
 - `contracts/pol/LiquidityManagerSourceUniV2.sol` / `LiquidityManagerSourceBalancer.sol` — drop the `oracleV2`
-  constructor arg; the removal/exit passes zero per-token floors.
+  constructor arg; the removal/exit passes zero per-token floors; extend `LiquidityManagerCore` directly.
 - The four leaves — drop the `_oracleV2` constructor arg.
 - Deploy scripts (`deploy_02_*`) — `oracleV2` constructor arg + `*PriceOracleAddress` read removed;
   `liquidityManagerMaxSlippage` set to `500` in the pol globals (re-tasked as the V2↔V3 tolerance).

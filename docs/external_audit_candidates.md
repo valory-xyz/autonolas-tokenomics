@@ -62,7 +62,7 @@ The following needs to be audited:
 
 1. Dispenser.sol — 717 SLoC — delta: +211 / −90 (~301 lines changed)
 2. DispenserProxy.sol — 34 SLoC — new file (entire file new)
-3. LiquidityManagerCore.sol — 672 SLoC — delta: +240 / −95 (~330 lines changed; price-guard fail-closed, the deviation-gate tightening, and the source-side ratio cross-check that replaces the removeLiquidity TWAP oracle)
+3. LiquidityManagerCore.sol — 673 SLoC — delta: +244 / −95 (~335 lines changed; price-guard fail-closed, the deviation-gate tightening, and the source-side ratio cross-check that replaces the removeLiquidity TWAP oracle)
 
 LiquidityManager refactor — the former `LiquidityManagerETH` / `LiquidityManagerOptimism` are removed and
 their bodies decomposed into composable source / target / burn mixins over `LiquidityManagerCore`, plus one
@@ -70,21 +70,24 @@ new combination (`LiquidityManagerBalancerUniV3`). All are new files (whole-file
 are an extraction of the two removed leaves — diff-reviewable against them — so the genuinely new surface is
 the composition seams and the new leaf:
 
-4. LiquidityManagerSourceBase.sol — 4 SLoC — new file (thin shared source base; the former TWAP oracle / fair-min math was removed and replaced by the ratio cross-check in Core)
-5. LiquidityManagerSourceUniV2.sol — 47 SLoC — new file (extracted from LiquidityManagerETH; removeLiquidity now passes zero floors)
-6. LiquidityManagerSourceBalancer.sol — 66 SLoC — new file (extracted from LiquidityManagerOptimism; exitPool now passes zero floors)
-7. LiquidityManagerTargetUniV3.sol — 46 SLoC — new file (extracted from LiquidityManagerETH)
-8. LiquidityManagerTargetSlipstream.sol — 58 SLoC — new file (extracted from LiquidityManagerOptimism)
-9. LiquidityManagerBurnViaBridge.sol — 15 SLoC — new file (L2 bridge-burn, extracted)
-10. LiquidityManagerUniV2UniV3.sol — 23 SLoC — new file (leaf; replaces LiquidityManagerETH)
-11. LiquidityManagerBalancerSlipstream.sol — 24 SLoC — new file (leaf; replaces LiquidityManagerOptimism)
-12. LiquidityManagerBalancerUniV3.sol — 24 SLoC — new file (leaf; new Balancer V2 → Uniswap V3 combination)
-13. LiquidityManagerUniV2UniV3Bridge.sol — 24 SLoC — new file (leaf; Uniswap V2 → Uniswap V3 with L2 bridge burn, e.g. Ubeswap → Uniswap V3 on Celo)
+4. LiquidityManagerSourceUniV2.sol — 46 SLoC — new file (extracted from LiquidityManagerETH; removeLiquidity now passes zero floors)
+5. LiquidityManagerSourceBalancer.sol — 65 SLoC — new file (extracted from LiquidityManagerOptimism; exitPool now passes zero floors)
+6. LiquidityManagerTargetUniV3.sol — 46 SLoC — new file (extracted from LiquidityManagerETH)
+7. LiquidityManagerTargetSlipstream.sol — 58 SLoC — new file (extracted from LiquidityManagerOptimism)
+8. LiquidityManagerBurnViaBridge.sol — 15 SLoC — new file (L2 bridge-burn, extracted)
+9. LiquidityManagerUniV2UniV3.sol — 23 SLoC — new file (leaf; replaces LiquidityManagerETH)
+10. LiquidityManagerBalancerSlipstream.sol — 24 SLoC — new file (leaf; replaces LiquidityManagerOptimism)
+11. LiquidityManagerBalancerUniV3.sol — 24 SLoC — new file (leaf; new Balancer V2 → Uniswap V3 combination)
+12. LiquidityManagerUniV2UniV3Bridge.sol — 24 SLoC — new file (leaf; Uniswap V2 → Uniswap V3 with L2 bridge burn, e.g. Ubeswap → Uniswap V3 on Celo)
 
-**Contracts Number: 13**
-**Total SLoC (full files): 1754** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 672, and the
-LiquidityManager refactor 331 (mixins 236 + leaves 95). Changed-lines scope: ~301 in Dispenser, 34 new in
-DispenserProxy, ~330 in LiquidityManagerCore, and the 331-SLoC refactor (mostly extraction; ~95 SLoC of
+(The former `LiquidityManagerSourceBase.sol` was removed once the oracle / fair-min was dropped — it held no
+logic; its one remaining `WrongTokenAddresses` error moved into `LiquidityManagerCore` and the two source
+mixins now extend `LiquidityManagerCore` directly.)
+
+**Contracts Number: 12**
+**Total SLoC (full files): 1749** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 673, and the
+LiquidityManager refactor 325 (mixins 230 + leaves 95). Changed-lines scope: ~301 in Dispenser, 34 new in
+DispenserProxy, ~335 in LiquidityManagerCore, and the 325-SLoC refactor (mostly extraction; ~95 SLoC of
 genuinely new leaf/composition code across the four leaves).
 
 ### Scope of changes for Dispenser / DispenserProxy
@@ -147,9 +150,8 @@ https://github.com/valory-xyz/autonolas-tokenomics/pull/318 (R6 tightening).
 - **Mixin decomposition.** The two leaf managers only ever varied along three orthogonal axes — the source
   DEX the POL is withdrawn from, the target concentrated-liquidity DEX it is minted into, and how OLAS is
   burned (L1 direct vs L2 bridge). These are factored into abstract mixins over `LiquidityManagerCore`:
-  source (`SourceUniV2` | `SourceBalancer`, sharing `SourceBase`'s TWAP fair-min math), target
-  (`TargetUniV3` | `TargetSlipstream`), and burn (`BurnViaBridge`; L1 direct burn inlined in the UniV2→UniV3
-  leaf). The three leaves are then pure composition.
+  source (`SourceUniV2` | `SourceBalancer`), target (`TargetUniV3` | `TargetSlipstream`), and burn
+  (`BurnViaBridge`; L1 direct burn inlined in the UniV2→UniV3 leaf). The three leaves are then pure composition.
 - **Behavior-preserving extraction.** The mixin bodies are moved verbatim from the removed `LiquidityManagerETH`
   / `LiquidityManagerOptimism`, so each is diff-reviewable against those files. Verified by the existing fork
   suites (ETH UniV2→UniV3, Base Balancer→Slipstream) passing unchanged, plus the #306 dead-band / fail-open
@@ -163,9 +165,9 @@ Ref. PR https://github.com/valory-xyz/autonolas-tokenomics/pull/319.
 
 ## Contracts and SLoC
 
-Overall: **14 contracts and 2191 SLoC** — governance `VoteWeighting.sol` (437) and 13 tokenomics contracts
-(1754): `Dispenser.sol` 717, `DispenserProxy.sol` 34, `LiquidityManagerCore.sol` 672, and the 10-file
-LiquidityManager refactor 331 (source/target/burn mixins 236 + four leaves 95). Changed-lines scope:
-~102 in VoteWeighting, ~301 in Dispenser, 34 new in DispenserProxy, ~330 in LiquidityManagerCore, and the
-331-SLoC refactor (mostly behavior-preserving extraction from the two removed leaves; ~95 SLoC of genuinely
+Overall: **13 contracts and 2186 SLoC** — governance `VoteWeighting.sol` (437) and 12 tokenomics contracts
+(1749): `Dispenser.sol` 717, `DispenserProxy.sol` 34, `LiquidityManagerCore.sol` 673, and the 9-file
+LiquidityManager refactor 325 (source/target/burn mixins 230 + four leaves 95). Changed-lines scope:
+~102 in VoteWeighting, ~301 in Dispenser, 34 new in DispenserProxy, ~335 in LiquidityManagerCore, and the
+325-SLoC refactor (mostly behavior-preserving extraction from the two removed leaves; ~95 SLoC of genuinely
 new leaf/composition code across the four leaves).
