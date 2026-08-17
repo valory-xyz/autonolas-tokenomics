@@ -65,11 +65,15 @@ one:
 - **Owner = deployer EOA.** The LM proxies are still owned by the Autonolas deployer (ownership was
   left with the deployer while POL is not operational), so `changeImplementation` is a plain
   single-signer `cast send`, **not** a Timelock/DAO proposal.
-- **`maxSlippage` does not follow `changeImplementation`.** It is proxy storage set once by `initialize`
-  (which reverts `AlreadyInitialized` on an upgraded proxy), so a swapped-in-place proxy keeps its
-  original value. When `liquidityManagerMaxSlippage` in globals differs from what the proxy was first
-  initialized with (e.g. the 10% → 5% re-tasking for the V2↔V3 ratio gate), run `script_06` after
-  `script_05`. Fresh proxies (`deploy_03`) `initialize` at the globals value and do not need it.
+- **`maxSlippage` does not follow `changeImplementation` — run steps 2 and 3 adjacently, in that order.**
+  `maxSlippage` is proxy storage set once by `initialize` (which reverts `AlreadyInitialized` on an upgraded
+  proxy), so a swapped-in-place proxy keeps its original value. When `liquidityManagerMaxSlippage` in globals
+  differs from what the proxy was first initialized with (e.g. the 10% → 5% re-tasking for the V2↔V3 ratio
+  gate), `script_05` alone leaves the **new** ratio cross-check running at the **old** tolerance. That window
+  is not cosmetic: a 10-WETH push on a ~272-WETH pool (748 bps) is rejected at 5% but passes at 10%, so an
+  operator who runs `script_05` and treats the upgrade as done has silently shipped a gate ~2× looser than the
+  fork evidence justifies. Run `script_06` immediately after `script_05`. Fresh proxies (`deploy_03`)
+  `initialize` at the globals value and do not need it.
 - **Storage-safe.** The fail-closed fix changes only function bodies + one `error` (no storage layout
   change), so the swap preserves proxy storage. Do **not** re-run `deploy_01` (scanner) or `deploy_03`
   (proxy).

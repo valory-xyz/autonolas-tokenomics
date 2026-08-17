@@ -135,7 +135,14 @@ Because the V3-mint guard is **fail-closed**, the first `convertToV3` into a poo
 verifiable TWAP **reverts** (`NotEnoughHistory`). So a pool that is brand-new (no observation history) or
 quiet (no trade within `SECONDS_AGO` = 1800s) cannot be seeded until it is warmed. This is not a
 mitigation for a defect — it is how the fixed contract works, and it means a manipulated empty pool can
-never be seeded at a bad price (the guard refuses). Before the first seed on any chain:
+never be seeded at a bad price (the guard refuses).
+
+> Note: since the source oracle was removed, the target V3 pool's `checkPoolAndGetCenterPrice` is *also* the
+> reference for the **source-side ratio cross-check** (`_checkRemovedRatioAgainstV3`), not just the mint. So
+> the pre-warm is now load-bearing for both guards — a V3 pool that isn't warm fails closed
+> (`NotEnoughHistory`) before either the mint or the cross-check can run, which is the safe direction.
+
+Before the first seed on any chain:
 
 1. **Pre-seed real wide-range liquidity ≥10 days ahead** (§5) and let arbitrage stabilize the price.
    Once the pool holds real liquidity, `slot0` is no longer free to move — manipulation needs real
