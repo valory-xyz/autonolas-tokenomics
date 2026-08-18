@@ -75,6 +75,12 @@ for (const scriptFile of deploy02Scripts) {
 // ============================================================================
 // Check 3 — every globals key is read by a pol script or is a known output/config key
 // ============================================================================
+//
+// DIRECTION IS DELIBERATE — do not invert it. This flags keys that are PRESENT but UNREAD (orphans); it does
+// NOT require that every script-read key be present in every globals file. That asymmetry is load-bearing:
+// routerV2Address is absent from Balancer-source chains and balancerVaultAddress from UniV2-source ones, and
+// script_05's variant guard branches on exactly that absence. A check demanding every read key be present
+// everywhere would push someone to fill them all in and silently disarm that guard.
 {
     // Keys read anywhere in the pol scripts (jq -r '.X' / jq -rc '.X' / // empty variants).
     const scriptText = fs.readdirSync(POL_DIR)
