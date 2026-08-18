@@ -232,6 +232,11 @@ separate source-side oracle to warm — the V2 exit is gated by the ratio cross-
 
 ---
 
+> **After the LM implementations are redeployed:** the chain-audit script carries a dated standing-red
+> exemption (issue #322) stating it is *expected* to `exit(1)` while the deployed LM impls predate the
+> in-repo code. Once they are redeployed and `docs/configuration.json` is repointed, drop that comment —
+> see "Release artifacts to regenerate" in `dispenser_migration_runbook_public.md`.
+
 ## 6. Quick checklist (per chain, before submitting `convertToV3`)
 
 - [ ] **Fixed `LiquidityManager*` implementation live on the proxy** (`changeImplementation`) — before any
