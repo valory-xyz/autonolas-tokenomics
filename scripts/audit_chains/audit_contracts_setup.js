@@ -155,6 +155,15 @@ async function checkBytecode(provider, configContracts, contractName, log) {
             // Tier 1 (BLOCKING, #322): on-chain code length must match the artifact's deployedBytecode length.
             // Differing lengths mean the deployed instruction code differs from the artifact in the repo — the
             // strongest "wrong implementation deployed" signal — so flag the run to exit non-zero (see main()).
+            //
+            // DELIBERATE STANDING-RED DECISION (2026-08, #322): this run is EXPECTED to exit(1) until the
+            // POL + Dispenser redeploys land. Several deployed implementations predate the in-repo code and
+            // will Tier-1-mismatch on purpose — e.g. mainnet LiquidityManagerUniV2UniV3 impl 0x0171D717…
+            // (on-chain 21,044 B vs artifact ~20,518 B; pre-#306), likewise the Optimism/Base LM impls and the
+            // proxied Dispenser. Each turns green as its implementation is redeployed and configuration.json is
+            // repointed. The red is intentional — a reminder the redeploy is outstanding — NOT an emergent bug
+            // to work around. If you would rather have green-until-genuinely-wrong, add an expected-mismatch
+            // allowlist here (contract+address entries deleted as each implementation is redeployed).
             if (onChainCode.length !== bytecode.length) {
                 console.log(tag + ", FAIL: bytecode length mismatch: artifact="
                     + Math.max(0, (bytecode.length - 2) / 2) + "B onchain="
