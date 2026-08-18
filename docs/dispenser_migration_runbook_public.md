@@ -135,6 +135,7 @@ The Dispenser rework changed several ABIs. Regenerate at redeploy so downstream 
 - **`abis/<ver>/Dispenser.json`** — the 3-arg constructor `(olas, tokenomics, retainer)`, the new `initialize` / `changeManagers(address,address)` / `changeImplementation`, and the `calculateStakingIncentives` return tuple that now includes the sparse `zeroWeightEpochs[]`.
 - **`abis/<ver>/DefaultTargetDispenserL2.json`** (and every chain variant) — the 4-arg `Migrated(address,address,uint256,uint256)`. Any indexer/subgraph keyed on the old 3-arg topic0 must handle both during the cutover.
 - **`docs/configuration.json`** — the new `dispenserProxyAddress` and every repointed address, updated **only after** the on-chain rewiring is complete.
+- **`scripts/audit_chains/audit_contracts_setup.js` — delete the standing-red exemption.** `checkBytecode`'s Tier-1 length mismatch is blocking (issue #322), and the script carries a dated `DELIBERATE STANDING-RED DECISION (2026-08)` comment saying the audit is *expected* to `exit(1)` while several deployed implementations still predate the in-repo code (the mainnet / Optimism / Base LiquidityManager impls and the proxied Dispenser). Once an implementation is redeployed and `configuration.json` is repointed above, that contract should go green — **remove the comment in the same PR**, once the last of them clears. A stale "expected red" note is worse than none: it keeps excusing failures after the reason for them has gone.
 
 ## 8. Rollback / risk notes
 
