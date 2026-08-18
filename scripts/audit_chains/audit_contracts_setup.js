@@ -1001,7 +1001,10 @@ async function checkBuyBackBurnerProxy(chainId, provider, utilsGlobals, configCo
     customExpect(olas, norm(utilsGlobals["olasAddress"]), log + ", function: olas()");
 }
 
-// Check LiquidityManager implementation (ETH or Optimism variant): immutables match pol globals.
+// Check LiquidityManager implementation (any of the four leaves): immutables match pol globals.
+// Immutables vary by capability: routerV2 (UniV2 source), balancerVault (Balancer source), and bridge2Burner
+// (all leaves except the L1-direct-burn LiquidityManagerUniV2UniV3). The source-side oracle was removed with
+// the V2<->V3 ratio cross-check, so there is no oracleV2() to check anymore.
 async function checkLiquidityManagerImpl(provider, polGlobals, configContracts, contractName, log) {
     await checkBytecode(provider, configContracts, contractName, log);
     const impl = await findContractInstance(provider, configContracts, contractName);
@@ -1022,18 +1025,23 @@ async function checkLiquidityManagerImpl(provider, polGlobals, configContracts, 
     customExpect(observationCardinality.toString(), polGlobals["observationCardinality"],
         log + ", function: observationCardinality()");
 
-    if (contractName === "LiquidityManagerUniV2UniV3") {
+    const isUniV2Source = contractName === "LiquidityManagerUniV2UniV3"
+        || contractName === "LiquidityManagerUniV2UniV3Bridge";
+    const isBalancerSource = contractName === "LiquidityManagerBalancerSlipstream"
+        || contractName === "LiquidityManagerBalancerUniV3";
+    // Every leaf bridges the burn except the L1-direct-burn UniV2->UniV3 one.
+    const hasBridgeBurn = contractName !== "LiquidityManagerUniV2UniV3";
+
+    if (isUniV2Source) {
         const routerV2 = await impl.routerV2();
         customExpect(norm(routerV2), norm(polGlobals["routerV2Address"]), log + ", function: routerV2()");
-        const oracleV2 = await impl.oracleV2();
-        customExpect(norm(oracleV2), norm(polGlobals["uniswapPriceOracleAddress"]), log + ", function: oracleV2()");
-    } else if (contractName === "LiquidityManagerBalancerSlipstream") {
+    }
+    if (isBalancerSource) {
         const balancerVault = await impl.balancerVault();
         customExpect(norm(balancerVault), norm(polGlobals["balancerVaultAddress"]),
             log + ", function: balancerVault()");
-        const oracleV2 = await impl.oracleV2();
-        customExpect(norm(oracleV2), norm(polGlobals["balancerPriceOracleAddress"]),
-            log + ", function: oracleV2()");
+    }
+    if (hasBridgeBurn) {
         const bridge2Burner = await impl.bridge2Burner();
         customExpect(norm(bridge2Burner), norm(polGlobals["bridge2BurnerAddress"]),
             log + ", function: bridge2Burner()");
