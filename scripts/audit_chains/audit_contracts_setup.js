@@ -8,6 +8,10 @@ const AddressZero = ethers.constants.AddressZero;
 const verifyRepo = false;
 const verifySetup = true;
 
+// #322: set when checkBytecode finds a Tier-1 (length) mismatch, so the run exits non-zero
+// instead of passing with a wrong implementation deployed. Metadata-trailer drift stays a warning.
+let bytecodeMismatchFound = false;
+
 // ===================== CSV CONFIG =====================
 const WRITE_OWNERSHIP_CSV = true;
 const OWNERSHIP_CSV_PATH = "scripts/audit_chains/ownable_owners.csv";
@@ -148,13 +152,15 @@ async function checkBytecode(provider, configContracts, contractName, log) {
             const onChainCode = await provider.getCode(configContracts[i]["address"]);
             const tag = log + ", address: " + configContracts[i]["address"];
 
-            // Tier 1 (failure): on-chain code length must match the artifact's deployedBytecode length.
-            // If the lengths differ, the deployed instruction code is different from the artifact in the repo.
+            // Tier 1 (BLOCKING, #322): on-chain code length must match the artifact's deployedBytecode length.
+            // Differing lengths mean the deployed instruction code differs from the artifact in the repo — the
+            // strongest "wrong implementation deployed" signal — so flag the run to exit non-zero (see main()).
             if (onChainCode.length !== bytecode.length) {
-                console.log(tag + ", bytecode length mismatch: artifact="
+                console.log(tag + ", FAIL: bytecode length mismatch: artifact="
                     + Math.max(0, (bytecode.length - 2) / 2) + "B onchain="
                     + Math.max(0, (onChainCode.length - 2) / 2) + "B");
                 console.log("\n");
+                bytecodeMismatchFound = true;
                 return;
             }
 
@@ -192,8 +198,8 @@ async function findContractInstance(provider, configContracts, contractName, idx
             let contractFromJSON = fs.readFileSync(configContracts[i]["artifact"], "utf8");
 
             // Additional step for the tokenomics proxy contract
-            if (contractName === "TokenomicsProxy") {
-                // Get previous abi as it had Tokenomcis implementation in it
+            if (contractName === "TokenomicsProxy" || contractName === "DispenserProxy") {
+                // A proxy delegates to the previous config entry (its implementation), whose abi we need here.
                 contractFromJSON = fs.readFileSync(configContracts[i - 1]["artifact"], "utf8");
             }
             const parsedFile = JSON.parse(contractFromJSON);
@@ -342,6 +348,21 @@ async function checkDispenser(chainId, provider, globalsInstance, configContract
     customExpect(treasury, globalsInstance["treasuryAddress"], log + ", function: treasury()");
 }
 
+// Check DispenserProxy: proxy bytecode, owner, and the delegatecall wiring (tokenomics, treasury) read via the
+// implementation abi. Mirrors checkTokenomicsProxy. Wired into main() only when the config carries a
+// DispenserProxy entry (i.e. after the proxied Dispenser is redeployed).
+async function checkDispenserProxy(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    await checkBytecode(provider, configContracts, contractName, log);
+    const dispenser = await findContractInstance(provider, configContracts, contractName);
+    log += ", address: " + dispenser.address;
+    const ownerInfo = await checkOwner(chainId, dispenser, globalsInstance, log);
+    recordOwnershipRow(chainId, contractName, dispenser.address, ownerInfo);
+    const tokenomics = await dispenser.tokenomics();
+    customExpect(tokenomics, globalsInstance["tokenomicsProxyAddress"], log + ", function: tokenomics()");
+    const treasury = await dispenser.treasury();
+    customExpect(treasury, globalsInstance["treasuryAddress"], log + ", function: treasury()");
+}
+
 // Check Depository: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkDepository(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
@@ -394,7 +415,7 @@ async function checkDepositProcessorL1(depositProcessorL1, globalsInstance, log)
 
     // Check L1 dispenser
     const dispenser = await depositProcessorL1.l1Dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser   ()");
+    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: l1Dispenser()");
 }
 
 // Check ArbitrumDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -1217,6 +1238,11 @@ async function main() {
         log = initLog + ", contract: " + "Dispenser";
         await checkDispenser(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "Dispenser", log);
 
+        if (configs[0]["contracts"].some((c) => c["name"] === "DispenserProxy")) {
+            log = initLog + ", contract: " + "DispenserProxy";
+            await checkDispenserProxy(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "DispenserProxy", log);
+        }
+
         log = initLog + ", contract: " + "Depository";
         await checkDepository(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "Depository", log);
 
@@ -1410,7 +1436,13 @@ async function main() {
 }
 
 main()
-    .then(() => process.exit(0))
+    .then(() => {
+        if (bytecodeMismatchFound) {
+            console.error("AUDIT FAILED: at least one on-chain bytecode length mismatch (Tier 1) — see FAIL lines above.");
+            process.exit(1);
+        }
+        process.exit(0);
+    })
     .catch((error) => {
         console.error(error);
         process.exit(1);
