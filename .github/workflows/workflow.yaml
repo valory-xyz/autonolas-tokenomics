@@ -39,6 +39,8 @@ jobs:
         run: ./node_modules/.bin/eslint . --ext .js,.jsx,.ts,.tsx
       - name: Run solhint
         run: ./node_modules/.bin/solhint contracts/interfaces/*.sol contracts/*.sol contracts/test/*.sol
+      - name: POL deployment reconciliation (#327)
+        run: node scripts/audit_chains/check_pol_reconciliation.js
 
       # Compile the code
       - name: Compile, adjust uniswap library hash and recompile again
