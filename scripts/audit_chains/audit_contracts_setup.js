@@ -8,6 +8,10 @@ const AddressZero = ethers.constants.AddressZero;
 const verifyRepo = false;
 const verifySetup = true;
 
+// #322: set when checkBytecode finds a Tier-1 (length) mismatch, so the run exits non-zero
+// instead of passing with a wrong implementation deployed. Metadata-trailer drift stays a warning.
+let bytecodeMismatchFound = false;
+
 // ===================== CSV CONFIG =====================
 const WRITE_OWNERSHIP_CSV = true;
 const OWNERSHIP_CSV_PATH = "scripts/audit_chains/ownable_owners.csv";
@@ -148,13 +152,24 @@ async function checkBytecode(provider, configContracts, contractName, log) {
             const onChainCode = await provider.getCode(configContracts[i]["address"]);
             const tag = log + ", address: " + configContracts[i]["address"];
 
-            // Tier 1 (failure): on-chain code length must match the artifact's deployedBytecode length.
-            // If the lengths differ, the deployed instruction code is different from the artifact in the repo.
+            // Tier 1 (BLOCKING, #322): on-chain code length must match the artifact's deployedBytecode length.
+            // Differing lengths mean the deployed instruction code differs from the artifact in the repo — the
+            // strongest "wrong implementation deployed" signal — so flag the run to exit non-zero (see main()).
+            //
+            // DELIBERATE STANDING-RED DECISION (2026-08, #322): this run is EXPECTED to exit(1) until the
+            // POL + Dispenser redeploys land. Several deployed implementations predate the in-repo code and
+            // will Tier-1-mismatch on purpose — e.g. mainnet LiquidityManagerUniV2UniV3 impl 0x0171D717…
+            // (on-chain 21,044 B vs artifact ~20,518 B; pre-#306), likewise the Optimism/Base LM impls and the
+            // proxied Dispenser. Each turns green as its implementation is redeployed and configuration.json is
+            // repointed. The red is intentional — a reminder the redeploy is outstanding — NOT an emergent bug
+            // to work around. If you would rather have green-until-genuinely-wrong, add an expected-mismatch
+            // allowlist here (contract+address entries deleted as each implementation is redeployed).
             if (onChainCode.length !== bytecode.length) {
-                console.log(tag + ", bytecode length mismatch: artifact="
+                console.log(tag + ", FAIL: bytecode length mismatch: artifact="
                     + Math.max(0, (bytecode.length - 2) / 2) + "B onchain="
                     + Math.max(0, (onChainCode.length - 2) / 2) + "B");
                 console.log("\n");
+                bytecodeMismatchFound = true;
                 return;
             }
 
@@ -192,8 +207,8 @@ async function findContractInstance(provider, configContracts, contractName, idx
             let contractFromJSON = fs.readFileSync(configContracts[i]["artifact"], "utf8");
 
             // Additional step for the tokenomics proxy contract
-            if (contractName === "TokenomicsProxy") {
-                // Get previous abi as it had Tokenomcis implementation in it
+            if (contractName === "TokenomicsProxy" || contractName === "DispenserProxy") {
+                // A proxy delegates to the previous config entry (its implementation), whose abi we need here.
                 contractFromJSON = fs.readFileSync(configContracts[i - 1]["artifact"], "utf8");
             }
             const parsedFile = JSON.parse(contractFromJSON);
@@ -342,6 +357,21 @@ async function checkDispenser(chainId, provider, globalsInstance, configContract
     customExpect(treasury, globalsInstance["treasuryAddress"], log + ", function: treasury()");
 }
 
+// Check DispenserProxy: proxy bytecode, owner, and the delegatecall wiring (tokenomics, treasury) read via the
+// implementation abi. Mirrors checkTokenomicsProxy. Wired into main() only when the config carries a
+// DispenserProxy entry (i.e. after the proxied Dispenser is redeployed).
+async function checkDispenserProxy(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    await checkBytecode(provider, configContracts, contractName, log);
+    const dispenser = await findContractInstance(provider, configContracts, contractName);
+    log += ", address: " + dispenser.address;
+    const ownerInfo = await checkOwner(chainId, dispenser, globalsInstance, log);
+    recordOwnershipRow(chainId, contractName, dispenser.address, ownerInfo);
+    const tokenomics = await dispenser.tokenomics();
+    customExpect(tokenomics, globalsInstance["tokenomicsProxyAddress"], log + ", function: tokenomics()");
+    const treasury = await dispenser.treasury();
+    customExpect(treasury, globalsInstance["treasuryAddress"], log + ", function: treasury()");
+}
+
 // Check Depository: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkDepository(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
@@ -394,7 +424,7 @@ async function checkDepositProcessorL1(depositProcessorL1, globalsInstance, log)
 
     // Check L1 dispenser
     const dispenser = await depositProcessorL1.l1Dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser   ()");
+    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: l1Dispenser()");
 }
 
 // Check ArbitrumDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -1001,7 +1031,10 @@ async function checkBuyBackBurnerProxy(chainId, provider, utilsGlobals, configCo
     customExpect(olas, norm(utilsGlobals["olasAddress"]), log + ", function: olas()");
 }
 
-// Check LiquidityManager implementation (ETH or Optimism variant): immutables match pol globals.
+// Check LiquidityManager implementation (any of the four leaves): immutables match pol globals.
+// Immutables vary by capability: routerV2 (UniV2 source), balancerVault (Balancer source), and bridge2Burner
+// (all leaves except the L1-direct-burn LiquidityManagerUniV2UniV3). The source-side oracle was removed with
+// the V2<->V3 ratio cross-check, so there is no oracleV2() to check anymore.
 async function checkLiquidityManagerImpl(provider, polGlobals, configContracts, contractName, log) {
     await checkBytecode(provider, configContracts, contractName, log);
     const impl = await findContractInstance(provider, configContracts, contractName);
@@ -1022,18 +1055,23 @@ async function checkLiquidityManagerImpl(provider, polGlobals, configContracts, 
     customExpect(observationCardinality.toString(), polGlobals["observationCardinality"],
         log + ", function: observationCardinality()");
 
-    if (contractName === "LiquidityManagerUniV2UniV3") {
+    const isUniV2Source = contractName === "LiquidityManagerUniV2UniV3"
+        || contractName === "LiquidityManagerUniV2UniV3Bridge";
+    const isBalancerSource = contractName === "LiquidityManagerBalancerSlipstream"
+        || contractName === "LiquidityManagerBalancerUniV3";
+    // Every leaf bridges the burn except the L1-direct-burn UniV2->UniV3 one.
+    const hasBridgeBurn = contractName !== "LiquidityManagerUniV2UniV3";
+
+    if (isUniV2Source) {
         const routerV2 = await impl.routerV2();
         customExpect(norm(routerV2), norm(polGlobals["routerV2Address"]), log + ", function: routerV2()");
-        const oracleV2 = await impl.oracleV2();
-        customExpect(norm(oracleV2), norm(polGlobals["uniswapPriceOracleAddress"]), log + ", function: oracleV2()");
-    } else if (contractName === "LiquidityManagerBalancerSlipstream") {
+    }
+    if (isBalancerSource) {
         const balancerVault = await impl.balancerVault();
         customExpect(norm(balancerVault), norm(polGlobals["balancerVaultAddress"]),
             log + ", function: balancerVault()");
-        const oracleV2 = await impl.oracleV2();
-        customExpect(norm(oracleV2), norm(polGlobals["balancerPriceOracleAddress"]),
-            log + ", function: oracleV2()");
+    }
+    if (hasBridgeBurn) {
         const bridge2Burner = await impl.bridge2Burner();
         customExpect(norm(bridge2Burner), norm(polGlobals["bridge2BurnerAddress"]),
             log + ", function: bridge2Burner()");
@@ -1208,6 +1246,11 @@ async function main() {
 
         log = initLog + ", contract: " + "Dispenser";
         await checkDispenser(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "Dispenser", log);
+
+        if (configs[0]["contracts"].some((c) => c["name"] === "DispenserProxy")) {
+            log = initLog + ", contract: " + "DispenserProxy";
+            await checkDispenserProxy(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "DispenserProxy", log);
+        }
 
         log = initLog + ", contract: " + "Depository";
         await checkDepository(configs[0]["chainId"], providers[0], globals[0], configs[0]["contracts"], "Depository", log);
@@ -1402,7 +1445,13 @@ async function main() {
 }
 
 main()
-    .then(() => process.exit(0))
+    .then(() => {
+        if (bytecodeMismatchFound) {
+            console.error("AUDIT FAILED: at least one on-chain bytecode length mismatch (Tier 1) — see FAIL lines above.");
+            process.exit(1);
+        }
+        process.exit(0);
+    })
     .catch((error) => {
         console.error(error);
         process.exit(1);

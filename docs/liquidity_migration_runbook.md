@@ -191,6 +191,11 @@ at swap-fee cost — bounded and value-safe, tracked in `docs/lm_source_crossche
 - **Off-chain pre-flight:** immediately before submitting, assert the source-pool spot ratio agrees with the
   V3 `slot0` within `maxSlippage` (otherwise `convertToV3` reverts `RatioDeviation`); abort otherwise.
 
+> **Precondition — 50/50 source pool.** The ratio check treats the removed `B1/B0` as the source spot price,
+> which equals the weighted spot `(B1/w1)/(B0/w0)` only when `w0 == w1`. OLAS POL pools are 50/50, so this
+> holds. A non-50/50 source pool would make honest removals diverge from the V3 reference and revert
+> (`RatioDeviation`) — fail-closed and safe, but a hard precondition to check before migrating a new pool type.
+
 ### 3.3 Uniswap V3 `initialize()` front-run
 
 A created-but-uninitialized Uniswap V3 pool can be initialized by anyone with arbitrary values (known
@@ -242,8 +247,19 @@ separate source-side oracle to warm — the V2 exit is gated by the ratio cross-
 - [ ] `LiquidityManager*` deployed; owner = Timelock (ETH) / `BridgeMediator` (L2).
 - [ ] V2 LP transferred Treasury → LiquidityManager (ETH: `Treasury.withdraw`; L2: Wormhole Token Bridge
       `transferTokens` `value 0` to `l2Recipient = LiquidityManagerProxy`, VAA redeemed).
-- [ ] `maxSlippage` set to 5% (`500` bps) on the proxy. (Sized as the **V2↔V3 ratio-cross-check tolerance** —
-      deliberately *not* matched to `MAX_ALLOWED_DEVIATION`; see the note above.)
+- [ ] **`maxSlippage` reads `500` (5%) on the proxy — verify on-chain, do not assume.** A fresh proxy
+      (`deploy_03`) `initialize`s at the globals value; a proxy **upgraded in place** (`script_05`) keeps its
+      original value (the live LM proxies read `1000`), because `changeImplementation` does not re-run
+      `initialize`. On an upgraded proxy run `script_06` (`changeMaxSlippage`) and confirm
+      `cast call <proxy> "maxSlippage()(uint16)"` returns `500` — otherwise the ratio gate runs at 10%, ~2×
+      looser than intended. Sized as the **V2↔V3 ratio-cross-check tolerance**, deliberately *not* matched to
+      `MAX_ALLOWED_DEVIATION` (see the note above).
 - [ ] Off-chain pre-flight: source-pool spot ratio agrees with the V3 `slot0` within `maxSlippage`
       (otherwise `convertToV3` reverts `RatioDeviation`) — §3.2.
 - [ ] `convertToV3(...)` submitted with tick shifts from the actual center price.
+- [ ] **Post-seed:** once the target V3 pool is warm and arbitraged, measure the real OLAS V2↔V3 basis and
+      re-tune `maxSlippage` to sit above it (via `changeMaxSlippage` / `script_06`). The 5% default is set from
+      first principles + fork-seeded evidence because no live OLAS V3 basis exists pre-migration; confirming it
+      against the live basis is a gate on the tolerance being correct, not a refinement. Tracked in issue #324
+      (which carries the justification: convexity, the fork table, the `olasBurnRate` residual, the 50/50
+      precondition, and why the 2% gate is orthogonal).

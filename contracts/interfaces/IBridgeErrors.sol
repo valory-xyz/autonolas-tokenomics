@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.30;
 
 interface IBridgeErrors {
     /// @dev Only `manager` has a privilege, but the `sender` was provided.

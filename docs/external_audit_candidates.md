@@ -29,7 +29,7 @@ externally-audited tag against the pre-external-audit snapshot of each repo:
 - **Tokenomics** — `v1.4.3-post-external-audit` → `1.5.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...1.5.0-pre-external-audit
   The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs
-  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326 (currently `main`); until it is pushed, the same diff is
+  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 (currently `main`); until it is pushed, the same diff is
   https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...main
 - **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
@@ -174,6 +174,31 @@ https://github.com/valory-xyz/autonolas-tokenomics/pull/326 (source-side oracle 
 - Storage lives entirely in `Core` (mixins add only immutables), so `changeImplementation` upgrades stay safe.
 
 Ref. PR https://github.com/valory-xyz/autonolas-tokenomics/pull/319.
+
+## Staking cross-chain contracts (redeployed this cycle — previously audited, no logic change)
+
+The cross-chain staking DepositProcessor (L1) / TargetDispenser (L2) contracts are being redeployed as part of
+this cycle, but they are **not new or changed code**. They were externally audited previously (Code4rena
+2023-12 / 2024-05 / 2026-02) and across the internal-audit series, and the only source change here is
+standardizing their `pragma` to `^0.8.30` — metadata-only: the repo's single 0.8.x compiler is 0.8.30, so they
+already compiled with it, and there is no logic or instruction-level bytecode change. They are therefore in
+scope for the redeployment's **on-chain bytecode + configuration re-verification** (the static audit script,
+`scripts/audit_chains/audit_contracts_setup.js`), **not** a fresh code audit.
+
+Listed for completeness (SLoC = `cloc` code lines):
+
+- `DefaultDepositProcessorL1.sol` — 142 (shared L1 base) / `DefaultTargetDispenserL2.sol` — 306 (shared L2 base)
+- `ArbitrumDepositProcessorL1.sol` — 109 / `ArbitrumTargetDispenserL2.sol` — 37
+- `GnosisDepositProcessorL1.sol` — 36 / `GnosisTargetDispenserL2.sol` — 42
+- `OptimismDepositProcessorL1.sol` — 65 / `OptimismTargetDispenserL2.sol` — 44
+- `PolygonDepositProcessorL1.sol` — 60 / `PolygonTargetDispenserL2.sol` — 39
+- `EthereumDepositProcessor.sol` — 87 (L1-only)
+- `IBridgeErrors.sol` — 23 (shared errors interface, imported only by the staking bases)
+
+**Redeployed set: 990 SLoC** across 11 contracts + the shared errors interface.
+
+`WormholeDepositProcessorL1.sol` (89) / `WormholeTargetDispenserL2.sol` (95) are **not** being redeployed; their
+`pragma` is bumped only to keep the repo uniform, and their live deployments are unchanged.
 
 ## Contracts and SLoC
 
