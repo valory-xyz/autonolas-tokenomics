@@ -137,8 +137,11 @@ chain's staking globals first. Order is load-bearing (see the `deploy_07b_dispen
 #    then wire the real VoteWeighting into the still-paused Dispenser proxy:
 ./scripts/deployment/script_dispenser_change_managers.sh mainnet
 
-# 3. Per-chain L1 deposit processor + L2 target dispenser + link (eth_mainnet is L1-only — no L2 side):
-./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh eth_mainnet
+# 3a. ETH mainnet is L1-only — deploy just the EthereumDepositProcessor directly (no L2 dispenser, no link;
+#     do NOT use multi_deploy_01, which is the processor+dispenser+link wrapper for the L2 chains):
+./scripts/deployment/staking/deploy_08_eth_deposit_processor.sh mainnet
+
+# 3b. L2 chains — L1 deposit processor + L2 target dispenser + link, one call each:
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh base_mainnet
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh optimism_mainnet
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh polygon_mainnet
