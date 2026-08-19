@@ -6,7 +6,7 @@ This document describes the parts of the protocol code that were not externally 
 an external audit can be performed. Repositories in scope:
 
 - https://github.com/valory-xyz/autonolas-governance/tree/v1.3.0-pre-external-audit
-- https://github.com/valory-xyz/autonolas-tokenomics/tree/1.5.0-pre-external-audit
+- https://github.com/valory-xyz/autonolas-tokenomics/tree/v1.5.0-pre-external-audit
 
 The changes below are a focused follow-up to the previously audited core protocol: a security
 hardening of the governance `VoteWeighting` gauge controller, a rework of the tokenomics `Dispenser`
@@ -26,11 +26,11 @@ either way.
 The changes below are all merged. To see the exact before/after code state, diff the last
 externally-audited tag against the pre-external-audit snapshot of each repo:
 
-- **Tokenomics** — `v1.4.3-post-external-audit` → `1.5.0-pre-external-audit`:
-  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...1.5.0-pre-external-audit
-  The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs
-  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 (currently `main`); until it is pushed, the same diff is
-  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...main
+- **Tokenomics** — `v1.4.3-post-external-audit` → `v1.5.0-pre-external-audit`:
+  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...v1.5.0-pre-external-audit
+  The `v1.5.0-pre-external-audit` tag is cut on `main` at the merge of PRs
+  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 (the contract changes listed below), plus the
+  CI/doc follow-ups #329/#330.
 - **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
   (per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
