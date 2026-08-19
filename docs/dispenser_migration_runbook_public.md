@@ -122,6 +122,37 @@ For every chain with an L2 dispenser (Arbitrum, Gnosis, Optimism, Base, Polygon,
 21. `Dispenser.setPauseState(Unpaused)`. (The Dispenser rejects going live while `voteWeighting == address(0)`, so this only succeeds after step 16.)
 22. **Withheld re-sync (only if a carried L2 balance is material):** the new L1 Dispenser starts with `mapChainIdWithheldAmounts = 0` and does not know about the balance carried in step 14, so it will not *net* the next distribution against it (it bridges fresh OLAS; funds are not lost, the L2 stays "ahead"). To restore netting, trigger a withheld sync from the new L2 dispenser up to the new L1 Dispenser after wiring. If the carried balance is ~0/dust, skip.
 
+### Deploy command reference (the scriptable Phase 2 / 4 steps)
+
+Prereqs sourced: `ETHERSCAN_API_KEY` (verification), `ALCHEMY_API_KEY_MAINNET` (ETH mainnet RPC — every L1
+deploy) and `ALCHEMY_API_KEY_MATIC` (Polygon RPC). Fill `scripts/deployment/globals_mainnet.json` and each
+chain's staking globals first. Order is load-bearing (see the `deploy_07b_dispenser_proxy.sh` header).
+
+```bash
+# 1. Dispenser implementation + proxy on ETH mainnet (the proxy initializes with voteWeighting = 0)
+./scripts/deployment/deploy_07a_dispenser.sh mainnet
+./scripts/deployment/deploy_07b_dispenser_proxy.sh mainnet
+
+# 2. Deploy VoteWeighting(ve, dispenserProxy) in autonolas-governance (binds this proxy as an immutable),
+#    then wire the real VoteWeighting into the still-paused Dispenser proxy:
+./scripts/deployment/script_dispenser_change_managers.sh mainnet
+
+# 3. Per-chain L1 deposit processor + L2 target dispenser + link (eth_mainnet is L1-only — no L2 side):
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh eth_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh base_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh optimism_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh polygon_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh arbitrum_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh celo_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh gnosis_mainnet
+
+# 4. Register the deposit processors on the Dispenser (reads ./globals.json — point it at the mainnet globals):
+node scripts/deployment/staking/deploy_10_set_deposit_processors.js
+```
+
+The old-stack pause/settle (Phase 1), each L2 `migrate` (Phase 3), the `Tokenomics` / `Treasury` re-point and
+the final `setPauseState(Unpaused)` (Phase 4/5) are DAO proposals, not scripts — follow the phases above.
+
 ## 7. Post-migration verification
 
 - New Dispenser: `tokenomics`, `treasury`, `voteWeighting`, `mapChainIdDepositProcessors[chainId]` all point at the new contracts; `retainerHash` matches the intended retainer.
