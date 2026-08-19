@@ -6,7 +6,7 @@ This document describes the parts of the protocol code that were not externally 
 an external audit can be performed. Repositories in scope:
 
 - https://github.com/valory-xyz/autonolas-governance/tree/v1.3.0-pre-external-audit
-- https://github.com/valory-xyz/autonolas-tokenomics/tree/1.5.0-pre-external-audit
+- https://github.com/valory-xyz/autonolas-tokenomics/tree/v1.5.0-pre-external-audit
 
 The changes below are a focused follow-up to the previously audited core protocol: a security
 hardening of the governance `VoteWeighting` gauge controller, a rework of the tokenomics `Dispenser`
@@ -26,11 +26,21 @@ either way.
 The changes below are all merged. To see the exact before/after code state, diff the last
 externally-audited tag against the pre-external-audit snapshot of each repo:
 
-- **Tokenomics** — `v1.4.3-post-external-audit` → `1.5.0-pre-external-audit`:
-  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...1.5.0-pre-external-audit
-  The `1.5.0-pre-external-audit` tag is to be cut at the merge of PRs
-  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 (currently `main`); until it is pushed, the same diff is
-  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...main
+- **Tokenomics** — `v1.4.3-post-external-audit` → `v1.5.0-pre-external-audit`:
+  https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...v1.5.0-pre-external-audit
+  The `v1.5.0-pre-external-audit` tag is cut on `main`. The **contract changes** are the PRs listed below —
+  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 — plus the **comment-only** NatSpec scrub in
+  #325 (it touches `contracts/pol/*.sol` incl. `LiquidityManagerCore.sol` but changes no non-comment line:
+  it only strips internal references such as `#306.1` / `VL#15` / `internal20 R6`). The full
+  `v1.4.3-post-external-audit…v1.5.0-pre-external-audit` range spans ~33 PRs (#287–#330); the remainder are
+  deployment, config, test, docs and audit-report changes, including the CI/doc follow-ups #329/#330.
+
+  > **Tag maintenance (decision):** `v1.5.0-pre-external-audit` is **moved** (force-updated) to the `main` HEAD
+  > that carries this doc correction — the tag name is stable, its target advances — so the snapshot the
+  > auditors receive has the corrected references above, not the pre-fix `870d46f` state. This assumes the tag
+  > has not yet been externally distributed; if it has, cut a suffixed tag (e.g. `-v2`, per the repo's
+  > `v1.4.2-post-external-audit-v3` precedent) instead of re-pointing a published ref.
+
 - **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
   (per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
