@@ -95,8 +95,10 @@ Deploy order is load-bearing: the Dispenser proxy must exist before VoteWeightin
    - **Implementation** ctor takes only the bytecode immutables `(_olas, _tokenomics, _retainer)` (`deploy_07a_dispenser.sh`; `_tokenomics` is the Tokenomics **proxy** address, `_retainer` is `bytes32`). The script also locks the standalone implementation post-deploy.
    - **Proxy** ctor is `DispenserProxy(implementation, initData)` where `initData = initialize(_treasury, voteWeighting = 0, _maxNumClaimingEpochs, _maxNumStakingTargets)` (`deploy_07b_dispenser_proxy.sh`). The proxy delegatecall-initializes the impl, the deployer becomes proxy owner atomically, and staking incentives start `StakingIncentivesPaused`. `maxNumClaimingEpochs` / `maxNumStakingTargets` are set once here (no runtime setter) — pick them carefully.
 9. Deploy the **new `VoteWeighting(ve, dispenserProxy)`** — `dispenser` is immutable, bound to the Dispenser proxy address from step 8.
-10. Deploy the **new L1 deposit processors** (all chains, incl. `EthereumDepositProcessor`) with `l1Dispenser = dispenserProxy`.
-11. Deploy the **new L2 target dispensers**, each with `l1DepositProcessor = <its new L1 processor>`.
+10. Deploy the **new L1 deposit processors** (all on ETH mainnet L1), each with `l1Dispenser = dispenserProxy` (step 8):
+    - Bridge-paired processors — Arbitrum `staking/deploy_02_arbitrum_deposit_processor.sh`, Gnosis `deploy_03`, Optimism `deploy_04`, Celo `deploy_05`, Polygon `deploy_06`, Base `deploy_07`, Mode `deploy_11`. Each binds to its L2 bridge and gets its `l2TargetDispenser` wired in step 15.
+    - **ETH mainnet is L1-only — a different contract and script.** `EthereumDepositProcessor` (`staking/deploy_08_eth_deposit_processor.sh`, ctor `(olas, dispenserProxy, stakingFactory, timelock)`) has **no** bridge relayer, **no** `l2TargetDispenser`, and **no** corresponding L2 target dispenser — mainnet staking settles on L1 directly. It has no step-11 L2 deploy and no step-15 link, and Phase 3 does not apply to it.
+11. Deploy the **new L2 target dispensers** — one per L2, each with `l1DepositProcessor = <its new L1 processor from step 10>`, from that chain's subfolder: Arbitrum `staking/arbitrum/deploy_02_arbitrum_target_dispenser.sh`, Gnosis `gnosis/deploy_03`, Optimism `optimism/deploy_04`, Celo `celo/deploy_05`, Polygon `polygon/deploy_06`, Base `base/deploy_07`, Mode `mode/deploy_11`. **No ETH entry** — ETH is L1-only (step 10).
 
 ### Phase 3 — Migrate each L2 target dispenser (per chain)
 
@@ -105,14 +107,14 @@ For every chain with an L2 dispenser (Arbitrum, Gnosis, Optimism, Base, Polygon,
 12. `pause()` the **old** L2 dispenser (`migrate` requires paused).
 13. `migrate(newL2TargetDispenser)` on the old L2 dispenser — transfers its **full OLAS balance** (withheld + any residual) to the new one, zeroes the old owner and locks it permanently (one-way; the old dispenser is dead after this). The `Migrated` event surfaces both the migrated balance and the `withheldAmount` to restore.
 14. On the **new** L2 dispenser, `updateWithheldAmountMaintenance(withheldAmount)` to re-establish its `withheldAmount` = the **emitted** withheld value (not necessarily the migrated balance; it deploys at 0).
-15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor, and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair.
+15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor (`staking/script_02_set_target_dispenser_l2_all.sh` for all chains, or `script_01_set_target_dispenser_l2.sh` per chain; hardhat `staking/deploy_09_set_targer_dispensers.js` is the equivalent), and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair. (ETH is skipped — no L2 side.)
 
 ### Phase 4 — Re-point L1 wiring (while still paused)
 
-16. `Dispenser.changeManagers(0, newVoteWeighting)` — wire the real VoteWeighting into the Dispenser proxy (initialized with a zero `voteWeighting` in step 8). The setter requires the paused state, satisfied by construction. (There is **no** `VoteWeighting.changeDispenser` call — `VoteWeighting.dispenser` is immutable, set in step 9.)
+16. `Dispenser.changeManagers(0, newVoteWeighting)` — wire the real VoteWeighting into the Dispenser proxy (initialized with a zero `voteWeighting` in step 8), via `scripts/deployment/script_dispenser_change_managers.sh` (it passes `treasury = 0`, a no-op, and the new `voteWeighting`). This same script is also how a *future* standalone VoteWeighting redeploy is repointed onto the existing Dispenser. The setter requires the paused state, satisfied by construction. (There is **no** `VoteWeighting.changeDispenser` call — `VoteWeighting.dispenser` is immutable, set in step 9.)
 17. `Tokenomics.changeManagers(0, 0, newDispenser)`.
 18. `Treasury.changeManagers(0, 0, newDispenser)`.
-19. `Dispenser.setDepositProcessorChainIds(newProcessors, chainIds)` on the new Dispenser.
+19. `Dispenser.setDepositProcessorChainIds(newProcessors, chainIds)` on the new Dispenser (`staking/deploy_10_set_deposit_processors.js`) — include the `EthereumDepositProcessor` under the mainnet chainId alongside the L2 processors.
 
 ### Phase 5 — Re-nominate and resume
 
