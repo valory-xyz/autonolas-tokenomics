@@ -107,7 +107,7 @@ For every chain with an L2 dispenser (Arbitrum, Gnosis, Optimism, Base, Polygon,
 12. `pause()` the **old** L2 dispenser (`migrate` requires paused).
 13. `migrate(newL2TargetDispenser)` on the old L2 dispenser — transfers its **full OLAS balance** (withheld + any residual) to the new one, zeroes the old owner and locks it permanently (one-way; the old dispenser is dead after this). The `Migrated` event surfaces both the migrated balance and the `withheldAmount` to restore.
 14. On the **new** L2 dispenser, `updateWithheldAmountMaintenance(withheldAmount)` to re-establish its `withheldAmount` = the **emitted** withheld value (not necessarily the migrated balance; it deploys at 0).
-15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor (`staking/script_02_set_target_dispenser_l2_all.sh` for all chains, or `script_01_set_target_dispenser_l2.sh` per chain; hardhat `staking/deploy_09_set_targer_dispensers.js` is the equivalent), and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair. (ETH is skipped — no L2 side.)
+15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor (`staking/script_02_set_target_dispenser_l2_all.sh` for all chains, or `script_01_set_target_dispenser_l2.sh` per chain; hardhat `staking/deploy_09_set_targer_dispensers.js` is the equivalent), and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair. (ETH is skipped — no L2 side.) **Polygon** needs one extra L1 binding — `script_03_set_deposit_processor_l1_polygon.sh` (the `fxRootTunnel` link); `multi_deploy_01` runs it automatically for Polygon, but it must be run explicitly if the per-chain scripts are used by hand.
 
 ### Phase 4 — Re-point L1 wiring (while still paused)
 
@@ -137,17 +137,22 @@ chain's staking globals first. Order is load-bearing (see the `deploy_07b_dispen
 #    then wire the real VoteWeighting into the still-paused Dispenser proxy:
 ./scripts/deployment/script_dispenser_change_managers.sh mainnet
 
-# 3a. ETH mainnet is L1-only — deploy just the EthereumDepositProcessor directly (no L2 dispenser, no link;
-#     do NOT use multi_deploy_01, which is the processor+dispenser+link wrapper for the L2 chains):
+# 3a. ETH mainnet is L1-only — one contract, deployed directly for explicitness (no L2 dispenser, no link):
 ./scripts/deployment/staking/deploy_08_eth_deposit_processor.sh mainnet
+#     (multi_deploy_01 eth_mainnet would also work — it globs to exactly this deploy_08 … mainnet call and
+#      hits its own `exit 0` ETH guard before any L2 step — but the direct call keeps the single-contract
+#      nature explicit and skips the wrapper's L2 machinery entirely.)
 
-# 3b. L2 chains — L1 deposit processor + L2 target dispenser + link, one call each:
-./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh base_mainnet
-./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh optimism_mainnet
-./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh polygon_mainnet
+# 3b. L2 chains — L1 deposit processor + L2 target dispenser + link, one call each (same order as steps 10/11).
+#     For Polygon the wrapper also runs script_03_set_deposit_processor_l1_polygon.sh (the fxRootTunnel binding)
+#     automatically; that extra step is easy to miss if the per-chain scripts are run by hand instead.
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh arbitrum_mainnet
-./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh celo_mainnet
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh gnosis_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh optimism_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh celo_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh polygon_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh base_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh mode_mainnet
 
 # 4. Register the deposit processors on the Dispenser (reads ./globals.json — point it at the mainnet globals):
 node scripts/deployment/staking/deploy_10_set_deposit_processors.js
