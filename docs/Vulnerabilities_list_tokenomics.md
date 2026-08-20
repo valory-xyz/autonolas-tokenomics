@@ -31,7 +31,7 @@
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
   - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
-  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
+  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (all inheriting LiquidityManager contracts)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -534,6 +534,14 @@ Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 **Source**: internal review
 **Status**: fixed in source, **pending re-deployment**
 
+**Applies to every LiquidityManager.** `LiquidityManagerCore` is the abstract base contract, not a
+deployable one: `collectFees()` is defined there and is inherited unchanged by every concrete manager
+built on it — `LiquidityManagerUniV2UniV3`, `LiquidityManagerUniV2UniV3Bridge`,
+`LiquidityManagerBalancerUniV3` and `LiquidityManagerBalancerSlipstream`, via the intermediate
+`LiquidityManagerSource*` / `LiquidityManagerTarget*` / `LiquidityManagerBurnViaBridge` layers. The
+finding is therefore a property of the whole family, and the deployed instances affected are
+`LiquidityManagerUniV2UniV3` on Ethereum and `LiquidityManagerBalancerSlipstream` on Optimism and Base.
+
 `collectFees()` is permissionless, and Uniswap resolves the same pool for either ordering of the pair.
 Two halves of the function disagreed about what that ordering means:
 
@@ -581,9 +589,17 @@ Regression coverage: [LiquidityManagerCollectFeesTokenOrderForkETH.t.sol](../tes
 an ETH fork suite asserting that both orderings route identically and that staged balances are never
 touched.
 
-**Deployment status.** `LiquidityManagerCore` has **not been re-deployed**, so the live contract still
-carries the pre-fix behaviour. Until it is, the operational mitigation is the one item #15 already
-prescribes and it reduces this item's exposure to zero as well: **do not leave staged balances on the
-manager between transactions** — stage inside the same transaction that consumes them.
+**Deployment status.** The fix is in source only — no implementation carrying it has been deployed, so
+every live manager still has the pre-fix behaviour. Each concrete manager sits behind a
+`LiquidityManagerProxy`, so closing this is an implementation re-deployment plus a proxy upgrade at the
+existing proxy addresses, on all three chains, rather than a new deployment and migration.
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+Until then the operational mitigation is the one item #15 already prescribes, and it reduces this item's
+exposure to zero as well: **do not leave staged balances on the manager between transactions** — stage
+inside the same transaction that consumes them.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) (abstract base),
+[LiquidityManagerUniV2UniV3.sol](contracts/pol/LiquidityManagerUniV2UniV3.sol),
+[LiquidityManagerBalancerSlipstream.sol](contracts/pol/LiquidityManagerBalancerSlipstream.sol),
+[LiquidityManagerBalancerUniV3.sol](contracts/pol/LiquidityManagerBalancerUniV3.sol),
+[LiquidityManagerUniV2UniV3Bridge.sol](contracts/pol/LiquidityManagerUniV2UniV3Bridge.sol)
