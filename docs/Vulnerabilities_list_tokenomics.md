@@ -31,7 +31,7 @@
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
   - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
-  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (all inheriting LiquidityManager contracts)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
+  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -534,13 +534,16 @@ Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 **Source**: internal review
 **Status**: fixed in source, **pending re-deployment**
 
-**Applies to every LiquidityManager.** `LiquidityManagerCore` is the abstract base contract, not a
-deployable one: `collectFees()` is defined there and is inherited unchanged by every concrete manager
-built on it — `LiquidityManagerUniV2UniV3`, `LiquidityManagerUniV2UniV3Bridge`,
-`LiquidityManagerBalancerUniV3` and `LiquidityManagerBalancerSlipstream`, via the intermediate
-`LiquidityManagerSource*` / `LiquidityManagerTarget*` / `LiquidityManagerBurnViaBridge` layers. The
-finding is therefore a property of the whole family, and the deployed instances affected are
-`LiquidityManagerUniV2UniV3` on Ethereum and `LiquidityManagerBalancerSlipstream` on Optimism and Base.
+**Applies to every contract inheriting `LiquidityManagerCore`.** `LiquidityManagerCore` is the abstract
+base, not a deployable contract: `collectFees()` is defined there and is inherited unchanged by every
+concrete liquidity manager built on it, present and future. The finding is a property of the base, so it
+is not tied to any particular manager's name or chain — any contract in that inheritance tree carries it
+unless it overrides `collectFees()`.
+
+Note when matching source to on-chain code: the deployed implementations were verified under their
+**former** names — `LiquidityManagerETH` on Ethereum and `LiquidityManagerOptimism` on Optimism and Base
+— while the corresponding sources have since been renamed (see the "Formerly ..." NatSpec on each). Use
+the inheritance relationship rather than the contract name to decide whether a given manager is affected.
 
 `collectFees()` is permissionless, and Uniswap resolves the same pool for either ordering of the pair.
 Two halves of the function disagreed about what that ordering means:
@@ -598,8 +601,6 @@ Until then the operational mitigation is the one item #15 already prescribes, an
 exposure to zero as well: **do not leave staged balances on the manager between transactions** — stage
 inside the same transaction that consumes them.
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) (abstract base),
-[LiquidityManagerUniV2UniV3.sol](contracts/pol/LiquidityManagerUniV2UniV3.sol),
-[LiquidityManagerBalancerSlipstream.sol](contracts/pol/LiquidityManagerBalancerSlipstream.sol),
-[LiquidityManagerBalancerUniV3.sol](contracts/pol/LiquidityManagerBalancerUniV3.sol),
-[LiquidityManagerUniV2UniV3Bridge.sol](contracts/pol/LiquidityManagerUniV2UniV3Bridge.sol)
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) — the abstract base
+where `collectFees()` is defined, and through it every concrete manager under
+[contracts/pol](contracts/pol) that inherits it.
