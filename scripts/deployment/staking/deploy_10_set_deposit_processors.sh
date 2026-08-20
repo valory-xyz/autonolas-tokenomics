@@ -7,7 +7,9 @@
 #
 # Run this after all L1 deposit processors have been deployed (their addresses populated in the staking
 # globals) and after the DispenserProxy is live. Registering a processor here is what lets the Dispenser
-# route staking incentives to each chain; a chain left unregistered is silently skipped at distribution.
+# route staking incentives to each chain. There is no zero-processor guard in the Dispenser: a chain left
+# unregistered resolves to a zero processor and reverts the claim (and in the batch path the zero-address
+# call reverts the whole batch, taking the other chains' claims down with it) — not a silent skip.
 #
 # Ownership note: immediately after deploy the DispenserProxy owner is the deploying EOA, so this runs as a
 # direct cast send. Once ownership is transferred to the DAO Timelock this same call becomes a governance
@@ -36,7 +38,9 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  # exit 1 (not the 0 some per-network deploy scripts use): this is a single terminal step, often &&-chained
+  # after the per-chain deploys, so a missing globals must fail the chain rather than read as success.
+  exit 1
 fi
 
 # Read variables using jq
@@ -107,7 +111,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 
