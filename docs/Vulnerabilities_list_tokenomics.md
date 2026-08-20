@@ -30,6 +30,8 @@
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
+  - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
+  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -526,3 +528,62 @@ The item #14 class — `BalancerPriceOracle` single-block flash-loan steerabilit
 
 Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 
+### 28. `LiquidityManagerCore.collectFees` misroutes fees when the `tokens` array order differs from the position
+
+**Severity**: Medium
+**Source**: internal review
+**Status**: fixed in source, **pending re-deployment**
+
+`collectFees()` is permissionless, and Uniswap resolves the same pool for either ordering of the pair.
+Two halves of the function disagreed about what that ordering means:
+
+- `_collectFees(positionId)` returns `(amount0, amount1)` against **the position's own** `token0` /
+  `token1`;
+- `_manageAmounts(tokens, amounts, true)` assigns the OLAS and secondary-token roles from **the
+  caller's** `tokens` array exactly as supplied:
+
+```solidity
+if (tokens[0] == olas) {
+    secondToken = tokens[1]; olasAmount = amounts[0]; tokenAmount = amounts[1];
+} else {
+    secondToken = tokens[0]; olasAmount = amounts[1]; tokenAmount = amounts[0];
+}
+```
+
+A call whose `tokens` array is ordered differently from the position therefore burnt the
+**secondary-token** fee amount as OLAS and transferred the **OLAS** fee amount as the secondary token.
+The two quantities are transposed, and the difference is drawn from whatever the contract holds.
+
+**Impact.** No unprivileged privilege is required and no race is needed — only a moment at which the
+manager holds a staged balance of the transposed token. The misrouted quantities are fee-sized (the
+function manages only the just-collected amounts, never the whole balance), but the transposed leg is
+paid out of staged funds, so the damage is bounded by
+`min(collected-fee scale, staged balance of the transposed token)` and is **zero when nothing is
+staged**. This is the same bound that item #15 already relies on, for a different defect on the same
+permissionless function.
+
+**Fix (in source).** The collected amounts are aligned to the caller's ordering by reading the
+position's `token0` and swapping when the caller's first token is not it:
+
+```solidity
+(,, address positionToken0,,,,,,,,,) = IPositionManagerV3(positionManagerV3).positions(positionId);
+if (tokens[0] != positionToken0) {
+    (amounts[0], amounts[1]) = (amounts[1], amounts[0]);
+}
+```
+
+Alignment is by token identity rather than by address ordering, so it makes no assumption that a
+position is canonically sorted and holds for any position manager. `_manageUtilityAmounts()` is
+unaffected: it builds `amounts[i]` from `balanceOf(tokens[i])`, so its amounts and roles are already
+keyed to the same array — `collectFees` was the only path mixing the two conventions.
+
+Regression coverage: [LiquidityManagerCollectFeesTokenOrderForkETH.t.sol](../test/LiquidityManagerCollectFeesTokenOrderForkETH.t.sol),
+an ETH fork suite asserting that both orderings route identically and that staged balances are never
+touched.
+
+**Deployment status.** `LiquidityManagerCore` has **not been re-deployed**, so the live contract still
+carries the pre-fix behaviour. Until it is, the operational mitigation is the one item #15 already
+prescribes and it reduces this item's exposure to zero as well: **do not leave staged balances on the
+manager between transactions** — stage inside the same transaction that consumes them.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
