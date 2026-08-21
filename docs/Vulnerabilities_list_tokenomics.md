@@ -32,6 +32,7 @@
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
   - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
   - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
+  - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -604,3 +605,62 @@ inside the same transaction that consumes them.
 Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) — the abstract base
 where `collectFees()` is defined, and through it every concrete manager under
 [contracts/pol](contracts/pol) that inherits it.
+
+
+### 29. `numNewOwners` is attributable via permissionless unit creation, contributing to IDF
+
+**Severity**: Low
+**Source**: internal review
+
+Component and agent registration is permissionless and optimistic: `RegistriesManager.create(unitType,
+unitOwner, unitHash, dependencies)` mints a unit to any nonzero `unitOwner` without authorisation from that
+address (`UnitRegistry.create` only gates `manager == msg.sender`, the manager being `RegistriesManager`).
+
+During `checkpoint()`, `Tokenomics._trackServiceDonations` counts each first-seen unit owner into the
+epoch's `numNewOwners`, and `_calculateIDF` adds `numNewOwners` to the `f(K, D)` term of the inverse
+discount factor:
+
+```solidity
+// Tokenomics._trackServiceDonations
+if (!mapNewOwners[unitOwner]) {
+    mapNewOwners[unitOwner] = true;
+    mapEpochTokenomics[curEpoch].epochPoint.numNewOwners++;
+}
+```
+
+```solidity
+// Tokenomics._calculateIDF
+UD60x18 fpNumNewOwners = convert(numNewOwners);
+fp = fp.add(fpNumNewOwners);
+...
+if (fKD > epsilonRate) { fKD = epsilonRate; }
+idf = 1e18 + fKD;
+```
+
+Because a party may choose the owner addresses of units it creates, it can introduce fresh addresses as
+"new owners" — composing them into a deployed service and donating so the service is tracked — and raise
+`numNewOwners`, which raises the epoch IDF and therefore the discount applied to bond payouts.
+
+**Why the impact is bounded.**
+
+- **`fKD` (and thus IDF) is capped at `epsilonRate`.** With `epsilonRate = 1e17`, `idf ≤ 1.1e18`, so the
+  IDF contribution of `numNewOwners` cannot raise the bond discount by more than the governance-set cap
+  (10% at the current value) regardless of how many owner addresses are introduced.
+- **`mapNewOwners` is permanent and one-shot per address.** Each address counts towards `numNewOwners`
+  once, ever; sustaining an elevated IDF across epochs requires a continuous supply of fresh owner
+  addresses on new units, each composed into a newly deployed and donated service.
+- **IDF is a single global per-epoch value** applied to every bonder that epoch, so the effect is shared
+  rather than captured selectively, and bond payouts are separately bounded by product supply, `maxBond`,
+  and the year inflation limit (see items 3 and the `effectiveBond` mechanics).
+
+This is a bounded case of the developer-incentive gaming already noted for the donation surface in item 2
+(where owning the underlying units and donating small yields cheap incentives, "less profitable as more
+major players utilise the protocol"), reached here through the IDF term rather than top-up accrual.
+
+**Mitigation / guidance.** The `epsilonRate` cap already bounds the effect; governance can lower
+`epsilonRate` if IDF gaming is observed. A future Tokenomics/registries revision could authenticate a
+developer identity for third-party unit minting (owner-signed, replay-protected) and/or derive
+`numNewOwners` from an authenticated creator identity rather than raw current `ownerOf`, so ERC-721 owner
+choice does not by itself drive IDF. No change to the live contracts is required.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
