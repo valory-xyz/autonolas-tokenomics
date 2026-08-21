@@ -596,10 +596,23 @@ Regression coverage: [LiquidityManagerCollectFeesTokenOrderForkETH.t.sol](../tes
 an ETH fork suite asserting that both orderings route identically and that staged balances are never
 touched.
 
+**Observable interface change.** The alignment also changes what `collectFees` reports. It now returns
+`amounts` in the **caller's** token order rather than the position's, and `PositionFeesCollected` emits
+`tokens` and `amounts` consistently aligned. That is the intended result — the event previously paired a
+caller-ordered `tokens` array with position-ordered `amounts` — but it is an observable change for any
+off-chain consumer that decoded the event or the return value assuming position ordering, and such a
+consumer would have been silently mis-pairing them before the fix. Re-check any indexer or accounting
+job that reads `PositionFeesCollected` when the redeployed implementation goes live.
+
 **Deployment status.** The fix is in source only — no implementation carrying it has been deployed, so
 every live manager still has the pre-fix behaviour. Each concrete manager sits behind a
 `LiquidityManagerProxy`, so closing this is an implementation re-deployment plus a proxy upgrade at the
 existing proxy addresses, on all three chains, rather than a new deployment and migration.
+
+Before scheduling that upgrade, confirm that any **other** pending source-level changes to
+`LiquidityManagerCore` ship in the same implementation. The redeploy is the only opportunity to land
+them together, and shipping one while leaving others queued spends the upgrade without closing the
+rest.
 
 Until then the operational mitigation is the one item #15 already prescribes, and it reduces this item's
 exposure to zero as well: **do not leave staged balances on the manager between transactions** — stage
