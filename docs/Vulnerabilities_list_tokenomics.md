@@ -33,6 +33,8 @@
   - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
   - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
+  - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
+  - [31. Dispenser retains caller-supplied bridge value for zero-output staking claims](#31-dispenser-retains-caller-supplied-bridge-value-for-zero-output-staking-claims)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -664,3 +666,66 @@ developer identity for third-party unit minting (owner-signed, replay-protected)
 choice does not by itself drive IDF. No change to the live contracts is required.
 
 Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+
+### 30. `claimStakingIncentives` skips a `stakingFraction == 0` epoch carrying a positive staking incentive
+
+**Severity**: Low
+**Source**: internal review
+
+In `Dispenser._calculateStakingIncentivesBatch`, an epoch with no fresh staking allocation is skipped:
+
+```solidity
+// No staking incentives in this epoch
+if (stakingPoint.stakingFraction == 0) {
+    continue;
+}
+```
+
+An epoch's `stakingIncentive` is not only the fresh `stakingFraction * inflation` allocation — it also
+absorbs carried refunds, because `Tokenomics.refundFromStaking` (invoked from the claim return path and from
+`retain()`) credits `mapEpochStakingPoints[epochCounter].stakingIncentive`. If governance sets
+`stakingFraction = 0` (disabling new staking allocation) while a staking refund is still carried forward into
+that epoch, the epoch can have `stakingFraction == 0` **and** `stakingIncentive > 0`. The `continue` above
+then advances the claim cursor past it without returning the carried amount, so that slice of staking
+inflation is stranded (neither claimed nor refunded).
+
+This is a bounded, deferred-inflation condition rather than a loss of funds or an over-mint — the same
+character as the deferred-inflation notes in items 6 and 7 (the amount is not minted to anyone; it is
+under-utilised for the affected epoch). It arises only in a governance-configured `stakingFraction == 0`
+state with a pending carry.
+
+**Mitigation / guidance.** Do not set `stakingFraction = 0` while any staking refund can still be carried
+forward — settle or drain pending staking claims before disabling staking. On a future Dispenser redeploy,
+handle a positive carried incentive before the `stakingFraction == 0` skip: return the whole amount to
+inflation and mark the epoch before advancing the cursor.
+
+Source code: [Dispenser.sol](contracts/Dispenser.sol)
+
+### 31. Dispenser retains caller-supplied bridge value for zero-output staking claims
+
+**Severity**: Low
+**Source**: internal review
+
+`Dispenser.claimStakingIncentives` (and `claimStakingIncentivesBatch`) are `payable` and forward the
+caller-supplied native bridge value to the deposit processor only when a staking incentive is actually
+distributed:
+
+```solidity
+IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM, stakingIncentive, ...);
+```
+
+This call sits under `if (stakingIncentive > 0)`. When a claim computes a zero staking incentive, that block
+is skipped, so a `msg.value` sent with the call is neither forwarded to a bridge nor refunded — it remains in
+the Dispenser. In the batch variant, `valueAmounts[i]` for a skipped zero-output chain is likewise not
+forwarded.
+
+The value is caller-controlled: the claimable staking incentive is knowable before the call, and a
+zero-output claim needs no bridging, so no native value need be sent for it. There is no third-party impact —
+only the caller's own over-provided value is retained.
+
+**Mitigation / guidance.** Send `msg.value == 0` (and `valueAmounts[i] == 0` for chains with no claimable
+incentive) when a claim yields no staking incentive. On a future Dispenser redeploy, refund any unused
+`msg.value` / `valueAmounts[i]` to the caller when no distribution occurs.
+
+Source code: [Dispenser.sol](contracts/Dispenser.sol)
