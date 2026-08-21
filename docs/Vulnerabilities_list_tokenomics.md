@@ -35,6 +35,7 @@
   - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
   - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
   - [31. Dispenser retains caller-supplied bridge value for zero-output staking claims](#31-dispenser-retains-caller-supplied-bridge-value-for-zero-output-staking-claims)
+  - [32. Depository accepts a zero-payout bond and strands the collateral](#32-depository-accepts-a-zero-payout-bond-and-strands-the-collateral)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -729,3 +730,26 @@ incentive) when a claim yields no staking incentive. On a future Dispenser redep
 `msg.value` / `valueAmounts[i]` to the caller when no distribution occurs.
 
 Source code: [Dispenser.sol](contracts/Dispenser.sol)
+
+### 32. Depository accepts a zero-payout bond and strands the collateral
+
+**Severity**: Low
+**Source**: internal review
+
+`Depository.deposit()` computes the bond payout via
+`calculatePayoutOLAS(tokenAmount, priceLP) = getLastIDF() * (priceLP * tokenAmount) / 1e36` and then records
+the bond and moves the LP into `Treasury` **without checking `payout > 0`**. A small-enough `tokenAmount`
+truncates the integer division to `payout == 0`; the deposit still succeeds, recording
+`mapUserBonds[bondId] = Bond(msg.sender, 0, ...)` and transferring the LP in via
+`depositTokenForOLAS(..., payout = 0)`. `redeem()` later rejects `pay == 0`, so that bond has no redemption
+path and its LP collateral is permanently stranded.
+
+The condition is self-inflicted — only a bonder who supplies a dust `tokenAmount` strands their own LP; no
+other user, and no protocol accounting invariant, is affected, and there is no attacker-profit vector.
+
+**Mitigation / guidance.** Choose a `tokenAmount` large enough that the payout does not truncate to zero
+(knowable before the call from the product `priceLP` and the current IDF). On a future Depository redeploy,
+add a positive-payout invariant (`if (payout == 0) revert`) before recording the bond and transferring
+collateral.
+
+Source code: [Depository.sol](contracts/Depository.sol)
