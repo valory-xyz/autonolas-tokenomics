@@ -30,6 +30,12 @@
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
+  - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
+  - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
+  - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
+  - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
+  - [31. Dispenser retains caller-supplied bridge value for zero-output staking claims](#31-dispenser-retains-caller-supplied-bridge-value-for-zero-output-staking-claims)
+  - [32. Depository accepts a zero-payout bond and strands the collateral](#32-depository-accepts-a-zero-payout-bond-and-strands-the-collateral)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -526,3 +532,224 @@ The item #14 class — `BalancerPriceOracle` single-block flash-loan steerabilit
 
 Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 
+### 28. `LiquidityManagerCore.collectFees` misroutes fees when the `tokens` array order differs from the position
+
+**Severity**: Medium
+**Source**: internal review
+**Status**: fixed in source, **pending re-deployment**
+
+**Applies to every contract inheriting `LiquidityManagerCore`.** `LiquidityManagerCore` is the abstract
+base, not a deployable contract: `collectFees()` is defined there and is inherited unchanged by every
+concrete liquidity manager built on it, present and future. The finding is a property of the base, so it
+is not tied to any particular manager's name or chain — any contract in that inheritance tree carries it
+unless it overrides `collectFees()`.
+
+Note when matching source to on-chain code: the deployed implementations were verified under their
+**former** names — `LiquidityManagerETH` on Ethereum and `LiquidityManagerOptimism` on Optimism and Base
+— while the corresponding sources have since been renamed (see the "Formerly ..." NatSpec on each). Use
+the inheritance relationship rather than the contract name to decide whether a given manager is affected.
+
+`collectFees()` is permissionless, and Uniswap resolves the same pool for either ordering of the pair.
+Two halves of the function disagreed about what that ordering means:
+
+- `_collectFees(positionId)` returns `(amount0, amount1)` against **the position's own** `token0` /
+  `token1`;
+- `_manageAmounts(tokens, amounts, true)` assigns the OLAS and secondary-token roles from **the
+  caller's** `tokens` array exactly as supplied:
+
+```solidity
+if (tokens[0] == olas) {
+    secondToken = tokens[1]; olasAmount = amounts[0]; tokenAmount = amounts[1];
+} else {
+    secondToken = tokens[0]; olasAmount = amounts[1]; tokenAmount = amounts[0];
+}
+```
+
+A call whose `tokens` array is ordered differently from the position therefore burnt the
+**secondary-token** fee amount as OLAS and transferred the **OLAS** fee amount as the secondary token.
+The two quantities are transposed, and the difference is drawn from whatever the contract holds.
+
+**Impact.** No unprivileged privilege is required and no race is needed — only a moment at which the
+manager holds a staged balance of the transposed token. The misrouted quantities are fee-sized (the
+function manages only the just-collected amounts, never the whole balance), but the transposed leg is
+paid out of staged funds, so the damage is bounded by
+`min(collected-fee scale, staged balance of the transposed token)` and is **zero when nothing is
+staged**. This is the same bound that item #15 already relies on, for a different defect on the same
+permissionless function.
+
+**Fix (in source).** The collected amounts are aligned to the caller's ordering by reading the
+position's `token0` and swapping when the caller's first token is not it:
+
+```solidity
+(,, address positionToken0,,,,,,,,,) = IPositionManagerV3(positionManagerV3).positions(positionId);
+if (tokens[0] != positionToken0) {
+    (amounts[0], amounts[1]) = (amounts[1], amounts[0]);
+}
+```
+
+Alignment is by token identity rather than by address ordering, so it makes no assumption that a
+position is canonically sorted and holds for any position manager. `_manageUtilityAmounts()` is
+unaffected: it builds `amounts[i]` from `balanceOf(tokens[i])`, so its amounts and roles are already
+keyed to the same array — `collectFees` was the only path mixing the two conventions.
+
+Regression coverage: [LiquidityManagerCollectFeesTokenOrderForkETH.t.sol](../test/LiquidityManagerCollectFeesTokenOrderForkETH.t.sol),
+an ETH fork suite asserting that both orderings route identically and that staged balances are never
+touched.
+
+**Deployment status.** The fix is in source only — no implementation carrying it has been deployed, so
+every live manager still has the pre-fix behaviour. Each concrete manager sits behind a
+`LiquidityManagerProxy`, so closing this is an implementation re-deployment plus a proxy upgrade at the
+existing proxy addresses, on all three chains, rather than a new deployment and migration.
+
+Until then the operational mitigation is the one item #15 already prescribes, and it reduces this item's
+exposure to zero as well: **do not leave staged balances on the manager between transactions** — stage
+inside the same transaction that consumes them.
+
+Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) — the abstract base
+where `collectFees()` is defined, and through it every concrete manager under
+[contracts/pol](contracts/pol) that inherits it.
+
+
+### 29. `numNewOwners` is attributable via permissionless unit creation, contributing to IDF
+
+**Severity**: Low
+**Source**: internal review
+
+Component and agent registration is permissionless and optimistic: `RegistriesManager.create(unitType,
+unitOwner, unitHash, dependencies)` mints a unit to any nonzero `unitOwner` without authorisation from that
+address (`UnitRegistry.create` only gates `manager == msg.sender`, the manager being `RegistriesManager`).
+
+During `checkpoint()`, `Tokenomics._trackServiceDonations` counts each first-seen unit owner into the
+epoch's `numNewOwners`, and `_calculateIDF` adds `numNewOwners` to the `f(K, D)` term of the inverse
+discount factor:
+
+```solidity
+// Tokenomics._trackServiceDonations
+if (!mapNewOwners[unitOwner]) {
+    mapNewOwners[unitOwner] = true;
+    mapEpochTokenomics[curEpoch].epochPoint.numNewOwners++;
+}
+```
+
+```solidity
+// Tokenomics._calculateIDF
+UD60x18 fpNumNewOwners = convert(numNewOwners);
+fp = fp.add(fpNumNewOwners);
+...
+if (fKD > epsilonRate) { fKD = epsilonRate; }
+idf = 1e18 + fKD;
+```
+
+Because a party may choose the owner addresses of units it creates, it can introduce fresh addresses as
+"new owners" — composing them into a deployed service and donating so the service is tracked — and raise
+`numNewOwners`, which raises the epoch IDF and therefore the discount applied to bond payouts.
+
+**Why the impact is bounded.**
+
+- **`fKD` (and thus IDF) is capped at `epsilonRate`.** With `epsilonRate = 1e17`, `idf ≤ 1.1e18`, so the
+  IDF contribution of `numNewOwners` cannot raise the bond discount by more than the governance-set cap
+  (10% at the current value) regardless of how many owner addresses are introduced.
+- **`mapNewOwners` is permanent and one-shot per address.** Each address counts towards `numNewOwners`
+  once, ever; sustaining an elevated IDF across epochs requires a continuous supply of fresh owner
+  addresses on new units, each composed into a newly deployed and donated service.
+- **IDF is a single global per-epoch value** applied to every bonder that epoch, so the effect is shared
+  rather than captured selectively, and bond payouts are separately bounded by product supply, `maxBond`,
+  and the year inflation limit (see items 3 and the `effectiveBond` mechanics).
+
+This is a bounded case of the developer-incentive gaming already noted for the donation surface in item 2
+(where owning the underlying units and donating small yields cheap incentives, "less profitable as more
+major players utilise the protocol"), reached here through the IDF term rather than top-up accrual.
+
+**Mitigation / guidance.** The `epsilonRate` cap already bounds the effect; governance can lower
+`epsilonRate` if IDF gaming is observed. A future Tokenomics/registries revision could authenticate a
+developer identity for third-party unit minting (owner-signed, replay-protected) and/or derive
+`numNewOwners` from an authenticated creator identity rather than raw current `ownerOf`, so ERC-721 owner
+choice does not by itself drive IDF. No change to the live contracts is required.
+
+Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+
+
+### 30. `claimStakingIncentives` skips a `stakingFraction == 0` epoch carrying a positive staking incentive
+
+**Severity**: Low
+**Source**: internal review
+
+In `Dispenser._calculateStakingIncentivesBatch`, an epoch with no fresh staking allocation is skipped:
+
+```solidity
+// No staking incentives in this epoch
+if (stakingPoint.stakingFraction == 0) {
+    continue;
+}
+```
+
+An epoch's `stakingIncentive` is not only the fresh `stakingFraction * inflation` allocation — it also
+absorbs carried refunds, because `Tokenomics.refundFromStaking` (invoked from the claim return path and from
+`retain()`) credits `mapEpochStakingPoints[epochCounter].stakingIncentive`. If governance sets
+`stakingFraction = 0` (disabling new staking allocation) while a staking refund is still carried forward into
+that epoch, the epoch can have `stakingFraction == 0` **and** `stakingIncentive > 0`. The `continue` above
+then advances the claim cursor past it without returning the carried amount, so that slice of staking
+inflation is stranded (neither claimed nor refunded).
+
+This is a bounded, deferred-inflation condition rather than a loss of funds or an over-mint — the same
+character as the deferred-inflation notes in items 6 and 7 (the amount is not minted to anyone; it is
+under-utilised for the affected epoch). It arises only in a governance-configured `stakingFraction == 0`
+state with a pending carry.
+
+**Mitigation / guidance.** Do not set `stakingFraction = 0` while any staking refund can still be carried
+forward — settle or drain pending staking claims before disabling staking. On a future Dispenser redeploy,
+handle a positive carried incentive before the `stakingFraction == 0` skip: return the whole amount to
+inflation and mark the epoch before advancing the cursor.
+
+Source code: [Dispenser.sol](contracts/Dispenser.sol)
+
+### 31. Dispenser retains caller-supplied bridge value for zero-output staking claims
+
+**Severity**: Low
+**Source**: internal review
+
+`Dispenser.claimStakingIncentives` (and `claimStakingIncentivesBatch`) are `payable` and forward the
+caller-supplied native bridge value to the deposit processor only when a staking incentive is actually
+distributed:
+
+```solidity
+IDepositProcessor(depositProcessor).sendMessage{value: msg.value}(stakingTargetEVM, stakingIncentive, ...);
+```
+
+This call sits under `if (stakingIncentive > 0)`. When a claim computes a zero staking incentive, that block
+is skipped, so a `msg.value` sent with the call is neither forwarded to a bridge nor refunded — it remains in
+the Dispenser. In the batch variant, `valueAmounts[i]` for a skipped zero-output chain is likewise not
+forwarded.
+
+The value is caller-controlled: the claimable staking incentive is knowable before the call, and a
+zero-output claim needs no bridging, so no native value need be sent for it. There is no third-party impact —
+only the caller's own over-provided value is retained.
+
+**Mitigation / guidance.** Send `msg.value == 0` (and `valueAmounts[i] == 0` for chains with no claimable
+incentive) when a claim yields no staking incentive. On a future Dispenser redeploy, refund any unused
+`msg.value` / `valueAmounts[i]` to the caller when no distribution occurs.
+
+Source code: [Dispenser.sol](contracts/Dispenser.sol)
+
+### 32. Depository accepts a zero-payout bond and strands the collateral
+
+**Severity**: Low
+**Source**: internal review
+
+`Depository.deposit()` computes the bond payout via
+`calculatePayoutOLAS(tokenAmount, priceLP) = getLastIDF() * (priceLP * tokenAmount) / 1e36` and then records
+the bond and moves the LP into `Treasury` **without checking `payout > 0`**. A small-enough `tokenAmount`
+truncates the integer division to `payout == 0`; the deposit still succeeds, recording
+`mapUserBonds[bondId] = Bond(msg.sender, 0, ...)` and transferring the LP in via
+`depositTokenForOLAS(..., payout = 0)`. `redeem()` later rejects `pay == 0`, so that bond has no redemption
+path and its LP collateral is permanently stranded.
+
+The condition is self-inflicted — only a bonder who supplies a dust `tokenAmount` strands their own LP; no
+other user, and no protocol accounting invariant, is affected, and there is no attacker-profit vector.
+
+**Mitigation / guidance.** Choose a `tokenAmount` large enough that the payout does not truncate to zero
+(knowable before the call from the product `priceLP` and the current IDF). On a future Depository redeploy,
+add a positive-payout invariant (`if (payout == 0) revert`) before recording the bond and transferring
+collateral.
+
+Source code: [Depository.sol](contracts/Depository.sol)

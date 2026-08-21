@@ -940,6 +940,17 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Collect fees
         amounts = _collectFees(positionId);
 
+        // Align collected amounts with the caller-provided token ordering. The position manager returns
+        // (amount0, amount1) against the position's own token0 / token1, whereas _manageAmounts() assigns
+        // the OLAS and secondary-token roles from the tokens array exactly as supplied. The pool resolves
+        // for either ordering, so without this alignment a call whose tokens array is ordered differently
+        // from the position would burn the secondary-token fee amount as OLAS and transfer the OLAS fee
+        // amount as the secondary token, drawing the difference from balances staged on the contract.
+        (,, address positionToken0,,,,,,,,,) = IPositionManagerV3(positionManagerV3).positions(positionId);
+        if (tokens[0] != positionToken0) {
+            (amounts[0], amounts[1]) = (amounts[1], amounts[0]);
+        }
+
         // Check for zero values
         if (amounts[0] == 0 && amounts[1] == 0) {
             revert ZeroValue();
