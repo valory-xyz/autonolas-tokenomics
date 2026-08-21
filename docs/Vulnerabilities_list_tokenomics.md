@@ -36,6 +36,7 @@
   - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
   - [31. Dispenser retains caller-supplied bridge value for zero-output staking claims](#31-dispenser-retains-caller-supplied-bridge-value-for-zero-output-staking-claims)
   - [32. Depository accepts a zero-payout bond and strands the collateral](#32-depository-accepts-a-zero-payout-bond-and-strands-the-collateral)
+  - [33. DefaultDepositProcessorL1 refunds leftover native value to tx.origin](#33-defaultdepositprocessorl1-refunds-leftover-native-value-to-txorigin)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -232,7 +233,6 @@ Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
 
 **Severity**: Medium — accepted residual
 **Source**: Internal audit 15 (M-02) / C4A 2026-01 H-03 (partial)
-**Status**: Acknowledged — no code change; track via monitoring
 
 `BalancerPriceOracle.updatePrice()` reads spot balances from the Balancer Vault once per `minUpdateInterval` and commits them as the new observation. Within that window, a flash-loan move that happens to coincide with the update is committed to state — the commit-on-success pattern (which fixed the rejected-update corruption from C4A H-11) does not reject the adversarial sample because `getPrice()` returns non-zero on the manipulated balance.
 
@@ -465,7 +465,7 @@ Source code: [Dispenser.sol](contracts/Dispenser.sol)
 
 ### 26. `LiquidityManagerCore.checkPoolAndGetCenterPrice` fail-open on stale-observation / inactive pools
 
-**Severity**: Low — code fix merged (#306); pending redeploy
+**Severity**: Low
 **Source**: Internal triage (2026-06)
 
 The following public helper is implemented in the LiquidityManagerCore contract:
@@ -536,7 +536,6 @@ Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
 
 **Severity**: Medium
 **Source**: internal review
-**Status**: fixed in source, **pending re-deployment**
 
 **Applies to every contract inheriting `LiquidityManagerCore`.** `LiquidityManagerCore` is the abstract
 base, not a deployable contract: `collectFees()` is defined there and is inherited unchanged by every
@@ -766,3 +765,28 @@ add a positive-payout invariant (`if (payout == 0) revert`) before recording the
 collateral.
 
 Source code: [Depository.sol](contracts/Depository.sol)
+
+### 33. `DefaultDepositProcessorL1` refunds leftover native value to `tx.origin`
+
+**Severity**: Low — accepted by design
+**Source**: Code4rena 2024-05, finding #4 (reinforced by #5)
+
+`DefaultDepositProcessorL1` sends leftover native value from a bridging call back to `tx.origin` rather
+than to `msg.sender` (`:177` and `:216`). When the caller is a contract that overpays, the refund is
+delivered to the externally owned account that started the transaction, not to the contract that supplied
+the value — so a contract integrating the deposit path cannot recover its own change programmatically.
+
+The refund is a low-level call whose result is **deliberately ignored**, so that a reverting recipient
+cannot block the bridging call itself. The consequence is that if `tx.origin` cannot accept native value,
+the leftovers are not refunded at all and remain in the processor.
+
+**This is the adopted remediation, not an open defect.** Refunding the transaction originator is what
+Code4rena 2024-05 finding #4 asked for, and #5 reinforced it; the behaviour is recorded here so that
+integrators reading this list find it stated rather than inferring it from the audit report.
+
+**Mitigation / guidance.** Contract integrators should send an exact value and not rely on receiving
+change, or route the call through an EOA that is the intended recipient of any refund. No user funds are
+at risk in either case: the value is refunded, only to a different address than a contract caller might
+assume.
+
+Source code: [DefaultDepositProcessorL1.sol](contracts/staking/DefaultDepositProcessorL1.sol)
