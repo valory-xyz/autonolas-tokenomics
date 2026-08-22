@@ -37,8 +37,19 @@ celoL1StandardBridgeProxyAddress=$(jq -r '.celoL1StandardBridgeProxyAddress' $gl
 # Celo OLAS address (L2 token)
 celoOLASAddress=$(jq -r '.celoOLASAddress' $globalsStaking)
 
-# Bridge mediator on Celo (recipient of LP tokens)
+# Bridge mediator on Celo (recipient of the LPSwapCelo *outputs*, and migrate() target below)
 bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globalsCelo)
+
+# LPSwapCelo on Celo — recipient of the bridged LP and the OLAS pre-funding.
+# swapLiquidity() reads both from its OWN balance (IToken(...).balanceOf(address(this))), so the
+# inputs must land on this contract. It then sends the re-added liquidity and any dust on to
+# BRIDGE_MEDIATOR itself. Bridging the inputs to the mediator instead would strand the migration
+# until governance forwarded them here in a second proposal.
+lpSwapCeloAddress=$(jq -r '.lpSwapCeloAddress' $globalsCelo)
+if [ -z "$lpSwapCeloAddress" ] || [ "$lpSwapCeloAddress" == "null" ]; then
+  echo "${red}lpSwapCeloAddress is not set in $globalsCelo — deploy LPSwapCelo first (scripts/deployment/utils/deploy_05_lp_swap_celo.sh)${reset}"
+  exit 1
+fi
 
 # Bridged LP token address
 lpTokenAddress="0xC085F31E4ca659fF8A17042dDB26f1dcA2fBdAB4"
@@ -57,6 +68,7 @@ echo "Wormhole Bridge:     $wormholeL1TokenRelayerAddress"
 echo "Celo Std Bridge:     $celoL1StandardBridgeProxyAddress"
 echo "Celo OLAS (L2):      $celoOLASAddress"
 echo "Bridge Mediator:     $bridgeMediatorAddress"
+echo "LPSwapCelo:          $lpSwapCeloAddress"
 echo "Wormhole Chain ID:   $celoWormholeL2TargetChainId"
 echo ""
 
@@ -70,8 +82,8 @@ if [ "$lpBalance" == "0" ]; then
   exit 1
 fi
 
-# Convert bridgeMediator address to bytes32 for Wormhole recipient
-recipientBytes32=$(cast --to-bytes32 $bridgeMediatorAddress)
+# Convert the LPSwapCelo address to bytes32 for the Wormhole recipient
+recipientBytes32=$(cast --to-bytes32 $lpSwapCeloAddress)
 
 # Step 1: Treasury.withdraw(timelockAddress, lpBalance, lpTokenAddress)
 echo ""
@@ -121,7 +133,7 @@ echo "Calldata: $calldata4a"
 echo ""
 echo "${green}Step 4b: depositERC20To() - bridge OLAS to Celo${reset}"
 minGasLimit=300000
-calldata4b=$(cast calldata "depositERC20To(address,address,address,uint256,uint32,bytes)" $olasAddress $celoOLASAddress $bridgeMediatorAddress $OLAS_AMOUNT $minGasLimit "0x")
+calldata4b=$(cast calldata "depositERC20To(address,address,address,uint256,uint32,bytes)" $olasAddress $celoOLASAddress $lpSwapCeloAddress $OLAS_AMOUNT $minGasLimit "0x")
 echo "Target:   $celoL1StandardBridgeProxyAddress"
 echo "Value:    0"
 echo "Calldata: $calldata4b"
