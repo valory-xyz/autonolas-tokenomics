@@ -8,6 +8,7 @@ reset=$(tput sgr0)
 globalsMainnet="scripts/deployment/globals_mainnet.json"
 globalsStaking="scripts/deployment/staking/globals_mainnet.json"
 globalsCelo="scripts/deployment/staking/celo/globals_celo_mainnet.json"
+globalsCeloUtils="scripts/deployment/utils/globals_celo_mainnet.json"
 
 for f in $globalsMainnet $globalsStaking $globalsCelo; do
   if [ ! -f "$f" ]; then
@@ -45,9 +46,11 @@ bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globalsCelo)
 # inputs must land on this contract. It then sends the re-added liquidity and any dust on to
 # BRIDGE_MEDIATOR itself. Bridging the inputs to the mediator instead would strand the migration
 # until governance forwarded them here in a second proposal.
-lpSwapCeloAddress=$(jq -r '.lpSwapCeloAddress' $globalsCelo)
+# Read from the utils globals, which is where deploy_05_lp_swap_celo.sh records the address
+# (it writes to "$(dirname "$0")/globals_<network>.json"); the staking globals above never gets it.
+lpSwapCeloAddress=$(jq -r '.lpSwapCeloAddress' $globalsCeloUtils)
 if [ -z "$lpSwapCeloAddress" ] || [ "$lpSwapCeloAddress" == "null" ]; then
-  echo "${red}lpSwapCeloAddress is not set in $globalsCelo — deploy LPSwapCelo first (scripts/deployment/utils/deploy_05_lp_swap_celo.sh)${reset}"
+  echo "${red}lpSwapCeloAddress is not set in $globalsCeloUtils — deploy LPSwapCelo first (scripts/deployment/utils/deploy_05_lp_swap_celo.sh celo_mainnet)${reset}"
   exit 1
 fi
 
