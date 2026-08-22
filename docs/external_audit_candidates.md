@@ -51,9 +51,19 @@ externally-audited tag against the pre-external-audit snapshot of each repo:
   > file changes**, so the audited contract set is byte-identical either way and the move only buys the
   > auditors a current known-issues list.
 
-- **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
-  https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
-  (per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
+- **Governance** — `v1.2.5-post-external-audit` → `v1.3.0-pre-external-audit`:
+  https://github.com/valory-xyz/autonolas-governance/compare/v1.2.5-post-external-audit...v1.3.0-pre-external-audit
+  (the `VoteWeighting` per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
+  Across that range only two **production** contracts differ — `VoteWeighting.sol` and `GuardCM.sol`; the
+  other changed files under `contracts/` are test harnesses (`test/EchidnaVoteWeightingAssert.sol`,
+  `test/MockDispenser.sol`, `test/VoteWeightingFuzzing.sol`) and are not audit scope.
+
+  > **Tag maintenance (decision):** the same policy as for tokenomics above applies to
+  > `v1.3.0-pre-external-audit`, and it is **moved** to the `main` HEAD carrying this correction.
+  > Confirmed not yet externally distributed. Between the tag's previous target (`1159e5d`) and that HEAD
+  > the only file that differs is `docs/Vulnerabilities_list_governance.md` (+48/−0, known-issues items
+  > added by #219 and corrected by #220) — **no `contracts/` file changes** — so the audited contract set
+  > is byte-identical and the move only gives the auditors the current known-issues list.
 
 Per-contract line deltas below are the raw `git diff` (added / removed) against
 `v1.4.3-post-external-audit`; the SLoC figures are `cloc` code lines on the merged file.
@@ -63,9 +73,20 @@ Per-contract line deltas below are the raw `git diff` (added / removed) against
 The following needs to be audited:
 
 1. VoteWeighting.sol — 437 SLoC — delta: +63 / −39 (~102 lines changed)
+2. GuardCM.sol — 253 SLoC — delta: +1 / −2 (3 lines changed; `setBridgeMediatorL1BridgeParams` now also
+   rejects a zero `bridgeMediatorL2s[i]`, and the note stating that an L2 mediator may legitimately be zero
+   "for example, for Arbitrum case" is removed)
 
-**Contracts Number: 1**
-**Total SLoC (full file): 437 — Changed lines: ~102**
+**Contracts Number: 2**
+**Total SLoC (full files): 690** — VoteWeighting 437, GuardCM 253. **Changed lines: ~105** — ~102 in
+VoteWeighting, 3 in GuardCM.
+
+> `GuardCM.sol` was previously omitted from this scope. Its delta is one line of logic, but it is a
+> behavioural tightening rather than a comment change, so it belongs in the listed set. Reviewers should
+> note the interaction it creates: the removed comment asserted that a zero L2 bridge mediator is valid for
+> some chains, Arbitrum being the named example, and the new check rejects exactly that — so whether every
+> supported chain still configures cleanly through `setBridgeMediatorL1BridgeParams` is worth confirming
+> against the live per-chain parameters rather than assumed.
 
 ### Scope of changes for VoteWeighting
 
