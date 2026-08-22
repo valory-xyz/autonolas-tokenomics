@@ -37,6 +37,7 @@
   - [31. Dispenser retains caller-supplied bridge value for zero-output staking claims](#31-dispenser-retains-caller-supplied-bridge-value-for-zero-output-staking-claims)
   - [32. Depository accepts a zero-payout bond and strands the collateral](#32-depository-accepts-a-zero-payout-bond-and-strands-the-collateral)
   - [33. DefaultDepositProcessorL1 refunds leftover native value to tx.origin](#33-defaultdepositprocessorl1-refunds-leftover-native-value-to-txorigin)
+  - [34. Treasury pause does not stop Depository bond issuance](#34-treasury-pause-does-not-stop-depository-bond-issuance)
   - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
@@ -790,3 +791,45 @@ at risk in either case: the value is refunded, only to a different address than 
 assume.
 
 Source code: [DefaultDepositProcessorL1.sol](contracts/staking/DefaultDepositProcessorL1.sol)
+
+### 34. Treasury pause does not stop Depository bond issuance
+
+**Severity**: Informational
+**Source**: internal review
+
+`Treasury.pause()` sets `paused = 2`, and the Treasury's own value-moving paths check it. The bonding
+boundary does not. `depositTokenForOLAS()` gates on exactly two conditions:
+
+```solidity
+function depositTokenForOLAS(address account, uint256 tokenAmount, address token, uint256 olasMintAmount) external {
+    // Check for the depository access
+    if (depository != msg.sender) {
+        revert ManagerOnly(msg.sender, depository);
+    }
+
+    // Check if the token is authorized by the registry
+    if (!mapEnabledTokens[token]) {
+        revert UnauthorizedToken(token);
+    }
+    ...
+```
+
+There is no `paused` check on this path. So while the Treasury is paused, the permissionless
+`Depository.deposit()` entry point still reaches it, still takes the LP into reserves, still mints the OLAS
+payout, and still records a vested bond liability — until the open product's supply is exhausted.
+
+Nothing is minted beyond what the protocol already permits: issuance stays bounded by `effectiveBond`,
+product supply, `maxBond` and the year inflation limit, and bonding simply continues at its normal rate.
+There is no attacker advantage here — a bonder gains exactly what they would have gained unpaused.
+
+**Why it is recorded anyway.** The pause lever exists to be reached for during an incident, and an operator
+pulling it would reasonably believe it stops new liabilities being created against the Treasury. It does not.
+Knowing that in advance is the difference between a pause that buys time and a pause that quietly does less
+than intended.
+
+**Mitigation / guidance.** To halt bond issuance today, close the open bond products (or let their supply
+run out) rather than relying on `Treasury.pause()`; pausing the Treasury alone is not sufficient. On a future
+Treasury or Depository revision, add the pause check at the `depositTokenForOLAS()` boundary so the lever
+covers the bonding path as well.
+
+Source code: [Treasury.sol](contracts/Treasury.sol)
