@@ -31,14 +31,6 @@ async function main() {
     const optimismMessengerABI = parsedFile["abi"];
     const optimismMessenger = new ethers.Contract(optimismMessengerAddress, optimismMessengerABI, networkProvider);
 
-    // OLAS address on Mode
-    const olasAddress = parsedData.olasAddress;
-    const tokenJSON = "artifacts/contracts/test/ERC20Token.sol/ERC20Token.json";
-    contractFromJSON = fs.readFileSync(tokenJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
-    const tokenABI = parsedFile["abi"];
-    const olas = new ethers.Contract(olasAddress, tokenABI, networkProvider);
-
     // Get all the necessary contract addresses
     const oldTargetDispenserL2Address = "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81";
     const targetDispenserL2Address = parsedData.modeTargetDispenserL2Address;
@@ -74,8 +66,11 @@ async function main() {
     //    [["0x5fc25f50e96857373c64dc0edb1abcbed4587e91"], ["1597983869041054358564"], "0xe16c2d52963fd5d073b1f3907986b0a183c6e39399e5d8ef866c954b73886d72"]);
     //rawPayload = targetDispenserL2.interface.encodeFunctionData("processDataMaintenance", [dataToProcess]);
 
-    const olasBalance = await olas.balanceOf(oldTargetDispenserL2Address);
-    rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [olasBalance]);
+    // The replacement dispenser must inherit the OLD dispenser's stored withheldAmount, which is the
+    // amount L1 may still re-use. It is NOT the OLAS balance: migrate() moves the full balance, which
+    // also covers funds that were never withheld, and it leaves withheldAmount itself untouched.
+    const withheldAmount = await oldTargetDispenserL2.withheldAmount();
+    rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [withheldAmount]);
     payload = ethers.utils.arrayify(rawPayload);
     data += ethers.utils.solidityPack(
         ["address", "uint96", "uint32", "bytes"],

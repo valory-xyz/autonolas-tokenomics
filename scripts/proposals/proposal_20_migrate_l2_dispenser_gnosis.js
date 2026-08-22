@@ -31,14 +31,6 @@ async function main() {
     const homeMediatorABI = parsedFile["abi"];
     const homeMediator = new ethers.Contract(homeMediatorAddress, homeMediatorABI, networkProvider);
 
-    // OLAS address on Gnosis
-    const olasAddress = parsedData.olasAddress;
-    const tokenJSON = "artifacts/contracts/test/ERC20Token.sol/ERC20Token.json";
-    contractFromJSON = fs.readFileSync(tokenJSON, "utf8");
-    parsedFile = JSON.parse(contractFromJSON);
-    const tokenABI = parsedFile["abi"];
-    const olas = new ethers.Contract(olasAddress, tokenABI, networkProvider);
-
     // Get all the necessary contract addresses
     const oldTargetDispenserL2Address = "0x67722c823010CEb4BED5325fE109196C0f67D053";
     const targetDispenserL2Address = parsedData.gnosisTargetDispenserL2Address;
@@ -66,9 +58,12 @@ async function main() {
         [target, value, payload.length, payload]
     ).slice(2);
 
-    const olasBalance = await olas.balanceOf(oldTargetDispenserL2Address);
+    // The replacement dispenser must inherit the OLD dispenser's stored withheldAmount, which is the
+    // amount L1 may still re-use. It is NOT the OLAS balance: migrate() moves the full balance, which
+    // also covers funds that were never withheld, and it leaves withheldAmount itself untouched.
+    const withheldAmount = await oldTargetDispenserL2.withheldAmount();
     target = targetDispenserL2Address;
-    rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [olasBalance]);
+    rawPayload = targetDispenserL2.interface.encodeFunctionData("updateWithheldAmountMaintenance", [withheldAmount]);
     payload = ethers.utils.arrayify(rawPayload);
     data += ethers.utils.solidityPack(
         ["address", "uint96", "uint32", "bytes"],
