@@ -29,17 +29,27 @@ externally-audited tag against the pre-external-audit snapshot of each repo:
 - **Tokenomics** — `v1.4.3-post-external-audit` → `v1.5.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-tokenomics/compare/v1.4.3-post-external-audit...v1.5.0-pre-external-audit
   The `v1.5.0-pre-external-audit` tag is cut on `main`. The **contract changes** are the PRs listed below —
-  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328 — plus the **comment-only** NatSpec scrub in
-  #325 (it touches `contracts/pol/*.sol` incl. `LiquidityManagerCore.sol` but changes no non-comment line:
+  #306/#307/#309/#310/#311/#314/#315/#318/#319/#323/#326/#328/#333 — plus the **comment-only** NatSpec scrub
+  in #325 (it touches `contracts/pol/*.sol` incl. `LiquidityManagerCore.sol` but changes no non-comment line:
   it only strips internal references such as `#306.1` / `VL#15` / `internal20 R6`). The full
-  `v1.4.3-post-external-audit…v1.5.0-pre-external-audit` range spans ~33 PRs (#287–#330); the remainder are
-  deployment, config, test, docs and audit-report changes, including the CI/doc follow-ups #329/#330.
+  `v1.4.3-post-external-audit…v1.5.0-pre-external-audit` range spans 40 merged PRs (#287–#338); the remainder
+  are deployment, config, test, docs and audit-report changes, including the CI/doc follow-ups #329/#330, the
+  vulnerabilities-list updates #334/#335/#336, and the Celo proposal-script correction #338 (a governance
+  proposal generator, no contract code).
 
   > **Tag maintenance (decision):** `v1.5.0-pre-external-audit` is **moved** (force-updated) to the `main` HEAD
   > that carries this doc correction — the tag name is stable, its target advances — so the snapshot the
   > auditors receive has the corrected references above, not the pre-fix `870d46f` state. This assumes the tag
   > has not yet been externally distributed; if it has, cut a suffixed tag (e.g. `-v2`, per the repo's
   > `v1.4.2-post-external-audit-v3` precedent) instead of re-pointing a published ref.
+  >
+  > **Applied again for this refresh.** Confirmed not yet externally distributed, so the tag is re-pointed
+  > rather than suffixed. Its previous target, `703e368`, was the last commit on #333's *branch*, so the tag
+  > already carried #333's contract fix and the merge commit adds no content — moving it onto `main`'s
+  > first-parent line is what changes. Between `703e368` and the new target only
+  > `docs/Vulnerabilities_list_tokenomics.md` and one governance proposal script differ: **no `contracts/`
+  > file changes**, so the audited contract set is byte-identical either way and the move only buys the
+  > auditors a current known-issues list.
 
 - **Governance** — last external-audit tag → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/<last-audited-tag>...v1.3.0-pre-external-audit
@@ -73,7 +83,7 @@ The following needs to be audited:
 
 1. Dispenser.sol — 717 SLoC — delta: +211 / −90 (~301 lines changed)
 2. DispenserProxy.sol — 34 SLoC — new file (entire file new)
-3. LiquidityManagerCore.sol — 673 SLoC — delta: +244 / −95 (~335 lines changed; price-guard fail-closed, the deviation-gate tightening, and the source-side ratio cross-check that replaces the removeLiquidity TWAP oracle)
+3. LiquidityManagerCore.sol — 677 SLoC — delta: +279 / −95 (~374 lines changed; price-guard fail-closed, the deviation-gate tightening, the source-side ratio cross-check that replaces the removeLiquidity TWAP oracle, and the `collectFees` token-ordering alignment from #333)
 
 LiquidityManager refactor — the former `LiquidityManagerETH` / `LiquidityManagerOptimism` are removed and
 their bodies decomposed into composable source / target / burn mixins over `LiquidityManagerCore`, plus one
@@ -96,9 +106,9 @@ logic; its one remaining `WrongTokenAddresses` error moved into `LiquidityManage
 mixins now extend `LiquidityManagerCore` directly.)
 
 **Contracts Number: 12**
-**Total SLoC (full files): 1749** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 673, and the
+**Total SLoC (full files): 1753** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 677, and the
 LiquidityManager refactor 325 (mixins 230 + leaves 95). Changed-lines scope: ~301 in Dispenser, 34 new in
-DispenserProxy, ~335 in LiquidityManagerCore, and the 325-SLoC refactor (mostly extraction; ~95 SLoC of
+DispenserProxy, ~374 in LiquidityManagerCore, and the 325-SLoC refactor (mostly extraction; ~95 SLoC of
 genuinely new leaf/composition code across the four leaves).
 
 ### Scope of changes for Dispenser / DispenserProxy
