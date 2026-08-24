@@ -167,14 +167,30 @@ async function checkBytecode(provider, configContracts, contractName, log, idx =
             // Differing lengths mean the deployed instruction code differs from the artifact in the repo — the
             // strongest "wrong implementation deployed" signal — so flag the run to exit non-zero (see main()).
             //
-            // DELIBERATE STANDING-RED DECISION (2026-08, #322): this run is EXPECTED to exit(1) until the
-            // POL + Dispenser redeploys land. Several deployed implementations predate the in-repo code and
-            // will Tier-1-mismatch on purpose — e.g. mainnet LiquidityManagerUniV2UniV3 impl 0x0171D717…
-            // (on-chain 21,044 B vs artifact ~20,518 B; pre-#306), likewise the Optimism/Base LM impls and the
-            // proxied Dispenser. Each turns green as its implementation is redeployed and configuration.json is
-            // repointed. The red is intentional — a reminder the redeploy is outstanding — NOT an emergent bug
-            // to work around. If you would rather have green-until-genuinely-wrong, add an expected-mismatch
-            // allowlist here (contract+address entries deleted as each implementation is redeployed).
+            // STANDING RED, NARROWED (2026-08-24). The earlier note here read the whole red as
+            // "deployed implementations predate the in-repo code, pending the POL + Dispenser redeploys".
+            // That was true of some of it and not most of it. Of 23 Tier-1 failures, 14 were artifact
+            // regressions: docs/configuration.json holds several entries per contract NAME, abis/ holds
+            // one file per name, and successive "chore: updating ABIs" commits overwrote that one file
+            // for whichever deployment was newest. abis/0.8.30/OptimismDepositProcessorL1.json went
+            // 5361 B (1d6b3251, matching Optimism/Base/Mode) -> 4160 B (c4232bb7, regenerated for the
+            // Celo redeploy) -> 4185 B (2b822c44, matching nothing deployed), while four config entries
+            // pointed at it throughout. Each of those 14 was recoverable from this repo's own history and
+            // now lives under abis/deployed/, one artifact per deployment.
+            //
+            // configuration.json describes WHAT IS DEPLOYED. An artifact for code that is not deployed
+            // yet belongs beside it under its own name, not in the entry the auditor checks.
+            //
+            // What remains red is 9, and it is genuinely two things:
+            //   - LiquidityManagerUniV2UniV3 (mainnet) and LiquidityManagerBalancerSlipstream
+            //     (optimism, base): implementations that predate the in-repo code, pending redeploy.
+            //     This is the original standing-red case and it still holds.
+            //   - BuyBackBurnerProxy on 6 of 7 chains: NOT explained by a pending redeploy. The source
+            //     has not changed since 63706f7 (2025-02-10) and abis/ has only ever held one build
+            //     (277 B), yet the deployments are four distinct bytecodes - 266 B on mainnet, polygon,
+            //     arbitrum and optimism; 304 B on gnosis; 212 B on base; 277 B on celo, the only one
+            //     that matches. None uses the EIP-1967 implementation slot. This needs establishing
+            //     before it is written off as expected.
             if (onChainCode.length !== bytecode.length) {
                 console.log(tag + ", FAIL: bytecode length mismatch: artifact="
                     + Math.max(0, (bytecode.length - 2) / 2) + "B onchain="

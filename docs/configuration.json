@@ -45,40 +45,40 @@
       },
       {
         "name": "PolygonDepositProcessorL1",
-        "artifact": "abis/0.8.30/PolygonDepositProcessorL1.json",
+        "artifact": "abis/deployed/PolygonDepositProcessorL1.json",
         "address": "0x7EB5824Bb78e971284e2140059f8755B3d2BB525"
       },
       {
         "name": "GnosisDepositProcessorL1",
-        "artifact": "abis/0.8.30/GnosisDepositProcessorL1.json",
+        "artifact": "abis/deployed/GnosisDepositProcessorL1.json",
         "address": "0x48d4631f24dAce505c04D5A39458BED209e80A3c"
       },
       {
         "name": "ArbitrumDepositProcessorL1",
-        "artifact": "abis/0.8.30/ArbitrumDepositProcessorL1.json",
+        "artifact": "abis/deployed/ArbitrumDepositProcessorL1.json",
         "address": "0xFceFB015372e84FC465Cf2778889ee231a6E2e67"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.30/OptimismDepositProcessorL1.json",
+        "artifact": "abis/deployed/OptimismDepositProcessorL1.json",
         "address": "0x990aBa4b05adc3761EfAf38FB871b93C7b162D03",
         "network": "optimism"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.30/OptimismDepositProcessorL1.json",
+        "artifact": "abis/deployed/OptimismDepositProcessorL1.json",
         "address": "0x16d24D9A9c73133262d2Db83e1bB34FF7cB952Da",
         "network": "base"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.30/OptimismDepositProcessorL1.json",
+        "artifact": "abis/deployed/CeloDepositProcessorL1.json",
         "address": "0x85d4E442225E04bb7822a87366831F0b2720DA1b",
         "network": "celo"
       },
       {
         "name": "OptimismDepositProcessorL1",
-        "artifact": "abis/0.8.28/OptimismDepositProcessorL1.json",
+        "artifact": "abis/deployed/OptimismDepositProcessorL1.json",
         "address": "0x6A5F38aAdCc1c049E39D80147b64a9Ff947d208B",
         "network": "mode"
       },
@@ -120,7 +120,7 @@
     "contracts": [
       {
         "name": "PolygonTargetDispenserL2",
-        "artifact": "abis/0.8.30/PolygonTargetDispenserL2.json",
+        "artifact": "abis/deployed/PolygonTargetDispenserL2.json",
         "address": "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8"
       },
       {
@@ -151,7 +151,7 @@
     "contracts": [
       {
         "name": "GnosisTargetDispenserL2",
-        "artifact": "abis/0.8.30/GnosisTargetDispenserL2.json",
+        "artifact": "abis/0.8.25/GnosisTargetDispenserL2.json",
         "address": "0x5b6c538C7b2E0b44Fa8A3B7a0532EF797b07d0E9"
       },
       {
@@ -182,7 +182,7 @@
     "contracts": [
       {
         "name": "ArbitrumTargetDispenserL2",
-        "artifact": "abis/0.8.30/ArbitrumTargetDispenserL2.json",
+        "artifact": "abis/deployed/ArbitrumTargetDispenserL2.json",
         "address": "0x5953f21495BD9aF1D78e87bb42AcCAA55C1e896C"
       },
       {
@@ -213,7 +213,7 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
         "address": "0xaea9ef993d8a1A164397642648DF43F053d43D85"
       },
       {
@@ -259,7 +259,7 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
         "address": "0x9Ec97Be9FF55ff11606ce7c589956f7Bf3D0b241"
       },
       {
@@ -305,7 +305,7 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "artifact": "abis/deployed/CeloTargetDispenserL2.json",
         "address": "0x4891f5894634DcD6d11644fe8E56756EF2681582"
       },
       {
@@ -336,7 +336,7 @@
     "contracts": [
       {
         "name": "OptimismTargetDispenserL2",
-        "artifact": "abis/0.8.30/OptimismTargetDispenserL2.json",
+        "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
         "address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
       }
     ]
