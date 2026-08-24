@@ -136,10 +136,21 @@ async function checkOwner(chainId, contract, globalsInstance, log) {
 }
 
 // Check the bytecode
-async function checkBytecode(provider, configContracts, contractName, log) {
+// idx selects which entry to check when configuration.json holds more than one contract under the
+// same name — mirroring findContractInstance(). Without it every same-named entry resolved to the
+// first match, so e.g. the Optimism, Base, Celo and Mode L1 deposit processors (all four recorded as
+// "OptimismDepositProcessorL1") were all bytecode-checked against Optimism's address, and a
+// divergence on any of the other three could not be seen.
+async function checkBytecode(provider, configContracts, contractName, log, idx = 0) {
+    let numFound = 0;
     // Get the contract number from the set of configuration contracts
     for (let i = 0; i < configContracts.length; i++) {
         if (configContracts[i]["name"] === contractName) {
+            // Keep searching if the requested idx is not reached yet
+            if (numFound < idx) {
+                numFound++;
+                continue;
+            }
             // Get the contract instance
             const contractFromJSON = fs.readFileSync(configContracts[i]["artifact"], "utf8");
             const parsedFile = JSON.parse(contractFromJSON);
@@ -556,7 +567,7 @@ async function checkOptimismDepositProcessorL1(chainId, provider, globalsInstanc
 // Check BaseDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
-    await checkBytecode(provider, configContracts, contractName, log);
+    await checkBytecode(provider, configContracts, contractName, log, 1);
 
     // Get the contract instance
     const baseDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 1);
@@ -588,7 +599,7 @@ async function checkBaseDepositProcessorL1(chainId, provider, globalsInstance, c
 // Check CeloDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
-    await checkBytecode(provider, configContracts, contractName, log);
+    await checkBytecode(provider, configContracts, contractName, log, 2);
 
     // Get the contract instance
     const celoDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 2);
@@ -620,7 +631,7 @@ async function checkCeloDepositProcessorL1(chainId, provider, globalsInstance, c
 // Check ModeDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
 async function checkModeDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
-    await checkBytecode(provider, configContracts, contractName, log);
+    await checkBytecode(provider, configContracts, contractName, log, 3);
 
     // Get the contract instance
     const modeDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 3);
