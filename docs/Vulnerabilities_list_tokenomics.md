@@ -194,7 +194,20 @@ function _sendMessage(address[] memory targets, uint256[] memory stakingIncentiv
 
 This function forms required data to send tokens and messages to L2 in all the optimism deposit processor related contracts. A user-controlled gas limit is decoded as a uint256, which is later truncated to uint32 when passed to the CrossDomainMessenger. If a user supplies a payload with a value exceeding type(uint32).max, the truncation produces a much smaller gas limit than intended, bypassing the protocol's minimum gas check.
 
-Although this action does not result in loss of funds (which are sent separately), it could deliberately pass a smaller amount of gas such that a corresponding function on L2 reverts. This can then be corrected via the **processDataMaintenance()** function. In the absence of contract re-deployment, users are advised to pass a sufficient amount of gas, or just have it set to zero, such that the fallback value takes care of it.
+Although this action does not result in loss of funds (which are sent separately), it could deliberately pass a smaller amount of gas such that a corresponding function on L2 reverts. This can then be corrected via the **processDataMaintenance()** function, which is owner-restricted and therefore a governance action.
+
+**Where this applies.** The issue is fixed in source: the decoded value is now truncated to `uint32` *before* the minimum-gas comparison, so a payload above `type(uint32).max` can no longer slip past the check. The fix is not yet deployed everywhere, so the entry is live on some OP-stack pairs and resolved on others:
+
+| OP-stack pair | deposit processor / target dispenser deployed | affected |
+|---|---|---|
+| Optimism | 2025-07-14 | yes |
+| Base | 2025-07-14 | yes |
+| Mode | 2025-07-14 | yes |
+| Celo | 2026-01-29 | no — carries the fix |
+
+Both sides of a pair are deployed together, so a chain is uniformly one or the other. Note also that only the L1 deposit processor was ever exposed: `OptimismTargetDispenserL2` caps the value against its maximum *before* truncating, so the L2 direction is unaffected on every chain.
+
+On the affected pairs, and in the absence of contract re-deployment, users are advised to pass a sufficient amount of gas, or just have it set to zero, such that the fallback value takes care of it. On Celo that guidance is no longer necessary.
 
 ### 12. `calculateStakingIncentives` function (public state-mutating call bricks zero-weight epoch refund)
 
