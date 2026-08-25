@@ -274,7 +274,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxyV1.json",
         "address": "0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426"
       },
       {
