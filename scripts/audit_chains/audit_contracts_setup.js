@@ -167,30 +167,33 @@ async function checkBytecode(provider, configContracts, contractName, log, idx =
             // Differing lengths mean the deployed instruction code differs from the artifact in the repo — the
             // strongest "wrong implementation deployed" signal — so flag the run to exit non-zero (see main()).
             //
-            // STANDING RED, NARROWED (2026-08-24). The earlier note here read the whole red as
+            // STANDING RED, RESOLVED TO ONE ENTRY (2026-08-25). This note used to read the whole red as
             // "deployed implementations predate the in-repo code, pending the POL + Dispenser redeploys".
-            // That was true of some of it and not most of it. Of 23 Tier-1 failures, 14 were artifact
-            // regressions: docs/configuration.json holds several entries per contract NAME, abis/ holds
-            // one file per name, and successive "chore: updating ABIs" commits overwrote that one file
-            // for whichever deployment was newest. abis/0.8.30/OptimismDepositProcessorL1.json went
-            // 5361 B (1d6b3251, matching Optimism/Base/Mode) -> 4160 B (c4232bb7, regenerated for the
-            // Celo redeploy) -> 4185 B (2b822c44, matching nothing deployed), while four config entries
-            // pointed at it throughout. Each of those 14 was recoverable from this repo's own history and
-            // now lives under abis/deployed/, one artifact per deployment.
+            // Of 23 Tier-1 failures, 22 were artifact bookkeeping and 1 is a real divergence.
             //
-            // configuration.json describes WHAT IS DEPLOYED. An artifact for code that is not deployed
-            // yet belongs beside it under its own name, not in the entry the auditor checks.
+            // configuration.json describes WHAT IS DEPLOYED. abis/ held one file per contract NAME while
+            // several entries pointed at each, so every "chore: updating ABIs" regenerated that file for
+            // the newest deployment and broke the comparison for the rest. abis/deployed/ now holds one
+            // artifact per deployment. Three causes, all bookkeeping and none a wrong implementation:
+            //   - overwritten in place: the L1 deposit processors and L2 target dispensers. Recovered
+            //     from 1d6b3251 and c4232bb7.
+            //   - renamed out from under the config: f3ae356 renamed LiquidityManagerETH ->
+            //     LiquidityManagerUniV2UniV3 and LiquidityManagerOptimism -> ...BalancerSlipstream, and
+            //     the config followed the new names to newer builds. The artifacts matching 0x0171D717
+            //     and the two Slipstream deployments were sitting at 928491ca under the old names.
+            //   - built with settings the deployment did not use: BuyBackBurnerProxy. One source, never
+            //     changed since 63706f7, compiled four ways. viaIR at 200 runs gives 277 B (celo, and the
+            //     committed artifact); legacy codegen at low runs gives 266 B (mainnet, polygon, arbitrum,
+            //     optimism); legacy at 4000 runs, the abis/README convention, gives 304 B (gnosis).
             //
-            // What remains red is 9, and it is genuinely two things:
-            //   - LiquidityManagerUniV2UniV3 (mainnet) and LiquidityManagerBalancerSlipstream
-            //     (optimism, base): implementations that predate the in-repo code, pending redeploy.
-            //     This is the original standing-red case and it still holds.
-            //   - BuyBackBurnerProxy on 6 of 7 chains: NOT explained by a pending redeploy. The source
-            //     has not changed since 63706f7 (2025-02-10) and abis/ has only ever held one build
-            //     (277 B), yet the deployments are four distinct bytecodes - 266 B on mainnet, polygon,
-            //     arbitrum and optimism; 304 B on gnosis; 212 B on base; 277 B on celo, the only one
-            //     that matches. None uses the EIP-1967 implementation slot. This needs establishing
-            //     before it is written off as expected.
+            // WHAT IS LEFT, AND IT IS REAL: base BuyBackBurnerProxy 0x3FD8C757 is 212 B against a 249 B
+            // floor for this source - 72 combinations of solc 0.8.21/23/25/28/30, evm version, viaIR and
+            // optimizer settings do not reach it. It is a BuyBackBurnerProxy: it holds the right
+            // implementation in the keccak256("BUY_BACK_BURNER_PROXY") slot and delegatecalls. But it has
+            // no getImplementation() - the selector is absent from its code and the call reverts, while
+            // gnosis and celo both return their implementation. Base runs an earlier, leaner proxy that
+            // is not in this repo's history. Delegation is intact, so this is not urgent, but it is a
+            // divergence to decide on rather than to paper over, and it is left red on purpose.
             if (onChainCode.length !== bytecode.length) {
                 console.log(tag + ", FAIL: bytecode length mismatch: artifact="
                     + Math.max(0, (bytecode.length - 2) / 2) + "B onchain="
