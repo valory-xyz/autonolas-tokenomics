@@ -23,3 +23,10 @@ codegen at low runs (mainnet, polygon, arbitrum, optimism), and
 `deployed/BuyBackBurnerProxy-legacy-4000runs.json` is legacy at the 4000 passes this file used to
 prescribe (gnosis). Base is deliberately absent: its proxy is 212 B, below what this source can
 produce, and lacks `getImplementation()` entirely.
+
+`BuyBackBurnerProxyV1` is the earlier proxy revision, deployed only on Base. It differs from
+`BuyBackBurnerProxy` in one respect: it does not expose `getImplementation()`. The implementation is
+held in the same `keccak256("BUY_BACK_BURNER_PROXY")` slot and remains readable with
+`eth_getStorageAt`, but a call to `getImplementation()` falls through `fallback()` to the
+implementation and reverts. Its source is in `contracts/utils/` so the artifact stays reproducible;
+new deployments should use `BuyBackBurnerProxy`.
