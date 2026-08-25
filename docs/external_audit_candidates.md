@@ -51,6 +51,14 @@ externally-audited tag against the pre-external-audit snapshot of each repo:
   > file changes**, so the audited contract set is byte-identical either way and the move only buys the
   > auditors a current known-issues list.
 
+  > **Applied a third time (2026-08-25).** Confirmed again as not yet externally distributed, so both
+  > `v1.5.0-pre-external-audit` and governance's `v1.3.0-pre-external-audit` are re-pointed onto their
+  > current `main` HEADs rather than suffixed. Unlike the previous two moves this one **does change the
+  > audited contract set**: the range adds `contracts/utils/BuyBackBurnerProxyV1.sol` (item 13 above).
+  > Everything else in the range is `abis/`, `docs/configuration.json`, audit-script and
+  > vulnerabilities-list work — no other `contracts/` file differs. Governance's range is
+  > `contracts/`-clean, so its audited set is byte-identical either way.
+
 - **Governance** — `v1.2.5-post-external-audit` → `v1.3.0-pre-external-audit`:
   https://github.com/valory-xyz/autonolas-governance/compare/v1.2.5-post-external-audit...v1.3.0-pre-external-audit
   (the `VoteWeighting` per-contract diff is PR https://github.com/valory-xyz/autonolas-governance/pull/215).
@@ -121,16 +129,23 @@ the composition seams and the new leaf:
 10. LiquidityManagerBalancerSlipstream.sol — 24 SLoC — new file (leaf; replaces LiquidityManagerOptimism)
 11. LiquidityManagerBalancerUniV3.sol — 24 SLoC — new file (leaf; new Balancer V2 → Uniswap V3 combination)
 12. LiquidityManagerUniV2UniV3Bridge.sol — 24 SLoC — new file (leaf; Uniswap V2 → Uniswap V3 with L2 bridge burn, e.g. Ubeswap → Uniswap V3 on Celo)
+13. BuyBackBurnerProxyV1.sol — 34 SLoC — new file **to this repo**, but not new code: it is the earlier
+    revision of `BuyBackBurnerProxy` already deployed on Base at `0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426`,
+    carried in so that deployment has a reproducible artifact. It is identical to `BuyBackBurnerProxy`
+    except that it does not expose `getImplementation()`; the implementation is held in the same
+    `keccak256("BUY_BACK_BURNER_PROXY")` slot and delegation is unaffected. In scope because it is live
+    in production and was previously not represented in the repo at all. Not for new deployments.
 
 (The former `LiquidityManagerSourceBase.sol` was removed once the oracle / fair-min was dropped — it held no
 logic; its one remaining `WrongTokenAddresses` error moved into `LiquidityManagerCore` and the two source
 mixins now extend `LiquidityManagerCore` directly.)
 
-**Contracts Number: 12**
-**Total SLoC (full files): 1753** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 677, and the
-LiquidityManager refactor 325 (mixins 230 + leaves 95). Changed-lines scope: ~301 in Dispenser, 34 new in
-DispenserProxy, ~374 in LiquidityManagerCore, and the 325-SLoC refactor (mostly extraction; ~95 SLoC of
-genuinely new leaf/composition code across the four leaves).
+**Contracts Number: 13**
+**Total SLoC (full files): 1787** — Dispenser 717, DispenserProxy 34, LiquidityManagerCore 677, the
+LiquidityManager refactor 325 (mixins 230 + leaves 95), and BuyBackBurnerProxyV1 34. Changed-lines scope:
+~301 in Dispenser, 34 new in DispenserProxy, ~374 in LiquidityManagerCore, the 325-SLoC refactor (mostly
+extraction; ~95 SLoC of genuinely new leaf/composition code across the four leaves), and 34 in
+BuyBackBurnerProxyV1 — the last of which is already-deployed code being represented rather than changed.
 
 ### Scope of changes for Dispenser / DispenserProxy
 
