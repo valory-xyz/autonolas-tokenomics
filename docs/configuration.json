@@ -94,7 +94,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxy-legacy-lowruns.json",
         "address": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F"
       },
       {
@@ -104,7 +104,7 @@
       },
       {
         "name": "LiquidityManagerUniV2UniV3",
-        "artifact": "abis/0.8.30/LiquidityManagerUniV2UniV3.json",
+        "artifact": "abis/deployed/LiquidityManagerUniV2UniV3.json",
         "address": "0x0171D7178fbf3B48E75675DEE2EA3EfecEf775C1"
       },
       {
@@ -135,7 +135,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxy-legacy-lowruns.json",
         "address": "0x88943F63E29cd436B62cFfE332aD54De92AdCE98"
       },
       {
@@ -166,7 +166,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxy-legacy-4000runs.json",
         "address": "0x153196110040A0c729227C603Db3A6c6D91851B2"
       },
       {
@@ -197,7 +197,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxy-legacy-lowruns.json",
         "address": "0xd2ff4Cf0927c3cFbF3BB27391044dBaf6f4ca7b9"
       },
       {
@@ -228,7 +228,7 @@
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/BuyBackBurnerProxy-legacy-lowruns.json",
         "address": "0x4891f5894634DcD6d11644fe8E56756EF2681582"
       },
       {
@@ -243,7 +243,7 @@
       },
       {
         "name": "LiquidityManagerBalancerSlipstream",
-        "artifact": "abis/0.8.30/LiquidityManagerBalancerSlipstream.json",
+        "artifact": "abis/deployed/LiquidityManagerBalancerSlipstream.json",
         "address": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487"
       },
       {
@@ -289,7 +289,7 @@
       },
       {
         "name": "LiquidityManagerBalancerSlipstream",
-        "artifact": "abis/0.8.30/LiquidityManagerBalancerSlipstream.json",
+        "artifact": "abis/deployed/LiquidityManagerBalancerSlipstream.json",
         "address": "0x1D64516E7654F23dB7cE2ddaD00FFb3E765cf5ce"
       },
       {
