@@ -1,4 +1,24 @@
 #!/bin/bash
+#
+# Celo OLAS/CELO LP transfer and swap.
+#
+# PRE-FLIGHT — read the target pair's reserves before submitting, and again if this reverts.
+#
+# The target OLAS/WCELO pair is created lazily and anyone may create and seed it first. LPSwapCelo guards a
+# pre-existing pair whose reserves are *skewed*, by deriving minimum amounts from the TWAP-protected
+# removal — but a pair seeded on ONE SIDE ONLY is neither empty nor quotable, so the router reverts inside
+# UniswapV2Library.quote ("INSUFFICIENT_LIQUIDITY") before those minimums are ever consulted. The guard is
+# bypassed rather than triggered, which is why the revert looks unrelated to slippage.
+#
+# Nothing is lost when this happens: the transaction is atomic, so the source LP removal rolls back. But the
+# pair keeps its state, so every retry fails identically until it is repaired.
+#
+#   Check:  cast call <OLAS/WCELO pair> "getReserves()(uint112,uint112,uint32)" --rpc-url <celo>
+#   Repair: if exactly one reserve is zero, send dust of the missing token to the pair, call sync(), retry.
+#           Both are permissionless, so this needs no privileged key.
+#
+# See docs/Vulnerabilities_list_tokenomics.md entry 37.
+#
 
 red=$(tput setaf 1)
 green=$(tput setaf 2)
