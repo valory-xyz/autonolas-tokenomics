@@ -30,7 +30,7 @@
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
-  - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
+  - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
   - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
   - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
@@ -38,7 +38,10 @@
   - [32. Depository accepts a zero-payout bond and strands the collateral](#32-depository-accepts-a-zero-payout-bond-and-strands-the-collateral)
   - [33. DefaultDepositProcessorL1 refunds leftover native value to tx.origin](#33-defaultdepositprocessorl1-refunds-leftover-native-value-to-txorigin)
   - [34. Treasury pause does not stop Depository bond issuance](#34-treasury-pause-does-not-stop-depository-bond-issuance)
-  - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
+  - [35. `retain` advances its epoch cursor before computing the refund](#35-retain-advances-its-epoch-cursor-before-computing-the-refund)
+  - [36. Polygon `Bridge2Burner` releases root OLAS to an address that cannot forward it](#36-polygon-bridge2burner-releases-root-olas-to-an-address-that-cannot-forward-it)
+  - [37. One-sided target pair blocks the Celo LP migration](#37-one-sided-target-pair-blocks-the-celo-lp-migration)
+  - [38. An in-place implementation swap does not carry `_initialize`-only storage](#38-an-in-place-implementation-swap-does-not-carry-_initialize-only-storage)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -846,3 +849,114 @@ Treasury or Depository revision, add the pause check at the `depositTokenForOLAS
 covers the bonding path as well.
 
 Source code: [Treasury.sol](contracts/Treasury.sol)
+
+### 35. `retain` advances its epoch cursor before computing the refund
+
+**Severity**: Low
+**Source**: internal review
+
+`Dispenser.retain()` is permissionless and writes the retainer's epoch cursor **before** the loop that
+computes what to return:
+
+```solidity
+(firstClaimedEpoch, lastClaimedEpoch) = _getClaimedEpochCounters(retainerHash, maxNumClaimingEpochs);
+mapLastClaimedStakingEpochs[retainerHash] = lastClaimedEpoch;   // written first
+...
+for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+    (uint256 stakingWeight, ) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(retainer, ...);
+    totalReturnAmount += stakingPoint.stakingIncentive * stakingWeight;
+}
+if (totalReturnAmount > 0) { ITokenomics(tokenomics).refundFromStaking(totalReturnAmount); }
+```
+
+`VoteWeighting._nomineeRelativeWeight` leaves the weight at zero whenever `pointsSum[t].bias` is zero,
+**regardless of the nominee's own bias** — it is a division guard, not a statement that the retainer had no
+share — while the epoch's `stakingIncentive` is computed independently of vote weights and can be positive.
+An epoch in that state therefore contributes nothing, the refund is skipped when the total is zero, and the
+epochs are still marked consumed, so their allocation can never be retained again.
+
+**Related.** Item 30 is the same shape on `claimStakingIncentives`; this is the `retain()` side.
+
+Likelihood is low — it needs a zero aggregate, which is a dormancy condition rather than an ordinary one —
+but the loss is permanent, which is what makes it worth closing rather than tolerating.
+
+**Mitigation.** Advance the cursor only over epochs actually processed: either move the
+`mapLastClaimedStakingEpochs` write after the loop, or skip the advance for any epoch whose aggregate is
+unavailable. The information needed is already returned and currently discarded — `nomineeRelativeWeight`'s
+second return value is `totalSum`, which distinguishes "the retainer legitimately had no share" from "the
+aggregate was unavailable".
+
+### 36. Polygon `Bridge2Burner` releases root OLAS to an address that cannot forward it
+
+**Severity**: Low
+**Source**: internal review
+
+The Polygon burn path forwards OLAS to the `FxGovernorTunnel`, and a tunnel-driven `withdraw(uint256)`
+releases the root tokens on L1 to the **same numeric address**. That address is occupied by different
+contracts on the two chains: on Polygon it is the tunnel; on Ethereum it is a `DeploymentFactory`, whose
+only functions are ownership transfer, the `deploy*` helpers and the `compute*` views. It has no ERC-20
+transfer, sweep or rescue of any kind, so tokens arriving there are permanently held.
+
+The collision is not accidental — the same deployer at aligned nonces produced this address on several
+chains — and that is exactly what makes it a silent trap: the address exists and accepts tokens on both
+chains, so nothing reverts.
+
+Nothing has been released down this path and the address holds no OLAS today.
+
+**Mitigation.** The L1 recipient is inherited from the tunnel's own address rather than configured, so there
+is no setter to correct. Until a revision pins the recipient explicitly — to the burner or a
+Timelock-controlled address — the tunnel-driven `withdraw` on this route should not be used, since anything
+released is unrecoverable. More generally, any bridge path that derives an L1 recipient from an L2 contract
+address is exposed to the same reuse.
+
+### 37. One-sided target pair blocks the Celo LP migration
+
+**Severity**: Low
+**Source**: internal review
+
+`LPSwapCelo._addLiquidity` reasons explicitly about a pre-existing target pair whose reserves have been
+skewed, and guards it by deriving `olasMin` / `celoMin` from the TWAP-protected removal amounts. That guard
+is sound for a two-sided pair.
+
+It does not cover a **one-sided** one. The router branches on reserves: if both are zero it uses the desired
+amounts, otherwise it calls `UniswapV2Library.quote`, which requires `reserveA > 0 && reserveB > 0`. A pair
+pre-created and seeded on one side only, then `sync()`ed, is neither both-zero nor quotable — so the call
+reverts inside the library **before** the slippage minimums are ever consulted. The guard is bypassed rather
+than triggered, which is why the existing reasoning does not catch it.
+
+Creating and seeding the pair is permissionless, and the migration has no target-pair pin, reserve check or
+rescue path.
+
+**No funds are at risk**: the transaction is atomic, so the source LP removal rolls back. But the poisoned
+pair persists, so every retry fails identically until it is repaired — and the repair is also permissionless.
+
+**Mitigation.** Operationally, if the migration reverts, read the target pair's reserves before retrying: if
+exactly one side is zero, donate dust to the empty side, call `sync()`, and retry. The revert surfaces from
+inside `UniswapV2Library.quote` as `INSUFFICIENT_LIQUIDITY`, which is opaque if unexpected, so this belongs
+in the migration runbook. On a future revision, branching on the reserve state and repairing a one-sided
+pair inline would remove the griefing entirely.
+
+### 38. An in-place implementation swap does not carry `_initialize`-only storage
+
+**Severity**: Informative
+**Source**: internal review
+
+Item 20 notes that the storage maps survive a `changeImplementation` upgrade, which is true. Fields written
+**only** in `_initialize` do not, and that distinction is easy to lose.
+
+`BuyBackBurnerUniswap` declares the Uniswap V2 `router` and assigns it in `_initialize`
+(`router = accounts[3]`). Because `changeImplementation` swaps the implementation without re-running
+initialization, an upgrade that changes the storage layout leaves the previous value stranded at its old
+slot while the current getter reads the new one, which was never written. On the Ethereum deployment this is
+observable: the V2 router address sits at the pre-upgrade slot and `router()` returns the zero address.
+
+In practice this is inert. The V2 path is only entered for a `secondToken` present in `mapV2Oracles`, which
+is owner-configured, and per item 27 the swap paths are retained as compatibility surface rather than used
+in default operation — so an unset `router` is not currently reachable.
+
+**Mitigation.** No action needed while nothing is configured for the V2 path. The point worth carrying is
+the converse: re-enabling a V2 token on such a deployment would require a redeploy, not just configuration,
+because `router` has no setter and `_initialize` is its only writer. When an upgrade changes the storage
+layout, treat `_initialize`-only fields as needing an explicit migration rather than assuming storage
+survives.
+
