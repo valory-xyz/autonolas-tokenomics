@@ -30,7 +30,7 @@
   - [24. Tokenomics M-09 effectiveBond saturating subtraction at year boundaries](#24-tokenomics-m-09-effectivebond-saturating-subtraction-at-year-boundaries)
   - [25. Dispenser mapRemovedNomineeEpochs not cleared on addNominee (two-contract invariant coupling)](#25-dispenser-mapremovednomineeepochs-not-cleared-on-addnominee-two-contract-invariant-coupling)
   - [26. LiquidityManagerCore.checkPoolAndGetCenterPrice fail-open on stale-observation / inactive pools](#26-liquiditymanagercorecheckpoolandgetcenterprice-fail-open-on-stale-observation--inactive-pools)
-  - [27. BuyBackBurner buyBack unused in default operation](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
+  - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
   - [28. LiquidityManagerCore.collectFees misroutes fees when the tokens array order differs from the position (every contract inheriting LiquidityManagerCore)](#28-liquiditymanagercorecollectfees-misroutes-fees-when-the-tokens-array-order-differs-from-the-position)
   - [29. numNewOwners is attributable via permissionless unit creation, contributing to IDF](#29-numnewowners-is-attributable-via-permissionless-unit-creation-contributing-to-idf)
   - [30. claimStakingIncentives skips a stakingFraction == 0 epoch carrying a positive staking incentive](#30-claimstakingincentives-skips-a-stakingfraction--0-epoch-carrying-a-positive-staking-incentive)
@@ -42,7 +42,6 @@
   - [36. Polygon `Bridge2Burner` releases root OLAS to an address that cannot forward it](#36-polygon-bridge2burner-releases-root-olas-to-an-address-that-cannot-forward-it)
   - [37. One-sided target pair blocks the Celo LP migration](#37-one-sided-target-pair-blocks-the-celo-lp-migration)
   - [38. An in-place implementation swap does not carry `_initialize`-only storage](#38-an-in-place-implementation-swap-does-not-carry-_initialize-only-storage)
-  - [27. BuyBackBurner buyBack unused in default operation — swap paths retained as compatibility surface](#27-buybackburner-buyback-unused-in-default-operation--swap-paths-retained-as-compatibility-surface)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
