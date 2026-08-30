@@ -16,6 +16,14 @@ The Depository and Treasury contracts are inspired by OlympusDAO concepts. The T
 for component and agent owners, the logic that regulates the discount factor for bonds, and Olas staking emissions.
 The Tokenomics contract is deployed via the proxy contract, such that it is possible to update the current Tokenomics implementation.
 
+Note that by default the contracts do not work with:
+- Fee on transfer tokens;
+- Balance changes outside token transfers.
+
+This applies in particular to the Treasury reserve ledger, which tracks protocol-owned liquidity: bond
+deposits are booked at their nominal amount on the assumption that governance enables only LP tokens with
+standard `UniswapV2ERC20` transfer semantics.
+
 - Core contracts:
   - [Depository](contracts/Depository.sol)
   - [Dispenser](contracts/Dispenser.sol)
