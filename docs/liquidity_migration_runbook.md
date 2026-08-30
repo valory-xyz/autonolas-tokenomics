@@ -204,6 +204,26 @@ no one can race the `initialize()` and set a wrong price. On ETH do it in a priv
 create/init/pre-seed is done by a native-L2 actor during prep, where OP-stack's absence of a public
 mempool already makes it effectively private.
 
+### 3.4 Celo OLAS/WCELO — one-sided target pair blocks the swap
+
+Same family as §3.3, on the Celo V2-style swap (`LPSwapCelo`) rather than a V3 pool. The target pair is
+created lazily, and anyone may create and seed it first.
+
+`LPSwapCelo` already guards a pre-existing pair whose reserves are **skewed**, by deriving minimum amounts
+from the TWAP-protected removal. It does not cover a pair seeded on **one side only**: the router branches
+on reserves, and a `(X, 0)` pair is neither the both-zero case nor quotable, so `UniswapV2Library.quote`
+reverts `INSUFFICIENT_LIQUIDITY` **before** the minimums are consulted. The guard is bypassed rather than
+triggered, which is why the revert reads as unrelated to slippage.
+
+**No funds are at risk** — the transaction is atomic, so the source LP removal rolls back. But the pair
+keeps its state, so retries fail identically until it is repaired.
+
+- **Before submitting, and again on any revert:** read the target pair's reserves.
+- **If exactly one reserve is zero:** send dust of the missing token to the pair, call `sync()`, retry.
+  Both steps are permissionless — no privileged key and no governance action needed.
+
+---
+
 ---
 
 ## 4. Source oracle warm-up — no longer applicable
