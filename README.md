@@ -1,5 +1,8 @@
 # Autonolas Tokenomics
 
+## Bounty Program
+:mega::satellite::boom: The Autonolas bounty program and its details are available [here](https://immunefi.com/bounty/autonolas/).
+
 ## Introduction
 
 This repository contains the tokenomics part of Autonolas onchain-protocol contracts.
@@ -28,13 +31,13 @@ standard `UniswapV2ERC20` transfer semantics.
   - [Depository](contracts/Depository.sol)
   - [Dispenser](contracts/Dispenser.sol)
   - [Tokenomics](contracts/Tokenomics.sol)
-  - [TokenomicsProxy](contracts/TokenomicsProxy.sol)
+  - [TokenomicsProxy](contracts/proxies/TokenomicsProxy.sol)
   - [Treasury](contracts/Treasury.sol)
 
 - Staking related contracts:
   - [DefaultDepositProcessorL1](contracts/staking/DefaultDepositProcessorL1.sol)
   - [DefaultTargetDispenserL2](contracts/staking/DefaultTargetDispenserL2.sol)
-  - [EthereumDepositProcessor.sol](contracts/staking/EthereumDepositProcessor.sol.sol)
+  - [EthereumDepositProcessor.sol](contracts/staking/EthereumDepositProcessor.sol)
   - [ArbitrumDepositProcessorL1](contracts/staking/ArbitrumDepositProcessorL1.sol)
   - [ArbitrumTargetDispenserL2](contracts/staking/ArbitrumTargetDispenserL2.sol)
   - [GnosisDepositProcessorL1](contracts/staking/GnosisDepositProcessorL1.sol)
@@ -101,7 +104,7 @@ forge test --mc Depository -vvv
 forge test --mc Dispenser -vvv
 forge test --mc Treasury -vvv
 
-# Oracle unit tests
+### Oracle unit tests
 forge test --mc UniswapPriceOracleConstructorTest -vvv
 forge test --mc UniswapPriceOracleGetPriceTest -vvv
 forge test --mc UniswapPriceOracleUpdatePriceTest -vvv
@@ -111,33 +114,33 @@ forge test --mc BalancerPriceOracleGetPriceTest -vvv
 forge test --mc BalancerPriceOracleUpdatePriceTest -vvv
 forge test --mc BalancerPriceOracleGetTWAPTest -vvv
 
-# LPSwapCelo unit tests
+### LPSwapCelo unit tests
 forge test --mc LPSwapCeloConstructorTest -vvv
 forge test --mc LPSwapCeloSwapTest -vvv
 forge test --mc LPSwapCeloSlippageTest -vvv
 ```
 Run fork tests with Forge (require RPC node URL for the target chain):
 ```
-# Fork tests (ETH mainnet)
+### Fork tests (ETH mainnet)
 forge test -f $FORK_ETH_NODE_URL --mc LiquidityManagerETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc UniswapPriceOracleETH -vvv
 forge test -f $FORK_ETH_NODE_URL --mc BuyBackBurnerUniswapETH -vvv
 
-# Fork tests (Base)
+### Fork tests (Base)
 forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
 
-# Fork tests (Polygon)
+### Fork tests (Polygon)
 forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv
 
-# Fork tests (Arbitrum)
+### Fork tests (Arbitrum)
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv
 
-# Fork tests (Optimism)
+### Fork tests (Optimism)
 forge test -f $FORK_OPTIMISM_NODE_URL --mc BuyBackBurnerTransferV3Optimism -vvv
 
-# Fork tests (Celo)
+### Fork tests (Celo)
 forge test -f https://forno.celo.org --mc LPSwapCeloForkTest -vvv
 ```
 
