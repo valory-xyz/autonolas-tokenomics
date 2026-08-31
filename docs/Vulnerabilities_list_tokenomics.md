@@ -42,6 +42,8 @@
   - [36. Polygon `Bridge2Burner` releases root OLAS to an address that cannot forward it](#36-polygon-bridge2burner-releases-root-olas-to-an-address-that-cannot-forward-it)
   - [37. One-sided target pair blocks the Celo LP migration](#37-one-sided-target-pair-blocks-the-celo-lp-migration)
   - [38. An in-place implementation swap does not carry `_initialize`-only storage](#38-an-in-place-implementation-swap-does-not-carry-_initialize-only-storage)
+  - [39. A retired L2 target dispenser cannot forward or release a late arrival](#39-a-retired-l2-target-dispenser-cannot-forward-or-release-a-late-arrival)
+  - [40. L1 claim state advances before an Arbitrum retryable is known to be redeemable](#40-l1-claim-state-advances-before-an-arbitrum-retryable-is-known-to-be-redeemable)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -960,3 +962,66 @@ because `router` has no setter and `_initialize` is its only writer. When an upg
 layout, treat `_initialize`-only fields as needing an explicit migration rather than assuming storage
 survives.
 
+### 39. A retired L2 target dispenser cannot forward or release a late arrival
+
+**Severity**: Low
+**Source**: internal review
+
+`DefaultTargetDispenserL2.migrate()` sweeps the OLAS balance to the new dispenser and then closes the old
+one permanently:
+
+```solidity
+// Zero the owner
+owner = address(0);
+...
+// _locked is now set to 2 for good
+```
+
+Both statements are terminal. With `owner` zeroed every owner-gated path is unreachable, and with `_locked`
+left at `2` every reentrancy-guarded path is unreachable. The contract's own closing comment records the
+intent.
+
+A staking claim sends a token leg and a message leg to the L2 dispenser, and the two settle independently.
+If `migrate()` runs before an already-dispatched token leg arrives, that ERC20 credit lands on an address
+with no code path able to move it: there is no forwarding function and no rescue. The amount is
+unrecoverable rather than merely stuck.
+
+`migrate()` does require the contract to be paused first, which is the intended settle-then-migrate
+procedure — but pausing stops new dispatches, not a transfer already in flight across the bridge. Nobody can
+cause this deliberately; the trigger is the migration's own timing, which is why it is recorded as an
+operational property rather than an attack.
+
+**Mitigation.** Retain a minimal forwarding path on the retired dispenser — either leave `owner` set to the
+new dispenser instead of zeroing it, or add a `rescue(address token)` callable by it — so a late arrival can
+be swept rather than stranded. Operationally, migrate only after confirming that no dispatched token leg is
+still in flight for that chain, and treat the pause as the start of that wait rather than its end.
+
+### 40. L1 claim state advances before an Arbitrum retryable is known to be redeemable
+
+**Severity**: Informative
+**Source**: internal review
+
+`ArbitrumDepositProcessorL1` enforces a fee floor of exactly two wei on the gas price bid:
+
+```solidity
+if (params.gasPriceBid < 2 || params.maxSubmissionCostMessage == 0) {
+    revert ZeroValue();
+}
+```
+
+A bid of `2` therefore passes. A reserve-covered `Dispenser.claimStakingIncentives` call advances the L1
+bookkeeping — including consuming the withheld amount — and enqueues the retryable at that boundary value.
+If the bid is not executable on the target network, automatic redemption can be delayed past the ticket's
+lifetime and the message expires while the L1 side already treats the claim as settled.
+
+The bid is supplied by the claimant, so a low bid mainly harms that claimant's own message. The part that is
+not the claimant's to control is the ordering: the protocol advances claim state before it knows the
+delivery is executable, which is a property of the state machine rather than of any one caller's input.
+
+Any fixed floor has the same weakness — a value that is executable today may not be later — so raising the
+constant is not a durable answer.
+
+**Mitigation.** Prefer treating the claim as settled only once delivery is known to be redeemable, or make
+manual redemption and replay a documented first-class step rather than a recovery path. Claimants should
+supply a gas price bid derived from current Arbitrum conditions rather than the minimum the contract
+accepts.
