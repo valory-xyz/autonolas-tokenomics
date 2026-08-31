@@ -155,7 +155,7 @@ The following function is implemented in the Dispenser contract:
 function changeManagers(address _tokenomics, address _treasury, address _voteWeighting) external
 ```
 
-The purpose of this function is to change core tokenomics contract addresses. However, when the Vote Weighting contract address is changed, if not all the staking incentives are claimed, those can be lost. The idea is to force claim all the staking incentives before the voteWeighting is updated. More details [here](docs/deployment_v1.2.md).
+The purpose of this function is to change core tokenomics contract addresses. However, when the Vote Weighting contract address is changed, if not all the staking incentives are claimed, those can be lost. The idea is to force claim all the staking incentives before the voteWeighting is updated. More details [here](../docs/deployment_v1.2.md).
 
 ### 9. `claimStakingIncentives` / `_calculateStakingIncentivesBatch` functions
 
@@ -229,7 +229,7 @@ The function is public and state-mutating. During iteration, if totalWeightSum =
 
 In order not to re-deploy the contract, the protocol just needs to delegate a minimal (0.01%) vote for a specific staking contract, such that the totalWeight is never zero.
 
-Source code: [Dispenser.sol](contracts/Dispenser.sol)
+Source code: [Dispenser.sol](../contracts/Dispenser.sol)
 
 ### 13. `updateInflationPerSecondAndFractions` function (effectiveBond reset)
 
@@ -246,7 +246,7 @@ This owner-only function resets `effectiveBond` to just `curMaxBond` (the curren
 
 This is not externally exploitable: the function is restricted to the contract owner (Timelock = DAO governance). The reset direction is conservative -- it under-counts available bond capacity, never over-counts -- so no OLAS can be over-minted. The DAO must ensure that all bonding products are closed before calling `updateInflationPerSecondAndFractions()`, so that no outstanding product supply exceeds the reset effectiveBond. The effectiveBond rebuilds naturally through subsequent `checkpoint()` calls.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 ### 14. BalancerPriceOracle.updatePrice flash-loan steerability within `minUpdateInterval`
 
@@ -264,7 +264,7 @@ Residual risk: within any single `minUpdateInterval`, a well-timed flash-loan mo
 
 Mitigation plan: off-chain monitoring of `ObservationUpdated` events against moving-average sanity bands, alert + pause on deviation beyond the configured `maxSlippage`. Escalates to High if `updatePrice` ever becomes permissionlessly callable with a tighter cadence, or if `buyBack` volumes scale to the point where flash-loan damage per window crosses a material threshold.
 
-Source code: [BalancerPriceOracle.sol](contracts/oracles/BalancerPriceOracle.sol)
+Source code: [BalancerPriceOracle.sol](../contracts/oracles/BalancerPriceOracle.sol)
 
 ### 15. `LiquidityManagerCore.convertToV3` front-run via permissionless `collectFees`
 
@@ -282,7 +282,7 @@ function collectFees(address[] memory tokens, int24 feeTierOrTickSpacing) extern
 
 Exposure: owner-gated conversion flow + permissionless fee collection. The realized risk is low when the operator avoids the "bare direct transfer → convertToV3" pattern; staging OLAS inside the same tx that calls `convertToV3` defuses the race. Document in the admin playbook; the preferred architectural fix (atomic transfer-and-convert path, or a conversion-in-flight flag that skips `collectFees` OLAS burn) is out of scope for internal audit 15's low bundle.
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+Source code: [LiquidityManagerCore.sol](../contracts/pol/LiquidityManagerCore.sol)
 
 ### 16. LiquidityManagerCore slippage derived from spot-derived amounts in `_increaseLiquidity` / `_decreaseLiquidity`
 
@@ -300,7 +300,7 @@ Both helpers compute `amountsMin[i] = amounts[i] * (MAX_BPS - maxSlippage) / MAX
 
 Exposure: admin-only surface (`onlyOwner` via `convertToV3` / `changeRanges` / `increaseLiquidity` / `decreaseLiquidity`). The realized risk is low in normal DAO-paced operations, but increases the MEV window on owner-initiated liquidity operations. The architectural fix — use the TWAP-derived center price as the anchor for `amountsMin`, then apply `maxSlippage` — is out of scope for internal audit 15's low bundle.
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+Source code: [LiquidityManagerCore.sol](../contracts/pol/LiquidityManagerCore.sol)
 
 ### 17. `changeRegistries` can lock pending user incentives
 
@@ -317,7 +317,7 @@ function changeRegistries(address _componentRegistry, address _agentRegistry, ad
 
 **Disposition:** not planned. The function is owner-gated (Timelock / DAO governance), and the operational workflow is to ensure all outstanding incentives have been claimed before registries are rotated. A migration-preserving implementation is out of scope for this cycle — documented here so the DAO operations playbook tracks it.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 ### 18. `_trackServiceDonations` precision loss via integer division
 
@@ -340,7 +340,7 @@ When `amounts[i] % numServiceUnits != 0`, the remainder is truncated. Aggregated
 
 **Disposition:** not planned. The loss per event is bounded by `numServiceUnits − 1` wei (single-digit wei for realistic service sizes), does not accumulate into any exploitable protocol state, and the distribution codepath is on the fading-out Tokenomics donation surface. Documented for completeness; no code change.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 ### 19. `checkpoint` permanently unusable after `MAX_EPOCH_LENGTH` without a call
 
@@ -357,7 +357,7 @@ If `checkpoint()` is not called for a duration that exceeds `MAX_EPOCH_LENGTH` f
 
 **Disposition:** not planned for this audit cycle — the code path is entangled with enough of the `checkpoint()` accounting that landing a surgical fix here without broader refactor risk was deemed not worth the effort. Operationally mitigated by: (a) the DAO's existing keeper cadence, which calls `checkpoint()` well within `MAX_EPOCH_LENGTH`; (b) monitoring alerts on missed checkpoint windows. Documented so a future Tokenomics refactor that opens this code path can bundle the fix.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 ---
 
@@ -379,8 +379,8 @@ The V2 path (`buyBack(address, uint256, uint256)`) and admin setters (`setV2Orac
 
 **To enable V3 on a chain that initially deployed without it:** deploy a new `BuyBackBurnerUniswap` / `BuyBackBurnerBalancer` implementation with non-zero `_liquidityManager` and `_swapRouter`, then call `changeImplementation` on the proxy. Immutables are encoded in bytecode, so the new impl swap atomically enables the V3 path. Storage maps `mapV3Pools` and `mapTokenMaxSlippages` survive the upgrade.
 
-Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
-Tests: [BuyBackBurnerV3Disabled.t.sol](test/BuyBackBurnerV3Disabled.t.sol) — 19 unit tests covering constructor relaxation, all four guarded surfaces, and V2/admin sanity.
+Source code: [BuyBackBurner.sol](../contracts/utils/BuyBackBurner.sol)
+Tests: [BuyBackBurnerV3Disabled.t.sol](../test/BuyBackBurnerV3Disabled.t.sol) — 19 unit tests covering constructor relaxation, all four guarded surfaces, and V2/admin sanity.
 
 ---
 
@@ -399,7 +399,7 @@ The boolean return value is not checked. A non-standard ERC20 implementation tha
 
 **Disposition:** not planned. The token argument here is the canonical OLAS contract — a standard revert-on-failure ERC20 with no path that returns `false` from `transfer`. The risk is theoretical, not realistic. A future refactor to use `SafeTransferLib.safeTransfer` would normalize the call style across the codebase; documented for completeness.
 
-Source code: [Depository.sol](contracts/Depository.sol)
+Source code: [Depository.sol](../contracts/Depository.sol)
 
 ---
 
@@ -420,7 +420,7 @@ If `OLAS_BURNER` (the L1 receiver) were ever upgraded to a contract whose receiv
 
 **Disposition:** not planned. The current `OLAS_BURNER` L1 receive footprint is well under 300 K and there is no roadmap that would push it higher. Failed L1 messages are not value-loss events: they can be replayed with more gas through the standard Optimism bridge replay mechanism. Documented as the explicit assumption "OLAS_BURNER L1 receive < 300 K gas". A setter would only be revisited if `OLAS_BURNER` is ever materially refactored.
 
-Source code: [Bridge2BurnerOptimism.sol](contracts/utils/Bridge2BurnerOptimism.sol)
+Source code: [Bridge2BurnerOptimism.sol](../contracts/utils/Bridge2BurnerOptimism.sol)
 
 ---
 
@@ -433,7 +433,7 @@ After the L-06 reshape, both `mapV2Oracles[token]` and `mapV3Pools[token]` can b
 
 **Disposition:** not planned for code. Both setters are owner-only and the security gate is symmetric. The footgun is operational only — a stale V2 oracle entry can mislead an off-chain reader of `mapV2Oracles` into thinking V2 is the active path when V3 has taken over. Operational runbook: when migrating an existing V2-oracle token to V3, explicitly call `setV2Oracles(token, address(0))` before `setV3Pools(token, pool)` to keep on-chain state matching off-chain intent.
 
-Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+Source code: [BuyBackBurner.sol](../contracts/utils/BuyBackBurner.sol)
 
 ---
 
@@ -452,7 +452,7 @@ When `overCredited > effectiveBond` — i.e., users have already bonded against 
 
 **Disposition:** intentional. The alternative — carry-forward residual debt that suppresses future epochs' bond capacity — would penalize future periods for past inflation transitions and require a perpetual bookkeeping field to track the unwind. The exposure window is bounded to year-boundary downward-inflation transitions: **Y2 → Y3** (already past at 2025-06-30; phantom capacity already realized on the live `0xc096…ce300` proxy under the pre-fix code) and **Y9 → Y10** (still ahead — protected by the fix once the redeploy lands). Realized impact at each boundary is small — a one-time minor over-issuance bounded by the difference between old- and new-inflation rates over the transition epoch — and not exploitable for ongoing extraction.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 ---
 
@@ -478,7 +478,7 @@ The path is unreachable on the deployed system because the safety invariant live
 - A future Dispenser variant (e.g., for a new chain or a refactor) must either (a) clear `mapRemovedNomineeEpochs[nomineeHash]` inside `addNominee`, or (b) explicitly assume the upstream VoteWeighting guarantees "remove is final" and document the assumption.
 - Failure mode is a hard revert, not a silent zero-claim — funds accrued under the first lifecycle remain accessible via the original claim window and cannot be silently stranded.
 
-Source code: [Dispenser.sol](contracts/Dispenser.sol)
+Source code: [Dispenser.sol](../contracts/Dispenser.sol)
 
 ---
 
@@ -526,7 +526,7 @@ Step (2) closes item **#15** (`collectFees` burn-all) and the entry side of item
 
 **Interim operational mitigation.** As with the fresh-pool case, before submitting any owner-initiated `convertToV3` / `increaseLiquidity` / `changeRanges` transaction the DAO confirms the pool exposes a working 30-minute TWAP and a recent trade (the migration-runbook pre-flight generalises to any subsequent owner-initiated liquidity op on the same pool).
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol)
+Source code: [LiquidityManagerCore.sol](../contracts/pol/LiquidityManagerCore.sol)
 
 ### 27. BuyBackBurner `buyBack` unused in default operation — swap paths retained as compatibility surface
 
@@ -549,7 +549,7 @@ The item #14 class — `BalancerPriceOracle` single-block flash-loan steerabilit
 
 **Posture (no code change).** Item #14 remains "Acknowledged — no code change; track via monitoring"; item #27 records the complementary operating decision that keeps the item #14 class unreachable in practice: do not populate `mapV2Oracles` on any Balancer-path proxy, and do not populate `mapV3Pools` unless and until a specific Uniswap V3 pool has been selected against the depth / TWAP-window criteria above and the V3 `_buyOLAS` path has been separately reviewed for that pool. Off-chain monitoring of `OraclesUpdated` (from `setV2Oracles`) and the equivalent V3 setter event catches any drift from this posture at governance-proposal time.
 
-Source code: [BuyBackBurner.sol](contracts/utils/BuyBackBurner.sol)
+Source code: [BuyBackBurner.sol](../contracts/utils/BuyBackBurner.sol)
 
 ### 28. `LiquidityManagerCore.collectFees` misroutes fees when the `tokens` array order differs from the position
 
@@ -636,9 +636,9 @@ Until then the operational mitigation is the one item #15 already prescribes, an
 exposure to zero as well: **do not leave staged balances on the manager between transactions** — stage
 inside the same transaction that consumes them.
 
-Source code: [LiquidityManagerCore.sol](contracts/pol/LiquidityManagerCore.sol) — the abstract base
+Source code: [LiquidityManagerCore.sol](../contracts/pol/LiquidityManagerCore.sol) — the abstract base
 where `collectFees()` is defined, and through it every concrete manager under
-[contracts/pol](contracts/pol) that inherits it.
+[contracts/pol](../contracts/pol) that inherits it.
 
 
 ### 29. `numNewOwners` is attributable via permissionless unit creation, contributing to IDF
@@ -697,7 +697,7 @@ developer identity for third-party unit minting (owner-signed, replay-protected)
 `numNewOwners` from an authenticated creator identity rather than raw current `ownerOf`, so ERC-721 owner
 choice does not by itself drive IDF. No change to the live contracts is required.
 
-Source code: [Tokenomics.sol](contracts/Tokenomics.sol)
+Source code: [Tokenomics.sol](../contracts/Tokenomics.sol)
 
 
 ### 30. `claimStakingIncentives` skips a `stakingFraction == 0` epoch carrying a positive staking incentive
@@ -732,7 +732,7 @@ forward — settle or drain pending staking claims before disabling staking. On 
 handle a positive carried incentive before the `stakingFraction == 0` skip: return the whole amount to
 inflation and mark the epoch before advancing the cursor.
 
-Source code: [Dispenser.sol](contracts/Dispenser.sol)
+Source code: [Dispenser.sol](../contracts/Dispenser.sol)
 
 ### 31. Dispenser retains caller-supplied bridge value for zero-output staking claims
 
@@ -760,7 +760,7 @@ only the caller's own over-provided value is retained.
 incentive) when a claim yields no staking incentive. On a future Dispenser redeploy, refund any unused
 `msg.value` / `valueAmounts[i]` to the caller when no distribution occurs.
 
-Source code: [Dispenser.sol](contracts/Dispenser.sol)
+Source code: [Dispenser.sol](../contracts/Dispenser.sol)
 
 ### 32. Depository accepts a zero-payout bond and strands the collateral
 
@@ -783,7 +783,7 @@ other user, and no protocol accounting invariant, is affected, and there is no a
 add a positive-payout invariant (`if (payout == 0) revert`) before recording the bond and transferring
 collateral.
 
-Source code: [Depository.sol](contracts/Depository.sol)
+Source code: [Depository.sol](../contracts/Depository.sol)
 
 ### 33. `DefaultDepositProcessorL1` refunds leftover native value to `tx.origin`
 
@@ -808,7 +808,7 @@ change, or route the call through an EOA that is the intended recipient of any r
 at risk in either case: the value is refunded, only to a different address than a contract caller might
 assume.
 
-Source code: [DefaultDepositProcessorL1.sol](contracts/staking/DefaultDepositProcessorL1.sol)
+Source code: [DefaultDepositProcessorL1.sol](../contracts/staking/DefaultDepositProcessorL1.sol)
 
 ### 34. Treasury pause does not stop Depository bond issuance
 
@@ -850,7 +850,7 @@ run out) rather than relying on `Treasury.pause()`; pausing the Treasury alone i
 Treasury or Depository revision, add the pause check at the `depositTokenForOLAS()` boundary so the lever
 covers the bonding path as well.
 
-Source code: [Treasury.sol](contracts/Treasury.sol)
+Source code: [Treasury.sol](../contracts/Treasury.sol)
 
 ### 35. `retain` advances its epoch cursor before computing the refund
 
