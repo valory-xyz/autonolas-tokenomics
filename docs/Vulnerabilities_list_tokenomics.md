@@ -44,6 +44,8 @@
   - [38. An in-place implementation swap does not carry `_initialize`-only storage](#38-an-in-place-implementation-swap-does-not-carry-_initialize-only-storage)
   - [39. A retired L2 target dispenser cannot forward or release a late arrival](#39-a-retired-l2-target-dispenser-cannot-forward-or-release-a-late-arrival)
   - [40. L1 claim state advances before an Arbitrum retryable is known to be redeemable](#40-l1-claim-state-advances-before-an-arbitrum-retryable-is-known-to-be-redeemable)
+  - [41. Staked services are not owner-qualified for donation top-ups](#41-staked-services-are-not-owner-qualified-for-donation-top-ups)
+  - [42. Retainer skip is chain-bound while the claim guards are not](#42-retainer-skip-is-chain-bound-while-the-claim-guards-are-not)
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -1025,3 +1027,55 @@ constant is not a durable answer.
 manual redemption and replay a documented first-class step rather than a recovery path. Claimants should
 supply a gas price bid derived from current Arbitrum conditions rather than the minimum the contract
 accepts.
+
+### 41. Staked services are not owner-qualified for donation top-ups
+
+**Severity**: Informative
+**Source**: internal review
+
+`Tokenomics._trackServiceDonations()` decides whether a donation qualifies its service owner for a
+`pendingRelativeTopUp` by reading the service NFT's current holder:
+
+```solidity
+address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
+```
+
+Staking a deployed service transfers that NFT to the staking contract, while `StakingBase` keeps the
+original caller in `ServiceInfo.owner`. For any staked service the two therefore disagree, and `ownerOf`
+returns the staking instance rather than the person who staked it — so a donation to a staked service never
+qualifies its owner for the top-up.
+
+**This is the intended economics, not a loss.** A staked service is already earning staking rewards, and an
+owner-qualified top-up would be a second reward stream for the same service. The entry exists because the
+rule is enforced only as a side effect of NFT custody and is stated nowhere: a reader comparing
+`Tokenomics` against `StakingBase` sees two different notions of "owner" and no explanation. Integrators
+modelling expected returns for a staked service should not expect donation top-ups.
+
+### 42. Retainer skip is chain-bound while the claim guards are not
+
+**Severity**: Low
+**Source**: internal review
+
+`Dispenser` records the retainer as a raw account and derives its hash against the local chain:
+
+```solidity
+retainerHash = keccak256(abi.encode(IVoteWeighting.Nominee(retainer, block.chainid)));
+```
+
+Three guards then reference the retainer, and they do not agree on what they compare:
+
+| guard | test | scope |
+|---|---|---|
+| allocation side | `retainerHash == nomineeHash` | bound to `block.chainid` |
+| batch claim | `stakingTargets[i][j] == retainer` | account only — any chain |
+| single claim | `stakingTarget == retainer` | account only — any chain |
+
+The retainer address registered as a nominee under a **different** chain id hashes differently, so it is not
+recognised on the allocation side and can accrue an epoch allocation like any other nominee. Both claim
+paths then reject it on the account comparison, and `retain()` does not process it either.
+
+The result is an allocation that exists in historical accounting and can never be claimed by anyone. No
+funds are transferred and nothing leaves the protocol; the effect is stranded inflation plus dilution of
+legitimate nominees, and the voter who directs weight there spends their own voting power to do it. The
+cheapest correction is to reject the retainer account in nominee registration on any chain, mirroring the
+account-only comparison the claim paths already use.
