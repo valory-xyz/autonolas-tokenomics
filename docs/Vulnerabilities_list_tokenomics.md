@@ -754,13 +754,30 @@ is skipped, so a `msg.value` sent with the call is neither forwarded to a bridge
 the Dispenser. In the batch variant, `valueAmounts[i]` for a skipped zero-output chain is likewise not
 forwarded.
 
-The value is caller-controlled: the claimable staking incentive is knowable before the call, and a
-zero-output claim needs no bridging, so no native value need be sent for it. There is no third-party impact —
-only the caller's own over-provided value is retained.
+**Correction (2026-09-02).** An earlier revision of this entry said the outcome was "knowable before the
+call" and that there was "no third-party impact — only the caller's own over-provided value is retained".
+Both were wrong, and the distinction matters for anyone relying on this entry.
 
-**Mitigation / guidance.** Send `msg.value == 0` (and `valueAmounts[i] == 0` for chains with no claimable
-incentive) when a claim yields no staking incentive. On a future Dispenser redeploy, refund any unused
-`msg.value` / `valueAmounts[i]` to the caller when no distribution occurs.
+`claimStakingIncentives` is **permissionless** and advances a **shared** cursor:
+`mapLastClaimedStakingEpochs[nomineeHash]`, where `nomineeHash = keccak256(abi.encode(Nominee(stakingTarget,
+chainId)))` carries no `msg.sender` component. Every caller reads and writes the same slot, so the payout a
+pending claim will settle to is a function of state anyone may rewrite in the intervening block. A claimant
+who simulates a paying claim, attaches the required bridge fee and signs can therefore have their
+transaction settle to zero because someone else claimed the yielding epochs first — and the transaction
+**succeeds**, so the fee is retained rather than returned. The claimant cannot defend: there is no slippage
+parameter, no minimum-payout guard and no deadline with which to bind the outcome signed for.
+
+**Severity remains Low, for a different reason.** The harm is third-party rather than self-inflicted, but it
+is not currently reachable: only the Arbitrum and Wormhole deposit processors require a `msg.value` at all,
+and no nominee is currently on either path, so no claim in existence needs a bridge fee. The retention is
+also **not permanent** — `Dispenser.changeImplementation` allows a governance-approved sweep.
+
+**Mitigation / guidance.** Until a redeploy, send `msg.value == 0` (and `valueAmounts[i] == 0`) for chains
+whose bridge takes no fee — which today is all of them carrying nominees. On redeploy, refund unused
+`msg.value` / `valueAmounts[i]` to `msg.sender` (never `tx.origin` — see item **33**), preferably as a
+pull-based credit so a refund that reverts cannot block an otherwise-correct claim. Independently, a
+caller-supplied minimum-payout or expected-cursor parameter would let a claimant bind the outcome they
+signed for, which closes the front-running window rather than only softening its consequence.
 
 Source code: [Dispenser.sol](../contracts/Dispenser.sol)
 
