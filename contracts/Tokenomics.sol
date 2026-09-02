@@ -916,6 +916,14 @@ contract Tokenomics is TokenomicsConstants {
             // functions to check each service owner veOLAS balance
             bool topUpEligible;
             if (incentiveFlags[2] || incentiveFlags[3]) {
+                // NOTE: for a STAKED service this reads the staking contract, not the person who staked it.
+                // Staking transfers the service NFT to the staking instance, while StakingBase keeps the
+                // original caller in its own ServiceInfo.owner, so the two notions of "owner" diverge and
+                // ownerOf() returns an address that holds no veOLAS. The owner leg of the check below
+                // therefore cannot qualify a staked service. That is intended, not an oversight: a staked
+                // service is already earning staking rewards, and an owner-qualified top-up would be a
+                // second reward stream for the same service. Only the owner leg is affected — a donator
+                // above the threshold still qualifies the donation, since the condition is an OR.
                 address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
                 topUpEligible = (IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold  ||
                     IVotingEscrow(ve).getVotes(donator) >= veOLASThreshold) ? true : false;

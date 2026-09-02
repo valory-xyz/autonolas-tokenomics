@@ -1042,14 +1042,25 @@ address serviceOwner = IToken(serviceRegistry).ownerOf(serviceIds[i]);
 
 Staking a deployed service transfers that NFT to the staking contract, while `StakingBase` keeps the
 original caller in `ServiceInfo.owner`. For any staked service the two therefore disagree, and `ownerOf`
-returns the staking instance rather than the person who staked it — so a donation to a staked service never
-qualifies its owner for the top-up.
+returns the staking instance rather than the person who staked it. That address holds no veOLAS, so the
+**owner** leg of the eligibility test can never pass for a staked service.
+
+**Only the owner leg is affected.** The test is an `OR`:
+
+```solidity
+topUpEligible = (IVotingEscrow(ve).getVotes(serviceOwner) >= veOLASThreshold ||
+    IVotingEscrow(ve).getVotes(donator) >= veOLASThreshold) ? true : false;
+```
+
+so a donator whose own veOLAS is above the threshold still qualifies the donation. What is lost is the
+ability of the *service owner's* stake to qualify it.
 
 **This is the intended economics, not a loss.** A staked service is already earning staking rewards, and an
 owner-qualified top-up would be a second reward stream for the same service. The entry exists because the
 rule is enforced only as a side effect of NFT custody and is stated nowhere: a reader comparing
 `Tokenomics` against `StakingBase` sees two different notions of "owner" and no explanation. Integrators
-modelling expected returns for a staked service should not expect donation top-ups.
+should not rely on a staked service's *owner* stake to qualify donations to it — but a qualifying donator
+still works.
 
 ### 42. Retainer skip is chain-bound while the claim guards are not
 
