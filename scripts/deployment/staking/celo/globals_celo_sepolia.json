@@ -8,6 +8,7 @@
   "blockscoutURL": "https://celo-alfajores.blockscout.com",
   "gasPriceInGwei": "2",
   "olasAddress": "0xaCFfAe8e57Ec6E394Eb1b41939A8CF7892DbDc51",
+  "l1ChainId": "1",
   "serviceStakingFactoryAddress": "0x1c2cD884127b080F940b7546c1e9aaf525b1FA55",
   "bridgeMediatorAddress": "0x397125902ED2cA2d42104F621f448A2cE1bC8Fb7",
   "celoL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
