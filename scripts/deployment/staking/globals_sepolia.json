@@ -33,7 +33,7 @@
   "modeL1StandardBridgeProxyAddress": "0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1",
   "modeL1CrossDomainMessengerProxyAddress": "0x58Cc85b8D04EA49cC6DBd3CbFFd00B4B8D6cb3ef",
   "modeOLASAddress": "0x01B8b6384298D4848E3BE63D4C9D17830EeE488A",
-  "modeL2TargetChainId": "84532",
+  "modeL2TargetChainId": "919",
   "modeDepositProcessorL1Address": "0x93504d2275998a4fCa666000A906067648edC723",
   "wormholeL1CoreAddress": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
   "wormholeL1TokenRelayerAddress": "0xDB5492265f6038831E89f495670FF909aDe94bd9",
