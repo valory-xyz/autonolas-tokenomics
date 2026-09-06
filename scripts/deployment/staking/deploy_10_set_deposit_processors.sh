@@ -68,6 +68,7 @@ rows=(
   "Optimism optimismDepositProcessorL1Address optimismL2TargetChainId"
   "Polygon polygonDepositProcessorL1Address polygonL2TargetChainId"
   "Mode modeDepositProcessorL1Address modeL2TargetChainId"
+  "Robinhood robinhoodDepositProcessorL1Address robinhoodL2TargetChainId"
   "Ethereum ethereumDepositProcessorAddress __L1__"
 )
 

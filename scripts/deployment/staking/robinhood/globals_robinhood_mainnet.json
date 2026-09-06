@@ -10,8 +10,8 @@
   "olasAddress": "0x092963938DEBd8013a2E545B3549f8a5EC0d2286",
   "serviceStakingFactoryAddress": "",
   "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
-  "arbitrumArbSysAddress": "0x0000000000000000000000000000000000000064",
+  "robinhoodArbSysAddress": "0x0000000000000000000000000000000000000064",
   "l1ChainId": "1",
-  "arbitrumDepositProcessorL1Address": "",
-  "arbitrumTargetDispenserL2Address": ""
+  "robinhoodDepositProcessorL1Address": "",
+  "robinhoodTargetDispenserL2Address": ""
 }
