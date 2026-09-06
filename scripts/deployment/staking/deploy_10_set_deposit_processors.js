@@ -1,34 +1,61 @@
 /*global process*/
 /*
- * NOTE: this script does NOT register the Mode processor.
+ * Registers every L1 deposit processor in the Dispenser.
  *
- * Mode's L1 processor is deployed at step 11, after this step runs, so its address does not exist
- * yet here. `deploy_10_set_deposit_processors.sh` is the current equivalent and registers all eight
- * routes including Mode; prefer it. A chain left unregistered resolves to a zero processor and
- * reverts the claim - in the batch path it takes the other chains' claims down with it - so a
- * fresh deployment that uses this script must register Mode separately afterwards.
+ * ORDERING: despite the file number, this is a terminal step rather than step 10 of a linear run.
+ * Mode's L1 processor is deployed at step 11 and Robinhood's at step 13, so this must run only once
+ * every per-chain processor deploy has completed. It hard-fails on a missing or zero entry rather
+ * than registering a partial set: a chain left unregistered resolves to a zero processor and reverts
+ * the claim, and in the batch path it takes the other chains' claims down with it.
+ *
+ * `deploy_10_set_deposit_processors.sh` is the equivalent shell route and is the preferred one.
  */
-
 
 const { ethers } = require("hardhat");
 const { LedgerSigner } = require("@anders-t/ethers-ledger");
+
+// Processor rows: label, globals key holding the address, globals key holding the L2 target chain Id.
+// The Ethereum row is L1-only, so its chain Id is the network's own rather than a globals key.
+const PROCESSOR_ROWS = [
+    ["Arbitrum", "arbitrumDepositProcessorL1Address", "arbitrumL2TargetChainId"],
+    ["Base", "baseDepositProcessorL1Address", "baseL2TargetChainId"],
+    ["Celo", "celoDepositProcessorL1Address", "celoL2TargetChainId"],
+    ["Gnosis", "gnosisDepositProcessorL1Address", "gnosisL2TargetChainId"],
+    ["Mode", "modeDepositProcessorL1Address", "modeL2TargetChainId"],
+    ["Optimism", "optimismDepositProcessorL1Address", "optimismL2TargetChainId"],
+    ["Polygon", "polygonDepositProcessorL1Address", "polygonL2TargetChainId"],
+    ["Robinhood", "robinhoodDepositProcessorL1Address", "robinhoodL2TargetChainId"],
+    ["Ethereum", "ethereumDepositProcessorAddress", null]
+];
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+function requireAddress(parsedData, label, key) {
+    const value = parsedData[key];
+    if (!value || value === ZERO_ADDRESS) {
+        throw new Error(`${label}: ${key} is not set (or zero) in globals.json. Every processor must be ` +
+            "deployed before this step runs - see the ordering note at the top of this file.");
+    }
+    return value;
+}
+
+function requireChainId(parsedData, label, key) {
+    const value = parsedData[key];
+    if (!value || Number(value) === 0) {
+        throw new Error(`${label}: ${key} is not set (or zero) in globals.json.`);
+    }
+    return value;
+}
 
 async function main() {
     const fs = require("fs");
     const globalsFile = "globals.json";
     const dataFromJSON = fs.readFileSync(globalsFile, "utf8");
-    let parsedData = JSON.parse(dataFromJSON);
+    const parsedData = JSON.parse(dataFromJSON);
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    const arbitrumDepositProcessorL1Address = parsedData.arbitrumDepositProcessorL1Address;
-    const baseDepositProcessorL1Address = parsedData.baseDepositProcessorL1Address;
-    const celoDepositProcessorL1Address = parsedData.celoDepositProcessorL1Address;
-    const gnosisDepositProcessorL1Address = parsedData.gnosisDepositProcessorL1Address;
-    const optimismDepositProcessorL1Address = parsedData.optimismDepositProcessorL1Address;
-    const polygonDepositProcessorL1Address = parsedData.polygonDepositProcessorL1Address;
-    const ethereumDepositProcessorAddress = parsedData.ethereumDepositProcessorAddress;
-    const dispenserProxyAddress = parsedData.dispenserProxyAddress;
+    const dispenserProxyAddress = requireAddress(parsedData, "Dispenser", "dispenserProxyAddress");
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
@@ -43,24 +70,25 @@ async function main() {
     const deployer = await EOA.getAddress();
     console.log("EOA is:", deployer);
 
-    // Get all the contracts
-    const arbitrumDepositProcessorL1 = await ethers.getContractAt("ArbitrumDepositProcessorL1", arbitrumDepositProcessorL1Address);
-    const baseDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", baseDepositProcessorL1Address);
-    const celoDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", celoDepositProcessorL1Address);
-    const gnosisDepositProcessorL1 = await ethers.getContractAt("GnosisDepositProcessorL1", gnosisDepositProcessorL1Address);
-    const optimismDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", optimismDepositProcessorL1Address);
-    const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
+    const ethereumChainId = (await provider.getNetwork()).chainId;
+
+    // Build the two aligned arrays, hard-failing on any missing or zero entry
+    const depositProcessors = [];
+    const chainIds = [];
+    for (const [label, addressKey, chainIdKey] of PROCESSOR_ROWS) {
+        const depositProcessor = requireAddress(parsedData, label, addressKey);
+        const chainId = chainIdKey === null ? ethereumChainId : requireChainId(parsedData, label, chainIdKey);
+        depositProcessors.push(depositProcessor);
+        chainIds.push(chainId);
+        console.log(`  ${label}: ${depositProcessor} -> chainId ${chainId}`);
+    }
+
     const dispenser = await ethers.getContractAt("Dispenser", dispenserProxyAddress);
 
     // Transaction signing and execution
     console.log("10. EOA to set deposit processors in Dispenser");
     console.log("You are signing the following transaction: Dispenser.connect(EOA).setDepositProcessorChainIds()");
-    const ethereumChainId = (await provider.getNetwork()).chainId;
-    const result = await dispenser.connect(EOA).setDepositProcessorChainIds([arbitrumDepositProcessorL1Address,
-        baseDepositProcessorL1Address, celoDepositProcessorL1Address, ethereumDepositProcessorAddress,
-        gnosisDepositProcessorL1Address, optimismDepositProcessorL1Address, polygonDepositProcessorL1Address],
-    [parsedData.arbitrumL2TargetChainId, parsedData.baseL2TargetChainId, parsedData.celoL2TargetChainId, ethereumChainId,
-        parsedData.gnosisL2TargetChainId, parsedData.optimismL2TargetChainId, parsedData.polygonL2TargetChainId]);
+    const result = await dispenser.connect(EOA).setDepositProcessorChainIds(depositProcessors, chainIds);
     console.log("Transaction:", result.hash);
 }
 
