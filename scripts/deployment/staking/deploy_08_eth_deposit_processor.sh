@@ -20,6 +20,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 serviceStakingFactoryAddress=$(jq -r '.serviceStakingFactoryAddress' $globals)
 timelockAddress=$(jq -r '.timelockAddress' $globals)
 

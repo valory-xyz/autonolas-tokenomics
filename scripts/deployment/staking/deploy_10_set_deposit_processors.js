@@ -107,6 +107,29 @@ async function main() {
     console.log("You are signing the following transaction: Dispenser.connect(EOA).setDepositProcessorChainIds()");
     const result = await dispenser.connect(EOA).setDepositProcessorChainIds(depositProcessors, chainIds);
     console.log("Transaction:", result.hash);
+
+    // Await the receipt. Submitting is not succeeding: with the Dispenser Timelock-owned, OwnerOnly is the
+    // likeliest failure here, and it reverts AFTER submission - so without this the script would print a
+    // hash and exit 0 on a transaction that did nothing.
+    const receipt = await result.wait();
+    if (receipt.status !== 1) {
+        throw new Error(`setDepositProcessorChainIds reverted in ${result.hash}`);
+    }
+
+    // Read back every route, mirroring deploy_10_set_deposit_processors.sh. A partially registered Dispenser
+    // is the exact state the hard-fail guards above exist to prevent, so it is verified rather than assumed.
+    let mismatch = false;
+    for (let i = 0; i < depositProcessors.length; i++) {
+        const onchain = await dispenser.mapChainIdDepositProcessors(chainIds[i]);
+        if (onchain.toLowerCase() !== depositProcessors[i].toLowerCase()) {
+            console.error(`  chainId ${chainIds[i]}: on-chain ${onchain} != ${depositProcessors[i]}`);
+            mismatch = true;
+        }
+    }
+    if (mismatch) {
+        throw new Error("One or more deposit processors did not take effect");
+    }
+    console.log("All deposit processors whitelisted");
 }
 
 main()

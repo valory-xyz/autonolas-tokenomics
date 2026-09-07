@@ -34,6 +34,16 @@ robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $global
 robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
 robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
 
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
+
+robinhoodL1ERC20GatewayRouterAddress=$(jq -r '.robinhoodL1ERC20GatewayRouterAddress' $globals)
+robinhoodInboxAddress=$(jq -r '.robinhoodInboxAddress' $globals)
+robinhoodL2TargetChainId=$(jq -r '.robinhoodL2TargetChainId' $globals)
+robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $globals)
+robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
+robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
+
 # Preflight on the Dispenser binding. l1Dispenser is `immutable` in DefaultDepositProcessorL1, so a processor
 # deployed against the wrong Dispenser cannot be repaired — claims from the live one revert ManagerOnly.
 # deploy_07b_dispenser_proxy.sh writes dispenserProxyAddress into scripts/deployment/globals_<network>.json,

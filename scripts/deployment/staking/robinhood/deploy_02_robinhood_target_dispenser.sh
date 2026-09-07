@@ -31,6 +31,24 @@ robinhoodArbSysAddress=$(jq -r '.robinhoodArbSysAddress' $globals)
 robinhoodDepositProcessorL1Address=$(jq -r '.robinhoodDepositProcessorL1Address' $globals)
 l1ChainId=$(jq -r '.l1ChainId' $globals)
 
+# Validate every constructor input before building the args. `--constructor-args $constructorArgs` is
+# unquoted, so an empty value is collapsed by word-splitting rather than passed as an empty token: the
+# constructor would silently receive four arguments instead of five. That fails at forge's arity check today,
+# but a stale-but-well-formed address would deploy successfully against a wrong IMMUTABLE binding —
+# l1DepositProcessor is aliased into an immutable field and cannot be corrected afterwards.
+zeroAddress="0x0000000000000000000000000000000000000000"
+for pair in "olasAddress:$olasAddress" \
+            "serviceStakingFactoryAddress:$serviceStakingFactoryAddress" \
+            "robinhoodArbSysAddress:$robinhoodArbSysAddress" \
+            "robinhoodDepositProcessorL1Address:$robinhoodDepositProcessorL1Address" \
+            "l1ChainId:$l1ChainId"; do
+  key="${pair%%:*}"; val="${pair#*:}"
+  if [ -z "$val" ] || [ "$val" == "null" ] || [ "$val" == "$zeroAddress" ] || [ "$val" == "0" ]; then
+    echo "${red}!!! $key is not set (or zero) in $globals${reset}"
+    exit 1
+  fi
+done
+
 # Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
   case $chainId in

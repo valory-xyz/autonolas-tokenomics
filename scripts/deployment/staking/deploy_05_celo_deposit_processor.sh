@@ -27,6 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 celoL1StandardBridgeProxyAddress=$(jq -r '.celoL1StandardBridgeProxyAddress' $globals)
 celoL1CrossDomainMessengerProxyAddress=$(jq -r '.celoL1CrossDomainMessengerProxyAddress' $globals)
 celoL2TargetChainId=$(jq -r '.celoL2TargetChainId' $globals)

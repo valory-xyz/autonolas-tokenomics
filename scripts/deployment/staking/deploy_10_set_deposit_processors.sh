@@ -50,6 +50,9 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
 
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
+
 zeroAddress="0x0000000000000000000000000000000000000000"
 
 if [ -z "$dispenserProxyAddress" ] || [ "$dispenserProxyAddress" == "null" ] \

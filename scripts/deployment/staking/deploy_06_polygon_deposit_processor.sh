@@ -27,6 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 polygonRootChainManagerProxyAddress=$(jq -r '.polygonRootChainManagerProxyAddress' $globals)
 polygonFXRootAddress=$(jq -r '.polygonFXRootAddress' $globals)
 polygonL2TargetChainId=$(jq -r '.polygonL2TargetChainId' $globals)
