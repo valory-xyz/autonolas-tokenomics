@@ -7,7 +7,7 @@
   "networkURL": "https://rpc.mainnet.chain.robinhood.com",
   "blockscoutURL": "https://robinhoodchain.blockscout.com",
   "gasPriceInGwei": "1",
-  "olasAddress": "0x092963938DEBd8013a2E545B3549f8a5EC0d2286",
+  "olasAddress": "0x092963938deBD8013a2e545b3549f8A5ec0D2286",
   "serviceStakingFactoryAddress": "",
   "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
   "robinhoodArbSysAddress": "0x0000000000000000000000000000000000000064",

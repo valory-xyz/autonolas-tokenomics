@@ -9,6 +9,23 @@
  * the claim, and in the batch path it takes the other chains' claims down with it.
  *
  * `deploy_10_set_deposit_processors.sh` is the equivalent shell route and is the preferred one.
+ *
+ * TWO CONSEQUENCES OF THE HARD FAIL, both deliberate:
+ *
+ *   1. This script is inoperative on `main` until wave 1 deploys. `robinhoodDepositProcessorL1Address`
+ *      ships empty, so until Robinhood Chain is live the script throws for EVERY chain, not just
+ *      Robinhood. That is the ordering rule above doing its job, but it means someone reaching for
+ *      this during an unrelated incident hits a wall that has nothing to do with their chain.
+ *
+ *   2. It cannot express "disable a route". `Dispenser.setDepositProcessorChainIds` treats a zero
+ *      processor as meaningful — "might be zero if there is a need to stop processing a specific L2
+ *      chain Id" — and `requireAddress` rejects zero. Disabling a chain is a targeted call with a
+ *      one-element array, not this bulk-register tool.
+ *
+ * NOTE ON PERMISSIONS: `Dispenser.owner()` is the Timelock, so on mainnet this call cannot be sent
+ * from the deploying EOA at all — it reverts OwnerOnly and belongs in a governance proposal. Both
+ * routes are therefore fresh-deployment tooling and a calldata reference, not an operational path
+ * against the live Dispenser.
  */
 
 const { ethers } = require("hardhat");

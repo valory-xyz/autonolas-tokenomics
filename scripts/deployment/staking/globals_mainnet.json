@@ -65,7 +65,6 @@
   "robinhoodInboxAddress": "0x1A07cc4BD17E0118BdB54D70990D2158AbAD7a2D",
   "robinhoodOutboxAddress": "0xf0ce991ea4A0d2400A4AB49b20ae333f6Dce3DE9",
   "robinhoodBridgeAddress": "0xDf8755334ce7A73cCF6b581C02eA649AE3E864b3",
-  "robinhoodOLASAddress": "0x092963938DEBd8013a2E545B3549f8a5EC0d2286",
   "robinhoodL2TargetChainId": "4663",
   "robinhoodDepositProcessorL1Address": "",
   "robinhoodTargetDispenserL2Address": ""

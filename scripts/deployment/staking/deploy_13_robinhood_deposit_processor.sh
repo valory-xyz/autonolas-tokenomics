@@ -8,14 +8,14 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Get globals file for L2
 globalsL2="$(dirname "$0")/robinhood/globals_robinhood_$1.json"
 if [ ! -f $globalsL2 ]; then
   echo "${red}!!! $globalsL2 is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Read variables using jq
@@ -33,6 +33,29 @@ robinhoodL2TargetChainId=$(jq -r '.robinhoodL2TargetChainId' $globals)
 robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $globals)
 robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
 robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
+
+# Preflight on the Dispenser binding. l1Dispenser is `immutable` in DefaultDepositProcessorL1, so a processor
+# deployed against the wrong Dispenser cannot be repaired — claims from the live one revert ManagerOnly.
+# deploy_07b_dispenser_proxy.sh writes dispenserProxyAddress into scripts/deployment/globals_<network>.json,
+# a DIFFERENT file from this one, so a proxy migration silently leaves the value here stale.
+zeroAddress="0x0000000000000000000000000000000000000000"
+if [ -z "$dispenserProxyAddress" ] || [ "$dispenserProxyAddress" == "null" ] \
+   || [ "$dispenserProxyAddress" == "$zeroAddress" ]; then
+  echo "${red}!!! dispenserProxyAddress is not set (or zero) in $globals${reset}"
+  exit 1
+fi
+deploymentGlobals="$(dirname "$0")/../globals_${1}.json"
+if [ -f "$deploymentGlobals" ]; then
+  liveDispenser=$(jq -r '.dispenserProxyAddress // .dispenserAddress // empty' "$deploymentGlobals")
+  if [ -n "$liveDispenser" ] \
+     && [ "$(echo "$liveDispenser" | tr '[:upper:]' '[:lower:]')" != "$(echo "$dispenserProxyAddress" | tr '[:upper:]' '[:lower:]')" ]; then
+    echo "${red}!!! Dispenser binding mismatch — refusing to deploy an immutable binding to a stale address${reset}"
+    echo "${red}    $globals            dispenserProxyAddress = $dispenserProxyAddress${reset}"
+    echo "${red}    $deploymentGlobals  says the live Dispenser is $liveDispenser${reset}"
+    echo "${red}    Reconcile the two before deploying; l1Dispenser cannot be changed afterwards.${reset}"
+    exit 1
+  fi
+fi
 
 
 # Check for Alchemy keys
@@ -79,7 +102,7 @@ outputLength=${#robinhoodDepositProcessorL1Address}
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
   echo "${red}!!! The contract was not deployed...${reset}"
-  exit 0
+  exit 1
 fi
 
 # Write new deployed contract back into JSON
