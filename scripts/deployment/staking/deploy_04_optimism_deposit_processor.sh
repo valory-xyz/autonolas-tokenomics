@@ -27,6 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 optimismL1StandardBridgeProxyAddress=$(jq -r '.optimismL1StandardBridgeProxyAddress' $globals)
 optimismL1CrossDomainMessengerProxyAddress=$(jq -r '.optimismL1CrossDomainMessengerProxyAddress' $globals)
 optimismL2TargetChainId=$(jq -r '.optimismL2TargetChainId' $globals)

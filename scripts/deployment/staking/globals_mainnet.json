@@ -58,5 +58,14 @@
   "modeOLASAddress": "0xcfD1D50ce23C46D3Cf6407487B2F8934e96DC8f9",
   "modeL2TargetChainId": "34443",
   "modeDepositProcessorL1Address": "0x6A5F38aAdCc1c049E39D80147b64a9Ff947d208B",
-  "modeTargetDispenserL2Address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
+  "modeTargetDispenserL2Address": "0xEB5638eefE289691EcE01943f768EDBF96258a80",
+  "dispenserProxyAddress": "0x5650300fCBab43A0D7D02F8Cb5d0f039402593f0",
+  "robinhoodL1ERC20GatewayRouterAddress": "0x6a2E3a1e16FC29f27Ce61429746D558d656975bB",
+  "robinhoodL1ERC20GatewayAddress": "0x85001CC4867C5e1C22dA4B79BB8852B9e2a06da0",
+  "robinhoodInboxAddress": "0x1A07cc4BD17E0118BdB54D70990D2158AbAD7a2D",
+  "robinhoodOutboxAddress": "0xf0ce991ea4A0d2400A4AB49b20ae333f6Dce3DE9",
+  "robinhoodBridgeAddress": "0xDf8755334ce7A73cCF6b581C02eA649AE3E864b3",
+  "robinhoodL2TargetChainId": "4663",
+  "robinhoodDepositProcessorL1Address": "",
+  "robinhoodTargetDispenserL2Address": ""
 }

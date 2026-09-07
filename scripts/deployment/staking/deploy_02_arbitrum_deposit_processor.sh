@@ -27,6 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 arbitrumL1ERC20GatewayRouterAddress=$(jq -r '.arbitrumL1ERC20GatewayRouterAddress' $globals)
 arbitrumInboxAddress=$(jq -r '.arbitrumInboxAddress' $globals)
 arbitrumL2TargetChainId=$(jq -r '.arbitrumL2TargetChainId' $globals)

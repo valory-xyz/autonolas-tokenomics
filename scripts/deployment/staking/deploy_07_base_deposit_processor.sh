@@ -27,6 +27,9 @@ networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
 dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+
+# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
+. "$(dirname "$0")/_preflight_dispenser.sh"
 baseL1StandardBridgeProxyAddress=$(jq -r '.baseL1StandardBridgeProxyAddress' $globals)
 baseL1CrossDomainMessengerProxyAddress=$(jq -r '.baseL1CrossDomainMessengerProxyAddress' $globals)
 baseL2TargetChainId=$(jq -r '.baseL2TargetChainId' $globals)

@@ -8,14 +8,14 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
-# Get globals file for L2
-globalsL2="$(dirname "$0")/gnosis/globals_gnosis_$1.json"
-if [ ! -f $globalsL2 ]; then
-  echo "${red}!!! $globalsL2 is not found${reset}"
-  exit 0
+# Get globals file for L1: globals_mainnet or globals_sepolia
+globalsL1="$(dirname "$0")/../globals_${1#*_}.json"
+if [ ! -f $globalsL1 ]; then
+  echo "${red}!!! $globalsL1 is not found${reset}"
+  exit 1
 fi
 
 # Read variables using jq
@@ -26,13 +26,28 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+serviceStakingFactoryAddress=$(jq -r '.serviceStakingFactoryAddress' $globals)
+robinhoodArbSysAddress=$(jq -r '.robinhoodArbSysAddress' $globals)
+robinhoodDepositProcessorL1Address=$(jq -r '.robinhoodDepositProcessorL1Address' $globals)
+l1ChainId=$(jq -r '.l1ChainId' $globals)
 
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
-gnosisOmniBridgeAddress=$(jq -r '.gnosisOmniBridgeAddress' $globals)
-gnosisAMBForeignAddress=$(jq -r '.gnosisAMBForeignAddress' $globals)
-gnosisL2TargetChainId=$(jq -r '.gnosisL2TargetChainId' $globals)
+# Validate every constructor input before building the args. `--constructor-args $constructorArgs` is
+# unquoted, so an empty value is collapsed by word-splitting rather than passed as an empty token: the
+# constructor would silently receive four arguments instead of five. That fails at forge's arity check today,
+# but a stale-but-well-formed address would deploy successfully against a wrong IMMUTABLE binding —
+# l1DepositProcessor is aliased into an immutable field and cannot be corrected afterwards.
+zeroAddress="0x0000000000000000000000000000000000000000"
+for pair in "olasAddress:$olasAddress" \
+            "serviceStakingFactoryAddress:$serviceStakingFactoryAddress" \
+            "robinhoodArbSysAddress:$robinhoodArbSysAddress" \
+            "robinhoodDepositProcessorL1Address:$robinhoodDepositProcessorL1Address" \
+            "l1ChainId:$l1ChainId"; do
+  key="${pair%%:*}"; val="${pair#*:}"
+  if [ -z "$val" ] || [ "$val" == "null" ] || [ "$val" == "$zeroAddress" ] || [ "$val" == "0" ]; then
+    echo "${red}!!! $key is not set (or zero) in $globals${reset}"
+    exit 1
+  fi
+done
 
 # Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
@@ -48,8 +63,8 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   fi
 fi
 
-contractPath="contracts/staking/GnosisDepositProcessorL1.sol:GnosisDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserProxyAddress $gnosisOmniBridgeAddress $gnosisAMBForeignAddress $gnosisL2TargetChainId"
+contractPath="contracts/staking/ArbitrumTargetDispenserL2.sol:ArbitrumTargetDispenserL2"
+constructorArgs="$olasAddress $serviceStakingFactoryAddress $robinhoodArbSysAddress $robinhoodDepositProcessorL1Address $l1ChainId"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
@@ -70,25 +85,25 @@ echo "${green}Deployment of: $contractArgs${reset}"
 # Deploy the contract and capture the address
 execCmd="forge create --broadcast --rpc-url $networkURL$API_KEY $walletArgs $contractArgs"
 deploymentOutput=$($execCmd)
-gnosisDepositProcessorL1Address=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
+robinhoodTargetDispenserL2Address=$(echo "$deploymentOutput" | grep 'Deployed to:' | awk '{print $3}')
 
 # Get output length
-outputLength=${#gnosisDepositProcessorL1Address}
+outputLength=${#robinhoodTargetDispenserL2Address}
 
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
   echo "${red}!!! The contract was not deployed...${reset}"
-  exit 0
+  exit 1
 fi
 
 # Write new deployed contract back into JSON
-echo "$(jq '. += {"gnosisDepositProcessorL1Address":"'$gnosisDepositProcessorL1Address'"}' $globals)" > $globals
-# Also write the address into corresponding L2 JSON
-echo "$(jq '. += {"gnosisDepositProcessorL1Address":"'$gnosisDepositProcessorL1Address'"}' $globalsL2)" > $globalsL2
+echo "$(jq '. += {"robinhoodTargetDispenserL2Address":"'$robinhoodTargetDispenserL2Address'"}' $globals)" > $globals
+# Also write the address into corresponding L1 JSON
+echo "$(jq '. += {"robinhoodTargetDispenserL2Address":"'$robinhoodTargetDispenserL2Address'"}' $globalsL1)" > $globalsL1
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then
-  contractParams="$gnosisDepositProcessorL1Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256)" $constructorArgs)"
+  contractParams="$robinhoodTargetDispenserL2Address $contractPath --constructor-args $(cast abi-encode "constructor(address,address,address,address,uint256)" $constructorArgs)"
   echo "Verification contract params: $contractParams"
 
   echo "${green}Verifying contract on Etherscan...${reset}"
@@ -101,4 +116,4 @@ if [ "$contractVerification" == "true" ]; then
   fi
 fi
 
-echo "${green}Contract deployed at: $gnosisDepositProcessorL1Address${reset}"
+echo "${green}Contract deployed at: $robinhoodTargetDispenserL2Address${reset}"
