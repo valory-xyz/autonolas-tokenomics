@@ -1,24 +1,25 @@
 #!/bin/bash
 
-# Whitelists every L1 deposit processor on the live DispenserProxy via
+# Whitelists every L1 deposit processor on the live Dispenser via
 # setDepositProcessorChainIds(address[],uint256[]), mapping each L2 target chain Id to its L1 processor
 # (and the mainnet chain Id to the L1-only EthereumDepositProcessor). This is the forge/cast equivalent of
 # the hardhat deploy_10_set_deposit_processors.js, and additionally registers the Mode processor.
 #
 # Run this after all L1 deposit processors have been deployed (their addresses populated in the staking
-# globals) and after the DispenserProxy is live. Registering a processor here is what lets the Dispenser
+# globals). Registering a processor here is what lets the Dispenser
 # route staking incentives to each chain. There is no zero-processor guard in the Dispenser: a chain left
 # unregistered resolves to a zero processor and reverts the claim (and in the batch path the zero-address
 # call reverts the whole batch, taking the other chains' claims down with it) — not a silent skip.
 #
-# Ownership note: immediately after deploy the DispenserProxy owner is the deploying EOA, so this runs as a
-# direct cast send. Once ownership is transferred to the DAO Timelock this same call becomes a governance
-# proposal instead — do not run this script directly against a DAO-owned proxy.
+# Ownership note: on a FRESH deployment the Dispenser owner is still the deploying EOA, so this runs as a
+# direct cast send. That is not the live mainnet situation: Dispenser.owner() is the DAO Timelock today, so
+# against the live Dispenser this call reverts OwnerOnly and must go through a governance proposal instead.
+# Treat this script as fresh-deployment tooling and as a source of the calldata for that proposal.
 #
 # Usage: deploy_10_set_deposit_processors.sh <network>
 #
 # Globals fields consumed:
-#   dispenserAddress                 : live DispenserProxy address
+#   dispenserAddress                 : live Dispenser address
 #   chainId                               : L1 chain Id (used as the Ethereum/L1-only processor key)
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}DepositProcessorL1Address, ethereumDepositProcessorAddress
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}L2TargetChainId
@@ -128,7 +129,7 @@ fi
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-echo "${green}Whitelist L1 deposit processors on the DispenserProxy${reset}"
+echo "${green}Whitelist L1 deposit processors on the Dispenser${reset}"
 echo "  dispenserProxy : $dispenserAddress"
 for i in "${!labels[@]}"; do
   echo "  ${labels[$i]} (chainId ${chainIds[$i]}) -> ${addresses[$i]}"
