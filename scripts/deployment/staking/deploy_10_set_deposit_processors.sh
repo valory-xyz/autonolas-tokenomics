@@ -18,7 +18,7 @@
 # Usage: deploy_10_set_deposit_processors.sh <network>
 #
 # Globals fields consumed:
-#   dispenserProxyAddress                 : live DispenserProxy address
+#   dispenserAddress                 : live DispenserProxy address
 #   chainId                               : L1 chain Id (used as the Ethereum/L1-only processor key)
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}DepositProcessorL1Address, ethereumDepositProcessorAddress
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}L2TargetChainId
@@ -48,16 +48,13 @@ useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 
 zeroAddress="0x0000000000000000000000000000000000000000"
 
-if [ -z "$dispenserProxyAddress" ] || [ "$dispenserProxyAddress" == "null" ] \
-   || [ "$dispenserProxyAddress" == "$zeroAddress" ]; then
-  echo "${red}!!! dispenserProxyAddress is not set (or zero) in $globals${reset}"
+if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
+   || [ "$dispenserAddress" == "$zeroAddress" ]; then
+  echo "${red}!!! dispenserAddress is not set (or zero) in $globals${reset}"
   exit 1
 fi
 
@@ -132,12 +129,12 @@ fi
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
 echo "${green}Whitelist L1 deposit processors on the DispenserProxy${reset}"
-echo "  dispenserProxy : $dispenserProxyAddress"
+echo "  dispenserProxy : $dispenserAddress"
 for i in "${!labels[@]}"; do
   echo "  ${labels[$i]} (chainId ${chainIds[$i]}) -> ${addresses[$i]}"
 done
 
-castArgs="$dispenserProxyAddress setDepositProcessorChainIds(address[],uint256[]) [$addrList] [$chainList]"
+castArgs="$dispenserAddress setDepositProcessorChainIds(address[],uint256[]) [$addrList] [$chainList]"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)
@@ -147,7 +144,7 @@ echo "$result" | grep "status"
 echo "${green}Verifying mapChainIdDepositProcessors${reset}"
 mismatch=0
 for i in "${!chainIds[@]}"; do
-  onchain=$(cast call --rpc-url $networkURL$API_KEY $dispenserProxyAddress "mapChainIdDepositProcessors(uint256)(address)" "${chainIds[$i]}")
+  onchain=$(cast call --rpc-url $networkURL$API_KEY $dispenserAddress "mapChainIdDepositProcessors(uint256)(address)" "${chainIds[$i]}")
   if [ "$(echo $onchain | tr '[:upper:]' '[:lower:]')" != "$(echo ${addresses[$i]} | tr '[:upper:]' '[:lower:]')" ]; then
     echo "${red}!!! ${labels[$i]} (chainId ${chainIds[$i]}): on-chain $onchain != ${addresses[$i]}${reset}"
     mismatch=1

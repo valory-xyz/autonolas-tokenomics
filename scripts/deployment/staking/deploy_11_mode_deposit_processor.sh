@@ -26,10 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 modeL1StandardBridgeProxyAddress=$(jq -r '.modeL1StandardBridgeProxyAddress' $globals)
 modeL1CrossDomainMessengerProxyAddress=$(jq -r '.modeL1CrossDomainMessengerProxyAddress' $globals)
 modeL2TargetChainId=$(jq -r '.modeL2TargetChainId' $globals)
@@ -50,7 +47,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/OptimismDepositProcessorL1.sol:OptimismDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserProxyAddress $modeL1StandardBridgeProxyAddress $modeL1CrossDomainMessengerProxyAddress $modeL2TargetChainId $modeOLASAddress"
+constructorArgs="$olasAddress $dispenserAddress $modeL1StandardBridgeProxyAddress $modeL1CrossDomainMessengerProxyAddress $modeL2TargetChainId $modeOLASAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer moded on the ledger flag

@@ -26,10 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 arbitrumL1ERC20GatewayRouterAddress=$(jq -r '.arbitrumL1ERC20GatewayRouterAddress' $globals)
 arbitrumInboxAddress=$(jq -r '.arbitrumInboxAddress' $globals)
 arbitrumL2TargetChainId=$(jq -r '.arbitrumL2TargetChainId' $globals)
@@ -53,7 +50,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/ArbitrumDepositProcessorL1.sol:ArbitrumDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserProxyAddress $arbitrumL1ERC20GatewayRouterAddress $arbitrumInboxAddress $arbitrumL2TargetChainId $arbitrumL1ERC20GatewayAddress $arbitrumOutboxAddress $arbitrumBridgeAddress"
+constructorArgs="$olasAddress $dispenserAddress $arbitrumL1ERC20GatewayRouterAddress $arbitrumInboxAddress $arbitrumL2TargetChainId $arbitrumL1ERC20GatewayAddress $arbitrumOutboxAddress $arbitrumBridgeAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

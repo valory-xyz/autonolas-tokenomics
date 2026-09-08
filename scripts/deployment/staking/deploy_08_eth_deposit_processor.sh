@@ -19,10 +19,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 serviceStakingFactoryAddress=$(jq -r '.serviceStakingFactoryAddress' $globals)
 timelockAddress=$(jq -r '.timelockAddress' $globals)
 
@@ -41,7 +38,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/EthereumDepositProcessor.sol:EthereumDepositProcessor"
-constructorArgs="$olasAddress $dispenserProxyAddress $serviceStakingFactoryAddress $timelockAddress"
+constructorArgs="$olasAddress $dispenserAddress $serviceStakingFactoryAddress $timelockAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag
