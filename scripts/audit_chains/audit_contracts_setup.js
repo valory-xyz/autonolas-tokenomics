@@ -294,7 +294,7 @@ async function checkTokenomicsProxy(chainId, provider, globalsInstance, configCo
 
     // Check dispenser
     const dispenser = await tokenomics.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
 
     // Check tokenomics implementation address.
     // Reads the current `tokenomicsAddress` field, which is the address the DAO will vote in
@@ -335,7 +335,7 @@ async function checkTreasury(chainId, provider, globalsInstance, configContracts
 
     // Check dispenser
     const dispenser = await treasury.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
 
     // Check minAcceptedETH (0.065 ETH)
     const minAcceptedETH = await treasury.minAcceptedETH();
@@ -454,7 +454,7 @@ async function checkDepositProcessorL1(depositProcessorL1, globalsInstance, log)
 
     // Check L1 dispenser
     const dispenser = await depositProcessorL1.l1Dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: l1Dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: l1Dispenser()");
 }
 
 // Check ArbitrumDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -512,7 +512,7 @@ async function checkEthereumDepositProcessor(chainId, provider, globalsInstance,
 
     // Check dispenser
     const dispenser = await ethereumDepositProcessorL1.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
 
     // Check L1 staking factory
     const stakingFactory = await ethereumDepositProcessorL1.stakingFactory();
