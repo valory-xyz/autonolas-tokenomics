@@ -26,10 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 polygonRootChainManagerProxyAddress=$(jq -r '.polygonRootChainManagerProxyAddress' $globals)
 polygonFXRootAddress=$(jq -r '.polygonFXRootAddress' $globals)
 polygonL2TargetChainId=$(jq -r '.polygonL2TargetChainId' $globals)
@@ -51,7 +48,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/PolygonDepositProcessorL1.sol:PolygonDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserProxyAddress $polygonRootChainManagerProxyAddress $polygonFXRootAddress $polygonL2TargetChainId $polygonCheckpointManagerAddress $polygonERC20PredicateAddress"
+constructorArgs="$olasAddress $dispenserAddress $polygonRootChainManagerProxyAddress $polygonFXRootAddress $polygonL2TargetChainId $polygonCheckpointManagerAddress $polygonERC20PredicateAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

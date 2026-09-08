@@ -43,7 +43,7 @@ async function main() {
     }
 
     // Writing updated parameters back to the JSON file
-    parsedData.dispenserProxyAddress = dispenser.address;
+    parsedData.dispenserAddress = dispenser.address;
     fs.writeFileSync(globalsFile, JSON.stringify(parsedData));
 
     // Contract verification

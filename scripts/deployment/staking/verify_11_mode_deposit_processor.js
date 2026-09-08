@@ -5,7 +5,7 @@ const parsedData = JSON.parse(dataFromJSON);
 
 module.exports = [
     parsedData.olasAddress,
-    parsedData.dispenserProxyAddress,
+    parsedData.dispenserAddress,
     parsedData.modeL1StandardBridgeProxyAddress,
     parsedData.modeL1CrossDomainMessengerProxyAddress,
     parsedData.modeL2TargetChainId,

@@ -26,7 +26,7 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 robinhoodL1ERC20GatewayRouterAddress=$(jq -r '.robinhoodL1ERC20GatewayRouterAddress' $globals)
 robinhoodInboxAddress=$(jq -r '.robinhoodInboxAddress' $globals)
 robinhoodL2TargetChainId=$(jq -r '.robinhoodL2TargetChainId' $globals)
@@ -34,39 +34,12 @@ robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $global
 robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
 robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
 
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
-
 robinhoodL1ERC20GatewayRouterAddress=$(jq -r '.robinhoodL1ERC20GatewayRouterAddress' $globals)
 robinhoodInboxAddress=$(jq -r '.robinhoodInboxAddress' $globals)
 robinhoodL2TargetChainId=$(jq -r '.robinhoodL2TargetChainId' $globals)
 robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $globals)
 robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
 robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
-
-# Preflight on the Dispenser binding. l1Dispenser is `immutable` in DefaultDepositProcessorL1, so a processor
-# deployed against the wrong Dispenser cannot be repaired — claims from the live one revert ManagerOnly.
-# deploy_07b_dispenser_proxy.sh writes dispenserProxyAddress into scripts/deployment/globals_<network>.json,
-# a DIFFERENT file from this one, so a proxy migration silently leaves the value here stale.
-zeroAddress="0x0000000000000000000000000000000000000000"
-if [ -z "$dispenserProxyAddress" ] || [ "$dispenserProxyAddress" == "null" ] \
-   || [ "$dispenserProxyAddress" == "$zeroAddress" ]; then
-  echo "${red}!!! dispenserProxyAddress is not set (or zero) in $globals${reset}"
-  exit 1
-fi
-deploymentGlobals="$(dirname "$0")/../globals_${1}.json"
-if [ -f "$deploymentGlobals" ]; then
-  liveDispenser=$(jq -r '.dispenserProxyAddress // .dispenserAddress // empty' "$deploymentGlobals")
-  if [ -n "$liveDispenser" ] \
-     && [ "$(echo "$liveDispenser" | tr '[:upper:]' '[:lower:]')" != "$(echo "$dispenserProxyAddress" | tr '[:upper:]' '[:lower:]')" ]; then
-    echo "${red}!!! Dispenser binding mismatch — refusing to deploy an immutable binding to a stale address${reset}"
-    echo "${red}    $globals            dispenserProxyAddress = $dispenserProxyAddress${reset}"
-    echo "${red}    $deploymentGlobals  says the live Dispenser is $liveDispenser${reset}"
-    echo "${red}    Reconcile the two before deploying; l1Dispenser cannot be changed afterwards.${reset}"
-    exit 1
-  fi
-fi
-
 
 # Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
@@ -83,7 +56,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 contractPath="contracts/staking/ArbitrumDepositProcessorL1.sol:ArbitrumDepositProcessorL1"
-constructorArgs="$olasAddress $dispenserProxyAddress $robinhoodL1ERC20GatewayRouterAddress $robinhoodInboxAddress $robinhoodL2TargetChainId $robinhoodL1ERC20GatewayAddress $robinhoodOutboxAddress $robinhoodBridgeAddress"
+constructorArgs="$olasAddress $dispenserAddress $robinhoodL1ERC20GatewayRouterAddress $robinhoodInboxAddress $robinhoodL2TargetChainId $robinhoodL1ERC20GatewayAddress $robinhoodOutboxAddress $robinhoodBridgeAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

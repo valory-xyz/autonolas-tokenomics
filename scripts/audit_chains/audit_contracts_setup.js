@@ -22,6 +22,23 @@ const AUTONOLAS_DEPLOYER = "0xEB2A22b27C7Ad5eeE424Fd90b376c745E60f914E";
 // Minimal helper: normalize addresses (case-insensitive compare)
 const norm = (a) => (a ? ethers.utils.getAddress(a) : a);
 
+// Resolves the address that Tokenomics/Treasury should be pointing at as their dispenser.
+//
+// These two read scripts/deployment/globals_<network>.json, where the two keys mean DIFFERENT contracts:
+// deploy_07a_dispenser.sh writes the standalone implementation to dispenserAddress, and
+// deploy_07b_dispenser_proxy.sh writes the live proxy to dispenserProxyAddress. The manager-update scripts
+// then wire Tokenomics/Treasury to the proxy. So prefer the proxy when one has been deployed, and fall back
+// to dispenserAddress for the current non-proxied deployment, where no proxy exists and the plain Dispenser
+// is what is wired.
+//
+// Do NOT use this for the L1 deposit-processor checks: those read the staking globals, which has only
+// dispenserAddress, and l1Dispenser is an immutable binding to whatever Dispenser was live at deploy time.
+const ZERO = "0x0000000000000000000000000000000000000000";
+const liveDispenser = (g) => {
+    const proxy = g["dispenserProxyAddress"];
+    return proxy && proxy !== ZERO ? proxy : g["dispenserAddress"];
+};
+
 // Global accumulator for CSV rows (collected during setup checks)
 const ownershipRows = [];
 
@@ -294,7 +311,7 @@ async function checkTokenomicsProxy(chainId, provider, globalsInstance, configCo
 
     // Check dispenser
     const dispenser = await tokenomics.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, liveDispenser(globalsInstance), log + ", function: dispenser()");
 
     // Check tokenomics implementation address.
     // Reads the current `tokenomicsAddress` field, which is the address the DAO will vote in
@@ -335,7 +352,7 @@ async function checkTreasury(chainId, provider, globalsInstance, configContracts
 
     // Check dispenser
     const dispenser = await treasury.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, liveDispenser(globalsInstance), log + ", function: dispenser()");
 
     // Check minAcceptedETH (0.065 ETH)
     const minAcceptedETH = await treasury.minAcceptedETH();
@@ -454,7 +471,7 @@ async function checkDepositProcessorL1(depositProcessorL1, globalsInstance, log)
 
     // Check L1 dispenser
     const dispenser = await depositProcessorL1.l1Dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: l1Dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: l1Dispenser()");
 }
 
 // Check ArbitrumDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -512,7 +529,7 @@ async function checkEthereumDepositProcessor(chainId, provider, globalsInstance,
 
     // Check dispenser
     const dispenser = await ethereumDepositProcessorL1.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserProxyAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
 
     // Check L1 staking factory
     const stakingFactory = await ethereumDepositProcessorL1.stakingFactory();

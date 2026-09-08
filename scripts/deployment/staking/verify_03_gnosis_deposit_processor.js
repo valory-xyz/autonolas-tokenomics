@@ -5,7 +5,7 @@ const parsedData = JSON.parse(dataFromJSON);
 
 module.exports = [
     parsedData.olasAddress,
-    parsedData.dispenserProxyAddress,
+    parsedData.dispenserAddress,
     parsedData.gnosisOmniBridgeAddress,
     parsedData.gnosisAMBForeignAddress,
     parsedData.gnosisL2TargetChainId

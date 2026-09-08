@@ -1,24 +1,25 @@
 #!/bin/bash
 
-# Whitelists every L1 deposit processor on the live DispenserProxy via
+# Whitelists every L1 deposit processor on the live Dispenser via
 # setDepositProcessorChainIds(address[],uint256[]), mapping each L2 target chain Id to its L1 processor
 # (and the mainnet chain Id to the L1-only EthereumDepositProcessor). This is the forge/cast equivalent of
 # the hardhat deploy_10_set_deposit_processors.js, and additionally registers the Mode processor.
 #
 # Run this after all L1 deposit processors have been deployed (their addresses populated in the staking
-# globals) and after the DispenserProxy is live. Registering a processor here is what lets the Dispenser
+# globals). Registering a processor here is what lets the Dispenser
 # route staking incentives to each chain. There is no zero-processor guard in the Dispenser: a chain left
 # unregistered resolves to a zero processor and reverts the claim (and in the batch path the zero-address
 # call reverts the whole batch, taking the other chains' claims down with it) — not a silent skip.
 #
-# Ownership note: immediately after deploy the DispenserProxy owner is the deploying EOA, so this runs as a
-# direct cast send. Once ownership is transferred to the DAO Timelock this same call becomes a governance
-# proposal instead — do not run this script directly against a DAO-owned proxy.
+# Ownership note: on a FRESH deployment the Dispenser owner is still the deploying EOA, so this runs as a
+# direct cast send. That is not the live mainnet situation: Dispenser.owner() is the DAO Timelock today, so
+# against the live Dispenser this call reverts OwnerOnly and must go through a governance proposal instead.
+# Treat this script as fresh-deployment tooling and as a source of the calldata for that proposal.
 #
 # Usage: deploy_10_set_deposit_processors.sh <network>
 #
 # Globals fields consumed:
-#   dispenserProxyAddress                 : live DispenserProxy address
+#   dispenserAddress                 : live Dispenser address
 #   chainId                               : L1 chain Id (used as the Ethereum/L1-only processor key)
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}DepositProcessorL1Address, ethereumDepositProcessorAddress
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}L2TargetChainId
@@ -48,16 +49,13 @@ useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-dispenserProxyAddress=$(jq -r '.dispenserProxyAddress' $globals)
-
-# Preflight: cross-check the Dispenser binding (see _preflight_dispenser.sh).
-. "$(dirname "$0")/_preflight_dispenser.sh"
+dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 
 zeroAddress="0x0000000000000000000000000000000000000000"
 
-if [ -z "$dispenserProxyAddress" ] || [ "$dispenserProxyAddress" == "null" ] \
-   || [ "$dispenserProxyAddress" == "$zeroAddress" ]; then
-  echo "${red}!!! dispenserProxyAddress is not set (or zero) in $globals${reset}"
+if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
+   || [ "$dispenserAddress" == "$zeroAddress" ]; then
+  echo "${red}!!! dispenserAddress is not set (or zero) in $globals${reset}"
   exit 1
 fi
 
@@ -131,13 +129,13 @@ fi
 
 castSendHeader="cast send --rpc-url $networkURL$API_KEY $walletArgs"
 
-echo "${green}Whitelist L1 deposit processors on the DispenserProxy${reset}"
-echo "  dispenserProxy : $dispenserProxyAddress"
+echo "${green}Whitelist L1 deposit processors on the Dispenser${reset}"
+echo "  dispenserProxy : $dispenserAddress"
 for i in "${!labels[@]}"; do
   echo "  ${labels[$i]} (chainId ${chainIds[$i]}) -> ${addresses[$i]}"
 done
 
-castArgs="$dispenserProxyAddress setDepositProcessorChainIds(address[],uint256[]) [$addrList] [$chainList]"
+castArgs="$dispenserAddress setDepositProcessorChainIds(address[],uint256[]) [$addrList] [$chainList]"
 echo $castArgs
 castCmd="$castSendHeader $castArgs"
 result=$($castCmd)
@@ -147,7 +145,7 @@ echo "$result" | grep "status"
 echo "${green}Verifying mapChainIdDepositProcessors${reset}"
 mismatch=0
 for i in "${!chainIds[@]}"; do
-  onchain=$(cast call --rpc-url $networkURL$API_KEY $dispenserProxyAddress "mapChainIdDepositProcessors(uint256)(address)" "${chainIds[$i]}")
+  onchain=$(cast call --rpc-url $networkURL$API_KEY $dispenserAddress "mapChainIdDepositProcessors(uint256)(address)" "${chainIds[$i]}")
   if [ "$(echo $onchain | tr '[:upper:]' '[:lower:]')" != "$(echo ${addresses[$i]} | tr '[:upper:]' '[:lower:]')" ]; then
     echo "${red}!!! ${labels[$i]} (chainId ${chainIds[$i]}): on-chain $onchain != ${addresses[$i]}${reset}"
     mismatch=1

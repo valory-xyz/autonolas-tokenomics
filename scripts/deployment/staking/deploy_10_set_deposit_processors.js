@@ -72,7 +72,7 @@ async function main() {
     const useLedger = parsedData.useLedger;
     const derivationPath = parsedData.derivationPath;
     const providerName = parsedData.providerName;
-    const dispenserProxyAddress = requireAddress(parsedData, "Dispenser", "dispenserProxyAddress");
+    const dispenserAddress = requireAddress(parsedData, "Dispenser", "dispenserAddress");
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
@@ -100,7 +100,7 @@ async function main() {
         console.log(`  ${label}: ${depositProcessor} -> chainId ${chainId}`);
     }
 
-    const dispenser = await ethers.getContractAt("Dispenser", dispenserProxyAddress);
+    const dispenser = await ethers.getContractAt("Dispenser", dispenserAddress);
 
     // Transaction signing and execution
     console.log("10. EOA to set deposit processors in Dispenser");
