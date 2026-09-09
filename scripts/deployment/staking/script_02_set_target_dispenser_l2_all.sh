@@ -8,7 +8,7 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Read variables using jq
@@ -42,7 +42,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 
