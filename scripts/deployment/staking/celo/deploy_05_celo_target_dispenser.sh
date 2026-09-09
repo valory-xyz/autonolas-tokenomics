@@ -8,14 +8,14 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Get globals file for L1: globals_mainnet or globals_sepolia
 globalsL1="$(dirname "$0")/../globals_${1#*_}.json"
 if [ ! -f $globalsL1 ]; then
   echo "${red}!!! $globalsL1 is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Read variables using jq
@@ -41,7 +41,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 
@@ -75,7 +75,7 @@ outputLength=${#celoTargetDispenserL2Address}
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
   echo "${red}!!! The contract was not deployed...${reset}"
-  exit 0
+  exit 1
 fi
 
 # Write new deployed contract back into JSON

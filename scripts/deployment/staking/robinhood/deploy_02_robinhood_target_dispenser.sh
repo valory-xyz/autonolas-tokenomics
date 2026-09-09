@@ -59,7 +59,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 

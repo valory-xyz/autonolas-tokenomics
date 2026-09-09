@@ -11,14 +11,14 @@ network=${1%_*}
 globals="$(dirname "$0")/globals_${1#*_}.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Get globals file for L2
 globalsL2="$(dirname "$0")/${network}/globals_$1.json"
 if [ ! -f $globalsL2 ]; then
   echo "${red}!!! $globalsL2 is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Read variables using jq
@@ -41,7 +41,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 
