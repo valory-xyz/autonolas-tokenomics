@@ -59,6 +59,11 @@
         "address": "0xFceFB015372e84FC465Cf2778889ee231a6E2e67"
       },
       {
+        "name": "ArbitrumDepositProcessorL1",
+        "artifact": "abis/0.8.30/ArbitrumDepositProcessorL1.json",
+        "address": "0xb9DfcC6155Ba4F211DCf8e6eCc9976Be11bB7a77"
+      },
+      {
         "name": "OptimismDepositProcessorL1",
         "artifact": "abis/deployed/OptimismDepositProcessorL1.json",
         "address": "0x990aBa4b05adc3761EfAf38FB871b93C7b162D03",
@@ -106,6 +111,11 @@
         "name": "LiquidityManagerUniV2UniV3",
         "artifact": "abis/deployed/LiquidityManagerUniV2UniV3.json",
         "address": "0x0171D7178fbf3B48E75675DEE2EA3EfecEf775C1"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x83Adc54B2828E99a6DA3A11263C75E38E0A1a215"
       }
     ]
   },
@@ -240,6 +250,11 @@
         "name": "LiquidityManagerBalancerSlipstream",
         "artifact": "abis/deployed/LiquidityManagerBalancerSlipstream.json",
         "address": "0xCf9B4710fe450Dca52374f28e4917FDCd44F9487"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A"
       }
     ]
   },
@@ -281,6 +296,11 @@
         "name": "LiquidityManagerBalancerSlipstream",
         "artifact": "abis/deployed/LiquidityManagerBalancerSlipstream.json",
         "address": "0x1D64516E7654F23dB7cE2ddaD00FFb3E765cf5ce"
+      },
+      {
+        "name": "LiquidityManagerProxy",
+        "artifact": "abis/0.8.30/LiquidityManagerProxy.json",
+        "address": "0x2ACD313B892C9922E470e4950e907d5EAa70fC2a"
       }
     ]
   },
@@ -323,6 +343,17 @@
         "name": "OptimismTargetDispenserL2",
         "artifact": "abis/0.8.25/OptimismTargetDispenserL2.json",
         "address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
+      }
+    ]
+  },
+  {
+    "name": "robinhood",
+    "chainId": "4663",
+    "contracts": [
+      {
+        "name": "ArbitrumTargetDispenserL2",
+        "artifact": "abis/0.8.30/ArbitrumTargetDispenserL2.json",
+        "address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
       }
     ]
   }

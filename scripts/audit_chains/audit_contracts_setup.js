@@ -794,6 +794,56 @@ async function checkGnosisTargetDispenserL2(chainId, provider, globalsInstance, 
 }
 
 // Check ArbitrumTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name
+// Robinhood is the second Arbitrum Orbit chain, so it reuses ArbitrumDepositProcessorL1 /
+// ArbitrumTargetDispenserL2 with its own bridge addresses - the same shape as Base/Celo/Mode reusing
+// the Optimism pair. idx 1 selects the second ArbitrumDepositProcessorL1 entry under mainnet; without
+// it this would silently re-check Arbitrum One's address.
+async function checkRobinhoodDepositProcessorL1(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    await checkBytecode(provider, configContracts, contractName, log, 1);
+
+    const robinhoodDepositProcessorL1 = await findContractInstance(provider, configContracts, contractName, 1);
+
+    log += ", address: " + robinhoodDepositProcessorL1.address;
+    await checkDepositProcessorL1(robinhoodDepositProcessorL1, globalsInstance, log);
+
+    const l1TokenRelayer = await robinhoodDepositProcessorL1.l1TokenRelayer();
+    customExpect(l1TokenRelayer, globalsInstance["robinhoodL1ERC20GatewayRouterAddress"], log + ", function: l1TokenRelayer()");
+
+    const l1MessageRelayer = await robinhoodDepositProcessorL1.l1MessageRelayer();
+    customExpect(l1MessageRelayer, globalsInstance["robinhoodInboxAddress"], log + ", function: l1MessageRelayer()");
+
+    const l2TargetChainId = await robinhoodDepositProcessorL1.l2TargetChainId();
+    customExpect(l2TargetChainId.toString(), globalsInstance["robinhoodL2TargetChainId"], log + ", function: l2TargetChainId()");
+
+    const l1ERC20Gateway = await robinhoodDepositProcessorL1.l1ERC20Gateway();
+    customExpect(l1ERC20Gateway, globalsInstance["robinhoodL1ERC20GatewayAddress"], log + ", function: l1ERC20Gateway()");
+
+    const outbox = await robinhoodDepositProcessorL1.outbox();
+    customExpect(outbox, globalsInstance["robinhoodOutboxAddress"], log + ", function: outbox()");
+
+    const bridge = await robinhoodDepositProcessorL1.bridge();
+    customExpect(bridge, globalsInstance["robinhoodBridgeAddress"], log + ", function: bridge()");
+
+    const l2TargetDispenser = await robinhoodDepositProcessorL1.l2TargetDispenser();
+    customExpect(l2TargetDispenser, globalsInstance["robinhoodTargetDispenserL2Address"], log + ", function: l2TargetDispenser()");
+}
+
+// Check RobinhoodTargetDispenserL2: chain Id, provider, parsed globals, configuration contracts, contract name
+async function checkRobinhoodTargetDispenserL2(chainId, provider, globalsInstance, configContracts, contractName, log) {
+    await checkBytecode(provider, configContracts, contractName, log);
+
+    const robinhoodTargetDispenserL2 = await findContractInstance(provider, configContracts, contractName);
+
+    log += ", address: " + robinhoodTargetDispenserL2.address;
+    await checkTargetDispenserL2(chainId, contractName, robinhoodTargetDispenserL2, globalsInstance, log);
+
+    const l2MessageRelayer = await robinhoodTargetDispenserL2.l2MessageRelayer();
+    customExpect(l2MessageRelayer, globalsInstance["robinhoodArbSysAddress"], log + ", function: l2MessageRelayer()");
+
+    const l1DepositProcessor = await robinhoodTargetDispenserL2.l1DepositProcessor();
+    customExpect(l1DepositProcessor, globalsInstance["robinhoodDepositProcessorL1Address"], log + ", function: l1DepositProcessor()");
+}
+
 async function checkArbitrumTargetDispenserL2(chainId, provider, globalsInstance, configContracts, contractName, log) {
     // Check the bytecode
     await checkBytecode(provider, configContracts, contractName, log);
@@ -1222,7 +1272,8 @@ async function main() {
             "optimism": "scripts/deployment/staking/optimism/globals_optimism_mainnet.json",
             "base": "scripts/deployment/staking/base/globals_base_mainnet.json",
             "celo": "scripts/deployment/staking/celo/globals_celo_mainnet.json",
-            "mode": "scripts/deployment/staking/mode/globals_mode_mainnet.json"
+            "mode": "scripts/deployment/staking/mode/globals_mode_mainnet.json",
+            "robinhood": "scripts/deployment/staking/robinhood/globals_robinhood_mainnet.json"
         };
 
         const globals = new Array();
@@ -1247,7 +1298,8 @@ async function main() {
             "optimism": "https://mainnet.optimism.io",
             "base": "https://mainnet.base.org",
             "celo": "https://forno.celo.org",
-            "mode": "https://mainnet.mode.network"
+            "mode": "https://mainnet.mode.network",
+            "robinhood": "https://rpc.mainnet.chain.robinhood.com"
         };
 
         const providers = new Array();
@@ -1265,7 +1317,8 @@ async function main() {
             "optimism": "optimism_mainnet",
             "base": "base_mainnet",
             "celo": "celo_mainnet",
-            "mode": "mode_mainnet"
+            "mode": "mode_mainnet",
+            "robinhood": "robinhood_mainnet"
         };
         const deploymentGlobals = {};
         for (const k in providerLinks) {
@@ -1325,6 +1378,9 @@ async function main() {
 
         log = initLog + ", contract: " + "ModeDepositProcessorL1";
         await checkModeDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "OptimismDepositProcessorL1", log);
+
+        log = initLog + ", contract: " + "RobinhoodDepositProcessorL1";
+        await checkRobinhoodDepositProcessorL1(configs[0]["chainId"], providers[0], globalsStaking, configs[0]["contracts"], "ArbitrumDepositProcessorL1", log);
 
         // ---- L1 oracle / BBB / LM / NeighborhoodScanner (mainnet) ----
         const mDg = deploymentGlobals["mainnet"];
@@ -1483,6 +1539,13 @@ async function main() {
         } catch (e) {
             console.log("  [SKIP] Mode TargetDispenser check skipped: " + (e.message || e));
         }
+        chainNumber++;
+
+        // Robinhood
+        console.log("\n######## Verifying setup on CHAIN ID", configs[chainNumber]["chainId"]);
+        initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
+        log = initLog + ", contract: " + "ArbitrumTargetDispenserL2";
+        await checkRobinhoodTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "ArbitrumTargetDispenserL2", log);
     }
     // ################################# /VERIFY CONTRACTS SETUP #################################
     // Write CSV once at the end of setup verification
