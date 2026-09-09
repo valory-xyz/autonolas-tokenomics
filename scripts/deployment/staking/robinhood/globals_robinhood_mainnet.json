@@ -12,6 +12,6 @@
   "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
   "robinhoodArbSysAddress": "0x0000000000000000000000000000000000000064",
   "l1ChainId": "1",
-  "robinhoodDepositProcessorL1Address": "",
-  "robinhoodTargetDispenserL2Address": ""
+  "robinhoodDepositProcessorL1Address": "0xb9DfcC6155Ba4F211DCf8e6eCc9976Be11bB7a77",
+  "robinhoodTargetDispenserL2Address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
 }
