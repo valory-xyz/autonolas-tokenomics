@@ -10,9 +10,21 @@ doing that silently breaks the comparison for all the others.
 
 `abis/deployed/` holds one artifact per deployment for exactly those cases: the four L1 deposit
 processors recorded as `OptimismDepositProcessorL1` (Optimism, Base and Mode share a build; Celo has
-its own from its 2026-01 redeploy), and the L2 target dispensers that share the
-`OptimismTargetDispenserL2` name. Every file here was recovered from this repo's history and matches
-its deployment's on-chain code length exactly.
+its own from its 2026-01 redeploy), the L2 target dispensers that share the
+`OptimismTargetDispenserL2` name, and — since the Robinhood (4663) rollout — the two Arbitrum Orbit
+names `ArbitrumDepositProcessorL1` and `ArbitrumTargetDispenserL2`, each of which now covers two
+deployments on two distinct builds: Arbitrum One on the original, Robinhood on the ^0.8.30 rebuild
+(`RobinhoodDepositProcessorL1.json`, `RobinhoodTargetDispenserL2.json`). Most files here were
+recovered from this repo's history; the two Robinhood ones are the build that was deployed, and each
+matches its deployment's on-chain code length **and** metadata trailer exactly.
+
+The Robinhood pair is worth one note, because it is the case this directory exists to catch arriving
+in a new form. `abis/0.8.30/Arbitrum{DepositProcessorL1,TargetDispenserL2}.json` share the Robinhood
+deployment's source, solc version and settings, but not its metadata hash — so pointing the
+`configuration.json` entries at them produced a permanent Tier-2 `metadata-trailer drift` warning and
+left a regeneration hazard: the next `chore: updating ABIs` could move the length, set
+`bytecodeMismatchFound` and exit 1. Identical logic is not sufficient; the artifact has to be the
+build that was deployed.
 
 An artifact for code that is **not** deployed yet keeps its `abis/<solc>/` home. It should not be
 pointed at from a `configuration.json` entry until the redeploy lands.

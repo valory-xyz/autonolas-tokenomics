@@ -60,7 +60,7 @@
       },
       {
         "name": "ArbitrumDepositProcessorL1",
-        "artifact": "abis/0.8.30/ArbitrumDepositProcessorL1.json",
+        "artifact": "abis/deployed/RobinhoodDepositProcessorL1.json",
         "address": "0xb9DfcC6155Ba4F211DCf8e6eCc9976Be11bB7a77"
       },
       {
@@ -352,7 +352,7 @@
     "contracts": [
       {
         "name": "ArbitrumTargetDispenserL2",
-        "artifact": "abis/0.8.30/ArbitrumTargetDispenserL2.json",
+        "artifact": "abis/deployed/RobinhoodTargetDispenserL2.json",
         "address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
       }
     ]
