@@ -357,22 +357,22 @@
       },
       {
         "name": "UniswapPriceOracle",
-        "artifact": "abis/0.8.30/UniswapPriceOracle.json",
+        "artifact": "abis/deployed/RobinhoodUniswapPriceOracle.json",
         "address": "0x98677Fd8Ac2BD2AF4BD2BFd4eEB651394362445d"
       },
       {
         "name": "BuyBackBurnerUniswap",
-        "artifact": "abis/0.8.30/BuyBackBurnerUniswap.json",
+        "artifact": "abis/deployed/RobinhoodBuyBackBurnerUniswap.json",
         "address": "0x1fe74A08ac89300B102AdCd474C721AE8764E850"
       },
       {
         "name": "BuyBackBurnerProxy",
-        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "artifact": "abis/deployed/RobinhoodBuyBackBurnerProxy.json",
         "address": "0x209694516495253E366E6FB0dD0eb1F275354947"
       },
       {
         "name": "Bridge2BurnerArbitrum",
-        "artifact": "abis/0.8.30/Bridge2BurnerArbitrum.json",
+        "artifact": "abis/deployed/RobinhoodBridge2BurnerArbitrum.json",
         "address": "0xe282cDe2718DbE656394AeE36C104776C30a5CB4"
       }
     ]

@@ -14,7 +14,10 @@ its own from its 2026-01 redeploy), the L2 target dispensers that share the
 `OptimismTargetDispenserL2` name, and — since the Robinhood (4663) rollout — the two Arbitrum Orbit
 names `ArbitrumDepositProcessorL1` and `ArbitrumTargetDispenserL2`, each of which now covers two
 deployments on two distinct builds: Arbitrum One on the original, Robinhood on the ^0.8.30 rebuild
-(`RobinhoodDepositProcessorL1.json`, `RobinhoodTargetDispenserL2.json`). Most files here were
+(`RobinhoodDepositProcessorL1.json`, `RobinhoodTargetDispenserL2.json`), and the four buyback-stack
+contracts Robinhood shares with earlier deployments — `UniswapPriceOracle`, `Bridge2BurnerArbitrum`,
+`BuyBackBurnerUniswap` and `BuyBackBurnerProxy`, each recorded under a `Robinhood`-prefixed name for the
+same reason. Most files here were
 recovered from this repo's history; the two Robinhood ones are the build that was deployed, and each
 matches its deployment's on-chain code length **and** metadata trailer exactly.
 
