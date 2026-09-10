@@ -354,6 +354,26 @@
         "name": "ArbitrumTargetDispenserL2",
         "artifact": "abis/deployed/RobinhoodTargetDispenserL2.json",
         "address": "0xc40C79C275F3fA1F3f4c723755C81ED2D53A8D81"
+      },
+      {
+        "name": "UniswapPriceOracle",
+        "artifact": "abis/0.8.30/UniswapPriceOracle.json",
+        "address": "0x98677Fd8Ac2BD2AF4BD2BFd4eEB651394362445d"
+      },
+      {
+        "name": "BuyBackBurnerUniswap",
+        "artifact": "abis/0.8.30/BuyBackBurnerUniswap.json",
+        "address": "0x1fe74A08ac89300B102AdCd474C721AE8764E850"
+      },
+      {
+        "name": "BuyBackBurnerProxy",
+        "artifact": "abis/0.8.30/BuyBackBurnerProxy.json",
+        "address": "0x209694516495253E366E6FB0dD0eb1F275354947"
+      },
+      {
+        "name": "Bridge2BurnerArbitrum",
+        "artifact": "abis/0.8.30/Bridge2BurnerArbitrum.json",
+        "address": "0xe282cDe2718DbE656394AeE36C104776C30a5CB4"
       }
     ]
   }

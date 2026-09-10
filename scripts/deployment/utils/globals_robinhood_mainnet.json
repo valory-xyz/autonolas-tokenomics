@@ -13,10 +13,10 @@
   "l2GatewayRouterAddress": "0x1E324B9316138CA9a73F960213621AD1aaf01B89",
   "nativeTokenAddress": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
   "routerV2Address": "0x89e5db8b5aa49aa85ac63f691524311aeb649eba",
-  "uniswapPriceOracleAddress": "",
+  "uniswapPriceOracleAddress": "0x98677Fd8Ac2BD2AF4BD2BFd4eEB651394362445d",
   "liquidityManagerProxyAddress": "0x0000000000000000000000000000000000000000",
   "swapRouterV3Address": "0x0000000000000000000000000000000000000000",
-  "buyBackBurnerAddress": "",
-  "buyBackBurnerProxyAddress": "",
-  "bridge2BurnerAddress": ""
+  "buyBackBurnerAddress": "0x1fe74A08ac89300B102AdCd474C721AE8764E850",
+  "buyBackBurnerProxyAddress": "0x209694516495253E366E6FB0dD0eb1F275354947",
+  "bridge2BurnerAddress": "0xe282cDe2718DbE656394AeE36C104776C30a5CB4"
 }
