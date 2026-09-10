@@ -152,6 +152,59 @@ async function checkOwner(chainId, contract, globalsInstance, log) {
     };
 }
 
+// Four L2 target dispensers whose committed artifact is a year older than the deployment. Their
+// abis/0.8.25/ artifacts were last regenerated 2024-07-09 (c39050e), while the deployed code carries
+// processDataMaintenance(bytes,bool) and updateWithheldAmountMaintenance(uint256), added in the
+// 2025-06 commits (8056c87, 1555832) and shipped by 513a2fc. Each artifact happens to match its
+// deployment's length exactly, which is why the Tier-1 length check never caught this.
+//
+// The correct artifacts are not in this repo and could not be rebuilt: from 513a2fc, twelve
+// combinations of solc 0.8.25, optimizer runs 100-200, viaIR on/off and four EVM versions produce
+// 7672 / 7769 / 8436 / 8453 / 8487 / 8489 / 8660 stripped bytes and never the deployed 8463 (gnosis
+// 8492). The same dead end as the base BuyBackBurnerProxy noted above.
+//
+// Listed here so Tier 1b stays blocking for everything else rather than being weakened to a warning.
+// These are reported loudly on every run. Deleting an entry is the point: it goes when the real
+// artifact is recovered and committed under abis/deployed/.
+// Keyed by address AND the configuration entry's contract name. Addresses are not unique across
+// chains in this file - 0x4891f589... is optimism's BuyBackBurnerProxy and celo's target dispenser -
+// so an address-only key would silently exempt an unrelated contract if one ever collided.
+const KNOWN_STALE_ARTIFACTS = {
+    "0x5b6c538c7b2e0b44fa8a3b7a0532ef797b07d0e9": {name: "GnosisTargetDispenserL2", label: "gnosis"},
+    "0xaea9ef993d8a1a164397642648df43f053d43d85": {name: "OptimismTargetDispenserL2", label: "optimism"},
+    "0x9ec97be9ff55ff11606ce7c589956f7bf3d0b241": {name: "OptimismTargetDispenserL2", label: "base"},
+    "0xeb5638eefe289691ece01943f768edbf96258a80": {name: "OptimismTargetDispenserL2", label: "mode"},
+};
+
+// An EVM immutable occupies at most one 32-byte word, so a contiguous run of differing bytes longer
+// than this cannot be an immutable - it means the artifact is a different build.
+const MAX_IMMUTABLE_RUN_BYTES = 32;
+
+// Drop the CBOR metadata trailer, whose last two bytes give its own length. Returns a lowercase hex
+// string without the 0x prefix, or the input unchanged when the trailer is not well formed.
+function stripMetadata(hex) {
+    const h = hex.startsWith("0x") ? hex.slice(2) : hex;
+    if (h.length < 4) return h.toLowerCase();
+    const cborLen = parseInt(h.slice(-4), 16);
+    const cut = (cborLen + 2) * 2;
+    if (!Number.isFinite(cborLen) || cut <= 0 || cut > h.length) return h.toLowerCase();
+    return h.slice(0, h.length - cut).toLowerCase();
+}
+
+// Group differing byte positions of two equal-length hex strings into contiguous runs.
+function diffByteRuns(aHex, bHex) {
+    const runs = [];
+    let start = -1;
+    const n = Math.min(aHex.length, bHex.length) / 2;
+    for (let i = 0; i < n; i++) {
+        const differs = aHex.slice(i * 2, i * 2 + 2) !== bHex.slice(i * 2, i * 2 + 2);
+        if (differs && start < 0) start = i;
+        if (!differs && start >= 0) { runs.push({start, length: i - start}); start = -1; }
+    }
+    if (start >= 0) runs.push({start, length: n - start});
+    return runs;
+}
+
 // Check the bytecode
 // idx selects which entry to check when configuration.json holds more than one contract under the
 // same name — mirroring findContractInstance(). Without it every same-named entry resolved to the
@@ -218,6 +271,43 @@ async function checkBytecode(provider, configContracts, contractName, log, idx =
                 console.log("\n");
                 bytecodeMismatchFound = true;
                 return;
+            }
+
+            // Tier 1b (BLOCKING): equal length is not sufficient. Two different revisions of the same
+            // contract can compile to the same length by coincidence - gnosis, optimism, base and mode's
+            // target dispensers each matched their artifact's length exactly while running a build a year
+            // newer than it, with processDataMaintenance(bytes) replaced by processDataMaintenance(bytes,
+            // bool) and updateWithheldAmountMaintenance(uint256) added. The length check passed and the
+            // audit instantiated those contracts with an ABI that did not describe them.
+            //
+            // So compare the executable bytecode, with the CBOR trailer removed, and require every
+            // difference to be immutable-shaped. An EVM immutable is at most one 32-byte word, so a
+            // contiguous differing run longer than that cannot be one: it is a different build. Inlined
+            // addresses (20 B) and small ints sit far below the threshold - across the fleet the largest
+            // legitimate run is 20 B, while a wrong artifact shows runs of 282-695 B.
+            const execArtifact = stripMetadata(bytecode);
+            const execOnChain = stripMetadata(onChainCode);
+            if (execArtifact.length === execOnChain.length) {
+                const diffRuns = diffByteRuns(execArtifact, execOnChain);
+                const longest = diffRuns.reduce((m, r) => Math.max(m, r.length), 0);
+                if (longest > MAX_IMMUTABLE_RUN_BYTES) {
+                    const total = diffRuns.reduce((t, r) => t + r.length, 0);
+                    const entry = KNOWN_STALE_ARTIFACTS[configContracts[i]["address"].toLowerCase()];
+                    const known = (entry && entry.name === configContracts[i]["name"])
+                        ? entry.label + " " + entry.name : null;
+                    const detail = total + "B differ in " + diffRuns.length + " runs, longest " + longest
+                        + "B (an immutable is at most " + MAX_IMMUTABLE_RUN_BYTES + "B). Lengths match, so"
+                        + " this is a different revision compiled to the same size, not an immutable delta.";
+                    if (known) {
+                        console.log(tag + ", KNOWN-STALE ARTIFACT (" + known + "): " + detail
+                            + " Pre-existing and tracked; see KNOWN_STALE_ARTIFACTS.");
+                        return;
+                    }
+                    console.log(tag + ", FAIL: artifact is not the deployed build: " + detail);
+                    console.log("\n");
+                    bytecodeMismatchFound = true;
+                    return;
+                }
             }
 
             // Tier 2 (warning): same length but the trailing CBOR metadata (last 43 bytes) differs.
@@ -1557,7 +1647,7 @@ async function main() {
 main()
     .then(() => {
         if (bytecodeMismatchFound) {
-            console.error("AUDIT FAILED: at least one on-chain bytecode length mismatch (Tier 1) — see FAIL lines above.");
+            console.error("AUDIT FAILED: at least one contract does not match its artifact (Tier 1: length, or Tier 1b: a differing run too long to be an immutable) — see FAIL lines above.");
             process.exit(1);
         }
         process.exit(0);
