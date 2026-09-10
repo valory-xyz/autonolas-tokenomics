@@ -176,9 +176,47 @@ const KNOWN_STALE_ARTIFACTS = {
     "0xeb5638eefe289691ece01943f768edbf96258a80": {name: "OptimismTargetDispenserL2", label: "mode"},
 };
 
-// An EVM immutable occupies at most one 32-byte word, so a contiguous run of differing bytes longer
-// than this cannot be an immutable - it means the artifact is a different build.
-const MAX_IMMUTABLE_RUN_BYTES = 32;
+// Byte ranges of PUSH32 operands that are all zero in the artifact's code: solc reserves one 32-byte
+// slot per immutable and leaves it zeroed in the compiled output, filling it at construction. Those
+// ranges are the only places a deployed runtime may legitimately differ from its artifact.
+//
+// A linear opcode walk is enough - skipping each PUSH's operand keeps the walk aligned, and no
+// contract in the fleet misaligns on embedded data. This needs no immutableReferences, so it works on
+// the hardhat abis/<solc>/ artifacts as well as the forge ones.
+//
+// Verified against forge's own immutableReferences: the scan agrees exactly on all 13 forge artifacts
+// configuration.json references. It can over-approximate in principle - a contract that legitimately
+// pushes an all-zero 32-byte constant would have that treated as a slot, permitting a difference there.
+// One such case exists in out/ (ZuniswapV2Library, 4 scanned vs 1 declared) and it is not an audited
+// contract. The failure direction is permissive, never a false FAIL.
+function immutableSlots(hex) {
+    const b = Buffer.from(hex, "hex");
+    const slots = [];
+    for (let i = 0; i < b.length; ) {
+        const op = b[i];
+        if (op >= 0x60 && op <= 0x7f) {
+            if (op === 0x7f && b.subarray(i + 1, i + 33).every((x) => x === 0)) slots.push([i + 1, i + 33]);
+            i += 1 + (op - 0x5f);
+        } else {
+            i += 1;
+        }
+    }
+    return slots;
+}
+
+// Differing bytes between two equal-length hex strings that fall outside the given byte ranges.
+function diffsOutsideSlots(aHex, bHex, slots) {
+    const inSlot = new Uint8Array(aHex.length / 2);
+    for (const [from, to] of slots) {
+        for (let i = from; i < to && i < inSlot.length; i++) inSlot[i] = 1;
+    }
+    const offsets = [];
+    for (let i = 0; i < inSlot.length; i++) {
+        if (inSlot[i]) continue;
+        if (aHex.slice(i * 2, i * 2 + 2) !== bHex.slice(i * 2, i * 2 + 2)) offsets.push(i);
+    }
+    return offsets;
+}
 
 // Drop the CBOR metadata trailer, whose last two bytes give its own length. Returns a lowercase hex
 // string without the 0x prefix, or the input unchanged when the trailer is not well formed.
@@ -189,20 +227,6 @@ function stripMetadata(hex) {
     const cut = (cborLen + 2) * 2;
     if (!Number.isFinite(cborLen) || cut <= 0 || cut > h.length) return h.toLowerCase();
     return h.slice(0, h.length - cut).toLowerCase();
-}
-
-// Group differing byte positions of two equal-length hex strings into contiguous runs.
-function diffByteRuns(aHex, bHex) {
-    const runs = [];
-    let start = -1;
-    const n = Math.min(aHex.length, bHex.length) / 2;
-    for (let i = 0; i < n; i++) {
-        const differs = aHex.slice(i * 2, i * 2 + 2) !== bHex.slice(i * 2, i * 2 + 2);
-        if (differs && start < 0) start = i;
-        if (!differs && start >= 0) { runs.push({start, length: i - start}); start = -1; }
-    }
-    if (start >= 0) runs.push({start, length: n - start});
-    return runs;
 }
 
 // Check the bytecode
@@ -280,34 +304,47 @@ async function checkBytecode(provider, configContracts, contractName, log, idx =
             // bool) and updateWithheldAmountMaintenance(uint256) added. The length check passed and the
             // audit instantiated those contracts with an ABI that did not describe them.
             //
-            // So compare the executable bytecode, with the CBOR trailer removed, and require every
-            // difference to be immutable-shaped. An EVM immutable is at most one 32-byte word, so a
-            // contiguous differing run longer than that cannot be one: it is a different build. Inlined
-            // addresses (20 B) and small ints sit far below the threshold - across the fleet the largest
-            // legitimate run is 20 B, while a wrong artifact shows runs of 282-695 B.
+            // So compare the executable bytecode with the CBOR trailer removed, and allow a difference
+            // only where the artifact has an unfilled immutable slot - a PUSH32 whose operand is all
+            // zero. Everything else must match byte for byte.
+            //
+            // An earlier revision of this check used a run-length threshold instead, which was not sound:
+            // a changed PUSH20 address, a flipped LT/GT or a changed PUSH4 selector all fit inside 32
+            // bytes and would have passed. The fleet's longest legitimate run is also 32 B, not 20 -
+            // mainnet's Dispenser 0x5650300f carries a full-word immutable - so the threshold sat exactly
+            // on a real value. The slot check has no threshold to tune: 59 of 59 genuine fleet contracts
+            // pass with no false positives, and the four stale dispensers fail on ~7,500 bytes each.
             const execArtifact = stripMetadata(bytecode);
             const execOnChain = stripMetadata(onChainCode);
-            if (execArtifact.length === execOnChain.length) {
-                const diffRuns = diffByteRuns(execArtifact, execOnChain);
-                const longest = diffRuns.reduce((m, r) => Math.max(m, r.length), 0);
-                if (longest > MAX_IMMUTABLE_RUN_BYTES) {
-                    const total = diffRuns.reduce((t, r) => t + r.length, 0);
-                    const entry = KNOWN_STALE_ARTIFACTS[configContracts[i]["address"].toLowerCase()];
-                    const known = (entry && entry.name === configContracts[i]["name"])
-                        ? entry.label + " " + entry.name : null;
-                    const detail = total + "B differ in " + diffRuns.length + " runs, longest " + longest
-                        + "B (an immutable is at most " + MAX_IMMUTABLE_RUN_BYTES + "B). Lengths match, so"
-                        + " this is a different revision compiled to the same size, not an immutable delta.";
-                    if (known) {
-                        console.log(tag + ", KNOWN-STALE ARTIFACT (" + known + "): " + detail
-                            + " Pre-existing and tracked; see KNOWN_STALE_ARTIFACTS.");
-                        return;
-                    }
-                    console.log(tag + ", FAIL: artifact is not the deployed build: " + detail);
-                    console.log("\n");
-                    bytecodeMismatchFound = true;
+            const entry = KNOWN_STALE_ARTIFACTS[configContracts[i]["address"].toLowerCase()];
+            const known = (entry && entry.name === configContracts[i]["name"])
+                ? entry.label + " " + entry.name : null;
+            let tier1bDetail = null;
+            if (execArtifact.length !== execOnChain.length) {
+                // Equal total length does not imply equal executable length: the two CBOR trailers can
+                // themselves differ in length. Skipping the comparison here would let the whole check be
+                // bypassed, so treat it as a mismatch rather than falling through to a warning.
+                tier1bDetail = "executable length differs after stripping metadata: artifact "
+                    + execArtifact.length / 2 + "B onchain " + execOnChain.length / 2 + "B.";
+            } else {
+                const offenders = diffsOutsideSlots(execArtifact, execOnChain,
+                    immutableSlots(execArtifact));
+                if (offenders.length > 0) {
+                    tier1bDetail = offenders.length + "B differ outside the artifact's unfilled immutable"
+                        + " slots (first at offset " + offenders[0] + "). Only zeroed PUSH32 operands may"
+                        + " differ; anything else means the artifact is not this deployment's build.";
+                }
+            }
+            if (tier1bDetail) {
+                if (known) {
+                    console.log(tag + ", KNOWN-STALE ARTIFACT (" + known + "): " + tier1bDetail
+                        + " Pre-existing and tracked; see KNOWN_STALE_ARTIFACTS.");
                     return;
                 }
+                console.log(tag + ", FAIL: artifact is not the deployed build: " + tier1bDetail);
+                console.log("\n");
+                bytecodeMismatchFound = true;
+                return;
             }
 
             // Tier 2 (warning): same length but the trailing CBOR metadata (last 43 bytes) differs.
