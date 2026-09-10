@@ -34,12 +34,46 @@ robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $global
 robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
 robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
 
-robinhoodL1ERC20GatewayRouterAddress=$(jq -r '.robinhoodL1ERC20GatewayRouterAddress' $globals)
-robinhoodInboxAddress=$(jq -r '.robinhoodInboxAddress' $globals)
-robinhoodL2TargetChainId=$(jq -r '.robinhoodL2TargetChainId' $globals)
-robinhoodL1ERC20GatewayAddress=$(jq -r '.robinhoodL1ERC20GatewayAddress' $globals)
-robinhoodOutboxAddress=$(jq -r '.robinhoodOutboxAddress' $globals)
-robinhoodBridgeAddress=$(jq -r '.robinhoodBridgeAddress' $globals)
+# Validate every constructor input before building the args. `--constructor-args $constructorArgs` is
+# unquoted, so an empty value is collapsed by word-splitting rather than passed as an empty token. That
+# fails at forge's arity check today, but a stale-but-well-formed address would deploy successfully against
+# a wrong immutable binding, which is the hazard this actually guards.
+zeroAddress="0x0000000000000000000000000000000000000000"
+for pair in "olasAddress:$olasAddress" \
+            "dispenserAddress:$dispenserAddress" \
+            "robinhoodL1ERC20GatewayRouterAddress:$robinhoodL1ERC20GatewayRouterAddress" \
+            "robinhoodInboxAddress:$robinhoodInboxAddress" \
+            "robinhoodL2TargetChainId:$robinhoodL2TargetChainId" \
+            "robinhoodL1ERC20GatewayAddress:$robinhoodL1ERC20GatewayAddress" \
+            "robinhoodOutboxAddress:$robinhoodOutboxAddress" \
+            "robinhoodBridgeAddress:$robinhoodBridgeAddress"; do
+  key="${pair%%:*}"; val="${pair#*:}"
+  if [ -z "$val" ] || [ "$val" == "null" ] || [ "$val" == "$zeroAddress" ] || [ "$val" == "0" ]; then
+    echo "${red}!!! $key is not set (or zero) in $globals${reset}"
+    exit 1
+  fi
+done
+
+# Robinhood and Arbitrum One are both Arbitrum Orbit chains sharing ArbitrumDepositProcessorL1, and six of
+# the eight constructor arguments are chain-specific. Carrying an Arbitrum One value over would deploy
+# successfully and then route OLAS into Arbitrum's escrow under a 4663 chain tag - a silent, unrecoverable
+# mis-send. Only _olas and _l1Dispenser are legitimately shared.
+# Addresses are lowercased before comparison: block explorers and most CLI output render them
+# unchecksummed, so a copied Arbitrum One value most often arrives in lowercase. An exact-string
+# comparison would let exactly that paste through the guard.
+for key in L1ERC20GatewayRouterAddress InboxAddress L2TargetChainId L1ERC20GatewayAddress OutboxAddress BridgeAddress; do
+  rhVal=$(jq -r ".robinhood${key}" $globals | tr '[:upper:]' '[:lower:]')
+  arbVal=$(jq -r ".arbitrum${key}" $globals | tr '[:upper:]' '[:lower:]')
+  if [ "$arbVal" == "null" ]; then
+    echo "${red}!!! arbitrum${key} is absent from $globals - cannot check robinhood${key} for reuse${reset}"
+    exit 1
+  fi
+  if [ "$rhVal" == "$arbVal" ]; then
+    echo "${red}!!! robinhood${key} equals arbitrum${key} ($rhVal)${reset}"
+    echo "${red}!!! This would bridge to Arbitrum One while tagging chain 4663. Aborting.${reset}"
+    exit 1
+  fi
+done
 
 # Check for Alchemy keys
 if [[ "$networkURL" == *"alchemy.com"* ]]; then
