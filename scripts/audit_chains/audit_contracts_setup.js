@@ -1695,7 +1695,7 @@ async function main() {
 main()
     .then(() => {
         if (bytecodeMismatchFound) {
-            console.error("AUDIT FAILED: at least one contract does not match its artifact (Tier 1: length, or Tier 1b: a differing run too long to be an immutable) — see FAIL lines above.");
+            console.error("AUDIT FAILED: at least one contract does not match its artifact (Tier 1: code length, or Tier 1b: bytes differing outside the artifact's unfilled PUSH32 immutable slots) — see FAIL lines above.");
             process.exit(1);
         }
         process.exit(0);
