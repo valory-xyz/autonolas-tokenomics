@@ -1,0 +1,22 @@
+{
+  "contractVerification": true,
+  "useLedger": true,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "robinhood",
+  "chainId": "4663",
+  "networkURL": "https://rpc.mainnet.chain.robinhood.com",
+  "blockscoutURL": "https://robinhoodchain.blockscout.com",
+  "gasPriceInGwei": "1",
+  "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
+  "olasAddress": "0x092963938deBD8013a2e545b3549f8A5ec0D2286",
+  "l1OlasAddress": "0x0001A500A6B18995B03f44bb040A5fFc28E45CB0",
+  "l2GatewayRouterAddress": "0x1E324B9316138CA9a73F960213621AD1aaf01B89",
+  "nativeTokenAddress": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+  "routerV2Address": "0x89e5db8b5aa49aa85ac63f691524311aeb649eba",
+  "uniswapPriceOracleAddress": "",
+  "liquidityManagerProxyAddress": "0x0000000000000000000000000000000000000000",
+  "swapRouterV3Address": "0x0000000000000000000000000000000000000000",
+  "buyBackBurnerAddress": "",
+  "buyBackBurnerProxyAddress": "",
+  "bridge2BurnerAddress": ""
+}
