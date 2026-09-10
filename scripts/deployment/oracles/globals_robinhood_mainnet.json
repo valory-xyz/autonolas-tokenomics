@@ -1,0 +1,16 @@
+{
+  "contractVerification": true,
+  "useLedger": true,
+  "derivationPath": "m/44'/60'/2'/0/0",
+  "providerName": "robinhood",
+  "chainId": "4663",
+  "networkURL": "https://rpc.mainnet.chain.robinhood.com",
+  "blockscoutURL": "https://robinhoodchain.blockscout.com",
+  "gasPriceInGwei": "1",
+  "pairAddress": "0xc2eA98b5A75Fd85f7ce57Af856baaFfECD445659",
+  "olasAddress": "0x092963938deBD8013a2e545b3549f8A5ec0D2286",
+  "minTwapWindowSeconds": "900",
+  "minUpdateIntervalSeconds": "900",
+  "maxStalenessSeconds": "86400",
+  "uniswapPriceOracleAddress": "0x98677Fd8Ac2BD2AF4BD2BFd4eEB651394362445d"
+}

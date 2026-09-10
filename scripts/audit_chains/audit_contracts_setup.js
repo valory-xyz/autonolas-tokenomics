@@ -1546,6 +1546,17 @@ async function main() {
         initLog = "ChainId: " + configs[chainNumber]["chainId"] + ", network: " + configs[chainNumber]["name"];
         log = initLog + ", contract: " + "ArbitrumTargetDispenserL2";
         await checkRobinhoodTargetDispenserL2(configs[chainNumber]["chainId"], providers[chainNumber], globals[chainNumber], configs[chainNumber]["contracts"], "ArbitrumTargetDispenserL2", log);
+        {
+            const dg = deploymentGlobals["robinhood"];
+            log = initLog + ", contract: UniswapPriceOracle";
+            await checkUniswapPriceOracle(providers[chainNumber], dg.oracles, configs[chainNumber]["contracts"], "UniswapPriceOracle", log);
+            log = initLog + ", contract: Bridge2BurnerArbitrum";
+            await checkBridge2BurnerArbitrum(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "Bridge2BurnerArbitrum", log);
+            log = initLog + ", contract: BuyBackBurnerUniswap";
+            await checkBuyBackBurnerImpl(providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerUniswap", log);
+            log = initLog + ", contract: BuyBackBurnerProxy";
+            await checkBuyBackBurnerProxy(configs[chainNumber]["chainId"], providers[chainNumber], dg.utils, configs[chainNumber]["contracts"], "BuyBackBurnerProxy", log, "BuyBackBurnerUniswap");
+        }
     }
     // ################################# /VERIFY CONTRACTS SETUP #################################
     // Write CSV once at the end of setup verification
