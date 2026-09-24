@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {DefaultDepositProcessorL1} from "./DefaultDepositProcessorL1.sol";
+import {DefaultDepositProcessorL1} from "../staking/DefaultDepositProcessorL1.sol";
 import {TokenBase, TokenSender} from "wormhole-solidity-sdk/TokenBase.sol";
 
 interface IBridge {
