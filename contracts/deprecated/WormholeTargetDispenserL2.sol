@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {DefaultTargetDispenserL2} from "./DefaultTargetDispenserL2.sol";
+import {DefaultTargetDispenserL2} from "../staking/DefaultTargetDispenserL2.sol";
 import {TokenBase, TokenReceiver} from "wormhole-solidity-sdk/TokenBase.sol";
 
 interface IBridge {
