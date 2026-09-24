@@ -46,8 +46,8 @@ standard `UniswapV2ERC20` transfer semantics.
   - [OptimismTargetDispenserL2](contracts/staking/OptimismTargetDispenserL2.sol)
   - [PolygonDepositProcessorL1](contracts/staking/PolygonDepositProcessorL1.sol)
   - [PolygonTargetDispenserL2](contracts/staking/PolygonTargetDispenserL2.sol)
-  - [WormholeDepositProcessorL1](contracts/staking/WormholeDepositProcessorL1.sol)
-  - [WormholeTargetDispenserL2](contracts/staking/WormholeTargetDispenserL2.sol)
+  - [WormholeDepositProcessorL1](contracts/deprecated/WormholeDepositProcessorL1.sol)
+  - [WormholeTargetDispenserL2](contracts/deprecated/WormholeTargetDispenserL2.sol)
 
 - Auxiliary contracts:
   - [DonatorBlacklist](contracts/DonatorBlacklist.sol)
