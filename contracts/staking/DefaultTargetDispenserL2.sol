@@ -379,7 +379,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Syncs withheld token amount with L1.
     /// @param bridgePayload Payload data for the bridge relayer.
-    function syncWithheldAmount(bytes memory bridgePayload) external payable {
+    function syncWithheldAmount(bytes memory bridgePayload) external payable virtual {
         // Reentrancy guard
         if (_locked > 1) {
             revert ReentrancyGuard();
