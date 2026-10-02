@@ -104,8 +104,9 @@ Four interconnected contracts form the tokenomics engine:
 
 L1→L2 incentive distribution uses a paired processor/dispenser pattern per chain:
 
-- **L1 side**: `DefaultDepositProcessorL1` base → chain-specific implementations (`ArbitrumDepositProcessorL1`, `GnosisDepositProcessorL1`, `OptimismDepositProcessorL1`, `PolygonDepositProcessorL1`, `WormholeDepositProcessorL1`)
+- **L1 side**: `DefaultDepositProcessorL1` base → chain-specific implementations (`ArbitrumDepositProcessorL1`, `GnosisDepositProcessorL1`, `OptimismDepositProcessorL1`, `PolygonDepositProcessorL1`)
 - **L2 side**: `DefaultTargetDispenserL2` base → chain-specific implementations (same chain prefixes)
+- **Deprecated**: `WormholeDepositProcessorL1` / `WormholeTargetDispenserL2` (Celo's path before it moved to the OP-stack processor) now live in `contracts/deprecated/`
 - **L1-only**: `EthereumDepositProcessor` for Ethereum mainnet staking
 
 ### Protocol Owned Liquidity (`contracts/pol/`)
