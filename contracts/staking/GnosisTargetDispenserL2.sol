@@ -45,14 +45,16 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
         address _l2MessageRelayer,
         address _l1DepositProcessor,
         uint256 _l1SourceChainId
-    ) DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId) {}
+    )
+        DefaultTargetDispenserL2(_olas, _proxyFactory, _l2MessageRelayer, _l1DepositProcessor, _l1SourceChainId)
+    {}
 
     /// @inheritdoc DefaultTargetDispenserL2
-    function _sendMessage(uint256 amount, bytes memory bridgePayload, bytes32 batchHash)
-        internal
-        override
-        returns (uint256 sequence, uint256 leftovers)
-    {
+    function _sendMessage(
+        uint256 amount,
+        bytes memory bridgePayload,
+        bytes32 batchHash
+    ) internal override returns (uint256 sequence, uint256 leftovers) {
         uint256 gasLimitMessage;
 
         // Check for the bridge payload length
@@ -96,6 +98,12 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
     }
 
     /// @dev Records a withheld-amount sync request. Sends nothing, so it is safe inside an AMB delivery.
+    /// @notice Arming is owner-only (governance); the matching relay is permissionless by design, so governance
+    ///         or anyone can complete it as soon as the AMB is idle. A request is a standing authorization until
+    ///         relayed; the owner's only levers to retract it are pause() and migrate(). The amount synced is the
+    ///         withheld amount at RELAY time, not at request time — any withheld-amount correction
+    ///         (updateWithheldAmountMaintenance) must therefore ship atomically with, or before, the bridged
+    ///         proposal that arms this request.
     /// @param bridgePayload Payload data for the bridge relayer, used by the relay step.
     function requestWithheldAmountSync(bytes memory bridgePayload) external {
         // Check for the contract ownership
@@ -116,6 +124,8 @@ contract GnosisTargetDispenserL2 is DefaultTargetDispenserL2 {
 
     /// @dev Relays a previously requested withheld-amount sync to L1. Permissionless: the amount and
     ///      destination are the contract's own, so there is nothing for a caller to influence.
+    /// @notice MessagePosted carries the relayer (msg.sender), which may be any address — off-chain monitoring
+    ///         must not assume it is the owner or the bridge mediator.
     function relayWithheldAmountSync() external payable {
         // Reentrancy guard
         if (_locked > 1) {
