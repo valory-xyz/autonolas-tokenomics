@@ -695,12 +695,12 @@ describe("StakingBridging", async () => {
 
             // Trying to sync withheld tokens not by the owner
             await expect(
-                gnosisTargetDispenserL2.connect(signers[1]).syncWithheldAmount("0x")
+                gnosisTargetDispenserL2.connect(signers[1]).requestWithheldAmountSync("0x")
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "OwnerOnly");
 
             // Trying to sync withheld tokens when paused
             await expect(
-                gnosisTargetDispenserL2.syncWithheldAmount("0x")
+                gnosisTargetDispenserL2.requestWithheldAmountSync("0x")
             ).to.be.revertedWithCustomError(gnosisTargetDispenserL2, "Paused");
 
             // Unpause and send withheld amount from L2 to L1
@@ -708,14 +708,16 @@ describe("StakingBridging", async () => {
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted from zero
             let bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [0]);
-            await gnosisTargetDispenserL2.syncWithheldAmount(bridgePayload);
+            await gnosisTargetDispenserL2.requestWithheldAmountSync(bridgePayload);
+            await gnosisTargetDispenserL2.relayWithheldAmountSync();
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
                 stakingIncentive);
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted without any payload
-            await gnosisTargetDispenserL2.syncWithheldAmount("0x");
+            await gnosisTargetDispenserL2.requestWithheldAmountSync("0x");
+            await gnosisTargetDispenserL2.relayWithheldAmountSync();
 
             // Send a message on L2 with funds for a wrong address
             await dispenser.mintAndSend(gnosisDepositProcessorL1.address, deployer.address, stakingIncentive, "0x",
@@ -723,7 +725,8 @@ describe("StakingBridging", async () => {
 
             // Send withheld token info from L2 to L1 when the gas is going to be adjusted from being too high
             bridgePayload = ethers.utils.defaultAbiCoder.encode(["uint256"], [moreThanMaxUint96]);
-            await gnosisTargetDispenserL2.syncWithheldAmount(bridgePayload);
+            await gnosisTargetDispenserL2.requestWithheldAmountSync(bridgePayload);
+            await gnosisTargetDispenserL2.relayWithheldAmountSync();
         });
 
         it("Verify senders on L1 and L2", async function () {
@@ -750,8 +753,9 @@ describe("StakingBridging", async () => {
             await bridgeRelayer.setMode(2);
 
             // Try to receive a message with the wrong sender
+            await gnosisTargetDispenserL2.requestWithheldAmountSync(HashZero);
             await expect(
-                gnosisTargetDispenserL2.syncWithheldAmount(HashZero)
+                gnosisTargetDispenserL2.relayWithheldAmountSync()
             ).to.be.revertedWithCustomError(gnosisDepositProcessorL1, "WrongMessageSender");
 
             // Deploy another bridge relayer
