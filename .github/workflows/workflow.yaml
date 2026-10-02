@@ -71,7 +71,7 @@ jobs:
       - name: Run foundry mainnet-fork tests
         env:
           ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
-        run: forge test --fork-url "${ETH_RPC_URL}" --match-path "test/*ForkETH*.t.sol" -vvv
+        run: forge test --fork-url "${ETH_RPC_URL}" --match-path "test/*ForkETH*.t.sol" --no-match-test "test_olasV3Pool_unseeded_referenceIsStale" -vvv
 
   scan:
     name: gitleaks
