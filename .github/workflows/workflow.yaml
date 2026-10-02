@@ -66,6 +66,13 @@ jobs:
       - name: Run foundry tests
         run: forge test --mc Depository && forge test --mc Dispenser && forge test --mc Treasury && forge test --mc UniswapPriceOracleConstructorTest && forge test --mc UniswapPriceOracleGetPriceTest && forge test --mc UniswapPriceOracleUpdatePriceTest && forge test --mc UniswapPriceOracleGetTWAPTest && forge test --mc BalancerPriceOracleConstructorTest && forge test --mc BalancerPriceOracleGetPriceTest && forge test --mc BalancerPriceOracleUpdatePriceTest && forge test --mc BalancerPriceOracleGetTWAPTest && forge test --mc LPSwapCeloConstructorTest && forge test --mc LPSwapCeloSwapTest && forge test --mc LPSwapCeloSlippageTest && forge test --mc LiquidityManagerCorePriceGuard && forge test --mc LiquidityManagerCoreCollectDecrease && forge test --mc LiquidityManagerPriceGuardRegression && forge test --mc LiquidityManagerRatioCheckUnit
 
+      # Mainnet-fork suite. The *ForkETH tests self-skip unless block.chainid == 1, so --fork-url
+      # activates them while the other-chain fork tests skip. Reads ETH_RPC_URL from the repo secret.
+      - name: Run foundry mainnet-fork tests
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+        run: forge test --fork-url "${ETH_RPC_URL}" --match-path "test/*ForkETH*.t.sol" -vvv
+
   scan:
     name: gitleaks
     runs-on: ubuntu-latest
