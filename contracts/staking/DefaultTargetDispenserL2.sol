@@ -521,15 +521,14 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         No further write interaction with the contract is going to be possible.
     ///         If the withheld amount is nonzero, it is regulated by the DAO directly on the L1 side.
     ///         If there are outstanding queued requests, they are processed by the DAO directly on the L2 side.
-    ///         The migrated OLAS balance AND the current withheldAmount are both emitted in the Migrated event:
-    ///         the new L2 target dispenser deploys with withheldAmount == 0, so the DAO must restore it via
-    ///         updateWithheldAmountMaintenance(withheldAmount) on the new contract right after migration, or the
-    ///         inflation information (OLAS already minted and held on L2) is lost. Emitting it here makes the
-    ///         exact value to restore part of the migration record rather than off-chain tribal knowledge.
-    ///         The value to restore is the emitted withheldAmount, NOT the migrated balance (they differ when
-    ///         residual OLAS sits on the contract). No expectedWithheldAmount parameter is taken: pause / migrate /
-    ///         updateWithheldAmountMaintenance ship as one atomic DAO L1->L2 proposal that already passes the
-    ///         emitted value, and the operator would read any "expected" value from this same storage — so a
+    ///         The migrated OLAS balance AND the current withheldAmount are both emitted in the Migrated event.
+    ///         The new L2 target dispenser deploys with withheldAmount == 0, so after migration the DAO restores
+    ///         the accounting via updateWithheldAmountMaintenance on the new contract, passing that contract's
+    ///         final OLAS balance as documented on updateWithheldAmountMaintenance above — i.e. the migrated
+    ///         balance, not the emitted withheldAmount; the two differ when residual OLAS sits on the contract
+    ///         (and the emitted withheldAmount may be 0). Without the restore the inflation information (OLAS
+    ///         already minted and held on L2) is lost. No expectedWithheldAmount parameter is taken: pause /
+    ///         migrate / updateWithheldAmountMaintenance ship as one atomic DAO L1->L2 proposal, so a
     ///         confirmation argument would add ceremony without safety. Post-migration the old getter still
     ///         returns withheldAmount; the event is an indexable record, not the recovery mechanism.
     function migrate(address newL2TargetDispenser) external {
