@@ -76,7 +76,7 @@ Governance note: L1 `changeManagers` / `setDepositProcessorChainIds` / `setPause
 
 ### Phase 0 — Pre-flight (verify, don't change)
 
-1. Read `mapChainIdWithheldAmounts(chainId)` on the **live** Dispenser for every chain → confirm all `0` (§4 precondition). Record each **L2** target dispenser's **OLAS balance** (not just its `withheldAmount` — the two diverge once a chain has synced up to L1, and it is the balance that travels with the migration and that step 14 restores).
+1. Read `mapChainIdWithheldAmounts(chainId)` on the **live** Dispenser for every chain, and on each **L2** target dispenser read **both** its `withheldAmount` and its **OLAS balance**; record them all. §4 covers both outcomes — a non-zero L1 value is recoverable (see the step 14 note), not a stop condition — but the two readings diverge once a chain has synced up to L1, and it is the **balance** that travels with the migration and that step 14 restores, so do not skip the balance read.
 2. Snapshot the current nominee set and each nominee's `mapLastClaimedStakingEpochs` / any pending (unclaimed) staking incentives.
 3. Confirm the intended `retainer` (address, chainId) and that it will be nominated in VoteWeighting on the new stack.
 4. **Assert non-zero staking params on the live Tokenomics before wiring the new Dispenser.** The new Dispenser dropped the default-staking-param fallback; a fresh nominee's cursor starts at the current epoch (greenfield-cursor property), so historical epochs are never traversed — but the current epoch's `StakingPoint` must carry non-zero `maxStakingIncentive` / `minStakingWeight` or the first claims silently distribute zero incentives (no over-payment, just nothing paid). Verify on the live Tokenomics proxy:
@@ -121,7 +121,7 @@ Robinhood (chainId 4663, registered in the live Dispenser since proposal 16) hol
     Verified on a Base fork against the live dispenser `0x9Ec97Be9…b241` (holding 1,380,908.799963024002602865 OLAS at `withheldAmount == 0`): `migrate()` carries the full balance and emits only the amount; `syncWithheldAmount` reverts `ZeroValue` while `withheldAmount` is `0`; and restoring the balance then syncing sends the full amount and consumes one batch nonce.
 
     Once restored, the amount reaches the new L1 Dispenser through the **ordinary** `syncWithheldAmount` path, which is what re-enables netting. That cross-chain sync can only run once step 15 has bound the new L2↔L1 pair — attempted between steps 14 and 15 it reverts `WrongMessageSender` — so it is performed and confirmed at step 22, not here. There is no L1-side shortcut worth taking here: `Dispenser.syncWithheldAmountMaintenance` would require the DAO to supply a `batchHash` for a message that never failed, and `updateHashMaintenance` marks that hash `processed` on the new L1 processor — if it collides with one the new L2 dispenser will genuinely produce (its nonce restarts at 0), that real sync later reverts `AlreadyDelivered` and its amount is lost. Use the L2 maintenance call.
-15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor (`staking/script_02_set_target_dispenser_l2_all.sh` for all chains, or `script_01_set_target_dispenser_l2.sh` per chain; hardhat `staking/deploy_09_set_targer_dispensers.js` is the equivalent), and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair. (ETH is skipped — no L2 side.) **Polygon** needs one extra L1 binding — `script_03_set_deposit_processor_l1_polygon.sh` (the `fxRootTunnel` link); `multi_deploy_01` runs it automatically for Polygon, but it must be run explicitly if the per-chain scripts are used by hand.
+15. Wire the L2↔L1 link: `setL2TargetDispenser(newL2)` on the new L1 processor (`staking/script_02_set_target_dispenser_l2_all.sh` for all chains, or `script_01_set_target_dispenser_l2.sh` per chain; hardhat `staking/deploy_09_set_targer_dispensers.js` is the equivalent), and the corresponding L2-side source binding, so cross-chain messages authenticate against the new pair. (ETH is skipped — no L2 side.) **Polygon** needs one extra L1 binding — `script_03_set_deposit_processor_l1_polygon.sh` (the `fxRootTunnel` link); `multi_deploy_01` runs it automatically for Polygon, but it must be run explicitly if the per-chain scripts are used by hand. **Robinhood** is **not** in `script_02_set_target_dispenser_l2_all.sh` (that script predates 4663), so link it with the per-chain `script_01_set_target_dispenser_l2.sh robinhood_mainnet` — or the `multi_deploy_01` wrapper, which globs the `deploy_13` / `robinhood/deploy_02` scripts and the generic `script_01` for `robinhood_mainnet`.
 
 ### Phase 4 — Re-point L1 wiring (while still paused)
 
@@ -167,9 +167,10 @@ chain's staking globals first. Order is load-bearing (see the `deploy_07b_dispen
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh polygon_mainnet
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh base_mainnet
 ./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh mode_mainnet
+./scripts/deployment/staking/multi_deploy_01_processor_dispenser_link.sh robinhood_mainnet
 
 # 4. Whitelist all L1 deposit processors on the DispenserProxy — maps each L2 chainId + the mainnet chainId
-#    to its processor (7 L2 chains + the L1-only Ethereum processor), then verifies each on-chain entry:
+#    to its processor (8 L2 chains + the L1-only Ethereum processor), then verifies each on-chain entry:
 ./scripts/deployment/staking/deploy_10_set_deposit_processors.sh mainnet
 ```
 
