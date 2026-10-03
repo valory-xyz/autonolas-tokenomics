@@ -571,8 +571,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         // Zero the owner
         owner = address(0);
 
-        // Emit the withheld amount alongside the migrated OLAS balance: it is the exact value the DAO must
-        // restore on the new dispenser via updateWithheldAmountMaintenance(), so it must be in the record
+        // Emit the withheld amount alongside the migrated OLAS balance: it is kept in the record as the
+        // pre-migration accounting figure. The value to restore on the new dispenser via
+        // updateWithheldAmountMaintenance() is the final OLAS balance, not this emitted withheldAmount
         emit Migrated(msg.sender, newL2TargetDispenser, amount, withheldAmount);
 
         // _locked is now set to 2 for good
