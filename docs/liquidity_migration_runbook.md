@@ -288,3 +288,17 @@ separate source-side oracle to warm — the V2 exit is gated by the ratio cross-
       against the live basis is a gate on the tolerance being correct, not a refinement. Tracked in issue #324
       (which carries the justification: convexity, the fork table, the `olasBurnRate` residual, the 50/50
       precondition, and why the 2% gate is orthogonal).
+
+## 7. Scheduled V3 liquidity decreases
+
+1. Confirm the proxy runs the intended implementation; read its `SECONDS_AGO` and
+   `MAX_ALLOWED_DEVIATION` rather than assuming the source defaults.
+2. Ensure the pool has usable TWAP history covering `SECONDS_AGO` and its latest observation is no older
+   than that window. If needed, prepare the buffer per §3.1, let history accumulate, and refresh stale
+   observations through pool activity. Waiting alone does not establish both history and freshness.
+3. Near execution, call `checkPoolAndGetCenterPrice(pool)` on the proxy as a read-only preflight. If it
+   reverts, defer the scheduled decrease until history/freshness is restored or deviation is within the
+   deployed bound, then recheck. Repeat after governance or execution delays.
+
+This is an operational check: `decreaseLiquidity` still permits a `slot0` exit when TWAP history is
+unavailable. A successful preflight does not guarantee that the deviation gate will be active at execution.
