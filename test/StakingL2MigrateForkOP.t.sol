@@ -15,8 +15,8 @@ import {OptimismTargetDispenserL2} from "../contracts/staking/OptimismTargetDisp
 ///          live token;
 ///        - `migrate()` transfers the full real-OLAS balance to the new dispenser, zeroes the old owner and
 ///          locks the old contract permanently (one-way brick) — verified against live OLAS, not a mock ERC20;
-///        - the `Migrated` event surfaces `withheldAmount` (the value the DAO must restore), and
-///          `updateWithheldAmountMaintenance` re-establishes it on the new dispenser, which deploys at 0.
+///        - the `Migrated` event surfaces `withheldAmount` for the record, but the value the DAO restores
+///          via `updateWithheldAmountMaintenance` is the final OLAS balance (the new dispenser deploys at 0).
 ///
 ///      The contract name avoids the "Dispenser"/"Treasury"/"Depository" substrings so CI's fork-less
 ///      `forge test --mc Dispenser|Treasury|Depository` allowlist does not pick it up and run it without a fork.
@@ -39,8 +39,8 @@ contract StakingL2MigrateForkOP is Test {
 
     // Physical OLAS balance on the L2 dispenser, transferred in full by migrate()
     uint256 internal constant CARRIED = 12_345 ether;
-    // Accounting withheldAmount to restore on the new dispenser — deliberately BELOW the physical balance (as
-    // a residual would leave it), so the test proves the restore uses the migrated balance, not the emitted value
+    // Accounting withheldAmount emitted by migrate() — deliberately BELOW the physical balance (as a residual
+    // would leave it), so the test proves the restore uses the migrated balance, NOT this emitted value
     uint256 internal constant WITHHELD = 10_000 ether;
 
     // Mirror of DefaultTargetDispenserL2.Migrated for expectEmit
