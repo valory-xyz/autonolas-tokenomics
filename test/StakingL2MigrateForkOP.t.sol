@@ -15,8 +15,8 @@ import {OptimismTargetDispenserL2} from "../contracts/staking/OptimismTargetDisp
 ///          live token;
 ///        - `migrate()` transfers the full real-OLAS balance to the new dispenser, zeroes the old owner and
 ///          locks the old contract permanently (one-way brick) — verified against live OLAS, not a mock ERC20;
-///        - the `Migrated` event surfaces `withheldAmount` (the value the DAO must restore), and
-///          `updateWithheldAmountMaintenance` re-establishes it on the new dispenser, which deploys at 0.
+///        - the `Migrated` event surfaces `withheldAmount` for the record, but the value the DAO restores
+///          via `updateWithheldAmountMaintenance` is the final OLAS balance (the new dispenser deploys at 0).
 ///
 ///      The contract name avoids the "Dispenser"/"Treasury"/"Depository" substrings so CI's fork-less
 ///      `forge test --mc Dispenser|Treasury|Depository` allowlist does not pick it up and run it without a fork.
@@ -39,8 +39,8 @@ contract StakingL2MigrateForkOP is Test {
 
     // Physical OLAS balance on the L2 dispenser, transferred in full by migrate()
     uint256 internal constant CARRIED = 12_345 ether;
-    // Accounting withheldAmount to restore on the new dispenser — deliberately BELOW the physical balance (as
-    // a residual would leave it), so the test proves the restore uses the emitted value, not the migrated balance
+    // Accounting withheldAmount emitted by migrate() — deliberately BELOW the physical balance (as a residual
+    // would leave it), so the test proves the restore uses the migrated balance, NOT this emitted value
     uint256 internal constant WITHHELD = 10_000 ether;
 
     // Mirror of DefaultTargetDispenserL2.Migrated for expectEmit
@@ -58,7 +58,8 @@ contract StakingL2MigrateForkOP is Test {
             L1_SOURCE_CHAIN_ID);
 
         // Seed the OLD dispenser with real OLAS (as undelivered/withheld inflation would sit on L2) and set its
-        // accounting withheldAmount BELOW the balance (Phase 0 records this; it must be restored on the new one)
+        // accounting withheldAmount BELOW the balance, so the emitted value and the balance diverge (Phase 0
+        // records the balance, which is what step 14 restores on the new one)
         deal(OLAS, address(oldDispenser), CARRIED);
         oldDispenser.updateWithheldAmountMaintenance(WITHHELD);
     }
@@ -75,7 +76,8 @@ contract StakingL2MigrateForkOP is Test {
         // migrate requires paused
         oldDispenser.pause();
 
-        // The Migrated event carries the full migrated balance AND the (smaller) withheldAmount to restore
+        // The Migrated event carries the full migrated balance AND the (smaller) accounting withheldAmount
+        // (recorded for history, NOT the value to restore)
         vm.expectEmit(true, true, false, true, address(oldDispenser));
         emit Migrated(address(this), address(newDispenser), CARRIED, WITHHELD);
         oldDispenser.migrate(address(newDispenser));
@@ -91,10 +93,10 @@ contract StakingL2MigrateForkOP is Test {
         vm.expectRevert();
         oldDispenser.migrate(address(newDispenser));
 
-        // Restore the withheld accounting from the EMITTED value (not the migrated balance) — Phase 3 step 12
-        newDispenser.updateWithheldAmountMaintenance(WITHHELD);
-        assertEq(newDispenser.withheldAmount(), WITHHELD, "withheld restored to the emitted value");
-        assertTrue(newDispenser.withheldAmount() != CARRIED, "restored withheld is not the migrated balance");
+        // Restore from the final OLAS balance (the migrated balance), NOT the emitted withheldAmount — step 14
+        newDispenser.updateWithheldAmountMaintenance(CARRIED);
+        assertEq(newDispenser.withheldAmount(), CARRIED, "withheld restored to the final OLAS balance");
+        assertTrue(newDispenser.withheldAmount() != WITHHELD, "restore uses the migrated balance, not the emitted value");
     }
 
     // -----------------------------------------------------------------------
