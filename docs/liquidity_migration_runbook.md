@@ -300,5 +300,6 @@ separate source-side oracle to warm — the V2 exit is gated by the ratio cross-
    reverts, defer the scheduled decrease until history/freshness is restored or deviation is within the
    deployed bound, then recheck. Repeat after governance or execution delays.
 
-This is an operational check: `decreaseLiquidity` still permits a `slot0` exit when TWAP history is
-unavailable. A successful preflight does not guarantee that the deviation gate will be active at execution.
+The preflight checks the pool only at the time of the call. If observations become stale or TWAP history
+is unavailable when `decreaseLiquidity` executes, the contract permits a `slot0` exit without checking
+spot/TWAP deviation.
