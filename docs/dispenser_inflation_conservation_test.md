@@ -30,6 +30,8 @@ allowance; the recipient must then hold exactly the cumulative fresh budgets.
 ## Cases
 
 - Three-epoch partial reuse through both single and batch entry points.
+- A single claim spanning three unclaimed epochs, combining a refunded allowance with
+  later fresh pots, through both single and batch entry points.
 - Credit greater than the next claim: zero fresh minting with residual credit.
 - Credit equal to the next claim, with the reused tokens withheld and synchronized again.
 - Delayed sync delivery, replay of both message directions, and repeated epoch claim rejection.
@@ -53,6 +55,8 @@ credit. Each mutation must fail the conservation assertion in both single and ba
 claims. Compile failures and unrelated reverts do not count as successful detection.
 It uses a temporary copy and leaves the checkout's contracts unchanged. Use
 `--forge /absolute/path/to/forge` when Forge is not on PATH.
+The mutation script is a manual check; CI runs the Solidity suite. If its source
+anchors change, the script exits with an error requiring the mutations to be reviewed.
 
 ## Scope
 
@@ -63,6 +67,8 @@ and one target; it does not establish multi-chain/multi-target conservation or
 rounding behavior. The annual reference schedule covers year indices 0 through 3
 from a fresh Tokenomics initialization; live deployment history and administrative
 inflation resets are not modeled.
+The reference annual amounts mirror `TokenomicsConstants`; this checks the accounting,
+not the correctness of the chosen annual emission amounts themselves.
 
 Voting and the staking factory/recipient are controlled test doubles. Bridge transport
 moves the same token rather than minting a separate L2 representation, queues messages,
@@ -74,18 +80,3 @@ cannot be concealed by a separate token-level mint refusal.
 
 The randomized test is a bounded sequence test, not exhaustive verification or a
 Foundry invariant handler covering arbitrary protocol actions.
-
-## Local verification (2026-10-06)
-
-Base: tokenomics `main` at `f15bedf9427138331cedc55ade6e3883dc719503`.
-Solidity 0.8.30; Forge 1.6.0-nightly, commit
-`e0d4aab210b1386d8dcf212c12646e465738d20b` (local toolchain; CI pins 1.7.1).
-
-```sh
-forge test --match-contract Dispenser --offline --fuzz-seed 0x402 --fuzz-runs 256 -vv
-```
-
-Result: 29 tests passed, zero failures or skips, including all seven new tests and
-256 randomized recycling sequences. The mutation script passed its baseline and
-rejected all three mutations in both single and batch claims via the conservation
-assertion. No production contract changes are part of this addition.

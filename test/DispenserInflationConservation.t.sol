@@ -327,6 +327,52 @@ contract DispenserInflationConservationTest is Test {
         _recycleThenSpend(true);
     }
 
+    function _claimSeveralEpochsWithRefund(bool batch) internal {
+        uint256 b1 = _settle(EPOCH);
+        factory.setLimit(0);
+        (uint256 index,) = _claim(batch);
+        _deliver(index);
+        assertEq(receiver.withheldAmount(), b1);
+        _sync();
+
+        uint256 b2 = _settle(EPOCH);
+        factory.setLimit(type(uint96).max);
+        uint256 freshMint;
+        (index, freshMint) = _claim(batch);
+        assertEq(freshMint, 0, "credit covers the entire second epoch");
+        _deliver(index);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+        uint256 firstUnclaimed = dispenser.mapLastClaimedStakingEpochs(nomineeHash);
+        assertEq(_pot(firstUnclaimed), b2, "refund waits in the current epoch");
+
+        // Do not claim between checkpoints: the first pot includes the refund, the next two are fresh.
+        uint256 b3 = _settle(EPOCH);
+        assertEq(_pot(firstUnclaimed), b3 + b2);
+        uint256 b4 = _settle(EPOCH);
+        uint256 b5 = _settle(EPOCH);
+        assertEq(dispenser.mapLastClaimedStakingEpochs(nomineeHash), firstUnclaimed, "cursor waits for claim");
+        assertEq(tokenomics.epochCounter(), firstUnclaimed + 3);
+        assertEq(_remainingAllowance(), b2 + b3 + b4 + b5);
+
+        (index, freshMint) = _claim(batch);
+        assertEq(freshMint, b2 + b3 + b4 + b5, "one claim spends the refund and all three fresh pots");
+        assertEq(dispenser.mapLastClaimedStakingEpochs(nomineeHash), firstUnclaimed + 3);
+        _deliver(index);
+        assertEq(_remainingAllowance(), 0);
+        assertEq(receiver.withheldAmount(), 0);
+        assertEq(olas.balanceOf(address(receiver)), 0);
+        assertEq(minted, b1 + b2 + b3 + b4 + b5);
+        assertEq(olas.balanceOf(address(target)), minted);
+    }
+
+    function test_claimSeveralEpochsWithRefund_single() public {
+        _claimSeveralEpochsWithRefund(false);
+    }
+
+    function test_claimSeveralEpochsWithRefund_batch() public {
+        _claimSeveralEpochsWithRefund(true);
+    }
+
     function test_creditLargerThanNextClaim_zeroFreshMint() public {
         uint256 b1 = _settle(3 * EPOCH);
         factory.setLimit(0);
@@ -359,6 +405,7 @@ contract DispenserInflationConservationTest is Test {
         uint256 b2 = _settle(EPOCH);
         (uint256 secondMessage, uint256 freshMint) = _claim(true);
         assertEq(freshMint, b2);
+        // L2 reads the acceptance limit at message delivery, so changing it after the L1 claim is intentional.
         factory.setLimit(type(uint96).max);
         _deliver(secondMessage);
         _deliver(syncMessage);
