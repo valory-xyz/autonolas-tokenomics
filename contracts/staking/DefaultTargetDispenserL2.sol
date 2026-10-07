@@ -64,6 +64,7 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     event Migrated(address indexed sender, address indexed newL2TargetDispenser, uint256 amount,
         uint256 withheldAmount);
     event LeftoversRefunded(address indexed sender, uint256 leftovers);
+    event Forwarded(address indexed sender, address indexed newL2TargetDispenser, uint256 amount);
 
     // receiveMessage selector (Ethereum chain)
     bytes4 public constant RECEIVE_MESSAGE = bytes4(keccak256(bytes("receiveMessage(bytes)")));
@@ -95,6 +96,8 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     uint8 public paused;
     // Reentrancy lock
     uint8 internal _locked;
+    // New L2 target dispenser address the contract has been migrated to (zero if not migrated)
+    address public migratedTo;
 
     // Processed batch hashes
     mapping(bytes32 => bool) public processedHashes;
@@ -568,6 +571,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
             }
         }
 
+        // Record the new L2 target dispenser, so OLAS arriving after the migration can be forwarded to it
+        migratedTo = newL2TargetDispenser;
+
         // Zero the owner
         owner = address(0);
 
@@ -577,6 +583,36 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
         emit Migrated(msg.sender, newL2TargetDispenser, amount, withheldAmount);
 
         // _locked is now set to 2 for good
+    }
+
+    /// @dev Forwards OLAS that arrived after the migration to the new L2 target dispenser.
+    /// @notice Permissionless. Covers token transfers that were still in flight from L1 when migrate() moved the
+    ///         balance: the bridges credit them to this address afterwards, with no callback. The matching message
+    ///         leg is replayed by the DAO on the new L2 target dispenser via processDataMaintenance().
+    ///         Not behind the reentrancy guard, which stays locked after migration by design: the only external
+    ///         call is an OLAS transfer to the recorded new L2 target dispenser. Native funds need no forwarding,
+    ///         as receive() rejects them after migration.
+    /// @return amount Forwarded OLAS amount.
+    function forward() external returns (uint256 amount) {
+        // Check that the contract has been migrated
+        address newL2TargetDispenser = migratedTo;
+        if (newL2TargetDispenser == address(0)) {
+            revert ZeroAddress();
+        }
+
+        // Get OLAS token amount
+        amount = IToken(olas).balanceOf(address(this));
+        if (amount == 0) {
+            revert ZeroValue();
+        }
+
+        // Transfer amount to the new L2 target dispenser
+        bool success = IToken(olas).transfer(newL2TargetDispenser, amount);
+        if (!success) {
+            revert TransferFailed(olas, address(this), newL2TargetDispenser, amount);
+        }
+
+        emit Forwarded(msg.sender, newL2TargetDispenser, amount);
     }
 
     /// @dev Gets the maximum number of token decimals able to be transferred across the bridge.
