@@ -44,7 +44,8 @@ contract MockDepositProcessor {
 ///      #8  changeManagers only swaps voteWeighting while staking incentives are paused;
 ///      #30 an epoch with a zero staking fraction but a non-zero (carried refund) staking incentive is claimed;
 ///      #31 a claim that sends no bridge message rejects a non-zero value (single and batch claim paths);
-///      #35 retain() refunds a zero-total-weight epoch once, consistently with the claim path.
+///      #35 retain() refunds a zero-total-weight epoch once, consistently with the claim path;
+///      pause() is a pause-only entry point that can only set AllPaused.
 ///      Run: forge test --mc DispenserFixesTest -vvv
 contract DispenserFixesTest is Test {
     Utils internal utils;
@@ -721,5 +722,41 @@ contract DispenserFixesTest is Test {
         dispenser.retain();
         assertFalse(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "weighted epoch not flagged");
         assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive / 2, "weighted share retained");
+    }
+
+    // -----------------------------------------------------------------------
+    // pause() — pause-only entry point for emergency use
+    // -----------------------------------------------------------------------
+
+    function test_pause_setsAllPaused_ownerOnly() public {
+        // Not callable by a non-owner
+        vm.prank(address(0xBAD));
+        vm.expectRevert(abi.encodeWithSignature("OwnerOnly(address,address)", address(0xBAD), address(this)));
+        dispenser.pause();
+
+        // Owner pauses everything
+        vm.expectEmit(address(dispenser));
+        emit Dispenser.PauseDispenser(Dispenser.Pause.AllPaused);
+        dispenser.pause();
+        assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.AllPaused), "all paused");
+
+        // Calling it again keeps the AllPaused state
+        dispenser.pause();
+        assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.AllPaused), "still all paused");
+
+        // Claims are blocked
+        vm.expectRevert(abi.encodeWithSignature("Paused()"));
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+
+        // Unpausing is only possible via setPauseState
+        dispenser.setPauseState(Dispenser.Pause.Unpaused);
+        assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.Unpaused), "unpaused via setPauseState");
+    }
+
+    /// @dev pause() overrides any granular pause state with AllPaused.
+    function test_pause_fromGranularState() public {
+        dispenser.setPauseState(Dispenser.Pause.DevIncentivesPaused);
+        dispenser.pause();
+        assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.AllPaused), "all paused from dev-paused");
     }
 }

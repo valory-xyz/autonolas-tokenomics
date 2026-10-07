@@ -1473,4 +1473,18 @@ contract Dispenser {
 
         emit PauseDispenser(pauseState);
     }
+
+    /// @dev Pauses all the incentives.
+    /// @notice Pause-only entry point for emergency use: it can only set the AllPaused state. Any granular pause
+    ///         state and unpausing are only possible via setPauseState().
+    function pause() external {
+        // Check the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = Pause.AllPaused;
+
+        emit PauseDispenser(Pause.AllPaused);
+    }
 }
