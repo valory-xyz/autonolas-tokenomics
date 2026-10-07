@@ -296,6 +296,7 @@ contract Dispenser {
     // Tokenomics proxy address
     address public immutable tokenomics;
     // Retainer address in bytes32 form
+    // Note: VoteWeighting reads retainer() when adding a nominee; every implementation must keep this getter
     bytes32 public immutable retainer;
     // Retainer hash of a Nominee struct composed of retainer address with block.chainid
     bytes32 public immutable retainerHash;
@@ -324,6 +325,8 @@ contract Dispenser {
     // Mapping for hash(Nominee struct) service staking pair => epoch number when the staking contract is removed
     mapping(bytes32 => uint256) public mapRemovedNomineeEpochs;
     // Mapping for L2 chain Id => dedicated deposit processors
+    // Note: VoteWeighting reads mapChainIdDepositProcessors() when adding a nominee; every implementation must keep
+    // this getter
     mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
