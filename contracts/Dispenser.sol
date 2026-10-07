@@ -1349,15 +1349,28 @@ contract Dispenser {
 
         // Go over epochs and retain funds to return back to the tokenomics
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // Skip the epoch if it had zero total vote weight and its staking incentive has already been refunded
+            if (mapZeroWeightEpochRefunded[j]) {
+                continue;
+            }
+
             // Get service staking info
             ITokenomics.StakingPoint memory stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
             // Get epoch end time
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
-            // Get the staking weight for each epoch
-            (uint256 stakingWeight, ) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(retainer,
-                block.chainid, endTime);
+            // Get the staking weight for each epoch, and the total weight
+            (uint256 stakingWeight, uint256 totalWeightSum) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(
+                retainer, block.chainid, endTime);
+
+            // Zero total vote weight: the whole epoch's staking incentive returns to inflation, as in the claim path
+            if (totalWeightSum == 0) {
+                mapZeroWeightEpochRefunded[j] = true;
+                // Scaled by 1e18 to match the weighted accumulation below (widened first: stakingIncentive is uint96)
+                totalReturnAmount += uint256(stakingPoint.stakingIncentive) * 1e18;
+                continue;
+            }
 
             totalReturnAmount += stakingPoint.stakingIncentive * stakingWeight;
         }

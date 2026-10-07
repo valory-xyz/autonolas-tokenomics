@@ -43,7 +43,8 @@ contract MockDepositProcessor {
 ///      #25 addNominee clears mapRemovedNomineeEpochs so a removed-then-re-added nominee is claimable;
 ///      #8  changeManagers only swaps voteWeighting while staking incentives are paused;
 ///      #30 an epoch with a zero staking fraction but a non-zero (carried refund) staking incentive is claimed;
-///      #31 a claim that sends no bridge message rejects a non-zero value (single and batch claim paths).
+///      #31 a claim that sends no bridge message rejects a non-zero value (single and batch claim paths);
+///      #35 retain() refunds a zero-total-weight epoch once, consistently with the claim path.
 ///      Run: forge test --mc DispenserFixesTest -vvv
 contract DispenserFixesTest is Test {
     Utils internal utils;
@@ -653,5 +654,72 @@ contract DispenserFixesTest is Test {
         valueAmounts[0] = 0;
         dispenser.claimStakingIncentivesBatch(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
         assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    // -----------------------------------------------------------------------
+    // #35 — retain() refunds a zero-total-weight epoch, once
+    // -----------------------------------------------------------------------
+
+    /// @dev With zero total vote weight, retain() returns the whole epoch's staking incentive and flags the epoch,
+    ///      so a later claim crossing the same epoch does not refund it again. On the pre-fix code retain() returns
+    ///      nothing for such an epoch and leaves it to whichever claim crosses it, if any.
+    function test_fix35_retain_zeroWeight_refundsOnce() public {
+        // Retainer and a staking target nominated, no votes ever cast
+        vw.addNominee(deployer, block.chainid);
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        assertGt(epochIncentive, 0, "settled epoch must carry staking incentive");
+
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        dispenser.retain();
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "flag set by retain");
+        uint256 potAfterRetain = _stakingIncentiveOf(currentEpoch);
+        assertEq(potAfterRetain - potBefore, epochIncentive, "zero-weight epoch refunded by retain");
+
+        // A claim crossing the same epoch does not refund it again
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(_stakingIncentiveOf(currentEpoch), potAfterRetain, "no double refund after retain");
+    }
+
+    /// @dev The reverse order: a claim refunds the zero-weight epoch first, so retain() must skip it.
+    function test_fix35_retain_afterClaimRefund_noDoubleRefund() public {
+        vw.addNominee(deployer, block.chainid);
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        uint256 potAfterClaim = _stakingIncentiveOf(currentEpoch);
+        assertGt(potAfterClaim, potBefore, "claim refunded the zero-weight epoch");
+
+        dispenser.retain();
+        assertEq(_stakingIncentiveOf(currentEpoch), potAfterClaim, "retain skips the refunded epoch");
+    }
+
+    /// @dev With non-zero total weight, retain() still returns the retainer's weighted share only.
+    function test_fix35_retain_weighted_unchanged() public {
+        vw.addNominee(deployer, block.chainid);
+        // 50% relative weight for the retainer
+        vw.setNomineeRelativeWeight(deployer, block.chainid, 5_000);
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        dispenser.retain();
+        assertFalse(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "weighted epoch not flagged");
+        assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive / 2, "weighted share retained");
     }
 }
