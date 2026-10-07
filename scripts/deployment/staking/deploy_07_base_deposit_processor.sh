@@ -26,7 +26,23 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+# L1 Dispenser, bound as this processor's immutable l1Dispenser. Where a root deployment globals exists (mainnet),
+# it is the DispenserProxy that deploy_07b_dispenser_proxy.sh records there: this globals' dispenserAddress keeps
+# the pre-proxy Dispenser, and a processor bound to it could only be fixed by a redeploy. Networks without a root
+# globals (test networks) keep using this globals' dispenserAddress.
+globalsRoot="$(dirname "$0")/../globals_$1.json"
+if [ -f $globalsRoot ]; then
+  dispenserAddress=$(jq -r '.dispenserProxyAddress' $globalsRoot)
+  dispenserSource="dispenserProxyAddress in $globalsRoot"
+else
+  dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+  dispenserSource="dispenserAddress in $globals"
+fi
+if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
+   || [ "$dispenserAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! $dispenserSource is not set (or zero)${reset}"
+  exit 1
+fi
 baseL1StandardBridgeProxyAddress=$(jq -r '.baseL1StandardBridgeProxyAddress' $globals)
 baseL1CrossDomainMessengerProxyAddress=$(jq -r '.baseL1CrossDomainMessengerProxyAddress' $globals)
 baseL2TargetChainId=$(jq -r '.baseL2TargetChainId' $globals)

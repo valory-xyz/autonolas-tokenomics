@@ -19,7 +19,8 @@
 # Usage: deploy_10_set_deposit_processors.sh <network>
 #
 # Globals fields consumed:
-#   dispenserAddress                 : live Dispenser address
+#   dispenserProxyAddress (root globals ../globals_<network>.json, where it exists) : DispenserProxy address;
+#   dispenserAddress (this globals, networks without a root globals)               : Dispenser address
 #   chainId                               : L1 chain Id (used as the Ethereum/L1-only processor key)
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}DepositProcessorL1Address, ethereumDepositProcessorAddress
 #   {arbitrum,base,celo,gnosis,optimism,polygon,mode}L2TargetChainId
@@ -49,13 +50,23 @@ useLedger=$(jq -r '.useLedger' $globals)
 derivationPath=$(jq -r '.derivationPath' $globals)
 chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
 
 zeroAddress="0x0000000000000000000000000000000000000000"
 
+# Dispenser to whitelist on. Where a root deployment globals exists (mainnet), it is the DispenserProxy that
+# deploy_07b_dispenser_proxy.sh records there, not this globals' dispenserAddress, which keeps the pre-proxy
+# Dispenser. Networks without a root globals (test networks) keep using this globals' dispenserAddress.
+globalsRoot="$(dirname "$0")/../globals_$1.json"
+if [ -f $globalsRoot ]; then
+  dispenserAddress=$(jq -r '.dispenserProxyAddress' $globalsRoot)
+  dispenserSource="dispenserProxyAddress in $globalsRoot"
+else
+  dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+  dispenserSource="dispenserAddress in $globals"
+fi
 if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
    || [ "$dispenserAddress" == "$zeroAddress" ]; then
-  echo "${red}!!! dispenserAddress is not set (or zero) in $globals${reset}"
+  echo "${red}!!! $dispenserSource is not set (or zero)${reset}"
   exit 1
 fi
 
@@ -113,6 +124,16 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
+    exit 1
+  fi
+fi
+
+# Where the address comes from the root globals, it must be the DispenserProxy: only the proxy exposes
+# PROXY_DISPENSER(), so the pre-proxy Dispenser (or any other contract) fails here before anything is sent
+if [ -f $globalsRoot ]; then
+  proxySlot=$(cast call --rpc-url $networkURL$API_KEY $dispenserAddress "PROXY_DISPENSER()(bytes32)" 2>/dev/null)
+  if [ "$proxySlot" != "0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83" ]; then
+    echo "${red}!!! $dispenserAddress is not a DispenserProxy (PROXY_DISPENSER() returned '${proxySlot:-<revert>}')${reset}"
     exit 1
   fi
 fi
