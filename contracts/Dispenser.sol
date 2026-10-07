@@ -554,6 +554,10 @@ contract Dispenser {
 
             // Skip if there are no actual staking targets
             if (numActualTargets == 0) {
+                // No message is sent to this chain's bridge, so its value amount would remain locked in the contract
+                if (valueAmounts[i] > 0) {
+                    revert WrongAmount(valueAmounts[i], 0);
+                }
                 continue;
             }
 
@@ -1230,6 +1234,9 @@ contract Dispenser {
 
             // Dispense to a service staking target
             _distributeStakingIncentives(chainId, stakingTarget, stakingIncentive, bridgePayload, transferAmount);
+        } else if (msg.value > 0) {
+            // No message is sent to the bridge, so the provided value would remain locked in the contract
+            revert WrongAmount(msg.value, 0);
         }
 
         emit StakingIncentivesClaimed(msg.sender, chainId, stakingTarget, stakingIncentive, transferAmount, returnAmount);
@@ -1309,6 +1316,9 @@ contract Dispenser {
             // Dispense all the service staking targets, if the total staking incentive is not equal to zero
             _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingIncentives, bridgePayloads, transferAmounts,
                 valueAmounts);
+        } else if (msg.value > 0) {
+            // No message is sent to any bridge, so the provided value would remain locked in the contract
+            revert WrongAmount(msg.value, 0);
         }
 
         emit StakingIncentivesBatchClaimed(msg.sender, chainIds, stakingTargets, stakingIncentives, totalAmounts[0],

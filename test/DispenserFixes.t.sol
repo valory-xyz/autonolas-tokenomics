@@ -42,7 +42,8 @@ contract MockDepositProcessor {
 ///          (single and batch claim paths);
 ///      #25 addNominee clears mapRemovedNomineeEpochs so a removed-then-re-added nominee is claimable;
 ///      #8  changeManagers only swaps voteWeighting while staking incentives are paused;
-///      #30 an epoch with a zero staking fraction but a non-zero (carried refund) staking incentive is claimed.
+///      #30 an epoch with a zero staking fraction but a non-zero (carried refund) staking incentive is claimed;
+///      #31 a claim that sends no bridge message rejects a non-zero value (single and batch claim paths).
 ///      Run: forge test --mc DispenserFixesTest -vvv
 contract DispenserFixesTest is Test {
     Utils internal utils;
@@ -454,5 +455,203 @@ contract DispenserFixesTest is Test {
         dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
         assertEq(olas.balanceOf(address(depositProcessor)), 20_000, "carried incentive allocated");
         assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, carriedIncentive - 10_000, "carried remainder returned");
+    }
+
+    // -----------------------------------------------------------------------
+    // #31 — no value is kept by a claim that sends no bridge message
+    // -----------------------------------------------------------------------
+
+    uint256 internal constant CHAIN_ID_2 = 137;
+    address internal constant STAKING_TARGET_2 = address(0x57A8);
+
+    /// @dev Adds a second chain with its own deposit processor and a nominee there with zero relative weight.
+    function _addSecondChainNominee() internal returns (MockDepositProcessor depositProcessor2) {
+        depositProcessor2 = new MockDepositProcessor();
+        address[] memory processors = new address[](1);
+        processors[0] = address(depositProcessor2);
+        uint256[] memory chainIds = new uint256[](1);
+        chainIds[0] = CHAIN_ID_2;
+        dispenser.setDepositProcessorChainIds(processors, chainIds);
+        vw.addNominee(STAKING_TARGET_2, CHAIN_ID_2);
+    }
+
+    /// @dev Builds a two-chain batch: STAKING_TARGET on CHAIN_ID and STAKING_TARGET_2 on CHAIN_ID_2.
+    function _twoChainBatch() internal pure returns (uint256[] memory chainIds, bytes32[][] memory stakingTargets,
+        bytes[] memory bridgePayloads)
+    {
+        chainIds = new uint256[](2);
+        chainIds[0] = CHAIN_ID;
+        chainIds[1] = CHAIN_ID_2;
+        stakingTargets = new bytes32[][](2);
+        stakingTargets[0] = new bytes32[](1);
+        stakingTargets[0][0] = bytes32(uint256(uint160(STAKING_TARGET)));
+        stakingTargets[1] = new bytes32[](1);
+        stakingTargets[1][0] = bytes32(uint256(uint160(STAKING_TARGET_2)));
+        bridgePayloads = new bytes[](2);
+    }
+
+    /// @dev A single claim with no staking incentive sends no message, so a provided value must be rejected rather
+    ///      than kept by the Dispenser. The same claim without value goes through and keeps its side effects:
+    ///      the cursor advances and the zero-weight epoch is refunded.
+    function test_fix31_claim_zeroIncentiveWithValue_reverts() public {
+        // No votes are ever cast: the claim only refunds the zero-weight epoch and sends nothing
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 cursorBefore = dispenser.mapLastClaimedStakingEpochs(_nomineeHash());
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        vm.deal(address(this), 1 ether);
+        vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
+        dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+        assertGt(currentEpoch, cursorBefore, "claimable epochs existed");
+        assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), currentEpoch, "cursor advanced");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "zero-weight epoch flagged");
+        assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive, "zero-weight epoch refunded");
+    }
+
+    /// @dev A third party claims the paying epochs first with a shorter claim, so a pending claim that was simulated
+    ///      as paying settles a zero-paying tail. Its attached value must be rejected rather than kept.
+    function test_fix31_claim_zeroTailAfterPartialClaim_withValue_reverts() public {
+        _nominateWithFullWeight();
+        // Settle the activation epoch (no staking incentive)
+        _advanceEpoch();
+        // Zero staking fraction from the next epoch on, so every later epoch pays nothing
+        tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 0);
+        // Settle the paying epoch, then a zero-paying one
+        _advanceEpoch();
+        _advanceEpoch();
+
+        // Simulated before inclusion, the pending claim over all epochs pays
+        (uint256 simulatedIncentive, , , , ) = dispenser.calculateStakingIncentives(10, CHAIN_ID, _targetBytes32(), 18);
+        assertEq(simulatedIncentive, 10_000, "pending claim simulated as paying");
+
+        // A third party claims only the first two epochs, which include the paying one
+        vm.prank(address(0xA77ACC));
+        dispenser.claimStakingIncentives(2, CHAIN_ID, _targetBytes32(), "");
+        assertEq(olas.balanceOf(address(depositProcessor)), 10_000, "paying epoch delivered to the target");
+
+        // The pending claim now settles only the zero-paying tail: its value is rejected, not kept
+        vm.deal(address(this), 1 ether);
+        vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
+        dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    /// @dev A paying claim forwards the attached value to the deposit processor and keeps none of it.
+    function test_fix31_claim_payingWithValue_forwardsValue() public {
+        _nominateWithFullWeight();
+        _advanceEpoch();
+        _advanceEpoch();
+
+        vm.deal(address(this), 1 ether);
+        dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+
+        assertEq(depositProcessor.lastTransferAmount(), 10_000, "incentive transferred");
+        assertEq(address(depositProcessor).balance, 1, "value forwarded");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    /// @dev A batch chain with both a paying and a zero-paying target still sends a message for the paying one, so
+    ///      its value is forwarded and the claim does not revert.
+    function test_fix31_claimBatch_mixedTargetsChainWithValue_forwardsValue() public {
+        _nominateWithFullWeight();
+        // Second target on the same chain with zero relative weight: below the staking weight threshold
+        address target2 = address(0x57A7); // strictly greater than STAKING_TARGET (0x57A6) for ascending order
+        vw.addNominee(target2, CHAIN_ID);
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256[] memory chainIds = new uint256[](1);
+        chainIds[0] = CHAIN_ID;
+        bytes32[][] memory stakingTargets = new bytes32[][](1);
+        stakingTargets[0] = new bytes32[](2);
+        stakingTargets[0][0] = _targetBytes32();
+        stakingTargets[0][1] = bytes32(uint256(uint160(target2)));
+        bytes[] memory bridgePayloads = new bytes[](1);
+        uint256[] memory valueAmounts = new uint256[](1);
+        valueAmounts[0] = 1;
+
+        vm.deal(address(this), 1 ether);
+        dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+
+        // Only the paying target is in the message
+        assertEq(depositProcessor.lastStakingIncentive(), 10_000, "message carries the paying target");
+        assertEq(depositProcessor.lastTransferAmount(), 10_000, "incentive transferred");
+        assertEq(address(depositProcessor).balance, 1, "value forwarded");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    /// @dev A claim fully covered by the withheld amount transfers no OLAS but still sends the bridge message, so
+    ///      its value is forwarded and must keep being accepted.
+    function test_fix31_claim_withheldCoveredWithValue_forwardsValue() public {
+        _nominateWithFullWeight();
+        // Withheld amount covers the whole weight-capped allocation of 10_000 wei
+        dispenser.syncWithheldAmountMaintenance(CHAIN_ID, 10_000, bytes32(uint256(1)));
+        _advanceEpoch();
+        _advanceEpoch();
+
+        vm.deal(address(this), 1 ether);
+        dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+
+        assertEq(depositProcessor.lastStakingIncentive(), 10_000, "message sent");
+        assertEq(depositProcessor.lastTransferAmount(), 0, "no OLAS transferred");
+        assertEq(address(depositProcessor).balance, 1, "value forwarded");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    /// @dev In a batch, a chain with no staking incentive sends no message, so its value amount must be zero.
+    function test_fix31_claimBatch_zeroIncentiveChainWithValue_reverts() public {
+        _nominateWithFullWeight();
+        MockDepositProcessor depositProcessor2 = _addSecondChainNominee();
+        _advanceEpoch();
+        _advanceEpoch();
+
+        (uint256[] memory chainIds, bytes32[][] memory stakingTargets, bytes[] memory bridgePayloads) =
+            _twoChainBatch();
+        uint256[] memory valueAmounts = new uint256[](2);
+        valueAmounts[0] = 1;
+        valueAmounts[1] = 1;
+
+        vm.deal(address(this), 1 ether);
+        // CHAIN_ID_2 nets zero: its value amount would be kept
+        vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
+        dispenser.claimStakingIncentivesBatch{value: 2}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+
+        // Value only for the chain that receives a message
+        valueAmounts[1] = 0;
+        dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+        assertEq(address(depositProcessor).balance, 1, "value forwarded to the messaged chain");
+        assertEq(address(depositProcessor2).balance, 0, "no value for the unmessaged chain");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+    }
+
+    /// @dev A batch with no staking incentive at all sends no message, so any value must be rejected.
+    function test_fix31_claimBatch_zeroIncentiveWithValue_reverts() public {
+        // No votes are ever cast on either chain
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        _addSecondChainNominee();
+        _advanceEpoch();
+        _advanceEpoch();
+
+        (uint256[] memory chainIds, bytes32[][] memory stakingTargets, bytes[] memory bridgePayloads) =
+            _twoChainBatch();
+        uint256[] memory valueAmounts = new uint256[](2);
+        valueAmounts[0] = 1;
+
+        vm.deal(address(this), 1 ether);
+        vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
+        dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+
+        valueAmounts[0] = 0;
+        dispenser.claimStakingIncentivesBatch(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+        assertEq(address(dispenser).balance, 0, "no value kept");
     }
 }
