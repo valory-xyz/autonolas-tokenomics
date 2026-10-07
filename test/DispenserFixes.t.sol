@@ -35,6 +35,45 @@ contract MockDepositProcessor {
     function updateHashMaintenance(bytes32) external {}
 }
 
+/// @dev Vote Weighting mock with historical weights: nomineeRelativeWeight returns the (relative weight, total
+///      weight sum) set for the exact queried time, and (0, 0) otherwise, so one claim or retain() call can span
+///      epochs with different weight conditions.
+contract MockVoteWeightingHistory {
+    address public immutable dispenser;
+    mapping(bytes32 => bool) public mapNominees;
+    mapping(bytes32 => mapping(uint256 => uint256[2])) internal mapWeightsAt;
+
+    constructor(address _dispenser) {
+        dispenser = _dispenser;
+    }
+
+    function _nomineeHash(bytes32 account, uint256 chainId) internal pure returns (bytes32) {
+        return keccak256(abi.encode(account, chainId));
+    }
+
+    function addNominee(address account, uint256 chainId) external {
+        bytes32 nomineeHash = _nomineeHash(bytes32(uint256(uint160(account))), chainId);
+        mapNominees[nomineeHash] = true;
+        Dispenser(dispenser).addNominee(nomineeHash);
+    }
+
+    function checkpointNominee(bytes32 account, uint256 chainId) external view {
+        require(mapNominees[_nomineeHash(account, chainId)], "NomineeDoesNotExist");
+    }
+
+    /// @dev Sets the relative weight (1e18 = 100%) and the total weight sum returned for `time`.
+    function setWeightAt(address account, uint256 chainId, uint256 time, uint256 weight, uint256 totalSum) external {
+        mapWeightsAt[_nomineeHash(bytes32(uint256(uint160(account))), chainId)][time] = [weight, totalSum];
+    }
+
+    function nomineeRelativeWeight(bytes32 account, uint256 chainId, uint256 time)
+        external view returns (uint256, uint256)
+    {
+        uint256[2] memory w = mapWeightsAt[_nomineeHash(account, chainId)][time];
+        return (w[0], w[1]);
+    }
+}
+
 /// @dev Regression tests for the Dispenser vulnerability-list fixes (each fails on the pre-fix code):
 ///      #12 calculateStakingIncentives is view — a standalone call mutates nothing (cannot strand a
 ///          zero-weight epoch's refund); the claim path refunds it exactly once and never double-refunds;
@@ -591,6 +630,47 @@ contract DispenserFixesTest is Test {
         assertEq(address(dispenser).balance, 0, "no value kept");
     }
 
+    /// @dev A batch chain fully covered by the withheld amount transfers no OLAS but still sends its bridge message,
+    ///      so its value is forwarded. The batch path uses its own distribution logic, separate from the single claim.
+    function test_fix31_claimBatch_withheldCoveredWithValue_forwardsValue() public {
+        _nominateWithFullWeight();
+        // Withheld amount covers the whole weight-capped allocation of 10_000 wei
+        dispenser.syncWithheldAmountMaintenance(CHAIN_ID, 10_000, bytes32(uint256(1)));
+        _advanceEpoch();
+        _advanceEpoch();
+
+        uint256 claimableEpoch = tokenomics.epochCounter() - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+        uint256 olasSupplyBefore = olas.totalSupply();
+
+        uint256[] memory chainIds = new uint256[](1);
+        chainIds[0] = CHAIN_ID;
+        bytes32[][] memory stakingTargets = new bytes32[][](1);
+        stakingTargets[0] = new bytes32[](1);
+        stakingTargets[0][0] = _targetBytes32();
+        bytes[] memory bridgePayloads = new bytes[](1);
+        uint256[] memory valueAmounts = new uint256[](1);
+        valueAmounts[0] = 1;
+
+        vm.deal(address(this), 1 ether);
+        dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+
+        // Message sent with the full incentive, no OLAS transferred or minted, value forwarded
+        assertEq(depositProcessor.lastStakingIncentive(), 10_000, "full incentive in the message");
+        assertEq(depositProcessor.lastTransferAmount(), 0, "no OLAS transferred");
+        assertEq(olas.balanceOf(address(depositProcessor)), 0, "no OLAS received by the processor");
+        assertEq(olas.totalSupply(), olasSupplyBefore, "no OLAS minted");
+        assertEq(address(depositProcessor).balance, 1, "value forwarded");
+        assertEq(address(dispenser).balance, 0, "no value kept");
+
+        // Withheld consumed; standard return plus the withheld-covered allocation refunded to staking inflation
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0, "withheld consumed");
+        assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, (epochIncentive - 10_000) + 10_000,
+            "standard return plus withheld-covered allocation refunded");
+    }
+
     /// @dev A claim fully covered by the withheld amount transfers no OLAS but still sends the bridge message, so
     ///      its value is forwarded and must keep being accepted.
     function test_fix31_claim_withheldCoveredWithValue_forwardsValue() public {
@@ -722,6 +802,62 @@ contract DispenserFixesTest is Test {
         dispenser.retain();
         assertFalse(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "weighted epoch not flagged");
         assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive / 2, "weighted share retained");
+    }
+
+    /// @dev One retain() call spanning an already-refunded zero-weight epoch, a not-yet-refunded zero-weight epoch
+    ///      and a weighted epoch: the combined refund is exact and the cursor reaches the current epoch. A later
+    ///      claim across the same epochs does not refund the zero-weight epoch again.
+    function test_fix35_retain_mixedEpochConditions_exactRefund() public {
+        // Historical-weight Vote Weighting (the voteWeighting swap requires staking incentives paused)
+        MockVoteWeightingHistory vwh = new MockVoteWeightingHistory(address(dispenser));
+        dispenser.setPauseState(Dispenser.Pause.StakingIncentivesPaused);
+        dispenser.changeManagers(address(0), address(vwh));
+        dispenser.setPauseState(Dispenser.Pause.Unpaused);
+        // Lift the max staking incentive so the weighted claim below returns nothing to inflation
+        tokenomics.changeStakingParams(type(uint96).max, 100);
+
+        uint256 firstEpoch = tokenomics.epochCounter();
+        vwh.addNominee(deployer, block.chainid);
+        vwh.addNominee(STAKING_TARGET, CHAIN_ID);
+
+        // Settle four epochs: E1 (no incentive), E2 and E3 (zero total weight), E4 (weighted)
+        for (uint256 i = 0; i < 4; ++i) {
+            _advanceEpoch();
+        }
+        uint256 e2 = firstEpoch + 1;
+        uint256 e3 = firstEpoch + 2;
+        uint256 e4 = firstEpoch + 3;
+        uint256 currentEpoch = tokenomics.epochCounter();
+        assertEq(currentEpoch, firstEpoch + 4, "four epochs settled");
+        uint256 i3 = _stakingIncentiveOf(e3);
+        uint256 i4 = _stakingIncentiveOf(e4);
+        assertGt(_stakingIncentiveOf(e2), 0, "E2 carries staking incentive");
+        assertGt(i3, 0, "E3 carries staking incentive");
+
+        // E4 is weighted: total weight sum equal to the epoch incentive (no stakingDiff), retainer 25%, target 50%
+        uint256 e4EndTime = tokenomics.getEpochEndTime(e4);
+        vwh.setWeightAt(deployer, block.chainid, e4EndTime, 0.25e18, i4);
+        vwh.setWeightAt(STAKING_TARGET, CHAIN_ID, e4EndTime, 0.5e18, i4);
+
+        // A claim over E1..E2 refunds the zero-weight E2 first and flags it
+        dispenser.claimStakingIncentives(2, CHAIN_ID, _targetBytes32(), "");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(e2), "E2 refunded by the claim");
+
+        // One retain() over E1..E4: E2 skipped, E3 refunded whole and flagged, E4 the retainer's weighted share
+        uint256 potBeforeRetain = _stakingIncentiveOf(currentEpoch);
+        dispenser.retain();
+        uint256 potAfterRetain = _stakingIncentiveOf(currentEpoch);
+        assertEq(potAfterRetain - potBeforeRetain, i3 + (i4 * 0.25e18) / 1e18, "exact combined retain refund");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(e3), "E3 flagged by retain");
+        assertFalse(dispenser.mapZeroWeightEpochRefunded(e4), "weighted E4 not flagged");
+        bytes32 retainerHash = keccak256(abi.encode(bytes32(uint256(uint160(deployer))), block.chainid));
+        assertEq(dispenser.mapLastClaimedStakingEpochs(retainerHash), currentEpoch, "retain cursor at current epoch");
+
+        // The target claims E3..E4: E3 is not refunded again, E4 pays the target's share with nothing returned
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(_stakingIncentiveOf(currentEpoch), potAfterRetain, "no duplicate refund of E3");
+        assertEq(depositProcessor.lastStakingIncentive(), (i4 * 0.5e18) / 1e18, "E4 target share delivered");
+        assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), currentEpoch, "claim cursor at current epoch");
     }
 
     // -----------------------------------------------------------------------
