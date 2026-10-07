@@ -85,10 +85,23 @@ Governance note: L1 `changeManagers` / `setDepositProcessorChainIds` / `setPause
    # -> assert maxStakingIncentive (2nd) != 0 and minStakingWeight (3rd) != 0
    ```
 
-### Phase 1 — Pause and settle the OLD stack
+### Phase 1 — Settle, then pause the OLD stack
 
-5. `Dispenser.setPauseState(StakingIncentivesPaused)` on the old Dispenser.
-6. Have all active nominees **claim outstanding staking incentives** up to the current epoch on the old stack. Anything unclaimed here is only ever claimable on the old Dispenser — settle now.
+The order is load-bearing. The old Dispenser reverts `Paused()` in `claimStakingIncentives` and `claimStakingIncentivesBatch` while it is `StakingIncentivesPaused` (or `AllPaused`), so a claim attempted after the pause cannot run. Settle first, then pause, **in the same epoch**: an epoch closed by `Tokenomics.checkpoint()` after the last claim becomes claimable, and it is not settled.
+
+5. Have every nominee **claim outstanding staking incentives** up to the current epoch on the old Dispenser, and call `retain()` for the retainer. Anything unclaimed here is only ever claimable on the old Dispenser. Claims are permissionless, so the settlement does not depend on each nominee acting.
+   The old Dispenser's `maxNumClaimingEpochs` is **`1`** (read 2026-10-07), so each claim, and each `retain()`, covers a single epoch: a nominee *N* epochs behind needs *N* claims. `claimStakingIncentivesBatch` settles many targets per call (up to `maxNumStakingTargets` per chain), but still one epoch per call, and a target already at the current epoch reverts the batch (`Overflow`), so drop targets from later batches as they catch up. As of 2026-10-07 (epoch 50, 14-day epochs) the 20 staking nominees are 1 to 6 epochs behind, so about six shrinking batch calls, and the retainer is 26 behind, so 26 `retain()` calls. Plan the calls before drafting the step-6 proposal.
+   **Confirm settled:** for every nominee, the retainer included, `mapLastClaimedStakingEpochs(nomineeHash)` on the old Dispenser equals `epochCounter()` on Tokenomics. Enumerate the nominees from VoteWeighting with `getNumNominees()` and `getNominee(i)` for `i` in `1..N`; on the live VoteWeighting the retainer is nominee `1`.
+   ```bash
+   # nomineeHash = keccak256(abi.encode(account, chainId)), with the account as bytes32
+   h=$(cast keccak $(cast abi-encode "f(bytes32,uint256)" <account> <chainId>))
+   cast call <oldDispenser> "mapLastClaimedStakingEpochs(bytes32)(uint256)" $h
+   cast call <TokenomicsProxy> "epochCounter()(uint32)"
+   # -> the two are equal for every nominee; for a removed nominee (mapRemovedNomineeEpochs(h) != 0)
+   #    the cursor stops at its removal epoch instead
+   ```
+6. `Dispenser.setPauseState(StakingIncentivesPaused)` on the old Dispenser, executed **in the same epoch** as the last claims of step 5. Claims are permissionless and the pause is a DAO proposal, so time the proposal's execution against the claims: if a `Tokenomics.checkpoint()` lands between the last claim and the pause, settle the newly closed epoch before the pause executes. `retain()` is not pause-gated, so the retainer can also finish after the pause.
+   **Confirm paused:** `paused()` on the old Dispenser reads `2` (`StakingIncentivesPaused`), and the step-5 check still holds for every nominee.
 7. Process/drain any **outstanding queued requests** on each L2 target dispenser (the `migrate()` NatSpec requires this — outstanding queued requests are handled by the DAO on the L2 side before migration).
 
 ### Phase 2 — Deploy the new stack
@@ -99,7 +112,7 @@ Deploy order is load-bearing: the Dispenser proxy must exist before VoteWeightin
    - **Implementation** ctor takes only the bytecode immutables `(_olas, _tokenomics, _retainer)` (`deploy_07a_dispenser.sh`; `_tokenomics` is the Tokenomics **proxy** address, `_retainer` is `bytes32`). The script also locks the standalone implementation post-deploy.
    - **Proxy** ctor is `DispenserProxy(implementation, initData)` where `initData = initialize(_treasury, voteWeighting = 0, _maxNumClaimingEpochs, _maxNumStakingTargets)` (`deploy_07b_dispenser_proxy.sh`). The proxy delegatecall-initializes the impl, the deployer becomes proxy owner atomically, and staking incentives start `StakingIncentivesPaused`. `maxNumClaimingEpochs` / `maxNumStakingTargets` are set once here (no runtime setter) — pick them carefully.
 9. Deploy the **new `VoteWeighting(ve, dispenserProxy)`** — `dispenser` is immutable, bound to the Dispenser proxy address from step 8.
-10. Deploy the **new L1 deposit processors** (all on ETH mainnet L1), each with `l1Dispenser = dispenserProxy` (step 8):
+10. Deploy the **new L1 deposit processors** (all on ETH mainnet L1), each with `l1Dispenser = dispenserProxy` (step 8). On mainnet the processor scripts read that address from `dispenserProxyAddress` in `scripts/deployment/globals_mainnet.json`, where step 8's `deploy_07b_dispenser_proxy.sh` records it, and stop if it is unset. The staking globals' `dispenserAddress` still holds the **old** Dispenser and is not used on mainnet: `l1Dispenser` is immutable, so a processor bound to the wrong address can only be redeployed.
     - Bridge-paired processors — Arbitrum `staking/deploy_02_arbitrum_deposit_processor.sh`, Gnosis `deploy_03`, Optimism `deploy_04`, Celo `deploy_05`, Polygon `deploy_06`, Base `deploy_07`, Mode `deploy_11`, Robinhood `deploy_13_robinhood_deposit_processor.sh` (chainId 4663, the second Arbitrum-Orbit chain — same processor type as Arbitrum). Each binds to its L2 bridge and gets its `l2TargetDispenser` wired in step 15.
     - **ETH mainnet is L1-only — a different contract and script.** `EthereumDepositProcessor` (`staking/deploy_08_eth_deposit_processor.sh`, ctor `(olas, dispenserProxy, stakingFactory, timelock)`) has **no** bridge relayer, **no** `l2TargetDispenser`, and **no** corresponding L2 target dispenser — mainnet staking settles on L1 directly. It has no step-11 L2 deploy and no step-15 link, and Phase 3 does not apply to it.
 11. Deploy the **new L2 target dispensers** — one per L2, each with `l1DepositProcessor = <its new L1 processor from step 10>`, from that chain's subfolder: Arbitrum `staking/arbitrum/deploy_02_arbitrum_target_dispenser.sh`, Gnosis `gnosis/deploy_03`, Optimism `optimism/deploy_04`, Celo `celo/deploy_05`, Polygon `polygon/deploy_06`, Base `base/deploy_07`, Mode `mode/deploy_11`, Robinhood `robinhood/deploy_02_robinhood_target_dispenser.sh`. **No ETH entry** — ETH is L1-only (step 10).
@@ -111,6 +124,24 @@ For every chain with an L2 dispenser (Arbitrum, Gnosis, Optimism, Base, Polygon,
 Robinhood (chainId 4663, registered in the live Dispenser since proposal 16) holds no OLAS and carries no L1 credit, so as of the 2026-10-05 reading its `migrate` carries nothing and step 14 restores `0`. Treat that as a dated reading, not the procedure: step 14 restores Robinhood's **Phase-0 OLAS balance** like every other chain, so if OLAS arrives before the cutover, restore that balance rather than `0`. Either way it still redeploys and rewires with the rest, because `l1DepositProcessor` / `l1Dispenser` are `immutable` and a chain left unregistered at step 19 is unroutable.
 
 12. `pause()` the **old** L2 dispenser (`migrate` requires paused).
+
+    **Gate before step 13 — nothing in flight to this chain.** `migrate()` sweeps the balance once, and the dispensers being migrated here have no way to pass on anything that arrives afterwards: a late token leg lands on the dead dispenser for good, and a late message leg reverts there. So confirm, per chain, that every claim made since the start of step 5 has fully landed:
+    - **Message legs.** Every batch the old L1 processor sent has been processed on the old L2 dispenser. The L1 processor numbers its batches (`stakingBatchNonce()` is the next one), and the L2 dispenser records each as `processedHashes(keccak256(abi.encode(nonce, 1, <old L1 processor>)))`. Check every nonce sent since step 5 began:
+      ```bash
+      n=$(cast call <oldL1Processor> "stakingBatchNonce()(uint256)")
+      h=$(cast keccak $(cast abi-encode "f(uint256,uint256,address)" $((n-1)) 1 <oldL1Processor>))
+      cast call --rpc-url <L2 rpc> <oldL2Dispenser> "processedHashes(bytes32)(bool)" $h
+      # -> true; repeat down to the first nonce sent in step 5 (verified live on Optimism 2026-10-07:
+      #    the last two batches read true, the next unsent nonce reads false)
+      ```
+    - **Token legs.** For each of those claims that transferred OLAS, the bridge transfer has completed, not merely started:
+      - **Arbitrum, Robinhood:** both retryable tickets, the token gateway's and the message's, are **redeemed**. An unredeemed ticket can still be redeemed by anyone for 7 days, then expires.
+      - **Gnosis:** the Omnibridge `relayTokens` message is **executed** on the Gnosis AMB (`messageCallStatus(messageId)` is `true`).
+      - **Polygon:** the `depositFor` is **state-synced**: the `StateSynced` id emitted on L1 is ≤ `lastStateId()` on Polygon's `StateReceiver` (`0x0000000000000000000000000000000000001001`).
+      - **OP-stack (Optimism, Base, Celo, Mode):** the deposit is **relayed**: `successfulMessages(<message hash>)` is `true` on the L2 `CrossDomainMessenger` (`0x4200000000000000000000000000000000000007`).
+    - **No queue since step 7.** No `StakingRequestQueued` on the old L2 dispenser after step 7. A message processed while the dispenser is paused (step 12) is queued rather than deposited. If one appears, its OLAS migrates with the balance: replay it on the new dispenser with `processDataMaintenance` after step 14.
+
+    **Future migrations of the new builds.** The L2 dispensers deployed in this cutover add `forward()`: after `migrate()`, anyone can move OLAS that reaches the old address on to `migratedTo`. In a later migration, a late token leg is recovered by calling `forward()` on the old dispenser, **then** replaying its message with `processDataMaintenance` on the new one. Forwarding first means the replay deposits the OLAS that came with the claim; replayed first, it draws on the new dispenser's existing balance instead, or queues the deposit if that balance is short. The dispensers retired in this cutover predate `forward()`, which is why the gate above is load-bearing here.
 13. `migrate(newL2TargetDispenser)` on the old L2 dispenser — transfers its **full OLAS balance** (withheld + any residual) to the new one, zeroes the old owner and locks it permanently (one-way; the old dispenser is dead after this). The `Migrated` event surfaces the migrated balance — which is the figure to restore at step 14 (see step 14 for why the emitted `withheldAmount`, where the event carries one at all, is not).
 14. On the **new** L2 dispenser, `updateWithheldAmountMaintenance(<final OLAS balance of the new dispenser>)` to re-establish its `withheldAmount` (it deploys at 0). **Pass the migrated balance, not the emitted `withheldAmount`** — which is what the function's own NatSpec requires for this case: *"[2] Withheld amount update after balance migration to a new contract … The amount here must correspond to … [2] Final OLAS balance of this contract address."*
 
@@ -128,7 +159,7 @@ Robinhood (chainId 4663, registered in the live Dispenser since proposal 16) hol
 16. `Dispenser.changeManagers(0, newVoteWeighting)` — wire the real VoteWeighting into the Dispenser proxy (initialized with a zero `voteWeighting` in step 8), via `scripts/deployment/script_dispenser_change_managers.sh` (it passes `treasury = 0`, a no-op, and the new `voteWeighting`). This same script is also how a *future* standalone VoteWeighting redeploy is repointed onto the existing Dispenser. The setter requires the paused state, satisfied by construction. (There is **no** `VoteWeighting.changeDispenser` call — `VoteWeighting.dispenser` is immutable, set in step 9.)
 17. `Tokenomics.changeManagers(0, 0, newDispenser)`.
 18. `Treasury.changeManagers(0, 0, newDispenser)`.
-19. `Dispenser.setDepositProcessorChainIds(newProcessors, chainIds)` on the new Dispenser — whitelist every L1 deposit processor, mapping each L2 target chainId (and the mainnet chainId) to its processor. Forge: `staking/deploy_10_set_deposit_processors.sh` (reads all processor addresses + chainIds from the staking globals, includes the `EthereumDepositProcessor` under the mainnet chainId, the Mode processor and the Robinhood processor (chainId 4663), and re-reads `mapChainIdDepositProcessors` afterwards to confirm each entry took); hardhat equivalent `staking/deploy_10_set_deposit_processors.js`. There is no zero-processor guard in the Dispenser, so a chain left unregistered here resolves to a zero processor and **reverts the claim** — and in the batch path the zero-address call reverts the whole batch, taking the other chains' claims with it.
+19. `Dispenser.setDepositProcessorChainIds(newProcessors, chainIds)` on the new Dispenser — whitelist every L1 deposit processor, mapping each L2 target chainId (and the mainnet chainId) to its processor. Forge: `staking/deploy_10_set_deposit_processors.sh` (reads all processor addresses + chainIds from the staking globals and the Dispenser from `dispenserProxyAddress` in the root globals, refuses to send unless that address answers `PROXY_DISPENSER()`, includes the `EthereumDepositProcessor` under the mainnet chainId, the Mode processor and the Robinhood processor (chainId 4663), and re-reads `mapChainIdDepositProcessors` afterwards to confirm each entry took); hardhat equivalent `staking/deploy_10_set_deposit_processors.js`. There is no zero-processor guard in the Dispenser, so a chain left unregistered here resolves to a zero processor and **reverts the claim** — and in the batch path the zero-address call reverts the whole batch, taking the other chains' claims with it.
 
 ### Phase 5 — Re-nominate and resume
 
@@ -174,7 +205,7 @@ chain's staking globals first. Order is load-bearing (see the `deploy_07b_dispen
 ./scripts/deployment/staking/deploy_10_set_deposit_processors.sh mainnet
 ```
 
-The old-stack pause/settle (Phase 1), each L2 `migrate` (Phase 3), the `Tokenomics` / `Treasury` re-point and
+The old-stack settle/pause (Phase 1), each L2 `migrate` (Phase 3), the `Tokenomics` / `Treasury` re-point and
 the final `setPauseState(Unpaused)` (Phase 4/5) are DAO proposals, not scripts — follow the phases above.
 
 ## 7. Post-migration verification
@@ -196,7 +227,8 @@ The Dispenser rework changed several ABIs. Regenerate at redeploy so downstream 
 
 ## 8. Rollback / risk notes
 
-- Any nominee that fails to claim in Phase 1 forfeits its old-stack unclaimed incentives (only the old Dispenser can pay them, and it is being retired). Chase settlements before Phase 3.
+- Any nominee that fails to claim in Phase 1 forfeits its old-stack unclaimed incentives (only the old Dispenser can pay them, and it is being retired). Chase settlements before the step-6 pause: once it executes, claims on the old Dispenser revert.
+- A claim transfer still in flight when its chain's old L2 dispenser is migrated is lost: the dispensers retired here predate `forward()`. The step-13 gate is what prevents it.
 
 ## 9. Open items to confirm before executing
 
