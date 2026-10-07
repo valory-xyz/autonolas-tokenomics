@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {PolygonBurnForwarder} from "../contracts/utils/PolygonBurnForwarder.sol";
+import {Bridge2BurnerPolygon} from "../contracts/utils/Bridge2BurnerPolygon.sol";
 
 /// @dev Minimal token: a Polygon PoS child token (withdraw burns the caller's balance, emitting the Transfer to
 ///      zero that the PoS exit proves) and an L1 ERC20, in one mock.
@@ -172,6 +173,26 @@ contract PolygonBurnForwarderTest is Test {
         forwarder.relay();
         assertEq(polygonOlas.balanceOf(address(forwarder)), AMOUNT, "Polygon token untouched on L1");
         assertEq(l1Olas.balanceOf(OLAS_BURNER), AMOUNT, "L1 token burned");
+    }
+
+    /// @dev Integration: Bridge2BurnerPolygon deployed with the forwarder as its recipient delivers OLAS to it, and
+    ///      relay() then burns it on Polygon.
+    function test_bridge2BurnerPolygon_deliversToForwarder_thenBurned() public {
+        vm.chainId(POLYGON_CHAIN_ID);
+        PolygonBurnForwarder forwarder = _deploy();
+        Bridge2BurnerPolygon bridge2Burner = new Bridge2BurnerPolygon(address(polygonOlas), address(forwarder));
+        assertEq(bridge2Burner.l2TokenRelayer(), address(forwarder), "recipient is the forwarder");
+
+        // Bought-back OLAS, above the Bridge2Burner minimum
+        polygonOlas.mint(address(bridge2Burner), AMOUNT);
+        vm.prank(address(0xCA11));
+        bridge2Burner.relayToL1Burner();
+        assertEq(polygonOlas.balanceOf(address(bridge2Burner)), 0, "bridge2Burner emptied");
+        assertEq(polygonOlas.balanceOf(address(forwarder)), AMOUNT, "OLAS reached the forwarder");
+
+        forwarder.relay();
+        assertEq(polygonOlas.balanceOf(address(forwarder)), 0, "forwarder burned it");
+        assertEq(polygonOlas.totalSupply(), 0, "burned on Polygon");
     }
 
     function test_constructor_guards() public {

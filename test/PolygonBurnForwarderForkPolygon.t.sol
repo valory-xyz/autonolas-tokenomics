@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {PolygonBurnForwarder} from "../contracts/utils/PolygonBurnForwarder.sol";
+import {Bridge2BurnerPolygon} from "../contracts/utils/Bridge2BurnerPolygon.sol";
 
 interface IERC20PolygonFork {
     function balanceOf(address account) external view returns (uint256);
@@ -63,6 +64,34 @@ contract PolygonBurnForwarderForkPolygon is Test {
                 ++burnLogs;
                 assertEq(address(uint160(uint256(log.topics[1]))), address(forwarder), "burn from the forwarder");
                 assertEq(abi.decode(log.data, (uint256)), AMOUNT, "burn amount");
+            }
+        }
+        assertEq(burnLogs, 1, "one burn log for the exit proof");
+    }
+
+    /// @dev Integration on live Polygon OLAS: Bridge2BurnerPolygon deployed with the forwarder as its recipient (as
+    ///      deploy_00c_bridge2burner_polygon.sh now does) delivers OLAS to the forwarder, and relay() burns it with the
+    ///      exit log.
+    function test_bridge2BurnerPolygon_deliversToForwarder_thenBurnedWithExitLog() public {
+        Bridge2BurnerPolygon bridge2Burner = new Bridge2BurnerPolygon(POLYGON_OLAS, address(forwarder));
+        deal(POLYGON_OLAS, address(bridge2Burner), AMOUNT, true);
+
+        vm.prank(address(0xCA11));
+        bridge2Burner.relayToL1Burner();
+        assertEq(IERC20PolygonFork(POLYGON_OLAS).balanceOf(address(bridge2Burner)), 0, "bridge2Burner emptied");
+        assertEq(IERC20PolygonFork(POLYGON_OLAS).balanceOf(address(forwarder)), AMOUNT, "OLAS reached the forwarder");
+
+        vm.recordLogs();
+        forwarder.relay();
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(IERC20PolygonFork(POLYGON_OLAS).balanceOf(address(forwarder)), 0, "forwarder burned it");
+        uint256 burnLogs;
+        for (uint256 i = 0; i < logs.length; ++i) {
+            Vm.Log memory log = logs[i];
+            if (log.emitter == POLYGON_OLAS && log.topics[0] == TRANSFER_TOPIC && log.topics[2] == bytes32(0)) {
+                ++burnLogs;
+                assertEq(address(uint160(uint256(log.topics[1]))), address(forwarder), "burn from the forwarder");
             }
         }
         assertEq(burnLogs, 1, "one burn log for the exit proof");
