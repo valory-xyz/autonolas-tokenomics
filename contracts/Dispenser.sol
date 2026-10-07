@@ -1027,7 +1027,9 @@ contract Dispenser {
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
             // No staking incentives in this epoch
-            if (stakingPoint.stakingFraction == 0) {
+            // Note: test the incentive itself, not stakingFraction: refunds carried into an epoch with a zero
+            // staking fraction still make up a non-zero staking incentive that must be distributed or returned
+            if (stakingPoint.stakingIncentive == 0) {
                 continue;
             }
 

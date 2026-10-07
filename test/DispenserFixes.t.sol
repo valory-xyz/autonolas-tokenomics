@@ -41,7 +41,8 @@ contract MockDepositProcessor {
 ///      #9  the withheld-covered portion of claimed incentives is returned to staking inflation
 ///          (single and batch claim paths);
 ///      #25 addNominee clears mapRemovedNomineeEpochs so a removed-then-re-added nominee is claimable;
-///      #8  changeManagers only swaps voteWeighting while staking incentives are paused.
+///      #8  changeManagers only swaps voteWeighting while staking incentives are paused;
+///      #30 an epoch with a zero staking fraction but a non-zero (carried refund) staking incentive is claimed.
 ///      Run: forge test --mc DispenserFixesTest -vvv
 contract DispenserFixesTest is Test {
     Utils internal utils;
@@ -410,5 +411,48 @@ contract DispenserFixesTest is Test {
         // Yet the claim path reverts ZeroValue (the guard fires first), not NomineeDoesNotExist
         vm.expectRevert(abi.encodeWithSignature("ZeroValue()"));
         dispenser.claimStakingIncentives(10, CHAIN_ID, unregistered, "");
+    }
+
+    // -----------------------------------------------------------------------
+    // #30 — zero staking fraction does not skip carried refunds
+    // -----------------------------------------------------------------------
+
+    /// @dev Reads the staking fraction of an epoch from the public tuple getter.
+    function _stakingFractionOf(uint256 epoch) internal view returns (uint256 fraction) {
+        (, , , fraction) = tokenomics.mapEpochStakingPoints(epoch);
+    }
+
+    /// @dev Refunds made during an epoch whose staking fraction is zero still form that epoch's staking incentive.
+    ///      On the pre-fix code the claim skips the epoch on stakingFraction == 0 and advances the cursor past it,
+    ///      so the carried incentive is neither distributed nor returned to staking inflation.
+    function test_fix30_zeroStakingFraction_carriedRefundIsClaimed() public {
+        _nominateWithFullWeight();
+
+        // Settle the activation epoch, so the next epoch carries the staking fraction set in setUp
+        _advanceEpoch();
+        // Zero staking fraction from the next epoch on
+        tokenomics.changeIncentiveFractions(0, 0, 0, 0, 0, 0);
+        // Settle the epoch funded by the staking fraction
+        _advanceEpoch();
+
+        // First claim: allocates the weight-capped 10_000 wei and refunds the rest into the current epoch,
+        // whose staking fraction is zero
+        uint256 refundEpoch = tokenomics.epochCounter();
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(olas.balanceOf(address(depositProcessor)), 10_000, "first claim allocated");
+
+        // Settle the zero-fraction epoch: its staking incentive is made only of the carried refund
+        _advanceEpoch();
+        assertEq(_stakingFractionOf(refundEpoch), 0, "zero staking fraction epoch");
+        uint256 carriedIncentive = _stakingIncentiveOf(refundEpoch);
+        assertGt(carriedIncentive, 10_000, "carried refund forms the epoch staking incentive");
+
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+
+        // Second claim covers the zero-fraction epoch: it is allocated and the remainder is returned
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(olas.balanceOf(address(depositProcessor)), 20_000, "carried incentive allocated");
+        assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, carriedIncentive - 10_000, "carried remainder returned");
     }
 }
