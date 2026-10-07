@@ -15,6 +15,7 @@ interface IERC20PolygonFork {
 ///      - relay() burns its real Polygon PoS OLAS balance through the live child token's withdraw(), emitting the
 ///        Transfer(forwarder, 0, amount) log that the Ethereum-side exit proves: the predicate releases the L1 OLAS
 ///        to the log's `from`, which is the forwarder's address there too.
+///      Self-skips unless block.chainid == 137.
 ///      Run: forge test -f $FORK_POLYGON_NODE_URL --mc PolygonBurnForwarderForkPolygon -vvv
 contract PolygonBurnForwarderForkPolygon is Test {
     address internal constant L1_OLAS = 0x0001A500A6B18995B03f44bb040A5fFc28E45CB0;
@@ -29,7 +30,10 @@ contract PolygonBurnForwarderForkPolygon is Test {
     PolygonBurnForwarder internal forwarder;
 
     function setUp() public {
-        assertEq(block.chainid, POLYGON_CHAIN_ID, "run against a Polygon mainnet fork");
+        // Off a Polygon fork, skip the harness setup (each test then skips itself)
+        if (block.chainid != POLYGON_CHAIN_ID) {
+            return;
+        }
 
         bytes memory initCode = abi.encodePacked(type(PolygonBurnForwarder).creationCode,
             abi.encode(POLYGON_OLAS, L1_OLAS, OLAS_BURNER, POLYGON_CHAIN_ID, L1_CHAIN_ID));
@@ -44,6 +48,10 @@ contract PolygonBurnForwarderForkPolygon is Test {
     /// @dev relay() burns the whole balance through the live PoS child token, and the burn log is the one the
     ///      Ethereum-side exit proves: Transfer from the forwarder to the zero address, for the full amount.
     function test_relay_burnsViaLiveWithdraw_emittingTheExitLog() public {
+        if (block.chainid != POLYGON_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         deal(POLYGON_OLAS, address(forwarder), AMOUNT, true);
         uint256 supplyBefore = IERC20PolygonFork(POLYGON_OLAS).totalSupply();
 
@@ -73,6 +81,10 @@ contract PolygonBurnForwarderForkPolygon is Test {
     ///      deploy_00c_bridge2burner_polygon.sh now does) delivers OLAS to the forwarder, and relay() burns it with the
     ///      exit log.
     function test_bridge2BurnerPolygon_deliversToForwarder_thenBurnedWithExitLog() public {
+        if (block.chainid != POLYGON_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         Bridge2BurnerPolygon bridge2Burner = new Bridge2BurnerPolygon(POLYGON_OLAS, address(forwarder));
         deal(POLYGON_OLAS, address(bridge2Burner), AMOUNT, true);
 
@@ -99,6 +111,10 @@ contract PolygonBurnForwarderForkPolygon is Test {
 
     /// @dev On Polygon nothing goes to L1 directly, and nothing to relay reverts.
     function test_relay_zeroBalance_reverts() public {
+        if (block.chainid != POLYGON_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         vm.expectRevert(abi.encodeWithSignature("ZeroValue()"));
         forwarder.relay();
     }

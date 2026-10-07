@@ -23,6 +23,7 @@ interface IRootChainManager {
 ///        impersonating the predicate) reaches the live OLAS Burner via relay().
 ///      A real exit proof needs a burn that Polygon has checkpointed to Ethereum, which a fork cannot produce, so
 ///      the release is modelled here and the Polygon side is covered by PolygonBurnForwarderForkPolygon.
+///      Self-skips unless block.chainid == 1, like the other *ForkETH tests.
 ///      Run: forge test -f $FORK_ETH_NODE_URL --mc PolygonBurnForwarderForkETH -vvv
 contract PolygonBurnForwarderForkETH is Test {
     address internal constant L1_OLAS = 0x0001A500A6B18995B03f44bb040A5fFc28E45CB0;
@@ -38,6 +39,11 @@ contract PolygonBurnForwarderForkETH is Test {
     PolygonBurnForwarder internal forwarder;
 
     function setUp() public {
+        // Off a mainnet fork, skip the harness setup (each test then skips itself)
+        if (block.chainid != L1_CHAIN_ID) {
+            return;
+        }
+
         bytes memory initCode = abi.encodePacked(type(PolygonBurnForwarder).creationCode,
             abi.encode(POLYGON_OLAS, L1_OLAS, OLAS_BURNER, POLYGON_CHAIN_ID, L1_CHAIN_ID));
         address predicted = vm.computeCreate2Address(SALT, keccak256(initCode), CREATE2_FACTORY);
@@ -50,7 +56,11 @@ contract PolygonBurnForwarderForkETH is Test {
 
     /// @dev The live bridge maps L1 OLAS to the Polygon OLAS the forwarder burns, and pays its exits from the
     ///      ERC20 predicate, which holds the escrowed OLAS.
-    function test_bridgeMapping() public view {
+    function test_bridgeMapping() public {
+        if (block.chainid != L1_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         IRootChainManager rcm = IRootChainManager(ROOT_CHAIN_MANAGER);
         assertEq(rcm.rootToChildToken(L1_OLAS), POLYGON_OLAS, "L1 OLAS maps to Polygon OLAS");
         assertEq(rcm.typeToPredicate(rcm.tokenToType(L1_OLAS)), ERC20_PREDICATE, "exits paid by the ERC20 predicate");
@@ -59,6 +69,10 @@ contract PolygonBurnForwarderForkETH is Test {
 
     /// @dev OLAS released by an exit to the forwarder's address is burned by relay(), by anyone.
     function test_exitRelease_thenRelay_reachesBurner() public {
+        if (block.chainid != L1_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         uint256 burnerBefore = IERC20Fork(L1_OLAS).balanceOf(OLAS_BURNER);
 
         // The predicate releases the exit amount to the address that burned on Polygon: the forwarder
@@ -75,6 +89,10 @@ contract PolygonBurnForwarderForkETH is Test {
 
     /// @dev Several exits can land before a relay; one relay burns them together.
     function test_severalExits_oneRelay() public {
+        if (block.chainid != L1_CHAIN_ID) {
+            vm.skip(true);
+            return;
+        }
         uint256 burnerBefore = IERC20Fork(L1_OLAS).balanceOf(OLAS_BURNER);
 
         vm.startPrank(ERC20_PREDICATE);
