@@ -128,12 +128,22 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   fi
 fi
 
-# Where the address comes from the root globals, it must be the DispenserProxy: only the proxy exposes
-# PROXY_DISPENSER(), so the pre-proxy Dispenser (or any other contract) fails here before anything is sent
+# Where the address comes from the root globals, it must be the DispenserProxy for the implementation that
+# deploy_07a_dispenser.sh recorded there as dispenserAddress: the proxy's PROXY_DISPENSER slot must hold that
+# implementation, and the implementation must have code. Checking for the PROXY_DISPENSER() getter is not
+# enough, since the implementation exposes the same constant.
 if [ -f $globalsRoot ]; then
-  proxySlot=$(cast call --rpc-url $networkURL$API_KEY $dispenserAddress "PROXY_DISPENSER()(bytes32)" 2>/dev/null)
-  if [ "$proxySlot" != "0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83" ]; then
-    echo "${red}!!! $dispenserAddress is not a DispenserProxy (PROXY_DISPENSER() returned '${proxySlot:-<revert>}')${reset}"
+  dispenserImplementation=$(jq -r '.dispenserAddress' $globalsRoot)
+  proxySlot=$(cast storage --rpc-url $networkURL$API_KEY $dispenserAddress \
+    0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83)
+  slotImplementation=$(cast parse-bytes32-address $proxySlot 2>/dev/null)
+  implementationCode=$(cast code --rpc-url $networkURL$API_KEY $dispenserImplementation 2>/dev/null)
+  lower() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
+  if [ "$(lower $slotImplementation)" != "$(lower $dispenserImplementation)" ] \
+     || [ "$(lower $dispenserAddress)" == "$(lower $dispenserImplementation)" ] \
+     || [ -z "$implementationCode" ] || [ "$implementationCode" == "0x" ]; then
+    echo "${red}!!! $dispenserAddress is not a DispenserProxy for the implementation $dispenserImplementation${reset}"
+    echo "${red}    (PROXY_DISPENSER slot holds '${slotImplementation:-<unreadable>}'; see $globalsRoot)${reset}"
     exit 1
   fi
 fi

@@ -26,17 +26,19 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy WormholeDepositProcessorL1");
-    const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
-    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).deploy()");
-    const celoDepositProcessorL1 = await WormholeDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.wormholeL1TokenRelayerAddress,
-        parsedData.wormholeL1MessageRelayerAddress, parsedData.celoL2TargetChainId,
-        parsedData.wormholeL1CoreAddress, parsedData.celoWormholeL2TargetChainId);
+    // Celo is an OP-stack chain: its L1 deposit processor is OptimismDepositProcessorL1, paired with the
+    // OptimismTargetDispenserL2 on Celo (as in deploy_05_celo_deposit_processor.sh)
+    console.log("5. EOA to deploy OptimismDepositProcessorL1 (Celo)");
+    const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
+    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
+    const celoDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.dispenserAddress, parsedData.celoL1StandardBridgeProxyAddress,
+        parsedData.celoL1CrossDomainMessengerProxyAddress, parsedData.celoL2TargetChainId,
+        parsedData.celoOLASAddress);
     const result = await celoDepositProcessorL1.deployed();
 
     // Transaction details
-    console.log("Contract deployment: WormholeDepositProcessorL1");
+    console.log("Contract deployment: OptimismDepositProcessorL1");
     console.log("Contract address:", celoDepositProcessorL1.address);
     console.log("Transaction:", result.deployTransaction.hash);
 
