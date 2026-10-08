@@ -65,7 +65,7 @@ abstract contract Bridge2Burner {
     /// @dev Relays OLAS to the L1 OLAS Burner contract (chain-specific implementation).
     /// @notice On chains whose bridge primitive accepts an explicit recipient (Optimism / Arbitrum / Gnosis),
     ///         OLAS is routed directly to OLAS_BURNER on L1. On Polygon — whose PoS child token only exposes
-    ///         `withdraw(uint256)` with no recipient parameter — OLAS is forwarded to the bridge mediator
-    ///         (an L2 contract under L1 governance control) instead, and final disposition is governance's call.
+    ///         `withdraw(uint256)` with no recipient parameter — OLAS is forwarded to the PolygonBurnForwarder, which
+    ///         has the same address on Polygon and Ethereum and relays it to OLAS_BURNER through the PoS exit.
     function relayToL1Burner() external virtual;
 }

@@ -49,6 +49,7 @@ forge test --mc BalancerPriceOracleGetTWAPTest -vvv
 forge test --mc LPSwapCeloConstructorTest -vvv
 forge test --mc LPSwapCeloSwapTest -vvv
 forge test --mc LPSwapCeloSlippageTest -vvv
+forge test --mc PolygonBurnForwarderTest -vvv              # CREATE2 same-address forwarder: Polygon burn / L1 burner branches
 ```
 
 ### Test — Forge Fork Tests (require RPC node URL for the target chain)
@@ -67,6 +68,8 @@ forge test -f $FORK_BASE_NODE_URL --mc LiquidityManagerBalancerUniV3Base -vvv  #
 forge test -f $FORK_BASE_NODE_URL --mc BalancerPriceOracleBase -vvv
 forge test -f $FORK_BASE_NODE_URL --mc BuyBackBurnerBalancerBase -vvv
 forge test -f $FORK_POLYGON_NODE_URL --mc BuyBackBurnerBalancerPolygon -vvv   # Polygon
+forge test -f $FORK_POLYGON_NODE_URL --mc PolygonBurnForwarderForkPolygon -vvv  # Polygon side of the burn forwarder (live PoS OLAS withdraw)
+forge test -f $FORK_ETH_NODE_URL --mc PolygonBurnForwarderForkETH -vvv          # L1 side: bridge mapping + exit release to the OLAS burner
 forge test -f $FORK_ARBITRUM_NODE_URL --mc BuyBackBurnerBalancerArbitrum -vvv  # Arbitrum
 forge test -f $FORK_OPTIMISM_NODE_URL --mc BuyBackBurnerTransferV3Optimism -vvv  # Optimism
 forge test -f $FORK_OPTIMISM_NODE_URL --mc StakingL2MigrateForkOP -vvv         # L2 target dispenser pause/migrate/withheld cutover (L2 migration leg)
