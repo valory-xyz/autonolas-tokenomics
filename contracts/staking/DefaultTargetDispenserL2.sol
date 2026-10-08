@@ -587,8 +587,17 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Forwards OLAS that arrived after the migration to the new L2 target dispenser.
     /// @notice Permissionless. Covers token transfers that were still in flight from L1 when migrate() moved the
-    ///         balance: the bridges credit them to this address afterwards, with no callback. The matching message
-    ///         leg is replayed by the DAO on the new L2 target dispenser via processDataMaintenance().
+    ///         balance: the bridges credit them to this address afterwards, with no callback.
+    ///         Recovery on the new L2 target dispenser happens before any withheld amount sync (after the sync, the
+    ///         restored credit is on L1): forward(), then updateWithheldAmountMaintenance(<new dispenser's OLAS
+    ///         balance>), then processDataMaintenance(<data>, true), so that withheldAmount stays equal to the balance.
+    ///         What to replay depends on this contract's records, which the operator must check: the new dispenser's
+    ///         processedHashes starts empty, so nothing on-chain prevents a second payment.
+    ///         - A batch whose batchHash is false in processedHashes never reached this contract: replay it whole.
+    ///         - A batch already processed here paid its targets from this contract's balance, except requests it
+    ///           left queued. Do not replay the batch, which would pay those targets again; replay only its unpaid
+    ///           requests (queuedHashes still true here), in one call with the original batchHash.
+    ///         A late token leg is forwarded in every case, and the withheld update above accounts for it.
     ///         Not behind the reentrancy guard, which stays locked after migration by design: the only external
     ///         call is an OLAS transfer to the recorded new L2 target dispenser. Native funds need no forwarding,
     ///         as receive() rejects them after migration.
