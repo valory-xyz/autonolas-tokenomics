@@ -120,24 +120,137 @@ contract TargetDispenserL2ForwardTest is Test {
         assertEq(olas.balanceOf(address(newDispenser)), CARRIED + LATE, "forwarded despite the brick");
     }
 
-    /// @dev The full recovery of a claim in flight at migration time: its token leg is forwarded, and its message
-    ///      leg is replayed by the DAO on the new dispenser, which deposits to the staking target.
-    function test_forward_thenReplayMessageOnNewDispenser_depositsToTarget() public {
+    /// @dev Builds the message data of a single-target batch.
+    function _batch(uint256 amount, bytes32 batchHash) internal view returns (bytes memory) {
+        address[] memory targets = new address[](1);
+        targets[0] = address(stakingTarget);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount;
+        return abi.encode(targets, amounts, batchHash);
+    }
+
+    /// @dev Migrates, then restores the new dispenser's withheld amount to its balance (the cutover's restore step).
+    function _migrateAndRestore() internal {
         _migrate();
+        newDispenser.updateWithheldAmountMaintenance(olas.balanceOf(address(newDispenser)));
+        assertEq(newDispenser.withheldAmount(), CARRIED, "withheld restored to the migrated balance");
+    }
+
+    /// @dev The full recovery of a claim in flight at migration time, as the forward() NatSpec describes: forward the
+    ///      token leg, restore the withheld amount to the new balance, then replay the message with `true`. The
+    ///      target is paid and withheldAmount stays equal to the balance.
+    function test_forward_thenReplayMessageOnNewDispenser_depositsToTarget() public {
+        _migrateAndRestore();
+        bytes32 batchHash = keccak256("late batch");
+        // The old dispenser never processed this batch: it is to be replayed
+        assertFalse(oldDispenser.processedHashes(batchHash), "batch not processed on the old dispenser");
 
         // Token leg lands late on the old dispenser and is forwarded
         olas.mint(address(oldDispenser), LATE);
         oldDispenser.forward();
 
-        // Message leg: the DAO replays it on the new dispenser (its processedHashes starts empty)
-        address[] memory targets = new address[](1);
-        targets[0] = address(stakingTarget);
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = LATE;
-        bytes32 batchHash = keccak256("late batch");
-        newDispenser.processDataMaintenance(abi.encode(targets, amounts, batchHash), false);
+        // Restore the withheld amount to the new balance, then replay the message with true
+        newDispenser.updateWithheldAmountMaintenance(olas.balanceOf(address(newDispenser)));
+        newDispenser.processDataMaintenance(_batch(LATE, batchHash), true);
 
         assertEq(stakingTarget.balance(), LATE, "late incentive deposited to the staking target");
         assertEq(olas.balanceOf(address(newDispenser)), CARRIED, "only the late amount was spent");
+        assertEq(newDispenser.withheldAmount(), olas.balanceOf(address(newDispenser)), "withheld equals balance");
+    }
+
+    /// @dev A claim partly netted against OLAS already on L2: its token leg carries less than its message. The same
+    ///      sequence keeps withheldAmount equal to the balance.
+    function test_forward_thenReplayNettedClaim_keepsWithheldEqualToBalance() public {
+        _migrateAndRestore();
+        bytes32 batchHash = keccak256("netted late batch");
+
+        // The message pays LATE, but only half of it travelled as tokens: the rest was netted on L1 against OLAS
+        // already held on L2 (part of the migrated balance)
+        olas.mint(address(oldDispenser), LATE / 2);
+        oldDispenser.forward();
+
+        newDispenser.updateWithheldAmountMaintenance(olas.balanceOf(address(newDispenser)));
+        newDispenser.processDataMaintenance(_batch(LATE, batchHash), true);
+
+        assertEq(stakingTarget.balance(), LATE, "full incentive deposited");
+        assertEq(olas.balanceOf(address(newDispenser)), CARRIED - LATE / 2, "netted part drawn from the balance");
+        assertEq(newDispenser.withheldAmount(), olas.balanceOf(address(newDispenser)), "withheld equals balance");
+    }
+
+    /// @dev A batch the old dispenser processed against a short balance: the first request was paid, the second was
+    ///      left queued. Recovery replays only the unpaid request, with the original batchHash; the paid one is not
+    ///      replayed, and withheldAmount stays equal to the balance.
+    function test_forward_processedBatchWithQueuedRequest_recoversUnpaidOnly() public {
+        // A dispenser pair whose old side holds less than the batch needs
+        OptimismTargetDispenserL2 oldShort = new OptimismTargetDispenserL2(address(olas), address(stakingFactory),
+            L2_MESSENGER, OLD_L1_PROCESSOR, L1_SOURCE_CHAIN_ID);
+        OptimismTargetDispenserL2 newShort = new OptimismTargetDispenserL2(address(olas), address(stakingFactory),
+            L2_MESSENGER, NEW_L1_PROCESSOR, L1_SOURCE_CHAIN_ID);
+        MockStakingProxy secondTarget = new MockStakingProxy(address(olas));
+        stakingFactory.addImplementation(address(secondTarget), address(0x1A1));
+        olas.mint(address(oldShort), 60 ether);
+
+        // The message arrives before its token leg: 50 is paid, the next 50 does not fit the remaining 10 and queues
+        address[] memory targets = new address[](2);
+        targets[0] = address(stakingTarget);
+        targets[1] = address(secondTarget);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 50 ether;
+        amounts[1] = 50 ether;
+        bytes32 batchHash = keccak256("short batch");
+        oldShort.processDataMaintenance(abi.encode(targets, amounts, batchHash), false);
+        assertEq(stakingTarget.balance(), 50 ether, "first request paid");
+        assertEq(secondTarget.balance(), 0, "second request queued");
+        bytes32 queueHash = keccak256(abi.encode(address(secondTarget), uint256(50 ether), batchHash, block.chainid,
+            address(oldShort)));
+        assertTrue(oldShort.processedHashes(batchHash), "batch processed on the old dispenser");
+        assertTrue(oldShort.queuedHashes(queueHash), "unpaid request still queued on the old dispenser");
+
+        // Migrate and restore, then the late token leg arrives and is forwarded
+        oldShort.pause();
+        oldShort.migrate(address(newShort));
+        newShort.updateWithheldAmountMaintenance(olas.balanceOf(address(newShort)));
+        olas.mint(address(oldShort), 100 ether);
+        oldShort.forward();
+        newShort.updateWithheldAmountMaintenance(olas.balanceOf(address(newShort)));
+
+        // Replay only the unpaid request, with the original batchHash
+        address[] memory unpaidTargets = new address[](1);
+        unpaidTargets[0] = address(secondTarget);
+        uint256[] memory unpaidAmounts = new uint256[](1);
+        unpaidAmounts[0] = 50 ether;
+        newShort.processDataMaintenance(abi.encode(unpaidTargets, unpaidAmounts, batchHash), true);
+
+        assertEq(stakingTarget.balance(), 50 ether, "paid request not paid again");
+        assertEq(secondTarget.balance(), 50 ether, "unpaid request recovered");
+        assertEq(newShort.withheldAmount(), olas.balanceOf(address(newShort)), "withheld equals balance");
+    }
+
+    /// @dev Documents why the operator must check the old dispenser's processedHashes before replaying: nothing on-chain
+    ///      prevents a second payment. A batch the old dispenser already paid from its balance (before its token leg
+    ///      arrived) reads true there after migration; its late token leg is still forwarded and accounted for, but a
+    ///      replay on the new dispenser, whose processedHashes starts empty, is accepted and pays the target again.
+    function test_forward_processedBatch_replayWouldPayTwice() public {
+        bytes32 batchHash = keccak256("processed batch");
+        // Before migration, the old dispenser processes the message from its existing balance
+        oldDispenser.processDataMaintenance(_batch(LATE, batchHash), false);
+        assertEq(stakingTarget.balance(), LATE, "paid by the old dispenser");
+
+        _migrate();
+        newDispenser.updateWithheldAmountMaintenance(olas.balanceOf(address(newDispenser)));
+        assertTrue(oldDispenser.processedHashes(batchHash), "processed flag readable after migration");
+
+        // The token leg arrives late: forward it and account for it, but do not replay the message
+        olas.mint(address(oldDispenser), LATE);
+        oldDispenser.forward();
+        newDispenser.updateWithheldAmountMaintenance(olas.balanceOf(address(newDispenser)));
+        assertEq(stakingTarget.balance(), LATE, "target paid once");
+        assertEq(newDispenser.withheldAmount(), olas.balanceOf(address(newDispenser)), "withheld equals balance");
+
+        // The new dispenser accepts the replay and pays the target a second time: the check is the operator's
+        uint256 snapshot = vm.snapshotState();
+        newDispenser.processDataMaintenance(_batch(LATE, batchHash), true);
+        assertEq(stakingTarget.balance(), 2 * LATE, "a replay would pay twice");
+        vm.revertToState(snapshot);
     }
 }
