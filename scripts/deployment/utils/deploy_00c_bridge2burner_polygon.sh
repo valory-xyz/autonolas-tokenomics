@@ -44,19 +44,23 @@ if [ -z "$polygonBurnForwarderAddress" ] || [ "$polygonBurnForwarderAddress" == 
   exit 1
 fi
 
-# The recipient must be a PolygonBurnForwarder for this OLAS on this chain. Every read must succeed: a failed RPC call
-# is an error, never a pass.
-if ! forwarderOlas=$(cast call --rpc-url $networkURL$API_KEY $polygonBurnForwarderAddress "polygonOlas()(address)" 2>/dev/null) \
-   || ! forwarderChainId=$(cast call --rpc-url $networkURL$API_KEY $polygonBurnForwarderAddress "polygonChainId()(uint256)" 2>/dev/null); then
-  echo "${red}!!! Could not read polygonOlas() / polygonChainId() from $polygonBurnForwarderAddress (not a PolygonBurnForwarder, or RPC error)${reset}"
+# The recipient must be THE PolygonBurnForwarder: the address deploy_00e derives from both globals (CREATE2, pinned
+# solc), with code, reading back all five expected constructor arguments, on this chain and for this OLAS. Every
+# read must succeed: a failed RPC call is an error, never a pass.
+rpcURL="$networkURL$API_KEY"
+source "$(dirname "$0")/polygon_burn_forwarder_common.sh"
+pbfLoadArgs || exit 1
+if [ "$chainId" != "$polygonChainId" ] \
+   || [ "$(echo $olasAddress | tr '[:upper:]' '[:lower:]')" != "$(echo $polygonOlas | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "${red}!!! $globals is for OLAS $olasAddress on chain $chainId; the forwarder is for $polygonOlas on $polygonChainId${reset}"
   exit 1
 fi
-forwarderChainId=$(echo $forwarderChainId | awk '{print $1}')
-if [ "$(echo $forwarderOlas | tr '[:upper:]' '[:lower:]')" != "$(echo $olasAddress | tr '[:upper:]' '[:lower:]')" ] \
-   || [ "$forwarderChainId" != "$chainId" ]; then
-  echo "${red}!!! $polygonBurnForwarderAddress is for OLAS $forwarderOlas on chain $forwarderChainId, expected $olasAddress on chain $chainId${reset}"
+pbfPredict || exit 1
+if [ "$(echo $polygonBurnForwarderAddress | tr '[:upper:]' '[:lower:]')" != "$(echo $predicted | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "${red}!!! polygonBurnForwarderAddress $polygonBurnForwarderAddress is not the CREATE2 address $predicted${reset}"
   exit 1
 fi
+pbfCheckDeployed $polygonBurnForwarderAddress || exit 1
 
 contractName="Bridge2BurnerPolygon"
 contractPath="contracts/utils/$contractName.sol:$contractName"
