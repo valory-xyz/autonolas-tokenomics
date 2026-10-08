@@ -54,13 +54,20 @@ networkURL=$(jq -r '.networkURL' $globals)
 zeroAddress="0x0000000000000000000000000000000000000000"
 
 # Dispenser to whitelist on. Where a root deployment globals exists (mainnet), it is the DispenserProxy that
-# deploy_07b_dispenser_proxy.sh records there, not this globals' dispenserAddress, which keeps the pre-proxy
-# Dispenser. Networks without a root globals (test networks) keep using this globals' dispenserAddress.
+# deploy_07b_dispenser_proxy.sh records there as dispenserProxyAddress, and further down the proxy's PROXY_DISPENSER
+# slot must hold the implementation deploy_07a_dispenser.sh records there as dispenserAddress, with code (the
+# PROXY_DISPENSER() getter alone would also pass the implementation). This globals' dispenserAddress keeps the
+# pre-proxy Dispenser; it is used only on test networks, which have no root globals.
 globalsRoot="$(dirname "$0")/../globals_$1.json"
 if [ -f $globalsRoot ]; then
   dispenserAddress=$(jq -r '.dispenserProxyAddress' $globalsRoot)
   dispenserSource="dispenserProxyAddress in $globalsRoot"
 else
+  # Without a root globals this must be a test network: never fall back to the pre-proxy Dispenser on mainnet
+  if [ "$chainId" == "1" ]; then
+    echo "${red}!!! $globalsRoot is not found: on mainnet the DispenserProxy is read from it${reset}"
+    exit 1
+  fi
   dispenserAddress=$(jq -r '.dispenserAddress' $globals)
   dispenserSource="dispenserAddress in $globals"
 fi
@@ -128,10 +135,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   fi
 fi
 
-# Where the address comes from the root globals, it must be the DispenserProxy for the implementation that
-# deploy_07a_dispenser.sh recorded there as dispenserAddress: the proxy's PROXY_DISPENSER slot must hold that
-# implementation, and the implementation must have code. Checking for the PROXY_DISPENSER() getter is not
-# enough, since the implementation exposes the same constant.
+# The DispenserProxy check described where dispenserAddress is read
 if [ -f $globalsRoot ]; then
   dispenserImplementation=$(jq -r '.dispenserAddress' $globalsRoot)
   proxySlot=$(cast storage --rpc-url $networkURL$API_KEY $dispenserAddress \
@@ -144,6 +148,13 @@ if [ -f $globalsRoot ]; then
      || [ -z "$implementationCode" ] || [ "$implementationCode" == "0x" ]; then
     echo "${red}!!! $dispenserAddress is not a DispenserProxy for the implementation $dispenserImplementation${reset}"
     echo "${red}    (PROXY_DISPENSER slot holds '${slotImplementation:-<unreadable>}'; see $globalsRoot)${reset}"
+    exit 1
+  fi
+else
+  # Test networks: the connected chain must be the one these globals describe, and never mainnet
+  if ! connectedChainId=$(cast chain-id --rpc-url $networkURL$API_KEY 2>/dev/null) \
+     || [ "$connectedChainId" != "$chainId" ] || [ "$connectedChainId" == "1" ]; then
+    echo "${red}!!! Connected to chain '${connectedChainId}', expected $chainId (and not mainnet) for $dispenserSource${reset}"
     exit 1
   fi
 fi
