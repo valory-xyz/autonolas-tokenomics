@@ -226,8 +226,8 @@ contract TargetDispenserL2ForwardTest is Test {
         assertEq(newShort.withheldAmount(), olas.balanceOf(address(newShort)), "withheld equals balance");
     }
 
-    /// @dev Documents why the operator must check the old dispenser's processedHashes before replaying: nothing on-chain
-    ///      prevents a second payment. A batch the old dispenser already paid from its balance (before its token leg
+    /// @dev Documents why the operator must check the old dispenser's processedHashes before replaying: the new
+    ///      dispenser does not inherit them, so it cannot prevent paying a request the old one already paid. A batch the old dispenser already paid from its balance (before its token leg
     ///      arrived) reads true there after migration; its late token leg is still forwarded and accounted for, but a
     ///      replay on the new dispenser, whose processedHashes starts empty, is accepted and pays the target again.
     function test_forward_processedBatch_replayWouldPayTwice() public {

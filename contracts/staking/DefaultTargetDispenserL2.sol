@@ -591,12 +591,14 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
     ///         Recovery on the new L2 target dispenser happens before any withheld amount sync (after the sync, the
     ///         restored credit is on L1): forward(), then updateWithheldAmountMaintenance(<new dispenser's OLAS
     ///         balance>), then processDataMaintenance(<data>, true), so that withheldAmount stays equal to the balance.
-    ///         What to replay depends on this contract's records, which the operator must check: the new dispenser's
-    ///         processedHashes starts empty, so nothing on-chain prevents a second payment.
+    ///         What to replay depends on this contract's records: the new dispenser does not inherit this contract's
+    ///         processedHashes, so it cannot prevent paying a request already paid here. The operator must select
+    ///         only unpaid requests.
     ///         - A batch whose batchHash is false in processedHashes never reached this contract: replay it whole.
     ///         - A batch already processed here paid its targets from this contract's balance, except requests it
-    ///           left queued. Do not replay the batch, which would pay those targets again; replay only its unpaid
-    ///           requests (queuedHashes still true here), in one call with the original batchHash.
+    ///           left queued. Do not replay the batch, which would pay those targets again; recover only its requests
+    ///           still queued (queuedHashes still true here). Combine all of them into one call with the original
+    ///           batchHash: that call marks the hash processed on the new dispenser, so a second call reverts.
     ///         A late token leg is forwarded in every case, and the withheld update above accounts for it.
     ///         Not behind the reentrancy guard, which stays locked after migration by design: the only external
     ///         call is an OLAS transfer to the recorded new L2 target dispenser. Native funds need no forwarding,
