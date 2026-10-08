@@ -14,6 +14,17 @@ async function main() {
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
+
+    // Supported on Sepolia only. On mainnet, use the .sh counterpart of this script: it binds the processor's
+    // immutable l1Dispenser to the DispenserProxy, whereas this globals' dispenserAddress keeps the pre-proxy
+    // Dispenser. The check uses the network the transaction is sent to (the Ledger's provider, or Hardhat's network
+    // otherwise), and the globals must describe that same chain.
+    const supportedChainIds = [11155111];
+    const connectedChainId = (await (useLedger ? provider : ethers.provider).getNetwork()).chainId;
+    if (!supportedChainIds.includes(connectedChainId) || Number(parsedData.chainId) !== connectedChainId) {
+        throw new Error("Supported on Sepolia only (connected to chain " + connectedChainId + ", globals chainId "
+            + parsedData.chainId + "); on mainnet use " + require("path").basename(__filename, ".js") + ".sh");
+    }
     const signers = await ethers.getSigners();
 
     if (useLedger) {
@@ -26,17 +37,19 @@ async function main() {
     console.log("EOA is:", deployer);
 
     // Transaction signing and execution
-    console.log("5. EOA to deploy WormholeDepositProcessorL1");
-    const WormholeDepositProcessorL1 = await ethers.getContractFactory("WormholeDepositProcessorL1");
-    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).deploy()");
-    const celoDepositProcessorL1 = await WormholeDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
-        parsedData.dispenserAddress, parsedData.wormholeL1TokenRelayerAddress,
-        parsedData.wormholeL1MessageRelayerAddress, parsedData.celoL2TargetChainId,
-        parsedData.wormholeL1CoreAddress, parsedData.celoWormholeL2TargetChainId);
+    // Celo is an OP-stack chain: its L1 deposit processor is OptimismDepositProcessorL1, paired with the
+    // OptimismTargetDispenserL2 on Celo (as in deploy_05_celo_deposit_processor.sh)
+    console.log("5. EOA to deploy OptimismDepositProcessorL1 (Celo)");
+    const OptimismDepositProcessorL1 = await ethers.getContractFactory("OptimismDepositProcessorL1");
+    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).deploy()");
+    const celoDepositProcessorL1 = await OptimismDepositProcessorL1.connect(EOA).deploy(parsedData.olasAddress,
+        parsedData.dispenserAddress, parsedData.celoL1StandardBridgeProxyAddress,
+        parsedData.celoL1CrossDomainMessengerProxyAddress, parsedData.celoL2TargetChainId,
+        parsedData.celoOLASAddress);
     const result = await celoDepositProcessorL1.deployed();
 
     // Transaction details
-    console.log("Contract deployment: WormholeDepositProcessorL1");
+    console.log("Contract deployment: OptimismDepositProcessorL1");
     console.log("Contract address:", celoDepositProcessorL1.address);
     console.log("Transaction:", result.deployTransaction.hash);
 

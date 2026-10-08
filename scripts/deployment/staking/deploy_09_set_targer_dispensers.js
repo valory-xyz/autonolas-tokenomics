@@ -40,7 +40,7 @@ async function main() {
     // Get all the contracts
     const arbitrumDepositProcessorL1 = await ethers.getContractAt("ArbitrumDepositProcessorL1", arbitrumDepositProcessorL1Address);
     const baseDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", baseDepositProcessorL1Address);
-    const celoDepositProcessorL1 = await ethers.getContractAt("WormholeDepositProcessorL1", celoDepositProcessorL1Address);
+    const celoDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", celoDepositProcessorL1Address);
     const gnosisDepositProcessorL1 = await ethers.getContractAt("GnosisDepositProcessorL1", gnosisDepositProcessorL1Address);
     const optimismDepositProcessorL1 = await ethers.getContractAt("OptimismDepositProcessorL1", optimismDepositProcessorL1Address);
     const polygonDepositProcessorL1 = await ethers.getContractAt("PolygonDepositProcessorL1", polygonDepositProcessorL1Address);
@@ -56,7 +56,7 @@ async function main() {
     result = await baseDepositProcessorL1.connect(EOA).setL2TargetDispenser(baseTargetDispenserL2Address);
     console.log("Transaction:", result.hash);
 
-    console.log("You are signing the following transaction: WormholeDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
+    console.log("You are signing the following transaction: OptimismDepositProcessorL1.connect(EOA).setL2TargetDispenser()");
     result = await celoDepositProcessorL1.connect(EOA).setL2TargetDispenser(celoTargetDispenserL2Address);
     console.log("Transaction:", result.hash);
 
