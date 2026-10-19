@@ -1,0 +1,336 @@
+{
+  "purpose": "Local validation only; not a deployment record or a committed production address.",
+  "sourceCommit": "f7c6f228b7cd0f2bdee361efd52fb16b1e65a459",
+  "forgeVersion": "forge Version: 1.6.0-nightly\nCommit SHA: e0d4aab210b1386d8dcf212c12646e465738d20b\nBuild Timestamp: 2026-03-11T06:14:07.555613000Z (1773209647)\nBuild Profile: dist",
+  "castVersion": "cast Version: 1.6.0-nightly\nCommit SHA: e0d4aab210b1386d8dcf212c12646e465738d20b\nBuild Timestamp: 2026-03-11T06:14:07.555613000Z (1773209647)\nBuild Profile: dist",
+  "compilerMetadata": {
+    "compiler": {
+      "version": "0.8.30+commit.73712a01"
+    },
+    "language": "Solidity",
+    "output": {
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_polygonOlas",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_l1Olas",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_olasBurner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_polygonChainId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "_l1ChainId",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "type": "error",
+          "name": "TransferFailed"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "chainId",
+              "type": "uint256"
+            }
+          ],
+          "type": "error",
+          "name": "WrongChainId"
+        },
+        {
+          "inputs": [],
+          "type": "error",
+          "name": "ZeroAddress"
+        },
+        {
+          "inputs": [],
+          "type": "error",
+          "name": "ZeroValue"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "address",
+              "name": "olasBurner",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Burned",
+          "anonymous": false
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "type": "event",
+          "name": "Withdrawn",
+          "anonymous": false
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "VERSION",
+          "outputs": [
+            {
+              "internalType": "string",
+              "name": "",
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "l1ChainId",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "l1Olas",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "olasBurner",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "polygonChainId",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "view",
+          "type": "function",
+          "name": "polygonOlas",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ]
+        },
+        {
+          "inputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function",
+          "name": "relay",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "devdoc": {
+        "kind": "dev",
+        "methods": {
+          "constructor": {
+            "details": "PolygonBurnForwarder constructor.",
+            "params": {
+              "_l1ChainId": "L1 chain Id.",
+              "_l1Olas": "L1 OLAS address.",
+              "_olasBurner": "L1 OLAS Burner address.",
+              "_polygonChainId": "Polygon chain Id.",
+              "_polygonOlas": "Polygon PoS OLAS address."
+            }
+          },
+          "relay()": {
+            "details": "Relays the OLAS balance towards the L1 OLAS Burner.",
+            "returns": {
+              "amount": "OLAS amount relayed."
+            }
+          }
+        },
+        "version": 1
+      },
+      "userdoc": {
+        "kind": "user",
+        "methods": {
+          "constructor": {
+            "notice": "The arguments must be identical on both chains, or the CREATE2 addresses differ."
+          },
+          "relay()": {
+            "notice": "On Polygon, burns the balance to start the PoS exit to this contract's address on Ethereum.         On Ethereum, transfers the balance released by completed exits to the L1 OLAS Burner."
+          }
+        },
+        "version": 1
+      }
+    },
+    "settings": {
+      "remappings": [
+        "@gnosis.pm/=node_modules/@gnosis.pm/",
+        "@handlers/=lib/fx-portal/test/handlers/",
+        "@mock/=lib/fx-portal/test/mock/",
+        "@openzeppelin/=lib/fx-portal/lib/openzeppelin-contracts/",
+        "@prb/=node_modules/@prb/",
+        "@uniswap/=node_modules/@uniswap/",
+        "@utils/=lib/fx-portal/test/utils/",
+        "canonical-weth/=node_modules/canonical-weth/",
+        "ds-test/=lib/fx-portal/lib/forge-std/lib/ds-test/src/",
+        "forge-std/=lib/forge-std/src/",
+        "fx-portal/=lib/fx-portal/contracts/",
+        "openzeppelin-contracts/=lib/fx-portal/lib/openzeppelin-contracts/",
+        "solmate/=lib/solmate/src/",
+        "wormhole-solidity-sdk/=node_modules/wormhole-solidity-sdk/",
+        "zuniswapv2/=lib/zuniswapv2/src/"
+      ],
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "compilationTarget": {
+        "contracts/utils/PolygonBurnForwarder.sol": "PolygonBurnForwarder"
+      },
+      "evmVersion": "prague",
+      "libraries": {},
+      "viaIR": true
+    },
+    "sources": {
+      "contracts/utils/PolygonBurnForwarder.sol": {
+        "keccak256": "0x94d113f00d428be42d54ef51d48ef09de3caadbfa087a11a99e2722cce0185e1",
+        "urls": [
+          "bzz-raw://9f3b59a06ae244165112ddf24d6db79d22786430f1350022c46f5015934f50de",
+          "dweb:/ipfs/QmQH2XWYfXrjRbMhE8nbkcuM6ouYgq1rYwtJvkeBnJDQeQ"
+        ],
+        "license": "MIT"
+      }
+    },
+    "version": 1
+  },
+  "dependencyPreparation": "All four lib directories extracted with git archive from their exact Git-tree commit pins. No node_modules directory; no dependency symlinks. Nested submodules not populated.",
+  "dependencyPins": [
+    "160000 commit a6d71da563bbb8d6eef8fbec3a16c61c603d2764\tforge-std",
+    "160000 commit 731959279a77b0779f8a1eccdaea710e0babee19\tfx-portal",
+    "160000 commit eaa7041378f9a6c12f943de08a6c41b31a9870fc\tsolmate",
+    "160000 commit 50fb69e95805970e9f0f118fc797b0a02f74f43e\tzuniswapv2"
+  ],
+  "buildCommand": "forge build contracts/utils/PolygonBurnForwarder.sol --use 0.8.30",
+  "testScope": "Forwarder unit suite and imports only; unrelated source files excluded by --skip in the recorded command.",
+  "testResult": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0
+  },
+  "constructorSignature": "constructor(address,address,address,uint256,uint256)",
+  "constructorArguments": [
+    "0xFEF5d947472e72Efbb2E388c730B7428406F2F95",
+    "0x0001A500A6B18995B03f44bb040A5fFc28E45CB0",
+    "0x51eb65012ca5cEB07320c497F4151aC207FEa4E0",
+    137,
+    1
+  ],
+  "encodedConstructorArguments": "0x000000000000000000000000fef5d947472e72efbb2e388c730b7428406f2f950000000000000000000000000001a500a6b18995b03f44bb040a5ffc28e45cb000000000000000000000000051eb65012ca5ceb07320c497f4151ac207fea4e000000000000000000000000000000000000000000000000000000000000000890000000000000000000000000000000000000000000000000000000000000001",
+  "create2Factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "salt": "0x0f124b2d17c6fcf27566e516b4055f2a6d21b6e8511864ce5272ef5ea7ba1326",
+  "creationBytecodeHash": "0xa101db8ae4245ad7aa0706f3f8e03e679549d91d82d786db7a666b8cd366c169",
+  "initCodeHash": "0x8f85891423ff33134902eb8ae23511284c06ac6e3275f2524c009d4e700621d9",
+  "create2Prediction": "0x682a4DdD50F3c9d9E40D0C93B047e5Cf00B4AE8F",
+  "onChainActions": "None",
+  "limitations": [
+    "Installed Forge is 1.6.0-nightly; PR CI specifies 1.7.1.",
+    "Forge attempted automatic submodule initialization because the dependencies are exported trees; initialization failed on non-empty directories. Compilation used the exported pinned sources and succeeded.",
+    "No fork suites or full-repository build were run.",
+    "Final deployment must record its own build revision, effective inputs and init-code hash."
+  ]
+}
