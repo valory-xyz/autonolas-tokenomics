@@ -520,8 +520,9 @@ abstract contract DefaultTargetDispenserL2 is IBridgeErrors {
 
     /// @dev Migrates funds to a new specified L2 target dispenser contract address.
     /// @notice The contract must be paused to prevent other interactions.
-    ///         The owner is be zeroed, the contract becomes paused and in the reentrancy state for good.
-    ///         No further write interaction with the contract is going to be possible.
+    ///         The owner is zeroed, and the contract remains paused with the reentrancy guard locked.
+    ///         Owner-only and reentrancy-guarded operations remain disabled after migration.
+    ///         Permissionless forward() remains available to transfer late-arriving OLAS to migratedTo.
     ///         If the withheld amount is nonzero, it is regulated by the DAO directly on the L1 side.
     ///         If there are outstanding queued requests, they are processed by the DAO directly on the L2 side.
     ///         The migrated OLAS balance AND the current withheldAmount are both emitted in the Migrated event.
