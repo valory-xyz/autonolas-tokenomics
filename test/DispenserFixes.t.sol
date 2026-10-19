@@ -531,12 +531,31 @@ contract DispenserFixesTest is Test {
         bridgePayloads = new bytes[](2);
     }
 
+    /// @dev Captures single-claim accounting and transfer state before rejecting an unused ETH fee.
+    function _singleValueStateHash(address caller) internal view returns (bytes32) {
+        uint256 currentEpoch = tokenomics.epochCounter();
+        bool[] memory refundFlags = new bool[](currentEpoch);
+        for (uint256 i = 0; i < currentEpoch; ++i) {
+            refundFlags[i] = dispenser.mapZeroWeightEpochRefunded(i);
+        }
+        return keccak256(abi.encode(
+            dispenser.mapLastClaimedStakingEpochs(_nomineeHash()),
+            dispenser.mapChainIdWithheldAmounts(CHAIN_ID), refundFlags,
+            _stakingIncentiveOf(currentEpoch), olas.totalSupply(),
+            olas.balanceOf(address(dispenser)), olas.balanceOf(address(treasury)),
+            olas.balanceOf(address(depositProcessor)),
+            address(dispenser).balance, address(depositProcessor).balance, caller.balance,
+            depositProcessor.lastStakingIncentive(), depositProcessor.lastTransferAmount()
+        ));
+    }
+
     /// @dev A single claim with no staking incentive sends no message, so a provided value must be rejected rather
     ///      than kept by the Dispenser. The same claim without value goes through and keeps its side effects:
     ///      the cursor advances and the zero-weight epoch is refunded.
     function test_fix31_claim_zeroIncentiveWithValue_reverts() public {
         // No votes are ever cast: the claim only refunds the zero-weight epoch and sends nothing
         vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        dispenser.syncWithheldAmountMaintenance(CHAIN_ID, 6_000, bytes32(uint256(1)));
         _advanceEpoch();
         _advanceEpoch();
 
@@ -547,8 +566,10 @@ contract DispenserFixesTest is Test {
         uint256 potBefore = _stakingIncentiveOf(currentEpoch);
 
         vm.deal(address(this), 1 ether);
+        bytes32 beforeState = _singleValueStateHash(address(this));
         vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
         dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(_singleValueStateHash(address(this)), beforeState, "rejected single claim rolls back captured state");
 
         dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
         assertEq(address(dispenser).balance, 0, "no value kept");
@@ -556,6 +577,11 @@ contract DispenserFixesTest is Test {
         assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), currentEpoch, "cursor advanced");
         assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "zero-weight epoch flagged");
         assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive, "zero-weight epoch refunded");
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 6_000, "unused withheld credit preserved");
+        assertEq(olas.balanceOf(address(depositProcessor)), 0, "no token transfer");
+        assertEq(depositProcessor.lastStakingIncentive(), 0, "no message");
+        assertEq(address(depositProcessor).balance, 0, "no fee forwarded");
+        assertEq(address(this).balance, 1 ether, "no caller ETH retained");
     }
 
     /// @dev A third party claims the paying epochs first with a shorter claim, so a pending claim that was simulated
@@ -579,11 +605,32 @@ contract DispenserFixesTest is Test {
         dispenser.claimStakingIncentives(2, CHAIN_ID, _targetBytes32(), "");
         assertEq(olas.balanceOf(address(depositProcessor)), 10_000, "paying epoch delivered to the target");
 
-        // The pending claim now settles only the zero-paying tail: its value is rejected, not kept
+        // Capture the state after the successful third-party claim. A later revert must not undo that claim.
+        dispenser.syncWithheldAmountMaintenance(CHAIN_ID, 6_000, bytes32(uint256(1)));
+        uint256 cursorBefore = dispenser.mapLastClaimedStakingEpochs(_nomineeHash());
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+        uint256 supplyBefore = olas.totalSupply();
+        assertLt(cursorBefore, currentEpoch, "zero-paying tail remains claimable");
+
+        // The pending claim now settles only the zero-paying tail: its value is rejected, not kept.
         vm.deal(address(this), 1 ether);
+        bytes32 beforeState = _singleValueStateHash(address(this));
         vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
         dispenser.claimStakingIncentives{value: 1}(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(_singleValueStateHash(address(this)), beforeState, "rejected single claim rolls back captured state");
+
+        dispenser.claimStakingIncentives(10, CHAIN_ID, _targetBytes32(), "");
+        assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), currentEpoch, "tail cursor advanced on retry");
+        assertEq(_stakingIncentiveOf(currentEpoch), potBefore, "tail adds no refund");
+        assertEq(olas.totalSupply(), supplyBefore, "tail mints no OLAS");
+        assertEq(olas.balanceOf(address(depositProcessor)), 10_000, "prior payment preserved without duplication");
+        assertEq(depositProcessor.lastStakingIncentive(), 10_000, "prior message record preserved");
+        assertEq(depositProcessor.lastTransferAmount(), 10_000, "prior transfer record preserved");
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 6_000, "unused withheld credit preserved");
+        assertEq(address(depositProcessor).balance, 0, "no fee forwarded");
         assertEq(address(dispenser).balance, 0, "no value kept");
+        assertEq(address(this).balance, 1 ether, "no caller ETH retained");
     }
 
     /// @dev A paying claim forwards the attached value to the deposit processor and keeps none of it.
