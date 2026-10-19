@@ -47,6 +47,8 @@ error TransferFailed(address token, address to, uint256 amount);
 ///      - on Ethereum, once anyone has completed that exit with the burn proof (RootChainManager.exit), the released
 ///        OLAS sits on this contract, and relay() transfers it to the L1 OLAS Burner.
 ///      relay() is permissionless on both chains and reverts on any other chain. The contract holds no other state.
+/// @notice Non-OLAS tokens sent to this contract cannot be recovered. Ordinary ETH transfers revert;
+///         any ETH forced into the contract cannot be recovered.
 contract PolygonBurnForwarder {
     event Withdrawn(address indexed sender, uint256 amount);
     event Burned(address indexed sender, address indexed olasBurner, uint256 amount);

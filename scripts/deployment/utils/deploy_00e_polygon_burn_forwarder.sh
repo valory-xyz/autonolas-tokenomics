@@ -4,6 +4,8 @@
 #
 # Usage: deploy_00e_polygon_burn_forwarder.sh <polygon_mainnet|eth_mainnet>
 # Run it once per chain, from the same checkout and build: the address depends on the exact init code.
+# Record the build commit and init code hash, and validate both deployments before enabling burn routing.
+# See docs/polygon_burn_forwarder_deployment.md for the deployment record and rollout checks.
 #
 # The constructor arguments, init code and address are derived by polygon_burn_forwarder_common.sh, shared with
 # deploy_00c_bridge2burner_polygon.sh. The arguments are read from BOTH globals files, whichever chain is being
