@@ -9,7 +9,8 @@ Validated source revision: `f7c6f228b7cd0f2bdee361efd52fb16b1e65a459`.
 
 `build-record.json` records the compiler metadata (including effective remappings),
 dependency commit pins, constructor inputs, factory, salt, and calculated hashes.
-`unit-tests.txt` contains the exact test command and output. The command excludes
+`unit-tests.txt` contains the exact test command and output, with local absolute
+paths replaced by `<CHECKOUT>` and `<USER_HOME>`. The command excludes
 unrelated contracts to avoid compiling legacy Solidity sources with solc 0.8.30;
 it still compiles the forwarder suite's imports. No fork tests were run.
 

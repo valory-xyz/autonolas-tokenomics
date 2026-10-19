@@ -4,20 +4,20 @@ Warning: This is a nightly build of Foundry. It is recommended to use the latest
 
 Missing dependencies found. Installing now...
 
-fatal: destination path '/private/tmp/tokenomics-pr382-david/lib/forge-std' already exists and is not an empty directory.
-fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '/private/tmp/tokenomics-pr382-david/lib/forge-std' failed
+fatal: destination path '<CHECKOUT>/lib/forge-std' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '<CHECKOUT>/lib/forge-std' failed
 Failed to clone 'lib/forge-std'. Retry scheduled
-fatal: destination path '/private/tmp/tokenomics-pr382-david/lib/fx-portal' already exists and is not an empty directory.
-fatal: clone of 'https://github.com/0xPolygon/fx-portal' into submodule path '/private/tmp/tokenomics-pr382-david/lib/fx-portal' failed
+fatal: destination path '<CHECKOUT>/lib/fx-portal' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/0xPolygon/fx-portal' into submodule path '<CHECKOUT>/lib/fx-portal' failed
 Failed to clone 'lib/fx-portal'. Retry scheduled
-fatal: destination path '/private/tmp/tokenomics-pr382-david/lib/solmate' already exists and is not an empty directory.
-fatal: clone of 'https://github.com/rari-capital/solmate' into submodule path '/private/tmp/tokenomics-pr382-david/lib/solmate' failed
+fatal: destination path '<CHECKOUT>/lib/solmate' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/rari-capital/solmate' into submodule path '<CHECKOUT>/lib/solmate' failed
 Failed to clone 'lib/solmate'. Retry scheduled
-fatal: destination path '/private/tmp/tokenomics-pr382-david/lib/zuniswapv2' already exists and is not an empty directory.
-fatal: clone of 'git@github.com:Jeiwan/zuniswapv2.git' into submodule path '/private/tmp/tokenomics-pr382-david/lib/zuniswapv2' failed
+fatal: destination path '<CHECKOUT>/lib/zuniswapv2' already exists and is not an empty directory.
+fatal: clone of 'git@github.com:Jeiwan/zuniswapv2.git' into submodule path '<CHECKOUT>/lib/zuniswapv2' failed
 Failed to clone 'lib/zuniswapv2'. Retry scheduled
-fatal: destination path '/private/tmp/tokenomics-pr382-david/lib/forge-std' already exists and is not an empty directory.
-fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '/private/tmp/tokenomics-pr382-david/lib/forge-std' failed
+fatal: destination path '<CHECKOUT>/lib/forge-std' already exists and is not an empty directory.
+fatal: clone of 'https://github.com/foundry-rs/forge-std' into submodule path '<CHECKOUT>/lib/forge-std' failed
 Failed to clone 'lib/forge-std' a second time, aborting
 Warning: Your project has missing dependencies that could not be installed.
 No files changed, compilation skipped
@@ -35,4 +35,4 @@ Ran 9 tests for test/PolygonBurnForwarder.t.sol:PolygonBurnForwarderTest
 Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 21.53ms (35.88ms CPU time)
 
 Ran 1 test suite in 37.85ms (21.53ms CPU time): 9 tests passed, 0 failed, 0 skipped (9 total tests)
-2026-10-19T10:18:27.646560Z  WARN evm::traces: failed to flush signature cache err=failed to create file "/Users/mariapia/.foundry/cache/signatures": Operation not permitted (os error 1)
+2026-10-19T10:18:27.646560Z  WARN evm::traces: failed to flush signature cache err=failed to create file "<USER_HOME>/.foundry/cache/signatures": Operation not permitted (os error 1)
