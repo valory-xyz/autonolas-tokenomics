@@ -14,6 +14,17 @@ async function main() {
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
+
+    // Supported on Sepolia only. On mainnet, use the .sh counterpart of this script: it binds the processor's
+    // immutable l1Dispenser to the DispenserProxy, whereas this globals' dispenserAddress keeps the pre-proxy
+    // Dispenser. The check uses the network the transaction is sent to (the Ledger's provider, or Hardhat's network
+    // otherwise), and the globals must describe that same chain.
+    const supportedChainIds = [11155111];
+    const connectedChainId = (await (useLedger ? provider : ethers.provider).getNetwork()).chainId;
+    if (!supportedChainIds.includes(connectedChainId) || Number(parsedData.chainId) !== connectedChainId) {
+        throw new Error("Supported on Sepolia only (connected to chain " + connectedChainId + ", globals chainId "
+            + parsedData.chainId + "); on mainnet use " + require("path").basename(__filename, ".js") + ".sh");
+    }
     const signers = await ethers.getSigners();
 
     if (useLedger) {

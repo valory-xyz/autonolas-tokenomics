@@ -8,7 +8,10 @@
  * than registering a partial set: a chain left unregistered resolves to a zero processor and reverts
  * the claim, and in the batch path it takes the other chains' claims down with it.
  *
- * `deploy_10_set_deposit_processors.sh` is the equivalent shell route and is the preferred one.
+ * SEPOLIA ONLY. It reads `dispenserAddress` from `globals.json`, which on mainnet holds the pre-proxy
+ * Dispenser, so it runs only when connected to Sepolia with Sepolia globals. On mainnet use
+ * `deploy_10_set_deposit_processors.sh`, which reads the DispenserProxy from the root globals and checks it
+ * against the recorded implementation.
  *
  * TWO CONSEQUENCES OF THE HARD FAIL, both deliberate:
  *
@@ -23,9 +26,9 @@
  *      one-element array, not this bulk-register tool.
  *
  * NOTE ON PERMISSIONS: `Dispenser.owner()` is the Timelock, so on mainnet this call cannot be sent
- * from the deploying EOA at all — it reverts OwnerOnly and belongs in a governance proposal. Both
- * routes are therefore fresh-deployment tooling and a calldata reference, not an operational path
- * against the live Dispenser.
+ * from the deploying EOA at all — it reverts OwnerOnly and belongs in a governance proposal. The
+ * shell route is therefore fresh-deployment tooling and a calldata reference on mainnet, not an
+ * operational path against the live Dispenser.
  */
 
 const { ethers } = require("hardhat");
@@ -76,6 +79,17 @@ async function main() {
     let EOA;
 
     const provider = await ethers.providers.getDefaultProvider(providerName);
+
+    // Supported on Sepolia only. On mainnet, use the .sh counterpart of this script: it binds the processor's
+    // immutable l1Dispenser to the DispenserProxy, whereas this globals' dispenserAddress keeps the pre-proxy
+    // Dispenser. The check uses the network the transaction is sent to (the Ledger's provider, or Hardhat's network
+    // otherwise), and the globals must describe that same chain.
+    const supportedChainIds = [11155111];
+    const connectedChainId = (await (useLedger ? provider : ethers.provider).getNetwork()).chainId;
+    if (!supportedChainIds.includes(connectedChainId) || Number(parsedData.chainId) !== connectedChainId) {
+        throw new Error("Supported on Sepolia only (connected to chain " + connectedChainId + ", globals chainId "
+            + parsedData.chainId + "); on mainnet use " + require("path").basename(__filename, ".js") + ".sh");
+    }
     const signers = await ethers.getSigners();
 
     if (useLedger) {

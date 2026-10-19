@@ -33,12 +33,39 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
 fi
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-bridgeMediatorAddress=$(jq -r '.bridgeMediatorAddress' $globals)
+# Recipient: the PolygonBurnForwarder, recorded here by deploy_00e_polygon_burn_forwarder.sh polygon_mainnet. Deploy
+# it first. The bridge mediator is no longer a valid destination: OLAS sent there never reaches the L1 burner.
+polygonBurnForwarderAddress=$(jq -r '.polygonBurnForwarderAddress' $globals)
+
+zeroAddress="0x0000000000000000000000000000000000000000"
+if [ -z "$polygonBurnForwarderAddress" ] || [ "$polygonBurnForwarderAddress" == "null" ] \
+   || [ "$polygonBurnForwarderAddress" == "$zeroAddress" ]; then
+  echo "${red}!!! polygonBurnForwarderAddress is not set (or zero) in $globals: run deploy_00e_polygon_burn_forwarder.sh first${reset}"
+  exit 1
+fi
+
+# The recipient must be THE PolygonBurnForwarder: the address deploy_00e derives from both globals (CREATE2, pinned
+# solc), with code, reading back all five expected constructor arguments, on this chain and for this OLAS. Every
+# read must succeed: a failed RPC call is an error, never a pass.
+rpcURL="$networkURL$API_KEY"
+source "$(dirname "$0")/polygon_burn_forwarder_common.sh"
+pbfLoadArgs || exit 1
+if [ "$chainId" != "$polygonChainId" ] \
+   || [ "$(echo $olasAddress | tr '[:upper:]' '[:lower:]')" != "$(echo $polygonOlas | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "${red}!!! $globals is for OLAS $olasAddress on chain $chainId; the forwarder is for $polygonOlas on $polygonChainId${reset}"
+  exit 1
+fi
+pbfPredict || exit 1
+if [ "$(echo $polygonBurnForwarderAddress | tr '[:upper:]' '[:lower:]')" != "$(echo $predicted | tr '[:upper:]' '[:lower:]')" ]; then
+  echo "${red}!!! polygonBurnForwarderAddress $polygonBurnForwarderAddress is not the CREATE2 address $predicted${reset}"
+  exit 1
+fi
+pbfCheckDeployed $polygonBurnForwarderAddress || exit 1
 
 contractName="Bridge2BurnerPolygon"
 contractPath="contracts/utils/$contractName.sol:$contractName"
-# Second arg is the L2 bridge mediator (held in the inherited l2TokenRelayer slot); see Bridge2BurnerPolygon NatSpec.
-constructorArgs="$olasAddress $bridgeMediatorAddress"
+# Second arg is the PolygonBurnForwarder (held in the inherited l2TokenRelayer slot); see Bridge2BurnerPolygon NatSpec.
+constructorArgs="$olasAddress $polygonBurnForwarderAddress"
 contractArgs="$contractPath --constructor-args $constructorArgs"
 
 # Get deployer based on the ledger flag

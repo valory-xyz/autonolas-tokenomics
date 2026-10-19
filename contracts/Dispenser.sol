@@ -296,6 +296,7 @@ contract Dispenser {
     // Tokenomics proxy address
     address public immutable tokenomics;
     // Retainer address in bytes32 form
+    // Note: VoteWeighting reads retainer() when adding a nominee; every implementation must keep this getter
     bytes32 public immutable retainer;
     // Retainer hash of a Nominee struct composed of retainer address with block.chainid
     bytes32 public immutable retainerHash;
@@ -324,6 +325,8 @@ contract Dispenser {
     // Mapping for hash(Nominee struct) service staking pair => epoch number when the staking contract is removed
     mapping(bytes32 => uint256) public mapRemovedNomineeEpochs;
     // Mapping for L2 chain Id => dedicated deposit processors
+    // Note: VoteWeighting reads mapChainIdDepositProcessors() when adding a nominee; every implementation must keep
+    // this getter
     mapping(uint256 => address) public mapChainIdDepositProcessors;
     // Mapping for L2 chain Id => withheld OLAS amounts
     mapping(uint256 => uint256) public mapChainIdWithheldAmounts;
@@ -554,6 +557,10 @@ contract Dispenser {
 
             // Skip if there are no actual staking targets
             if (numActualTargets == 0) {
+                // No message is sent to this chain's bridge, so its value amount would remain locked in the contract
+                if (valueAmounts[i] > 0) {
+                    revert WrongAmount(valueAmounts[i], 0);
+                }
                 continue;
             }
 
@@ -1027,7 +1034,9 @@ contract Dispenser {
                 ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
             // No staking incentives in this epoch
-            if (stakingPoint.stakingFraction == 0) {
+            // Note: test the incentive itself, not stakingFraction: refunds carried into an epoch with a zero
+            // staking fraction still make up a non-zero staking incentive that must be distributed or returned
+            if (stakingPoint.stakingIncentive == 0) {
                 continue;
             }
 
@@ -1228,6 +1237,9 @@ contract Dispenser {
 
             // Dispense to a service staking target
             _distributeStakingIncentives(chainId, stakingTarget, stakingIncentive, bridgePayload, transferAmount);
+        } else if (msg.value > 0) {
+            // No message is sent to the bridge, so the provided value would remain locked in the contract
+            revert WrongAmount(msg.value, 0);
         }
 
         emit StakingIncentivesClaimed(msg.sender, chainId, stakingTarget, stakingIncentive, transferAmount, returnAmount);
@@ -1307,6 +1319,9 @@ contract Dispenser {
             // Dispense all the service staking targets, if the total staking incentive is not equal to zero
             _distributeStakingIncentivesBatch(chainIds, stakingTargets, stakingIncentives, bridgePayloads, transferAmounts,
                 valueAmounts);
+        } else if (msg.value > 0) {
+            // No message is sent to any bridge, so the provided value would remain locked in the contract
+            revert WrongAmount(msg.value, 0);
         }
 
         emit StakingIncentivesBatchClaimed(msg.sender, chainIds, stakingTargets, stakingIncentives, totalAmounts[0],
@@ -1337,15 +1352,28 @@ contract Dispenser {
 
         // Go over epochs and retain funds to return back to the tokenomics
         for (uint256 j = firstClaimedEpoch; j < lastClaimedEpoch; ++j) {
+            // Skip the epoch if it had zero total vote weight and its staking incentive has already been refunded
+            if (mapZeroWeightEpochRefunded[j]) {
+                continue;
+            }
+
             // Get service staking info
             ITokenomics.StakingPoint memory stakingPoint = ITokenomics(tokenomics).mapEpochStakingPoints(j);
 
             // Get epoch end time
             uint256 endTime = ITokenomics(tokenomics).getEpochEndTime(j);
 
-            // Get the staking weight for each epoch
-            (uint256 stakingWeight, ) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(retainer,
-                block.chainid, endTime);
+            // Get the staking weight for each epoch, and the total weight
+            (uint256 stakingWeight, uint256 totalWeightSum) = IVoteWeighting(voteWeighting).nomineeRelativeWeight(
+                retainer, block.chainid, endTime);
+
+            // Zero total vote weight: the whole epoch's staking incentive returns to inflation, as in the claim path
+            if (totalWeightSum == 0) {
+                mapZeroWeightEpochRefunded[j] = true;
+                // Scaled by 1e18 to match the weighted accumulation below (widened first: stakingIncentive is uint96)
+                totalReturnAmount += uint256(stakingPoint.stakingIncentive) * 1e18;
+                continue;
+            }
 
             totalReturnAmount += stakingPoint.stakingIncentive * stakingWeight;
         }
@@ -1447,5 +1475,19 @@ contract Dispenser {
         paused = pauseState;
 
         emit PauseDispenser(pauseState);
+    }
+
+    /// @dev Pauses all the incentives.
+    /// @notice Pause-only entry point for emergency use: it can only set the AllPaused state. Any granular pause
+    ///         state and unpausing are only possible via setPauseState().
+    function pause() external {
+        // Check the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        paused = Pause.AllPaused;
+
+        emit PauseDispenser(Pause.AllPaused);
     }
 }

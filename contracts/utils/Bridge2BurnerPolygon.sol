@@ -21,29 +21,27 @@ error ReentrancyGuard();
 /// @param amount Amount.
 error TransferFailed(address token, address to, uint256 amount);
 
-/// @title Bridge2BurnerPolygon - Smart contract for collecting OLAS on Polygon and routing it to the L1-governance
-///        bridge mediator on L2.
+/// @title Bridge2BurnerPolygon - Smart contract for collecting OLAS on Polygon and routing it to the PolygonBurnForwarder.
 /// @dev Polygon's PoS ERC20 child token only exposes `withdraw(uint256)` — no recipient parameter — so an L2 bridge-burn
 ///      would release the L1 tokens to the L1-mirror of `msg.sender`, i.e. this contract's address on L1, which has no
 ///      deployed code and would render the OLAS unrecoverable. Compare with the Optimism / Arbitrum / Gnosis variants
 ///      whose bridge primitives accept an explicit recipient (`withdrawTo` / `outboundTransfer` / `relayTokens`) and
 ///      route directly to OLAS_BURNER on L1.
 ///
-///      The chosen workaround on Polygon: forward OLAS to the bridge mediator on L2 — the contract that L1 governance
-///      reaches over fx-portal — and let governance decide the final disposition (keep, transfer, or trigger a
-///      PoS-bridge burn from the mediator, whose L1-mirror at the same address is recoverable). The bridge mediator
-///      address is supplied at deployment as the second constructor argument (the base class's `l2TokenRelayer`
-///      immutable storage is reused to hold it; on this chain there is no separate L2 token relayer to talk to).
-///      This reuse keeps the base constructor signature symmetric across chains while letting the deployment script
-///      record the chain-specific destination on a per-chain basis.
+///      On Polygon the OLAS is therefore forwarded to the PolygonBurnForwarder, which is deployed by CREATE2 at the same
+///      address on Polygon and on Ethereum: it burns the OLAS on Polygon, and the PoS exit releases it to its own address
+///      on Ethereum, from where it reaches OLAS_BURNER. The forwarder address is supplied at deployment as the second
+///      constructor argument (the base class's `l2TokenRelayer` immutable storage is reused to hold it; on this chain
+///      there is no separate L2 token relayer to talk to). This reuse keeps the base constructor signature symmetric
+///      across chains while letting the deployment script record the chain-specific destination on a per-chain basis.
 contract Bridge2BurnerPolygon is Bridge2Burner {
     /// @dev Bridge2BurnerPolygon constructor.
     /// @param _olas OLAS token address on L2.
-    /// @param _bridgeMediator Polygon L2 bridge mediator address — the contract L1 governance reaches over fx-portal.
-    ///                        Stored in the inherited `l2TokenRelayer` immutable; no separate field is introduced.
-    constructor(address _olas, address _bridgeMediator) Bridge2Burner(_olas, _bridgeMediator) {}
+    /// @param _polygonBurnForwarder PolygonBurnForwarder address, the same on Polygon and on Ethereum.
+    ///                              Stored in the inherited `l2TokenRelayer` immutable; no separate field is introduced.
+    constructor(address _olas, address _polygonBurnForwarder) Bridge2Burner(_olas, _polygonBurnForwarder) {}
 
-    /// @dev Forwards OLAS to the Polygon bridge mediator (L2 governance custody).
+    /// @dev Forwards OLAS to the PolygonBurnForwarder.
     function relayToL1Burner() external virtual override {
         // Reentrancy guard
         if (_locked > 1) {
@@ -54,7 +52,7 @@ contract Bridge2BurnerPolygon is Bridge2Burner {
         // Get OLAS amount to bridge
         uint256 olasAmount = _getBalance();
 
-        // Forward OLAS to the bridge mediator (held in the inherited `l2TokenRelayer` immutable on this chain)
+        // Forward OLAS to the PolygonBurnForwarder (held in the inherited `l2TokenRelayer` immutable on this chain)
         bool success = IToken(olas).transfer(l2TokenRelayer, olasAmount);
         if (!success) {
             revert TransferFailed(olas, l2TokenRelayer, olasAmount);

@@ -26,7 +26,30 @@ chainId=$(jq -r '.chainId' $globals)
 networkURL=$(jq -r '.networkURL' $globals)
 
 olasAddress=$(jq -r '.olasAddress' $globals)
-dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+# L1 Dispenser, bound as this processor's immutable l1Dispenser: a processor bound to the wrong address can only be
+# redeployed. Where a root deployment globals exists (mainnet), it is the DispenserProxy that
+# deploy_07b_dispenser_proxy.sh records there as dispenserProxyAddress, and further down the proxy's PROXY_DISPENSER
+# slot must hold the implementation deploy_07a_dispenser.sh records there as dispenserAddress, with code (the
+# PROXY_DISPENSER() getter alone would also pass the implementation). This globals' dispenserAddress keeps the
+# pre-proxy Dispenser; it is used only on test networks, which have no root globals.
+globalsRoot="$(dirname "$0")/../globals_$1.json"
+if [ -f $globalsRoot ]; then
+  dispenserAddress=$(jq -r '.dispenserProxyAddress' $globalsRoot)
+  dispenserSource="dispenserProxyAddress in $globalsRoot"
+else
+  # Without a root globals this must be a test network: never fall back to the pre-proxy Dispenser on mainnet
+  if [ "$chainId" == "1" ]; then
+    echo "${red}!!! $globalsRoot is not found: on mainnet the DispenserProxy is read from it${reset}"
+    exit 1
+  fi
+  dispenserAddress=$(jq -r '.dispenserAddress' $globals)
+  dispenserSource="dispenserAddress in $globals"
+fi
+if [ -z "$dispenserAddress" ] || [ "$dispenserAddress" == "null" ] \
+   || [ "$dispenserAddress" == "0x0000000000000000000000000000000000000000" ]; then
+  echo "${red}!!! $dispenserSource is not set (or zero)${reset}"
+  exit 1
+fi
 optimismL1StandardBridgeProxyAddress=$(jq -r '.optimismL1StandardBridgeProxyAddress' $globals)
 optimismL1CrossDomainMessengerProxyAddress=$(jq -r '.optimismL1CrossDomainMessengerProxyAddress' $globals)
 optimismL2TargetChainId=$(jq -r '.optimismL2TargetChainId' $globals)
@@ -42,6 +65,30 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
+    exit 1
+  fi
+fi
+
+# The DispenserProxy check described where dispenserAddress is read
+if [ -f $globalsRoot ]; then
+  dispenserImplementation=$(jq -r '.dispenserAddress' $globalsRoot)
+  proxySlot=$(cast storage --rpc-url $networkURL$API_KEY $dispenserAddress \
+    0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83)
+  slotImplementation=$(cast parse-bytes32-address $proxySlot 2>/dev/null)
+  implementationCode=$(cast code --rpc-url $networkURL$API_KEY $dispenserImplementation 2>/dev/null)
+  lower() { echo "$1" | tr '[:upper:]' '[:lower:]'; }
+  if [ "$(lower $slotImplementation)" != "$(lower $dispenserImplementation)" ] \
+     || [ "$(lower $dispenserAddress)" == "$(lower $dispenserImplementation)" ] \
+     || [ -z "$implementationCode" ] || [ "$implementationCode" == "0x" ]; then
+    echo "${red}!!! $dispenserAddress is not a DispenserProxy for the implementation $dispenserImplementation${reset}"
+    echo "${red}    (PROXY_DISPENSER slot holds '${slotImplementation:-<unreadable>}'; see $globalsRoot)${reset}"
+    exit 1
+  fi
+else
+  # Test networks: the connected chain must be the one these globals describe, and never mainnet
+  if ! connectedChainId=$(cast chain-id --rpc-url $networkURL$API_KEY 2>/dev/null) \
+     || [ "$connectedChainId" != "$chainId" ] || [ "$connectedChainId" == "1" ]; then
+    echo "${red}!!! Connected to chain '${connectedChainId}', expected $chainId (and not mainnet) for $dispenserSource${reset}"
     exit 1
   fi
 fi

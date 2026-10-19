@@ -8,6 +8,8 @@ optimizer = true
 optimizer_runs = 200
 evm_version = "prague"
 viaIR = true
+# Read-only: the PolygonBurnForwarder fork tests derive its address from the deploy script's globals
+fs_permissions = [{ access = "read", path = "./scripts/deployment/utils" }]
 
 remappings = [
     "canonical-weth=node_modules/canonical-weth",
