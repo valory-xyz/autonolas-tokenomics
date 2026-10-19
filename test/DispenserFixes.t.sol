@@ -689,10 +689,40 @@ contract DispenserFixesTest is Test {
         assertEq(address(dispenser).balance, 0, "no value kept");
     }
 
-    /// @dev In a batch, a chain with no staking incentive sends no message, so its value amount must be zero.
-    function test_fix31_claimBatch_zeroIncentiveChainWithValue_reverts() public {
-        _nominateWithFullWeight();
-        MockDepositProcessor depositProcessor2 = _addSecondChainNominee();
+    /// @dev Captures claim accounting and transfer state to detect partial effects after a rejected batch.
+    ///      Includes Tokenomics' current staking pot and all closed-epoch refund flags, not only Dispenser cursors.
+    function _batchValueStateHash(MockDepositProcessor second, address caller) internal view returns (bytes32) {
+        bytes32 secondHash = keccak256(abi.encode(bytes32(uint256(uint160(STAKING_TARGET_2))), CHAIN_ID_2));
+        uint256 currentEpoch = tokenomics.epochCounter();
+        bool[] memory refundFlags = new bool[](currentEpoch);
+        for (uint256 i = 0; i < currentEpoch; ++i) {
+            refundFlags[i] = dispenser.mapZeroWeightEpochRefunded(i);
+        }
+        bytes32 accounting = keccak256(abi.encode(
+            dispenser.mapLastClaimedStakingEpochs(_nomineeHash()),
+            dispenser.mapLastClaimedStakingEpochs(secondHash),
+            dispenser.mapChainIdWithheldAmounts(CHAIN_ID),
+            dispenser.mapChainIdWithheldAmounts(CHAIN_ID_2),
+            refundFlags, _stakingIncentiveOf(currentEpoch), olas.totalSupply()
+        ));
+        return keccak256(abi.encode(accounting,
+            olas.balanceOf(address(dispenser)), olas.balanceOf(address(treasury)),
+            olas.balanceOf(address(depositProcessor)), olas.balanceOf(address(second)),
+            address(dispenser).balance, address(depositProcessor).balance, address(second).balance,
+            caller.balance, depositProcessor.lastStakingIncentive(), depositProcessor.lastTransferAmount(),
+            second.lastStakingIncentive(), second.lastTransferAmount()
+        ));
+    }
+
+    /// @dev Reject an empty chain's fee, verify rollback across contracts, then retry from a non-owner.
+    ///      Partial withheld coverage exercises credit consumption, inflation refund and fresh minting before rejection.
+    function _checkZeroIncentiveChainWithValue(bool payingFirst) internal {
+        vw.addNominee(STAKING_TARGET, CHAIN_ID);
+        MockDepositProcessor second = _addSecondChainNominee();
+        uint256 payingChain = payingFirst ? CHAIN_ID : CHAIN_ID_2;
+        address payingTarget = payingFirst ? STAKING_TARGET : STAKING_TARGET_2;
+        vw.setNomineeRelativeWeight(payingTarget, payingChain, 10_000);
+        dispenser.syncWithheldAmountMaintenance(payingChain, 6_000, bytes32(uint256(1)));
         _advanceEpoch();
         _advanceEpoch();
 
@@ -701,39 +731,86 @@ contract DispenserFixesTest is Test {
         uint256[] memory valueAmounts = new uint256[](2);
         valueAmounts[0] = 1;
         valueAmounts[1] = 1;
+        address caller = users[1];
+        vm.deal(caller, 2);
+        bytes32 beforeState = _batchValueStateHash(second, caller);
 
-        vm.deal(address(this), 1 ether);
-        // CHAIN_ID_2 nets zero: its value amount would be kept
         vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
+        vm.prank(caller);
         dispenser.claimStakingIncentivesBatch{value: 2}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+        assertEq(_batchValueStateHash(second, caller), beforeState, "rejected batch rolls back captured state");
 
-        // Value only for the chain that receives a message
-        valueAmounts[1] = 0;
+        // Keep the paying chain's fee, remove the empty chain's fee and reduce total msg.value.
+        valueAmounts[payingFirst ? 1 : 0] = 0;
+        uint256 supplyBefore = olas.totalSupply();
+        vm.prank(caller);
         dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
-        assertEq(address(depositProcessor).balance, 1, "value forwarded to the messaged chain");
-        assertEq(address(depositProcessor2).balance, 0, "no value for the unmessaged chain");
+
+        MockDepositProcessor paying = payingFirst ? depositProcessor : second;
+        MockDepositProcessor empty = payingFirst ? second : depositProcessor;
+        assertEq(paying.lastStakingIncentive(), 10_000, "full incentive in message");
+        assertEq(paying.lastTransferAmount(), 4_000, "withheld credit reduces fresh transfer");
+        assertEq(olas.balanceOf(address(paying)), 4_000, "one token transfer");
+        assertEq(olas.totalSupply() - supplyBefore, 4_000, "one mint");
+        assertEq(address(paying).balance, 1, "paying chain receives fee once");
+        assertEq(address(empty).balance, 0, "empty chain receives no fee");
+        assertEq(empty.lastStakingIncentive(), 0, "empty chain receives no message");
+        assertEq(dispenser.mapChainIdWithheldAmounts(payingChain), 0, "withheld used once");
+        assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), tokenomics.epochCounter(),
+            "first cursor advanced on retry");
+        bytes32 secondHash = keccak256(abi.encode(bytes32(uint256(uint160(STAKING_TARGET_2))), CHAIN_ID_2));
+        assertEq(dispenser.mapLastClaimedStakingEpochs(secondHash), tokenomics.epochCounter(),
+            "second cursor advanced on retry");
         assertEq(address(dispenser).balance, 0, "no value kept");
+        assertEq(caller.balance, 1, "rejected call retained no caller ETH");
     }
 
-    /// @dev A batch with no staking incentive at all sends no message, so any value must be rejected.
+    /// @dev The paying chain is processed first: its message, token transfer and fee must also roll back.
+    function test_fix31_claimBatch_zeroIncentiveChainWithValue_reverts() public {
+        _checkZeroIncentiveChainWithValue(true);
+    }
+
+    /// @dev The empty chain is processed first: accounting and minting performed before distribution still roll back.
+    function test_fix31_claimBatch_zeroIncentiveChainFirstWithValue_reverts() public {
+        _checkZeroIncentiveChainWithValue(false);
+    }
+
+    /// @dev A batch with no staking incentive rejects ETH without retaining cursor, refund or token side effects.
     function test_fix31_claimBatch_zeroIncentiveWithValue_reverts() public {
-        // No votes are ever cast on either chain
+        // No votes are ever cast on either chain.
         vw.addNominee(STAKING_TARGET, CHAIN_ID);
-        _addSecondChainNominee();
+        MockDepositProcessor second = _addSecondChainNominee();
         _advanceEpoch();
         _advanceEpoch();
 
+        uint256 currentEpoch = tokenomics.epochCounter();
+        uint256 claimableEpoch = currentEpoch - 1;
+        uint256 epochIncentive = _stakingIncentiveOf(claimableEpoch);
+        uint256 potBefore = _stakingIncentiveOf(currentEpoch);
+        uint256 supplyBefore = olas.totalSupply();
         (uint256[] memory chainIds, bytes32[][] memory stakingTargets, bytes[] memory bridgePayloads) =
             _twoChainBatch();
         uint256[] memory valueAmounts = new uint256[](2);
         valueAmounts[0] = 1;
 
         vm.deal(address(this), 1 ether);
+        bytes32 beforeState = _batchValueStateHash(second, address(this));
         vm.expectRevert(abi.encodeWithSignature("WrongAmount(uint256,uint256)", 1, 0));
         dispenser.claimStakingIncentivesBatch{value: 1}(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+        assertEq(_batchValueStateHash(second, address(this)), beforeState, "zero-paying batch rolls back captured state");
 
         valueAmounts[0] = 0;
         dispenser.claimStakingIncentivesBatch(10, chainIds, stakingTargets, bridgePayloads, valueAmounts);
+        assertEq(dispenser.mapLastClaimedStakingEpochs(_nomineeHash()), currentEpoch, "first cursor advanced");
+        bytes32 secondHash = keccak256(abi.encode(bytes32(uint256(uint160(STAKING_TARGET_2))), CHAIN_ID_2));
+        assertEq(dispenser.mapLastClaimedStakingEpochs(secondHash), currentEpoch, "second cursor advanced");
+        assertTrue(dispenser.mapZeroWeightEpochRefunded(claimableEpoch), "zero-weight epoch flagged on retry");
+        assertEq(_stakingIncentiveOf(currentEpoch) - potBefore, epochIncentive, "epoch refunded once on retry");
+        assertEq(olas.totalSupply(), supplyBefore, "no mint");
+        assertEq(address(depositProcessor).balance, 0, "no fee to first processor");
+        assertEq(address(second).balance, 0, "no fee to second processor");
+        assertEq(depositProcessor.lastStakingIncentive(), 0, "no message to first processor");
+        assertEq(second.lastStakingIncentive(), 0, "no message to second processor");
         assertEq(address(dispenser).balance, 0, "no value kept");
     }
 
