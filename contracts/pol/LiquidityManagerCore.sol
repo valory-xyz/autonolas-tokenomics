@@ -748,12 +748,18 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert Overflow(olasBurnRate, MAX_BPS);
         }
 
+        uint256 removed0;
+        uint256 removed1;
         if (v2Pool != 0) {
+            // Snapshot staged balances so the source-ratio check only measures this withdrawal.
+            removed0 = IToken(tokens[0]).balanceOf(address(this));
+            removed1 = IToken(tokens[1]).balanceOf(address(this));
+
             // Remove liquidity from V2 pool
             _checkTokensAndRemoveLiquidityV2(tokens, v2Pool);
         }
 
-        // Get token amounts
+        // Get total token amounts for conversion, including any staged balances.
         amounts = new uint256[](2);
         amounts[0] = IToken(tokens[0]).balanceOf(address(this));
         amounts[1] = IToken(tokens[1]).balanceOf(address(this));
@@ -763,11 +769,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Capture the removed token ratio before any burn-rate disposal (which scales both tokens by the same
-        // rate and so preserves the ratio). A proportional V2/Balancer removal returns the source pool's spot
-        // ratio; it is cross-checked against the V3 price below to reject a manipulated source pool.
-        uint256 removed0 = amounts[0];
-        uint256 removed1 = amounts[1];
+        // Measure tokens received before any burn-rate disposal. Pre-existing balances must not
+        // mask or distort the source pool's withdrawal ratio in a mixed conversion.
+        if (v2Pool != 0) {
+            removed0 = amounts[0] - removed0;
+            removed1 = amounts[1] - removed1;
+        }
 
         // Get V3 pool
         address v3Pool = _getV3Pool(tokens, feeTierOrTickSpacing);
