@@ -1,6 +1,10 @@
 #!/bin/bash
 #
 # Celo OLAS/CELO LP transfer and swap.
+# Run with "lp" first. After the full LP transfer arrives on Celo, run with "fund".
+# Funding requires EXPECTED_CELO_LP_AMOUNT in native Celo LP base units, accounting
+# for bridge decimal conversion. Verify against the executed LP transfer, not a dust balance.
+# Re-run the funding pre-flight immediately before execution; generation is not an on-chain guard.
 #
 # PRE-FLIGHT — read the target pair's reserves before submitting, and again if this reverts.
 #
@@ -20,6 +24,12 @@
 # See docs/Vulnerabilities_list_tokenomics.md entry 37.
 #
 
+stage=${1:-}
+if [ "$stage" != "lp" ] && [ "$stage" != "fund" ]; then
+  echo "Usage: $0 lp|fund"
+  exit 1
+fi
+
 red=$(tput setaf 1)
 green=$(tput setaf 2)
 reset=$(tput sgr0)
@@ -30,7 +40,7 @@ globalsStaking="scripts/deployment/staking/globals_mainnet.json"
 globalsCelo="scripts/deployment/staking/celo/globals_celo_mainnet.json"
 globalsCeloUtils="scripts/deployment/utils/globals_celo_mainnet.json"
 
-for f in $globalsMainnet $globalsStaking $globalsCelo; do
+for f in $globalsMainnet $globalsStaking $globalsCelo $globalsCeloUtils; do
   if [ ! -f "$f" ]; then
     echo "${red}!!! $f is not found${reset}"
     exit 1
@@ -38,7 +48,7 @@ for f in $globalsMainnet $globalsStaking $globalsCelo; do
 done
 
 # Check OLAS_AMOUNT env variable
-if [ -z "$OLAS_AMOUNT" ]; then
+if [ "$stage" == "fund" ] && [ -z "$OLAS_AMOUNT" ]; then
   echo "${red}!!! OLAS_AMOUNT env variable is not set${reset}"
   exit 1
 fi
@@ -80,7 +90,7 @@ lpTokenAddress="0xC085F31E4ca659fF8A17042dDB26f1dcA2fBdAB4"
 # RPC URL
 networkURL=$(jq -r '.networkURL' $globalsMainnet)
 
-echo "${green}=== Proposal 24: Transfer bridged LP tokens from Treasury to Celo ===${reset}"
+echo "${green}=== Celo liquidity migration proposal: $stage ===${reset}"
 echo ""
 echo "Treasury:            $treasuryAddress"
 echo "Timelock:            $timelockAddress"
@@ -95,6 +105,7 @@ echo "LPSwapCelo:          $lpSwapCeloAddress"
 echo "Wormhole Chain ID:   $celoWormholeL2TargetChainId"
 echo ""
 
+if [ "$stage" == "lp" ]; then
 # Step 0: Fetch LP token balance of Treasury
 echo "${green}Fetching LP token balance of Treasury...${reset}"
 lpBalance=$(cast call --rpc-url ${networkURL}${ALCHEMY_API_KEY_MAINNET} $lpTokenAddress "balanceOf(address)(uint256)" $treasuryAddress)
@@ -142,6 +153,39 @@ calldata3=$(cast calldata "disableToken(address)" $lpTokenAddress)
 echo "Target:   $treasuryAddress"
 echo "Value:    0"
 echo "Calldata: $calldata3"
+
+echo "targets = [$treasuryAddress, $lpTokenAddress, $wormholeL1TokenRelayerAddress, $treasuryAddress]"
+echo "values  = [0, 0, 0, 0]"
+echo "calldatas = [$calldata1, $calldata2a, $calldata2b, $calldata3]"
+echo 'description = "Transfer LP tokens to the Celo liquidity migration helper and disable the Treasury LP token"'
+echo "Wait for full LP arrival before generating the separate funding proposal."
+exit 0
+fi
+
+# Funding is a separate proposal, generated only after verifying the native LP balance on Celo.
+if [[ ! "$EXPECTED_CELO_LP_AMOUNT" =~ ^[1-9][0-9]*$ ]]; then
+  echo "EXPECTED_CELO_LP_AMOUNT must be a positive integer in native Celo LP base units."
+  exit 1
+fi
+celoNetworkURL=$(jq -r '.networkURL' "$globalsCeloUtils")
+celoLpTokenAddress="0x2976Fa805141b467BCBc6334a69AffF4D914d96A"
+if ! arrivedLp=$(cast call --rpc-url "$celoNetworkURL" "$celoLpTokenAddress" "balanceOf(address)(uint256)" "$lpSwapCeloAddress"); then
+  echo "Cannot verify LP arrival on Celo; refusing to generate funding calldata."
+  exit 1
+fi
+# cast may append a scientific-notation annotation to large uint256 values.
+arrivedLp=${arrivedLp%% *}
+if [[ ! "$arrivedLp" =~ ^[0-9]+$ ]]; then
+  echo "Invalid Celo LP balance; refusing to generate funding calldata."
+  exit 1
+fi
+# Compare decimal strings without overflowing shell integer arithmetic.
+if [[ ${#arrivedLp} -lt ${#EXPECTED_CELO_LP_AMOUNT} ]] ||
+   { [[ ${#arrivedLp} -eq ${#EXPECTED_CELO_LP_AMOUNT} ]] && [[ "$arrivedLp" < "$EXPECTED_CELO_LP_AMOUNT" ]]; }; then
+  echo "Celo LP balance $arrivedLp is below expected amount $EXPECTED_CELO_LP_AMOUNT."
+  exit 1
+fi
+echo "Verified Celo LP balance: $arrivedLp (expected at least $EXPECTED_CELO_LP_AMOUNT)."
 
 # Step 4a: OLAS approve Celo L1 Standard Bridge
 echo ""
@@ -211,7 +255,7 @@ echo "Calldata: $calldata5"
 echo ""
 echo "${green}=== Proposal Summary ===${reset}"
 echo ""
-echo "targets = [$treasuryAddress, $lpTokenAddress, $wormholeL1TokenRelayerAddress, $treasuryAddress, $olasAddress, $celoL1StandardBridgeProxyAddress, $celoL1CDMProxyAddress]"
-echo "values  = [0, 0, 0, 0, 0, 0, 0]"
-echo "calldatas = [$calldata1, $calldata2a, $calldata2b, $calldata3, $calldata4a, $calldata4b, $calldata5]"
-echo "description = \"Transfer bridged LP tokens and OLAS from Treasury to Celo bridge mediator, disable LP token, and migrate old Celo target dispenser\""
+echo "targets = [$olasAddress, $celoL1StandardBridgeProxyAddress, $celoL1CDMProxyAddress]"
+echo "values  = [0, 0, 0]"
+echo "calldatas = [$calldata4a, $calldata4b, $calldata5]"
+echo "description = \"Fund the Celo liquidity migration helper after verified LP arrival and migrate the old Celo target dispenser\""
