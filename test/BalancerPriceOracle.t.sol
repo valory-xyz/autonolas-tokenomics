@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {Utils} from "./utils/Utils.sol";
-import {BalancerPriceOracle} from "../contracts/oracles/BalancerPriceOracle.sol";
+import {BalancerPriceOracle, Overflow, ZeroValue} from "../contracts/oracles/BalancerPriceOracle.sol";
 
 /// @dev Mock Balancer Vault with configurable pool tokens and balances.
 contract MockBalancerVault {
@@ -493,16 +493,22 @@ contract BalancerPriceOracleGetTWAPTest is BalancerOracleBaseSetup {
         assertGt(twap, 0);
     }
 
-    /// @dev TWAP works at exact maxStaleness boundary.
+    /// @dev TWAP works at the exact maxStaleness boundary measured from the window start (prev observation).
     function testGetTWAPAtStalenessLimit() public {
         vm.warp(block.timestamp + minUpdateInterval);
         oracle.updatePrice();
         vm.warp(block.timestamp + minTwapWindow);
         oracle.updatePrice();
 
-        // Warp to exact maxStaleness boundary
-        vm.warp(block.timestamp + maxStaleness);
+        // After the two updates the window start (prev) is minTwapWindow behind now; warp so the
+        // window age reaches exactly maxStaleness.
+        vm.warp(block.timestamp + (maxStaleness - minTwapWindow));
         uint256 twap = oracle.getTWAP();
         assertEq(twap, 1e18);
+
+        // One second past the window-age bound reverts, even though the latest observation is fresh.
+        vm.warp(block.timestamp + 1);
+        vm.expectRevert(abi.encodeWithSelector(Overflow.selector, maxStaleness + 1, maxStaleness));
+        oracle.getTWAP();
     }
 }

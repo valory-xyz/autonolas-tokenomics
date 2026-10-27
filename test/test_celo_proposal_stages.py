@@ -68,6 +68,16 @@ else:
         self.assertNotIn("sendMessage(", calls)
         self.assertIn("values  = [0, 0, 0, 0]", result.stdout)
 
+    def test_lp_stage_strips_annotated_balance(self):
+        # cast 1.7.x annotates decoded uints ("N [1.23eK]"); the lp stage must strip it before
+        # building calldata, or the annotation corrupts the cast calldata encoding.
+        result, calls = self.run_stage(["lp"], balance="100000000000000000001 [1e20]")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("[1e20]", calls)
+        self.assertIn("transferTokens(", calls)
+        # Recommended funding floor truncates to Wormhole's 8 decimals, dropping the trailing dust.
+        self.assertIn("100000000000000000000", result.stdout)
+
     def test_missing_expected_amount_blocks_funding(self):
         result, calls = self.run_stage(["fund"], expected="")
         self.assertNotEqual(result.returncode, 0)

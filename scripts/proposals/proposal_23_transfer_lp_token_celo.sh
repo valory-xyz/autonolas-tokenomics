@@ -108,12 +108,27 @@ echo ""
 if [ "$stage" == "lp" ]; then
 # Step 0: Fetch LP token balance of Treasury
 echo "${green}Fetching LP token balance of Treasury...${reset}"
-lpBalance=$(cast call --rpc-url ${networkURL}${ALCHEMY_API_KEY_MAINNET} $lpTokenAddress "balanceOf(address)(uint256)" $treasuryAddress)
+if ! lpBalance=$(cast call --rpc-url ${networkURL}${ALCHEMY_API_KEY_MAINNET} $lpTokenAddress "balanceOf(address)(uint256)" $treasuryAddress); then
+  echo "${red}Failed to read Treasury LP balance${reset}"
+  exit 1
+fi
+# cast annotates a decoded uint as "N [1.23eK]"; keep only the integer before it reaches cast calldata.
+lpBalance=${lpBalance%% *}
 echo "LP token balance: $lpBalance"
 
-if [ "$lpBalance" == "0" ]; then
-  echo "${red}LP token balance is zero, nothing to transfer${reset}"
+if [[ ! "$lpBalance" =~ ^[1-9][0-9]*$ ]]; then
+  echo "${red}LP token balance is zero or unreadable, nothing to transfer${reset}"
   exit 1
+fi
+
+# Recommended funding floor: the bridged amount truncated to Wormhole's 8-decimal precision (the bridge
+# drops dust below 1e10 wei). Pass this as EXPECTED_CELO_LP_AMOUNT to the fund stage rather than a free
+# value, so a native-LP donation cannot satisfy the balance check with a too-small expected amount.
+# Truncate via string ops: 1e18-scale values overflow 64-bit bash arithmetic.
+if [ ${#lpBalance} -gt 10 ]; then
+  expectedCeloLp="${lpBalance:0:${#lpBalance}-10}0000000000"
+else
+  expectedCeloLp=0
 fi
 
 # Convert the LPSwapCelo address to bytes32 for the Wormhole recipient
@@ -154,11 +169,20 @@ echo "Target:   $treasuryAddress"
 echo "Value:    0"
 echo "Calldata: $calldata3"
 
+# Do not report success unless every calldata blob was actually produced (no `set -e` in this script).
+for cd in "$calldata1" "$calldata2a" "$calldata2b" "$calldata3"; do
+  if [[ ! "$cd" =~ ^0x[0-9a-fA-F]+$ ]]; then
+    echo "${red}Calldata generation failed; not emitting a success result${reset}"
+    exit 1
+  fi
+done
+
 echo "targets = [$treasuryAddress, $lpTokenAddress, $wormholeL1TokenRelayerAddress, $treasuryAddress]"
 echo "values  = [0, 0, 0, 0]"
 echo "calldatas = [$calldata1, $calldata2a, $calldata2b, $calldata3]"
 echo 'description = "Transfer LP tokens to the Celo liquidity migration helper and disable the Treasury LP token"'
 echo "Wait for full LP arrival before generating the separate funding proposal."
+echo "Recommended EXPECTED_CELO_LP_AMOUNT for the fund stage (bridged amount truncated to 8 decimals): $expectedCeloLp"
 exit 0
 fi
 
