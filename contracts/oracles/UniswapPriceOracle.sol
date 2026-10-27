@@ -54,7 +54,7 @@ contract UniswapPriceOracle {
     uint256 public immutable minTwapWindow;
     // Minimum time between successful updatePrice() calls (seconds)
     uint256 public immutable minUpdateInterval;
-    // Maximum allowed staleness of the last observation (seconds)
+    // Maximum allowed age of the observation starting the TWAP window (seconds)
     uint256 public immutable maxStaleness;
 
     struct Observation {
@@ -98,8 +98,8 @@ contract UniswapPriceOracle {
         }
 
         // Check for maxStaleness consistency
-        if (_minTwapWindowSeconds > _maxStalenessSeconds) {
-            revert Overflow(_minTwapWindowSeconds, _maxStalenessSeconds);
+        if (_minUpdateIntervalSeconds > _maxStalenessSeconds) {
+            revert Overflow(_minUpdateIntervalSeconds, _maxStalenessSeconds);
         }
 
         pair = _pair;
@@ -179,8 +179,9 @@ contract UniswapPriceOracle {
             revert ZeroValue();
         }
 
-        // Freshness: require that last observation is not too old
-        uint256 age = block.timestamp - last.timestamp;
+        // Bound the full averaging window, not just the latest observation. Updates remain
+        // available after inactivity so two fresh observations can restore valid quotes.
+        uint256 age = block.timestamp - prev.timestamp;
         if (age > maxStaleness) {
             revert Overflow(age, maxStaleness);
         }

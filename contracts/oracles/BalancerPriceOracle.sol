@@ -43,7 +43,7 @@ contract BalancerPriceOracle {
     uint256 public immutable minUpdateInterval;
     // Minimum TWAP window required for validation (seconds)
     uint256 public immutable minTwapWindow;
-    // Maximum allowed staleness of the last observation (seconds)
+    // Maximum allowed age of the observation starting the TWAP window (seconds)
     uint256 public immutable maxStaleness;
 
     // LP token direction:
@@ -98,9 +98,9 @@ contract BalancerPriceOracle {
             revert Overflow(_minTwapWindowSeconds, _minUpdateIntervalSeconds);
         }
 
-        // Check for maxStaleness consistency
-        if (_minTwapWindowSeconds > _maxStalenessSeconds) {
-            revert Overflow(_minTwapWindowSeconds, _maxStalenessSeconds);
+        // Check for maxStaleness consistency: the update interval must fit inside the window-age bound
+        if (_minUpdateIntervalSeconds > _maxStalenessSeconds) {
+            revert Overflow(_minUpdateIntervalSeconds, _maxStalenessSeconds);
         }
 
         minUpdateInterval = _minUpdateIntervalSeconds;
@@ -192,14 +192,17 @@ contract BalancerPriceOracle {
             revert ZeroValue();
         }
 
-        // Freshness: require that last observation is not too old
-        uint256 age = block.timestamp - last.timestamp;
-        if (age > maxStaleness) {
-            revert Overflow(age, maxStaleness);
+        // Bound the full averaging window, not just the latest observation. Updates remain
+        // available after inactivity so two fresh observations can restore valid quotes.
+        uint256 dtWin = block.timestamp - prev.timestamp;
+        if (dtWin > maxStaleness) {
+            revert Overflow(dtWin, maxStaleness);
         }
 
+        // Elapsed since the last observation, used for the counterfactual cumulative below
+        uint256 age = block.timestamp - last.timestamp;
+
         // TWAP history check: need a usable window
-        uint256 dtWin = block.timestamp - prev.timestamp;
         if (dtWin < minTwapWindow) {
             revert ZeroValue();
         }
