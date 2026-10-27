@@ -18,9 +18,9 @@ mentioned below identify entries in that bundle, not additional files on disk.
 Use `reproduce.py show NAME` to read or extract any original verbatim.
 `reproduce.py verify` checks bundle integrity, local contract/test source hashes,
 and agreement between build records and saved logs; it does not rerun tests.
-The same two test files now include Optimism subclasses and a full external
-withdrawal test inherited on both chains. Earlier Base logs and their exact
-test-source versions remain archived in the bundle. Use
+The same two test files include Base/Optimism subclasses for lifecycle, startup,
+fee-policy, transaction-boundary, withdrawal, and multi-LP accounting cases.
+Earlier logs and their exact test-source versions remain archived in the bundle. Use
 `reproduce.py show --source SHA256` to extract a historical source version;
 the hashes are listed in its original build record. Verification distinguishes
 historical runs from runs against current workspace sources.
@@ -39,15 +39,17 @@ security certification or a validation of live market depth.
 
 Current-source verification:
 
-| Chain | Block | Aero lifecycle and upgrade | Legacy control | Aero fees and full withdrawal | Total passed / failed |
-|---|---:|---:|---:|---:|---:|
-| Base | 53153049 | 10 | 9 | 6 | 25 / 0 |
-| Optimism | 158748334 | 10 | 9 | 6 | 25 / 0 |
+| Chain | Block | Aero lifecycle/upgrade | Legacy control | Dynamic startup lifecycle | Fee/withdrawal/policy | Transaction boundary | Total passed / failed |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Base | 53153049 | 10 | 9 | 10 | 13 | 1 | 43 / 0 |
+| Optimism | 158748334 | 10 | 9 | 10 | 13 | 1 | 43 / 0 |
 
 Each lifecycle/control suite includes two fuzz tests with 256 runs each, using
-seed `0xa3e0`. Current logs are `fork-base-current.txt` and `fork-optimism.txt`;
-their build records are `fork-base-current-build-record.json` and
-`fork-optimism-build-record.json` in the evidence bundle.
+seed `0xa3e0`, including the inherited dynamic-startup suites. Current logs are
+`fork-base-extended.txt` and `fork-optimism-extended.txt`; their build records are
+`fork-base-extended-build-record.json` and `fork-optimism-extended-build-record.json`.
+The preceding 50-test runs remain archived as historical evidence. All 86 current
+tests passed without changing production contracts or weakening existing assertions.
 
 The inspected live state does not demonstrate an immediate V3 failure: both
 liquidity-manager proxies held zero NFTs in their configured legacy NPM and in
@@ -206,8 +208,9 @@ changed to undeployed replacement implementations.
 The original version of `test/LiquidityManagerAeroFeesBase.t.sol` added **5 passing tests, 0 failures**
 against the same Base block **53153049**. Raw output is `fork-aero-fees.txt`;
 the command, source hashes, upstream revisions, and build settings are recorded
-in `fork-fee-build-record.json`. The current version retains these five cases
-and adds full external withdrawal, for six cases on each chain. No production
+in `fork-fee-build-record.json`. The next version retained these five cases
+and added full external withdrawal, for six cases on each chain. The extension
+below adds seven policy/accounting cases and a separate transaction-boundary case. No production
 Solidity changes were required.
 
 ### What is reconciled
@@ -302,7 +305,7 @@ floor; operational quoting and tolerance choices must account for this.
   [unstaked-fee eligibility](https://github.com/Dromos-Labs/metadex-slipstream-public/blob/f99f2095918cab69eafeffa2c3d0a8762de737b7/contracts/core/CLFactory.sol),
   [dynamic fee hook](https://github.com/Dromos-Labs/metadex-public/blob/8b506b450aaa9d4a9f1a77e264f2d9dd508e9ddf/V3/src/hooks/dynamic/DynamicSwapFeeHook.sol).
 
-## Optimism verification and Base regression
+## Earlier Optimism verification and Base regression
 
 The Optimism subclasses inherit the same lifecycle, upgrade, fee, and withdrawal
 assertions used for Base. They are kept in the existing two added Solidity files,
@@ -365,14 +368,86 @@ recorded Foundry version. Production contract files remain unchanged. The
 single-active-unstaked-position and zero-priority-fee limits above apply to
 both chains' exact fee tests.
 
-## Remaining Aero integration coverage
+## Extended Aero integration verification
 
-- Prepare fresh pools with dynamics enabled before the first warm-up swap,
-  advancing time and block numbers and checking insufficient-history transitions.
-- Exercise the relevant LM/BBB paths at the fee cap and under applicable
-  initial-transaction overrides, discounts, and priority-fee MEV taxation.
-- Reconcile the LM's fees with multiple LPs and swaps crossing initialized
-  range boundaries where active liquidity changes.
+The three previously listed integration gaps are now covered on both chains.
+This extension changes the existing two Aero test files, makes the shared
+fixture's warm-up method overridable, and updates this report and its existing
+evidence bundle. It adds no repository files and leaves `reproduce.py` unchanged.
+
+### Dynamic startup and history transitions
+
+The startup subclasses run all ten Aero lifecycle/upgrade cases after a separate
+seed-preparation path. This path configures a 50,000-pip cap and 1,000,000,000
+scaling factor before seed minting or any swap, then seeds the existing fixture's
+20 WETH / 500,000 OLAS desired amounts. These are simulated amounts.
+
+Assertions distinguish the hook's 600-second history from the LM's 1800-second
+history. Fresh pools reject the LM price guard both before and after seeding;
+new-block swaps at 1 and 599 seconds use the base fee. At 600 seconds a controlled
+price move produces a nonzero dynamic component, while the LM guard still rejects
+the pool. The LM guard still rejects at 1799 seconds, and accepts after the final
+round trip reaches 1800 seconds. Time and block numbers advance explicitly.
+Seed withdrawal succeeds, and the inherited tests then exercise migration,
+liquidity maintenance, collection, buyback, L2 submission, and proxy upgrade.
+The existing stale-history rejection also runs with this startup configuration.
+No production seed or LM implementation change was required by these scenarios.
+
+### Fee policies and LM/BBB behavior
+
+Each policy case reconciles both-token fees and recipients, including staged
+funds; checks a BBB trade reverting at a 1-bps output tolerance with unchanged
+pool/BBB/bridge balances and pool accounting; verifies exact successful BBB output
+at a test-only 2000-bps tolerance; then exercises LM increase, partial decrease,
+range change, and full withdrawal. The wide tolerance is for stress testing,
+not a production recommendation. Migration with dynamics is covered separately
+by the startup lifecycle suite; this is not every possible policy combination.
+
+| Scenario | Assertions |
+|---|---|
+| Dynamic cap | A nonzero price deviation with scaling `1e18` reaches exactly 50,000 pips. |
+| Initial-transaction override | Swaps in the initial transaction use 40,000 pips, while the stored block fee is 10,000. |
+| Override selectors | Initial fee `0` selects the configured 20,000-pip base; `uint24.max` selects the 10,000-pip spacing fee; disabling the override restores the normal calculation. |
+| Router discount | A 500,000-pip discount reduces the 10,000-pip fee to 5,000 for swaps through the actual router, including BBB. |
+| Global fallback / fixed spacing | Zero per-pool scaling inherits a nonzero global factor; the custom-base sentinel `uint24.max` pins the spacing fee even with dynamics globally enabled. This is a nonzero swap fee. |
+| Priority-fee tax | At the configured threshold the tax is zero; one wei above it gives the exact rounded tax; a larger priority fee reaches the module's 100,000-pip cap and the pool's 100,000-pip total-fee ceiling. Gauge deductions and both-token receipts are reconciled at that ceiling. |
+
+The separate transaction-boundary fixture performs the first swap in `setUp`,
+then the test executes as another top-level transaction at the same block.
+It verifies that the 40,000-pip transient override expires, the router discount
+then applies to the 10,000-pip block cache (giving 5,000), and the next block
+starts another initial transaction. `vm.roll` alone is not treated as a new
+transaction. The override bypasses the discount in the first transaction.
+
+The inspected MEV module multiplier is zero on both pinned forks. The test
+activates the deployed module locally using its owner: multiplier `1e12`,
+minimum threshold 100 wei, base-fee factor zero. It does not claim that production
+swaps currently pay this tax. All discounts, overrides, caps, global settings,
+and module changes use authorized account impersonation only on the local fork.
+
+### Multiple LPs and initialized tick crossings
+
+An additional unstaked LP has a narrower range inside the LM's range. A WETH
+swap crosses that LP's lower initialized boundary, reducing active liquidity;
+an OLAS swap crosses back and restores it. Both swaps stay in one bitmap word,
+so each has exactly two independently calculated price segments. Dynamic fees
+and a 333,333-pip unstaked gauge deduction are active.
+
+The test derives each segment's principal input/output, rounded swap fee, gauge
+deduction and fee growth from integer price/liquidity math. It checks exact pool
+balance changes, fee growth, changed active liquidity, LM and other-LP entitlements,
+collection receipts, preserved staged LM funds, and residual rounding dust.
+Assertions use no numerical tolerance. It covers one initialized boundary in
+both directions and two unstaked LPs, not arbitrary multi-tick paths or staked LPs.
+
+## Scope retained for release preparation
+
+If we decide to adopt Aero, update the liquidity-migration runbook, deployment
+scripts, deployment globals/addresses, and pool-preparation instructions before
+deployment. These updates must specify the intended NPM/factory/router, LM and
+BBB implementation upgrades, pool creation/seeding and oracle warm-up, and the
+chosen fee and slippage configuration. This PR validates compatibility; those
+operational updates remain follow-up work conditional on the adoption decision.
 
 The LM does not stake positions; full staking and downstream gauge reward
 distribution are outside this integration's scope. Validation covers Aero
@@ -393,8 +468,8 @@ git clone https://github.com/Dromos-Labs/metadex-slipstream-public.git /tmp/aero
 git -C /tmp/aero-source-replay checkout f99f2095918cab69eafeffa2c3d0a8762de737b7
 python3 docs/validation/aero-upgrade-impact-2026-10-27/reproduce.py interfaces /tmp/aero-source-replay > /tmp/aero-interfaces-replay.json
 rg -n -i 'velodrome|aerodrome|slipstream|940181a94|9560e827|veaero|vevelo' contracts scripts/deployment
-forge test --match-contract '^LiquidityManager(Base|AeroBase|AeroFeesBase)Test$' --fork-url https://base.gateway.tenderly.co --fork-block-number 53153049 --compute-units-per-second 20 -j 1 --fuzz-seed 0xa3e0 -vv
-forge test --match-contract '^LiquidityManager(Aero|AeroFees|Legacy)OptimismTest$' --fork-url https://optimism.gateway.tenderly.co --fork-block-number 158748334 --compute-units-per-second 20 -j 1 --fuzz-seed 0xa3e0 -vv
+forge test --match-contract '^LiquidityManager(Base|AeroBase|AeroFeesBase|AeroStartupBase|AeroInitialTxBase)Test$' --fork-url https://base.gateway.tenderly.co --fork-block-number 53153049 --compute-units-per-second 20 -j 1 --fuzz-seed 0xa3e0 -vv
+forge test --match-contract '^LiquidityManager(Aero|AeroFees|AeroStartup|AeroInitialTx|Legacy)OptimismTest$' --fork-url https://optimism.gateway.tenderly.co --fork-block-number 158748334 --compute-units-per-second 20 -j 1 --fuzz-seed 0xa3e0 -vv
 ```
 
 RPC availability and historical-state access depend on the chosen provider;

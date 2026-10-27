@@ -301,7 +301,7 @@ contract BaseSetup is Test {
     ///      via small swaps. The long warp needed for the V3 window would push the Balancer V2-exit
     ///      oracle past its maxStaleness (900s), so updatePrice() is interleaved to keep it warm and
     ///      leave a usable rolling window (prev >= 900s old, last <= 900s old) at test time.
-    function _warmUpV3Pool(address pool) internal {
+    function _warmUpV3Pool(address pool) internal virtual {
         // Grow the observation buffer
         ISlipstream(pool).increaseObservationCardinalityNext(observationCardinality);
 
