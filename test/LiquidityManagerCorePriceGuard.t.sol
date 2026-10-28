@@ -434,7 +434,8 @@ contract LiquidityManagerCorePriceGuardTest is Test {
     // Regression for the cardinality-one-at-the-exact-boundary gap (observe() does not reject it).
     // -----------------------------------------------------------------------
 
-    /// @dev 1799s old (one second inside the window) → verifiable TWAP, returns the TWAP price.
+    /// @dev Latest observation is 1799s old; the mock models a pool with older history covering
+    ///      the full 1800s window, so the oracle query succeeds and returns the TWAP price.
     function test_checkPoolAndGetCenterPrice_boundary_1799s_passes() public {
         int24 twapTick = 0;
         uint160 twapSqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
@@ -442,11 +443,24 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
 
         pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setCardinality(2); // model older history in addition to the latest observation
         pool.setOldestTimestamp(uint32(block.timestamp - (SECONDS_AGO - 1))); // age 1799
         pool.setObserveData(0, int56(twapTick) * int56(uint56(SECONDS_AGO)), false);
 
         uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
         assertEq(result, twapSqrtPriceX96, "1799s: inside window, must return the TWAP price");
+    }
+
+    /// @dev A sole observation aged 1799s cannot cover a 1800s query. The freshness check passes,
+    ///      but the oracle rejects the missing history and the entry guard must fail closed.
+    function test_checkPoolAndGetCenterPrice_boundary_1799s_singleObservation_rejected() public {
+        pool.setSlot0(TickMath.getSqrtRatioAtTick(0), 0);
+        pool.setCardinality(1);
+        pool.setOldestTimestamp(uint32(block.timestamp - (SECONDS_AGO - 1)));
+        pool.setObserveData(0, 0, true); // model the canonical oracle's OLD revert
+
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
     /// @dev Exactly SECONDS_AGO old (the window start) → boundary-inclusive reject. Strict `<` let this
