@@ -1304,9 +1304,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Inactive pool: no trade within SECONDS_AGO -> no verifiable TWAP
+        // Inactive pool: no trade within SECONDS_AGO -> no verifiable TWAP. Boundary-inclusive (<=):
+        // a latest observation exactly SECONDS_AGO old sits at the very start of the averaging window and
+        // carries no in-window history (e.g. a cardinality-one pool whose sole observation is exactly
+        // SECONDS_AGO old, which observe() does not reject at the boundary). Treat it as inactive rather
+        // than price against what is effectively the instantaneous slot0.
         (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
-        if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
+        if (latestObsTimestamp + SECONDS_AGO <= block.timestamp) {
             return (slot0SqrtPriceX96, false, 0, 0);
         }
 

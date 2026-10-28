@@ -428,4 +428,53 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         vm.expectRevert(abi.encodeWithSelector(Overflow.selector, deviation, MAX_ALLOWED_DEVIATION));
         lm.exposedGetExitSqrtPrice(address(pool));
     }
+
+    // -----------------------------------------------------------------------
+    // Staleness window boundary: a latest observation exactly SECONDS_AGO old is rejected (<= vs <).
+    // Regression for the cardinality-one-at-the-exact-boundary gap (observe() does not reject it).
+    // -----------------------------------------------------------------------
+
+    /// @dev 1799s old (one second inside the window) → verifiable TWAP, returns the TWAP price.
+    function test_checkPoolAndGetCenterPrice_boundary_1799s_passes() public {
+        int24 twapTick = 0;
+        uint160 twapSqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
+        int24 instantTick = 3; // tiny deviation, within the gate
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setOldestTimestamp(uint32(block.timestamp - (SECONDS_AGO - 1))); // age 1799
+        pool.setObserveData(0, int56(twapTick) * int56(uint56(SECONDS_AGO)), false);
+
+        uint160 result = lm.checkPoolAndGetCenterPrice(address(pool));
+        assertEq(result, twapSqrtPriceX96, "1799s: inside window, must return the TWAP price");
+    }
+
+    /// @dev Exactly SECONDS_AGO old (the window start) → boundary-inclusive reject. Strict `<` let this
+    ///      pass (a cardinality-one pool priced against effectively the instantaneous slot0); `<=` fails
+    ///      closed with NotEnoughHistory.
+    function test_checkPoolAndGetCenterPrice_boundary_1800s_rejected() public {
+        int24 instantTick = 3;
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setCardinality(1);                                         // sole observation
+        pool.setOldestTimestamp(uint32(block.timestamp - SECONDS_AGO)); // age exactly 1800
+        pool.setObserveData(0, 0, false);                              // observe does not revert at the boundary
+
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
+    }
+
+    /// @dev 1801s old (one second past the window) → inactive, rejected (unchanged by the fix).
+    function test_checkPoolAndGetCenterPrice_boundary_1801s_rejected() public {
+        int24 instantTick = 3;
+        uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
+
+        pool.setSlot0(instantSqrtPriceX96, 0);
+        pool.setOldestTimestamp(uint32(block.timestamp - (SECONDS_AGO + 1))); // age 1801
+        pool.setObserveData(0, 0, false);
+
+        vm.expectRevert(abi.encodeWithSelector(NotEnoughHistory.selector, address(pool)));
+        lm.checkPoolAndGetCenterPrice(address(pool));
+    }
 }
