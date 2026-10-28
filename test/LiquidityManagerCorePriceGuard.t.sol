@@ -463,9 +463,9 @@ contract LiquidityManagerCorePriceGuardTest is Test {
         lm.checkPoolAndGetCenterPrice(address(pool));
     }
 
-    /// @dev Exactly SECONDS_AGO old (the window start) → boundary-inclusive reject. Strict `<` let this
-    ///      pass (a cardinality-one pool priced against effectively the instantaneous slot0); `<=` fails
-    ///      closed with NotEnoughHistory.
+    /// @dev Exactly SECONDS_AGO old (the window start) → boundary-inclusive reject. The oracle can
+    ///      return a valid constant-tick TWAP here, but `<=` enforces the stricter freshness policy
+    ///      and fails closed with NotEnoughHistory.
     function test_checkPoolAndGetCenterPrice_boundary_1800s_rejected() public {
         int24 instantTick = 3;
         uint160 instantSqrtPriceX96 = TickMath.getSqrtRatioAtTick(instantTick);
