@@ -55,8 +55,8 @@ error ReentrancyGuard();
 /// @param maxSlippageBps Allowed deviation in BPS.
 error RatioDeviation(uint256 removedRatio, uint256 referenceRatio, uint16 maxSlippageBps);
 
-/// @dev Pool cannot produce a verifiable SECONDS_AGO TWAP (freshly-created / cardinality <= 1, or
-///      no trade within the TWAP window). The price guard fails closed rather than trusting slot0.
+/// @dev Pool has no observation strictly inside the SECONDS_AGO window, or its oracle cannot provide
+///      the full-window TWAP. The entry price guard fails closed rather than trusting slot0.
 /// @param pool Pool address.
 error NotEnoughHistory(address pool);
 
@@ -1224,21 +1224,20 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     }
 
     /// @dev Checks pool prices via Uniswap V3 built-in oracle and returns the TWAP-derived sqrt price.
-    /// @notice Fails closed: reverts with NotEnoughHistory when the pool cannot produce a verifiable
-    ///         SECONDS_AGO TWAP (freshly-created / cardinality <= 1, or no trade within SECONDS_AGO).
+    /// @notice Fails closed: requires the latest observation strictly inside the SECONDS_AGO window
+    ///         and observe() to provide the full-window TWAP; otherwise reverts with NotEnoughHistory.
     ///         When a TWAP is available, reverts if the deviation between the instantaneous slot0 price
     ///         and the TWAP price exceeds MAX_ALLOWED_DEVIATION, preventing flash-loan driven manipulation.
-    ///         The revert is a refusal, not a permanent denial: a single subsequent swap on the pool
-    ///         repopulates the observation buffer and the next call proceeds normally.
+    ///         Calls can resume once the freshness and oracle-history requirements are satisfied and
+    ///         the instantaneous price is within the allowed deviation.
     /// @param pool Pool address.
     /// @return centerSqrtPriceX96 Calculated center SQRT price.
     function checkPoolAndGetCenterPrice(address pool) public view returns (uint160 centerSqrtPriceX96) {
         // Read the raw price facts, then apply the ENTRY policy (fail closed) explicitly here.
         (, bool twapAvailable, uint160 twapSqrtPriceX96, uint256 deviation) = _getPoolPriceFacts(pool);
 
-        // Fail closed: an unverifiable pool (inactive, freshly-created / cardinality <= 1, or observe()
-        // cannot interpolate the SECONDS_AGO window) has no verifiable TWAP. Refuse rather than fall back
-        // to the manipulable slot0 price.
+        // Fail closed when the freshness check fails or the oracle cannot provide the full-window TWAP.
+        // Refuse rather than fall back to the manipulable slot0 price.
         if (!twapAvailable) {
             revert NotEnoughHistory(pool);
         }
@@ -1304,13 +1303,13 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             revert ZeroValue();
         }
 
-        // Inactive pool: no trade within SECONDS_AGO -> no verifiable TWAP
+        // Require an observation strictly inside the lookback window, excluding its exact left boundary.
         (uint32 latestObsTimestamp,,,) = IUniswapV3(pool).observations(observationIndex);
-        if (latestObsTimestamp + SECONDS_AGO < block.timestamp) {
+        if (latestObsTimestamp + SECONDS_AGO <= block.timestamp) {
             return (slot0SqrtPriceX96, false, 0, 0);
         }
 
-        // Freshly-created pool (cardinality <= 1) or any pool whose observe() cannot interpolate the window
+        // Reject pools whose oracle cannot provide the requested TWAP window.
         bytes memory payload = abi.encodeCall(this.getTwapFromOracle, (pool));
         (bool success, bytes memory returnData) = address(this).staticcall(payload);
         if (!success || returnData.length == 0) {
@@ -1340,8 +1339,8 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     /// @dev Deviation-gated slot0 price for exits / maintenance (decreaseLiquidity).
     /// @notice When the pool can produce a verifiable SECONDS_AGO TWAP, this reverts if the instantaneous
     ///         slot0 price deviates more than MAX_ALLOWED_DEVIATION from the TWAP (anti-manipulation gate);
-    ///         otherwise (freshly-created / cardinality <= 1, or no trade within SECONDS_AGO) it skips the
-    ///         gate (fail-open). In BOTH cases it returns the raw slot0 price — the exact price the position
+    ///         if the freshness check fails or the oracle cannot provide the full-window TWAP, it skips
+    ///         the gate (fail-open). In BOTH cases it returns the raw slot0 price — the exact price the position
     ///         manager withdraws at — so a caller's amountMin = amounts(slot0) * (1 - maxSlippage) is always
     ///         satisfiable and a fair exit never reverts on the amount check. Unlike checkPoolAndGetCenterPrice
     ///         it never reverts merely because the pool is quiet, so a withdrawal is always possible within
