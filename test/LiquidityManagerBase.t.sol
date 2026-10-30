@@ -148,18 +148,19 @@ contract BaseSetup is Test {
 
     uint256[2] internal initialAmounts;
     uint160 internal sqrtPriceX96;
-    address internal constant OLAS = 0x54330d28ca3357F294334BDC454a032e7f353416;
+    address internal OLAS = 0x54330d28ca3357F294334BDC454a032e7f353416;
     address internal constant WETH = 0x4200000000000000000000000000000000000006;
     address[] internal TOKENS = [WETH, OLAS];
-    address internal constant TIMELOCK = 0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA;
+    address internal TIMELOCK = 0xE49CB081e8d96920C38aA7AB90cb0294ab4Bc8EA;
     address internal constant L2_TOKEN_RELAYER = 0x4200000000000000000000000000000000000010;
-    address internal constant POOL_V2 = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
-    bytes32 internal constant POOL_V2_BYTES32 = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
+    address internal POOL_V2 = 0x2da6e67C45aF2aaA539294D9FA27ea50CE4e2C5f;
+    bytes32 internal POOL_V2_BYTES32 = 0x2da6e67c45af2aaa539294d9fa27ea50ce4e2c5f0002000000000000000001a3;
     address internal constant BALANCER_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
-    address internal constant ROUTER_V3 = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
-    address internal constant FACTORY_V3 = 0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A;
-    address internal constant POSITION_MANAGER_V3 = 0x827922686190790b37229fd06084350E74485b72;
-    address internal constant BUY_BACK_BURNER = 0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426;
+    // Configurable in derived fixtures so the same lifecycle tests exercise newer deployments.
+    address internal ROUTER_V3 = 0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5;
+    address internal FACTORY_V3 = 0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A;
+    address internal POSITION_MANAGER_V3 = 0x827922686190790b37229fd06084350E74485b72;
+    address internal BUY_BACK_BURNER = 0x3FD8C757dE190bcc82cF69Df3Cd9Ab15bCec1426;
     address internal constant BBB_OWNER = 0x6F7a4938AB3bbF69480E7C109Af778ee78099Be7;
     uint16 internal constant observationCardinality = 60;
     uint256 internal constant maxSlippageBps = 5000;
@@ -172,7 +173,36 @@ contract BaseSetup is Test {
     // Max bps value
     uint16 public constant MAX_BPS = 10_000;
 
+    function _configureSlipstream() internal virtual { assertEq(block.chainid, 8453); }
+
+    function _configureOptimism(bool aero) internal {
+        assertEq(block.chainid, 10);
+        OLAS = 0xFC2E6e6BCbd49ccf3A5f029c79984372DcBFE527;
+        TIMELOCK = LiquidityManagerBalancerSlipstream(0x1f84F8F70dE0651C2d51Bf8850FE9D0289Ba3B3A).treasury();
+        POOL_V2_BYTES32 = 0x5bb3e58887264b667f915130fd04bbb56116c27800020000000000000000012a;
+        POOL_V2 = address(bytes20(POOL_V2_BYTES32));
+        BUY_BACK_BURNER = 0x4891f5894634DcD6d11644fe8E56756EF2681582;
+        ROUTER_V3 = aero ? 0x9Ee35Bf1bd69a03c6F0393582030fCe8Bb93D418 : 0xbA3aEe516399388C779463183d00bB579f5041Ca;
+        FACTORY_V3 = aero ? 0xfeaB42D90055db3a0616249f76B6002D72266778 : 0xe13Dd1fbA721Aa81a1826D9523AC9BC7d260c879;
+        POSITION_MANAGER_V3 = aero ? 0x4857DB576eE0e45F10525eC59527BfD10beeC60b : 0xf7f8ccce99Ca2896eC75D3A399D152dB96808399;
+    }
+
+    function _fundV2Position(uint256 totalSupply) internal returns (uint256 v2Liquidity) {
+        if (block.chainid == 10) {
+            // Exact fixture share, not an estimate of protocol-owned Optimism liquidity.
+            v2Liquidity = totalSupply / 100;
+            deal(POOL_V2, address(liquidityManager), v2Liquidity);
+        } else {
+            v2Liquidity = IToken(POOL_V2).balanceOf(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
+            vm.prank(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
+            IToken(POOL_V2).transfer(address(liquidityManager), v2Liquidity);
+        }
+        assertGt(v2Liquidity, 0);
+    }
+
     function setUp() public virtual {
+        _configureSlipstream();
+        TOKENS[1] = OLAS;
         utils = new Utils();
         users = utils.createUsers(2);
         deployer = users[0];
@@ -211,9 +241,7 @@ contract BaseSetup is Test {
         uint256 totalSupply = IToken(POOL_V2).totalSupply();
 
         // Mock liquidity transfer
-        uint256 v2Liquidity = IToken(POOL_V2).balanceOf(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
-        vm.prank(0x4eDB5dd988b78B40E1b38592A4761F694E05ef05);
-        IToken(POOL_V2).transfer(address(liquidityManager), v2Liquidity);
+        uint256 v2Liquidity = _fundV2Position(totalSupply);
 
         (, uint256[] memory amounts, ) = IBalancer(BALANCER_VAULT).getPoolTokens(POOL_V2_BYTES32);
         initialAmounts[0] = amounts[0];
@@ -273,7 +301,7 @@ contract BaseSetup is Test {
     ///      via small swaps. The long warp needed for the V3 window would push the Balancer V2-exit
     ///      oracle past its maxStaleness (900s), so updatePrice() is interleaved to keep it warm and
     ///      leave a usable rolling window (prev >= 900s old, last <= 900s old) at test time.
-    function _warmUpV3Pool(address pool) internal {
+    function _warmUpV3Pool(address pool) internal virtual {
         // Grow the observation buffer
         ISlipstream(pool).increaseObservationCardinalityNext(observationCardinality);
 
@@ -314,12 +342,15 @@ contract BaseSetup is Test {
         // Keep the Balancer V2-exit oracle warm across the long warp (updatePrice every >= 900s)
         vm.warp(block.timestamp + 900);
         oracleV2.updatePrice();
-        vm.warp(block.timestamp + 900);
-        oracleV2.updatePrice();
+        // The round trip below advances time by two seconds. Finish it exactly at the next
+        // V2 update: maxStaleness bounds the age of the window's START, so updating before
+        // those extra seconds would leave a 902s window against this fixture's 900s limit.
+        vm.warp(block.timestamp + minUpdateIntervalSeconds - 2);
 
         // Second round trip near the end of the window: writes the recent observation and restores price
         vm.warp(block.timestamp + 1);
         _roundTrip();
+        oracleV2.updatePrice();
 
         // Remove the seed liquidity so it does not compete with the LM's own position for swap fees in
         // later tests. Observations are pool-level and persist, so the guard stays satisfiable; the pool
