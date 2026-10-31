@@ -46,6 +46,9 @@ jobs:
       - name: Compile, adjust uniswap library hash and recompile again
         run: yarn compile
 
+      - name: Build Forge artifacts for static audit tests
+        run: forge build --use 0.8.30 --skip UniswapFactory.sol --skip UniswapRouter.sol
+
       # Compile the code and run hardhat tests
       - name: Run hardhat tests
         run: yarn test
