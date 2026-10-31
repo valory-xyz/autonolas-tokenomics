@@ -19,11 +19,15 @@ network=${1%_*}
 
 # No further L2 deployment is needed for ethereum. This is a legitimate early success, not a failure.
 if [ "$network" == "eth" ]; then
+  node scripts/audit_chains/audit_staking_routes.js pair "$1" after-link
   exit 0
 fi
 
 # Deploy Target Dispenser L2
 ./scripts/deployment/staking/${network}/deploy_*_${network}_target_dispenser.sh $1
+
+# Validate code, proxy identity and both constructor bindings before clearing the L1 owner.
+node scripts/audit_chains/audit_staking_routes.js pair "$1" before-link
 
 # Set TargetDispenserL2 in DepositProcessorL1
 ./scripts/deployment/staking/script_01_set_target_dispenser_l2.sh $1
@@ -32,3 +36,6 @@ fi
 if [ "$network" == "polygon" ]; then
   ./scripts/deployment/staking/script_03_set_deposit_processor_l1_polygon.sh $1
 fi
+
+# Verify both links after the transactions, including Polygon's fxRootTunnel.
+node scripts/audit_chains/audit_staking_routes.js pair "$1" after-link
