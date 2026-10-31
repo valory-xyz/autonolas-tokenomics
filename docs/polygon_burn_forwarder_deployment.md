@@ -42,8 +42,23 @@ build commit and hash.
 Confirm that both deployment logs have the same init-code hash and predicted
 address, and retain the successful on-chain validation of all five immutable
 constructor values on each chain. `deploy_00e` performs this validation on the chain
-it deploys to. `deploy_00c_bridge2burner_polygon.sh` checks the Polygon deployment
-only; its success does not establish that the Ethereum copy exists.
+it deploys to. `deploy_00c_bridge2burner_polygon.sh` now runs a read-only audit of **both chains** before broadcasting the bridge
+creation. It compares the recorded addresses with the CREATE2 address derived from the reviewed build, checks full
+runtime and all five immutable values on both chains, then audits the new bridge's code, recipient, version and
+100-OLAS threshold after deployment. Either audit failure stops the script.
+
+Run the audits separately, from the repository root, to inspect or retry without redeploying:
+
+```bash
+node scripts/audit_chains/audit_staking_routes.js forwarders
+node scripts/audit_chains/audit_staking_routes.js bridge
+```
+
+Use the same reviewed Forge `out/` artifacts as the deployment. RPCs come from the two utils globals; environment
+variables `AUDIT_L1_RPC_URL` and `AUDIT_L2_RPC_URL` can override them, with chain-ID validation. Checks report all
+mismatches/unreadable calls and return nonzero. Before a later BBB implementation upgrade, its old `bridge2Burner`
+binding may differ from the newly recorded bridge address; that expected whole-system audit mismatch does not
+invalidate the new bridge. The forwarder and bridge deployment audits themselves must pass.
 
 Only after both deployments are validated should the burn route be enabled.
 `BuyBackBurner.bridge2Burner` and `LiquidityManagerBurnViaBridge.bridge2Burner` are
