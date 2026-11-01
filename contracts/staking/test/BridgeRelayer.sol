@@ -538,3 +538,29 @@ contract BridgeRelayer {
         sequence = 0;
     }
 }
+
+/// @dev Gas-test transport: records the L1 message and delivers it in a separate transaction with
+///      the exact requested execution allowance. It models transport, not production bridge overhead.
+contract BatchGasBridge {
+    address public messageSender;
+    address public receiver;
+    bytes public message;
+    uint256 public allowance;
+
+    function relayTokens(address token, address target, uint256 amount) external {
+        IToken(token).transferFrom(msg.sender, target, amount);
+    }
+
+    function requireToPassMessage(address target, bytes memory data, uint256 gasLimit) external returns (bytes32) {
+        messageSender = msg.sender;
+        receiver = target;
+        message = data;
+        allowance = gasLimit;
+        return keccak256(data);
+    }
+
+    function deliver() external {
+        (bool success,) = receiver.call{gas: allowance}(message);
+        require(success, "Delivery exceeds allowance or reverts");
+    }
+}

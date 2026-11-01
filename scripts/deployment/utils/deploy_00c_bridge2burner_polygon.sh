@@ -8,7 +8,7 @@ reset=$(tput sgr0)
 globals="$(dirname "$0")/globals_$1.json"
 if [ ! -f $globals ]; then
   echo "${red}!!! $globals is not found${reset}"
-  exit 0
+  exit 1
 fi
 
 # Read variables using jq
@@ -28,7 +28,7 @@ if [[ "$networkURL" == *"alchemy.com"* ]]; then
   esac
   if [ -n "$keyName" ] && [ "$API_KEY" == "" ]; then
     echo "set $keyName env variable"
-    exit 0
+    exit 1
   fi
 fi
 
@@ -62,6 +62,9 @@ if [ "$(echo $polygonBurnForwarderAddress | tr '[:upper:]' '[:lower:]')" != "$(e
 fi
 pbfCheckDeployed $polygonBurnForwarderAddress || exit 1
 
+# Both chains must contain the reviewed forwarder at the same CREATE2 address.
+node scripts/audit_chains/audit_staking_routes.js forwarders || exit 1
+
 contractName="Bridge2BurnerPolygon"
 contractPath="contracts/utils/$contractName.sol:$contractName"
 # Second arg is the PolygonBurnForwarder (held in the inherited l2TokenRelayer slot); see Bridge2BurnerPolygon NatSpec.
@@ -73,7 +76,6 @@ if [ "$useLedger" == "true" ]; then
   walletArgs="-l --mnemonic-derivation-path $derivationPath"
   deployer=$(cast wallet address $walletArgs)
 else
-  echo "Using PRIVATE_KEY: ${PRIVATE_KEY:0:6}..."
   walletArgs="--private-key $PRIVATE_KEY"
   deployer=$(cast wallet address $walletArgs)
 fi
@@ -94,7 +96,7 @@ outputLength=${#bridge2BurnerAddress}
 # Check for the deployed address
 if [ $outputLength != 42 ]; then
   echo "${red}!!! The contract was not deployed...${reset}"
-  exit 0
+  exit 1
 fi
 
 # Write new deployed contract back into JSON (utils + pol if present)
@@ -107,6 +109,8 @@ globalsPol="$(dirname "$0")/../pol/globals_$1.json"
 if [ -f "$globalsPol" ]; then
   echo "$(jq '. += {"bridge2BurnerAddress":"'$bridge2BurnerAddress'"}' "$globalsPol")" > "$globalsPol"
 fi
+
+node scripts/audit_chains/audit_staking_routes.js bridge || exit 1
 
 # Verify contract
 if [ "$contractVerification" == "true" ]; then

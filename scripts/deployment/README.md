@@ -4,6 +4,9 @@ These scripts correspond to the steps in the full deployment procedure (as descr
 
 For the Tokenomics 1.2, refer to the following deployment procedure: [deployment_v1.2.md](docs/deployment_v1.2.md).
 
+For Dispenser proxies and processor/L2 pairs, use the [read-only checkpoints](staking/README.md#read-only-checkpoints).
+For Polygon burn contracts, use the [forwarder instructions](../../docs/polygon_burn_forwarder_deployment.md).
+
 ## Observations
 - There are several files with global parameters based on the corresponding network. In order to work with the configuration, please copy `gobals_network.json` file to file the `gobals.json` one, where `network` is the corresponding network. For example: `cp gobals_mainnet.json gobals.json`.
 - Please note: if you encounter the `Unknown Error 0x6b0c`, then it is likely because the ledger is not connected or logged in.

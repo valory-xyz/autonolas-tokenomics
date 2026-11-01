@@ -31,8 +31,7 @@ const norm = (a) => (a ? ethers.utils.getAddress(a) : a);
 // to dispenserAddress for the current non-proxied deployment, where no proxy exists and the plain Dispenser
 // is what is wired.
 //
-// Do NOT use this for the L1 deposit-processor checks: those read the staking globals, which has only
-// dispenserAddress, and l1Dispenser is an immutable binding to whatever Dispenser was live at deploy time.
+// L1 processor checks merge the root proxy address into staking globals, matching their deployment scripts.
 const ZERO = "0x0000000000000000000000000000000000000000";
 const liveDispenser = (g) => {
     const proxy = g["dispenserProxyAddress"];
@@ -518,6 +517,14 @@ async function checkDispenser(chainId, provider, globalsInstance, configContract
 
     log += ", address: " + dispenser.address;
 
+    // With a proxy, this entry is the locked implementation; manager/owner storage belongs to the proxy.
+    if (globalsInstance.dispenserProxyAddress && globalsInstance.dispenserProxyAddress !== ZERO) {
+        customExpect(norm(await dispenser.olas()), norm(globalsInstance.olasAddress), log + ", function: olas()");
+        customExpect(norm(await dispenser.tokenomics()), norm(globalsInstance.tokenomicsProxyAddress), log + ", function: tokenomics()");
+        customExpect((await dispenser.retainer()).toLowerCase(), globalsInstance.retainerAddress.toLowerCase(), log + ", function: retainer()");
+        return;
+    }
+
     // Check owner + record CSV
     const ownerInfo = await checkOwner(chainId, dispenser, globalsInstance, log);
     recordOwnershipRow(chainId, contractName, dispenser.address, ownerInfo);
@@ -598,7 +605,7 @@ async function checkDepositProcessorL1(depositProcessorL1, globalsInstance, log)
 
     // Check L1 dispenser
     const dispenser = await depositProcessorL1.l1Dispenser();
-    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: l1Dispenser()");
+    customExpect(dispenser, liveDispenser(globalsInstance), log + ", function: l1Dispenser()");
 }
 
 // Check ArbitrumDepositProcessorL1: chain Id, provider, parsed globals, configuration contracts, contract name
@@ -656,7 +663,7 @@ async function checkEthereumDepositProcessor(chainId, provider, globalsInstance,
 
     // Check dispenser
     const dispenser = await ethereumDepositProcessorL1.dispenser();
-    customExpect(dispenser, globalsInstance["dispenserAddress"], log + ", function: dispenser()");
+    customExpect(dispenser, liveDispenser(globalsInstance), log + ", function: dispenser()");
 
     // Check L1 staking factory
     const stakingFactory = await ethereumDepositProcessorL1.stakingFactory();
@@ -1134,7 +1141,7 @@ async function checkNeighborhoodScanner(provider, configContracts, contractName,
 // Per-chain l2TokenRelayer source (must mirror deploy_00{a,b,c}_bridge2burner_*.sh):
 //   Gnosis    → gnosisOmniBridgeAddress
 //   Optimism  → l2StandardBridgeProxyAddress  (used on Optimism and Base)
-//   Polygon   → bridgeMediatorAddress
+//   Polygon   → polygonBurnForwarderAddress
 async function checkBridge2Burner(provider, utilsGlobals, configContracts, contractName, log) {
     await checkBytecode(provider, configContracts, contractName, log);
     const b2b = await findContractInstance(provider, configContracts, contractName);
@@ -1149,7 +1156,7 @@ async function checkBridge2Burner(provider, utilsGlobals, configContracts, contr
     } else if (contractName === "Bridge2BurnerOptimism") {
         expectedRelayer = utilsGlobals["l2StandardBridgeProxyAddress"];
     } else if (contractName === "Bridge2BurnerPolygon") {
-        expectedRelayer = utilsGlobals["bridgeMediatorAddress"];
+        expectedRelayer = utilsGlobals["polygonBurnForwarderAddress"];
     }
     const l2TokenRelayer = await b2b.l2TokenRelayer();
     customExpect(norm(l2TokenRelayer), norm(expectedRelayer), log + ", function: l2TokenRelayer()");
@@ -1411,6 +1418,7 @@ async function main() {
         // Special case for staking (also on L1)
         const dataJSON = fs.readFileSync("scripts/deployment/staking/globals_mainnet.json", "utf8");
         const globalsStaking = JSON.parse(dataJSON);
+        globalsStaking.dispenserProxyAddress = globals[0].dispenserProxyAddress;
 
 
         const providerLinks = {
