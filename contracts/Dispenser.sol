@@ -44,6 +44,18 @@ interface IDepositProcessor {
     function updateHashMaintenance(bytes32 batchHash) external;
 }
 
+// Local deposit processor interface
+interface ILocalDepositProcessor {
+    /// @dev Gets the factory used by the local processor.
+    function stakingFactory() external view returns (address);
+}
+
+// Staking factory registration interface
+interface IStakingFactoryRegistration {
+    /// @dev Gets the recorded implementation, deployer and enabled flag.
+    function mapInstanceParams(address instance) external view returns (address, address, bool);
+}
+
 // ERC20 token interface
 interface IToken {
     /// @dev Gets the amount of tokens owned by a specified account.
@@ -225,6 +237,11 @@ error LowerThan(uint256 provided, uint256 expected);
 /// @param expected Expected amount.
 error WrongAmount(uint256 provided, uint256 expected);
 
+/// @dev Returned data has an unexpected length.
+/// @param expected Expected byte length.
+/// @param provided Returned byte length.
+error IncorrectDataLength(uint256 expected, uint256 provided);
+
 /// @dev Caught reentrancy violation.
 error ReentrancyGuard();
 
@@ -278,6 +295,12 @@ contract Dispenser {
     event StakingIncentivesBatchClaimed(address indexed account, uint256[] chainIds, bytes32[][] stakingTargets,
         uint256[][] stakingIncentives, uint256 totalStakingIncentive, uint256 totalTransferAmount,
         uint256 totalReturnAmount);
+    /// @dev Records the payable local allocation returned because the target has no factory registration.
+    /// @param nomineeHash Target and chain identifier.
+    /// @param firstEpoch First processed epoch, inclusive.
+    /// @param endEpoch Last processed epoch, exclusive.
+    /// @param amount Additional allocation returned, excluding ordinary calculation returns.
+    event LocalAllocationReturned(bytes32 indexed nomineeHash, uint256 firstEpoch, uint256 endEpoch, uint256 amount);
     event Retained(address indexed account, uint256 returnAmount);
     event SetDepositProcessorChainIds(address[] depositProcessors, uint256[] chainIds);
     event WithheldAmountSynced(uint256 chainId, uint256 amount, uint256 updatedWithheldAmount, bytes32 indexed batchHash);
@@ -711,7 +734,7 @@ contract Dispenser {
                 // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
                 (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
                     uint256[] memory zeroWeightEpochs) =
-                    calculateStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
+                    _prepareStakingIncentives(numClaimedEpochs, chainIds[i], stakingTargets[i][j], bridgingDecimals);
 
                 // Write last claimed epoch counter to start claiming from the next time
                 mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;
@@ -977,6 +1000,8 @@ contract Dispenser {
     /// @notice View only: the caller must checkpoint the nominee in Vote Weighting BEFORE calling this, and
     ///         mark every returned zero-weight epoch as refunded (see `zeroWeightEpochs`). Because the
     ///         function mutates nothing, a standalone call can never strand a zero-weight epoch's inflation.
+    /// @notice Returns the weight-based allocation before local registration is checked at settlement. A local
+    ///         claim may return the payable allocation to inflation instead of depositing it.
     /// @return totalStakingIncentive Total staking incentive across all the claimed epochs.
     /// @return totalReturnAmount Total return amount across all the claimed epochs (includes zero-weight epochs).
     /// @return lastClaimedEpoch Last claimed epoch number (not included in claiming).
@@ -1118,6 +1143,61 @@ contract Dispenser {
         }
     }
 
+    /// @dev Prepares allocation settlement without changing the public weight-based calculation.
+    /// @notice Local targets without a factory registration return their allocation to inflation. A registered
+    ///         but disabled target retains the processor's existing retry behavior. Remote routes are unchanged.
+    /// @param numClaimedEpochs Maximum number of epochs to process in this claim.
+    /// @param chainId Target chain Id.
+    /// @param stakingTarget Target identifier.
+    /// @param bridgingDecimals Token precision supported by the route.
+    /// @return stakingIncentive Payable amount after local registration handling.
+    /// @return returnAmount Total allocation to return to inflation before withheld-credit reuse.
+    /// @return lastClaimedEpoch Exclusive end of the processed epoch range.
+    /// @return nomineeHash Target and chain identifier.
+    /// @return zeroWeightEpochs Sparse zero-weight epochs for the caller to mark refunded.
+    function _prepareStakingIncentives(
+        uint256 numClaimedEpochs,
+        uint256 chainId,
+        bytes32 stakingTarget,
+        uint256 bridgingDecimals
+    ) internal returns (
+        uint256 stakingIncentive,
+        uint256 returnAmount,
+        uint256 lastClaimedEpoch,
+        bytes32 nomineeHash,
+        uint256[] memory zeroWeightEpochs
+    ) {
+        (stakingIncentive, returnAmount, lastClaimedEpoch, nomineeHash, zeroWeightEpochs) =
+            calculateStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgingDecimals);
+
+        if (chainId == block.chainid && stakingIncentive > 0) {
+            address processor = mapChainIdDepositProcessors[chainId];
+            address factory = ILocalDepositProcessor(processor).stakingFactory();
+            // A failed read must revert settlement; it must never be interpreted as an empty record.
+            (bool success, bytes memory data) = factory.staticcall(abi.encodeCall(
+                IStakingFactoryRegistration.mapInstanceParams, address(uint160(uint256(stakingTarget)))));
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(data, 32), mload(data))
+                }
+            }
+            if (data.length != 96) {
+                revert IncorrectDataLength(96, data.length);
+            }
+            (, address deployer, ) = abi.decode(data, (address, address, bool));
+            // A zero deployer means this factory has no registration for the target:
+            // it was never registered, or removeInstance() cleared its registration.
+            // Disabling an instance preserves its deployer, so its claim stays on the processor retry path.
+            if (deployer == address(0)) {
+                emit LocalAllocationReturned(nomineeHash, mapLastClaimedStakingEpochs[nomineeHash],
+                    lastClaimedEpoch, stakingIncentive);
+                // Preserve payout + return by moving the payable amount before any mint or withheld-credit use.
+                returnAmount += stakingIncentive;
+                stakingIncentive = 0;
+            }
+        }
+    }
+
     /// @dev Claims staking incentives for a specific staking target.
     /// @param numClaimedEpochs Specified number of claimed epochs.
     /// @param chainId Chain Id.
@@ -1174,7 +1254,7 @@ contract Dispenser {
         // Get the staking incentive to send as a deposit with, and the amount to return back to staking inflation
         (uint256 stakingIncentive, uint256 returnAmount, uint256 lastClaimedEpoch, bytes32 nomineeHash,
             uint256[] memory zeroWeightEpochs) =
-            calculateStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgingDecimals);
+            _prepareStakingIncentives(numClaimedEpochs, chainId, stakingTarget, bridgingDecimals);
 
         // Write last claimed epoch counter to start claiming from the next time
         mapLastClaimedStakingEpochs[nomineeHash] = lastClaimedEpoch;

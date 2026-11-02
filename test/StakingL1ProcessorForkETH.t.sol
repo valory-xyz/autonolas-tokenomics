@@ -99,6 +99,10 @@ contract ForkVoteWeightingL1 {
 contract MockStakingFactoryL1 {
     uint256 public emissionsLimit;
 
+    function mapInstanceParams(address instance) external view returns (address, address, bool) {
+        return (instance, address(this), true);
+    }
+
     function setEmissionsLimit(uint256 limit) external {
         emissionsLimit = limit;
     }

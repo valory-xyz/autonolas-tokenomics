@@ -21,6 +21,11 @@ contract MockStakingFactory {
         mapInstanceImplementations[instance] = implementation;
     }
 
+    function mapInstanceParams(address instance) external view returns (address, address, bool) {
+        address implementation = mapInstanceImplementations[instance];
+        return (implementation, implementation == address(0) ? address(0) : address(this), implementation != address(0));
+    }
+
     function verifyInstance(address instance) public view returns (bool) {
         address implementation = mapInstanceImplementations[instance];
         if (implementation == address(0)) {

@@ -1,3 +1,5 @@
+> For current Dispenser migrations, follow the [Dispenser migration runbook](dispenser_migration_runbook_public.md), including Phase 4 step 19 for processor registration. The [proposal 10 generator](../scripts/proposals/proposal_10_dispenser_set_deposit_processor_chain_ids.js) is **retired**, retained only as historical material, and is not a supported migration workflow. The version 1.2 steps below are preserved for reference.
+
 Steps for deploying the tokenomics version 1.2 contracts are as follows:
 
 1. EOA to deploy Tokenomics implementation (`TokenomicsThree`);

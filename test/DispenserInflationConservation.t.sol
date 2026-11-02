@@ -87,9 +87,31 @@ contract ConservationStakingTarget {
     }
 }
 
+/// @dev Eight-decimal fixtures exercise the inherited precision boundary; production Gnosis uses 18.
+contract ConservationPrecisionProcessor is GnosisDepositProcessorL1 {
+    constructor(address token, address l1, address bridge, uint256 chain)
+        GnosisDepositProcessorL1(token, l1, bridge, bridge, chain)
+    {}
+
+    function getBridgingDecimals() external pure override returns (uint256) {
+        return 8;
+    }
+}
+
+contract ConservationPrecisionReceiver is GnosisTargetDispenserL2 {
+    constructor(address token, address factory, address bridge, address processor, uint256 source)
+        GnosisTargetDispenserL2(token, factory, bridge, processor, source)
+    {}
+
+    function getBridgingDecimals() public pure override returns (uint256) {
+        return 8;
+    }
+}
+
 /// @notice Conservation of freshly scheduled staking inflation across real Gnosis accounting paths.
 /// @dev Deliberately uses a permissive ERC20: a global token cap must not mask an accounting regression.
-/// No burns, other minters, maintenance credit injection, existing entitlements, or storage overrides.
+/// No burns, other minters, pre-existing entitlements, or storage overrides. Migration restoration uses
+/// only balances transferred from the retired receiver; no synthetic L1 credit is injected.
 /// One full-weight nominee makes outstanding entitlement observable without weight-rounding ambiguity.
 contract DispenserInflationConservationTest is Test {
     uint256 internal constant CHAIN_ID = 100;
@@ -479,6 +501,246 @@ contract DispenserInflationConservationTest is Test {
             }
         }
         _drain();
+    }
+
+    /// @dev Swap all three accounting endpoints; the new L1 remains paused until reconciliation.
+    function _replaceStakingPair(bool reducedPrecision) internal {
+        dispenser.setPauseState(Dispenser.Pause.StakingIncentivesPaused);
+        address voting = dispenser.voteWeighting();
+        Dispenser implementation = new Dispenser(address(olas), address(tokenomics), bytes32(uint256(1)));
+        Dispenser replacement = Dispenser(
+            address(
+                new DispenserProxy(
+                    address(implementation),
+                    abi.encodeCall(implementation.initialize, (address(treasury), voting, 100, 100))
+                )
+            )
+        );
+        GnosisDepositProcessorL1 nextProcessor;
+        GnosisTargetDispenserL2 nextReceiver;
+        if (reducedPrecision) {
+            nextProcessor =
+                new ConservationPrecisionProcessor(address(olas), address(replacement), address(bridge), CHAIN_ID);
+            nextReceiver = new ConservationPrecisionReceiver(
+                address(olas), address(factory), address(bridge), address(nextProcessor), block.chainid
+            );
+        } else {
+            nextProcessor = new GnosisDepositProcessorL1(
+                address(olas), address(replacement), address(bridge), address(bridge), CHAIN_ID
+            );
+            nextReceiver = new GnosisTargetDispenserL2(
+                address(olas), address(factory), address(bridge), address(nextProcessor), block.chainid
+            );
+        }
+        nextProcessor.setL2TargetDispenser(address(nextReceiver));
+        address[] memory routes = new address[](1);
+        routes[0] = address(nextProcessor);
+        uint256[] memory chains = new uint256[](1);
+        chains[0] = CHAIN_ID;
+        replacement.setDepositProcessorChainIds(routes, chains);
+        if (receiver.paused() == 1) receiver.pause();
+        uint256 carried = olas.balanceOf(address(receiver));
+        receiver.migrate(address(nextReceiver));
+        assertEq(olas.balanceOf(address(receiver)), 0);
+        assertEq(olas.balanceOf(address(nextReceiver)), carried);
+        assertEq(receiver.owner(), address(0));
+        assertEq(nextReceiver.withheldAmount(), 0);
+        dispenser = replacement;
+        processor = nextProcessor;
+        receiver = nextReceiver;
+        treasury.changeManagers(address(0), address(0), address(dispenser));
+        tokenomics.changeManagers(address(0), address(0), address(dispenser));
+        assertEq(uint256(dispenser.paused()), uint256(Dispenser.Pause.StakingIncentivesPaused));
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+    }
+
+    function _assertRestartPaused() internal {
+        vm.expectPartialRevert(bytes4(keccak256("Paused()")));
+        dispenser.claimStakingIncentives(100, CHAIN_ID, targetId, "");
+        // Nomination, like claims, is pause-gated: it belongs after the accounting restart gate.
+        ConservationVoteWeighting voting = ConservationVoteWeighting(dispenser.voteWeighting());
+        vm.expectPartialRevert(bytes4(keccak256("Paused()")));
+        voting.nominate(dispenser, nomineeHash);
+    }
+
+    function _resumeAndNominate() internal {
+        dispenser.setPauseState(Dispenser.Pause.Unpaused);
+        ConservationVoteWeighting(dispenser.voteWeighting()).nominate(dispenser, nomineeHash);
+        _assertConservation();
+    }
+
+    function _requestData(uint256 amount, bytes32 batchHash) internal view returns (bytes memory) {
+        address[] memory targets = new address[](1);
+        targets[0] = address(target);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount;
+        return abi.encode(targets, amounts, batchHash);
+    }
+
+    function _lateOldSyncMigration(bool oldCallbackFirst, bool reducedPrecision) internal {
+        uint256 b1 = _settle(EPOCH);
+        uint256 reserve = b1 / 2 + 1;
+        // Keep a nonzero remainder in the explicit eight-decimal boundary fixture.
+        if (reducedPrecision && reserve % 1e10 == 0) ++reserve;
+        factory.setLimit(b1 - reserve);
+        (uint256 distribution,) = _claim(false);
+        _deliver(distribution);
+        assertEq(olas.balanceOf(address(receiver)), reserve);
+        uint256 oldSync = bridge.count();
+        receiver.requestWithheldAmountSync("");
+        receiver.relayWithheldAmountSync();
+        assertEq(receiver.withheldAmount(), 0);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+        Dispenser retired = dispenser;
+        _replaceStakingPair(reducedPrecision);
+        _assertRestartPaused();
+        if (oldCallbackFirst) bridge.deliver(oldSync);
+        assertEq(retired.mapChainIdWithheldAmounts(CHAIN_ID), oldCallbackFirst ? reserve : 0);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0, "retired callback is not active credit");
+
+        receiver.updateWithheldAmountMaintenance(olas.balanceOf(address(receiver)));
+        assertEq(receiver.withheldAmount(), reserve);
+        uint256 quantum = reducedPrecision ? 1e10 : 1;
+        uint256 normalized = reserve / quantum * quantum;
+        uint256 remainder = reserve - normalized;
+        uint256 nextNonce = receiver.stakingBatchNonce();
+        bytes32 syncHash = keccak256(abi.encode(nextNonce, block.chainid, address(receiver)));
+        uint256 newSync = bridge.count();
+        receiver.requestWithheldAmountSync("");
+        receiver.relayWithheldAmountSync();
+        assertEq(receiver.withheldAmount(), remainder);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0, "source send is not receipt");
+        _assertRestartPaused();
+        bridge.deliver(newSync);
+        assertTrue(processor.processedHashes(syncHash));
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), normalized);
+        if (!oldCallbackFirst) bridge.deliver(oldSync);
+        assertEq(retired.mapChainIdWithheldAmounts(CHAIN_ID), reserve);
+        assertEq(
+            dispenser.mapChainIdWithheldAmounts(CHAIN_ID), normalized, "late old receipt cannot duplicate active credit"
+        );
+        vm.expectPartialRevert(bytes4(keccak256("AlreadyDelivered(bytes32)")));
+        bridge.deliver(newSync);
+        vm.expectPartialRevert(bytes4(keccak256("AlreadyDelivered(bytes32)")));
+        bridge.deliver(oldSync);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), normalized);
+        assertEq(olas.balanceOf(address(receiver)), normalized + remainder, "each reserve component backed once");
+        _assertRestartPaused();
+        _resumeAndNominate();
+        _settle(EPOCH);
+        (uint256 payableAmount, uint256 ordinaryReturn,,,) =
+            dispenser.calculateStakingIncentives(100, CHAIN_ID, targetId, 18);
+        // The receiver/processor precision fixture exercises the shared normalization rule, not a Gnosis setting.
+        if (reducedPrecision) {
+            (payableAmount, ordinaryReturn,,,) = dispenser.calculateStakingIncentives(100, CHAIN_ID, targetId, 8);
+        }
+        assertGt(payableAmount, normalized);
+        factory.setLimit(type(uint96).max);
+        uint256 potBefore = _pot(tokenomics.epochCounter());
+        uint256 freshMint;
+        (distribution, freshMint) = _claim(oldCallbackFirst);
+        assertEq(freshMint, payableAmount - normalized);
+        assertEq(_pot(tokenomics.epochCounter()) - potBefore, ordinaryReturn + normalized);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+        _deliver(distribution);
+        assertEq(olas.balanceOf(address(receiver)), remainder);
+        assertEq(receiver.withheldAmount(), remainder);
+        if (reducedPrecision) {
+            assertGt(remainder, 0);
+            receiver.requestWithheldAmountSync("");
+            vm.expectPartialRevert(bytes4(keccak256("ZeroValue()")));
+            receiver.relayWithheldAmountSync();
+            assertEq(receiver.withheldAmount(), remainder, "sub-quantum remainder stays on L2");
+        }
+    }
+
+    function test_migration_oldCallbackBeforeReplacementSync() public {
+        _lateOldSyncMigration(true, false);
+    }
+
+    function test_migration_oldCallbackAfterReplacementSync() public {
+        _lateOldSyncMigration(false, false);
+    }
+
+    function test_migration_normalizedSyncRetainsRemainder() public {
+        _lateOldSyncMigration(true, true);
+    }
+
+    function test_migration_replayUnpaidBeforeSyncThenConsumeCredit() public {
+        uint256 b1 = _settle(EPOCH);
+        uint256 reserve = b1 / 2;
+        factory.setLimit(b1 - reserve);
+        (uint256 firstDistribution,) = _claim(false);
+        _deliver(firstDistribution);
+        uint256 oldSync = bridge.count();
+        receiver.requestWithheldAmountSync("");
+        receiver.relayWithheldAmountSync();
+        uint256 b2 = _settle(EPOCH);
+        factory.setLimit(type(uint96).max);
+        receiver.pause();
+        bytes32 batchHash = keccak256(abi.encode(processor.stakingBatchNonce(), block.chainid, address(processor)));
+        (uint256 queuedDistribution,) = _claim(true);
+        _deliver(queuedDistribution);
+        bytes32 oldQueue = keccak256(abi.encode(address(target), b2, batchHash, block.chainid, address(receiver)));
+        assertTrue(receiver.queuedHashes(oldQueue));
+        assertTrue(receiver.processedHashes(batchHash));
+        GnosisTargetDispenserL2 retiredReceiver = receiver;
+        Dispenser retired = dispenser;
+        uint256 paidBefore = olas.balanceOf(address(target));
+        _replaceStakingPair(false);
+        _assertRestartPaused();
+        receiver.updateWithheldAmountMaintenance(olas.balanceOf(address(receiver)));
+        assertEq(receiver.withheldAmount(), reserve + b2);
+        bytes memory data = _requestData(b2, batchHash);
+        receiver.processDataMaintenance(data, true);
+        assertEq(olas.balanceOf(address(target)) - paidBefore, b2);
+        assertEq(olas.balanceOf(address(receiver)), reserve);
+        assertEq(receiver.withheldAmount(), reserve);
+        assertTrue(receiver.processedHashes(batchHash));
+        assertTrue(
+            retiredReceiver.queuedHashes(oldQueue), "retired flags stay historical; ledger records replacement payment"
+        );
+        vm.expectPartialRevert(bytes4(keccak256("AlreadyDelivered(bytes32)")));
+        receiver.processDataMaintenance(data, true);
+        assertEq(receiver.withheldAmount(), reserve);
+        uint256 newSync = bridge.count();
+        receiver.requestWithheldAmountSync("");
+        receiver.relayWithheldAmountSync();
+        bridge.deliver(newSync);
+        bridge.deliver(oldSync);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), reserve);
+        assertEq(retired.mapChainIdWithheldAmounts(CHAIN_ID), reserve);
+        _resumeAndNominate();
+        uint256 b3 = _settle(EPOCH);
+        (uint256 distribution, uint256 freshMint) = _claim(false);
+        assertEq(freshMint, b3 - reserve);
+        _deliver(distribution);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+        assertEq(receiver.withheldAmount(), 0);
+        assertEq(olas.balanceOf(address(receiver)), 0);
+        assertEq(olas.balanceOf(address(target)), minted);
+    }
+
+    function test_migration_zeroReserveNeedsNoSync() public {
+        _settle(EPOCH);
+        (uint256 distribution,) = _claim(false);
+        _deliver(distribution);
+        assertEq(olas.balanceOf(address(receiver)), 0);
+        _replaceStakingPair(false);
+        _assertRestartPaused();
+        receiver.updateWithheldAmountMaintenance(olas.balanceOf(address(receiver)));
+        assertEq(receiver.withheldAmount(), 0);
+        assertEq(dispenser.mapChainIdWithheldAmounts(CHAIN_ID), 0);
+        uint256 messagesBefore = bridge.count();
+        // The zero-reserve path sends no sync and leaves no armed request.
+        assertFalse(receiver.syncPending());
+        _resumeAndNominate();
+        assertEq(bridge.count(), messagesBefore);
+        uint256 freshBudget = _settle(EPOCH);
+        uint256 freshMint;
+        (distribution, freshMint) = _claim(true);
+        assertEq(freshMint, freshBudget);
+        _deliver(distribution);
     }
 
     /// @dev End every sequence by spending refunds until all issued tokens reach the recipient.
