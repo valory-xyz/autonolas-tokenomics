@@ -1,3 +1,11 @@
+/*
+ * RETIRED: historical proposal 10 generator, retained for reference only.
+ * This is not a supported Dispenser migration workflow. Do not use its output for current migrations.
+ * Follow docs/dispenser_migration_runbook_public.md, Phase 4 step 19, and the current registration workflow
+ * in scripts/deployment/staking/deploy_10_set_deposit_processors.sh, including its ownership instructions.
+ * The original generator below is preserved unchanged.
+ */
+
 /*global process*/
 
 const { ethers } = require("hardhat");
