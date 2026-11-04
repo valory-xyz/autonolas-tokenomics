@@ -590,13 +590,13 @@ describe("StakingBridging", async () => {
             ).to.be.revertedWithCustomError(arbitrumTargetDispenserL2, "OwnerOnly");
         });
 
-        it("Migrate functionality on L2 with the withheld amount recovery", async function () {
+        it("Restore the migrated L2 balance before full-replacement reserve sync", async function () {
             // Pause the deposit processor
             await arbitrumTargetDispenserL2.pause();
 
             // Deposit OLAS to the contract. Deliberately make the physical balance EXCEED the accounting
             // withheld amount (as a residual would), so migration carries a balance != withheld. This is what
-            // lets the test prove the restore uses the emitted withheld value rather than the migrated balance.
+            // lets the test distinguish the event accounting field from the balance restored before a full-replacement sync.
             const balanceToMigrate = defaultAmount + 50;
             const withheldToRestore = defaultAmount;
             await olas.mint(arbitrumTargetDispenserL2.address, balanceToMigrate);
@@ -614,11 +614,11 @@ describe("StakingBridging", async () => {
             // Initial withheld amount is zero
             expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(0);
 
-            // The current withheld amount to be carried across the migration (vuln-list #10)
+            // Preserve the old accounting value in the migration event.
             const withheldToCarry = await arbitrumTargetDispenserL2.withheldAmount();
             expect(withheldToCarry).to.equal(withheldToRestore);
 
-            // Migrate: the Migrated event surfaces BOTH the full OLAS balance and the withheld amount to restore.
+            // Migrate: the event surfaces BOTH the transferred balance and the historical withheld amount.
             // These differ here, so the withheld arg genuinely reflects storage, not the transferred balance.
             await expect(arbitrumTargetDispenserL2.migrate(newArbitrumTargetDispenserL2.address))
                 .to.emit(arbitrumTargetDispenserL2, "Migrated")
@@ -627,13 +627,13 @@ describe("StakingBridging", async () => {
             // The full balance migrated across
             expect(await olas.balanceOf(newArbitrumTargetDispenserL2.address)).to.equal(balanceToMigrate);
 
-            // The DAO restores from the EMITTED withheld amount (not the migrated balance)
-            await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(withheldToCarry);
+            // In the full-replacement procedure, restore the actual balance before replay and sync.
+            const executionBalance = await olas.balanceOf(newArbitrumTargetDispenserL2.address);
+            await newArbitrumTargetDispenserL2.updateWithheldAmountMaintenance(executionBalance);
 
-            // The restored value is the emitted withheld amount, strictly less than the migrated balance —
-            // which is exactly what proves the balance was not used as the restore source
-            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.equal(withheldToCarry);
-            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.not.equal(balanceToMigrate);
+            // The restored reserve uses the transferred balance, not the old emitted counter.
+            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.equal(balanceToMigrate);
+            expect(await newArbitrumTargetDispenserL2.withheldAmount()).to.not.equal(withheldToCarry);
         });
     });
 

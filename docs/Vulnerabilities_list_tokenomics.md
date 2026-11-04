@@ -46,6 +46,8 @@
   - [40. L1 claim state advances before an Arbitrum retryable is known to be redeemable](#40-l1-claim-state-advances-before-an-arbitrum-retryable-is-known-to-be-redeemable)
   - [41. Staked services are not owner-qualified for donation top-ups](#41-staked-services-are-not-owner-qualified-for-donation-top-ups)
   - [42. Retainer skip is chain-bound while the claim guards are not](#42-retainer-skip-is-chain-bound-while-the-claim-guards-are-not)
+  - [43. Staking allocations to non-instance or disabled targets](#43-staking-allocations-to-non-instance-or-disabled-targets)
+
 ## Involved contracts and level of the bugs
 
 The present document describes issues affecting Tokenomics contracts.
@@ -1107,3 +1109,19 @@ funds are transferred and nothing leaves the protocol; the effect is stranded in
 legitimate nominees, and the voter who directs weight there spends their own voting power to do it. The
 cheapest correction is to reject the retainer account in nominee registration on any chain, mirroring the
 account-only comparison the claim paths already use.
+
+### 43. Staking allocations to non-instance or disabled targets
+
+**Severity**: Informative
+**Source**: internal review
+
+On Ethereum, a positive staking payout to a nominee that is not a registered, enabled staking instance
+is rejected by `EthereumDepositProcessor`. The claim reverts, including its claim-cursor update and
+inflation refunds, so the affected allocation can remain unminted and unrecycled. Healthy nominees
+remain claimable when the ineligible target is omitted from the claim batch.
+
+The permissionless-nomination behavior, voting dilution, recovery limits and accepted residual are
+documented in governance list [item 31](https://github.com/valory-xyz/autonolas-governance/blob/main/docs/Vulnerabilities_list_governance.md#31-staking-votes-to-non-instance-or-disabled-targets).
+Governance removal can stop future allocations but does not automatically recover historical ones.
+No settlement contract change is selected for this behavior; existing L2 withholding and previously
+validated queue behavior remain unchanged.
