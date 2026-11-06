@@ -94,6 +94,8 @@ Replacement contracts may be deployed before settling and pausing the old stack.
 
 6. **Reconcile and restart.** Follow Phase 5. Sync available reserves and confirm receipt on the active L1 Dispenser. On Gnosis, the owner requests the sync after restoration and unpaid replay; anyone then relays it in a separate transaction with the AMB idle, without another governance vote. Other supported L2s use the standard owner sync. After reconciliation and simulation pass, unpause, nominate targets/retainer, re-vote and verify distributions when voting and epoch timing permit.
 
+**Legacy Celo:** include the separate governance action to pause the legacy dispenser and migrate its legacy-token balance into DAO-controlled Celo custody. Refresh obligations and verify the recovery payload before execution. Keep this asset separate from current-token maintenance and sync amounts; any subsequent conversion or redemption requires a separate decision.
+
 **Staking-instance migration.** For each staking programme currently used in Pearl, identify the existing instance and its intended v0.4.0 replacement. Create and verify the replacement, arrange nomination, voting and first funding, and coordinate the movement of Pearl services. Agree how long the existing instance must remain funded. Where an approved existing instance needs temporary funding through the new Dispenser, verify that path before relying on it. Retire the old instance only after services have moved and remaining reward and withdrawal obligations have been handled.
 
 ### Phase 0 — Pre-flight (verify, don't change)
