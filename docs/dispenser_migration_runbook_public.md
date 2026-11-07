@@ -78,6 +78,26 @@ The map is mutated by netting, by `syncWithheldAmount` from an L1 processor, and
 
 Governance note: L1 `changeManagers` / `setDepositProcessorChainIds` / `setPauseState` are `owner`-gated (DAO Timelock). L2 `pause` / `migrate` / `updateWithheldAmountMaintenance` are `owner`-gated on the L2 dispenser (governance reaches it via the chain's bridge mediator — see the OP-stack proposal pattern in `scripts/proposals/`). Confirm the owner per chain before drafting each proposal.
 
+### Execution order and checkpoints
+
+Replacement contracts may be deployed before settling and pausing the old stack. Keep the old stack operating during deployment. The remaining migration actions follow the dependencies below; some require separate governance executions and destination-chain confirmations. The detailed phases and step numbers below remain the transaction reference.
+
+1. **Prepare deployment.** Confirm reviewed builds, deployment parameters, retainer and intended owners. Use a pinned commit's globals/configuration as the old-address reference, verified against live contracts.
+
+2. **Deploy and verify replacements.** Follow the [deployment/checkpoint guide](../scripts/deployment/staking/README.md), including VoteWeighting address handoffs, audits before/after processor linking, configuration and ownership transfers. The new **L1 Dispenser starts staking-paused**; new L2 dispensers start unpaused. Resolve unexpected audit differences before proceeding.
+
+3. **Prepare migration governance.** Collect fresh balances, claim cursors, unpaid requests and outstanding messages under Phase 0 and §7. Prepare the actual payloads and rehearse the remaining migration and distributions on pinned forks using the deployed replacements. Record evidence privately. Refresh relevant state before execution and revise stale payloads through governance.
+
+4. **Settle, then pause the old stack.** Follow Phase 1. Before pausing old staking claims, confirm that every staking programme currently used in Pearl has enough available rewards to cover the planned funding interruption, including re-voting, vote activation, epoch settlement and bridge delivery. Arrange any required top-ups before the pause. Settle outstanding claims and retainer amounts, then pause old staking claims within the same epoch.
+
+5. **Migrate and connect.** Follow Phases 3–4. Confirm historical deliveries before each irreversible L2 migration. After ownership handover, governance migrates the tokens, restores accounting from the execution-time balance and calls `processDataMaintenance(..., true)` for verified unpaid requests. Complete or verify the required connections and manager changes. Keep new L1 claims paused.
+
+6. **Reconcile and restart.** Follow Phase 5. Sync available reserves and confirm receipt on the active L1 Dispenser. On Gnosis, the owner requests the sync after restoration and unpaid replay; anyone then relays it in a separate transaction with the AMB idle, without another governance vote. Other supported L2s use the standard owner sync. After reconciliation and simulation pass, unpause, nominate targets/retainer, re-vote and verify distributions when voting and epoch timing permit.
+
+**Legacy Celo:** include the separate governance action to pause the legacy dispenser and migrate its legacy-token balance into DAO-controlled Celo custody. Refresh obligations and verify the recovery payload before execution. Keep this asset separate from current-token maintenance and sync amounts; any subsequent conversion or redemption requires a separate decision.
+
+**Staking-instance migration.** For each staking programme currently used in Pearl, identify the existing instance and its intended v0.4.0 replacement. Create and verify the replacement, arrange nomination, voting and first funding, and coordinate the movement of Pearl services. Agree how long the existing instance must remain funded. Where an approved existing instance needs temporary funding through the new Dispenser, verify that path before relying on it. Retire the old instance only after services have moved and remaining reward and withdrawal obligations have been handled.
+
 ### Phase 0 — Pre-flight (verify, don't change)
 
 1. Read `mapChainIdWithheldAmounts(chainId)` on the **live** Dispenser for every chain, and on each **L2** target dispenser read **both** its `withheldAmount` and its **OLAS balance**; record them all. §4 covers both outcomes; start a private ledger as specified in §7 and include earlier outstanding obligations and messages. A non-zero L1 value must be reconciled, not copied as additional credit. The L2 counter and balance can diverge after a sync, and it is the **balance** that travels with the migration and that step 14 restores, so do not skip the balance read.

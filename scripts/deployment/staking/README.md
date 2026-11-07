@@ -2,12 +2,29 @@
 
 ## Read-only checkpoints
 
-Run commands from the repository root with dependencies/submodules installed and the reviewed Forge build
-in `out/`. Build the scoped contracts with the same compiler, dependency pins and settings used for deployment:
+Run commands from the repository root with dependencies/submodules installed. Pin Solidity 0.8.30 in the
+same shell used for building, auditing and running deployment scripts:
+
+```bash
+export FOUNDRY_SOLC_VERSION=0.8.30
+forge config --json | jq '{solc, optimizer_runs, evm_version, via_ir}'
+```
+
+Confirm the effective settings are:
+
+- `solc`: `"0.8.30"`
+- `optimizer_runs`: `200`
+- `evm_version`: `"prague"`
+- `via_ir`: `true`
+
+Then build the scoped contracts with the reviewed dependency pins and settings:
 
 ```bash
 forge build --use 0.8.30 --skip UniswapFactory.sol --skip UniswapRouter.sol
 ```
+
+Keep the exported compiler setting for the subsequent deployment commands. It is inherited by the
+`forge create` calls inside the deployment scripts. Repeat the export if starting a new shell.
 
 Root `scripts/deployment/globals_<network>.json` records `dispenserAddress` as the implementation and
 `dispenserProxyAddress` as the callable Dispenser. L1 processors bind the latter. Do not copy the implementation
