@@ -1367,9 +1367,114 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         inventoryToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
     }
 
-    /// @dev Reverts unless a pool's estimated band-inventory value is at least minDepthFactor × the operation
-    ///      notional, both valued in token1 at the reference price. The inventory is an estimate (see
-    ///      estimatedBandInventoryToken1), so activation depends on validation under the stated assumptions.
+    /// @dev CURRENT executable depth across ±DEPTH_BAND_TICKS around the reference price, valued in token1, by
+    ///      walking the pool's initialized ticks from the current price to each band edge using the real
+    ///      per-range liquidity. Unlike estimatedBandInventoryToken1 (uniform-band assumption) this reflects the
+    ///      actual liquidity distribution, so it is low for narrow-range or depleted pools. It is a current, not
+    ///      time-weighted, measure — the window metric supplies the JIT/persistence resistance, and the two
+    ///      together bound both failure modes.
+    /// @param pool Pool address.
+    /// @param sqrtRefX96 Reference (TWAP-derived) sqrt price for the band centre.
+    /// @return depthToken1 Current executable depth across the band, valued in token1.
+    function currentExecutableDepthToken1(address pool, uint160 sqrtRefX96)
+        public
+        view
+        returns (uint256 depthToken1)
+    {
+        (uint160 sqrtNowX96, int24 currentTick,,,,,) = IUniswapV3(pool).slot0();
+        int24 spacing = IUniswapV3(pool).tickSpacing();
+        uint128 activeLiquidity = IUniswapV3(pool).liquidity();
+
+        uint160 sqrtLower = uint160(mulDiv(uint256(sqrtRefX96), TickMath.getSqrtRatioAtTick(-DEPTH_BAND_TICKS), Q96));
+        uint160 sqrtUpper = uint160(mulDiv(uint256(sqrtRefX96), TickMath.getSqrtRatioAtTick(DEPTH_BAND_TICKS), Q96));
+
+        uint256 amount0 = _walkBandUp(pool, spacing, sqrtNowX96, sqrtUpper, currentTick, activeLiquidity);
+        uint256 amount1 = _walkBandDown(pool, spacing, sqrtNowX96, sqrtLower, currentTick, activeLiquidity);
+
+        // Value token0 in token1 at the reference price.
+        depthToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtRefX96), Q96), uint256(sqrtRefX96), Q96);
+    }
+
+    /// @dev token0 obtainable moving the price up from sqrtStart to sqrtEnd (>= sqrtStart), crossing aligned
+    ///      ticks strictly above currentTick and applying their liquidityNet. Bounded loop.
+    function _walkBandUp(
+        address pool,
+        int24 spacing,
+        uint160 sqrtStart,
+        uint160 sqrtEnd,
+        int24 currentTick,
+        uint128 liq
+    ) internal view returns (uint256 amount0) {
+        if (sqrtEnd <= sqrtStart) {
+            return 0;
+        }
+        uint160 sqrtCursor = sqrtStart;
+        int24 tk = _floorAlign(currentTick, spacing) + spacing; // first aligned tick strictly above currentTick
+        for (uint256 i = 0; i < 1024; ++i) {
+            uint160 sqrtTk = TickMath.getSqrtRatioAtTick(tk);
+            uint160 sqrtTo = sqrtTk < sqrtEnd ? sqrtTk : sqrtEnd;
+            amount0 += LiquidityAmounts.getAmount0ForLiquidity(sqrtCursor, sqrtTo, liq);
+            if (sqrtTk >= sqrtEnd) {
+                break;
+            }
+            (, int128 net) = IUniswapV3(pool).ticks(tk);
+            liq = _applyNet(liq, net, true);
+            sqrtCursor = sqrtTk;
+            tk += spacing;
+        }
+    }
+
+    /// @dev token1 obtainable moving the price down from sqrtStart to sqrtEnd (<= sqrtStart), crossing aligned
+    ///      ticks at/below currentTick and applying their liquidityNet. Bounded loop.
+    function _walkBandDown(
+        address pool,
+        int24 spacing,
+        uint160 sqrtStart,
+        uint160 sqrtEnd,
+        int24 currentTick,
+        uint128 liq
+    ) internal view returns (uint256 amount1) {
+        if (sqrtEnd >= sqrtStart) {
+            return 0;
+        }
+        uint160 sqrtCursor = sqrtStart;
+        int24 tk = _floorAlign(currentTick, spacing); // first aligned tick at/below currentTick (crossed going down)
+        for (uint256 i = 0; i < 1024; ++i) {
+            uint160 sqrtTk = TickMath.getSqrtRatioAtTick(tk);
+            uint160 sqrtTo = sqrtTk > sqrtEnd ? sqrtTk : sqrtEnd;
+            amount1 += LiquidityAmounts.getAmount1ForLiquidity(sqrtTo, sqrtCursor, liq);
+            if (sqrtTk <= sqrtEnd) {
+                break;
+            }
+            (, int128 net) = IUniswapV3(pool).ticks(tk);
+            liq = _applyNet(liq, net, false);
+            sqrtCursor = sqrtTk;
+            tk -= spacing;
+        }
+    }
+
+    /// @dev Largest multiple of spacing not greater than tick (floor toward negative infinity).
+    function _floorAlign(int24 tick, int24 spacing) internal pure returns (int24) {
+        int24 d = tick / spacing;
+        if (tick < 0 && (tick % spacing != 0)) {
+            d -= 1;
+        }
+        return d * spacing;
+    }
+
+    /// @dev Applies a crossed tick's liquidityNet to the running liquidity: add when crossing up, subtract down.
+    function _applyNet(uint128 liq, int128 net, bool up) internal pure returns (uint128) {
+        int256 delta = up ? int256(net) : -int256(net);
+        int256 r = int256(uint256(liq)) + delta;
+        if (r < 0) {
+            return 0;
+        }
+        return uint128(uint256(r));
+    }
+
+    /// @dev Reverts unless a pool meets minDepthFactor × the operation notional (token1 terms) on BOTH a
+    ///      time-weighted band-inventory estimate (JIT/persistence resistance) AND a current tick-aware
+    ///      executable depth (rejects narrow-range / depleted pools the aggregate misses).
     /// @notice Inactive (no-op) when minDepthFactor is zero — see changeMinDepthFactor and the runbook.
     /// @param pool Pool address.
     /// @param amount0 Operation token0 amount.
@@ -1387,9 +1492,16 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
         uint256 requiredInventory = mulDiv(notionalToken1, factor, 1e18);
 
+        // (1) Time-weighted band-inventory estimate — resists just-in-time / transient liquidity.
         uint256 availableInventory = estimatedBandInventoryToken1(pool, sqrtPriceX96);
         if (availableInventory < requiredInventory) {
             revert InsufficientPoolDepth(pool, availableInventory, requiredInventory);
+        }
+
+        // (2) Current tick-aware executable depth — catches narrow-range and execution-time depletion.
+        uint256 executableDepth = currentExecutableDepthToken1(pool, sqrtPriceX96);
+        if (executableDepth < requiredInventory) {
+            revert InsufficientPoolDepth(pool, executableDepth, requiredInventory);
         }
     }
 

@@ -4,15 +4,23 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {LiquidityManagerUniV2UniV3} from "../contracts/pol/LiquidityManagerUniV2UniV3.sol";
 
-/// @dev Minimal V3 pool mock: only observe() is exercised by the depth views. The two
-///      secondsPerLiquidityCumulativeX128 values are set directly so the window harmonic mean is controlled.
+/// @dev Minimal V3 pool mock. observe() drives the window harmonic mean; slot0/liquidity/tickSpacing/ticks
+///      drive the current tick-aware executable-depth walk. The pool is modelled at price 1 (tick 0) with a
+///      single uniform position wide enough to span the ±198-tick band (no tick boundaries inside it, so
+///      liquidity stays constant across the band), and `currentLiquidity` set equal to the window mean — so the
+///      two depth measures agree and the boundary tests exercise the combined check cleanly.
 contract MockV3Pool {
     uint160 public splOld; // as-of SECONDS_AGO ago
     uint160 public splNow; // as-of now (>= splOld)
+    uint128 public currentLiquidity;
 
     function setSpl(uint160 _splOld, uint160 _splNow) external {
         splOld = _splOld;
         splNow = _splNow;
+    }
+
+    function setCurrentLiquidity(uint128 l) external {
+        currentLiquidity = l;
     }
 
     function observe(uint32[] calldata secondsAgos)
@@ -25,6 +33,27 @@ contract MockV3Pool {
         // secondsAgos[0] = SECONDS_AGO (older), secondsAgos[1] = 0 (now)
         secondsPerLiquidityCumulativeX128s[0] = splOld;
         secondsPerLiquidityCumulativeX128s[1] = splNow;
+    }
+
+    function slot0()
+        external
+        pure
+        returns (uint160 sqrtPriceX96, int24 tick, uint16, uint16, uint16, uint8, bool)
+    {
+        return (uint160(1) << 96, int24(0), 0, 0, 0, 0, false);
+    }
+
+    function tickSpacing() external pure returns (int24) {
+        return 60;
+    }
+
+    function liquidity() external view returns (uint128) {
+        return currentLiquidity;
+    }
+
+    // No position boundaries inside the band: liquidity is uniform across ±198 ticks.
+    function ticks(int24) external pure returns (uint128 liquidityGross, int128 liquidityNet) {
+        return (0, 0);
     }
 }
 
@@ -77,6 +106,9 @@ contract LiquidityManagerDepthGuardUnit is Test {
         // delta = windowSeconds * 2^128 / L
         uint256 delta = (uint256(SECONDS_AGO) * Q128) / targetL;
         pool.setSpl(uint160(0), uint160(delta));
+        // Current in-range liquidity equal to the window mean, so the tick-aware executable depth agrees with
+        // the band-inventory estimate for these synthetic (uniform, non-depleted) scenarios.
+        pool.setCurrentLiquidity(uint128(targetL));
     }
 
     function test_harmonicMean_matchesFormula() public {
@@ -147,9 +179,17 @@ contract LiquidityManagerDepthGuardUnit is Test {
         lm.checkDepth(address(pool), type(uint128).max, type(uint128).max, SQRT_PRICE_1);
     }
 
+    // _checkPoolDepth requires BOTH the window estimate and the current tick-aware executable depth, so the
+    // binding (smaller) of the two is the available depth. They differ by a few wei (per-segment rounding).
+    function _bindingDepth() internal view returns (uint256) {
+        uint256 est = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
+        uint256 exe = lm.currentExecutableDepthToken1(address(pool), SQRT_PRICE_1);
+        return est < exe ? est : exe;
+    }
+
     function test_checkPoolDepth_boundary_passAndRevert() public {
         _setSustainedLiquidity(1e18);
-        uint256 depth = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
+        uint256 depth = _bindingDepth();
         lm.setFactor(1e18); // require depth >= 1x notional (token1 terms)
 
         // Notional (token1 terms) just BELOW available depth -> passes. Here amount0 = 0, so notional == amount1.
@@ -162,7 +202,7 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
     function test_checkPoolDepth_factorScalesRequirement() public {
         _setSustainedLiquidity(1e18);
-        uint256 depth = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
+        uint256 depth = _bindingDepth();
 
         // factor 2x: a notional equal to the full depth now fails (requires 2x depth).
         lm.setFactor(2e18);
@@ -171,5 +211,26 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
         // Half the notional passes at 2x factor (required = 2 * depth/2 = depth).
         lm.checkDepth(address(pool), 0, depth / 2, SQRT_PRICE_1);
+    }
+
+    // Current executable depth from the tick walk ~matches the band-inventory estimate on a uniform pool.
+    function test_executableDepth_matchesEstimate_onUniformPool() public {
+        _setSustainedLiquidity(1e18);
+        uint256 est = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
+        uint256 exe = lm.currentExecutableDepthToken1(address(pool), SQRT_PRICE_1);
+        assertApproxEqRel(exe, est, 1e12, "walked executable depth should track the estimate on a uniform pool");
+    }
+
+    // Depletion proxy: current liquidity drops while the window mean stays high -> executable check binds low.
+    function test_checkPoolDepth_currentDepletionRejectedWhileWindowHigh() public {
+        _setSustainedLiquidity(1e18); // window mean = 1e18, current = 1e18
+        uint256 depth = _bindingDepth();
+        lm.setFactor(1e18);
+
+        // Deplete current liquidity to 1% while leaving the window mean (observe delta) unchanged.
+        pool.setCurrentLiquidity(uint128(1e16));
+        // Window estimate still passes a near-full-depth notional, but the current executable depth does not.
+        vm.expectRevert();
+        lm.checkDepth(address(pool), 0, (depth * 9) / 10, SQRT_PRICE_1);
     }
 }

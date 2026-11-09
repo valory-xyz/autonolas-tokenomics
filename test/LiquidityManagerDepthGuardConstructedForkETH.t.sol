@@ -188,52 +188,77 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         depth1 = token1Out + token0Out;
     }
 
-    function _estimate(IV3Pool pool) internal view returns (uint256) {
-        (uint160 sqrtP,,,,,,) = pool.slot0();
-        return lm.estimatedBandInventoryToken1(address(pool), sqrtP);
+    function _sqrt(IV3Pool pool) internal view returns (uint160 s) {
+        (s,,,,,,) = pool.slot0();
     }
 
-    // --- Scenario WIDE: liquidity spread well beyond the band → estimate ≈ actual executable depth. ---
-    function test_constructed_wide_estimateMatchesActual() public onFork {
+    function _estimate(IV3Pool pool) internal view returns (uint256) {
+        return lm.estimatedBandInventoryToken1(address(pool), _sqrt(pool));
+    }
+
+    function _executable(IV3Pool pool) internal view returns (uint256) {
+        return lm.currentExecutableDepthToken1(address(pool), _sqrt(pool));
+    }
+
+    // --- Scenario WIDE: liquidity spread well beyond the band → estimate ≈ executable ≈ actual; guard passes. ---
+    function test_constructed_wide_tickWalkMatchesActual_guardPasses() public onFork {
         IV3Pool pool = _newPool();
         pool.mint(address(this), -6000, 6000, 1e18, ""); // ±~80%, uniform across the ±2% band
         _warmSustained(pool);
 
         uint256 est = _estimate(pool);
+        uint256 exe = _executable(pool);
         uint256 actual = _actualBandDepthToken1(pool);
-        emit log_named_uint("WIDE estimate (token1)", est);
-        emit log_named_uint("WIDE actual   (token1)", actual);
-        assertGt(est, 0, "wide estimate must be positive");
-        // Uniform liquidity across the band: estimate should be close to actual (within 5%).
-        assertApproxEqRel(est, actual, 5e16, "wide: estimate should track actual executable depth");
+        emit log_named_uint("WIDE estimate   (token1)", est);
+        emit log_named_uint("WIDE executable (token1)", exe);
+        emit log_named_uint("WIDE actual swap(token1)", actual);
+        // The tick-walk executable depth tracks the real swap-measured depth (validates the walk), and both
+        // track the estimate because liquidity is uniform across the band.
+        assertApproxEqRel(exe, actual, 1e16, "wide: tick-walk executable should match actual swap depth"); // 1%
+        assertApproxEqRel(exe, est, 5e16, "wide: executable ~ estimate on a uniform pool");
+
+        // Combined guard passes at a notional below the available depth.
+        lm.setFactor(1e18);
+        uint256 binding = exe < est ? exe : est;
+        lm.checkDepth(address(pool), 0, binding / 2, _sqrt(pool));
     }
 
     // --- Scenario NARROW (T-nr2): same in-range liquidity concentrated tightly around price. ---
-    //     Estimate (uniform ±198-tick assumption) OVER-states true executable depth to ±2%.
-    function test_constructed_narrow_estimateOverstatesActual() public onFork {
+    //     Estimate over-states; the tick-walk executable depth is low → COMBINED guard rejects.
+    function test_constructed_narrow_overstates_combinedGuardRejects() public onFork {
         IV3Pool pool = _newPool();
         pool.mint(address(this), -60, 60, 1e18, ""); // ±~0.6%, same L as wide while price is centered
         _warmSustained(pool);
 
         uint256 est = _estimate(pool);
+        uint256 exe = _executable(pool);
         uint256 actual = _actualBandDepthToken1(pool);
-        emit log_named_uint("NARROW estimate (token1)", est);
-        emit log_named_uint("NARROW actual   (token1)", actual);
-        // Same in-range L while centered, so the estimate ~matches the wide case, but real executable depth to
-        // ±2% is far smaller because liquidity ends at ±0.6%. This is the over-statement motivating a companion
-        // check. Require the estimate to exceed actual by a wide margin.
-        assertGt(est, actual * 2, "narrow: estimate must materially over-state actual executable depth");
+        emit log_named_uint("NARROW estimate   (token1)", est);
+        emit log_named_uint("NARROW executable (token1)", exe);
+        emit log_named_uint("NARROW actual swap(token1)", actual);
+        // The aggregate estimate over-states, but the tick-walk executable matches the (small) real depth.
+        assertGt(est, exe * 2, "narrow: estimate must materially over-state the tick-walk executable depth");
+        assertApproxEqRel(exe, actual, 2e16, "narrow: tick-walk executable should match actual swap depth"); // 2%
+
+        // A notional the window estimate would clear (below est) but the executable depth will not (above exe)
+        // → the combined guard REJECTS it.
+        lm.setFactor(1e18);
+        uint256 notional = exe * 2; // exe < notional < est
+        assertLt(notional, est, "test setup: notional must be below the window estimate");
+        uint160 sqrtP = _sqrt(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
+        vm.expectRevert();
+        lm.checkDepth(address(pool), 0, notional, sqrtP);
     }
 
     // --- Scenario DEPLETION (T2b): high history, then liquidity removed just before execution. ---
-    //     The window metric stays high while current executable depth collapses.
-    function test_constructed_depletion_metricStaysHighWhileDepthCollapses() public onFork {
+    //     Window estimate stays high; current executable depth collapses → COMBINED guard rejects.
+    function test_constructed_depletion_windowHigh_combinedGuardRejects() public onFork {
         IV3Pool pool = _newPool();
         pool.mint(address(this), -6000, 6000, 1e18, "");
         _warmSustained(pool);
 
         uint256 estBefore = _estimate(pool);
-        uint256 actualBefore = _actualBandDepthToken1(pool);
+        uint256 exeBefore = _executable(pool);
 
         // Remove ~99% of liquidity, then write one more observation (one block later).
         pool.burn(-6000, 6000, uint128(99e16));
@@ -241,15 +266,23 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         _poke(pool);
 
         uint256 estAfter = _estimate(pool);
-        uint256 actualAfter = _actualBandDepthToken1(pool);
+        uint256 exeAfter = _executable(pool);
         emit log_named_uint("DEPLETION est before", estBefore);
         emit log_named_uint("DEPLETION est after ", estAfter);
-        emit log_named_uint("DEPLETION actual before", actualBefore);
-        emit log_named_uint("DEPLETION actual after ", actualAfter);
+        emit log_named_uint("DEPLETION exe before", exeBefore);
+        emit log_named_uint("DEPLETION exe after ", exeAfter);
 
-        // Current executable depth collapses immediately...
-        assertLt(actualAfter, actualBefore / 10, "actual depth should collapse after depletion");
-        // ...while the window-aggregate estimate stays high (history dominates the 30-min mean).
+        // Current executable depth collapses while the window-aggregate estimate stays high.
+        assertLt(exeAfter, exeBefore / 10, "executable depth should collapse after depletion");
         assertGt(estAfter, estBefore / 2, "window estimate should stay high right after depletion");
+
+        // A notional the (stale-high) window estimate would clear, but the current executable depth will not
+        // → the combined guard REJECTS it.
+        lm.setFactor(1e18);
+        uint256 notional = exeAfter * 2;
+        assertLt(notional, estAfter, "test setup: notional must be below the window estimate");
+        uint160 sqrtP = _sqrt(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
+        vm.expectRevert();
+        lm.checkDepth(address(pool), 0, notional, sqrtP);
     }
 }
