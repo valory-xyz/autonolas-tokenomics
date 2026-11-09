@@ -149,17 +149,23 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         pool.increaseObservationCardinalityNext(300);
     }
 
-    // Write an observation at the current timestamp with a negligible swap.
-    function _poke(IV3Pool pool) internal {
-        pool.swap(address(this), true, int256(1), TickMath.getSqrtRatioAtTick(-1), "");
+    // Write an observation at the current timestamp with a tiny swap that actually moves the price a hair so a
+    // fresh observation is recorded (direction alternates so a repeat poke is never a no-op against the limit).
+    function _poke(IV3Pool pool, bool up) internal {
+        if (up) {
+            pool.swap(address(this), false, int256(1000), TickMath.getSqrtRatioAtTick(2), "");
+        } else {
+            pool.swap(address(this), true, int256(1000), TickMath.getSqrtRatioAtTick(-2), "");
+        }
     }
 
-    // Warm a full SECONDS_AGO window at the pool's current (sustained) liquidity.
+    // Warm a full SECONDS_AGO window at the pool's current (sustained) liquidity, ending with a fresh
+    // observation at `now` so the TWAP gate (checkPoolAndGetCenterPrice) is satisfied.
     function _warmSustained(IV3Pool pool) internal {
         vm.warp(block.timestamp + 1);
-        _poke(pool);
+        _poke(pool, false);
         vm.warp(block.timestamp + SECONDS_AGO + 60);
-        _poke(pool);
+        _poke(pool, true);
     }
 
     function _sqrtBand() internal pure returns (uint160 lower, uint160 upper) {
@@ -192,12 +198,18 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         (s,,,,,,) = pool.slot0();
     }
 
+    // Reference price the production entry ops pass to the depth check: the TWAP-derived price from the
+    // existing manipulation gate, not slot0.
+    function _ref(IV3Pool pool) internal view returns (uint160) {
+        return lm.checkPoolAndGetCenterPrice(address(pool));
+    }
+
     function _estimate(IV3Pool pool) internal view returns (uint256) {
-        return lm.estimatedBandInventoryToken1(address(pool), _sqrt(pool));
+        return lm.estimatedBandInventoryToken1(address(pool), _ref(pool));
     }
 
     function _executable(IV3Pool pool) internal view returns (uint256) {
-        return lm.currentExecutableDepthToken1(address(pool), _sqrt(pool));
+        return lm.currentExecutableDepthToken1(address(pool), _ref(pool));
     }
 
     // --- Scenario WIDE: liquidity spread well beyond the band → estimate ≈ executable ≈ actual; guard passes. ---
@@ -220,7 +232,7 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         // Combined guard passes at a notional below the available depth.
         lm.setFactor(1e18);
         uint256 binding = exe < est ? exe : est;
-        lm.checkDepth(address(pool), 0, binding / 2, _sqrt(pool));
+        lm.checkDepth(address(pool), 0, binding / 2, _ref(pool));
     }
 
     // --- Scenario NARROW (T-nr2): same in-range liquidity concentrated tightly around price. ---
@@ -245,7 +257,7 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         lm.setFactor(1e18);
         uint256 notional = exe * 2; // exe < notional < est
         assertLt(notional, est, "test setup: notional must be below the window estimate");
-        uint160 sqrtP = _sqrt(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
+        uint160 sqrtP = _ref(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
         vm.expectRevert();
         lm.checkDepth(address(pool), 0, notional, sqrtP);
     }
@@ -263,7 +275,7 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         // Remove ~99% of liquidity, then write one more observation (one block later).
         pool.burn(-6000, 6000, uint128(99e16));
         vm.warp(block.timestamp + 12);
-        _poke(pool);
+        _poke(pool, true); // fresh observation at now so the TWAP gate stays satisfied after depletion
 
         uint256 estAfter = _estimate(pool);
         uint256 exeAfter = _executable(pool);
@@ -281,7 +293,7 @@ contract LiquidityManagerDepthGuardConstructedForkETH is Test {
         lm.setFactor(1e18);
         uint256 notional = exeAfter * 2;
         assertLt(notional, estAfter, "test setup: notional must be below the window estimate");
-        uint160 sqrtP = _sqrt(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
+        uint160 sqrtP = _ref(pool); // evaluate the arg BEFORE expectRevert so only checkDepth is expected to revert
         vm.expectRevert();
         lm.checkDepth(address(pool), 0, notional, sqrtP);
     }

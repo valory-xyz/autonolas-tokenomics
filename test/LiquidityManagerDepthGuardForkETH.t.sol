@@ -55,7 +55,14 @@ contract LiquidityManagerDepthGuardForkETH is Test {
         _;
     }
 
-    function _slot0Sqrt(address pool) internal view returns (uint160 sqrtPriceX96) {
+    // Reference price the production entry ops pass to the depth check: the TWAP-derived price from the
+    // existing manipulation gate (checkPoolAndGetCenterPrice), not slot0.
+    function _ref(address pool) internal view returns (uint160) {
+        return lm.checkPoolAndGetCenterPrice(pool);
+    }
+
+    // slot0 price, for a plain metric-magnitude comparison on a pool that may lack a fresh TWAP.
+    function _slot0(address pool) internal view returns (uint160 sqrtPriceX96) {
         (bool ok, bytes memory data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
         require(ok, "slot0 failed");
         sqrtPriceX96 = abi.decode(data, (uint160));
@@ -65,7 +72,7 @@ contract LiquidityManagerDepthGuardForkETH is Test {
         uint128 hm = lm.windowHarmonicMeanLiquidity(DEEP_POOL);
         assertGt(uint256(hm), 0, "deep pool must report sustained in-range liquidity");
 
-        uint160 sqrtP = _slot0Sqrt(DEEP_POOL);
+        uint160 sqrtP = _ref(DEEP_POOL);
         uint256 depth = lm.estimatedBandInventoryToken1(DEEP_POOL, sqrtP);
         assertGt(depth, 0, "deep pool must report positive executable depth");
         emit log_named_uint("deep pool harmonic-mean liquidity", uint256(hm));
@@ -73,8 +80,10 @@ contract LiquidityManagerDepthGuardForkETH is Test {
     }
 
     function test_fork_metric_discriminatesDepth() public onFork {
-        uint256 deep = lm.estimatedBandInventoryToken1(DEEP_POOL, _slot0Sqrt(DEEP_POOL));
-        uint256 thin = lm.estimatedBandInventoryToken1(THIN_POOL, _slot0Sqrt(THIN_POOL));
+        // Metric-magnitude comparison (not the production gate): use slot0 so a less-active pool without a
+        // fresh TWAP is still comparable.
+        uint256 deep = lm.estimatedBandInventoryToken1(DEEP_POOL, _slot0(DEEP_POOL));
+        uint256 thin = lm.estimatedBandInventoryToken1(THIN_POOL, _slot0(THIN_POOL));
         emit log_named_uint("deep pool band depth", deep);
         emit log_named_uint("thin pool band depth", thin);
         // Both valued in WETH terms at their own price; the 0.05% pool is far deeper than the 1% pool.
@@ -82,7 +91,7 @@ contract LiquidityManagerDepthGuardForkETH is Test {
     }
 
     function test_fork_check_passesAndReverts_byFactor() public onFork {
-        uint160 sqrtP = _slot0Sqrt(DEEP_POOL);
+        uint160 sqrtP = _ref(DEEP_POOL);
         uint256 depth = lm.estimatedBandInventoryToken1(DEEP_POOL, sqrtP);
 
         // factor 1x, notional (token1 terms) just below available depth -> passes.
