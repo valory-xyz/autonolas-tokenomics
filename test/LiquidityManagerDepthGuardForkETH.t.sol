@@ -66,15 +66,15 @@ contract LiquidityManagerDepthGuardForkETH is Test {
         assertGt(uint256(hm), 0, "deep pool must report sustained in-range liquidity");
 
         uint160 sqrtP = _slot0Sqrt(DEEP_POOL);
-        uint256 depth = lm.poolDepthNotionalToken1(DEEP_POOL, sqrtP);
+        uint256 depth = lm.estimatedBandInventoryToken1(DEEP_POOL, sqrtP);
         assertGt(depth, 0, "deep pool must report positive executable depth");
         emit log_named_uint("deep pool harmonic-mean liquidity", uint256(hm));
         emit log_named_uint("deep pool band depth (token1/WETH wei)", depth);
     }
 
     function test_fork_metric_discriminatesDepth() public onFork {
-        uint256 deep = lm.poolDepthNotionalToken1(DEEP_POOL, _slot0Sqrt(DEEP_POOL));
-        uint256 thin = lm.poolDepthNotionalToken1(THIN_POOL, _slot0Sqrt(THIN_POOL));
+        uint256 deep = lm.estimatedBandInventoryToken1(DEEP_POOL, _slot0Sqrt(DEEP_POOL));
+        uint256 thin = lm.estimatedBandInventoryToken1(THIN_POOL, _slot0Sqrt(THIN_POOL));
         emit log_named_uint("deep pool band depth", deep);
         emit log_named_uint("thin pool band depth", thin);
         // Both valued in WETH terms at their own price; the 0.05% pool is far deeper than the 1% pool.
@@ -83,7 +83,7 @@ contract LiquidityManagerDepthGuardForkETH is Test {
 
     function test_fork_check_passesAndReverts_byFactor() public onFork {
         uint160 sqrtP = _slot0Sqrt(DEEP_POOL);
-        uint256 depth = lm.poolDepthNotionalToken1(DEEP_POOL, sqrtP);
+        uint256 depth = lm.estimatedBandInventoryToken1(DEEP_POOL, sqrtP);
 
         // factor 1x, notional (token1 terms) just below available depth -> passes.
         lm.setFactor(1e18);

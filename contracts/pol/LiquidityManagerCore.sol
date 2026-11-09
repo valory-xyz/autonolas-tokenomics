@@ -60,11 +60,11 @@ error RatioDeviation(uint256 removedRatio, uint256 referenceRatio, uint16 maxSli
 /// @param pool Pool address.
 error NotEnoughHistory(address pool);
 
-/// @dev The target pool's sustained in-range depth is below the required multiple of the operation notional.
+/// @dev The target pool's estimated band-inventory value is below the required multiple of the op notional.
 /// @param pool Pool address.
-/// @param availableDepth Measured sustained in-range depth, valued in token1 terms.
-/// @param requiredDepth Required depth (minDepthFactor * operation notional), valued in token1 terms.
-error InsufficientPoolDepth(address pool, uint256 availableDepth, uint256 requiredDepth);
+/// @param availableInventory Estimated band-inventory value from time-weighted in-range liquidity (token1).
+/// @param requiredInventory Required value (minDepthFactor * operation notional), valued in token1 terms.
+error InsufficientPoolDepth(address pool, uint256 availableInventory, uint256 requiredInventory);
 
 interface INeighborhoodScanner {
     /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
@@ -1317,8 +1317,14 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // secondsAgos[1] = 0 (now)
         (, uint160[] memory secondsPerLiquidityCumulativeX128s) = IUniswapV3(pool).observe(secondsAgos);
 
-        // Monotonically increasing in time, so the "now" element is the larger one.
-        uint160 delta = secondsPerLiquidityCumulativeX128s[1] - secondsPerLiquidityCumulativeX128s[0];
+        // The accumulator is a uint160 that WRAPS (Uniswap V3 oracle convention), so the delta is taken modulo
+        // 2^160. An unchecked subtraction yields the correct elapsed seconds-per-liquidity even when the
+        // accumulator wrapped between the two observations; a checked subtraction would instead revert on the
+        // wrap. "now − (now − window)" is the intended, always-non-negative-modulo-2^160 quantity.
+        uint160 delta;
+        unchecked {
+            delta = secondsPerLiquidityCumulativeX128s[1] - secondsPerLiquidityCumulativeX128s[0];
+        }
         if (delta == 0) {
             // Fail closed: a zero delta is degenerate; treat as no measurable depth.
             return 0;
@@ -1329,16 +1335,22 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         harmonicMeanLiquidity = hm > type(uint128).max ? type(uint128).max : uint128(hm);
     }
 
-    /// @dev Sustained executable depth of a pool across the ±DEPTH_BAND_TICKS band, valued in token1 terms.
-    /// @notice Values the time-weighted in-range liquidity (windowHarmonicMeanLiquidity) as the token0/token1
-    ///         amounts it represents across the price band around the supplied (TWAP-derived) price, then
+    /// @dev ESTIMATED band-inventory value of a pool across the ±DEPTH_BAND_TICKS band, valued in token1 terms.
+    /// @notice This is an ESTIMATE, not a direct measurement of executable depth. It values the time-weighted
+    ///         in-range liquidity (windowHarmonicMeanLiquidity) as the token0/token1 amounts a *uniform* band
+    ///         of that liquidity would hold across the price band around the supplied (TWAP-derived) price, then
     ///         expresses both in token1 at that price. Because it assumes the measured liquidity is uniform
-    ///         across the band, it over-states depth when real liquidity is concentrated in a sub-band
-    ///         (narrow-range) — a known limitation to be covered by validation before the factor is tuned.
+    ///         across the band, it OVER-states true executable depth when real liquidity is concentrated in a
+    ///         sub-band (narrow-range) — a known limitation to be covered by validation before the factor is
+    ///         tuned, and the reason it is named a band-inventory value rather than an executable depth.
     /// @param pool Pool address.
     /// @param sqrtPriceX96 Reference (TWAP-derived) sqrt price.
-    /// @return depthToken1 Executable depth across the band, valued in token1.
-    function poolDepthNotionalToken1(address pool, uint160 sqrtPriceX96) public view returns (uint256 depthToken1) {
+    /// @return inventoryToken1 Estimated band-inventory value, valued in token1.
+    function estimatedBandInventoryToken1(address pool, uint160 sqrtPriceX96)
+        public
+        view
+        returns (uint256 inventoryToken1)
+    {
         uint128 liquidity = windowHarmonicMeanLiquidity(pool);
         if (liquidity == 0) {
             return 0;
@@ -1352,11 +1364,12 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtLower, sqrtUpper, liquidity);
 
         // Value token0 in token1 at the reference price: amount0 * (sqrtPriceX96^2 / 2^192).
-        depthToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
+        inventoryToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
     }
 
-    /// @dev Reverts unless a pool's sustained executable depth is at least minDepthFactor × the operation
-    ///      notional, both valued in token1 at the reference price.
+    /// @dev Reverts unless a pool's estimated band-inventory value is at least minDepthFactor × the operation
+    ///      notional, both valued in token1 at the reference price. The inventory is an estimate (see
+    ///      estimatedBandInventoryToken1), so activation depends on validation under the stated assumptions.
     /// @notice Inactive (no-op) when minDepthFactor is zero — see changeMinDepthFactor and the runbook.
     /// @param pool Pool address.
     /// @param amount0 Operation token0 amount.
@@ -1372,11 +1385,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         // Operation notional in token1 at the reference price.
         uint256 notionalToken1 =
             amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
-        uint256 requiredDepth = mulDiv(notionalToken1, factor, 1e18);
+        uint256 requiredInventory = mulDiv(notionalToken1, factor, 1e18);
 
-        uint256 availableDepth = poolDepthNotionalToken1(pool, sqrtPriceX96);
-        if (availableDepth < requiredDepth) {
-            revert InsufficientPoolDepth(pool, availableDepth, requiredDepth);
+        uint256 availableInventory = estimatedBandInventoryToken1(pool, sqrtPriceX96);
+        if (availableInventory < requiredInventory) {
+            revert InsufficientPoolDepth(pool, availableInventory, requiredInventory);
         }
     }
 

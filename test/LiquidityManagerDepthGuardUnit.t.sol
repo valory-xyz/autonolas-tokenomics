@@ -95,6 +95,28 @@ contract LiquidityManagerDepthGuardUnit is Test {
         assertEq(uint256(lm.windowHarmonicMeanLiquidity(address(pool))), 0, "zero delta should read as 0 depth");
     }
 
+    /// @dev The secondsPerLiquidity accumulator is a uint160 that wraps; the delta must be taken modulo 2^160.
+    ///      Here the "older" value is near the top of the range and the "now" value is small, so a checked
+    ///      subtraction would underflow/revert — the unchecked modular delta must recover the true elapsed value.
+    function test_harmonicMean_handlesAccumulatorWrap() public {
+        uint256 targetL = 1e18;
+        uint256 delta = (uint256(SECONDS_AGO) * Q128) / targetL;
+        uint160 splOld = type(uint160).max - 100; // near the top of the range
+        // now = old + delta (mod 2^160): wraps past the max.
+        uint160 splNow;
+        unchecked {
+            splNow = splOld + uint160(delta);
+        }
+        assertLt(splNow, splOld, "test setup must actually wrap the accumulator");
+        pool.setSpl(splOld, splNow);
+
+        uint128 hm = lm.windowHarmonicMeanLiquidity(address(pool));
+        // Recovers the same value as the non-wrapping case (no revert).
+        uint256 expected = (uint256(SECONDS_AGO) * Q128) / delta;
+        assertEq(uint256(hm), expected, "wrapped delta must equal the intended delta");
+        assertApproxEqRel(uint256(hm), targetL, 1e12, "wrapped harmonic mean not ~targetL");
+    }
+
     /// @dev JIT resistance: low liquidity for 1788s + a huge spike for the last 12s barely lifts the window mean.
     function test_harmonicMean_jitResistant() public {
         uint256 lowL = 1e18;
@@ -111,9 +133,9 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
     function test_depthNotional_scalesLinearlyWithLiquidity() public {
         _setSustainedLiquidity(1e18);
-        uint256 d1 = lm.poolDepthNotionalToken1(address(pool), SQRT_PRICE_1);
+        uint256 d1 = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
         _setSustainedLiquidity(2e18);
-        uint256 d2 = lm.poolDepthNotionalToken1(address(pool), SQRT_PRICE_1);
+        uint256 d2 = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
         assertGt(d1, 0, "depth must be positive");
         assertApproxEqRel(d2, d1 * 2, 1e12, "depth should roughly double with liquidity");
     }
@@ -127,7 +149,7 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
     function test_checkPoolDepth_boundary_passAndRevert() public {
         _setSustainedLiquidity(1e18);
-        uint256 depth = lm.poolDepthNotionalToken1(address(pool), SQRT_PRICE_1);
+        uint256 depth = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
         lm.setFactor(1e18); // require depth >= 1x notional (token1 terms)
 
         // Notional (token1 terms) just BELOW available depth -> passes. Here amount0 = 0, so notional == amount1.
@@ -140,7 +162,7 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
     function test_checkPoolDepth_factorScalesRequirement() public {
         _setSustainedLiquidity(1e18);
-        uint256 depth = lm.poolDepthNotionalToken1(address(pool), SQRT_PRICE_1);
+        uint256 depth = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
 
         // factor 2x: a notional equal to the full depth now fails (requires 2x depth).
         lm.setFactor(2e18);
