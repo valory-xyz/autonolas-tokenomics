@@ -1381,7 +1381,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         view
         returns (uint256 depthToken1)
     {
-        (uint160 sqrtNowX96, int24 currentTick,,,,,) = IUniswapV3(pool).slot0();
+        // Read slot0 via the shared variant-tolerant reader (handles both the Uniswap V3 7-field and the
+        // Slipstream 6-field slot0 by reading positionally), then derive the current tick from the sqrt price
+        // rather than ABI-decoding the slot0 tuple directly — a direct decode reverts on a 6-field pool.
+        (uint160 sqrtNowX96,) = _getPriceAndObservationIndexFromSlot0(pool);
+        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtNowX96);
         int24 spacing = IUniswapV3(pool).tickSpacing();
         uint128 activeLiquidity = IUniswapV3(pool).liquidity();
 

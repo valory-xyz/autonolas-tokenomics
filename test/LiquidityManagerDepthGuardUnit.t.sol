@@ -57,6 +57,34 @@ contract MockV3Pool {
     }
 }
 
+/// @dev Slipstream-style pool mock: slot0 returns SIX fields (no feeProtocol), unlike Uniswap V3's seven.
+///      Used to prove the depth check reads slot0 variant-tolerantly. Price 1 (tick 0), uniform liquidity.
+contract MockSlipstreamPool {
+    uint128 public currentLiquidity;
+
+    function setCurrentLiquidity(uint128 l) external {
+        currentLiquidity = l;
+    }
+
+    // Six-field slot0 (Slipstream): sqrtPriceX96, tick, observationIndex, observationCardinality,
+    // observationCardinalityNext, unlocked — no uint8 feeProtocol.
+    function slot0() external pure returns (uint160 sqrtPriceX96, int24 tick, uint16, uint16, uint16, bool) {
+        return (uint160(1) << 96, int24(0), 0, 0, 0, false);
+    }
+
+    function tickSpacing() external pure returns (int24) {
+        return 60;
+    }
+
+    function liquidity() external view returns (uint128) {
+        return currentLiquidity;
+    }
+
+    function ticks(int24) external pure returns (uint128 liquidityGross, int128 liquidityNet) {
+        return (0, 0);
+    }
+}
+
 /// @dev Position-manager mock: the Core constructor reads factory() once.
 contract MockPositionManager {
     function factory() external view returns (address) {
@@ -219,6 +247,20 @@ contract LiquidityManagerDepthGuardUnit is Test {
         uint256 est = lm.estimatedBandInventoryToken1(address(pool), SQRT_PRICE_1);
         uint256 exe = lm.currentExecutableDepthToken1(address(pool), SQRT_PRICE_1);
         assertApproxEqRel(exe, est, 1e12, "walked executable depth should track the estimate on a uniform pool");
+    }
+
+    // The tick walk reads slot0 variant-tolerantly: a six-field Slipstream pool does not revert on ABI decode
+    // and yields the same executable depth as the seven-field Uniswap V3 pool with equal liquidity.
+    function test_executableDepth_slipstreamSlot0Compatible() public {
+        _setSustainedLiquidity(1e18); // sets the 7-field pool's current liquidity to 1e18
+        uint256 uni = lm.currentExecutableDepthToken1(address(pool), SQRT_PRICE_1);
+
+        MockSlipstreamPool slip = new MockSlipstreamPool();
+        slip.setCurrentLiquidity(uint128(1e18));
+        uint256 slipDepth = lm.currentExecutableDepthToken1(address(slip), SQRT_PRICE_1);
+
+        assertGt(slipDepth, 0, "six-field pool must not revert and must report depth");
+        assertEq(slipDepth, uni, "Slipstream (6-field) depth must equal Uniswap (7-field) depth at equal state");
     }
 
     // Depletion proxy: current liquidity drops while the window mean stays high -> executable check binds low.
