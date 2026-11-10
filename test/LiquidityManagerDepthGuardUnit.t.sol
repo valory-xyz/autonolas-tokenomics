@@ -85,6 +85,41 @@ contract MockSlipstreamPool {
     }
 }
 
+/// @dev Pool mock with a configurable STORED slot0 tick and per-tick liquidityNet, for exact-boundary tests
+///      where the stored tick differs from the price-derived tick.
+contract MockV3PoolTicks {
+    uint160 internal sp;
+    int24 internal storedTick;
+    uint128 internal liq;
+    mapping(int24 => int128) internal net;
+
+    function set(uint160 _sp, int24 _storedTick, uint128 _liq) external {
+        sp = _sp;
+        storedTick = _storedTick;
+        liq = _liq;
+    }
+
+    function setNet(int24 tick, int128 n) external {
+        net[tick] = n;
+    }
+
+    function slot0() external view returns (uint160, int24, uint16, uint16, uint16, uint8, bool) {
+        return (sp, storedTick, 0, 0, 0, 0, false);
+    }
+
+    function tickSpacing() external pure returns (int24) {
+        return 60;
+    }
+
+    function liquidity() external view returns (uint128) {
+        return liq;
+    }
+
+    function ticks(int24 tick) external view returns (uint128 liquidityGross, int128 liquidityNet) {
+        return (0, net[tick]);
+    }
+}
+
 /// @dev Position-manager mock: the Core constructor reads factory() once.
 contract MockPositionManager {
     function factory() external view returns (address) {
@@ -261,6 +296,34 @@ contract LiquidityManagerDepthGuardUnit is Test {
 
         assertGt(slipDepth, 0, "six-field pool must not revert and must report depth");
         assertEq(slipDepth, uni, "Slipstream (6-field) depth must equal Uniswap (7-field) depth at equal state");
+    }
+
+    // At an exact tick boundary reached by a DOWNWARD crossing, the pool stores tickNext-1 while the
+    // price-derived tick is tickNext. The walk seeds from the stored tick's active liquidity, so it must use the
+    // STORED tick: a derived off-by-one would include phantom liquidity above the boundary and re-apply the
+    // boundary crossing going down, over-stating depth. Position [-60, 0], liquidity 1e18, price = sqrt(tick 0),
+    // stored tick -1: correct depth is the [-60,0] token1 (~2.995e15), not the ~2.27e16 derived-tick result.
+    function test_executableDepth_usesStoredTick_downwardBoundary() public {
+        MockV3PoolTicks p = new MockV3PoolTicks();
+        p.set(SQRT_PRICE_1, int24(-1), uint128(1e18));
+        p.setNet(int24(-60), int128(uint128(1e18))); // lower boundary of [-60,0]
+        p.setNet(int24(0), -int128(uint128(1e18))); // upper boundary of [-60,0]
+
+        uint256 depth = lm.currentExecutableDepthToken1(address(p), SQRT_PRICE_1);
+        assertApproxEqRel(depth, 2995354955910780, 1e16, "stored-tick depth should match the piecewise value");
+        assertLt(depth, 1e16, "must not over-state via a price-derived off-by-one tick");
+    }
+
+    // Control: at the same price reached by an UPWARD crossing the stored tick (0) equals the derived tick.
+    // Position [0, 60], liquidity 1e18: depth is the [0,60] token0 valued in token1 (~2.995e15).
+    function test_executableDepth_usesStoredTick_upwardBoundary() public {
+        MockV3PoolTicks p = new MockV3PoolTicks();
+        p.set(SQRT_PRICE_1, int24(0), uint128(1e18));
+        p.setNet(int24(0), int128(uint128(1e18))); // lower boundary of [0,60]
+        p.setNet(int24(60), -int128(uint128(1e18))); // upper boundary of [0,60]
+
+        uint256 depth = lm.currentExecutableDepthToken1(address(p), SQRT_PRICE_1);
+        assertApproxEqRel(depth, 2995354955910780, 1e16, "upward-boundary depth should match the piecewise value");
     }
 
     // Depletion proxy: current liquidity drops while the window mean stays high -> executable check binds low.

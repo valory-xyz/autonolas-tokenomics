@@ -279,6 +279,31 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         }
     }
 
+    /// @dev Reads slot0's sqrt price AND its STORED tick, positionally, so it is compatible with both the
+    ///      Uniswap V3 seven-field and the Slipstream six-field slot0 (sqrtPriceX96 is field 1, tick is field 2
+    ///      in both). The stored tick must be used, not one derived from the sqrt price: at an exact tick
+    ///      boundary after a downward crossing the pool stores `tickNext - 1` while `getTickAtSqrtRatio` returns
+    ///      `tickNext`, and the depth walk starts from the active liquidity that belongs to the stored tick's
+    ///      range — a derived tick would skip or re-apply a liquidityNet crossing and over-state depth.
+    /// @param pool Pool address.
+    /// @return sqrtPriceX96 slot0 sqrt price (slot 1).
+    /// @return tick slot0 stored tick (slot 2), sign-extended from int24.
+    function _getSqrtPriceAndTickFromSlot0(address pool) internal view returns (uint160 sqrtPriceX96, int24 tick) {
+        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
+        (bool success, bytes memory returnData) = pool.staticcall(payload);
+
+        // Need at least the first two return words (sqrtPriceX96 at slot 1, tick at slot 2).
+        if (success && returnData.length >= 64) {
+            int256 tickWord;
+            assembly {
+                sqrtPriceX96 := mload(add(returnData, 32))
+                tickWord := mload(add(returnData, 64))
+            }
+            // The ABI-encoded return word is the sign-extended int24; narrowing recovers the signed tick.
+            tick = int24(tickWord);
+        }
+    }
+
     /// @dev Gets V3 pool based on token addresses and fee tier or tick spacing.
     /// @param tokens Token addresses.
     /// @param feeTierOrTickSpacing Fee tier or tick spacing.
@@ -1381,11 +1406,10 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         view
         returns (uint256 depthToken1)
     {
-        // Read slot0 via the shared variant-tolerant reader (handles both the Uniswap V3 7-field and the
-        // Slipstream 6-field slot0 by reading positionally), then derive the current tick from the sqrt price
-        // rather than ABI-decoding the slot0 tuple directly — a direct decode reverts on a 6-field pool.
-        (uint160 sqrtNowX96,) = _getPriceAndObservationIndexFromSlot0(pool);
-        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtNowX96);
+        // Read slot0's sqrt price and its STORED tick positionally (variant-tolerant for the Uniswap 7-field
+        // and Slipstream 6-field slot0). The stored tick — not one derived from the price — must seed the walk,
+        // because the walk starts from the active liquidity of the stored tick's range (see the helper).
+        (uint160 sqrtNowX96, int24 currentTick) = _getSqrtPriceAndTickFromSlot0(pool);
         int24 spacing = IUniswapV3(pool).tickSpacing();
         uint128 activeLiquidity = IUniswapV3(pool).liquidity();
 
