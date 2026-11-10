@@ -60,6 +60,12 @@ error RatioDeviation(uint256 removedRatio, uint256 referenceRatio, uint16 maxSli
 /// @param pool Pool address.
 error NotEnoughHistory(address pool);
 
+/// @dev The target pool's estimated band-inventory value is below the required multiple of the op notional.
+/// @param pool Pool address.
+/// @param availableInventory Estimated band-inventory value from time-weighted in-range liquidity (token1).
+/// @param requiredInventory Required value (minDepthFactor * operation notional), valued in token1 terms.
+error InsufficientPoolDepth(address pool, uint256 availableInventory, uint256 requiredInventory);
+
 interface INeighborhoodScanner {
     /// @dev Optimizes liquidity amounts by widening up provided ticks using binary search + neighborhood search.
     /// @notice 1. Adjusts extreme boundaries, if required.
@@ -91,6 +97,7 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     event OwnerUpdated(address indexed owner);
     event ImplementationUpdated(address indexed implementation);
     event MaxSlippageUpdated(uint256 maxSlippage);
+    event MinDepthFactorUpdated(uint256 minDepthFactor);
     event ConvertedToV3(
         address indexed pool,
         uint256 indexed positionId,
@@ -138,6 +145,15 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
     // buyable for a tiny fraction (~0.1%) of the position. Treat any change as a security change, not a
     // tuning knob.
     uint256 public constant MAX_ALLOWED_DEVIATION = 2e16;
+    // Half-width of the price band, in ticks, across which sustained in-range depth is measured for the
+    // entry-op depth precondition. 198 ticks ≈ 2% (1.0001^198 ≈ 1.02), matching MAX_ALLOWED_DEVIATION.
+    int24 internal constant DEPTH_BAND_TICKS = 198;
+    // Suggested starting value for the sustained-depth factor (1e18 = require sustained in-range depth ≥ 1×
+    // the operation notional). It is NOT applied automatically: minDepthFactor defaults to 0 (check inactive)
+    // on both fresh deployment and in-place upgrade, because no threshold is meaningful until the target pool
+    // is seeded and measured. Governance activates and calibrates it via changeMinDepthFactor() as the
+    // deployment runbook's post-seed step. This constant only documents a conservative starting point.
+    uint256 public constant SUGGESTED_MIN_DEPTH_FACTOR = 1e18;
     // Seconds ago to look back for TWAP pool values
     uint32 public constant SECONDS_AGO = 1800;
     // // Max bps value
@@ -173,6 +189,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
     // V3 position Ids
     mapping(address => uint256) public mapPoolAddressPositionIds;
+
+    // Minimum sustained in-range target-pool depth required per entry operation, as a WAD multiple of the
+    // operation notional (1e18 = 1×). Governance-tunable via changeMinDepthFactor(). Zero disables the check
+    // (see SUGGESTED_MIN_DEPTH_FACTOR). Appended at the end of storage to stay upgrade-safe.
+    uint256 public minDepthFactor;
 
     /// @dev LiquidityManagerCore constructor.
     /// @param _olas OLAS token address.
@@ -255,6 +276,31 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
                 sqrtPriceX96 := mload(add(returnData, 32))
                 observationIndex := mload(add(returnData, 96))
             }
+        }
+    }
+
+    /// @dev Reads slot0's sqrt price AND its STORED tick, positionally, so it is compatible with both the
+    ///      Uniswap V3 seven-field and the Slipstream six-field slot0 (sqrtPriceX96 is field 1, tick is field 2
+    ///      in both). The stored tick must be used, not one derived from the sqrt price: at an exact tick
+    ///      boundary after a downward crossing the pool stores `tickNext - 1` while `getTickAtSqrtRatio` returns
+    ///      `tickNext`, and the depth walk starts from the active liquidity that belongs to the stored tick's
+    ///      range — a derived tick would skip or re-apply a liquidityNet crossing and over-state depth.
+    /// @param pool Pool address.
+    /// @return sqrtPriceX96 slot0 sqrt price (slot 1).
+    /// @return tick slot0 stored tick (slot 2), sign-extended from int24.
+    function _getSqrtPriceAndTickFromSlot0(address pool) internal view returns (uint160 sqrtPriceX96, int24 tick) {
+        bytes memory payload = abi.encodeCall(IUniswapV3.slot0, ());
+        (bool success, bytes memory returnData) = pool.staticcall(payload);
+
+        // Need at least the first two return words (sqrtPriceX96 at slot 1, tick at slot 2).
+        if (success && returnData.length >= 64) {
+            int256 tickWord;
+            assembly {
+                sqrtPriceX96 := mload(add(returnData, 32))
+                tickWord := mload(add(returnData, 64))
+            }
+            // The ABI-encoded return word is the sign-extended int24; narrowing recovers the signed tick.
+            tick = int24(tickWord);
         }
     }
 
@@ -644,6 +690,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         maxSlippage = _maxSlippage;
 
+        // minDepthFactor is intentionally left at 0 (depth check inactive) here: no threshold is meaningful
+        // until the target pool is seeded and measured. Governance activates and calibrates it via
+        // changeMinDepthFactor() as the deployment runbook's post-seed step (SUGGESTED_MIN_DEPTH_FACTOR is a
+        // documented starting point). This matches the in-place-upgrade path, where initialize() does not run.
+
         owner = msg.sender;
     }
 
@@ -707,6 +758,21 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         maxSlippage = newMaxSlippage;
         emit MaxSlippageUpdated(newMaxSlippage);
+    }
+
+    /// @dev Sets the minimum sustained-depth factor for entry operations.
+    /// @notice WAD multiple of the operation notional (1e18 = 1×). Zero disables the depth precondition.
+    ///         Calibrate against the live target pool once it is seeded (see the deployment runbook); on an
+    ///         in-place implementation upgrade this is the step that activates the check.
+    /// @param newMinDepthFactor New minimum depth factor (WAD).
+    function changeMinDepthFactor(uint256 newMinDepthFactor) external {
+        // Check for the contract ownership
+        if (msg.sender != owner) {
+            revert OwnerOnly(msg.sender, owner);
+        }
+
+        minDepthFactor = newMinDepthFactor;
+        emit MinDepthFactorUpdated(newMinDepthFactor);
     }
 
     /// @dev Converts token amounts to V3 liquidity: from balances, or from V2 liquidity, or both.
@@ -803,6 +869,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
             _checkRemovedRatioAgainstV3(removed0, removed1, sqrtP);
         }
 
+        // Require sustained target-pool depth relative to the amount being deployed (inactive until tuned).
+        _checkPoolDepth(v3Pool, amounts[0], amounts[1], sqrtP);
+
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
         IToken(tokens[1]).approve(positionManagerV3, amounts[1]);
@@ -891,6 +960,9 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
         if (amounts[0] == 0 || amounts[1] == 0) {
             revert ZeroValue();
         }
+
+        // Require sustained target-pool depth relative to the amount being redeployed (inactive until tuned).
+        _checkPoolDepth(pool, amounts[0], amounts[1], centerSqrtPriceX96);
 
         // Approve tokens for position manager
         IToken(tokens[0]).approve(positionManagerV3, amounts[0]);
@@ -1106,7 +1178,11 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Pre-flight manipulation gate (fails closed on an unverifiable pool or slot0 more than
         // MAX_ALLOWED_DEVIATION off the TWAP)
-        checkPoolAndGetCenterPrice(pool);
+        uint160 twapSqrt = checkPoolAndGetCenterPrice(pool);
+
+        // Require sustained target-pool depth relative to the amount being added (inactive until tuned).
+        _checkPoolDepth(pool, amounts[0], amounts[1], twapSqrt);
+
         // Anchor the liquidity math and amountMin to slot0 (the price the position manager executes at), not the
         // TWAP center — the entry analog of _decreaseLiquidity's _getExitSqrtPrice; avoids the TWAP-vs-slot0 dead band.
         (uint160 slot0Sqrt,) = _getPriceAndObservationIndexFromSlot0(pool);
@@ -1249,6 +1325,212 @@ abstract contract LiquidityManagerCore is ERC721TokenReceiver {
 
         // Return TWAP-derived sqrt price for safer position minting (resistant to single-block manipulation)
         centerSqrtPriceX96 = twapSqrtPriceX96;
+    }
+
+    /// @dev Time-weighted (harmonic-mean) in-range liquidity of a pool over the SECONDS_AGO window.
+    /// @notice Derived from the pool oracle's `secondsPerLiquidityCumulativeX128`, so it weights liquidity by
+    ///         the time it was actually in range: a short-lived spike contributes only its share of the window,
+    ///         and sustained thinness dominates (a harmonic mean is driven by its small terms). It is a window
+    ///         aggregate, not a minimum maintained throughout, nor a measure of how liquidity is distributed
+    ///         across ticks. Fails closed (returns 0) on a degenerate zero delta. Callers gate on freshness via
+    ///         checkPoolAndGetCenterPrice first.
+    /// @param pool Pool address.
+    /// @return harmonicMeanLiquidity Time-weighted in-range liquidity over the window (capped at uint128 max).
+    function windowHarmonicMeanLiquidity(address pool) public view returns (uint128 harmonicMeanLiquidity) {
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = SECONDS_AGO;
+        // secondsAgos[1] = 0 (now)
+        (, uint160[] memory secondsPerLiquidityCumulativeX128s) = IUniswapV3(pool).observe(secondsAgos);
+
+        // The accumulator is a uint160 that WRAPS (Uniswap V3 oracle convention), so the delta is taken modulo
+        // 2^160. An unchecked subtraction yields the correct elapsed seconds-per-liquidity even when the
+        // accumulator wrapped between the two observations; a checked subtraction would instead revert on the
+        // wrap. "now − (now − window)" is the intended, always-non-negative-modulo-2^160 quantity.
+        uint160 delta;
+        unchecked {
+            delta = secondsPerLiquidityCumulativeX128s[1] - secondsPerLiquidityCumulativeX128s[0];
+        }
+        if (delta == 0) {
+            // Fail closed: a zero delta is degenerate; treat as no measurable depth.
+            return 0;
+        }
+
+        // harmonicMeanLiquidity = windowSeconds * 2^128 / delta. windowSeconds * 2^128 ≈ 2^139, fits uint256.
+        uint256 hm = mulDiv(uint256(SECONDS_AGO), uint256(1) << 128, uint256(delta));
+        harmonicMeanLiquidity = hm > type(uint128).max ? type(uint128).max : uint128(hm);
+    }
+
+    /// @dev ESTIMATED band-inventory value of a pool across the ±DEPTH_BAND_TICKS band, valued in token1 terms.
+    /// @notice This is an ESTIMATE, not a direct measurement of executable depth. It values the time-weighted
+    ///         in-range liquidity (windowHarmonicMeanLiquidity) as the token0/token1 amounts a *uniform* band
+    ///         of that liquidity would hold across the price band around the supplied (TWAP-derived) price, then
+    ///         expresses both in token1 at that price. Because it assumes the measured liquidity is uniform
+    ///         across the band, it OVER-states true executable depth when real liquidity is concentrated in a
+    ///         sub-band (narrow-range) — a known limitation to be covered by validation before the factor is
+    ///         tuned, and the reason it is named a band-inventory value rather than an executable depth.
+    /// @param pool Pool address.
+    /// @param sqrtPriceX96 Reference (TWAP-derived) sqrt price.
+    /// @return inventoryToken1 Estimated band-inventory value, valued in token1.
+    function estimatedBandInventoryToken1(address pool, uint160 sqrtPriceX96)
+        public
+        view
+        returns (uint256 inventoryToken1)
+    {
+        uint128 liquidity = windowHarmonicMeanLiquidity(pool);
+        if (liquidity == 0) {
+            return 0;
+        }
+
+        // Band bounds around the reference price: sqrtPriceX96 * sqrt(1.0001^±DEPTH_BAND_TICKS).
+        uint160 sqrtLower = uint160(mulDiv(uint256(sqrtPriceX96), TickMath.getSqrtRatioAtTick(-DEPTH_BAND_TICKS), Q96));
+        uint160 sqrtUpper = uint160(mulDiv(uint256(sqrtPriceX96), TickMath.getSqrtRatioAtTick(DEPTH_BAND_TICKS), Q96));
+
+        (uint256 amount0, uint256 amount1) =
+            LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, sqrtLower, sqrtUpper, liquidity);
+
+        // Value token0 in token1 at the reference price: amount0 * (sqrtPriceX96^2 / 2^192).
+        inventoryToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
+    }
+
+    /// @dev CURRENT executable depth across ±DEPTH_BAND_TICKS around the reference price, valued in token1, by
+    ///      walking the pool's initialized ticks from the current price to each band edge using the real
+    ///      per-range liquidity. Unlike estimatedBandInventoryToken1 (uniform-band assumption) this reflects the
+    ///      actual liquidity distribution, so it is low for narrow-range or depleted pools. It is a current, not
+    ///      time-weighted, measure — the window metric supplies the JIT/persistence resistance, and the two
+    ///      together bound both failure modes.
+    /// @param pool Pool address.
+    /// @param sqrtRefX96 Reference (TWAP-derived) sqrt price for the band centre.
+    /// @return depthToken1 Current executable depth across the band, valued in token1.
+    function currentExecutableDepthToken1(address pool, uint160 sqrtRefX96)
+        public
+        view
+        returns (uint256 depthToken1)
+    {
+        // Read slot0's sqrt price and its STORED tick positionally (variant-tolerant for the Uniswap 7-field
+        // and Slipstream 6-field slot0). The stored tick — not one derived from the price — must seed the walk,
+        // because the walk starts from the active liquidity of the stored tick's range (see the helper).
+        (uint160 sqrtNowX96, int24 currentTick) = _getSqrtPriceAndTickFromSlot0(pool);
+        int24 spacing = IUniswapV3(pool).tickSpacing();
+        uint128 activeLiquidity = IUniswapV3(pool).liquidity();
+
+        uint160 sqrtLower = uint160(mulDiv(uint256(sqrtRefX96), TickMath.getSqrtRatioAtTick(-DEPTH_BAND_TICKS), Q96));
+        uint160 sqrtUpper = uint160(mulDiv(uint256(sqrtRefX96), TickMath.getSqrtRatioAtTick(DEPTH_BAND_TICKS), Q96));
+
+        uint256 amount0 = _walkBandUp(pool, spacing, sqrtNowX96, sqrtUpper, currentTick, activeLiquidity);
+        uint256 amount1 = _walkBandDown(pool, spacing, sqrtNowX96, sqrtLower, currentTick, activeLiquidity);
+
+        // Value token0 in token1 at the reference price.
+        depthToken1 = amount1 + mulDiv(mulDiv(amount0, uint256(sqrtRefX96), Q96), uint256(sqrtRefX96), Q96);
+    }
+
+    /// @dev token0 obtainable moving the price up from sqrtStart to sqrtEnd (>= sqrtStart), crossing aligned
+    ///      ticks strictly above currentTick and applying their liquidityNet. Bounded loop.
+    function _walkBandUp(
+        address pool,
+        int24 spacing,
+        uint160 sqrtStart,
+        uint160 sqrtEnd,
+        int24 currentTick,
+        uint128 liq
+    ) internal view returns (uint256 amount0) {
+        if (sqrtEnd <= sqrtStart) {
+            return 0;
+        }
+        uint160 sqrtCursor = sqrtStart;
+        int24 tk = _floorAlign(currentTick, spacing) + spacing; // first aligned tick strictly above currentTick
+        for (uint256 i = 0; i < 1024; ++i) {
+            uint160 sqrtTk = TickMath.getSqrtRatioAtTick(tk);
+            uint160 sqrtTo = sqrtTk < sqrtEnd ? sqrtTk : sqrtEnd;
+            amount0 += LiquidityAmounts.getAmount0ForLiquidity(sqrtCursor, sqrtTo, liq);
+            if (sqrtTk >= sqrtEnd) {
+                break;
+            }
+            (, int128 net) = IUniswapV3(pool).ticks(tk);
+            liq = _applyNet(liq, net, true);
+            sqrtCursor = sqrtTk;
+            tk += spacing;
+        }
+    }
+
+    /// @dev token1 obtainable moving the price down from sqrtStart to sqrtEnd (<= sqrtStart), crossing aligned
+    ///      ticks at/below currentTick and applying their liquidityNet. Bounded loop.
+    function _walkBandDown(
+        address pool,
+        int24 spacing,
+        uint160 sqrtStart,
+        uint160 sqrtEnd,
+        int24 currentTick,
+        uint128 liq
+    ) internal view returns (uint256 amount1) {
+        if (sqrtEnd >= sqrtStart) {
+            return 0;
+        }
+        uint160 sqrtCursor = sqrtStart;
+        int24 tk = _floorAlign(currentTick, spacing); // first aligned tick at/below currentTick (crossed going down)
+        for (uint256 i = 0; i < 1024; ++i) {
+            uint160 sqrtTk = TickMath.getSqrtRatioAtTick(tk);
+            uint160 sqrtTo = sqrtTk > sqrtEnd ? sqrtTk : sqrtEnd;
+            amount1 += LiquidityAmounts.getAmount1ForLiquidity(sqrtTo, sqrtCursor, liq);
+            if (sqrtTk <= sqrtEnd) {
+                break;
+            }
+            (, int128 net) = IUniswapV3(pool).ticks(tk);
+            liq = _applyNet(liq, net, false);
+            sqrtCursor = sqrtTk;
+            tk -= spacing;
+        }
+    }
+
+    /// @dev Largest multiple of spacing not greater than tick (floor toward negative infinity).
+    function _floorAlign(int24 tick, int24 spacing) internal pure returns (int24) {
+        int24 d = tick / spacing;
+        if (tick < 0 && (tick % spacing != 0)) {
+            d -= 1;
+        }
+        return d * spacing;
+    }
+
+    /// @dev Applies a crossed tick's liquidityNet to the running liquidity: add when crossing up, subtract down.
+    function _applyNet(uint128 liq, int128 net, bool up) internal pure returns (uint128) {
+        int256 delta = up ? int256(net) : -int256(net);
+        int256 r = int256(uint256(liq)) + delta;
+        if (r < 0) {
+            return 0;
+        }
+        return uint128(uint256(r));
+    }
+
+    /// @dev Reverts unless a pool meets minDepthFactor × the operation notional (token1 terms) on BOTH a
+    ///      time-weighted band-inventory estimate (JIT/persistence resistance) AND a current tick-aware
+    ///      executable depth (rejects narrow-range / depleted pools the aggregate misses).
+    /// @notice Inactive (no-op) when minDepthFactor is zero — see changeMinDepthFactor and the runbook.
+    /// @param pool Pool address.
+    /// @param amount0 Operation token0 amount.
+    /// @param amount1 Operation token1 amount.
+    /// @param sqrtPriceX96 Reference (TWAP-derived) sqrt price.
+    function _checkPoolDepth(address pool, uint256 amount0, uint256 amount1, uint160 sqrtPriceX96) internal view {
+        uint256 factor = minDepthFactor;
+        if (factor == 0) {
+            // Depth precondition not activated for this proxy yet (see changeMinDepthFactor / the runbook).
+            return;
+        }
+
+        // Operation notional in token1 at the reference price.
+        uint256 notionalToken1 =
+            amount1 + mulDiv(mulDiv(amount0, uint256(sqrtPriceX96), Q96), uint256(sqrtPriceX96), Q96);
+        uint256 requiredInventory = mulDiv(notionalToken1, factor, 1e18);
+
+        // (1) Time-weighted band-inventory estimate — resists just-in-time / transient liquidity.
+        uint256 availableInventory = estimatedBandInventoryToken1(pool, sqrtPriceX96);
+        if (availableInventory < requiredInventory) {
+            revert InsufficientPoolDepth(pool, availableInventory, requiredInventory);
+        }
+
+        // (2) Current tick-aware executable depth — catches narrow-range and execution-time depletion.
+        uint256 executableDepth = currentExecutableDepthToken1(pool, sqrtPriceX96);
+        if (executableDepth < requiredInventory) {
+            revert InsufficientPoolDepth(pool, executableDepth, requiredInventory);
+        }
     }
 
     /// @dev Rejects a manipulated source pool by comparing the removed token ratio to the V3 price.

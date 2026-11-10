@@ -114,5 +114,17 @@ interface IUniswapV3 {
     function increaseObservationCardinalityNext(uint16 observationCardinalityNext) external;
 
     function factory() external view returns (address);
+
+    /// @notice The currently in-range liquidity available to the pool.
+    function liquidity() external view returns (uint128);
+
+    /// @notice The pool tick spacing.
+    function tickSpacing() external view returns (int24);
+
+    /// @notice Look up information about a specific tick in the pool.
+    /// @param tick The tick to look up.
+    /// @return liquidityGross the total position liquidity that references this tick.
+    /// @return liquidityNet how much liquidity changes when the pool price crosses the tick (left to right).
+    function ticks(int24 tick) external view returns (uint128 liquidityGross, int128 liquidityNet);
 }
 
