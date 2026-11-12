@@ -14,7 +14,7 @@ contract MockVW {
     constructor(address _ve, address _dispenser) { ve = _ve; dispenser = _dispenser; }
 }
 
-contract ForkO4L1Rehearse is Test {
+contract ForkDispenserL1Rehearse is Test {
     address constant OLAS = 0x0001A500A6B18995B03f44bb040A5fFc28E45CB0;
     address constant TOKPROXY = 0xc096362fa6f4A4B1a9ea68b1043416f3381ce300;
     bytes32 constant RETAINER = bytes32(uint256(0xdEaD));

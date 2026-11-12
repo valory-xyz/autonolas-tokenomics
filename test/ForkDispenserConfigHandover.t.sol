@@ -20,7 +20,7 @@ interface IDispenser {
 // Proves, on a mainnet fork with the REAL deployed contracts, that the EOA config + ownership
 // handover does not brick anything: every owner-gated function remains callable by the Timelock
 // after handover, so any mutable misconfiguration is governance-recoverable.
-contract ForkO4ConfigHandover is Test {
+contract ForkDispenserConfigHandover is Test {
     address constant PROXY    = 0x78Bd94F48CAe623CC74828eCbFEBE3bDF428D83D;
     address constant IMPL     = 0x6f44B0Ab54f0cD5854A21a9e71C78c4F7cDf28f7;
     address constant VW       = 0xe8748e2CE2a4621425499bd26Aa8EF95Cf0C0730;
