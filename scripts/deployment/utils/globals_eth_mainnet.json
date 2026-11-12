@@ -15,5 +15,6 @@
   "liquidityManagerProxyAddress": "0x83Adc54B2828E99a6DA3A11263C75E38E0A1a215",
   "swapRouterV3Address": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
   "buyBackBurnerAddress": "0xCF05126771A21a93Da5A596d5CF67d8Ed9F5e6e5",
-  "buyBackBurnerProxyAddress": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F"
+  "buyBackBurnerProxyAddress": "0xfAd04813BffD759a308A2BEaAcEf587720ba743F",
+  "polygonBurnForwarderAddress": "0x11B1498da96129306EAABA68121B3dFc470166c1"
 }
