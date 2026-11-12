@@ -23,7 +23,7 @@ contract ForkDispenserL1Rehearse is Test {
     bytes32 constant PROXY_DISPENSER = 0x8bd249c73459f2c50400ebdc57436101fc7d9a76908baf1ba5be362b47b48f83;
 
     function test_l1_core_deploy_and_wire() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 26398180);
 
         // 1) Dispenser implementation (deploy_07a)
         Dispenser impl = new Dispenser(OLAS, TOKPROXY, RETAINER);

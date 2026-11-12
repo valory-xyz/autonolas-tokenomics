@@ -41,7 +41,7 @@ contract ForkDispenserConfigHandover is Test {
     }
 
     function test_config_handover_does_not_brick() public {
-        vm.createSelectFork(vm.envString("ETH_RPC_URL"));
+        vm.createSelectFork(vm.envString("ETH_RPC_URL"), 26398180);
         IDispenser d = IDispenser(PROXY);
         (address[] memory procs, uint256[] memory cids) = _routes();
 
