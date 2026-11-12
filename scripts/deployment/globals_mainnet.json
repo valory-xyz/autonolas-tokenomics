@@ -21,15 +21,16 @@
   "treasuryAddress": "0xa0DA53447C0f6C4987964d8463da7e6628B30f82",
   "genericBondCalculatorAddress": "0x1521918961bDBC9Ed4C67a7103D5999e4130E6CB",
   "depositoryAddress": "0x52A043bcebdB2f939BaEF2E8b6F01652290eAB3f",
-  "dispenserAddress": "0x5650300fCBab43A0D7D02F8Cb5d0f039402593f0",
+  "dispenserAddress": "0x6f44B0Ab54f0cD5854A21a9e71C78c4F7cDf28f7",
   "OLAS_ETH_PairAddress": "0x09D1d767eDF8Fa23A64C51fa559E0688E526812F",
   "depositoryTwoAddress": "0xfF8697d8d2998d6AA2e09B405795C6F4BEeB0C81",
   "XOLAS_WXDAI_PairAddress": "0x27df632fd0dcf191C418c803801D521cd579F18e",
-  "voteWeightingAddress": "0x95418b46d5566d3d1ea62c12aea91227e566c5c1",
+  "voteWeightingAddress": "0xe8748e2CE2a4621425499bd26Aa8EF95Cf0C0730",
   "retainerAddress": "0x000000000000000000000000000000000000000000000000000000000000dEaD",
   "maxNumClaimingEpochs": "1",
   "maxNumStakingTargets": "10",
   "minStakingWeight": "50",
   "maxStakingIncentive": "60000000000000000000000",
-  "tokenomicsFourAddress": "0xaeeC8bC8E5Fe28BC4dF2e9586b222924b8a0d5e9"
+  "tokenomicsFourAddress": "0xaeeC8bC8E5Fe28BC4dF2e9586b222924b8a0d5e9",
+  "dispenserProxyAddress": "0x78Bd94F48CAe623CC74828eCbFEBE3bDF428D83D"
 }

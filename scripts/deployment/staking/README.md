@@ -1,5 +1,7 @@
 # Deployment sequence
 
+**Order (load-bearing).** Deploy the implementation and proxy, then VoteWeighting, then each deposit-processor / target-dispenser pair — and for every pair the link (set L2 target on L1; on Polygon also `setFxRootTunnel`) and the `after-link` audit must complete **before any ownership is transferred**. Polygon's `setFxRootTunnel` requires the current L2 owner, so linking cannot follow the L2 ownership handover. Configure the proxy (managers + routes) while the deployer still owns it, then transfer ownership last (L1 Dispenser proxy and VoteWeighting to the Timelock; each L2 target dispenser to its bridge mediator), audit-gated.
+
 ## Read-only checkpoints
 
 Run commands from the repository root with dependencies/submodules installed. Pin Solidity 0.8.30 in the

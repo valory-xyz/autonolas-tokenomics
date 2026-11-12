@@ -13,6 +13,6 @@
   "baseL1CrossDomainMessengerProxyAddress": "0x866E82a600A1414e583f7F13623F1aC5d58b0Afa",
   "baseL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
   "l1ChainId": "1",
-  "baseDepositProcessorL1Address": "0x16d24D9A9c73133262d2Db83e1bB34FF7cB952Da",
-  "baseTargetDispenserL2Address": "0x9Ec97Be9FF55ff11606ce7c589956f7Bf3D0b241"
+  "baseDepositProcessorL1Address": "0x4D3adDE29234E3431af001eb420d704a161103A3",
+  "baseTargetDispenserL2Address": "0x6D8CbEbCAD7397c63347D44448147Db05E7d17B0"
 }

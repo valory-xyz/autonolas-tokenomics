@@ -13,6 +13,6 @@
   "modeL1CrossDomainMessengerProxyAddress": "0x95bDCA6c8EdEB69C98Bd5bd17660BaCef1298A6f",
   "modeL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
   "l1ChainId": "1",
-  "modeDepositProcessorL1Address": "0x6A5F38aAdCc1c049E39D80147b64a9Ff947d208B",
-  "modeTargetDispenserL2Address": "0xEB5638eefE289691EcE01943f768EDBF96258a80"
+  "modeDepositProcessorL1Address": "0xf1C564eA76A81f3dE1b4c53938B67C48104bc6cc",
+  "modeTargetDispenserL2Address": "0x90b8E448cA219C01e1516D11Aa49442674855c94"
 }

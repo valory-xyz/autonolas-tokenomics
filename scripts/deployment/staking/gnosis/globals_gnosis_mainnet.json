@@ -13,6 +13,6 @@
   "gnosisAMBForeignAddress": "0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e",
   "gnosisAMBHomeAddress": "0x75Df5AF045d91108662D8080fD1FEFAd6aA0bb59",
   "l1ChainId": "1",
-  "gnosisDepositProcessorL1Address": "0x48d4631f24dAce505c04D5A39458BED209e80A3c",
-  "gnosisTargetDispenserL2Address": "0x5b6c538C7b2E0b44Fa8A3B7a0532EF797b07d0E9"
+  "gnosisDepositProcessorL1Address": "0x307234E1eF3E493287C7914eeeBC946e6d5ea113",
+  "gnosisTargetDispenserL2Address": "0x0F991957e0Eb075E55c31635df297D5c0a0774e2"
 }
