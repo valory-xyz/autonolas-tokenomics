@@ -12,6 +12,6 @@
   "bridgeMediatorAddress": "0x9338b5153AE39BB89f50468E608eD9d764B755fD",
   "polygonFXChildAddress": "0x8397259c983751DAf40400790063935a11afa28a",
   "l1ChainId": "1",
-  "polygonDepositProcessorL1Address": "0x7EB5824Bb78e971284e2140059f8755B3d2BB525",
-  "polygonTargetDispenserL2Address": "0x17d96ba4532fe91809326092fE4D5606A7B7a0d8"
+  "polygonDepositProcessorL1Address": "0x293f01CBDF7dA067334d6701Aa7f748d0E76fe49",
+  "polygonTargetDispenserL2Address": "0x3284f2Da76f4f7ac749Fd072c366Af688d76a8AD"
 }
