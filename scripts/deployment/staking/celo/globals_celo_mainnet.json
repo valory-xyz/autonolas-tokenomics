@@ -17,7 +17,7 @@
   "wormholeL2TokenRelayerAddress": "0x796Dff6D74F3E27060B71255Fe517BFb23C93eed",
   "wormholeL2MessageRelayer": "0x27428DD2d3DD32A4D7f7C497eAaa23130d894911",
   "l1ChainId": "1",
-  "celoDepositProcessorL1Address": "0x85d4E442225E04bb7822a87366831F0b2720DA1b",
-  "celoTargetDispenserL2Address": "0x4891f5894634DcD6d11644fe8E56756EF2681582",
+  "celoDepositProcessorL1Address": "0x26c2527F6f8CdC75AaBE5d0E8379d62f25Fc8d49",
+  "celoTargetDispenserL2Address": "0x6F121552765424f0B2331B541C0938480cA314Db",
   "oldCeloTargetDispenserL2Address": "0xb4096d181C08DDF75f1A63918cCa0d1023C4e6C7"
 }

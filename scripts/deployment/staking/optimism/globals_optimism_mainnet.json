@@ -13,6 +13,6 @@
   "optimismL1CrossDomainMessengerProxyAddress": "0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1",
   "optimismL2CrossDomainMessengerAddress": "0x4200000000000000000000000000000000000007",
   "l1ChainId": "1",
-  "optimismDepositProcessorL1Address": "0x990aBa4b05adc3761EfAf38FB871b93C7b162D03",
-  "optimismTargetDispenserL2Address": "0xaea9ef993d8a1A164397642648DF43F053d43D85"
+  "optimismDepositProcessorL1Address": "0x914DBe131641374cb84eDf24087893Fe12D880Ad",
+  "optimismTargetDispenserL2Address": "0x5050c577583D25Ff9C9492A39e8D1B94028ffA55"
 }

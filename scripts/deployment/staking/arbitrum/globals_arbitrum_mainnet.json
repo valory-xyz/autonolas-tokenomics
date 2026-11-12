@@ -12,6 +12,6 @@
   "bridgeMediatorAddress": "0x4d30F68F5AA342d296d4deE4bB1Cacca912dA70F",
   "arbitrumArbSysAddress": "0x0000000000000000000000000000000000000064",
   "l1ChainId": "1",
-  "arbitrumDepositProcessorL1Address": "0xFceFB015372e84FC465Cf2778889ee231a6E2e67",
-  "arbitrumTargetDispenserL2Address": "0x5953f21495BD9aF1D78e87bb42AcCAA55C1e896C"
+  "arbitrumDepositProcessorL1Address": "0xFBB25d10a2Cd2c28403F6edb1D25C27F7Da60656",
+  "arbitrumTargetDispenserL2Address": "0x820ca542d5876FDEf240584F6f3924852D527FED"
 }
